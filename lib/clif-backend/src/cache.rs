@@ -27,18 +27,12 @@ impl CacheGenerator {
 }
 
 impl CacheGen for CacheGenerator {
-    fn generate_cache(
-        &self,
-        module: &ModuleInner,
-    ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), Error> {
-        let info = Box::new(module.info.clone());
-
+    fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), Error> {
         // Clone the memory to a new location. This could take a long time,
         // depending on the throughput of your memcpy implementation.
         let compiled_code = (*self.memory).clone();
 
         Ok((
-            info,
             self.backend_cache.into_backend_data()?.into_boxed_slice(),
             compiled_code,
         ))

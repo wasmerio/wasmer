@@ -7,14 +7,92 @@ use generational_arena::{Arena, Index as Inode};
 use hashbrown::hash_map::{Entry, HashMap};
 use std::{
     cell::Cell,
-    io::{self, Write},
+    fs,
+    io::{self, Read, Seek, Write},
     time::SystemTime,
 };
 use wasmer_runtime_core::debug;
-use zbox::{init_env as zbox_init_env, File, FileType, OpenOptions, Repo, RepoOpener};
+use zbox::init_env as zbox_init_env;
 
 pub const MAX_SYMLINKS: usize = 100;
 
+#[derive(Debug)]
+pub enum WasiFile {
+    #[allow(dead_code)]
+    ZboxFile(zbox::File),
+    HostFile(fs::File),
+}
+
+impl Write for WasiFile {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.write(buf),
+            WasiFile::HostFile(hf) => hf.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.flush(),
+            WasiFile::HostFile(hf) => hf.flush(),
+        }
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.write_all(buf),
+            WasiFile::HostFile(hf) => hf.write_all(buf),
+        }
+    }
+
+    fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.write_fmt(fmt),
+            WasiFile::HostFile(hf) => hf.write_fmt(fmt),
+        }
+    }
+}
+
+impl Read for WasiFile {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.read(buf),
+            WasiFile::HostFile(hf) => hf.read(buf),
+        }
+    }
+
+    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.read_to_end(buf),
+            WasiFile::HostFile(hf) => hf.read_to_end(buf),
+        }
+    }
+
+    fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.read_to_string(buf),
+            WasiFile::HostFile(hf) => hf.read_to_string(buf),
+        }
+    }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.read_exact(buf),
+            WasiFile::HostFile(hf) => hf.read_exact(buf),
+        }
+    }
+}
+
+impl Seek for WasiFile {
+    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+        match self {
+            WasiFile::ZboxFile(zbf) => zbf.seek(pos),
+            WasiFile::HostFile(hf) => hf.seek(pos),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct InodeVal {
     pub stat: __wasi_filestat_t,
     pub is_preopened: bool,
@@ -22,13 +100,57 @@ pub struct InodeVal {
     pub kind: Kind,
 }
 
+impl InodeVal {
+    // TODO: clean this up
+    pub fn from_file_metadata(
+        metadata: &std::fs::Metadata,
+        name: String,
+        is_preopened: bool,
+        kind: Kind,
+    ) -> Self {
+        InodeVal {
+            stat: __wasi_filestat_t {
+                st_filetype: if metadata.is_dir() {
+                    __WASI_FILETYPE_DIRECTORY
+                } else {
+                    __WASI_FILETYPE_REGULAR_FILE
+                },
+                st_size: metadata.len(),
+                st_atim: metadata
+                    .accessed()
+                    .ok()
+                    .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_nanos() as u64)
+                    .unwrap_or(0),
+                st_ctim: metadata
+                    .created()
+                    .ok()
+                    .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_nanos() as u64)
+                    .unwrap_or(0),
+                st_mtim: metadata
+                    .modified()
+                    .ok()
+                    .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_nanos() as u64)
+                    .unwrap_or(0),
+                ..__wasi_filestat_t::default()
+            },
+            is_preopened,
+            name,
+            kind,
+        }
+    }
+}
+
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum Kind {
     File {
-        handle: File,
+        handle: WasiFile,
     },
     Dir {
-        handle: File,
+        handle: WasiFile,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, Inode>,
     },
@@ -40,7 +162,7 @@ pub enum Kind {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Fd {
     pub rights: __wasi_rights_t,
     pub rights_inheriting: __wasi_rights_t,
@@ -50,7 +172,7 @@ pub struct Fd {
 }
 
 pub struct WasiFs {
-    // pub repo: Repo,
+    //pub repo: Repo,
     pub name_map: HashMap<String, Inode>,
     pub inodes: Arena<InodeVal>,
     pub fd_map: HashMap<u32, Fd>,
@@ -59,33 +181,63 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
-    pub fn new() -> Result<Self, String> {
+    pub fn new(preopened_files: &[String]) -> Result<Self, String> {
         debug!("wasi::fs::init");
         zbox_init_env();
         debug!("wasi::fs::repo");
-        // let repo = RepoOpener::new()
-        //         .create(true)
-        //         .open("mem://wasmer-test-fs", "")
-        //         .map_err(|e| e.to_string())?;
+        /*let repo = RepoOpener::new()
+        .create(true)
+        .open("mem://wasmer-test-fs", "")
+        .map_err(|e| e.to_string())?;*/
         debug!("wasi::fs::inodes");
         let inodes = Arena::new();
-        let res = Ok(Self {
-            // repo: repo,
+        let mut wasi_fs = Self {
+            //repo: repo,
             name_map: HashMap::new(),
             inodes: inodes,
             fd_map: HashMap::new(),
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1000),
-        });
+        };
+        for file in preopened_files {
+            debug!("Attempting to preopen {}", &file);
+            // TODO: think about this
+            let default_rights = 0x1FFFFFFF; // all rights
+            let cur_file: fs::File = fs::OpenOptions::new()
+                .read(true)
+                .open(file)
+                .expect("Could not find file");
+            let cur_file_metadata = cur_file.metadata().unwrap();
+            let kind = if cur_file_metadata.is_dir() {
+                Kind::Dir {
+                    handle: WasiFile::HostFile(cur_file),
+                    entries: Default::default(),
+                }
+            } else {
+                return Err(format!(
+                    "WASI only supports pre-opened directories right now; found \"{}\"",
+                    file
+                ));
+            };
+            // TODO: handle nested pats in `file`
+            let inode_val =
+                InodeVal::from_file_metadata(&cur_file_metadata, file.clone(), true, kind);
+
+            let inode = wasi_fs.inodes.insert(inode_val);
+            wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
+            wasi_fs
+                .create_fd(default_rights, default_rights, 0, inode)
+                .expect("Could not open fd");
+        }
         debug!("wasi::fs::end");
-        res
+        Ok(wasi_fs)
     }
 
     #[allow(dead_code)]
     fn get_inode(&mut self, path: &str) -> Option<Inode> {
         Some(match self.name_map.entry(path.to_string()) {
             Entry::Occupied(o) => *o.get(),
-            Entry::Vacant(v) => {
+            Entry::Vacant(_v) => {
                 return None;
                 // let file = if let Ok(file) = OpenOptions::new()
                 //     .read(true)
@@ -195,6 +347,8 @@ impl WasiFs {
     pub fn fdstat(&self, fd: __wasi_fd_t) -> Result<__wasi_fdstat_t, __wasi_errno_t> {
         let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
 
+        debug!("fdstat: {:?}", fd);
+
         Ok(__wasi_fdstat_t {
             fs_filetype: match self.inodes[fd.inode].kind {
                 Kind::File { .. } => __WASI_FILETYPE_REGULAR_FILE,
@@ -204,20 +358,22 @@ impl WasiFs {
             },
             fs_flags: fd.flags,
             fs_rights_base: fd.rights,
-            fs_rights_inheriting: fd.rights, // TODO(lachlan): Is this right?
+            fs_rights_inheriting: fd.rights_inheriting, // TODO(lachlan): Is this right?
         })
     }
 
     pub fn prestat_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_prestat_t, __wasi_errno_t> {
         let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
 
+        debug!("in prestat_fd {:?}", fd);
         let inode_val = &self.inodes[fd.inode];
 
         if inode_val.is_preopened {
             Ok(__wasi_prestat_t {
                 pr_type: __WASI_PREOPENTYPE_DIR,
                 u: PrestatEnum::Dir {
-                    pr_name_len: inode_val.name.len() as u32,
+                    // REVIEW:
+                    pr_name_len: inode_val.name.len() as u32 + 1,
                 }
                 .untagged(),
             })

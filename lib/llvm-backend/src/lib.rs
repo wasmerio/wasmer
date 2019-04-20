@@ -38,38 +38,27 @@ impl Compiler for LLVMCompiler {
         let (info, code_reader) = read_info::read_module(wasm, compiler_config).unwrap();
         let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
-        let backend = backend::LLVMBackend::new(module, intrinsics);
-
-        // Create placeholder values here.
-        let cache_gen = {
-            use wasmer_runtime_core::backend::{sys::Memory, CacheGen};
-            use wasmer_runtime_core::cache::Error as CacheError;
-            use wasmer_runtime_core::module::ModuleInfo;
-
-            struct Placeholder;
-
-            impl CacheGen for Placeholder {
-                fn generate_cache(
-                    &self,
-                    _module: &ModuleInner,
-                ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
-                    unimplemented!()
-                }
-            }
-
-            Box::new(Placeholder)
-        };
+        let (backend, cache_gen) = backend::LLVMBackend::new(module, intrinsics);
 
         Ok(ModuleInner {
             runnable_module: Box::new(backend),
-            cache_gen,
+            cache_gen: Box::new(cache_gen),
 
             info,
         })
     }
 
-    unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        unimplemented!("the llvm backend doesn't support caching yet")
+    unsafe fn from_cache(&self, artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        let (info, _, memory) = artifact.consume();
+        let (backend, cache_gen) =
+            backend::LLVMBackend::from_buffer(memory).map_err(CacheError::DeserializeError)?;
+
+        Ok(ModuleInner {
+            runnable_module: Box::new(backend),
+            cache_gen: Box::new(cache_gen),
+
+            info,
+        })
     }
 }
 
@@ -123,7 +112,7 @@ fn test_read_module() {
 
     let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
-    let backend = backend::LLVMBackend::new(module, intrinsics);
+    let (backend, _) = backend::LLVMBackend::new(module, intrinsics);
 
     let func_ptr = backend.get_func(&info, LocalFuncIndex::new(0)).unwrap();
 
