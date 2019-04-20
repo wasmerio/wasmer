@@ -13,6 +13,7 @@ use crate::{
 use rand::{thread_rng, Rng};
 use std::cell::Cell;
 use std::io::{self, Read, Seek, Write};
+use std::process;
 use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -1432,7 +1433,7 @@ pub fn poll_oneoff(
 }
 pub fn proc_exit(ctx: &mut Ctx, rval: __wasi_exitcode_t) -> Result<(), &'static str> {
     debug!("wasi::proc_exit, {}", rval);
-    Err("Instance exited")
+    process::exit(rval as i32);
 }
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
     debug!("wasi::proc_raise");
