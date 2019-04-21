@@ -159,6 +159,21 @@ impl Ctx {
         }
     }
 
+    pub fn memory_mut(&mut self, mem_index: u32) -> &mut Memory {
+        let module = unsafe { &*self.module };
+        let mem_index = MemoryIndex::new(mem_index as usize);
+        match mem_index.local_or_import(&module.info) {
+            LocalOrImport::Local(local_mem_index) => unsafe {
+                let local_backing = &mut *self.local_backing;
+                &mut local_backing.memories[local_mem_index]
+            },
+            LocalOrImport::Import(import_mem_index) => unsafe {
+                let import_backing = &mut *self.import_backing;
+                &mut import_backing.memories[import_mem_index]
+            },
+        }
+    }
+
     /// Gives access to the emscripten symbol map, used for debugging
     pub unsafe fn borrow_symbol_map(&self) -> &Option<HashMap<u32, String>> {
         &(*self.module).info.em_symbol_map

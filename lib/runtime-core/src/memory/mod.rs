@@ -17,7 +17,7 @@ use std::{
 pub use self::atomic::Atomic;
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
-pub use self::view::{Atomically, MemoryView};
+pub use self::view::{Atomically, MemoryView, MemoryViewMut};
 
 mod atomic;
 mod dynamic;
@@ -144,6 +144,14 @@ impl Memory {
         let length = self.size().bytes().0 / mem::size_of::<T>();
 
         unsafe { MemoryView::new(base as _, length as u32) }
+    }
+
+    pub fn view_mut<T: ValueType>(&mut self) -> MemoryViewMut<T> {
+        let vm::LocalMemory { base, .. } = unsafe { *self.vm_local_memory() };
+
+        let length = self.size().bytes().0 / mem::size_of::<T>();
+
+        unsafe { MemoryViewMut::new(base as _, length as u32) }
     }
 
     /// Convert this memory to a shared memory if the shared flag

@@ -1,7 +1,12 @@
 use super::atomic::{Atomic, IntCast};
 use crate::types::ValueType;
 
-use std::{cell::Cell, marker::PhantomData, ops::Deref, slice};
+use std::{
+    cell::Cell,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    slice,
+};
 
 pub trait Atomicity {}
 pub struct Atomically;
@@ -49,5 +54,38 @@ impl<'a, T: IntCast> Deref for MemoryView<'a, T, Atomically> {
     type Target = [Atomic<T>];
     fn deref(&self) -> &[Atomic<T>] {
         unsafe { slice::from_raw_parts(self.ptr as *const Atomic<T>, self.length) }
+    }
+}
+
+pub struct MemoryViewMut<'a, T: 'a> {
+    ptr: *mut T,
+    length: usize,
+    _phantom: PhantomData<&'a mut [T]>,
+}
+
+impl<'a, T> MemoryViewMut<'a, T>
+where
+    T: ValueType,
+{
+    pub(super) unsafe fn new(ptr: *mut T, length: u32) -> Self {
+        Self {
+            ptr,
+            length: length as usize,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, T> Deref for MemoryViewMut<'a, T> {
+    type Target = [T];
+
+    fn deref(&self) -> &[T] {
+        unsafe { slice::from_raw_parts(self.ptr, self.length) }
+    }
+}
+
+impl<'a, T> DerefMut for MemoryViewMut<'a, T> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
     }
 }
