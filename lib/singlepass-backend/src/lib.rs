@@ -31,7 +31,7 @@ use wasmer_runtime_core::{
     backend::{sys::Memory, Backend, CacheGen, Compiler, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
-    module::{ModuleInfo, ModuleInner},
+    module::ModuleInner,
 };
 
 struct Placeholder;
