@@ -17,7 +17,8 @@ use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
-    Func, Value, error::RuntimeError,
+    error::RuntimeError,
+    Func, Value,
 };
 use wasmer_runtime_core::{
     self,
