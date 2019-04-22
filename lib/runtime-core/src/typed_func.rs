@@ -7,6 +7,7 @@ use crate::{
 };
 use std::{
     any::Any,
+    convert::Infallible,
     ffi::c_void,
     fmt,
     marker::PhantomData,
@@ -120,14 +121,16 @@ pub trait TrapEarly<Rets>
 where
     Rets: WasmTypeList,
 {
-    fn report(self) -> Result<Rets, Box<dyn Any>>;
+    type Error: 'static;
+    fn report(self) -> Result<Rets, Self::Error>;
 }
 
 impl<Rets> TrapEarly<Rets> for Rets
 where
     Rets: WasmTypeList,
 {
-    fn report(self) -> Result<Rets, Box<dyn Any>> {
+    type Error = Infallible;
+    fn report(self) -> Result<Rets, Infallible> {
         Ok(self)
     }
 }
@@ -135,10 +138,11 @@ where
 impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
-    E: Into<Box<Any>> + 'static,
+    E: 'static,
 {
-    fn report(self) -> Result<Rets, Box<dyn Any>> {
-        self.map_err(|err| err.into())
+    type Error = E;
+    fn report(self) -> Result<Rets, E> {
+        self
     }
 }
 
@@ -329,11 +333,13 @@ macro_rules! impl_traits {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
 
                     let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        let res = f( ctx $( ,WasmExternType::from_native($x) )* ).report();
-                        res
+                        f( ctx $( ,WasmExternType::from_native($x) )* ).report()
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
-                        Ok(Err(err)) => err,
+                        Ok(Err(err)) => {
+                            let b: Box<_> = err.into();
+                            b as Box<dyn Any>
+                        },
                         Err(err) => err,
                     };
 
