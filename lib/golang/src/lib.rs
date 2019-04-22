@@ -149,6 +149,22 @@ fn syscallJsValueLoadString(_ctx: &mut Ctx, val: i32) {
     panic!("syscallJsValueLoadString not yet implemented");
 }
 
+fn runtime_schedule_timeout_event(_ctx: &mut Ctx, val: i32) {
+    panic!("runtime_schedule_timeout_event not yet implemented");
+}
+
+fn runtime_clear_timeout_event(_ctx: &mut Ctx, val: i32) {
+    panic!("runtime_clear_timeout_event not yet implemented");
+}
+
+fn syscall_js_value_index(_ctx: &mut Ctx, val: i32) {
+   panic!("syscall_js_value_index not yet implemented");
+}
+
+fn syscall_js_value_length(_ctx: &mut Ctx, val: i32){
+   panic!("syscall_js_value_length not yet implemented");
+}
+
 pub fn generate_golang_env() -> ImportObject {
     imports! {
         "go" => {
@@ -160,11 +176,15 @@ pub fn generate_golang_env() -> ImportObject {
             "runtime.scheduleCallback" => func!(crate::runtimeScheduleCallback),
             "runtime.clearScheduledCallback" => func!(crate::runtimeClearScheduledCallback),
             "runtime.getRandomData" =>  func!(crate::runtimeGetRandomData),
+            "runtime.clearTimeoutEvent" => func!(crate::runtime_clear_timeout_event),
+            "runtime.scheduleTimeoutEvent" => func!(crate::runtime_schedule_timeout_event),
             "syscall/js.stringVal" => func!(crate::syscallJsStringVal),
             "syscall/js.valueGet" => func!(crate::syscallJsValueGet),
             "syscall/js.valueSet" => func!(crate::syscallJsValueSet),
             "syscall/js.valueSetIndex" => func!(crate::syscallJsValueSetIndex),
             "syscall/js.valueCall" => func!(crate::syscallJsValueCall),
+            "syscall/js.valueIndex" => func!(crate::syscall_js_value_index),
+            "syscall/js.valueLength" => func!(crate::syscall_js_value_length),
             "syscall/js.valueNew" => func!(crate::syscallJsValueNew),
             "syscall/js.valuePrepareString" => func!(crate::syscallJsValuePrepareString),
             "syscall/js.valueLoadString" => func!(crate::syscallJsValueLoadString),

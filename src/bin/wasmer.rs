@@ -324,6 +324,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 ),
                 None,
             )
+        } else if wasmer_golang::is_golang_module(&module) {
+            (InstanceABI::Go, wasmer_golang::generate_golang_env(), None)
         } else {
             (
                 InstanceABI::None,

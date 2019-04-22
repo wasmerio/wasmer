@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-golang"
-version = "0.1.0"
+version = "0.3.0"
 description = "Wasmer runtime golang implementation library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -8,7 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.1.0" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.3.0" }
 lazy_static = "1.2.0"
 libc = { git = "https://github.com/rust-lang/libc" }
 byteorder = "1"
@@ -19,7 +19,7 @@ rand = "0.6"
 rand = "0.6"
 
 [dev-dependencies]
-wasmer-clif-backend = { path = "../clif-backend", version = "0.1.0" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.3.0" }
 wabt = "0.7.2"
 
 [build-dependencies]

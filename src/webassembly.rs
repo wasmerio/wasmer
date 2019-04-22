@@ -8,6 +8,7 @@ use wasmer_runtime::{
 use wasmer_runtime_core::types::Value;
 
 use wasmer_emscripten::run_emscripten_instance;
+use wasmer_golang::run_golang_instance;
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -22,6 +23,7 @@ pub struct ResultObject {
 pub enum InstanceABI {
     Emscripten,
     WASI,
+    Go,
     None,
 }
 
@@ -100,6 +102,9 @@ pub fn run_instance(
     match abi {
         InstanceABI::Emscripten => {
             run_emscripten_instance(module, instance, path, args)?;
+        }
+        InstanceABI::Go => {
+            run_golang_instance(module, instance, path, args)?;
         }
         InstanceABI::WASI => {
             instance.call("_start", &[])?;
