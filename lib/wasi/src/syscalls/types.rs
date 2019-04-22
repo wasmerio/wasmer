@@ -43,84 +43,84 @@ pub struct __wasi_dirent_t {
     pub d_type: __wasi_filetype_t,
 }
 
-pub type __wasi_errno_t = u32;
-pub const __WASI_ESUCCESS: u32 = 0;
-pub const __WASI_E2BIG: u32 = 1;
-pub const __WASI_EACCES: u32 = 2;
-pub const __WASI_EADDRINUSE: u32 = 3;
-pub const __WASI_EADDRNOTAVAIL: u32 = 4;
-pub const __WASI_EAFNOSUPPORT: u32 = 5;
-pub const __WASI_EAGAIN: u32 = 6;
-pub const __WASI_EALREADY: u32 = 7;
-pub const __WASI_EBADF: u32 = 8;
-pub const __WASI_EBADMSG: u32 = 9;
-pub const __WASI_EBUSY: u32 = 10;
-pub const __WASI_ECANCELED: u32 = 11;
-pub const __WASI_ECHILD: u32 = 12;
-pub const __WASI_ECONNABORTED: u32 = 13;
-pub const __WASI_ECONNREFUSED: u32 = 14;
-pub const __WASI_ECONNRESET: u32 = 15;
-pub const __WASI_EDEADLK: u32 = 16;
-pub const __WASI_EDESTADDRREQ: u32 = 17;
-pub const __WASI_EDOM: u32 = 18;
-pub const __WASI_EDQUOT: u32 = 19;
-pub const __WASI_EEXIST: u32 = 20;
-pub const __WASI_EFAULT: u32 = 21;
-pub const __WASI_EFBIG: u32 = 22;
-pub const __WASI_EHOSTUNREACH: u32 = 23;
-pub const __WASI_EIDRM: u32 = 24;
-pub const __WASI_EILSEQ: u32 = 25;
-pub const __WASI_EINPROGRESS: u32 = 26;
-pub const __WASI_EINTR: u32 = 27;
-pub const __WASI_EINVAL: u32 = 28;
-pub const __WASI_EIO: u32 = 29;
-pub const __WASI_EISCONN: u32 = 30;
-pub const __WASI_EISDIR: u32 = 31;
-pub const __WASI_ELOOP: u32 = 32;
-pub const __WASI_EMFILE: u32 = 33;
-pub const __WASI_EMLINK: u32 = 34;
-pub const __WASI_EMSGSIZE: u32 = 35;
-pub const __WASI_EMULTIHOP: u32 = 36;
-pub const __WASI_ENAMETOOLONG: u32 = 37;
-pub const __WASI_ENETDOWN: u32 = 38;
-pub const __WASI_ENETRESET: u32 = 39;
-pub const __WASI_ENETUNREACH: u32 = 40;
-pub const __WASI_ENFILE: u32 = 41;
-pub const __WASI_ENOBUFS: u32 = 42;
-pub const __WASI_ENODEV: u32 = 43;
-pub const __WASI_ENOENT: u32 = 44;
-pub const __WASI_ENOEXEC: u32 = 45;
-pub const __WASI_ENOLCK: u32 = 46;
-pub const __WASI_ENOLINK: u32 = 47;
-pub const __WASI_ENOMEM: u32 = 48;
-pub const __WASI_ENOMSG: u32 = 49;
-pub const __WASI_ENOPROTOOPT: u32 = 50;
-pub const __WASI_ENOSPC: u32 = 51;
-pub const __WASI_ENOSYS: u32 = 52;
-pub const __WASI_ENOTCONN: u32 = 53;
-pub const __WASI_ENOTDIR: u32 = 54;
-pub const __WASI_ENOTEMPTY: u32 = 55;
-pub const __WASI_ENOTRECOVERABLE: u32 = 56;
-pub const __WASI_ENOTSOCK: u32 = 57;
-pub const __WASI_ENOTSUP: u32 = 58;
-pub const __WASI_ENOTTY: u32 = 59;
-pub const __WASI_ENXIO: u32 = 60;
-pub const __WASI_EOVERFLOW: u32 = 61;
-pub const __WASI_EOWNERDEAD: u32 = 62;
-pub const __WASI_EPERM: u32 = 63;
-pub const __WASI_EPIPE: u32 = 64;
-pub const __WASI_EPROTO: u32 = 65;
-pub const __WASI_EPROTONOSUPPORT: u32 = 66;
-pub const __WASI_EPROTOTYPE: u32 = 67;
-pub const __WASI_ERANGE: u32 = 68;
-pub const __WASI_EROFS: u32 = 69;
-pub const __WASI_ESPIPE: u32 = 70;
-pub const __WASI_ESRCH: u32 = 71;
-pub const __WASI_ESTALE: u32 = 72;
-pub const __WASI_ETIMEDOUT: u32 = 73;
-pub const __WASI_ETXTBSY: u32 = 74;
-pub const __WASI_EXDEV: u32 = 75;
-pub const __WASI_ENOTCAPABLE: u32 = 76;
+pub type __wasi_errno_t = u16;
+pub const __WASI_ESUCCESS: u16 = 0;
+pub const __WASI_E2BIG: u16 = 1;
+pub const __WASI_EACCES: u16 = 2;
+pub const __WASI_EADDRINUSE: u16 = 3;
+pub const __WASI_EADDRNOTAVAIL: u16 = 4;
+pub const __WASI_EAFNOSUPPORT: u16 = 5;
+pub const __WASI_EAGAIN: u16 = 6;
+pub const __WASI_EALREADY: u16 = 7;
+pub const __WASI_EBADF: u16 = 8;
+pub const __WASI_EBADMSG: u16 = 9;
+pub const __WASI_EBUSY: u16 = 10;
+pub const __WASI_ECANCELED: u16 = 11;
+pub const __WASI_ECHILD: u16 = 12;
+pub const __WASI_ECONNABORTED: u16 = 13;
+pub const __WASI_ECONNREFUSED: u16 = 14;
+pub const __WASI_ECONNRESET: u16 = 15;
+pub const __WASI_EDEADLK: u16 = 16;
+pub const __WASI_EDESTADDRREQ: u16 = 17;
+pub const __WASI_EDOM: u16 = 18;
+pub const __WASI_EDQUOT: u16 = 19;
+pub const __WASI_EEXIST: u16 = 20;
+pub const __WASI_EFAULT: u16 = 21;
+pub const __WASI_EFBIG: u16 = 22;
+pub const __WASI_EHOSTUNREACH: u16 = 23;
+pub const __WASI_EIDRM: u16 = 24;
+pub const __WASI_EILSEQ: u16 = 25;
+pub const __WASI_EINPROGRESS: u16 = 26;
+pub const __WASI_EINTR: u16 = 27;
+pub const __WASI_EINVAL: u16 = 28;
+pub const __WASI_EIO: u16 = 29;
+pub const __WASI_EISCONN: u16 = 30;
+pub const __WASI_EISDIR: u16 = 31;
+pub const __WASI_ELOOP: u16 = 32;
+pub const __WASI_EMFILE: u16 = 33;
+pub const __WASI_EMLINK: u16 = 34;
+pub const __WASI_EMSGSIZE: u16 = 35;
+pub const __WASI_EMULTIHOP: u16 = 36;
+pub const __WASI_ENAMETOOLONG: u16 = 37;
+pub const __WASI_ENETDOWN: u16 = 38;
+pub const __WASI_ENETRESET: u16 = 39;
+pub const __WASI_ENETUNREACH: u16 = 40;
+pub const __WASI_ENFILE: u16 = 41;
+pub const __WASI_ENOBUFS: u16 = 42;
+pub const __WASI_ENODEV: u16 = 43;
+pub const __WASI_ENOENT: u16 = 44;
+pub const __WASI_ENOEXEC: u16 = 45;
+pub const __WASI_ENOLCK: u16 = 46;
+pub const __WASI_ENOLINK: u16 = 47;
+pub const __WASI_ENOMEM: u16 = 48;
+pub const __WASI_ENOMSG: u16 = 49;
+pub const __WASI_ENOPROTOOPT: u16 = 50;
+pub const __WASI_ENOSPC: u16 = 51;
+pub const __WASI_ENOSYS: u16 = 52;
+pub const __WASI_ENOTCONN: u16 = 53;
+pub const __WASI_ENOTDIR: u16 = 54;
+pub const __WASI_ENOTEMPTY: u16 = 55;
+pub const __WASI_ENOTRECOVERABLE: u16 = 56;
+pub const __WASI_ENOTSOCK: u16 = 57;
+pub const __WASI_ENOTSUP: u16 = 58;
+pub const __WASI_ENOTTY: u16 = 59;
+pub const __WASI_ENXIO: u16 = 60;
+pub const __WASI_EOVERFLOW: u16 = 61;
+pub const __WASI_EOWNERDEAD: u16 = 62;
+pub const __WASI_EPERM: u16 = 63;
+pub const __WASI_EPIPE: u16 = 64;
+pub const __WASI_EPROTO: u16 = 65;
+pub const __WASI_EPROTONOSUPPORT: u16 = 66;
+pub const __WASI_EPROTOTYPE: u16 = 67;
+pub const __WASI_ERANGE: u16 = 68;
+pub const __WASI_EROFS: u16 = 69;
+pub const __WASI_ESPIPE: u16 = 70;
+pub const __WASI_ESRCH: u16 = 71;
+pub const __WASI_ESTALE: u16 = 72;
+pub const __WASI_ETIMEDOUT: u16 = 73;
+pub const __WASI_ETXTBSY: u16 = 74;
+pub const __WASI_EXDEV: u16 = 75;
+pub const __WASI_ENOTCAPABLE: u16 = 76;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
@@ -174,8 +174,8 @@ impl __wasi_event_t {
     }
 }
 
-pub type __wasi_eventrwflags_t = u32;
-pub const __WASI_EVENT_FD_READWRITE_HANGUP: u32 = 1 << 0;
+pub type __wasi_eventrwflags_t = u16;
+pub const __WASI_EVENT_FD_READWRITE_HANGUP: u16 = 1 << 0;
 
 pub type __wasi_eventtype_t = u8;
 pub const __WASI_EVENTTYPE_CLOCK: u8 = 0;
@@ -189,12 +189,12 @@ pub const __WASI_STDIN_FILENO: u32 = 0;
 pub const __WASI_STDOUT_FILENO: u32 = 1;
 pub const __WASI_STDERR_FILENO: u32 = 2;
 
-pub type __wasi_fdflags_t = u32;
-pub const __WASI_FDFLAG_APPEND: u32 = 1 << 0;
-pub const __WASI_FDFLAG_DSYNC: u32 = 1 << 1;
-pub const __WASI_FDFLAG_NONBLOCK: u32 = 1 << 2;
-pub const __WASI_FDFLAG_RSYNC: u32 = 1 << 3;
-pub const __WASI_FDFLAG_SYNC: u32 = 1 << 4;
+pub type __wasi_fdflags_t = u16;
+pub const __WASI_FDFLAG_APPEND: u16 = 1 << 0;
+pub const __WASI_FDFLAG_DSYNC: u16 = 1 << 1;
+pub const __WASI_FDFLAG_NONBLOCK: u16 = 1 << 2;
+pub const __WASI_FDFLAG_RSYNC: u16 = 1 << 3;
+pub const __WASI_FDFLAG_SYNC: u16 = 1 << 4;
 
 pub type __wasi_preopentype_t = u8;
 pub const __WASI_PREOPENTYPE_DIR: u8 = 0;
@@ -296,11 +296,11 @@ pub const __WASI_FILETYPE_SOCKET_DGRAM: u8 = 5;
 pub const __WASI_FILETYPE_SOCKET_STREAM: u8 = 6;
 pub const __WASI_FILETYPE_SYMBOLIC_LINK: u8 = 7;
 
-pub type __wasi_fstflags_t = u32;
-pub const __WASI_FILESTAT_SET_ATIM: u32 = 1 << 0;
-pub const __WASI_FILESTAT_SET_ATIM_NOW: u32 = 1 << 1;
-pub const __WASI_FILESTAT_SET_MTIM: u32 = 1 << 2;
-pub const __WASI_FILESTAT_SET_MTIM_NOW: u32 = 1 << 3;
+pub type __wasi_fstflags_t = u16;
+pub const __WASI_FILESTAT_SET_ATIM: u16 = 1 << 0;
+pub const __WASI_FILESTAT_SET_ATIM_NOW: u16 = 1 << 1;
+pub const __WASI_FILESTAT_SET_MTIM: u16 = 1 << 2;
+pub const __WASI_FILESTAT_SET_MTIM_NOW: u16 = 1 << 3;
 
 pub type __wasi_inode_t = u64;
 
@@ -318,15 +318,15 @@ pub type __wasi_linkcount_t = u32;
 pub type __wasi_lookupflags_t = u32;
 pub const __WASI_LOOKUP_SYMLINK_FOLLOW: u32 = 1 << 0;
 
-pub type __wasi_oflags_t = u32;
-pub const __WASI_O_CREAT: u32 = 1 << 0;
-pub const __WASI_O_DIRECTORY: u32 = 1 << 1;
-pub const __WASI_O_EXCL: u32 = 1 << 2;
-pub const __WASI_O_TRUNC: u32 = 1 << 3;
+pub type __wasi_oflags_t = u16;
+pub const __WASI_O_CREAT: u16 = 1 << 0;
+pub const __WASI_O_DIRECTORY: u16 = 1 << 1;
+pub const __WASI_O_EXCL: u16 = 1 << 2;
+pub const __WASI_O_TRUNC: u16 = 1 << 3;
 
-pub type __wasi_riflags_t = u32;
-pub const __WASI_SOCK_RECV_PEEK: u32 = 1 << 0;
-pub const __WASI_SOCK_RECV_WAITALL: u32 = 1 << 1;
+pub type __wasi_riflags_t = u16;
+pub const __WASI_SOCK_RECV_PEEK: u16 = 1 << 0;
+pub const __WASI_SOCK_RECV_WAITALL: u16 = 1 << 1;
 
 pub type __wasi_rights_t = u64;
 pub const __WASI_RIGHT_FD_DATASYNC: u64 = 1 << 0;
@@ -359,14 +359,14 @@ pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: u64 = 1 << 26;
 pub const __WASI_RIGHT_POLL_FD_READWRITE: u64 = 1 << 27;
 pub const __WASI_RIGHT_SOCK_SHUTDOWN: u64 = 1 << 28;
 
-pub type __wasi_roflags_t = u32;
-pub const __WASI_SOCK_RECV_DATA_TRUNCATED: u32 = 1 << 0;
+pub type __wasi_roflags_t = u16;
+pub const __WASI_SOCK_RECV_DATA_TRUNCATED: u16 = 1 << 0;
 
 pub type __wasi_sdflags_t = u8;
 pub const __WASI_SHUT_RD: u8 = 1 << 0;
 pub const __WASI_SHUT_WR: u8 = 1 << 1;
 
-pub type __wasi_siflags_t = u32;
+pub type __wasi_siflags_t = u16;
 
 pub type __wasi_signal_t = u8;
 pub const __WASI_SIGABRT: u8 = 0;
@@ -396,8 +396,8 @@ pub const __WASI_SIGVTALRM: u8 = 23;
 pub const __WASI_SIGXCPU: u8 = 24;
 pub const __WASI_SIGXFSZ: u8 = 25;
 
-pub type __wasi_subclockflags_t = u32;
-pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u32 = 1 << 0;
+pub type __wasi_subclockflags_t = u16;
+pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u16 = 1 << 0;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
