@@ -76,7 +76,7 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> RuntimeResult<T> {
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(RuntimeError::Panic { data })
+                Err(RuntimeError::Error { data })
             } else {
                 let (faulting_addr, _inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
