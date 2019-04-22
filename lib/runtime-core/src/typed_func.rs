@@ -230,7 +230,7 @@ impl WasmTypeList for Infallible {
         unreachable!()
     }
     fn types() -> &'static [Type] {
-        unreachable!()
+        &[]
     }
     #[allow(non_snake_case)]
     unsafe fn call<Rets: WasmTypeList>(
