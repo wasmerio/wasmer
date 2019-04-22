@@ -9,6 +9,7 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{Fd, InodeVal, Kind, WasiFile, WasiState, MAX_SYMLINKS},
+    ExitCode,
 };
 use rand::{thread_rng, Rng};
 use std::cell::Cell;
@@ -1430,9 +1431,9 @@ pub fn poll_oneoff(
     debug!("wasi::poll_oneoff");
     unimplemented!()
 }
-pub fn proc_exit(ctx: &mut Ctx, rval: __wasi_exitcode_t) -> Result<(), &'static str> {
-    debug!("wasi::proc_exit, {}", rval);
-    Err("Instance exited")
+pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<(), ExitCode> {
+    debug!("wasi::proc_exit, {}", code);
+    Err(ExitCode { code })
 }
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
     debug!("wasi::proc_raise");
