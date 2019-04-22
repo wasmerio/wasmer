@@ -58,6 +58,7 @@ pub type Invoke = unsafe extern "C" fn(
     *const u64,
     *mut u64,
     *mut WasmTrapInfo,
+    *mut Option<Box<dyn Any>>,
     Option<NonNull<c_void>>,
 ) -> bool;
 
@@ -104,7 +105,7 @@ pub trait WasmTypeList {
         f: NonNull<vm::Func>,
         wasm: Wasm,
         ctx: *mut Ctx,
-    ) -> Result<Rets, WasmTrapInfo>
+    ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList;
 }
@@ -213,6 +214,35 @@ where
     }
 }
 
+impl WasmTypeList for Infallible {
+    type CStruct = Infallible;
+    type RetArray = [u64; 0];
+    fn from_ret_array(_: Self::RetArray) -> Self {
+        unreachable!()
+    }
+    fn empty_ret_array() -> Self::RetArray {
+        unreachable!()
+    }
+    fn from_c_struct(_: Self::CStruct) -> Self {
+        unreachable!()
+    }
+    fn into_c_struct(self) -> Self::CStruct {
+        unreachable!()
+    }
+    fn types() -> &'static [Type] {
+        unreachable!()
+    }
+    #[allow(non_snake_case)]
+    unsafe fn call<Rets: WasmTypeList>(
+        self,
+        _: NonNull<vm::Func>,
+        _: Wasm,
+        _: *mut Ctx,
+    ) -> Result<Rets, RuntimeError> {
+        unreachable!()
+    }
+}
+
 impl<A: WasmExternType> WasmTypeList for (A,) {
     type CStruct = S1<A>;
     type RetArray = [u64; 1];
@@ -242,11 +272,12 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
         f: NonNull<vm::Func>,
         wasm: Wasm,
         ctx: *mut Ctx,
-    ) -> Result<Rets, WasmTrapInfo> {
+    ) -> Result<Rets, RuntimeError> {
         let (a,) = self;
         let args = [a.to_native().to_bits()];
         let mut rets = Rets::empty_ret_array();
         let mut trap = WasmTrapInfo::Unknown;
+        let mut user_error = None;
 
         if (wasm.invoke)(
             wasm.trampoline,
@@ -255,11 +286,18 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
             args.as_ptr(),
             rets.as_mut().as_mut_ptr(),
             &mut trap,
+            &mut user_error,
             wasm.invoke_env,
         ) {
             Ok(Rets::from_ret_array(rets))
         } else {
-            Err(trap)
+            if let Some(data) = user_error {
+                Err(RuntimeError::Error { data })
+            } else {
+                Err(RuntimeError::Trap {
+                    msg: trap.to_string().into(),
+                })
+            }
         }
     }
 }
@@ -269,11 +307,7 @@ where
     Rets: WasmTypeList,
 {
     pub fn call(&self, a: A) -> Result<Rets, RuntimeError> {
-        unsafe { <A as WasmTypeList>::call(a, self.f, self.inner, self.ctx) }.map_err(|e| {
-            RuntimeError::Trap {
-                msg: e.to_string().into(),
-            }
-        })
+        unsafe { <A as WasmTypeList>::call(a, self.f, self.inner, self.ctx) }
     }
 }
 
@@ -307,17 +341,22 @@ macro_rules! impl_traits {
                 &[$( $x::Native::TYPE, )*]
             }
             #[allow(non_snake_case)]
-            unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, WasmTrapInfo> {
+            unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
                 let args = [ $( $x.to_native().to_bits() ),* ];
                 let mut rets = Rets::empty_ret_array();
                 let mut trap = WasmTrapInfo::Unknown;
+                let mut user_error = None;
 
-                if (wasm.invoke)(wasm.trampoline, ctx, f, args.as_ptr(), rets.as_mut().as_mut_ptr(), &mut trap, wasm.invoke_env) {
+                if (wasm.invoke)(wasm.trampoline, ctx, f, args.as_ptr(), rets.as_mut().as_mut_ptr(), &mut trap, &mut user_error, wasm.invoke_env) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
-                    Err(trap)
+                    if let Some(data) = user_error {
+                        Err(RuntimeError::Error { data })
+                    } else {
+                        Err(RuntimeError::Trap { msg: trap.to_string().into() })
+                    }
                 }
             }
         }
@@ -359,11 +398,7 @@ macro_rules! impl_traits {
             #[allow(non_snake_case)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
-                unsafe { <( $( $x ),* ) as WasmTypeList>::call(( $($x),* ), self.f, self.inner, self.ctx) }.map_err(|e| {
-                    RuntimeError::Trap {
-                        msg: e.to_string().into(),
-                    }
-                })
+                unsafe { <( $( $x ),* ) as WasmTypeList>::call(( $($x),* ), self.f, self.inner, self.ctx) }
             }
         }
     };

@@ -137,15 +137,13 @@ impl std::fmt::Display for RuntimeError {
                 write!(f, "WebAssembly trap occured during runtime: {}", msg)
             }
             RuntimeError::Error { data } => {
-                let msg = if let Some(s) = data.downcast_ref::<String>() {
-                    s
+                if let Some(s) = data.downcast_ref::<String>() {
+                    write!(f, "\"{}\"", s)
                 } else if let Some(s) = data.downcast_ref::<&str>() {
-                    s
+                    write!(f, "\"{}\"", s)
                 } else {
-                    "user-defined, opaque"
-                };
-
-                write!(f, "{}", msg)
+                    write!(f, "unknown error")
+                }
             }
         }
     }
