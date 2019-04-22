@@ -1432,7 +1432,7 @@ pub fn poll_oneoff(
     unimplemented!()
 }
 pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<(), ExitCode> {
-    debug!("wasi::proc_exit, {}", rval);
+    debug!("wasi::proc_exit, {}", code);
     Err(ExitCode { code })
 }
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
