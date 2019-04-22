@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 - [#382](https://github.com/wasmerio/wasmer/pull/382) Improve error message on `--backend` flag to only suggest currently enabled backends
+- [#381](https://github.com/wasmerio/wasmer/pull/381) Allow retrieving propagated user errors.
 - [#379](https://github.com/wasmerio/wasmer/pull/379) Fix small return types from imported functions.
 - [#371](https://github.com/wasmerio/wasmer/pull/371) Add more Debug impl for WASI types
 - [#368](https://github.com/wasmerio/wasmer/pull/368) Fix issue with write buffering

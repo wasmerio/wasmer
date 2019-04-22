@@ -43,6 +43,11 @@ typedef struct
     visit_fde_t visit_fde;
 } callbacks_t;
 
+typedef struct
+{
+    size_t data, vtable;
+} box_any_t;
+
 struct WasmException
 {
   public:
@@ -61,7 +66,7 @@ struct UncatchableException : WasmException
 struct UserException : UncatchableException
 {
   public:
-    UserException(size_t data, size_t vtable) : data(data), vtable(vtable) {}
+    UserException(size_t data, size_t vtable) : error_data({ data, vtable }) {}
 
     virtual std::string description() const noexcept override
     {
@@ -69,7 +74,7 @@ struct UserException : UncatchableException
     }
 
     // The parts of a `Box<dyn Any>`.
-    size_t data, vtable;
+    box_any_t error_data;
 };
 
 struct WasmTrap : UncatchableException
@@ -194,6 +199,7 @@ extern "C"
         void *params,
         void *results,
         WasmTrap::Type *trap_out,
+        box_any_t *user_error,
         void *invoke_env) throw()
     {
         try
@@ -204,6 +210,11 @@ extern "C"
         catch (const WasmTrap &e)
         {
             *trap_out = e.type;
+            return false;
+        }
+        catch (const UserException &e)
+        {
+            *user_error = e.error_data;
             return false;
         }
         catch (const WasmException &e)

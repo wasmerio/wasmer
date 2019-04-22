@@ -13,6 +13,7 @@ use crate::{
 };
 use rand::{thread_rng, Rng};
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::io::{self, Read, Seek, Write};
 use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
@@ -1431,7 +1432,7 @@ pub fn poll_oneoff(
     debug!("wasi::poll_oneoff");
     unimplemented!()
 }
-pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<(), ExitCode> {
+pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<Infallible, ExitCode> {
     debug!("wasi::proc_exit, {}", code);
     Err(ExitCode { code })
 }

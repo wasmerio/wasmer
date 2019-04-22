@@ -1,4 +1,4 @@
-use wasmer_runtime::{compile, error, imports, Ctx, Func, Value};
+use wasmer_runtime::{compile, error, error::RuntimeError, imports, Ctx, Func, Value};
 
 use wabt::wat2wasm;
 
@@ -7,6 +7,8 @@ static WAT: &'static str = r#"
       (type (;0;) (func (result i32)))
       (import "env" "do_panic" (func $do_panic (type 0)))
       (func $dbz (result i32)
+        call $do_panic
+        drop
         i32.const 42
         i32.const 0
         i32.div_u
@@ -34,8 +36,13 @@ fn foobar(_ctx: &mut Ctx) -> i32 {
     42
 }
 
-fn do_panic(_ctx: &mut Ctx) -> Result<i32, String> {
-    Err("error".to_string())
+#[derive(Debug)]
+struct ExitCode {
+    code: i32,
+}
+
+fn do_panic(_ctx: &mut Ctx) -> Result<i32, ExitCode> {
+    Err(ExitCode { code: 42 })
 }
 
 fn main() -> Result<(), error::Error> {
@@ -62,6 +69,12 @@ fn main() -> Result<(), error::Error> {
     let result = foo.call();
 
     println!("result: {:?}", result);
+
+    if let Err(RuntimeError::Error { data }) = result {
+        if let Ok(exit_code) = data.downcast::<ExitCode>() {
+            println!("exit code: {:?}", exit_code);
+        }
+    }
 
     Ok(())
 }
