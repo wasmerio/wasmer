@@ -230,8 +230,8 @@ impl RunnableModule for X64ExecutionContext {
                 }
                 Err(err) => {
                     match err {
-                        protect_unix::RunErr::Trap(info) => *trap_info = info,
-                        protect_unix::RunErr::Error(data) => *user_error = Some(data),
+                        protect_unix::CallProtError::Trap(info) => *trap_info = info,
+                        protect_unix::CallProtError::Error(data) => *user_error = Some(data),
                     }
                     false
                 }

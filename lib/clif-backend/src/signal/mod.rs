@@ -27,7 +27,7 @@ thread_local! {
     pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
 }
 
-pub enum RunErr {
+pub enum CallProtError {
     Trap(WasmTrapInfo),
     Error(Box<dyn Any>),
 }
@@ -83,8 +83,8 @@ impl RunnableModule for Caller {
             match res {
                 Err(err) => {
                     match err {
-                        RunErr::Trap(info) => *trap_info = info,
-                        RunErr::Error(data) => *user_error = Some(data),
+                        CallProtError::Trap(info) => *trap_info = info,
+                        CallProtError::Error(data) => *user_error = Some(data),
                     }
                     false
                 }

@@ -10,7 +10,7 @@
 //! unless you have memory unsafety elsewhere in your code.
 //!
 use crate::relocation::{TrapCode, TrapData};
-use crate::signal::{HandlerData, RunErr};
+use crate::signal::{CallProtError, HandlerData};
 use libc::{c_int, c_void, siginfo_t};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
@@ -62,7 +62,10 @@ pub unsafe fn trigger_trap() -> ! {
     longjmp(jmp_buf as *mut c_void, 0)
 }
 
-pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> Result<T, RunErr> {
+pub fn call_protected<T>(
+    handler_data: &HandlerData,
+    f: impl FnOnce() -> T,
+) -> Result<T, CallProtError> {
     unsafe {
         let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
         let prev_jmp_buf = *jmp_buf;
@@ -76,7 +79,7 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(RunErr::Error(data))
+                Err(CallProtError::Error(data))
             } else {
                 let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
@@ -85,7 +88,7 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                     srcloc: _,
                 }) = handler_data.lookup(inst_ptr)
                 {
-                    Err(RunErr::Trap(match Signal::from_c_int(signum) {
+                    Err(CallProtError::Trap(match Signal::from_c_int(signum) {
                         Ok(SIGILL) => match trapcode {
                             TrapCode::BadSignature => WasmTrapInfo::IncorrectCallIndirectSignature,
                             TrapCode::IndirectCallToNull => WasmTrapInfo::CallIndirectOOB,
@@ -108,7 +111,7 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                     };
                     // When the trap-handler is fully implemented, this will return more information.
                     let s = format!("unknown trap at {:p} - {}", faulting_addr, signal);
-                    Err(RunErr::Error(Box::new(s)))
+                    Err(CallProtError::Error(Box::new(s)))
                 }
             }
         } else {

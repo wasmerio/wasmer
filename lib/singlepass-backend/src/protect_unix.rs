@@ -62,12 +62,12 @@ pub unsafe fn trigger_trap() -> ! {
     longjmp(jmp_buf as *mut c_void, 0)
 }
 
-pub enum RunErr {
+pub enum CallProtError {
     Trap(WasmTrapInfo),
     Error(Box<dyn Any>),
 }
 
-pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, RunErr> {
+pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, CallProtError> {
     unsafe {
         let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
         let prev_jmp_buf = *jmp_buf;
@@ -81,7 +81,7 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, RunErr> {
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(RunErr::Error(data))
+                Err(CallProtError::Error(data))
             } else {
                 // let (faulting_addr, _inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
@@ -98,7 +98,7 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, RunErr> {
                 //     msg: format!("unknown trap at {:p} - {}", faulting_addr, signal).into(),
                 // }
                 // .into())
-                Err(RunErr::Trap(WasmTrapInfo::Unknown))
+                Err(CallProtError::Trap(WasmTrapInfo::Unknown))
             }
         } else {
             let ret = f(); // TODO: Switch stack?

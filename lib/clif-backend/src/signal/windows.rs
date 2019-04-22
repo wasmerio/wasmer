@@ -1,5 +1,5 @@
 use crate::relocation::{TrapCode, TrapData};
-use crate::signal::{HandlerData, RunErr};
+use crate::signal::{CallProtError, HandlerData};
 use crate::trampoline::Trampoline;
 use std::cell::Cell;
 use std::ffi::c_void;
@@ -29,7 +29,7 @@ pub fn call_protected(
     func: NonNull<Func>,
     param_vec: *const u64,
     return_vec: *mut u64,
-) -> Result<(), RunErr> {
+) -> Result<(), CallProtError> {
     // TODO: trap early
     // user code error
     //    if let Some(msg) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
@@ -53,7 +53,7 @@ pub fn call_protected(
         srcloc: _,
     }) = handler_data.lookup(instruction_pointer as _)
     {
-        Err(RunErr::Trap(match signum as DWORD {
+        Err(CallProtError::Trap(match signum as DWORD {
             EXCEPTION_ACCESS_VIOLATION => WasmTrapInfo::MemoryOutOfBounds,
             EXCEPTION_ILLEGAL_INSTRUCTION => match trapcode {
                 TrapCode::BadSignature => WasmTrapInfo::IncorrectCallIndirectSignature,
@@ -85,7 +85,7 @@ pub fn call_protected(
 
         let s = format!("unknown trap at {} - {}", exception_address, signal);
 
-        Err(RunErr::Error(Box::new(s)))
+        Err(CallProtError::Error(Box::new(s)))
     }
 }
 
