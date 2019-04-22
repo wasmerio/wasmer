@@ -205,7 +205,8 @@ impl RunnableModule for X64ExecutionContext {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            _trap_info: *mut WasmTrapInfo,
+            trap_info: *mut WasmTrapInfo,
+            user_error: *mut Option<Box<dyn Any>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let args = ::std::slice::from_raw_parts(
@@ -227,7 +228,13 @@ impl RunnableModule for X64ExecutionContext {
                     }
                     true
                 }
-                Err(_) => false,
+                Err(err) => {
+                    match err {
+                        protect_unix::CallProtError::Trap(info) => *trap_info = info,
+                        protect_unix::CallProtError::Error(data) => *user_error = Some(data),
+                    }
+                    false
+                }
             }
         }
 
