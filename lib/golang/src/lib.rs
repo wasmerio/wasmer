@@ -53,22 +53,22 @@ fn debug(_ctx: &mut Ctx, val: i32) {
     println!("{}", val);
 }
 
-fn runtimeWasmExit(_ctx: &mut Ctx, val: i32) {
-    panic!("runtimeWasmExit not yet implemented");
+fn runtime_wasm_exit(_ctx: &mut Ctx, val: i32) {
+    panic!("runtime_wasm_exit not yet implemented");
 }
 
-fn runtimeWasmWrite(_ctx: &mut Ctx, val: i32) {
-    panic!("runtimeWasmWrite not yet implemented");
+fn runtime_wasm_write(_ctx: &mut Ctx, val: i32) {
+    panic!("runtime_wasm_write not yet implemented");
 }
 
-fn runtimeNanotime(ctx: &mut Ctx, val: i32) {
+fn runtime_nanotime(ctx: &mut Ctx, val: i32) {
     let time_now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
     let time_nanos = time_now.as_secs() * 1_000_000_000 + time_now.subsec_nanos() as u64;
-    setInt64(ctx, val + 8, time_nanos);
+    set_int_64(ctx, val + 8, time_nanos);
 }
 
 // Gets a little endian u64 from the memory at the given index
-fn getInt64(ctx: &Ctx, ptr: i32) -> u64 {
+fn get_int_64(ctx: &Ctx, ptr: i32) -> u64 {
     let mem = ctx.memory(0);
     let mut bytes: [u8; 8] = Default::default();
     use std::cell::Cell;
@@ -80,7 +80,7 @@ fn getInt64(ctx: &Ctx, ptr: i32) -> u64 {
 }
 
 // Sets a little endian u64 to the memory at the given index
-fn setInt64(ctx: &mut Ctx, ptr: i32, val: u64) {
+fn set_int_64(ctx: &mut Ctx, ptr: i32, val: u64) {
     let val_le_bytes = val.to_le_bytes();
     let mem = ctx.memory(0);
     for (mem_byte, val_byte) in mem.view::<u8>()[(ptr as usize)..]
@@ -92,23 +92,23 @@ fn setInt64(ctx: &mut Ctx, ptr: i32, val: u64) {
     //ctx.memory(0).view::<u64>()[ptr as usize].set(val);
 }
 
-fn runtimeWalltime(_ctx: &mut Ctx, val: i32) {
-    panic!("runtimeWalltime not yet implemented");
+fn runtime_walltime(_ctx: &mut Ctx, val: i32) {
+    panic!("runtime_walltime not yet implemented");
 }
 
-fn runtimeScheduleCallback(_ctx: &mut Ctx, val: i32) {
-    panic!("runtimeScheduleCallback not yet implemented");
+fn runtime_schedule_callback(_ctx: &mut Ctx, val: i32) {
+    panic!("runtime_schedule_callback not yet implemented");
 }
 
-fn runtimeClearScheduledCallback(_ctx: &mut Ctx, val: i32) {
-    panic!("runtimeClearScheduledCallback not yet implemented");
+fn runtime_clear_scheduled_callback(_ctx: &mut Ctx, val: i32) {
+    panic!("runtime_clear_scheduled_callback not yet implemented");
 }
 
 /// Fills a slice of bytes with random values
-fn runtimeGetRandomData(ctx: &mut Ctx, idx: i32) {
+fn runtime_get_random_data(ctx: &mut Ctx, idx: i32) {
     let idx = idx + 8;
-    let array = getInt64(ctx, idx);
-    let len = getInt64(ctx, idx + 8);
+    let array = get_int_64(ctx, idx);
+    let len = get_int_64(ctx, idx + 8);
     let mem = ctx.memory(0);
     // fill the u8 bytes with random values
     let mut rng = rand::thread_rng();
@@ -117,36 +117,36 @@ fn runtimeGetRandomData(ctx: &mut Ctx, idx: i32) {
     }
 }
 
-fn syscallJsStringVal(_ctx: &mut Ctx, val: i32) {
-    panic!("syscallJsStringVal not yet implemented");
+fn syscall_js_string_val(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_string_val not yet implemented");
 }
 
-fn syscallJsValueGet(_ctx: &mut Ctx, val: i32) {
-    panic!("syscallJsValueGet not yet implemented");
+fn syscall_js_value_get(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_value_get not yet implemented");
 }
 
-fn syscallJsValueSet(_ctx: &mut Ctx, val: i32) {
-    panic!("syscallJsValueSet not yet implemented");
+fn syscall_js_value_set(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_value_set not yet implemented");
 }
 
-fn syscallJsValueSetIndex(_ctx: &mut Ctx, val: i32) {
-    panic!("syscallJsValueSetIndex not yet implemented");
+fn syscall_js_value_set_index(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_value_set_index not yet implemented");
 }
 
-fn syscallJsValueCall(_ctx: &mut Ctx, val: i32) {
-    panic!("syscallJsValueCall not yet implemented");
+fn syscall_js_value_call(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_value_call not yet implemented");
 }
 
-fn syscallJsValueNew(_ctx: &mut Ctx, val: i32) {
-    panic!("syscallJsValueNew not yet implemented");
+fn syscall_js_value_new(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_value_new not yet implemented");
 }
 
-fn syscallJsValuePrepareString(_ctx: &mut Ctx, val: i32) {
-    panic!("syscallJsValuePrepareString not yet implemented");
+fn syscall_js_value_prepare_string(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_value_prepare_string not yet implemented");
 }
 
-fn syscallJsValueLoadString(_ctx: &mut Ctx, val: i32) {
-    panic!("syscallJsValueLoadString not yet implemented");
+fn syscall_js_value_load_string(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_value_load_string not yet implemented");
 }
 
 fn runtime_schedule_timeout_event(_ctx: &mut Ctx, val: i32) {
@@ -158,36 +158,36 @@ fn runtime_clear_timeout_event(_ctx: &mut Ctx, val: i32) {
 }
 
 fn syscall_js_value_index(_ctx: &mut Ctx, val: i32) {
-   panic!("syscall_js_value_index not yet implemented");
+    panic!("syscall_js_value_index not yet implemented");
 }
 
-fn syscall_js_value_length(_ctx: &mut Ctx, val: i32){
-   panic!("syscall_js_value_length not yet implemented");
+fn syscall_js_value_length(_ctx: &mut Ctx, val: i32) {
+    panic!("syscall_js_value_length not yet implemented");
 }
 
 pub fn generate_golang_env() -> ImportObject {
     imports! {
         "go" => {
             "debug" => func!(crate::debug),
-            "runtime.wasmExit" => func!(crate::runtimeWasmExit),
-            "runtime.wasmWrite" => func!(crate::runtimeWasmWrite),
-            "runtime.nanotime" => func!(crate::runtimeNanotime),
-            "runtime.walltime" => func!(crate::runtimeWalltime),
-            "runtime.scheduleCallback" => func!(crate::runtimeScheduleCallback),
-            "runtime.clearScheduledCallback" => func!(crate::runtimeClearScheduledCallback),
-            "runtime.getRandomData" =>  func!(crate::runtimeGetRandomData),
+            "runtime.wasmExit" => func!(crate::runtime_wasm_exit),
+            "runtime.wasmWrite" => func!(crate::runtime_wasm_write),
+            "runtime.nanotime" => func!(crate::runtime_nanotime),
+            "runtime.walltime" => func!(crate::runtime_walltime),
+            "runtime.scheduleCallback" => func!(crate::runtime_schedule_callback),
+            "runtime.clearScheduledCallback" => func!(crate::runtime_clear_scheduled_callback),
+            "runtime.getRandomData" =>  func!(crate::runtime_get_random_data),
             "runtime.clearTimeoutEvent" => func!(crate::runtime_clear_timeout_event),
             "runtime.scheduleTimeoutEvent" => func!(crate::runtime_schedule_timeout_event),
-            "syscall/js.stringVal" => func!(crate::syscallJsStringVal),
-            "syscall/js.valueGet" => func!(crate::syscallJsValueGet),
-            "syscall/js.valueSet" => func!(crate::syscallJsValueSet),
-            "syscall/js.valueSetIndex" => func!(crate::syscallJsValueSetIndex),
-            "syscall/js.valueCall" => func!(crate::syscallJsValueCall),
+            "syscall/js.stringVal" => func!(crate::syscall_js_string_val),
+            "syscall/js.valueGet" => func!(crate::syscall_js_value_get),
+            "syscall/js.valueSet" => func!(crate::syscall_js_value_set),
+            "syscall/js.valueSetIndex" => func!(crate::syscall_js_value_set_index),
+            "syscall/js.valueCall" => func!(crate::syscall_js_value_call),
             "syscall/js.valueIndex" => func!(crate::syscall_js_value_index),
             "syscall/js.valueLength" => func!(crate::syscall_js_value_length),
-            "syscall/js.valueNew" => func!(crate::syscallJsValueNew),
-            "syscall/js.valuePrepareString" => func!(crate::syscallJsValuePrepareString),
-            "syscall/js.valueLoadString" => func!(crate::syscallJsValueLoadString),
+            "syscall/js.valueNew" => func!(crate::syscall_js_value_new),
+            "syscall/js.valuePrepareString" => func!(crate::syscall_js_value_prepare_string),
+            "syscall/js.valueLoadString" => func!(crate::syscall_js_value_load_string),
         },
     }
 }
