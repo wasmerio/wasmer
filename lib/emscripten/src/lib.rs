@@ -27,17 +27,19 @@ mod file_descriptor;
 pub mod stdio;
 
 // EMSCRIPTEN APIS
+mod bitwise;
 mod emscripten_target;
 mod env;
 mod errno;
 mod exception;
+mod exec;
+mod exit;
 mod io;
 mod jmp;
 mod linking;
 mod lock;
 mod math;
 mod memory;
-mod nullfunc;
 mod process;
 mod signal;
 mod storage;
@@ -54,8 +56,6 @@ pub use self::utils::{
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
-// TODO: Magic number - how is this calculated?
-const DYNAMICTOP_PTR_DIFF: u32 = 1088;
 // TODO: make this variable
 const STATIC_BUMP: u32 = 215_536;
 
@@ -71,22 +71,6 @@ lazy_static! {
 const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
-fn stacktop(static_bump: u32) -> u32 {
-    align_memory(dynamictop_ptr(static_bump) + 4)
-}
-
-fn stack_max(static_bump: u32) -> u32 {
-    stacktop(static_bump) + TOTAL_STACK
-}
-
-fn dynamic_base(static_bump: u32) -> u32 {
-    align_memory(stack_max(static_bump))
-}
-
-fn dynamictop_ptr(static_bump: u32) -> u32 {
-    static_bump + DYNAMICTOP_PTR_DIFF
-}
-
 pub struct EmscriptenData<'a> {
     pub malloc: Func<'a, u32, u32>,
     pub free: Func<'a, u32>,
@@ -99,6 +83,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_ii: Option<Func<'a, (i32, i32), i32>>,
     pub dyn_call_iii: Option<Func<'a, (i32, i32, i32), i32>>,
     pub dyn_call_iiii: Option<Func<'a, (i32, i32, i32, i32), i32>>,
+    pub dyn_call_iifi: Option<Func<'a, (i32, i32, f64, i32), i32>>,
     pub dyn_call_v: Option<Func<'a, (i32)>>,
     pub dyn_call_vi: Option<Func<'a, (i32, i32)>>,
     pub dyn_call_vii: Option<Func<'a, (i32, i32, i32)>>,
@@ -110,15 +95,27 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_diiii: Option<Func<'a, (i32, i32, i32, i32, i32), f64>>,
     pub dyn_call_iiiii: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_vd: Option<Func<'a, (i32, f64)>>,
     pub dyn_call_viiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiiiiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_iij: Option<Func<'a, (i32, i32, i32, i32), i32>>,
     pub dyn_call_iiji: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_j: Option<Func<'a, i32, i32>>,
     pub dyn_call_ji: Option<Func<'a, (i32, i32), i32>>,
+    pub dyn_call_jii: Option<Func<'a, (i32, i32, i32), i32>>,
     pub dyn_call_jij: Option<Func<'a, (i32, i32, i32, i32), i32>>,
     pub dyn_call_jjj: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_viiij: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
@@ -129,10 +126,20 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_viiji: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_vj: Option<Func<'a, (i32, i32, i32)>>,
     pub dyn_call_vij: Option<Func<'a, (i32, i32, i32, i32)>>,
     pub dyn_call_viji: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viid: Option<Func<'a, (i32, i32, i32, f64)>>,
+    pub dyn_call_viidii: Option<Func<'a, (i32, i32, i32, f64, i32, i32)>>,
+    pub dyn_call_viidddddddd:
+        Option<Func<'a, (i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64)>>,
+    pub temp_ret_0: i32,
+
+    pub stack_save: Option<Func<'a, (), i32>>,
+    pub stack_restore: Option<Func<'a, (i32)>>,
+    pub set_threw: Option<Func<'a, (i32, i32)>>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -151,6 +158,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_ii = instance.func("dynCall_ii").ok();
         let dyn_call_iii = instance.func("dynCall_iii").ok();
         let dyn_call_iiii = instance.func("dynCall_iiii").ok();
+        let dyn_call_iifi = instance.func("dynCall_iifi").ok();
         let dyn_call_v = instance.func("dynCall_v").ok();
         let dyn_call_vi = instance.func("dynCall_vi").ok();
         let dyn_call_vii = instance.func("dynCall_vii").ok();
@@ -162,15 +170,24 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_diiii = instance.func("dynCall_diiii").ok();
         let dyn_call_iiiii = instance.func("dynCall_iiiii").ok();
         let dyn_call_iiiiii = instance.func("dynCall_iiiiii").ok();
+        let dyn_call_iiiiiii = instance.func("dynCall_iiiiiii").ok();
+        let dyn_call_iiiiiiii = instance.func("dynCall_iiiiiiii").ok();
+        let dyn_call_iiiiiiiii = instance.func("dynCall_iiiiiiiii").ok();
+        let dyn_call_iiiiiiiiii = instance.func("dynCall_iiiiiiiiii").ok();
+        let dyn_call_iiiiiiiiiii = instance.func("dynCall_iiiiiiiiiii").ok();
         let dyn_call_vd = instance.func("dynCall_vd").ok();
         let dyn_call_viiiii = instance.func("dynCall_viiiii").ok();
         let dyn_call_viiiiii = instance.func("dynCall_viiiiii").ok();
         let dyn_call_viiiiiii = instance.func("dynCall_viiiiiii").ok();
         let dyn_call_viiiiiiii = instance.func("dynCall_viiiiiiii").ok();
         let dyn_call_viiiiiiiii = instance.func("dynCall_viiiiiiiii").ok();
+        let dyn_call_viiiiiiiiii = instance.func("dynCall_viiiiiiiiii").ok();
+        let dyn_call_iij = instance.func("dynCall_iij").ok();
         let dyn_call_iiji = instance.func("dynCall_iiji").ok();
+        let dyn_call_iiijj = instance.func("dynCall_iiijj").ok();
         let dyn_call_j = instance.func("dynCall_j").ok();
         let dyn_call_ji = instance.func("dynCall_ji").ok();
+        let dyn_call_jii = instance.func("dynCall_jii").ok();
         let dyn_call_jij = instance.func("dynCall_jij").ok();
         let dyn_call_jjj = instance.func("dynCall_jjj").ok();
         let dyn_call_viiij = instance.func("dynCall_viiij").ok();
@@ -180,10 +197,18 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_viiji = instance.func("dynCall_viiji").ok();
         let dyn_call_viijiii = instance.func("dynCall_viijiii").ok();
         let dyn_call_viijj = instance.func("dynCall_viijj").ok();
+        let dyn_call_vj = instance.func("dynCall_vj").ok();
         let dyn_call_vij = instance.func("dynCall_vij").ok();
         let dyn_call_viji = instance.func("dynCall_viji").ok();
         let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
         let dyn_call_vijj = instance.func("dynCall_vijj").ok();
+        let dyn_call_viid = instance.func("dynCall_viid").ok();
+        let dyn_call_viidii = instance.func("dynCall_viidii").ok();
+        let dyn_call_viidddddddd = instance.func("dynCall_viidddddddd").ok();
+
+        let stack_save = instance.func("stackSave").ok();
+        let stack_restore = instance.func("stackRestore").ok();
+        let set_threw = instance.func("_setThrew").ok();
 
         EmscriptenData {
             malloc,
@@ -196,6 +221,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_ii,
             dyn_call_iii,
             dyn_call_iiii,
+            dyn_call_iifi,
             dyn_call_v,
             dyn_call_vi,
             dyn_call_vii,
@@ -207,15 +233,24 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_diiii,
             dyn_call_iiiii,
             dyn_call_iiiiii,
+            dyn_call_iiiiiii,
+            dyn_call_iiiiiiii,
+            dyn_call_iiiiiiiii,
+            dyn_call_iiiiiiiiii,
+            dyn_call_iiiiiiiiiii,
             dyn_call_vd,
             dyn_call_viiiii,
             dyn_call_viiiiii,
             dyn_call_viiiiiii,
             dyn_call_viiiiiiii,
             dyn_call_viiiiiiiii,
+            dyn_call_viiiiiiiiii,
+            dyn_call_iij,
             dyn_call_iiji,
+            dyn_call_iiijj,
             dyn_call_j,
             dyn_call_ji,
+            dyn_call_jii,
             dyn_call_jij,
             dyn_call_jjj,
             dyn_call_viiij,
@@ -225,10 +260,19 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_viiji,
             dyn_call_viijiii,
             dyn_call_viijj,
+            dyn_call_vj,
             dyn_call_vij,
             dyn_call_viji,
             dyn_call_vijiii,
             dyn_call_vijj,
+            dyn_call_viid,
+            dyn_call_viidii,
+            dyn_call_viidddddddd,
+            temp_ret_0: 0,
+
+            stack_save,
+            stack_restore,
+            set_threw,
         }
     }
 }
@@ -242,6 +286,12 @@ pub fn run_emscripten_instance(
     let mut data = EmscriptenData::new(instance);
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
+
+    // ATINIT
+    // (used by C++)
+    if let Ok(_func) = instance.dyn_func("globalCtors") {
+        instance.call("globalCtors", &[])?;
+    }
 
     if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
         instance.call("___emscripten_environ_constructor", &[])?;
@@ -265,7 +315,7 @@ pub fn run_emscripten_instance(
         ),
     };
 
-    // TODO atinit and atexit for emscripten
+    // TODO atexit for emscripten
     // println!("{:?}", data);
     Ok(())
 }
@@ -309,10 +359,6 @@ pub struct EmscriptenGlobalsData {
     table_base: u32,
     temp_double_ptr: u32,
     use_old_abort_on_cannot_grow_memory: bool,
-
-    // Global namespace
-    infinity: f64,
-    nan: f64,
 }
 
 pub struct EmscriptenGlobals {
@@ -323,6 +369,7 @@ pub struct EmscriptenGlobals {
     pub table: Table,
     pub memory_min: Pages,
     pub memory_max: Option<Pages>,
+    pub null_func_names: Vec<String>,
 }
 
 impl EmscriptenGlobals {
@@ -341,7 +388,7 @@ impl EmscriptenGlobals {
             if name == "abortOnCannotGrowMemory" && namespace == "env" {
                 let sig_index = module.info().func_assoc[index.convert_up(module.info())];
                 let expected_sig = &module.info().signatures[sig_index];
-                if **expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
+                if *expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
                     use_old_abort_on_cannot_grow_memory = true;
                 }
                 break;
@@ -364,22 +411,22 @@ impl EmscriptenGlobals {
             minimum: table_min,
             maximum: table_max,
         };
-        let mut table = Table::new(table_type).unwrap();
+        let table = Table::new(table_type).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;
 
-            let mut STATIC_TOP = STATIC_BASE + static_bump;
+            let mut static_top = STATIC_BASE + static_bump;
 
             let memory_base = STATIC_BASE;
             let table_base = 0;
 
-            let temp_double_ptr = STATIC_TOP;
-            STATIC_TOP += 16;
+            let temp_double_ptr = static_top;
+            static_top += 16;
 
-            let dynamictop_ptr = static_alloc(&mut STATIC_TOP, 4);
+            let dynamictop_ptr = static_alloc(&mut static_top, 4);
 
-            let stacktop = align_memory(STATIC_TOP);
+            let stacktop = align_memory(static_top);
             let stack_max = stacktop + TOTAL_STACK;
 
             EmscriptenGlobalsData {
@@ -391,13 +438,26 @@ impl EmscriptenGlobals {
                 table_base,
                 temp_double_ptr,
                 use_old_abort_on_cannot_grow_memory,
-
-                infinity: std::f64::INFINITY,
-                nan: std::f64::NAN,
             }
         };
 
         emscripten_set_up_memory(&memory, &data);
+
+        let mut null_func_names = vec![];
+        for (
+            _,
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+        ) in &module.info().imported_functions
+        {
+            let namespace = module.info().namespace_table.get(*namespace_index);
+            let name = module.info().name_table.get(*name_index);
+            if namespace == "env" && name.starts_with("nullFunc_") {
+                null_func_names.push(name.to_string())
+            }
+        }
 
         Self {
             data,
@@ -405,6 +465,7 @@ impl EmscriptenGlobals {
             table,
             memory_min,
             memory_max,
+            null_func_names,
         }
     }
 }
@@ -416,291 +477,349 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         func!(crate::memory::abort_on_cannot_grow_memory).to_export()
     };
 
-    imports! {
-        "env" => {
-            "memory" => Export::Memory(globals.memory.clone()),
-            "table" => Export::Table(globals.table.clone()),
+    let mut env_ns = namespace! {
+        "memory" => Export::Memory(globals.memory.clone()),
+        "table" => Export::Table(globals.table.clone()),
 
-            // Globals
-            "STACKTOP" => Global::new(Value::I32(globals.data.stacktop as i32)),
-            "STACK_MAX" => Global::new(Value::I32(globals.data.stack_max as i32)),
-            "DYNAMICTOP_PTR" => Global::new(Value::I32(globals.data.dynamictop_ptr as i32)),
-            "tableBase" => Global::new(Value::I32(globals.data.table_base as i32)),
-            "__table_base" => Global::new(Value::I32(globals.data.table_base as i32)),
-            "ABORT" => Global::new(Value::I32(globals.data.abort as i32)),
-            "memoryBase" => Global::new(Value::I32(globals.data.memory_base as i32)),
-            "__memory_base" => Global::new(Value::I32(globals.data.memory_base as i32)),
-            "tempDoublePtr" => Global::new(Value::I32(globals.data.temp_double_ptr as i32)),
+        // Globals
+        "STACKTOP" => Global::new(Value::I32(globals.data.stacktop as i32)),
+        "STACK_MAX" => Global::new(Value::I32(globals.data.stack_max as i32)),
+        "DYNAMICTOP_PTR" => Global::new(Value::I32(globals.data.dynamictop_ptr as i32)),
+        "tableBase" => Global::new(Value::I32(globals.data.table_base as i32)),
+        "__table_base" => Global::new(Value::I32(globals.data.table_base as i32)),
+        "ABORT" => Global::new(Value::I32(globals.data.abort as i32)),
+        "memoryBase" => Global::new(Value::I32(globals.data.memory_base as i32)),
+        "__memory_base" => Global::new(Value::I32(globals.data.memory_base as i32)),
+        "tempDoublePtr" => Global::new(Value::I32(globals.data.temp_double_ptr as i32)),
 
-            // IO
-            "printf" => func!(crate::io::printf),
-            "putchar" => func!(crate::io::putchar),
-            "___lock" => func!(crate::lock::___lock),
-            "___unlock" => func!(crate::lock::___unlock),
-            "___wait" => func!(crate::lock::___wait),
+        // IO
+        "printf" => func!(crate::io::printf),
+        "putchar" => func!(crate::io::putchar),
+        "___lock" => func!(crate::lock::___lock),
+        "___unlock" => func!(crate::lock::___unlock),
+        "___wait" => func!(crate::lock::___wait),
+        "_flock" => func!(crate::lock::_flock),
+        "_chroot" => func!(crate::io::chroot),
+        "_getprotobyname" => func!(crate::io::getprotobyname),
+        "_getprotobynumber" => func!(crate::io::getprotobynumber),
+        "_getpwuid" => func!(crate::io::getpwuid),
+        "_sigdelset" => func!(crate::io::sigdelset),
+        "_sigfillset" => func!(crate::io::sigfillset),
+        "_tzset" => func!(crate::io::tzset),
+        "_strptime" => func!(crate::io::strptime),
 
-            // Env
-            "___assert_fail" => func!(crate::env::___assert_fail),
-            "_getenv" => func!(crate::env::_getenv),
-            "_setenv" => func!(crate::env::_setenv),
-            "_putenv" => func!(crate::env::_putenv),
-            "_unsetenv" => func!(crate::env::_unsetenv),
-            "_getpwnam" => func!(crate::env::_getpwnam),
-            "_getgrnam" => func!(crate::env::_getgrnam),
-            "___buildEnvironment" => func!(crate::env::___build_environment),
-            "___setErrNo" => func!(crate::errno::___seterrno),
-            "_getpagesize" => func!(crate::env::_getpagesize),
-            "_sysconf" => func!(crate::env::_sysconf),
-            "_getaddrinfo" => func!(crate::env::_getaddrinfo),
+        // exec
+        "_execvp" => func!(crate::exec::execvp),
+        "_execl" => func!(crate::exec::execl),
+        "_execle" => func!(crate::exec::execle),
 
-            // Null func
-            "nullFunc_i" => func!(crate::nullfunc::nullfunc_i),
-            "nullFunc_ii" => func!(crate::nullfunc::nullfunc_ii),
-            "nullFunc_iii" => func!(crate::nullfunc::nullfunc_iii),
-            "nullFunc_iiii" => func!(crate::nullfunc::nullfunc_iiii),
-            "nullFunc_iiiii" => func!(crate::nullfunc::nullfunc_iiiii),
-            "nullFunc_iiiiii" => func!(crate::nullfunc::nullfunc_iiiiii),
-            "nullFunc_v" => func!(crate::nullfunc::nullfunc_v),
-            "nullFunc_vi" => func!(crate::nullfunc::nullfunc_vi),
-            "nullFunc_vii" => func!(crate::nullfunc::nullfunc_vii),
-            "nullFunc_viii" => func!(crate::nullfunc::nullfunc_viii),
-            "nullFunc_viiii" => func!(crate::nullfunc::nullfunc_viiii),
-            "nullFunc_viiiii" => func!(crate::nullfunc::nullfunc_viiiii),
-            "nullFunc_viiiiii" => func!(crate::nullfunc::nullfunc_viiiiii),
+        // exit
+        "__exit" => func!(crate::exit::exit),
 
-            // Syscalls
-            "___syscall1" => func!(crate::syscalls::___syscall1),
-            "___syscall3" => func!(crate::syscalls::___syscall3),
-            "___syscall4" => func!(crate::syscalls::___syscall4),
-            "___syscall5" => func!(crate::syscalls::___syscall5),
-            "___syscall6" => func!(crate::syscalls::___syscall6),
-            "___syscall10" => func!(crate::syscalls::___syscall10),
-            "___syscall12" => func!(crate::syscalls::___syscall12),
-            "___syscall15" => func!(crate::syscalls::___syscall15),
-            "___syscall20" => func!(crate::syscalls::___syscall20),
-            "___syscall39" => func!(crate::syscalls::___syscall39),
-            "___syscall38" => func!(crate::syscalls::___syscall38),
-            "___syscall40" => func!(crate::syscalls::___syscall40),
-            "___syscall54" => func!(crate::syscalls::___syscall54),
-            "___syscall57" => func!(crate::syscalls::___syscall57),
-            "___syscall60" => func!(crate::syscalls::___syscall60),
-            "___syscall63" => func!(crate::syscalls::___syscall63),
-            "___syscall64" => func!(crate::syscalls::___syscall64),
-            "___syscall66" => func!(crate::syscalls::___syscall66),
-            "___syscall75" => func!(crate::syscalls::___syscall75),
-            "___syscall85" => func!(crate::syscalls::___syscall85),
-            "___syscall91" => func!(crate::syscalls::___syscall191),
-            "___syscall97" => func!(crate::syscalls::___syscall97),
-            "___syscall102" => func!(crate::syscalls::___syscall102),
-            "___syscall110" => func!(crate::syscalls::___syscall110),
-            "___syscall114" => func!(crate::syscalls::___syscall114),
-            "___syscall122" => func!(crate::syscalls::___syscall122),
-            "___syscall140" => func!(crate::syscalls::___syscall140),
-            "___syscall142" => func!(crate::syscalls::___syscall142),
-            "___syscall145" => func!(crate::syscalls::___syscall145),
-            "___syscall146" => func!(crate::syscalls::___syscall146),
-            "___syscall168" => func!(crate::syscalls::___syscall168),
-            "___syscall180" => func!(crate::syscalls::___syscall180),
-            "___syscall181" => func!(crate::syscalls::___syscall181),
-            "___syscall191" => func!(crate::syscalls::___syscall191),
-            "___syscall192" => func!(crate::syscalls::___syscall192),
-            "___syscall194" => func!(crate::syscalls::___syscall194),
-            "___syscall195" => func!(crate::syscalls::___syscall195),
-            "___syscall196" => func!(crate::syscalls::___syscall196),
-            "___syscall197" => func!(crate::syscalls::___syscall197),
-            "___syscall199" => func!(crate::syscalls::___syscall199),
-            "___syscall201" => func!(crate::syscalls::___syscall201),
-            "___syscall202" => func!(crate::syscalls::___syscall202),
-            "___syscall212" => func!(crate::syscalls::___syscall212),
-            "___syscall220" => func!(crate::syscalls::___syscall220),
-            "___syscall221" => func!(crate::syscalls::___syscall221),
-            "___syscall268" => func!(crate::syscalls::___syscall268),
-            "___syscall272" => func!(crate::syscalls::___syscall272),
-            "___syscall295" => func!(crate::syscalls::___syscall295),
-            "___syscall300" => func!(crate::syscalls::___syscall300),
-            "___syscall330" => func!(crate::syscalls::___syscall330),
-            "___syscall334" => func!(crate::syscalls::___syscall334),
-            "___syscall340" => func!(crate::syscalls::___syscall340),
+        // Env
+        "___assert_fail" => func!(crate::env::___assert_fail),
+        "_getenv" => func!(crate::env::_getenv),
+        "_setenv" => func!(crate::env::_setenv),
+        "_putenv" => func!(crate::env::_putenv),
+        "_unsetenv" => func!(crate::env::_unsetenv),
+        "_getpwnam" => func!(crate::env::_getpwnam),
+        "_getgrnam" => func!(crate::env::_getgrnam),
+        "___buildEnvironment" => func!(crate::env::___build_environment),
+        "___setErrNo" => func!(crate::errno::___seterrno),
+        "_getpagesize" => func!(crate::env::_getpagesize),
+        "_sysconf" => func!(crate::env::_sysconf),
+        "_getaddrinfo" => func!(crate::env::_getaddrinfo),
+        "_times" => func!(crate::env::_times),
 
-            // Process
-            "abort" => func!(crate::process::em_abort),
-            "_abort" => func!(crate::process::_abort),
-            "abortStackOverflow" => func!(crate::process::abort_stack_overflow),
-            "_llvm_trap" => func!(crate::process::_llvm_trap),
-            "_fork" => func!(crate::process::_fork),
-            "_exit" => func!(crate::process::_exit),
-            "_system" => func!(crate::process::_system),
-            "_popen" => func!(crate::process::_popen),
-            "_endgrent" => func!(crate::process::_endgrent),
-            "_execve" => func!(crate::process::_execve),
-            "_kill" => func!(crate::process::_kill),
-            "_llvm_stackrestore" => func!(crate::process::_llvm_stackrestore),
-            "_llvm_stacksave" => func!(crate::process::_llvm_stacksave),
-            "_raise" => func!(crate::process::_raise),
-            "_sem_init" => func!(crate::process::_sem_init),
-            "_sem_post" => func!(crate::process::_sem_post),
-            "_sem_wait" => func!(crate::process::_sem_wait),
-            "_getgrent" => func!(crate::process::_getgrent),
-            "_sched_yield" => func!(crate::process::_sched_yield),
-            "_setgrent" => func!(crate::process::_setgrent),
-            "_setgroups" => func!(crate::process::_setgroups),
-            "_setitimer" => func!(crate::process::_setitimer),
-            "_usleep" => func!(crate::process::_usleep),
-            "_utimes" => func!(crate::process::_utimes),
-            "_waitpid" => func!(crate::process::_waitpid),
+        // Syscalls
+        "___syscall1" => func!(crate::syscalls::___syscall1),
+        "___syscall3" => func!(crate::syscalls::___syscall3),
+        "___syscall4" => func!(crate::syscalls::___syscall4),
+        "___syscall5" => func!(crate::syscalls::___syscall5),
+        "___syscall6" => func!(crate::syscalls::___syscall6),
+        "___syscall9" => func!(crate::syscalls::___syscall9),
+        "___syscall10" => func!(crate::syscalls::___syscall10),
+        "___syscall12" => func!(crate::syscalls::___syscall12),
+        "___syscall15" => func!(crate::syscalls::___syscall15),
+        "___syscall20" => func!(crate::syscalls::___syscall20),
+        "___syscall33" => func!(crate::syscalls::___syscall33),
+        "___syscall34" => func!(crate::syscalls::___syscall34),
+        "___syscall39" => func!(crate::syscalls::___syscall39),
+        "___syscall38" => func!(crate::syscalls::___syscall38),
+        "___syscall40" => func!(crate::syscalls::___syscall40),
+        "___syscall41" => func!(crate::syscalls::___syscall41),
+        "___syscall42" => func!(crate::syscalls::___syscall42),
+        "___syscall54" => func!(crate::syscalls::___syscall54),
+        "___syscall57" => func!(crate::syscalls::___syscall57),
+        "___syscall60" => func!(crate::syscalls::___syscall60),
+        "___syscall63" => func!(crate::syscalls::___syscall63),
+        "___syscall64" => func!(crate::syscalls::___syscall64),
+        "___syscall66" => func!(crate::syscalls::___syscall66),
+        "___syscall75" => func!(crate::syscalls::___syscall75),
+        "___syscall77" => func!(crate::syscalls::___syscall77),
+        "___syscall83" => func!(crate::syscalls::___syscall83),
+        "___syscall85" => func!(crate::syscalls::___syscall85),
+        "___syscall91" => func!(crate::syscalls::___syscall91),
+        "___syscall94" => func!(crate::syscalls::___syscall94),
+        "___syscall97" => func!(crate::syscalls::___syscall97),
+        "___syscall102" => func!(crate::syscalls::___syscall102),
+        "___syscall110" => func!(crate::syscalls::___syscall110),
+        "___syscall114" => func!(crate::syscalls::___syscall114),
+        "___syscall118" => func!(crate::syscalls::___syscall118),
+        "___syscall122" => func!(crate::syscalls::___syscall122),
+        "___syscall140" => func!(crate::syscalls::___syscall140),
+        "___syscall142" => func!(crate::syscalls::___syscall142),
+        "___syscall145" => func!(crate::syscalls::___syscall145),
+        "___syscall146" => func!(crate::syscalls::___syscall146),
+        "___syscall148" => func!(crate::syscalls::___syscall148),
+        "___syscall168" => func!(crate::syscalls::___syscall168),
+        "___syscall180" => func!(crate::syscalls::___syscall180),
+        "___syscall181" => func!(crate::syscalls::___syscall181),
+        "___syscall183" => func!(crate::syscalls::___syscall183),
+        "___syscall191" => func!(crate::syscalls::___syscall191),
+        "___syscall192" => func!(crate::syscalls::___syscall192),
+        "___syscall194" => func!(crate::syscalls::___syscall194),
+        "___syscall195" => func!(crate::syscalls::___syscall195),
+        "___syscall196" => func!(crate::syscalls::___syscall196),
+        "___syscall197" => func!(crate::syscalls::___syscall197),
+        "___syscall198" => func!(crate::syscalls::___syscall198),
+        "___syscall199" => func!(crate::syscalls::___syscall199),
+        "___syscall200" => func!(crate::syscalls::___syscall200),
+        "___syscall201" => func!(crate::syscalls::___syscall201),
+        "___syscall202" => func!(crate::syscalls::___syscall202),
+        "___syscall205" => func!(crate::syscalls::___syscall205),
+        "___syscall207" => func!(crate::syscalls::___syscall207),
+        "___syscall212" => func!(crate::syscalls::___syscall212),
+        "___syscall219" => func!(crate::syscalls::___syscall219),
+        "___syscall220" => func!(crate::syscalls::___syscall220),
+        "___syscall221" => func!(crate::syscalls::___syscall221),
+        "___syscall268" => func!(crate::syscalls::___syscall268),
+        "___syscall272" => func!(crate::syscalls::___syscall272),
+        "___syscall295" => func!(crate::syscalls::___syscall295),
+        "___syscall300" => func!(crate::syscalls::___syscall300),
+        "___syscall324" => func!(crate::syscalls::___syscall324),
+        "___syscall330" => func!(crate::syscalls::___syscall330),
+        "___syscall334" => func!(crate::syscalls::___syscall334),
+        "___syscall340" => func!(crate::syscalls::___syscall340),
+
+        // Process
+        "abort" => func!(crate::process::em_abort),
+        "_abort" => func!(crate::process::_abort),
+        "abortStackOverflow" => func!(crate::process::abort_stack_overflow),
+        "_llvm_trap" => func!(crate::process::_llvm_trap),
+        "_fork" => func!(crate::process::_fork),
+        "_exit" => func!(crate::process::_exit),
+        "_system" => func!(crate::process::_system),
+        "_popen" => func!(crate::process::_popen),
+        "_endgrent" => func!(crate::process::_endgrent),
+        "_execve" => func!(crate::process::_execve),
+        "_kill" => func!(crate::process::_kill),
+        "_llvm_stackrestore" => func!(crate::process::_llvm_stackrestore),
+        "_llvm_stacksave" => func!(crate::process::_llvm_stacksave),
+        "_llvm_eh_typeid_for" => func!(crate::process::_llvm_eh_typeid_for),
+        "_raise" => func!(crate::process::_raise),
+        "_sem_init" => func!(crate::process::_sem_init),
+        "_sem_post" => func!(crate::process::_sem_post),
+        "_sem_wait" => func!(crate::process::_sem_wait),
+        "_getgrent" => func!(crate::process::_getgrent),
+        "_sched_yield" => func!(crate::process::_sched_yield),
+        "_setgrent" => func!(crate::process::_setgrent),
+        "_setgroups" => func!(crate::process::_setgroups),
+        "_setitimer" => func!(crate::process::_setitimer),
+        "_usleep" => func!(crate::process::_usleep),
+        "_nanosleep" => func!(crate::process::_nanosleep),
+        "_utimes" => func!(crate::process::_utimes),
+        "_waitpid" => func!(crate::process::_waitpid),
 
 
-            // Signal
-            "_sigemptyset" => func!(crate::signal::_sigemptyset),
-            "_sigaddset" => func!(crate::signal::_sigaddset),
-            "_sigprocmask" => func!(crate::signal::_sigprocmask),
-            "_sigaction" => func!(crate::signal::_sigaction),
-            "_signal" => func!(crate::signal::_signal),
-            "_sigsuspend" => func!(crate::signal::_sigsuspend),
+        // Signal
+        "_sigemptyset" => func!(crate::signal::_sigemptyset),
+        "_sigaddset" => func!(crate::signal::_sigaddset),
+        "_sigprocmask" => func!(crate::signal::_sigprocmask),
+        "_sigaction" => func!(crate::signal::_sigaction),
+        "_signal" => func!(crate::signal::_signal),
+        "_sigsuspend" => func!(crate::signal::_sigsuspend),
 
-            // Memory
-            "abortOnCannotGrowMemory" => abort_on_cannot_grow_memory_export,
-            "_emscripten_memcpy_big" => func!(crate::memory::_emscripten_memcpy_big),
-            "_emscripten_get_heap_size" => func!(crate::memory::_emscripten_get_heap_size),
-            "_emscripten_resize_heap" => func!(crate::memory::_emscripten_resize_heap),
-            "enlargeMemory" => func!(crate::memory::enlarge_memory),
-            "getTotalMemory" => func!(crate::memory::get_total_memory),
-            "___map_file" => func!(crate::memory::___map_file),
+        // Memory
+        "abortOnCannotGrowMemory" => abort_on_cannot_grow_memory_export,
+        "_emscripten_memcpy_big" => func!(crate::memory::_emscripten_memcpy_big),
+        "_emscripten_get_heap_size" => func!(crate::memory::_emscripten_get_heap_size),
+        "_emscripten_resize_heap" => func!(crate::memory::_emscripten_resize_heap),
+        "enlargeMemory" => func!(crate::memory::enlarge_memory),
+        "getTotalMemory" => func!(crate::memory::get_total_memory),
+        "___map_file" => func!(crate::memory::___map_file),
 
-            // Exception
-            "___cxa_allocate_exception" => func!(crate::exception::___cxa_allocate_exception),
-            "___cxa_throw" => func!(crate::exception::___cxa_throw),
+        // Exception
+        "___cxa_allocate_exception" => func!(crate::exception::___cxa_allocate_exception),
+        "___cxa_throw" => func!(crate::exception::___cxa_throw),
+        "___cxa_begin_catch" => func!(crate::exception::___cxa_begin_catch),
+        "___cxa_end_catch" => func!(crate::exception::___cxa_end_catch),
+        "___cxa_uncaught_exception" => func!(crate::exception::___cxa_uncaught_exception),
 
-            // Time
-            "_gettimeofday" => func!(crate::time::_gettimeofday),
-            "_clock_gettime" => func!(crate::time::_clock_gettime),
-            "___clock_gettime" => func!(crate::time::_clock_gettime),
-            "_clock" => func!(crate::time::_clock),
-            "_difftime" => func!(crate::time::_difftime),
-            "_asctime" => func!(crate::time::_asctime),
-            "_asctime_r" => func!(crate::time::_asctime_r),
-            "_localtime" => func!(crate::time::_localtime),
-            "_time" => func!(crate::time::_time),
-            "_strftime" => func!(crate::time::_strftime),
-            "_localtime_r" => func!(crate::time::_localtime_r),
-            "_gmtime_r" => func!(crate::time::_gmtime_r),
-            "_mktime" => func!(crate::time::_mktime),
-            "_gmtime" => func!(crate::time::_gmtime),
+        // Time
+        "_gettimeofday" => func!(crate::time::_gettimeofday),
+        "_clock_gettime" => func!(crate::time::_clock_gettime),
+        "___clock_gettime" => func!(crate::time::_clock_gettime),
+        "_clock" => func!(crate::time::_clock),
+        "_difftime" => func!(crate::time::_difftime),
+        "_asctime" => func!(crate::time::_asctime),
+        "_asctime_r" => func!(crate::time::_asctime_r),
+        "_localtime" => func!(crate::time::_localtime),
+        "_time" => func!(crate::time::_time),
+        "_strftime" => func!(crate::time::_strftime),
+        "_strftime_l" => func!(crate::time::_strftime_l),
+        "_localtime_r" => func!(crate::time::_localtime_r),
+        "_gmtime_r" => func!(crate::time::_gmtime_r),
+        "_mktime" => func!(crate::time::_mktime),
+        "_gmtime" => func!(crate::time::_gmtime),
 
-            // Math
-            "f64-rem" => func!(crate::math::f64_rem),
-            "_llvm_log10_f64" => func!(crate::math::_llvm_log10_f64),
-            "_llvm_log2_f64" => func!(crate::math::_llvm_log2_f64),
-            "_llvm_log10_f32" => func!(crate::math::_llvm_log10_f32),
-            "_llvm_log2_f32" => func!(crate::math::_llvm_log2_f64),
-            "_emscripten_random" => func!(crate::math::_emscripten_random),
+        // Math
+        "f64-rem" => func!(crate::math::f64_rem),
+        "_llvm_log10_f64" => func!(crate::math::_llvm_log10_f64),
+        "_llvm_log2_f64" => func!(crate::math::_llvm_log2_f64),
+        "_llvm_log10_f32" => func!(crate::math::_llvm_log10_f32),
+        "_llvm_log2_f32" => func!(crate::math::_llvm_log2_f64),
+        "_llvm_sin_f64" => func!(crate::math::_llvm_sin_f64),
+        "_llvm_cos_f64" => func!(crate::math::_llvm_cos_f64),
+        "_llvm_exp2_f32" => func!(crate::math::_llvm_exp2_f32),
+        "_llvm_exp2_f64" => func!(crate::math::_llvm_exp2_f64),
+        "_emscripten_random" => func!(crate::math::_emscripten_random),
 
-            // Jump
-            "__setjmp" => func!(crate::jmp::__setjmp),
-            "__longjmp" => func!(crate::jmp::__longjmp),
+        // Jump
+        "__setjmp" => func!(crate::jmp::__setjmp),
+        "__longjmp" => func!(crate::jmp::__longjmp),
+        "_longjmp" => func!(crate::jmp::_longjmp),
+        "_emscripten_longjmp" => func!(crate::jmp::_longjmp),
 
-            // Linking
-            "_dlclose" => func!(crate::linking::_dlclose),
-            "_dlerror" => func!(crate::linking::_dlerror),
-            "_dlopen" => func!(crate::linking::_dlopen),
-            "_dlsym" => func!(crate::linking::_dlsym),
+        // Bitwise
+        "_llvm_bswap_i64" => func!(crate::bitwise::_llvm_bswap_i64),
 
-            // wasm32-unknown-emscripten
-            "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
-            "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
-            "nullFunc_ji" => func!(crate::emscripten_target::nullFunc_ji),
-            "invoke_i" => func!(crate::emscripten_target::invoke_i),
-            "invoke_ii" => func!(crate::emscripten_target::invoke_ii),
-            "invoke_iii" => func!(crate::emscripten_target::invoke_iii),
-            "invoke_iiii" => func!(crate::emscripten_target::invoke_iiii),
-            "invoke_v" => func!(crate::emscripten_target::invoke_v),
-            "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
-            "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
-            "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
-            "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
-            "__Unwind_Backtrace" => func!(crate::emscripten_target::__Unwind_Backtrace),
-            "__Unwind_FindEnclosingFunction" => func!(crate::emscripten_target::__Unwind_FindEnclosingFunction),
-            "__Unwind_GetIPInfo" => func!(crate::emscripten_target::__Unwind_GetIPInfo),
-            "___cxa_find_matching_catch_2" => func!(crate::emscripten_target::___cxa_find_matching_catch_2),
-            "___cxa_find_matching_catch_3" => func!(crate::emscripten_target::___cxa_find_matching_catch_3),
-            "___cxa_free_exception" => func!(crate::emscripten_target::___cxa_free_exception),
-            "___resumeException" => func!(crate::emscripten_target::___resumeException),
-            "_dladdr" => func!(crate::emscripten_target::_dladdr),
-            "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
-            "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
-            "_pthread_cond_signal" => func!(crate::emscripten_target::_pthread_cond_signal),
-            "_pthread_cond_wait" => func!(crate::emscripten_target::_pthread_cond_wait),
-            "_pthread_condattr_destroy" => func!(crate::emscripten_target::_pthread_condattr_destroy),
-            "_pthread_condattr_init" => func!(crate::emscripten_target::_pthread_condattr_init),
-            "_pthread_condattr_setclock" => func!(crate::emscripten_target::_pthread_condattr_setclock),
-            "_pthread_mutex_destroy" => func!(crate::emscripten_target::_pthread_mutex_destroy),
-            "_pthread_mutex_init" => func!(crate::emscripten_target::_pthread_mutex_init),
-            "_pthread_mutexattr_destroy" => func!(crate::emscripten_target::_pthread_mutexattr_destroy),
-            "_pthread_mutexattr_init" => func!(crate::emscripten_target::_pthread_mutexattr_init),
-            "_pthread_mutexattr_settype" => func!(crate::emscripten_target::_pthread_mutexattr_settype),
-            "_pthread_rwlock_rdlock" => func!(crate::emscripten_target::_pthread_rwlock_rdlock),
-            "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
-            "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
-            // round 2
-            "nullFunc_dii" => func!(crate::emscripten_target::nullFunc_dii),
-            "nullFunc_diiii" => func!(crate::emscripten_target::nullFunc_diiii),
-            "nullFunc_iiji" => func!(crate::emscripten_target::nullFunc_iiji),
-            "nullFunc_j" => func!(crate::emscripten_target::nullFunc_j),
-            "nullFunc_jij" => func!(crate::emscripten_target::nullFunc_jij),
-            "nullFunc_jjj" => func!(crate::emscripten_target::nullFunc_jjj),
-            "nullFunc_vd" => func!(crate::emscripten_target::nullFunc_vd),
-            "nullFunc_viiiiiii" => func!(crate::emscripten_target::nullFunc_viiiiiii),
-            "nullFunc_viiiiiiii" => func!(crate::emscripten_target::nullFunc_viiiiiiii),
-            "nullFunc_viiiiiiiii" => func!(crate::emscripten_target::nullFunc_viiiiiiiii),
-            "nullFunc_viiij" => func!(crate::emscripten_target::nullFunc_viiij),
-            "nullFunc_viiijiiii" => func!(crate::emscripten_target::nullFunc_viiijiiii),
-            "nullFunc_viiijiiiiii" => func!(crate::emscripten_target::nullFunc_viiijiiiiii),
-            "nullFunc_viij" => func!(crate::emscripten_target::nullFunc_viij),
-            "nullFunc_viiji" => func!(crate::emscripten_target::nullFunc_viiji),
-            "nullFunc_viijiii" => func!(crate::emscripten_target::nullFunc_viijiii),
-            "nullFunc_viijj" => func!(crate::emscripten_target::nullFunc_viijj),
-            "nullFunc_vij" => func!(crate::emscripten_target::nullFunc_vij),
-            "nullFunc_viji" => func!(crate::emscripten_target::nullFunc_viji),
-            "nullFunc_vijiii" => func!(crate::emscripten_target::nullFunc_vijiii),
-            "nullFunc_vijj" => func!(crate::emscripten_target::nullFunc_vijj),
-            "invoke_dii" => func!(crate::emscripten_target::invoke_dii),
-            "invoke_diiii" => func!(crate::emscripten_target::invoke_diiii),
-            "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),
-            "invoke_iiiiii" => func!(crate::emscripten_target::invoke_iiiiii),
-            "invoke_vd" => func!(crate::emscripten_target::invoke_vd),
-            "invoke_viiiii" => func!(crate::emscripten_target::invoke_viiiii),
-            "invoke_viiiiii" => func!(crate::emscripten_target::invoke_viiiiii),
-            "invoke_viiiiiii" => func!(crate::emscripten_target::invoke_viiiiiii),
-            "invoke_viiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiii),
-            "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
-            "invoke_iiji" => func!(crate::emscripten_target::invoke_iiji),
-            "invoke_j" => func!(crate::emscripten_target::invoke_j),
-            "invoke_ji" => func!(crate::emscripten_target::invoke_ji),
-            "invoke_jij" => func!(crate::emscripten_target::invoke_jij),
-            "invoke_jjj" => func!(crate::emscripten_target::invoke_jjj),
-            "invoke_viiij" => func!(crate::emscripten_target::invoke_viiij),
-            "invoke_viiijiiii" => func!(crate::emscripten_target::invoke_viiijiiii),
-            "invoke_viiijiiiiii" => func!(crate::emscripten_target::invoke_viiijiiiiii),
-            "invoke_viij" => func!(crate::emscripten_target::invoke_viij),
-            "invoke_viiji" => func!(crate::emscripten_target::invoke_viiji),
-            "invoke_viijiii" => func!(crate::emscripten_target::invoke_viijiii),
-            "invoke_viijj" => func!(crate::emscripten_target::invoke_viijj),
-            "invoke_vij" => func!(crate::emscripten_target::invoke_vij),
-            "invoke_viji" => func!(crate::emscripten_target::invoke_viji),
-            "invoke_vijiii" => func!(crate::emscripten_target::invoke_vijiii),
-            "invoke_vijj" => func!(crate::emscripten_target::invoke_vijj),
-        },
+        // Linking
+        "_dlclose" => func!(crate::linking::_dlclose),
+        "_dlerror" => func!(crate::linking::_dlerror),
+        "_dlopen" => func!(crate::linking::_dlopen),
+        "_dlsym" => func!(crate::linking::_dlsym),
+
+        // wasm32-unknown-emscripten
+        "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
+        "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
+        "invoke_i" => func!(crate::emscripten_target::invoke_i),
+        "invoke_ii" => func!(crate::emscripten_target::invoke_ii),
+        "invoke_iii" => func!(crate::emscripten_target::invoke_iii),
+        "invoke_iiii" => func!(crate::emscripten_target::invoke_iiii),
+        "invoke_iifi" => func!(crate::emscripten_target::invoke_iifi),
+        "invoke_v" => func!(crate::emscripten_target::invoke_v),
+        "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
+        "invoke_vj" => func!(crate::emscripten_target::invoke_vj),
+        "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
+        "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
+        "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
+        "__Unwind_Backtrace" => func!(crate::emscripten_target::__Unwind_Backtrace),
+        "__Unwind_FindEnclosingFunction" => func!(crate::emscripten_target::__Unwind_FindEnclosingFunction),
+        "__Unwind_GetIPInfo" => func!(crate::emscripten_target::__Unwind_GetIPInfo),
+        "___cxa_find_matching_catch_2" => func!(crate::emscripten_target::___cxa_find_matching_catch_2),
+        "___cxa_find_matching_catch_3" => func!(crate::emscripten_target::___cxa_find_matching_catch_3),
+        "___cxa_free_exception" => func!(crate::emscripten_target::___cxa_free_exception),
+        "___resumeException" => func!(crate::emscripten_target::___resumeException),
+        "_dladdr" => func!(crate::emscripten_target::_dladdr),
+        "_pthread_create" => func!(crate::emscripten_target::_pthread_create),
+        "_pthread_join" => func!(crate::emscripten_target::_pthread_join),
+        "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
+        "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
+        "_pthread_cond_signal" => func!(crate::emscripten_target::_pthread_cond_signal),
+        "_pthread_cond_wait" => func!(crate::emscripten_target::_pthread_cond_wait),
+        "_pthread_condattr_destroy" => func!(crate::emscripten_target::_pthread_condattr_destroy),
+        "_pthread_condattr_init" => func!(crate::emscripten_target::_pthread_condattr_init),
+        "_pthread_condattr_setclock" => func!(crate::emscripten_target::_pthread_condattr_setclock),
+        "_pthread_mutex_destroy" => func!(crate::emscripten_target::_pthread_mutex_destroy),
+        "_pthread_mutex_init" => func!(crate::emscripten_target::_pthread_mutex_init),
+        "_pthread_mutexattr_destroy" => func!(crate::emscripten_target::_pthread_mutexattr_destroy),
+        "_pthread_mutexattr_init" => func!(crate::emscripten_target::_pthread_mutexattr_init),
+        "_pthread_mutexattr_settype" => func!(crate::emscripten_target::_pthread_mutexattr_settype),
+        "_pthread_rwlock_rdlock" => func!(crate::emscripten_target::_pthread_rwlock_rdlock),
+        "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
+        "_pthread_setcancelstate" => func!(crate::emscripten_target::_pthread_setcancelstate),
+        "_pthread_getspecific" => func!(crate::emscripten_target::_pthread_getspecific),
+        "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
+        "_pthread_once" => func!(crate::emscripten_target::_pthread_once),
+        "_pthread_key_create" => func!(crate::emscripten_target::_pthread_key_create),
+        "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
+        "_getdtablesize" => func!(crate::emscripten_target::_getdtablesize),
+        "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
+        "_gethostbyname_r" => func!(crate::emscripten_target::_gethostbyname_r),
+        "_getloadavg" => func!(crate::emscripten_target::_getloadavg),
+        "invoke_dii" => func!(crate::emscripten_target::invoke_dii),
+        "invoke_diiii" => func!(crate::emscripten_target::invoke_diiii),
+        "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),
+        "invoke_iiiiii" => func!(crate::emscripten_target::invoke_iiiiii),
+        "invoke_iiiiiii" => func!(crate::emscripten_target::invoke_iiiiiii),
+        "invoke_iiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiii),
+        "invoke_iiiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiiii),
+        "invoke_iiiiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiiiii),
+        "invoke_iiiiiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiiiiii),
+        "invoke_vd" => func!(crate::emscripten_target::invoke_vd),
+        "invoke_viiiii" => func!(crate::emscripten_target::invoke_viiiii),
+        "invoke_viiiiii" => func!(crate::emscripten_target::invoke_viiiiii),
+        "invoke_viiiiiii" => func!(crate::emscripten_target::invoke_viiiiiii),
+        "invoke_viiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiii),
+        "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
+        "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
+        "invoke_viiiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiiii),
+        "invoke_iij" => func!(crate::emscripten_target::invoke_iij),
+        "invoke_iiji" => func!(crate::emscripten_target::invoke_iiji),
+        "invoke_iiijj" => func!(crate::emscripten_target::invoke_iiijj),
+        "invoke_j" => func!(crate::emscripten_target::invoke_j),
+        "invoke_ji" => func!(crate::emscripten_target::invoke_ji),
+        "invoke_jii" => func!(crate::emscripten_target::invoke_jii),
+        "invoke_jij" => func!(crate::emscripten_target::invoke_jij),
+        "invoke_jjj" => func!(crate::emscripten_target::invoke_jjj),
+        "invoke_viiij" => func!(crate::emscripten_target::invoke_viiij),
+        "invoke_viiijiiii" => func!(crate::emscripten_target::invoke_viiijiiii),
+        "invoke_viiijiiiiii" => func!(crate::emscripten_target::invoke_viiijiiiiii),
+        "invoke_viij" => func!(crate::emscripten_target::invoke_viij),
+        "invoke_viiji" => func!(crate::emscripten_target::invoke_viiji),
+        "invoke_viijiii" => func!(crate::emscripten_target::invoke_viijiii),
+        "invoke_viijj" => func!(crate::emscripten_target::invoke_viijj),
+        "invoke_vij" => func!(crate::emscripten_target::invoke_vij),
+        "invoke_viji" => func!(crate::emscripten_target::invoke_viji),
+        "invoke_vijiii" => func!(crate::emscripten_target::invoke_vijiii),
+        "invoke_vijj" => func!(crate::emscripten_target::invoke_vijj),
+        "invoke_viid" => func!(crate::emscripten_target::invoke_viid),
+        "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
+        "invoke_viidddddddd" => func!(crate::emscripten_target::invoke_viidddddddd),
+    };
+
+    for null_func_name in globals.null_func_names.iter() {
+        env_ns.insert(null_func_name.as_str(), Func::new(nullfunc).to_export());
+    }
+
+    let import_object: ImportObject = imports! {
+        "env" => env_ns,
         "global" => {
           "NaN" => Global::new(Value::F64(f64::NAN)),
           "Infinity" => Global::new(Value::F64(f64::INFINITY)),
         },
         "global.Math" => {
             "pow" => func!(crate::math::pow),
+            "exp" => func!(crate::math::exp),
+            "log" => func!(crate::math::log),
         },
         "asm2wasm" => {
             "f64-rem" => func!(crate::math::f64_rem),
+            "f64-to-int" => func!(crate::math::f64_to_int),
         },
-    }
+    };
+
+    import_object
+}
+
+pub fn nullfunc(ctx: &mut Ctx, _x: u32) {
+    use crate::process::abort_with_message;
+    debug!("emscripten::nullfunc_i {}", _x);
+    abort_with_message(ctx, "Invalid function pointer. Perhaps this is an invalid value \
+    (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an \
+    incorrect type, which will fail? (it is worth building your source files with -Werror (\
+    warnings are errors), as warnings can indicate undefined behavior which can cause this)");
 }
 
 /// The current version of this crate

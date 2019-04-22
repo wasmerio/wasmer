@@ -1,5 +1,4 @@
 #[test]
-#[ignore]
 fn test_test_longjmp4() {
     assert_emscripten_output!(
         "../../emtests/test_longjmp4.wasm",

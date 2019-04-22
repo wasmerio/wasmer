@@ -1,5 +1,4 @@
 #[test]
-#[ignore]
 fn test_test_longjmp_unwind() {
     assert_emscripten_output!(
         "../../emtests/test_longjmp_unwind.wasm",

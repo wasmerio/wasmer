@@ -1,14 +1,15 @@
 use std::ffi::c_void;
+use std::ptr::NonNull;
 use wasmer_runtime_core::vm::{Ctx, Func};
 
-type Trampoline = unsafe extern "C" fn(*mut Ctx, *const Func, *const u64, *mut u64) -> c_void;
+type Trampoline = unsafe extern "C" fn(*mut Ctx, NonNull<Func>, *const u64, *mut u64);
 type CallProtectedResult = Result<(), CallProtectedData>;
 
 #[repr(C)]
 pub struct CallProtectedData {
     pub code: u64,
-    pub exceptionAddress: u64,
-    pub instructionPointer: u64,
+    pub exception_address: u64,
+    pub instruction_pointer: u64,
 }
 
 extern "C" {
@@ -16,7 +17,7 @@ extern "C" {
     pub fn __call_protected(
         trampoline: Trampoline,
         ctx: *mut Ctx,
-        func: *const Func,
+        func: NonNull<Func>,
         param_vec: *const u64,
         return_vec: *mut u64,
         out_result: *mut CallProtectedData,
@@ -26,14 +27,14 @@ extern "C" {
 pub fn _call_protected(
     trampoline: Trampoline,
     ctx: *mut Ctx,
-    func: *const Func,
+    func: NonNull<Func>,
     param_vec: *const u64,
     return_vec: *mut u64,
 ) -> CallProtectedResult {
     let mut out_result = CallProtectedData {
         code: 0,
-        exceptionAddress: 0,
-        instructionPointer: 0,
+        exception_address: 0,
+        instruction_pointer: 0,
     };
     let result = unsafe {
         __call_protected(

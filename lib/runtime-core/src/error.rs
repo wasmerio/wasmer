@@ -1,9 +1,6 @@
-use crate::sys::Memory;
-use crate::types::{
-    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
-};
+use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value};
 use core::borrow::Borrow;
-use std::sync::Arc;
+use std::any::Any;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
@@ -11,6 +8,7 @@ pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
 pub type RuntimeResult<T> = std::result::Result<T, RuntimeError>;
 pub type CallResult<T> = std::result::Result<T, CallError>;
 pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
+pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
 /// This is returned when the chosen compiler is unable to
 /// successfully compile the provided webassembly module into
@@ -57,8 +55,8 @@ pub enum LinkError {
     IncorrectImportSignature {
         namespace: String,
         name: String,
-        expected: Arc<FuncSig>,
-        found: Arc<FuncSig>,
+        expected: FuncSig,
+        found: FuncSig,
     },
     ImportNotFound {
         namespace: String,
@@ -121,28 +119,10 @@ impl std::error::Error for LinkError {}
 /// The main way to do this is `Instance.call`.
 ///
 /// Comparing two `RuntimeError`s always evaluates to false.
-#[derive(Debug, Clone)]
 pub enum RuntimeError {
-    OutOfBoundsAccess {
-        memory: MemoryIndex,
-        addr: Option<u32>,
-    },
-    TableOutOfBounds {
-        table: TableIndex,
-    },
-    IndirectCallSignature {
-        table: TableIndex,
-    },
-    IndirectCallToNull {
-        table: TableIndex,
-    },
-    IllegalArithmeticOperation,
-    User {
-        msg: String,
-    },
-    Unknown {
-        msg: String,
-    },
+    Trap { msg: Box<str> },
+    Exception { data: Box<[Value]> },
+    Panic { data: Box<dyn Any> },
 }
 
 impl PartialEq for RuntimeError {
@@ -154,31 +134,30 @@ impl PartialEq for RuntimeError {
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            RuntimeError::IndirectCallSignature { table } => write!(
-                f,
-                "Indirect call signature error with Table Index \"{:?}\"",
-                table
-            ),
-            RuntimeError::IndirectCallToNull { table } => {
-                write!(f, "Indirect call to null with table index \"{:?}\"", table)
+            RuntimeError::Trap { ref msg } => {
+                write!(f, "WebAssembly trap occured during runtime: {}", msg)
             }
-            RuntimeError::IllegalArithmeticOperation => write!(f, "Illegal arithmetic operation"),
-            RuntimeError::OutOfBoundsAccess { memory, addr } => match addr {
-                Some(addr) => write!(
-                    f,
-                    "Out-of-bounds access with memory index {:?} and address {}",
-                    memory, addr
-                ),
-                None => write!(f, "Out-of-bounds access with memory index {:?}", memory),
-            },
-            RuntimeError::TableOutOfBounds { table } => {
-                write!(f, "Table out of bounds with table index \"{:?}\"", table)
+            RuntimeError::Exception { ref data } => {
+                write!(f, "Uncaught WebAssembly exception: {:?}", data)
             }
-            RuntimeError::Unknown { msg } => {
-                write!(f, "Unknown runtime error with message: \"{}\"", msg)
+            RuntimeError::Panic { data } => {
+                let msg = if let Some(s) = data.downcast_ref::<String>() {
+                    s
+                } else if let Some(s) = data.downcast_ref::<&str>() {
+                    s
+                } else {
+                    "user-defined, opaque"
+                };
+
+                write!(f, "{}", msg)
             }
-            RuntimeError::User { msg } => write!(f, "User runtime error with message: \"{}\"", msg),
         }
+    }
+}
+
+impl std::fmt::Debug for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -190,16 +169,9 @@ impl std::error::Error for RuntimeError {}
 /// Comparing two `ResolveError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum ResolveError {
-    Signature {
-        expected: Arc<FuncSig>,
-        found: Vec<Type>,
-    },
-    ExportNotFound {
-        name: String,
-    },
-    ExportWrongType {
-        name: String,
-    },
+    Signature { expected: FuncSig, found: Vec<Type> },
+    ExportNotFound { name: String },
+    ExportWrongType { name: String },
 }
 
 impl PartialEq for ResolveError {
@@ -240,7 +212,6 @@ impl std::error::Error for ResolveError {}
 /// be the `CallError::Runtime(RuntimeError)` variant.
 ///
 /// Comparing two `CallError`s always evaluates to false.
-#[derive(Debug, Clone)]
 pub enum CallError {
     Resolve(ResolveError),
     Runtime(RuntimeError),
@@ -257,6 +228,15 @@ impl std::fmt::Display for CallError {
         match self {
             CallError::Resolve(resolve_error) => write!(f, "Call error: {}", resolve_error),
             CallError::Runtime(runtime_error) => write!(f, "Call error: {}", runtime_error),
+        }
+    }
+}
+
+impl std::fmt::Debug for CallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CallError::Resolve(resolve_err) => write!(f, "ResolveError: {:?}", resolve_err),
+            CallError::Runtime(runtime_err) => write!(f, "RuntimeError: {:?}", runtime_err),
         }
     }
 }
@@ -299,7 +279,7 @@ impl std::error::Error for CreationError {}
 /// of a webassembly module.
 ///
 /// Comparing two `Error`s always evaluates to false.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Error {
     CompileError(CompileError),
     LinkError(Vec<LinkError>),
@@ -365,7 +345,24 @@ impl From<ResolveError> for CallError {
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            Error::CompileError(err) => write!(f, "compile error: {}", err),
+            Error::LinkError(errs) => {
+                if errs.len() == 1 {
+                    write!(f, "link error: {}", errs[0])
+                } else {
+                    write!(f, "{} link errors:", errs.len())?;
+                    for (i, err) in errs.iter().enumerate() {
+                        write!(f, " ({} of {}) {}", i + 1, errs.len(), err)?;
+                    }
+                    Ok(())
+                }
+            }
+            Error::RuntimeError(err) => write!(f, "runtime error: {}", err),
+            Error::ResolveError(err) => write!(f, "resolve error: {}", err),
+            Error::CallError(err) => write!(f, "call error: {}", err),
+            Error::CreationError(err) => write!(f, "creation error: {}", err),
+        }
     }
 }
 
@@ -470,5 +467,16 @@ impl std::error::Error for MemoryProtectionError {}
 impl Into<GrowError> for MemoryProtectionError {
     fn into(self) -> GrowError {
         GrowError::CouldNotProtectMemory(self)
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseError {
+    BinaryReadError,
+}
+
+impl From<wasmparser::BinaryReaderError> for ParseError {
+    fn from(_: wasmparser::BinaryReaderError) -> Self {
+        ParseError::BinaryReadError
     }
 }

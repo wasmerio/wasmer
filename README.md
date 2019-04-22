@@ -18,7 +18,7 @@
 
 ## Introduction
 
-[Wasmer](https://wasmer.io/) is a standalone JIT WebAssembly runtime, aiming to be fully compatible with Emscripten, Rust and Go.
+[Wasmer](https://wasmer.io/) is a standalone JIT WebAssembly runtime, aiming to be fully compatible with [WASI](https://hacks.mozilla.org/2019/03/standardizing-wasi-a-webassembly-system-interface/) and [Emscripten](https://emscripten.org/).
 
 Install Wasmer with:
 
@@ -26,18 +26,28 @@ Install Wasmer with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
-_**NEW ✨**: You can now embed Wasmer in your Rust application, check our [example repo](https://github.com/wasmerio/wasmer-rust-example) to see how!_
+Wasmer runtime can also be embedded in different languages, so you can use WebAssembly anywhere ✨:
+* [**Rust**](https://github.com/wasmerio/wasmer-rust-example)
+* [**C/C++**](https://github.com/wasmerio/wasmer-c-api)
+* [**PHP**](https://github.com/wasmerio/php-ext-wasm)
+* [**Python**](https://github.com/wasmerio/python-ext-wasm)
 
 ### Usage
 
 Wasmer can execute both the standard binary format (`.wasm`) and the text
 format defined by the WebAssembly reference interpreter (`.wat`).
 
-Once installed, you will be able to run any WebAssembly files (_including nginx and Lua!_):
+Once installed, you will be able to run any WebAssembly files (_including Lua, PHP, SQLite and nginx!_):
 
 ```sh
 # Run Lua
 wasmer run examples/lua.wasm
+
+# Run PHP
+wasmer run examples/php.wasm
+
+# Run SQLite
+wasmer run examples/sqlite.wasm
 
 # Run nginx
 wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
@@ -70,6 +80,7 @@ Please select your operating system:
 
 - [macOS](#macos)
 - [Debian-based Linuxes](#debian-based-linuxes)
+- [FreeBSD](#freebsd)
 - [Microsoft Windows](#windows-msvc)
 
 #### macOS
@@ -92,18 +103,30 @@ sudo port install cmake
 sudo apt install cmake
 ```
 
+#### FreeBSD
+
+```sh
+pkg install cmake
+```
+
 #### Windows (MSVC)
 
 Windows support is _highly experimental_. Only simple Wasm programs may be run, and no syscalls are allowed. This means
 nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmerio/wasmer/issues/176) regarding Emscripten syscall polyfills for Windows.
 
-1. Install [Python for Windows](https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
+1. Install [Visual Studio](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=15)
+
+2. Install [Rust for Windows](https://win.rustup.rs)
+
+3. Install [Python for Windows](https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
    Make sure to enable "Add python.exe to Path" during installation.
 
-2. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default
+4. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default
    settings for the installer are fine).
 
-3. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
+5. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
+
+6. Install [LLVM 7.0](https://prereleases.llvm.org/win-snapshots/LLVM-7.0.0-r336178-win64.exe)
 
 ## Building
 
@@ -158,6 +181,7 @@ Below are some of the goals of this project (in order of priority):
 
 - [x] It should be 100% compatible with the [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests)
 - [x] It should be fast _(partially achieved)_
+- [ ] Support WASI _(in the works)_
 - [ ] Support Emscripten calls _(in the works)_
 - [ ] Support Rust ABI calls
 - [ ] Support Go ABI calls

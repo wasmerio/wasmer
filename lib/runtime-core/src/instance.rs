@@ -1,18 +1,20 @@
 use crate::{
-    backend::Token,
+    backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
-    error::{CallError, CallResult, ResolveError, ResolveResult, Result},
+    error::{CallError, CallResult, ResolveError, ResolveResult, Result, RuntimeError},
     export::{Context, Export, ExportIter, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
     memory::Memory,
-    module::{ExportIndex, Module, ModuleInner},
+    module::{ExportIndex, Module, ModuleInfo, ModuleInner},
+    sig_registry::SigRegistry,
     table::Table,
-    typed_func::{Func, Safe, WasmTypeList},
-    types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
+    typed_func::{Func, Wasm, WasmTrapInfo, WasmTypeList},
+    types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Type, Value},
     vm,
 };
-use std::{mem, sync::Arc};
+use smallvec::{smallvec, SmallVec};
+use std::{mem, ptr::NonNull, sync::Arc};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -38,6 +40,8 @@ impl Drop for InstanceInner {
 pub struct Instance {
     module: Arc<ModuleInner>,
     inner: Box<InstanceInner>,
+    #[allow(dead_code)]
+    import_object: ImportObject,
 }
 
 impl Instance {
@@ -60,13 +64,64 @@ impl Instance {
         // Initialize the vm::Ctx in-place after the backing
         // has been boxed.
         unsafe {
-            *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module)
+            *inner.vmctx = match imports.call_state_creator() {
+                Some((data, dtor)) => vm::Ctx::new_with_data(
+                    &mut inner.backing,
+                    &mut inner.import_backing,
+                    &module,
+                    data,
+                    dtor,
+                ),
+                None => vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module),
+            };
         };
 
-        let instance = Instance { module, inner };
+        let instance = Instance {
+            module,
+            inner,
+            import_object: imports.clone_ref(),
+        };
 
         if let Some(start_index) = instance.module.info.start_func {
-            instance.call_with_index(start_index, &[])?;
+            // We know that the start function takes no arguments and returns no values.
+            // Therefore, we can call it without doing any signature checking, etc.
+
+            let func_ptr = match start_index.local_or_import(&instance.module.info) {
+                LocalOrImport::Local(local_func_index) => instance
+                    .module
+                    .runnable_module
+                    .get_func(&instance.module.info, local_func_index)
+                    .unwrap(),
+                LocalOrImport::Import(import_func_index) => NonNull::new(
+                    instance.inner.import_backing.vm_functions[import_func_index].func as *mut _,
+                )
+                .unwrap(),
+            };
+
+            let ctx_ptr = match start_index.local_or_import(&instance.module.info) {
+                LocalOrImport::Local(_) => instance.inner.vmctx,
+                LocalOrImport::Import(imported_func_index) => {
+                    instance.inner.import_backing.vm_functions[imported_func_index].vmctx
+                }
+            };
+
+            let sig_index = *instance
+                .module
+                .info
+                .func_assoc
+                .get(start_index)
+                .expect("broken invariant, incorrect func index");
+
+            let wasm_trampoline = instance
+                .module
+                .runnable_module
+                .get_trampoline(&instance.module.info, sig_index)
+                .expect("wasm trampoline");
+
+            let start_func: Func<(), (), Wasm> =
+                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, ctx_ptr) };
+
+            start_func.call()?;
         }
 
         Ok(instance)
@@ -91,7 +146,7 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Safe>>
+    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -112,11 +167,12 @@ impl Instance {
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = &self.module.info.signatures[sig_index];
+            let signature =
+                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
 
             if signature.params() != Args::types() || signature.returns() != Rets::types() {
                 Err(ResolveError::Signature {
-                    expected: Arc::clone(&signature),
+                    expected: (*signature).clone(),
                     found: Args::types().to_vec(),
                 })?;
             }
@@ -128,20 +184,26 @@ impl Instance {
                 }
             };
 
+            let func_wasm_inner = self
+                .module
+                .runnable_module
+                .get_trampoline(&self.module.info, sig_index)
+                .unwrap();
+
             let func_ptr = match func_index.local_or_import(&self.module.info) {
                 LocalOrImport::Local(local_func_index) => self
                     .module
-                    .func_resolver
-                    .get(&self.module, local_func_index)
-                    .unwrap()
-                    .as_ptr(),
-                LocalOrImport::Import(import_func_index) => {
-                    self.inner.import_backing.vm_functions[import_func_index].func
-                }
+                    .runnable_module
+                    .get_func(&self.module.info, local_func_index)
+                    .unwrap(),
+                LocalOrImport::Import(import_func_index) => NonNull::new(
+                    self.inner.import_backing.vm_functions[import_func_index].func as *mut _,
+                )
+                .unwrap(),
             };
 
-            let typed_func: Func<Args, Rets, Safe> =
-                unsafe { Func::new_from_ptr(func_ptr as _, ctx) };
+            let typed_func: Func<Args, Rets, Wasm> =
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, ctx) };
 
             Ok(typed_func)
         } else {
@@ -183,7 +245,8 @@ impl Instance {
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = Arc::clone(&self.module.info.signatures[sig_index]);
+            let signature =
+                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
 
             Ok(DynFunc {
                 signature,
@@ -221,7 +284,7 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn call(&self, name: &str, args: &[Value]) -> CallResult<Vec<Value>> {
+    pub fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>> {
         let export_index =
             self.module
                 .info
@@ -240,7 +303,19 @@ impl Instance {
             .into());
         };
 
-        self.call_with_index(func_index, args)
+        let mut results = Vec::new();
+
+        call_func_with_index(
+            &self.module.info,
+            &*self.module.runnable_module,
+            &self.inner.import_backing,
+            self.inner.vmctx,
+            func_index,
+            params,
+            &mut results,
+        )?;
+
+        Ok(results)
     }
 
     /// Returns an immutable reference to the
@@ -261,52 +336,13 @@ impl Instance {
 
     /// Returns an iterator over all of the items
     /// exported from this instance.
-    pub fn exports(&mut self) -> ExportIter {
-        ExportIter::new(&self.module, &mut self.inner)
+    pub fn exports(&self) -> ExportIter {
+        ExportIter::new(&self.module, &self.inner)
     }
 
     /// The module used to instantiate this Instance.
     pub fn module(&self) -> Module {
         Module::new(Arc::clone(&self.module))
-    }
-}
-
-impl Instance {
-    fn call_with_index(&self, func_index: FuncIndex, args: &[Value]) -> CallResult<Vec<Value>> {
-        let sig_index = *self
-            .module
-            .info
-            .func_assoc
-            .get(func_index)
-            .expect("broken invariant, incorrect func index");
-        let signature = &self.module.info.signatures[sig_index];
-
-        if !signature.check_param_value_types(args) {
-            Err(ResolveError::Signature {
-                expected: signature.clone(),
-                found: args.iter().map(|val| val.ty()).collect(),
-            })?
-        }
-
-        let vmctx = match func_index.local_or_import(&self.module.info) {
-            LocalOrImport::Local(_) => self.inner.vmctx,
-            LocalOrImport::Import(imported_func_index) => {
-                self.inner.import_backing.vm_functions[imported_func_index].vmctx
-            }
-        };
-
-        let token = Token::generate();
-
-        let returns = self.module.protected_caller.call(
-            &self.module,
-            func_index,
-            args,
-            &self.inner.import_backing,
-            vmctx,
-            token,
-        )?;
-
-        Ok(returns)
     }
 }
 
@@ -358,8 +394,8 @@ impl InstanceInner {
         let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_func_index) => (
                 module
-                    .func_resolver
-                    .get(&module, local_func_index)
+                    .runnable_module
+                    .get_func(&module.info, local_func_index)
                     .expect("broken invariant, func resolver not synced with module.exports")
                     .cast()
                     .as_ptr() as *const _,
@@ -374,13 +410,10 @@ impl InstanceInner {
             }
         };
 
-        let signature = &module.info.signatures[sig_index];
+        let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
+        // let signature = &module.info.signatures[sig_index];
 
-        (
-            unsafe { FuncPointer::new(func_ptr) },
-            ctx,
-            Arc::clone(signature),
-        )
+        (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
 
     fn get_memory_from_index(&self, module: &ModuleInner, mem_index: MemoryIndex) -> Memory {
@@ -421,6 +454,136 @@ impl LikeNamespace for Instance {
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
     }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        unimplemented!("Use the exports method instead");
+    }
+
+    fn maybe_insert(&mut self, _name: &str, _export: Export) -> Option<()> {
+        None
+    }
+}
+
+#[must_use]
+fn call_func_with_index(
+    info: &ModuleInfo,
+    runnable: &dyn RunnableModule,
+    import_backing: &ImportBacking,
+    local_ctx: *mut vm::Ctx,
+    func_index: FuncIndex,
+    args: &[Value],
+    rets: &mut Vec<Value>,
+) -> CallResult<()> {
+    rets.clear();
+
+    let sig_index = *info
+        .func_assoc
+        .get(func_index)
+        .expect("broken invariant, incorrect func index");
+
+    let signature = &info.signatures[sig_index];
+    let num_results = signature.returns().len();
+    rets.reserve(num_results);
+
+    if !signature.check_param_value_types(args) {
+        Err(ResolveError::Signature {
+            expected: signature.clone(),
+            found: args.iter().map(|val| val.ty()).collect(),
+        })?
+    }
+
+    let func_ptr = match func_index.local_or_import(info) {
+        LocalOrImport::Local(local_func_index) => {
+            runnable.get_func(info, local_func_index).unwrap()
+        }
+        LocalOrImport::Import(import_func_index) => {
+            NonNull::new(import_backing.vm_functions[import_func_index].func as *mut _).unwrap()
+        }
+    };
+
+    let ctx_ptr = match func_index.local_or_import(info) {
+        LocalOrImport::Local(_) => local_ctx,
+        LocalOrImport::Import(imported_func_index) => {
+            import_backing.vm_functions[imported_func_index].vmctx
+        }
+    };
+
+    let raw_args: SmallVec<[u64; 8]> = args
+        .iter()
+        .map(|v| match v {
+            Value::I32(i) => *i as u64,
+            Value::I64(i) => *i as u64,
+            Value::F32(f) => f.to_bits() as u64,
+            Value::F64(f) => f.to_bits(),
+        })
+        .collect();
+
+    let Wasm {
+        trampoline,
+        invoke,
+        invoke_env,
+    } = runnable
+        .get_trampoline(info, sig_index)
+        .expect("wasm trampoline");
+
+    let run_wasm = |result_space: *mut u64| unsafe {
+        let mut trap_info = WasmTrapInfo::Unknown;
+
+        let success = invoke(
+            trampoline,
+            ctx_ptr,
+            func_ptr,
+            raw_args.as_ptr(),
+            result_space,
+            &mut trap_info,
+            invoke_env,
+        );
+
+        if success {
+            Ok(())
+        } else {
+            Err(RuntimeError::Trap {
+                msg: trap_info.to_string().into(),
+            })
+        }
+    };
+
+    let raw_to_value = |raw, ty| match ty {
+        Type::I32 => Value::I32(raw as i32),
+        Type::I64 => Value::I64(raw as i64),
+        Type::F32 => Value::F32(f32::from_bits(raw as u32)),
+        Type::F64 => Value::F64(f64::from_bits(raw)),
+    };
+
+    match signature.returns() {
+        &[] => {
+            run_wasm(0 as *mut u64)?;
+            Ok(())
+        }
+        &[ty] => {
+            let mut result = 0u64;
+
+            run_wasm(&mut result)?;
+
+            rets.push(raw_to_value(result, ty));
+
+            Ok(())
+        }
+        result_tys @ _ => {
+            let mut results: SmallVec<[u64; 8]> = smallvec![0; num_results];
+
+            run_wasm(results.as_mut_ptr())?;
+
+            rets.extend(
+                results
+                    .iter()
+                    .zip(result_tys.iter())
+                    .map(|(&raw, &ty)| raw_to_value(raw, ty)),
+            );
+
+            Ok(())
+        }
+    }
 }
 
 /// A representation of an exported WebAssembly function.
@@ -454,33 +617,20 @@ impl<'a> DynFunc<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn call(&mut self, params: &[Value]) -> CallResult<Vec<Value>> {
-        if !self.signature.check_param_value_types(params) {
-            Err(ResolveError::Signature {
-                expected: self.signature.clone(),
-                found: params.iter().map(|val| val.ty()).collect(),
-            })?
-        }
+    pub fn call(&self, params: &[Value]) -> CallResult<Vec<Value>> {
+        let mut results = Vec::new();
 
-        let vmctx = match self.func_index.local_or_import(&self.module.info) {
-            LocalOrImport::Local(_) => self.instance_inner.vmctx,
-            LocalOrImport::Import(imported_func_index) => {
-                self.instance_inner.import_backing.vm_functions[imported_func_index].vmctx
-            }
-        };
-
-        let token = Token::generate();
-
-        let returns = self.module.protected_caller.call(
-            &self.module,
+        call_func_with_index(
+            &self.module.info,
+            &*self.module.runnable_module,
+            &self.instance_inner.import_backing,
+            self.instance_inner.vmctx,
             self.func_index,
             params,
-            &self.instance_inner.import_backing,
-            vmctx,
-            token,
+            &mut results,
         )?;
 
-        Ok(returns)
+        Ok(results)
     }
 
     pub fn signature(&self) -> &FuncSig {
@@ -491,8 +641,8 @@ impl<'a> DynFunc<'a> {
         match self.func_index.local_or_import(&self.module.info) {
             LocalOrImport::Local(local_func_index) => self
                 .module
-                .func_resolver
-                .get(self.module, local_func_index)
+                .runnable_module
+                .get_func(&self.module.info, local_func_index)
                 .unwrap()
                 .as_ptr(),
             LocalOrImport::Import(import_func_index) => {

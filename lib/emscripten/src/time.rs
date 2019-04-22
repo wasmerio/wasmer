@@ -10,6 +10,7 @@ use libc::{clockid_t, time as libc_time};
 use libc::time_t;
 
 #[cfg(target_os = "windows")]
+#[allow(non_camel_case_types)]
 type clockid_t = c_int;
 
 #[cfg(target_os = "windows")]
@@ -75,8 +76,10 @@ pub fn _clock_gettime(ctx: &mut Ctx, clk_id: clockid_t, tp: c_int) -> c_int {
         tv_nsec: i32,
     }
 
+    #[allow(unreachable_patterns)]
     let timespec = match clk_id {
         CLOCK_REALTIME => time::get_time(),
+
         CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
             let precise_ns = time::precise_time_ns();
             time::Timespec::new(
@@ -295,7 +298,7 @@ pub fn _time(ctx: &mut Ctx, time_p: u32) -> i32 {
 
 /// emscripten: _strftime
 pub fn _strftime(
-    _ctx: &mut Ctx,
+    ctx: &mut Ctx,
     s_ptr: c_int,
     maxsize: u32,
     format_ptr: c_int,
@@ -305,5 +308,67 @@ pub fn _strftime(
         "emscripten::_strftime {} {} {} {}",
         s_ptr, maxsize, format_ptr, tm_ptr
     );
-    0
+
+    #[allow(clippy::cast_ptr_alignment)]
+    let s = emscripten_memory_pointer!(ctx.memory(0), s_ptr) as *mut c_char;
+    #[allow(clippy::cast_ptr_alignment)]
+    let format = emscripten_memory_pointer!(ctx.memory(0), format_ptr) as *const c_char;
+    #[allow(clippy::cast_ptr_alignment)]
+    let tm = emscripten_memory_pointer!(ctx.memory(0), tm_ptr) as *const guest_tm;
+
+    let format_string = unsafe { std::ffi::CStr::from_ptr(format).to_str().unwrap() };
+
+    debug!("=> format_string: {:?}", format_string);
+
+    let tm = unsafe { &*tm };
+
+    let rust_tm = ::time::Tm {
+        tm_sec: tm.tm_sec,
+        tm_min: tm.tm_min,
+        tm_hour: tm.tm_hour,
+        tm_mday: tm.tm_mday,
+        tm_mon: tm.tm_mon,
+        tm_year: tm.tm_year,
+        tm_wday: tm.tm_wday,
+        tm_yday: tm.tm_yday,
+        tm_isdst: tm.tm_isdst,
+        tm_utcoff: tm.tm_gmtoff,
+        tm_nsec: 0,
+    };
+
+    let result_str = match ::time::strftime(format_string, &rust_tm) {
+        Ok(res_string) => res_string,
+        // TODO: maybe match on e in Err(e) and return different values if required
+        _ => return 0,
+    };
+
+    // pad for null?
+    let bytes = result_str.chars().count();
+    if bytes as u32 > maxsize {
+        return 0;
+    } else {
+        // write output string
+        for (i, c) in result_str.chars().enumerate() {
+            unsafe { *s.add(i) = c as c_char };
+        }
+        // null terminate?
+        bytes as i32
+    }
+}
+
+/// emscripten: _strftime_l
+pub fn _strftime_l(
+    ctx: &mut Ctx,
+    s_ptr: c_int,
+    maxsize: u32,
+    format_ptr: c_int,
+    tm_ptr: c_int,
+    _last: c_int,
+) -> i32 {
+    debug!(
+        "emscripten::_strftime_l {} {} {} {}",
+        s_ptr, maxsize, format_ptr, tm_ptr
+    );
+
+    _strftime(ctx, s_ptr, maxsize, format_ptr, tm_ptr)
 }

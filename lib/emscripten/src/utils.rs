@@ -90,8 +90,9 @@ pub unsafe fn allocate_cstr_on_stack<'a>(ctx: &'a mut Ctx, s: &str) -> (u32, &'a
     (offset, slice)
 }
 
+#[cfg(not(target_os = "windows"))]
 pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
-    let total_num = {
+    let _total_num = {
         let mut ptr = cstrs;
         let mut counter = 0;
         while !(*ptr).is_null() {
@@ -102,7 +103,7 @@ pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_
     };
     debug!(
         "emscripten::copy_terminated_array_of_cstrs::total_num: {}",
-        total_num
+        _total_num
     );
     0
 }
@@ -124,7 +125,7 @@ pub struct GuestStat {
     st_atime: u64,
     st_mtime: u64,
     st_ctime: u64,
-    st_ino: u64,
+    st_ino: u32,
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -155,6 +156,7 @@ pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
     (*stat_ptr).st_ino = stat.st_ino as _;
 }
 
+#[allow(dead_code)] // it's used in `env/windows/mod.rs`.
 pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
     let v: Vec<u8> = memory.view()[(offset as usize)..]
         .iter()
@@ -169,15 +171,40 @@ mod tests {
     use super::is_emscripten_module;
     use std::sync::Arc;
     use wabt::wat2wasm;
-    use wasmer_clif_backend::CraneliftCompiler;
+    use wasmer_runtime_core::backend::Compiler;
     use wasmer_runtime_core::compile_with;
+
+    #[cfg(feature = "clif")]
+    fn get_compiler() -> impl Compiler {
+        use wasmer_clif_backend::CraneliftCompiler;
+        CraneliftCompiler::new()
+    }
+
+    #[cfg(feature = "llvm")]
+    fn get_compiler() -> impl Compiler {
+        use wasmer_llvm_backend::LLVMCompiler;
+        LLVMCompiler::new()
+    }
+
+    #[cfg(feature = "singlepass")]
+    fn get_compiler() -> impl Compiler {
+        use wasmer_singlepass_backend::SinglePassCompiler;
+        SinglePassCompiler::new()
+    }
+
+    #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
+    fn get_compiler() -> impl Compiler {
+        panic!("compiler not specified, activate a compiler via features");
+        use wasmer_clif_backend::CraneliftCompiler;
+        CraneliftCompiler::new()
+    }
 
     #[test]
     fn should_detect_emscripten_files() {
         const WAST_BYTES: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
         let wasm_binary = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert to wasm");
-        let module = compile_with(&wasm_binary[..], &CraneliftCompiler::new())
-            .expect("WASM can't be compiled");
+        let module =
+            compile_with(&wasm_binary[..], &get_compiler()).expect("WASM can't be compiled");
         let module = Arc::new(module);
         assert!(is_emscripten_module(&module));
     }
@@ -186,8 +213,8 @@ mod tests {
     fn should_detect_non_emscripten_files() {
         const WAST_BYTES: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
         let wasm_binary = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert to wasm");
-        let module = compile_with(&wasm_binary[..], &CraneliftCompiler::new())
-            .expect("WASM can't be compiled");
+        let module =
+            compile_with(&wasm_binary[..], &get_compiler()).expect("WASM can't be compiled");
         let module = Arc::new(module);
         assert!(!is_emscripten_module(&module));
     }

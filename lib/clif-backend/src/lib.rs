@@ -16,7 +16,7 @@ use target_lexicon::Triple;
 
 use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 use wasmer_runtime_core::{
-    backend::{Compiler, Token},
+    backend::{Compiler, CompilerConfig, Token},
     error::{CompileError, CompileResult},
     module::ModuleInner,
 };
@@ -24,6 +24,7 @@ use wasmer_runtime_core::{
 #[macro_use]
 extern crate serde_derive;
 
+extern crate rayon;
 extern crate serde;
 
 use wasmparser::{self, WasmDecoder};
@@ -38,12 +39,17 @@ impl CraneliftCompiler {
 
 impl Compiler for CraneliftCompiler {
     /// Compiles wasm binary to a wasmer module.
-    fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner> {
+    fn compile(
+        &self,
+        wasm: &[u8],
+        compiler_config: CompilerConfig,
+        _: Token,
+    ) -> CompileResult<ModuleInner> {
         validate(wasm)?;
 
         let isa = get_isa();
 
-        let mut module = module::Module::new(wasm);
+        let mut module = module::Module::new(&compiler_config);
         let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
 
         let func_bodies = module_env.translate(wasm)?;

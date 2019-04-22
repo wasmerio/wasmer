@@ -74,6 +74,7 @@
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 //! [`compile_with`]: fn.compile_with.html
 
+pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
 pub use wasmer_runtime_core::import::ImportObject;
 pub use wasmer_runtime_core::instance::{DynFunc, Instance};
@@ -95,7 +96,9 @@ pub mod wasm {
     //! Various types exposed by the Wasmer Runtime.
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::table::Table;
-    pub use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, TableDescriptor, Type, Value};
+    pub use wasmer_runtime_core::types::{
+        FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
+    };
 }
 
 pub mod error {
@@ -110,7 +113,7 @@ pub mod units {
 
 pub mod cache;
 
-use wasmer_runtime_core::backend::Compiler;
+use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
@@ -127,6 +130,25 @@ use wasmer_runtime_core::backend::Compiler;
 /// If the operation fails, the function returns `Err(error::CompileError::...)`.
 pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
     wasmer_runtime_core::compile_with(&wasm[..], default_compiler())
+}
+
+/// The same as `compile` but takes a `CompilerConfig` for the purpose of
+/// changing the compiler's behavior
+pub fn compile_with_config(
+    wasm: &[u8],
+    compiler_config: CompilerConfig,
+) -> error::CompileResult<Module> {
+    wasmer_runtime_core::compile_with_config(&wasm[..], default_compiler(), compiler_config)
+}
+
+/// The same as `compile_with_config` but takes a `Compiler` for the purpose of
+/// changing the backend.
+pub fn compile_with_config_with(
+    wasm: &[u8],
+    compiler_config: CompilerConfig,
+    compiler: &dyn Compiler,
+) -> error::CompileResult<Module> {
+    wasmer_runtime_core::compile_with_config(&wasm[..], compiler, compiler_config)
 }
 
 /// Compile and instantiate WebAssembly code without
@@ -152,12 +174,21 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
     module.instantiate(import_object)
 }
 
-fn default_compiler() -> &'static dyn Compiler {
+/// Get a single instance of the default compiler to use.
+pub fn default_compiler() -> &'static dyn Compiler {
     use lazy_static::lazy_static;
-    use wasmer_clif_backend::CraneliftCompiler;
+
+    #[cfg(feature = "llvm")]
+    use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
+
+    #[cfg(feature = "singlepass")]
+    use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
+
+    #[cfg(not(any(feature = "llvm", feature = "singlepass")))]
+    use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     lazy_static! {
-        static ref DEFAULT_COMPILER: CraneliftCompiler = { CraneliftCompiler::new() };
+        static ref DEFAULT_COMPILER: DefaultCompiler = { DefaultCompiler::new() };
     }
 
     &*DEFAULT_COMPILER as &dyn Compiler

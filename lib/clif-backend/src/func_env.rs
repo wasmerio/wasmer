@@ -445,6 +445,12 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
             pos.ins().symbol_value(ir::types::I64, sig_index_global)
 
+            // let dynamic_sigindices_array_ptr = pos.ins().load(
+            //     ptr_type,
+            //     mflags,
+
+            // )
+
             // let expected_sig = pos.ins().iconst(ir::types::I32, sig_index.index() as i64);
 
             // self.env.deduplicated[clif_sig_index]
@@ -477,9 +483,10 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         call_args: &[ir::Value],
     ) -> cranelift_wasm::WasmResult<ir::Inst> {
         let callee_index: FuncIndex = Converter(clif_callee_index).into();
+        let ptr_type = self.pointer_type();
 
         match callee_index.local_or_import(&self.env.module.info) {
-            LocalOrImport::Local(_) => {
+            LocalOrImport::Local(local_function_index) => {
                 // this is an internal function
                 let vmctx = pos
                     .func
@@ -490,10 +497,28 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                 args.push(vmctx);
                 args.extend(call_args.iter().cloned());
 
-                Ok(pos.ins().call(callee, &args))
+                let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
+                let function_ptr = {
+                    let mflags = ir::MemFlags::trusted();
+
+                    let function_array_ptr = pos.ins().load(
+                        ptr_type,
+                        mflags,
+                        vmctx,
+                        vm::Ctx::offset_local_functions() as i32,
+                    );
+
+                    pos.ins().load(
+                        ptr_type,
+                        mflags,
+                        function_array_ptr,
+                        (local_function_index.index() as i32) * 8,
+                    )
+                };
+
+                Ok(pos.ins().call_indirect(sig_ref, function_ptr, &args))
             }
             LocalOrImport::Import(imported_func_index) => {
-                let ptr_type = self.pointer_type();
                 // this is an imported function
                 let vmctx = pos.func.create_global_value(ir::GlobalValueData::VMContext);
 

@@ -1,6 +1,9 @@
 use super::process::abort_with_message;
 use libc::{c_int, c_void, memcpy, size_t};
-use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime_core::{
+    units::{Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE},
+    vm::Ctx,
+};
 
 /// emscripten: _emscripten_memcpy_big
 pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u32 {
@@ -19,15 +22,44 @@ pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u
 /// emscripten: _emscripten_get_heap_size
 pub fn _emscripten_get_heap_size(ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_emscripten_get_heap_size",);
-    // TODO: Fix implementation
-    16_777_216
+    ctx.memory(0).size().bytes().0 as u32
+}
+
+// From emscripten implementation
+fn align_up(mut val: usize, multiple: usize) -> usize {
+    if val % multiple > 0 {
+        val += multiple - val % multiple;
+    }
+    val
 }
 
 /// emscripten: _emscripten_resize_heap
+/// Note: this function only allows growing the size of heap
 pub fn _emscripten_resize_heap(ctx: &mut Ctx, requested_size: u32) -> u32 {
     debug!("emscripten::_emscripten_resize_heap {}", requested_size);
-    // TODO: Fix implementation
-    0
+    let current_memory_pages = ctx.memory(0).size();
+    let current_memory = current_memory_pages.bytes().0 as u32;
+
+    // implementation from emscripten
+    let mut new_size = usize::max(current_memory as usize, WASM_MIN_PAGES * WASM_PAGE_SIZE);
+    while new_size < requested_size as usize {
+        if new_size <= 0x2000_0000 {
+            new_size = align_up(new_size * 2, WASM_PAGE_SIZE);
+        } else {
+            new_size = usize::min(
+                align_up((3 * new_size + 0x8000_0000) / 4, WASM_PAGE_SIZE),
+                WASM_PAGE_SIZE * WASM_MAX_PAGES,
+            );
+        }
+    }
+
+    let amount_to_grow = (new_size - current_memory as usize) / WASM_PAGE_SIZE;
+    if let Ok(_pages_allocated) = ctx.memory(0).grow(Pages(amount_to_grow as u32)) {
+        debug!("{} pages allocated", _pages_allocated.0);
+        1
+    } else {
+        0
+    }
 }
 
 /// emscripten: getTotalMemory
@@ -35,7 +67,7 @@ pub fn get_total_memory(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::get_total_memory");
     // instance.memories[0].current_pages()
     // TODO: Fix implementation
-    16_777_216
+    _ctx.memory(0).size().bytes().0 as u32
 }
 
 /// emscripten: enlargeMemory
@@ -47,8 +79,11 @@ pub fn enlarge_memory(_ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: abortOnCannotGrowMemory
-pub fn abort_on_cannot_grow_memory(ctx: &mut Ctx, requested_size: u32) -> u32 {
-    debug!("emscripten::abort_on_cannot_grow_memory {}", requested_size);
+pub fn abort_on_cannot_grow_memory(ctx: &mut Ctx, _requested_size: u32) -> u32 {
+    debug!(
+        "emscripten::abort_on_cannot_grow_memory {}",
+        _requested_size
+    );
     abort_with_message(ctx, "Cannot enlarge memory arrays!");
     0
 }

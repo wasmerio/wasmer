@@ -7,6 +7,7 @@ use crate::{
     },
     signal::HandlerData,
 };
+use rayon::prelude::*;
 
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
@@ -20,7 +21,6 @@ use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
     backend::{
-        self,
         sys::{Memory, Protect},
         SigRegistry,
     },
@@ -92,25 +92,44 @@ impl FuncResolverBuilder {
         function_bodies: Map<LocalFuncIndex, ir::Function>,
         info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {
-        let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
-        let mut local_relocs = Map::with_capacity(function_bodies.len());
-        let mut external_relocs = Map::new();
+        let num_func_bodies = function_bodies.len();
+        let mut local_relocs = Map::with_capacity(num_func_bodies);
+        let mut external_relocs = Map::with_capacity(num_func_bodies);
 
         let mut trap_sink = TrapSink::new();
-        let mut local_trap_sink = LocalTrapSink::new();
 
-        let mut ctx = Context::new();
+        let compiled_functions: Result<Vec<(Vec<u8>, (RelocSink, LocalTrapSink))>, CompileError> =
+            function_bodies
+                .into_vec()
+                .par_iter()
+                .map_init(
+                    || Context::new(),
+                    |ctx, func| {
+                        let mut code_buf = Vec::new();
+                        ctx.func = func.to_owned();
+                        let mut reloc_sink = RelocSink::new();
+                        let mut local_trap_sink = LocalTrapSink::new();
+
+                        ctx.compile_and_emit(
+                            isa,
+                            &mut code_buf,
+                            &mut reloc_sink,
+                            &mut local_trap_sink,
+                        )
+                        .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
+                        ctx.clear();
+                        Ok((code_buf, (reloc_sink, local_trap_sink)))
+                    },
+                )
+                .collect();
+
+        let compiled_functions = compiled_functions?;
         let mut total_size = 0;
-
-        for (_, func) in function_bodies {
-            ctx.func = func;
-            let mut code_buf = Vec::new();
-            let mut reloc_sink = RelocSink::new();
-
-            ctx.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut local_trap_sink)
-                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
-            ctx.clear();
-
+        // We separate into two iterators, one iterable and one into iterable
+        let (code_bufs, sinks): (Vec<Vec<u8>>, Vec<(RelocSink, LocalTrapSink)>) =
+            compiled_functions.into_iter().unzip();
+        for (code_buf, (reloc_sink, mut local_trap_sink)) in code_bufs.iter().zip(sinks.into_iter())
+        {
             // Clear the local trap sink and consolidate all trap info
             // into a single location.
             trap_sink.drain_local(total_size, &mut local_trap_sink);
@@ -118,7 +137,6 @@ impl FuncResolverBuilder {
             // Round up each function's size to pointer alignment.
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
 
-            compiled_functions.push(code_buf);
             local_relocs.push(reloc_sink.local_relocs.into_boxed_slice());
             external_relocs.push(reloc_sink.external_relocs.into_boxed_slice());
         }
@@ -145,10 +163,10 @@ impl FuncResolverBuilder {
             *i = 0xCC;
         }
 
-        let mut map = Map::with_capacity(compiled_functions.len());
+        let mut map = Map::with_capacity(num_func_bodies);
 
         let mut previous_end = 0;
-        for compiled in compiled_functions.iter() {
+        for compiled in code_bufs.iter() {
             let new_end = previous_end + round_up(compiled.len(), mem::size_of::<usize>());
             unsafe {
                 memory.as_slice_mut()[previous_end..previous_end + compiled.len()]
@@ -202,7 +220,7 @@ impl FuncResolverBuilder {
 
     pub fn finalize(
         mut self,
-        signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
+        signatures: &SliceMap<SigIndex, FuncSig>,
         trampolines: Arc<Trampolines>,
         handler_data: HandlerData,
     ) -> CompileResult<(FuncResolver, BackendCache)> {
@@ -269,8 +287,8 @@ impl FuncResolverBuilder {
                         },
                     },
                     RelocationType::Signature(sig_index) => {
-                        let sig_index =
-                            SigRegistry.lookup_sig_index(Arc::clone(&signatures[sig_index]));
+                        let signature = SigRegistry.lookup_signature_ref(&signatures[sig_index]);
+                        let sig_index = SigRegistry.lookup_sig_index(signature);
                         sig_index.index() as _
                     }
                 };
@@ -338,13 +356,8 @@ pub struct FuncResolver {
     pub(crate) memory: Arc<Memory>,
 }
 
-// Implements FuncResolver trait.
-impl backend::FuncResolver for FuncResolver {
-    fn get(
-        &self,
-        _module: &wasmer_runtime_core::module::ModuleInner,
-        index: LocalFuncIndex,
-    ) -> Option<NonNull<vm::Func>> {
+impl FuncResolver {
+    pub fn lookup(&self, index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
         lookup_func(&self.map, &self.memory, index)
     }
 }
@@ -355,20 +368,26 @@ fn round_up(n: usize, multiple: usize) -> usize {
 }
 
 extern "C" fn i32_print(_ctx: &mut vm::Ctx, n: i32) {
-    print!(" i32: {},", n);
+    eprint!(" i32: {},", n);
 }
 extern "C" fn i64_print(_ctx: &mut vm::Ctx, n: i64) {
-    print!(" i64: {},", n);
+    eprint!(" i64: {},", n);
 }
 extern "C" fn f32_print(_ctx: &mut vm::Ctx, n: f32) {
-    print!(" f32: {},", n);
+    eprint!(" f32: {},", n);
 }
 extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
-    print!(" f64: {},", n);
+    eprint!(" f64: {},", n);
 }
-extern "C" fn start_debug(_ctx: &mut vm::Ctx, func_index: u32) {
-    print!("func ({}), args: [", func_index);
+extern "C" fn start_debug(ctx: &mut vm::Ctx, func_index: u32) {
+    if let Some(symbol_map) = unsafe { ctx.borrow_symbol_map() } {
+        if let Some(fn_name) = symbol_map.get(&func_index) {
+            eprint!("func ({} ({})), args: [", fn_name, func_index);
+            return;
+        }
+    }
+    eprint!("func ({}), args: [", func_index);
 }
 extern "C" fn end_debug(_ctx: &mut vm::Ctx) {
-    println!(" ]");
+    eprintln!(" ]");
 }

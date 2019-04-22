@@ -3,3 +3,5 @@
 /artifacts
 .DS_Store
 .idea
+**/.vscode
+install/

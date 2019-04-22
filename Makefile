@@ -12,14 +12,11 @@ spectests:
 emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten
 
-capi:
-	WASM_EMSCRIPTEN_GENERATE_C_API_HEADERS=1 cargo build --manifest-path lib/runtime-c-api/Cargo.toml --features generate-c-api-headers
-
 # clean:
 #     rm -rf artifacts
 
 build:
-	cargo build
+	cargo build --features debug
 
 install:
 	cargo install --path .
@@ -31,21 +28,56 @@ integration-tests: release
 
 lint:
 	cargo fmt --all -- --check
-	cargo clippy --all
+	cargo +nightly-2019-02-27 clippy --all
 
 precommit: lint test
 
+build-install:
+	mkdir -p ./install/bin
+	cp ./target/release/wasmer ./install/bin/
+	tar -C ./install -zcvf wasmer.tar.gz bin/wasmer
+
+# For installing the contents locally
+do-install:
+	tar -C ~/.wasmer -zxvf wasmer.tar.gz
+
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all --exclude wasmer-runtime-c-api -- --test-threads=1 $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
+	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
+	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
 	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
+
+test-singlepass:
+	cargo test --manifest-path lib/spectests/Cargo.toml --features singlepass
+
+test-emscripten-llvm:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
+
+test-emscripten-clif:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
+
+test-emscripten-singlepass:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
+
+singlepass-debug-release:
+	cargo +nightly build --features "backend:singlepass debug" --release
+
+singlepass-release:
+	cargo +nightly build --features "backend:singlepass" --release
+
+singlepass-build:
+	cargo +nightly build --features "backend:singlepass debug"
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
+
+production-release:
+	cargo build --release --features backend:singlepass,backend:llvm
 
 debug-release:
 	cargo build --release --features "debug"

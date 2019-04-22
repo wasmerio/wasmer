@@ -77,12 +77,12 @@ const TESTS: &[&str] = &[
 static COMMON: &'static str = r##"
 use std::{{f32, f64}};
 use wabt::wat2wasm;
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime_core::import::ImportObject;
 use wasmer_runtime_core::types::Value;
 use wasmer_runtime_core::{{Instance, module::Module}};
 use wasmer_runtime_core::error::Result;
 use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime_core::backend::Compiler;
 
 static IMPORT_MODULE: &str = r#"
 (module
@@ -95,9 +95,34 @@ static IMPORT_MODULE: &str = r#"
   (global $global_i32 (export "global_i32") i32 (i32.const 666)))
 "#;
 
+#[cfg(feature = "clif")]
+fn get_compiler() -> impl Compiler {
+  use wasmer_clif_backend::CraneliftCompiler;
+  CraneliftCompiler::new()
+}
+
+#[cfg(feature = "llvm")]
+fn get_compiler() -> impl Compiler {
+  use wasmer_llvm_backend::LLVMCompiler;
+  LLVMCompiler::new()
+}
+
+#[cfg(feature = "singlepass")]
+fn get_compiler() -> impl Compiler {
+    use wasmer_singlepass_backend::SinglePassCompiler;
+    SinglePassCompiler::new()
+}
+
+#[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
+fn get_compiler() -> impl Compiler {
+  panic!("compiler not specified, activate a compiler via features");
+  use wasmer_clif_backend::CraneliftCompiler;
+  CraneliftCompiler::new()
+}
+
 pub fn generate_imports() -> ImportObject {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new())
+    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &get_compiler())
         .expect("WASM can't be compiled");
     let instance = module
         .instantiate(&ImportObject::new())
@@ -358,7 +383,7 @@ fn test_module_{}() {{
     let module_str = \"{}\";
     println!(\"{{}}\", module_str);
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
-    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
+    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &get_compiler()).expect(\"WASM can't be compiled\");
     module.instantiate(&generate_imports()).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
@@ -381,7 +406,7 @@ fn test_module_{}() {{
                 "#[test]
 fn {}_assert_invalid() {{
     let wasm_binary = {:?};
-    let module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new());
+    let module = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler());
     assert!(module.is_err(), \"WASM should not compile as is invalid\");
 }}\n",
                 command_name,
@@ -512,7 +537,7 @@ fn {}_assert_invalid() {{
                 "#[test]
 fn {}_assert_malformed() {{
     let wasm_binary = {:?};
-    let compilation = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new());
+    let compilation = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler());
     assert!(compilation.is_err(), \"WASM should not compile as is malformed\");
 }}\n",
                 command_name,
@@ -568,7 +593,7 @@ fn {}_assert_malformed() {{
                         let assertion = if expected.len() > 0 && is_nan(&expected[0]) {
                             format!(
                                 "let expected = {expected_result};
-                                if let {return_type_destructure} = result.clone().unwrap().first().unwrap() {{
+                                if let {return_type_destructure} = result.as_ref().unwrap().first().unwrap() {{
                                 assert!((*result as {return_type}).is_nan());
             assert_eq!((*result as {return_type}).is_sign_positive(), (expected as {return_type}).is_sign_positive());
             }} else {{

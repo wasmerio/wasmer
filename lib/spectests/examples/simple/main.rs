@@ -1,6 +1,6 @@
 use wabt::wat2wasm;
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime_core::{
+    backend::Compiler,
     error,
     global::Global,
     memory::Memory,
@@ -10,12 +10,37 @@ use wasmer_runtime_core::{
     units::Pages,
 };
 
+#[cfg(feature = "clif")]
+fn get_compiler() -> impl Compiler {
+    use wasmer_clif_backend::CraneliftCompiler;
+    CraneliftCompiler::new()
+}
+
+#[cfg(feature = "llvm")]
+fn get_compiler() -> impl Compiler {
+    use wasmer_llvm_backend::LLVMCompiler;
+    LLVMCompiler::new()
+}
+
+#[cfg(feature = "singlepass")]
+fn get_compiler() -> impl Compiler {
+    use wasmer_singlepass_backend::SinglePassCompiler;
+    SinglePassCompiler::new()
+}
+
+#[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
+fn get_compiler() -> impl Compiler {
+    panic!("compiler not specified, activate a compiler via features");
+    use wasmer_clif_backend::CraneliftCompiler;
+    CraneliftCompiler::new()
+}
+
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
 fn main() -> error::Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
 
-    let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
+    let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler())?;
 
     let memory = Memory::new(MemoryDescriptor {
         minimum: Pages(1),
@@ -50,7 +75,7 @@ fn main() -> error::Result<()> {
         "env" => inner_instance,
     };
 
-    let outer_module = wasmer_runtime_core::compile_with(EXAMPLE_WASM, &CraneliftCompiler::new())?;
+    let outer_module = wasmer_runtime_core::compile_with(EXAMPLE_WASM, &get_compiler())?;
     let outer_instance = outer_module.instantiate(&outer_imports)?;
     let ret = outer_instance.call("main", &[Value::I32(42)])?;
     println!("ret: {:?}", ret);

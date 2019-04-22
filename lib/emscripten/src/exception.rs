@@ -14,3 +14,17 @@ pub fn ___cxa_throw(ctx: &mut Ctx, _ptr: u32, _ty: u32, _destructor: u32) {
     debug!("emscripten::___cxa_throw");
     _abort(ctx);
 }
+
+pub fn ___cxa_begin_catch(_ctx: &mut Ctx, _exception_object_ptr: u32) -> i32 {
+    debug!("emscripten::___cxa_begin_catch");
+    -1
+}
+
+pub fn ___cxa_end_catch(_ctx: &mut Ctx) {
+    debug!("emscripten::___cxa_end_catch");
+}
+
+pub fn ___cxa_uncaught_exception(_ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___cxa_uncaught_exception");
+    -1
+}
