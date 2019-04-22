@@ -105,22 +105,13 @@ enum Backend {
 
 impl Backend {
     pub fn variants() -> &'static [&'static str] {
-        #[cfg(all(feature = "backend:singlepass", feature = "backend:llvm"))]
-        {
-            &["cranelift", "singlepass", "llvm"]
-        }
-        #[cfg(all(not(feature = "backend:singlepass"), feature = "backend:llvm"))]
-        {
-            &["cranelift", "llvm"]
-        }
-        #[cfg(all(feature = "backend:singlepass", not(feature = "backend:llvm")))]
-        {
-            &["cranelift", "singlepass"]
-        }
-        #[cfg(all(not(feature = "backend:singlepass"), not(feature = "backend:llvm")))]
-        {
-            &["cranelift"]
-        }
+        &[
+            "cranelift",
+            #[cfg(feature = "backend:singlepass")]
+            "singlepass",
+            #[cfg(feature = "backend:llvm")]
+            "llvm",
+        ]
     }
 }
 
