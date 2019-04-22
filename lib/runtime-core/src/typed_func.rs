@@ -2,7 +2,7 @@ use crate::{
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
-    types::{FuncSig, Type, WasmExternType},
+    types::{FuncSig, NativeWasmType, Type, WasmExternType},
     vm::{self, Ctx},
 };
 use std::{
@@ -135,10 +135,10 @@ where
 impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
-    E: Any,
+    E: Into<Box<Any>> + 'static,
 {
     fn report(self) -> Result<Rets, Box<dyn Any>> {
-        self.map_err(|err| Box::new(err) as Box<dyn Any>)
+        self.map_err(|err| err.into())
     }
 }
 
@@ -213,22 +213,24 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
     type CStruct = S1<A>;
     type RetArray = [u64; 1];
     fn from_ret_array(array: Self::RetArray) -> Self {
-        (WasmExternType::from_bits(array[0]),)
+        (WasmExternType::from_native(NativeWasmType::from_bits(
+            array[0],
+        )),)
     }
     fn empty_ret_array() -> Self::RetArray {
         [0u64]
     }
     fn from_c_struct(c_struct: Self::CStruct) -> Self {
         let S1(a) = c_struct;
-        (a,)
+        (WasmExternType::from_native(a),)
     }
     fn into_c_struct(self) -> Self::CStruct {
         #[allow(unused_parens, non_snake_case)]
         let (a,) = self;
-        S1(a)
+        S1(WasmExternType::to_native(a))
     }
     fn types() -> &'static [Type] {
-        &[A::TYPE]
+        &[A::Native::TYPE]
     }
     #[allow(non_snake_case)]
     unsafe fn call<Rets: WasmTypeList>(
@@ -237,11 +239,8 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
         wasm: Wasm,
         ctx: *mut Ctx,
     ) -> Result<Rets, WasmTrapInfo> {
-        // type Trampoline = extern "C" fn(*mut Ctx, *const c_void, *const u64, *mut u64);
-        // type Invoke = extern "C" fn(Trampoline, *mut Ctx, *const c_void, *const u64, *mut u64, &mut WasmTrapInfo) -> bool;
-
         let (a,) = self;
-        let args = [a.to_bits()];
+        let args = [a.to_native().to_bits()];
         let mut rets = Rets::empty_ret_array();
         let mut trap = WasmTrapInfo::Unknown;
 
@@ -277,7 +276,7 @@ where
 macro_rules! impl_traits {
     ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
         #[repr($repr)]
-        pub struct $struct_name <$( $x ),*> ( $( $x ),* );
+        pub struct $struct_name <$( $x: WasmExternType ),*> ( $( <$x as WasmExternType>::Native ),* );
 
         impl< $( $x: WasmExternType, )* > WasmTypeList for ( $( $x ),* ) {
             type CStruct = $struct_name<$( $x ),*>;
@@ -285,7 +284,7 @@ macro_rules! impl_traits {
             fn from_ret_array(array: Self::RetArray) -> Self {
                 #[allow(non_snake_case)]
                 let [ $( $x ),* ] = array;
-                ( $( WasmExternType::from_bits($x) ),* )
+                ( $( WasmExternType::from_native(NativeWasmType::from_bits($x)) ),* )
             }
             fn empty_ret_array() -> Self::RetArray {
                 [0; count_idents!( $( $x ),* )]
@@ -293,24 +292,21 @@ macro_rules! impl_traits {
             fn from_c_struct(c_struct: Self::CStruct) -> Self {
                 #[allow(non_snake_case)]
                 let $struct_name ( $( $x ),* ) = c_struct;
-                ( $( $x ),* )
+                ( $( WasmExternType::from_native($x) ),* )
             }
             fn into_c_struct(self) -> Self::CStruct {
                 #[allow(unused_parens, non_snake_case)]
                 let ( $( $x ),* ) = self;
-                $struct_name ( $( $x ),* )
+                $struct_name ( $( WasmExternType::to_native($x) ),* )
             }
             fn types() -> &'static [Type] {
-                &[$( $x::TYPE, )*]
+                &[$( $x::Native::TYPE, )*]
             }
             #[allow(non_snake_case)]
             unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, WasmTrapInfo> {
-                // type Trampoline = extern "C" fn(*mut Ctx, *const c_void, *const u64, *mut u64);
-                // type Invoke = extern "C" fn(Trampoline, *mut Ctx, *const c_void, *const u64, *mut u64, &mut WasmTrapInfo) -> bool;
-
                 #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
-                let args = [ $( $x.to_bits() ),* ];
+                let args = [ $( $x.to_native().to_bits() ),* ];
                 let mut rets = Rets::empty_ret_array();
                 let mut trap = WasmTrapInfo::Unknown;
 
@@ -319,12 +315,6 @@ macro_rules! impl_traits {
                 } else {
                     Err(trap)
                 }
-
-                // let f: extern fn(*mut Ctx $( ,$x )*) -> Rets::CStruct = mem::transmute(f);
-                // #[allow(unused_parens)]
-                // let ( $( $x ),* ) = self;
-                // let c_struct = f(ctx $( ,$x )*);
-                // Rets::from_c_struct(c_struct)
             }
         }
 
@@ -335,11 +325,11 @@ macro_rules! impl_traits {
 
                 /// This is required for the llvm backend to be able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
+                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: <$x as WasmExternType>::Native )* ) -> Rets::CStruct {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
 
                     let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        let res = f( ctx $( ,$x )* ).report();
+                        let res = f( ctx $( ,WasmExternType::from_native($x) )* ).report();
                         res
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
