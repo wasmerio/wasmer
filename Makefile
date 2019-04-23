@@ -25,6 +25,7 @@ integration-tests: release
 	echo "Running Integration Tests"
 	./integration_tests/lua/test.sh
 	./integration_tests/nginx/test.sh
+	./integration_tests/cowsay/test.sh
 
 lint:
 	cargo fmt --all -- --check
