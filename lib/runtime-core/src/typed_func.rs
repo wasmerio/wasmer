@@ -2,11 +2,12 @@ use crate::{
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
-    types::{FuncSig, Type, WasmExternType},
+    types::{FuncSig, NativeWasmType, Type, WasmExternType},
     vm::{self, Ctx},
 };
 use std::{
     any::Any,
+    convert::Infallible,
     ffi::c_void,
     fmt,
     marker::PhantomData,
@@ -57,6 +58,7 @@ pub type Invoke = unsafe extern "C" fn(
     *const u64,
     *mut u64,
     *mut WasmTrapInfo,
+    *mut Option<Box<dyn Any>>,
     Option<NonNull<c_void>>,
 ) -> bool;
 
@@ -103,7 +105,7 @@ pub trait WasmTypeList {
         f: NonNull<vm::Func>,
         wasm: Wasm,
         ctx: *mut Ctx,
-    ) -> Result<Rets, WasmTrapInfo>
+    ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList;
 }
@@ -120,14 +122,16 @@ pub trait TrapEarly<Rets>
 where
     Rets: WasmTypeList,
 {
-    fn report(self) -> Result<Rets, Box<dyn Any>>;
+    type Error: 'static;
+    fn report(self) -> Result<Rets, Self::Error>;
 }
 
 impl<Rets> TrapEarly<Rets> for Rets
 where
     Rets: WasmTypeList,
 {
-    fn report(self) -> Result<Rets, Box<dyn Any>> {
+    type Error = Infallible;
+    fn report(self) -> Result<Rets, Infallible> {
         Ok(self)
     }
 }
@@ -135,10 +139,11 @@ where
 impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
-    E: Any,
+    E: 'static,
 {
-    fn report(self) -> Result<Rets, Box<dyn Any>> {
-        self.map_err(|err| Box::new(err) as Box<dyn Any>)
+    type Error = E;
+    fn report(self) -> Result<Rets, E> {
+        self
     }
 }
 
@@ -209,26 +214,57 @@ where
     }
 }
 
+impl WasmTypeList for Infallible {
+    type CStruct = Infallible;
+    type RetArray = [u64; 0];
+    fn from_ret_array(_: Self::RetArray) -> Self {
+        unreachable!()
+    }
+    fn empty_ret_array() -> Self::RetArray {
+        unreachable!()
+    }
+    fn from_c_struct(_: Self::CStruct) -> Self {
+        unreachable!()
+    }
+    fn into_c_struct(self) -> Self::CStruct {
+        unreachable!()
+    }
+    fn types() -> &'static [Type] {
+        &[]
+    }
+    #[allow(non_snake_case)]
+    unsafe fn call<Rets: WasmTypeList>(
+        self,
+        _: NonNull<vm::Func>,
+        _: Wasm,
+        _: *mut Ctx,
+    ) -> Result<Rets, RuntimeError> {
+        unreachable!()
+    }
+}
+
 impl<A: WasmExternType> WasmTypeList for (A,) {
     type CStruct = S1<A>;
     type RetArray = [u64; 1];
     fn from_ret_array(array: Self::RetArray) -> Self {
-        (WasmExternType::from_bits(array[0]),)
+        (WasmExternType::from_native(NativeWasmType::from_bits(
+            array[0],
+        )),)
     }
     fn empty_ret_array() -> Self::RetArray {
         [0u64]
     }
     fn from_c_struct(c_struct: Self::CStruct) -> Self {
         let S1(a) = c_struct;
-        (a,)
+        (WasmExternType::from_native(a),)
     }
     fn into_c_struct(self) -> Self::CStruct {
         #[allow(unused_parens, non_snake_case)]
         let (a,) = self;
-        S1(a)
+        S1(WasmExternType::to_native(a))
     }
     fn types() -> &'static [Type] {
-        &[A::TYPE]
+        &[A::Native::TYPE]
     }
     #[allow(non_snake_case)]
     unsafe fn call<Rets: WasmTypeList>(
@@ -236,14 +272,12 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
         f: NonNull<vm::Func>,
         wasm: Wasm,
         ctx: *mut Ctx,
-    ) -> Result<Rets, WasmTrapInfo> {
-        // type Trampoline = extern "C" fn(*mut Ctx, *const c_void, *const u64, *mut u64);
-        // type Invoke = extern "C" fn(Trampoline, *mut Ctx, *const c_void, *const u64, *mut u64, &mut WasmTrapInfo) -> bool;
-
+    ) -> Result<Rets, RuntimeError> {
         let (a,) = self;
-        let args = [a.to_bits()];
+        let args = [a.to_native().to_bits()];
         let mut rets = Rets::empty_ret_array();
         let mut trap = WasmTrapInfo::Unknown;
+        let mut user_error = None;
 
         if (wasm.invoke)(
             wasm.trampoline,
@@ -252,11 +286,18 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
             args.as_ptr(),
             rets.as_mut().as_mut_ptr(),
             &mut trap,
+            &mut user_error,
             wasm.invoke_env,
         ) {
             Ok(Rets::from_ret_array(rets))
         } else {
-            Err(trap)
+            if let Some(data) = user_error {
+                Err(RuntimeError::Error { data })
+            } else {
+                Err(RuntimeError::Trap {
+                    msg: trap.to_string().into(),
+                })
+            }
         }
     }
 }
@@ -266,18 +307,14 @@ where
     Rets: WasmTypeList,
 {
     pub fn call(&self, a: A) -> Result<Rets, RuntimeError> {
-        unsafe { <A as WasmTypeList>::call(a, self.f, self.inner, self.ctx) }.map_err(|e| {
-            RuntimeError::Trap {
-                msg: e.to_string().into(),
-            }
-        })
+        unsafe { <A as WasmTypeList>::call(a, self.f, self.inner, self.ctx) }
     }
 }
 
 macro_rules! impl_traits {
     ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
         #[repr($repr)]
-        pub struct $struct_name <$( $x ),*> ( $( $x ),* );
+        pub struct $struct_name <$( $x: WasmExternType ),*> ( $( <$x as WasmExternType>::Native ),* );
 
         impl< $( $x: WasmExternType, )* > WasmTypeList for ( $( $x ),* ) {
             type CStruct = $struct_name<$( $x ),*>;
@@ -285,7 +322,7 @@ macro_rules! impl_traits {
             fn from_ret_array(array: Self::RetArray) -> Self {
                 #[allow(non_snake_case)]
                 let [ $( $x ),* ] = array;
-                ( $( WasmExternType::from_bits($x) ),* )
+                ( $( WasmExternType::from_native(NativeWasmType::from_bits($x)) ),* )
             }
             fn empty_ret_array() -> Self::RetArray {
                 [0; count_idents!( $( $x ),* )]
@@ -293,38 +330,34 @@ macro_rules! impl_traits {
             fn from_c_struct(c_struct: Self::CStruct) -> Self {
                 #[allow(non_snake_case)]
                 let $struct_name ( $( $x ),* ) = c_struct;
-                ( $( $x ),* )
+                ( $( WasmExternType::from_native($x) ),* )
             }
             fn into_c_struct(self) -> Self::CStruct {
                 #[allow(unused_parens, non_snake_case)]
                 let ( $( $x ),* ) = self;
-                $struct_name ( $( $x ),* )
+                $struct_name ( $( WasmExternType::to_native($x) ),* )
             }
             fn types() -> &'static [Type] {
-                &[$( $x::TYPE, )*]
+                &[$( $x::Native::TYPE, )*]
             }
             #[allow(non_snake_case)]
-            unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, WasmTrapInfo> {
-                // type Trampoline = extern "C" fn(*mut Ctx, *const c_void, *const u64, *mut u64);
-                // type Invoke = extern "C" fn(Trampoline, *mut Ctx, *const c_void, *const u64, *mut u64, &mut WasmTrapInfo) -> bool;
-
+            unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
-                let args = [ $( $x.to_bits() ),* ];
+                let args = [ $( $x.to_native().to_bits() ),* ];
                 let mut rets = Rets::empty_ret_array();
                 let mut trap = WasmTrapInfo::Unknown;
+                let mut user_error = None;
 
-                if (wasm.invoke)(wasm.trampoline, ctx, f, args.as_ptr(), rets.as_mut().as_mut_ptr(), &mut trap, wasm.invoke_env) {
+                if (wasm.invoke)(wasm.trampoline, ctx, f, args.as_ptr(), rets.as_mut().as_mut_ptr(), &mut trap, &mut user_error, wasm.invoke_env) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
-                    Err(trap)
+                    if let Some(data) = user_error {
+                        Err(RuntimeError::Error { data })
+                    } else {
+                        Err(RuntimeError::Trap { msg: trap.to_string().into() })
+                    }
                 }
-
-                // let f: extern fn(*mut Ctx $( ,$x )*) -> Rets::CStruct = mem::transmute(f);
-                // #[allow(unused_parens)]
-                // let ( $( $x ),* ) = self;
-                // let c_struct = f(ctx $( ,$x )*);
-                // Rets::from_c_struct(c_struct)
             }
         }
 
@@ -335,15 +368,17 @@ macro_rules! impl_traits {
 
                 /// This is required for the llvm backend to be able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
+                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: <$x as WasmExternType>::Native )* ) -> Rets::CStruct {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
 
                     let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        let res = f( ctx $( ,$x )* ).report();
-                        res
+                        f( ctx $( ,WasmExternType::from_native($x) )* ).report()
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
-                        Ok(Err(err)) => err,
+                        Ok(Err(err)) => {
+                            let b: Box<_> = err.into();
+                            b as Box<dyn Any>
+                        },
                         Err(err) => err,
                     };
 
@@ -363,11 +398,7 @@ macro_rules! impl_traits {
             #[allow(non_snake_case)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
-                unsafe { <( $( $x ),* ) as WasmTypeList>::call(( $($x),* ), self.f, self.inner, self.ctx) }.map_err(|e| {
-                    RuntimeError::Trap {
-                        msg: e.to_string().into(),
-                    }
-                })
+                unsafe { <( $( $x ),* ) as WasmTypeList>::call(( $($x),* ), self.f, self.inner, self.ctx) }
             }
         }
     };

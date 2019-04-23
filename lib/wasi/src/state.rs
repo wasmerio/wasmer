@@ -171,6 +171,7 @@ pub struct Fd {
     pub inode: Inode,
 }
 
+#[derive(Debug)]
 pub struct WasiFs {
     //pub repo: Repo,
     pub name_map: HashMap<String, Inode>,
@@ -430,6 +431,7 @@ impl WasiFs {
     }
 }
 
+#[derive(Debug)]
 pub struct WasiState<'a> {
     pub fs: WasiFs,
     pub args: &'a [Vec<u8>],

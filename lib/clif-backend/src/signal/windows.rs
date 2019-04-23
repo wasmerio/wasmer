@@ -1,10 +1,11 @@
 use crate::relocation::{TrapCode, TrapData};
-use crate::signal::HandlerData;
+use crate::signal::{CallProtError, HandlerData};
 use crate::trampoline::Trampoline;
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::ptr::{self, NonNull};
 use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
+use wasmer_runtime_core::typed_func::WasmTrapInfo;
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::vm::Func;
 use wasmer_win_exception_handler::CallProtectedData;
@@ -28,7 +29,7 @@ pub fn call_protected(
     func: NonNull<Func>,
     param_vec: *const u64,
     return_vec: *mut u64,
-) -> RuntimeResult<()> {
+) -> Result<(), CallProtError> {
     // TODO: trap early
     // user code error
     //    if let Some(msg) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
@@ -52,38 +53,22 @@ pub fn call_protected(
         srcloc: _,
     }) = handler_data.lookup(instruction_pointer as _)
     {
-        Err(match signum as DWORD {
-            EXCEPTION_ACCESS_VIOLATION => RuntimeError::Trap {
-                msg: "memory out-of-bounds access".into(),
-            },
+        Err(CallProtError::Trap(match signum as DWORD {
+            EXCEPTION_ACCESS_VIOLATION => WasmTrapInfo::MemoryOutOfBounds,
             EXCEPTION_ILLEGAL_INSTRUCTION => match trapcode {
-                TrapCode::BadSignature => RuntimeError::Trap {
-                    msg: "incorrect call_indirect signature".into(),
-                },
-                TrapCode::IndirectCallToNull => RuntimeError::Trap {
-                    msg: "indirect call to null".into(),
-                },
-                TrapCode::HeapOutOfBounds => RuntimeError::Trap {
-                    msg: "memory out-of-bounds access".into(),
-                },
-                TrapCode::TableOutOfBounds => RuntimeError::Trap {
-                    msg: "table out-of-bounds access".into(),
-                },
-                _ => RuntimeError::Trap {
-                    msg: "unknown trap".into(),
-                },
+                TrapCode::BadSignature => WasmTrapInfo::IncorrectCallIndirectSignature,
+                TrapCode::IndirectCallToNull => WasmTrapInfo::CallIndirectOOB,
+                TrapCode::HeapOutOfBounds => WasmTrapInfo::MemoryOutOfBounds,
+                TrapCode::TableOutOfBounds => WasmTrapInfo::CallIndirectOOB,
+                TrapCode::UnreachableCodeReached => WasmTrapInfo::Unreachable,
+                _ => WasmTrapInfo::Unknown,
             },
-            EXCEPTION_STACK_OVERFLOW => RuntimeError::Trap {
-                msg: "stack overflow trap".into(),
-            },
-            EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => RuntimeError::Trap {
-                msg: "illegal arithmetic operation".into(),
-            },
-            _ => RuntimeError::Trap {
-                msg: "unknown trap".into(),
-            },
-        }
-        .into())
+            EXCEPTION_STACK_OVERFLOW => WasmTrapInfo::Unknown,
+            EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => {
+                WasmTrapInfo::IllegalArithmetic
+            }
+            _ => WasmTrapInfo::Unknown,
+        }))
     } else {
         let signal = match signum as DWORD {
             EXCEPTION_FLT_DENORMAL_OPERAND
@@ -98,10 +83,9 @@ pub fn call_protected(
             _ => "unkown trapped signal",
         };
 
-        Err(RuntimeError::Trap {
-            msg: format!("unknown trap at {} - {}", exception_address, signal).into(),
-        }
-        .into())
+        let s = format!("unknown trap at {} - {}", exception_address, signal);
+
+        Err(CallProtError::Error(Box::new(s)))
     }
 }
 

@@ -17,7 +17,7 @@ use std::any::Any;
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
-use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
+use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
@@ -62,7 +62,12 @@ pub unsafe fn trigger_trap() -> ! {
     longjmp(jmp_buf as *mut c_void, 0)
 }
 
-pub fn call_protected<T>(f: impl FnOnce() -> T) -> RuntimeResult<T> {
+pub enum CallProtError {
+    Trap(WasmTrapInfo),
+    Error(Box<dyn Any>),
+}
+
+pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, CallProtError> {
     unsafe {
         let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
         let prev_jmp_buf = *jmp_buf;
@@ -76,23 +81,24 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> RuntimeResult<T> {
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(RuntimeError::Panic { data })
+                Err(CallProtError::Error(data))
             } else {
-                let (faulting_addr, _inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
+                // let (faulting_addr, _inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
-                let signal = match Signal::from_c_int(signum) {
-                    Ok(SIGFPE) => "floating-point exception",
-                    Ok(SIGILL) => "illegal instruction",
-                    Ok(SIGSEGV) => "segmentation violation",
-                    Ok(SIGBUS) => "bus error",
-                    Err(_) => "error while getting the Signal",
-                    _ => "unkown trapped signal",
-                };
-                // When the trap-handler is fully implemented, this will return more information.
-                Err(RuntimeError::Trap {
-                    msg: format!("unknown trap at {:p} - {}", faulting_addr, signal).into(),
-                }
-                .into())
+                // let signal = match Signal::from_c_int(signum) {
+                //     Ok(SIGFPE) => "floating-point exception",
+                //     Ok(SIGILL) => "illegal instruction",
+                //     Ok(SIGSEGV) => "segmentation violation",
+                //     Ok(SIGBUS) => "bus error",
+                //     Err(_) => "error while getting the Signal",
+                //     _ => "unkown trapped signal",
+                // };
+                // // When the trap-handler is fully implemented, this will return more information.
+                // Err(RuntimeError::Trap {
+                //     msg: format!("unknown trap at {:p} - {}", faulting_addr, signal).into(),
+                // }
+                // .into())
+                Err(CallProtError::Trap(WasmTrapInfo::Unknown))
             }
         } else {
             let ret = f(); // TODO: Switch stack?

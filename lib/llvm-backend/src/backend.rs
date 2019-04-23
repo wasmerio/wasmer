@@ -93,6 +93,7 @@ extern "C" {
         params: *const u64,
         results: *mut u64,
         trap_out: *mut WasmTrapInfo,
+        user_error: *mut Option<Box<dyn Any>>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
