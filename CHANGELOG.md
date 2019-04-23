@@ -5,6 +5,7 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#383](https://github.com/wasmerio/wasmer/pull/383) Hook up wasi exit code to wasmer cli.
 - [#382](https://github.com/wasmerio/wasmer/pull/382) Improve error message on `--backend` flag to only suggest currently enabled backends
 - [#381](https://github.com/wasmerio/wasmer/pull/381) Allow retrieving propagated user errors.
 - [#379](https://github.com/wasmerio/wasmer/pull/379) Fix small return types from imported functions.
