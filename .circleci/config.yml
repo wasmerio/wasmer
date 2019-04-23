@@ -182,7 +182,7 @@ jobs:
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make production-release
-            cargo build --release --manifest-path wapm-cli/Cargo.toml
+            cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # GIT_VERSION=$(git describe --exact-match --tags)
@@ -275,7 +275,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make production-release
-            cargo build --release --manifest-path wapm-cli/Cargo.toml
+            cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
             make build-install
             cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
