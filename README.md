@@ -100,7 +100,7 @@ sudo port install cmake
 #### Debian-based Linuxes
 
 ```sh
-sudo apt install cmake pkg-config
+sudo apt install cmake pkg-config libssl-dev
 ```
 
 #### FreeBSD
