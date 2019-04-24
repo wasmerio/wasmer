@@ -1,4 +1,4 @@
-use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value};
+use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
 use core::borrow::Borrow;
 use std::any::Any;
 
@@ -121,8 +121,7 @@ impl std::error::Error for LinkError {}
 /// Comparing two `RuntimeError`s always evaluates to false.
 pub enum RuntimeError {
     Trap { msg: Box<str> },
-    Exception { data: Box<[Value]> },
-    Panic { data: Box<dyn Any> },
+    Error { data: Box<dyn Any> },
 }
 
 impl PartialEq for RuntimeError {
@@ -137,19 +136,14 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::Trap { ref msg } => {
                 write!(f, "WebAssembly trap occured during runtime: {}", msg)
             }
-            RuntimeError::Exception { ref data } => {
-                write!(f, "Uncaught WebAssembly exception: {:?}", data)
-            }
-            RuntimeError::Panic { data } => {
-                let msg = if let Some(s) = data.downcast_ref::<String>() {
-                    s
+            RuntimeError::Error { data } => {
+                if let Some(s) = data.downcast_ref::<String>() {
+                    write!(f, "\"{}\"", s)
                 } else if let Some(s) = data.downcast_ref::<&str>() {
-                    s
+                    write!(f, "\"{}\"", s)
                 } else {
-                    "user-defined, opaque"
-                };
-
-                write!(f, "{}", msg)
+                    write!(f, "unknown error")
+                }
             }
         }
     }

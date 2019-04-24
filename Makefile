@@ -25,6 +25,7 @@ integration-tests: release
 	echo "Running Integration Tests"
 	./integration_tests/lua/test.sh
 	./integration_tests/nginx/test.sh
+	./integration_tests/cowsay/test.sh
 
 lint:
 	cargo fmt --all -- --check
@@ -34,8 +35,9 @@ precommit: lint test
 
 build-install:
 	mkdir -p ./install/bin
+	cp ./wapm-cli/target/release/wapm ./install/bin/
 	cp ./target/release/wasmer ./install/bin/
-	tar -C ./install -zcvf wasmer.tar.gz bin/wasmer
+	tar -C ./install -zcvf wasmer.tar.gz bin/wapm bin/wasmer
 
 # For installing the contents locally
 do-install:

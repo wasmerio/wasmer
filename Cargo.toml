@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"

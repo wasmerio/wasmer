@@ -100,7 +100,7 @@ sudo port install cmake
 #### Debian-based Linuxes
 
 ```sh
-sudo apt install cmake
+sudo apt install cmake pkg-config libssl-dev
 ```
 
 #### FreeBSD
@@ -181,7 +181,7 @@ Below are some of the goals of this project (in order of priority):
 
 - [x] It should be 100% compatible with the [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests)
 - [x] It should be fast _(partially achieved)_
-- [ ] Support WASI _(in the works)_
+- [x] Support WASI - released in [0.3.0](https://github.com/wasmerio/wasmer/releases/tag/0.3.0)
 - [ ] Support Emscripten calls _(in the works)_
 - [ ] Support Rust ABI calls
 - [ ] Support Go ABI calls

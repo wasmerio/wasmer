@@ -162,7 +162,9 @@ wasmer_link() {
     )
 
     printf "$green> Successfully installed $version!\n\n${reset}If you want to have the command available now please execute:\nsource $HOME/.wasmer/wasmer.sh$reset\n"
-    printf "\nOtherwise, wasmer will be available the next time you open the terminal.\n"
+    printf "\nOtherwise, wasmer and wapm will be available the next time you open the terminal.\n"
+    echo "Note: during the alpha release of wapm, telemetry is enabled by default; if you would like to opt out, run \`wapm config set telemetry.enabled false\`."
+    echo "If you notice anything wrong or have any issues, please file a bug at https://github.com/wasmerio/wapm-cli :)"
   fi
 }
 
@@ -292,7 +294,6 @@ wasmer_install() {
 #       exit 0
 #     fi
 #   fi
-
   wasmer_download # $1 $2
   wasmer_link
   wasmer_reset
