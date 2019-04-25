@@ -103,7 +103,7 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            curl -sSf https://sh.rustup.rs | sh -s -- -y
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       - run:
@@ -153,7 +153,8 @@ jobs:
       - run:
           name: "Pull dependencies"
           command: |
-            git clone git@github.com:wasmerio/wapm-cli.git
+            git submodule init
+            git submodule update --remote
       - restore_cache:
           keys:
             - v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -220,7 +221,8 @@ jobs:
       - run:
           name: "Pull dependencies"
           command: |
-            git clone git@github.com:wasmerio/wapm-cli.git
+            git submodule init
+            git submodule update --remote
       - restore_cache:
           keys:
             - v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -238,7 +240,7 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-04-11
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       # Use rust nightly (for singlepass, for now)
