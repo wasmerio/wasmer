@@ -240,7 +240,7 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl -sSf https://sh.rustup.rs | sh -s -- -y
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       # Use rust nightly (for singlepass, for now)
