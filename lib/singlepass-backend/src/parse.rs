@@ -15,8 +15,7 @@ use wasmer_runtime_core::{
     units::Pages,
 };
 use wasmparser::{
-    BinaryReaderError, Data, DataKind, Element, ElementKind, Export, ExternalKind, FuncType,
-    Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator, SectionCode, Type as WpType,
+    BinaryReaderError, ExternalKind, FuncType, ImportSectionEntryType, Operator, Type as WpType,
     WasmDecoder,
 };
 
