@@ -1167,7 +1167,7 @@ pub fn path_open(
     fs_flags: __wasi_fdflags_t,
     fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
-    debug!("wasi::path_open");
+    debug!("wasi::path_open: o_flags: {}", o_flags);
     let memory = ctx.memory(0);
     /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     if path_len > 1024 * 1024 {
@@ -1196,6 +1196,9 @@ pub fn path_open(
             std::str::from_utf8(unsafe { &*(path_cells as *const [_] as *const [u8]) })
                 .map_err(|_| __WASI_EINVAL)
         );
+
+    dbg!(path_string);
+    //let path = wasi_try!(std::fs::canonicalize(path_string).map_err(|_| __WASI_EINVAL));
     let path = std::path::PathBuf::from(path_string);
     let path_vec = wasi_try!(path
         .components()
@@ -1213,22 +1216,61 @@ pub fn path_open(
     }
 
     let mut cur_dir_inode = working_dir.inode;
-    let mut cumulative_path = std::path::PathBuf::from(".");
+    let cur_dir = std::env::current_dir().unwrap();
+    let base_path =
+        std::path::PathBuf::from(state.fs.get_base_path_for_directory(cur_dir_inode).unwrap());
+    // HACK: to make WASI work
+    // TODO strip LCA instead of this
+    let mut cumulative_path = if let Ok(new_path) = base_path.strip_prefix(&cur_dir) {
+        std::path::PathBuf::from(new_path)
+    } else {
+        let mut cur = cur_dir.clone();
+        // TODO: rewrite this when less tired
+        if let Ok(difference) = cur.strip_prefix(dbg!(&base_path)) {
+            for seg in dbg!(difference.components()) {
+                dbg!(seg);
+
+                if let Kind::Dir { entries, .. } = &state.fs.inodes[cur_dir_inode].kind {
+                    if let Some(e) = entries.get(&seg.as_os_str().to_string_lossy().to_string()) {
+                        cur_dir_inode = *e;
+                    } else {
+                        return __WASI_EINVAL;
+                    }
+                }
+            }
+            cur_dir.clone()
+        } else {
+            std::path::PathBuf::from(".")
+        }
+    };
+    // std::path::PathBuf::from(".");
+    /*std::path::PathBuf::from(wasi_try!(state
+    .fs
+    .get_base_path_for_directory(cur_dir_inode)
+    .ok_or(__WASI_EINVAL)))*/
+
+    dbg!(&cumulative_path);
 
     // traverse path
     if path_vec.len() > 1 {
         for path_segment in &path_vec[..(path_vec.len() - 1)] {
             match &state.fs.inodes[cur_dir_inode].kind {
-                Kind::Dir { entries, .. } => {
+                Kind::Dir {
+                    entries, parent, ..
+                } => {
                     if let Some(child) = entries.get(path_segment) {
                         let inode_val = *child;
                         cur_dir_inode = inode_val;
                     } else {
                         // attempt to lazily load or create
                         if path_segment == ".." {
-                            unimplemented!(
-                                "\"..\" in paths in `path_open` has not been implemented yet"
-                            );
+                            if let Some(p) = parent {
+                                cur_dir_inode = *p;
+                                continue;
+                            } else {
+                                debug!("Attempting to access parent directory when fd {} does not have a parent", dirfd);
+                                return __WASI_ENOTCAPABLE;
+                            }
                         }
                         // lazily load
                         cumulative_path.push(path_segment);
@@ -1250,6 +1292,7 @@ pub fn path_open(
                         let cur_file_metadata = cur_dir.metadata().unwrap();
                         let kind = if cur_file_metadata.is_dir() {
                             Kind::Dir {
+                                parent: Some(cur_dir_inode),
                                 handle: WasiFile::HostFile(cur_dir),
                                 entries: Default::default(),
                             }

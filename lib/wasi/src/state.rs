@@ -9,10 +9,11 @@ use std::{
     cell::Cell,
     fs,
     io::{self, Read, Seek, Write},
+    path::{Path, PathBuf},
     time::SystemTime,
 };
 use wasmer_runtime_core::debug;
-use zbox::init_env as zbox_init_env;
+//use zbox::init_env as zbox_init_env;
 
 pub const MAX_SYMLINKS: usize = 100;
 
@@ -150,6 +151,8 @@ pub enum Kind {
         handle: WasiFile,
     },
     Dir {
+        // parent directory
+        parent: Option<Inode>,
         handle: WasiFile,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, Inode>,
@@ -184,9 +187,9 @@ pub struct WasiFs {
 impl WasiFs {
     pub fn new(preopened_files: &[String]) -> Result<Self, String> {
         debug!("wasi::fs::init");
-        zbox_init_env();
+        /*zbox_init_env();
         debug!("wasi::fs::repo");
-        /*let repo = RepoOpener::new()
+        let repo = RepoOpener::new()
         .create(true)
         .open("mem://wasmer-test-fs", "")
         .map_err(|e| e.to_string())?;*/
@@ -200,36 +203,197 @@ impl WasiFs {
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1000),
         };
-        for file in preopened_files {
-            debug!("Attempting to preopen {}", &file);
+        let cur_dir = std::env::current_dir().expect("failed to get current directory");
+        let mut canonical_preopen_dirs: Vec<PathBuf> = preopened_files
+            .iter()
+            .map(|pod| fs::canonicalize(pod))
+            .collect::<Result<Vec<PathBuf>, _>>()
+            .map_err(|err| format!("Error while preopening files: {}", err))?;
+        // TODO: more aggressively canonicalize these to remove _all_ ..
+        // that is, we should pin to specific directories now (.. + symlinks means the directories can change)
+        let mut canonical_preopen_dirs: Vec<(PathBuf, String)> = canonical_preopen_dirs
+            .drain(..)
+            .zip(preopened_files.iter().cloned())
+            .collect();
+        canonical_preopen_dirs
+            .sort_by(|(canonical_a, _), (canonical_b, _)| canonical_a.cmp(canonical_b));
+        /*let canonical_preopen_dirs: Vec<PathBuf> = canonical_preopen_dirs
+        .drain(..)
+        .map(|path| {
+            if path.starts_with(&cur_dir) {
+                PathBuf::from(path.strip_prefix(&cur_dir).unwrap())
+            } else {
+                path
+            }
+        })
+        .collect();*/
+        // hack(mark): rather than grouping by least common ancestor, we just assume there is either 0 or 1
+        // common ancestor and use that (to be fixed once this gets working)
+        let lca: PathBuf = canonical_preopen_dirs
+            .iter()
+            .min_by(|(a, _), (b, _)| a.to_string_lossy().len().cmp(&b.to_string_lossy().len()))
+            .map(|(pb, _)| pb.clone())
+            .unwrap_or(PathBuf::from(""));
+        dbg!(&lca);
+        dbg!(&canonical_preopen_dirs);
+        std::env::set_current_dir(&lca);
+
+        // set of preopen dirs for parent detection
+        let mut preopen_dir_map: HashMap<PathBuf, u32> = HashMap::new();
+        for (canonical_file, raw) in canonical_preopen_dirs.iter().cloned() {
+            let canonical_file = if canonical_file == lca {
+                PathBuf::from(".")
+            } else {
+                PathBuf::from(canonical_file.strip_prefix(&lca).unwrap_or(&canonical_file))
+            };
+            dbg!(&canonical_file);
+            debug!(
+                "Attempting to preopen {}",
+                &canonical_file.to_string_lossy()
+            );
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
             let cur_file: fs::File = fs::OpenOptions::new()
                 .read(true)
-                .open(file)
+                .open(&canonical_file)
                 .expect("Could not find file");
-            let cur_file_metadata = cur_file.metadata().unwrap();
+            let cur_file_metadata = cur_file
+                .metadata()
+                .expect("Could not get metadata for file");
+            // return how deep we had to go to find a parent
+            let mut depth_seen_and_parent_fd: Option<(usize, u32, &Path)> = None;
+            for (i, parent) in canonical_file.ancestors().enumerate().skip(1) {
+                if let Some(parent_fd_idx) = preopen_dir_map.get(parent) {
+                    depth_seen_and_parent_fd = Some((i, *parent_fd_idx, parent));
+                    break;
+                }
+            }
+
+            // find parent
+            let parent = if let Some((depth_seen, parent_fd_idx, parent_path)) =
+                depth_seen_and_parent_fd
+            {
+                // depth seen can be computed from the result of strip_prefix
+                // possibly worth rming depth_seen
+                if depth_seen > 1 {
+                    let dist_path = canonical_file
+                        .strip_prefix(parent_path)
+                        .expect("Failed to reduce child path by parent path");
+                    let parent_inode = wasi_fs.fd_map[&parent_fd_idx].inode;
+                    let mut cur_parent = parent_inode;
+                    let mut cumulative_path = canonical_file.clone();
+                    for comp in dist_path.components() {
+                        if let Kind::Dir { entries, .. } = &mut wasi_fs.inodes[parent_inode].kind {
+                            if let Some(ent) =
+                                entries.get(&comp.as_os_str().to_string_lossy().to_string())
+                            {
+                                cur_parent = *ent;
+                            } else {
+                                // create it
+                                // TODO: massive refactoring
+                                cumulative_path.push(comp);
+                                let mid_dir_name = comp.as_os_str().to_string_lossy().to_string();
+
+                                let default_rights = 0x1FFFFFFF; // all rights
+                                let cur_file: fs::File = fs::OpenOptions::new()
+                                    .read(true)
+                                    .open(&cumulative_path)
+                                    .expect("Could not find file");
+                                let mid_dir_metadata = cur_file
+                                    .metadata()
+                                    .expect("Could not get metadata for intermediate file");
+
+                                let kind = if mid_dir_metadata.is_dir() {
+                                    Kind::Dir {
+                                        parent: Some(cur_parent),
+                                        handle: WasiFile::HostFile(cur_file),
+                                        entries: Default::default(),
+                                    }
+                                } else {
+                                    // TODO: properly handle symlinks
+                                    unreachable!(
+                                        "When connecting intermediate directories while preopening directories, found something that's not a directory"
+                                    );
+                                };
+
+                                let inode_val = InodeVal::from_file_metadata(
+                                    &mid_dir_metadata,
+                                    mid_dir_name.clone(),
+                                    true,
+                                    kind,
+                                );
+
+                                let inode = wasi_fs.inodes.insert(inode_val);
+                                let new_inode = wasi_fs.inode_counter.get();
+                                wasi_fs.inodes[inode].stat.st_ino = new_inode;
+                                wasi_fs.inode_counter.replace(new_inode + 1);
+                                // reborrow to insert entry
+                                if let Kind::Dir { entries, .. } =
+                                    &mut wasi_fs.inodes[cur_parent].kind
+                                {
+                                    entries.insert(mid_dir_name, inode);
+
+                                    cur_parent = inode;
+                                }
+                                let fd = wasi_fs
+                                    .create_fd(default_rights, default_rights, 0, inode)
+                                    .expect("Could not open fd");
+                                preopen_dir_map.insert(cumulative_path.clone(), fd);
+                            }
+                        } else {
+                            unreachable!(
+                                "Internal error: pre-opened parent directory is not a directory"
+                            );
+                        }
+                    }
+                    Some(cur_parent)
+                } else {
+                    debug!("Connecting as parent");
+                    Some(wasi_fs.fd_map[&parent_fd_idx].inode)
+                }
+            } else {
+                None
+            };
+            let file_name = canonical_file
+                .file_name()
+                .map(|file_name| file_name.to_string_lossy().to_string())
+                // TODO: seriously check this, this looks like a bad bug in the future
+                .unwrap_or(String::from("."));
             let kind = if cur_file_metadata.is_dir() {
                 Kind::Dir {
+                    parent,
                     handle: WasiFile::HostFile(cur_file),
                     entries: Default::default(),
                 }
             } else {
                 return Err(format!(
-                    "WASI only supports pre-opened directories right now; found \"{}\"",
-                    file
+                    "WASI only supports pre-opened directories; found \"{}\"",
+                    &file_name,
                 ));
             };
-            // TODO: handle nested pats in `file`
             let inode_val =
-                InodeVal::from_file_metadata(&cur_file_metadata, file.clone(), true, kind);
+                InodeVal::from_file_metadata(&cur_file_metadata, file_name.clone(), true, kind);
 
             let inode = wasi_fs.inodes.insert(inode_val);
-            wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
-            wasi_fs
+            let new_inode = wasi_fs.inode_counter.get();
+            wasi_fs.inodes[inode].stat.st_ino = new_inode;
+            wasi_fs.inode_counter.replace(new_inode + 1);
+            let fd = wasi_fs
                 .create_fd(default_rights, default_rights, 0, inode)
                 .expect("Could not open fd");
+
+            // now connect the parent to the child
+            if let Some(p) = parent {
+                if let Kind::Dir { entries, .. } = &mut wasi_fs.inodes[p].kind {
+                    entries.insert(file_name, inode);
+                } else {
+                    unreachable!("Internal error: pre-opened parent directory is not a directory");
+                }
+            }
+
+            preopen_dir_map.insert(canonical_file, fd);
         }
+        std::env::set_current_dir(&cur_dir);
         debug!("wasi::fs::end");
         Ok(wasi_fs)
     }
@@ -359,7 +523,7 @@ impl WasiFs {
             },
             fs_flags: fd.flags,
             fs_rights_base: fd.rights,
-            fs_rights_inheriting: fd.rights_inheriting, // TODO(lachlan): Is this right?
+            fs_rights_inheriting: fd.rights_inheriting,
         })
     }
 
@@ -428,6 +592,31 @@ impl WasiFs {
             },
         );
         Ok(idx)
+    }
+
+    pub fn get_base_path_for_directory(&self, directory: Inode) -> Option<String> {
+        let mut path_segments = vec![];
+        let mut cur_inode = directory;
+        loop {
+            path_segments.push(self.inodes[cur_inode].name.clone());
+
+            if let Kind::Dir { parent, .. } = &self.inodes[cur_inode].kind {
+                if let Some(p_inode) = parent {
+                    cur_inode = *p_inode;
+                } else {
+                    break;
+                }
+            } else {
+                return None;
+            }
+        }
+
+        path_segments.reverse();
+        Some(
+            path_segments
+                .iter()
+                .fold("".to_string(), |a, b| a + "/" + b),
+        )
     }
 }
 
