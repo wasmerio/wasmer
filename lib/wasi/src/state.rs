@@ -9,6 +9,7 @@ use std::{
     cell::Cell,
     fs,
     io::{self, Read, Seek, Write},
+    path::PathBuf,
     time::SystemTime,
 };
 use wasmer_runtime_core::debug;
@@ -138,7 +139,9 @@ pub enum Kind {
         handle: WasiFile,
     },
     Dir {
-        handle: WasiFile,
+        // TODO: wrap it like WasiFile
+        /// The path on the host system where the directory is located
+        path: PathBuf,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, Inode>,
     },
@@ -170,7 +173,7 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
-    pub fn new(preopened_files: &[String]) -> Result<Self, String> {
+    pub fn new(preopened_dirs: &[String]) -> Result<Self, String> {
         /*let repo = RepoOpener::new()
         .create(true)
         .open("mem://wasmer-test-fs", "")
@@ -185,29 +188,26 @@ impl WasiFs {
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1000),
         };
-        for file in preopened_files {
+        for dir in preopened_dirs {
             debug!("Attempting to preopen {}", &file);
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
-            let cur_file: fs::File = fs::OpenOptions::new()
-                .read(true)
-                .open(file)
-                .expect("Could not find file");
-            let cur_file_metadata = cur_file.metadata().unwrap();
-            let kind = if cur_file_metadata.is_dir() {
+            let cur_dir = PathBuf::from(dir);
+            let cur_dir_metadata = cur_dir.metadata().expect("Could not find directory");
+            let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
-                    handle: WasiFile::HostFile(cur_file),
+                    path: cur_dir.clone(),
                     entries: Default::default(),
                 }
             } else {
                 return Err(format!(
                     "WASI only supports pre-opened directories right now; found \"{}\"",
-                    file
+                    &dir
                 ));
             };
             // TODO: handle nested pats in `file`
             let inode_val =
-                InodeVal::from_file_metadata(&cur_file_metadata, file.clone(), true, kind);
+                InodeVal::from_file_metadata(&cur_dir_metadata, dir.clone(), true, kind);
 
             let inode = wasi_fs.inodes.insert(inode_val);
             wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
