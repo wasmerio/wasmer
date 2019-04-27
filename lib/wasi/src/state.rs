@@ -189,7 +189,7 @@ impl WasiFs {
             inode_counter: Cell::new(1000),
         };
         for dir in preopened_dirs {
-            debug!("Attempting to preopen {}", &file);
+            debug!("Attempting to preopen {}", &dir);
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
             let cur_dir = PathBuf::from(dir);
