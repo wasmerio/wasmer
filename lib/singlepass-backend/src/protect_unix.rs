@@ -12,11 +12,15 @@
 use libc::{c_int, c_void, siginfo_t};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
+    SIGTRAP,
 };
 use std::any::Any;
-use std::cell::{Cell, UnsafeCell};
+use std::cell::{Cell, RefCell, UnsafeCell};
+use std::collections::HashMap;
 use std::ptr;
+use std::sync::Arc;
 use std::sync::Once;
+use wasmer_runtime_core::codegen::BkptInfo;
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 extern "C" fn signal_trap_handler(
@@ -25,6 +29,20 @@ extern "C" fn signal_trap_handler(
     ucontext: *mut c_void,
 ) {
     unsafe {
+        match Signal::from_c_int(signum) {
+            Ok(SIGTRAP) => {
+                let (_, ip) = get_faulting_addr_and_ip(siginfo as _, ucontext);
+                let bkpt_map = BKPT_MAP.with(|x| x.borrow().last().map(|x| x.clone()));
+                if let Some(bkpt_map) = bkpt_map {
+                    if let Some(ref x) = bkpt_map.get(&(ip as usize)) {
+                        (x)(BkptInfo {});
+                        return;
+                    }
+                }
+            }
+            _ => {}
+        }
+
         do_unwind(signum, siginfo as _, ucontext);
     }
 }
@@ -44,6 +62,7 @@ pub unsafe fn install_sighandler() {
     sigaction(SIGILL, &sa).unwrap();
     sigaction(SIGSEGV, &sa).unwrap();
     sigaction(SIGBUS, &sa).unwrap();
+    sigaction(SIGTRAP, &sa).unwrap();
 }
 
 const SETJMP_BUFFER_LEN: usize = 27;
@@ -54,6 +73,7 @@ thread_local! {
     pub static CAUGHT_ADDRESSES: Cell<(*const c_void, *const c_void)> = Cell::new((ptr::null(), ptr::null()));
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
     pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
+    pub static BKPT_MAP: RefCell<Vec<Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>>> = RefCell::new(Vec::new());
 }
 
 pub unsafe fn trigger_trap() -> ! {

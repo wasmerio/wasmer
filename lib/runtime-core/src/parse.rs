@@ -1,7 +1,7 @@
 use crate::codegen::*;
-use hashbrown::HashMap;
 use crate::{
     backend::{Backend, CompilerConfig, RunnableModule},
+    error::CompileError,
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -13,14 +13,14 @@ use crate::{
         TableIndex, Type, Value,
     },
     units::Pages,
-    error::CompileError,
 };
+use hashbrown::HashMap;
+use std::fmt::Debug;
 use wasmparser::{
     BinaryReaderError, Data, DataKind, Element, ElementKind, Export, ExternalKind, FuncType,
     Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator, SectionCode, Type as WpType,
     WasmDecoder,
 };
-use std::fmt::Debug;
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -122,7 +122,8 @@ pub fn read_module<
                         let sigindex = SigIndex::new(sigindex as usize);
                         info.imported_functions.push(import_name);
                         info.func_assoc.push(sigindex);
-                        mcg.feed_import_function().map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                        mcg.feed_import_function()
+                            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     }
                     ImportSectionEntryType::Table(table_ty) => {
                         assert_eq!(table_ty.element_type, WpType::AnyFunc);
@@ -192,13 +193,24 @@ pub fn read_module<
                 if func_count == 0 {
                     info.namespace_table = namespace_builder.take().unwrap().finish();
                     info.name_table = name_builder.take().unwrap().finish();
-                    mcg.feed_signatures(info.signatures.clone()).map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.feed_function_signatures(info.func_assoc.clone()).map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.check_precondition(&info).map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.feed_signatures(info.signatures.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.feed_function_signatures(info.func_assoc.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.check_precondition(&info)
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
 
-                let fcg = mcg.next_function().map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                middlewares.run(Some(fcg), Event::Internal(InternalEvent::FunctionBegin), &info).map_err(|x| LoadError::Codegen(x))?;
+                let fcg = mcg
+                    .next_function()
+                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                middlewares
+                    .run(
+                        Some(fcg),
+                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
+                        &info,
+                    )
+                    .map_err(|x| LoadError::Codegen(x))?;
 
                 let sig = info
                     .signatures
@@ -210,10 +222,12 @@ pub fn read_module<
                     )
                     .unwrap();
                 for ret in sig.returns() {
-                    fcg.feed_return(type_to_wp_type(*ret)).map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    fcg.feed_return(type_to_wp_type(*ret))
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
                 for param in sig.params() {
-                    fcg.feed_param(type_to_wp_type(*param)).map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    fcg.feed_param(type_to_wp_type(*param))
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
 
                 let mut body_begun = false;
@@ -224,22 +238,33 @@ pub fn read_module<
                         ParserState::Error(err) => return Err(LoadError::Parse(err)),
                         ParserState::FunctionBodyLocals { ref locals } => {
                             for &(count, ty) in locals.iter() {
-                                fcg.feed_local(ty, count as usize).map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                                fcg.feed_local(ty, count as usize)
+                                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
                         }
                         ParserState::CodeOperator(ref op) => {
                             if !body_begun {
                                 body_begun = true;
-                                fcg.begin_body().map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                                fcg.begin_body()
+                                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
-                            middlewares.run(Some(fcg), Event::Wasm(op), &info).map_err(|x| LoadError::Codegen(x))?;
+                            middlewares
+                                .run(Some(fcg), Event::Wasm(op), &info)
+                                .map_err(|x| LoadError::Codegen(x))?;
                         }
                         ParserState::EndFunctionBody => break,
                         _ => unreachable!(),
                     }
                 }
-                middlewares.run(Some(fcg), Event::Internal(InternalEvent::FunctionEnd), &info).map_err(|x| LoadError::Codegen(x))?;
-                fcg.finalize().map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                middlewares
+                    .run(
+                        Some(fcg),
+                        Event::Internal(InternalEvent::FunctionEnd),
+                        &info,
+                    )
+                    .map_err(|x| LoadError::Codegen(x))?;
+                fcg.finalize()
+                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
             }
             ParserState::BeginActiveElementSectionEntry(table_index) => {
                 let table_index = TableIndex::new(table_index as usize);

@@ -23,8 +23,8 @@ mod emitter_x64;
 mod machine;
 mod protect_unix;
 
-pub use codegen_x64::X64ModuleCodeGenerator as ModuleCodeGenerator;
 pub use codegen_x64::X64FunctionCode as FunctionCodeGenerator;
+pub use codegen_x64::X64ModuleCodeGenerator as ModuleCodeGenerator;
 
 use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
 pub type SinglePassCompiler = SimpleStreamingCompilerGen<

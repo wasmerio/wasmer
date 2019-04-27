@@ -1,29 +1,32 @@
 use crate::{
     backend::RunnableModule,
-    structures::Map,
-    types::{FuncIndex, FuncSig, SigIndex},
     backend::{sys::Memory, Backend, CacheGen, Compiler, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
     parse::LoadError,
+    structures::Map,
+    types::{FuncIndex, FuncSig, SigIndex},
 };
-use wasmparser::{Operator, Type as WpType};
-use std::fmt::Debug;
 use smallvec::SmallVec;
+use std::fmt::Debug;
 use std::marker::PhantomData;
+use wasmparser::{Operator, Type as WpType};
 
 pub enum Event<'a, 'b> {
     Internal(InternalEvent),
     Wasm(&'b Operator<'a>),
 }
 
-#[derive(Copy, Clone, Debug)]
 pub enum InternalEvent {
-    FunctionBegin,
+    FunctionBegin(u32),
     FunctionEnd,
-    Trace,
+    Bkpt(Box<Fn(BkptInfo) + Send + Sync + 'static>),
+    SetInternal(u32),
+    GetInternal(u32),
 }
+
+pub struct BkptInfo {}
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {
     fn new() -> Self;
@@ -36,10 +39,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
 
     /// Sets function signatures.
-    fn feed_function_signatures(
-        &mut self,
-        assoc: Map<FuncIndex, SigIndex>,
-    ) -> Result<(), E>;
+    fn feed_function_signatures(&mut self, assoc: Map<FuncIndex, SigIndex>) -> Result<(), E>;
 
     /// Adds an import function.
     fn feed_import_function(&mut self) -> Result<(), E>;
@@ -72,23 +72,25 @@ pub struct SimpleStreamingCompilerGen<
 }
 
 impl<
-    MCG: ModuleCodeGenerator<FCG, RM, E>,
-    FCG: FunctionCodeGenerator<E>,
-    RM: RunnableModule + 'static,
-    E: Debug,
-> SimpleStreamingCompilerGen<MCG, FCG, RM, E> {
+        MCG: ModuleCodeGenerator<FCG, RM, E>,
+        FCG: FunctionCodeGenerator<E>,
+        RM: RunnableModule + 'static,
+        E: Debug,
+    > SimpleStreamingCompilerGen<MCG, FCG, RM, E>
+{
     pub fn new() -> StreamingCompiler<MCG, FCG, RM, E, impl Fn() -> MiddlewareChain> {
         StreamingCompiler::new(|| MiddlewareChain::new())
     }
 }
 
 impl<
-    MCG: ModuleCodeGenerator<FCG, RM, E>,
-    FCG: FunctionCodeGenerator<E>,
-    RM: RunnableModule + 'static,
-    E: Debug,
-    CGEN: Fn() -> MiddlewareChain,
-> StreamingCompiler<MCG, FCG, RM, E, CGEN> {
+        MCG: ModuleCodeGenerator<FCG, RM, E>,
+        FCG: FunctionCodeGenerator<E>,
+        RM: RunnableModule + 'static,
+        E: Debug,
+        CGEN: Fn() -> MiddlewareChain,
+    > StreamingCompiler<MCG, FCG, RM, E, CGEN>
+{
     pub fn new(chain_gen: CGEN) -> Self {
         Self {
             middleware_chain_generator: chain_gen,
@@ -101,12 +103,13 @@ impl<
 }
 
 impl<
-    MCG: ModuleCodeGenerator<FCG, RM, E>,
-    FCG: FunctionCodeGenerator<E>,
-    RM: RunnableModule + 'static,
-    E: Debug,
-    CGEN: Fn() -> MiddlewareChain,
->Compiler for StreamingCompiler<MCG, FCG, RM, E, CGEN> {
+        MCG: ModuleCodeGenerator<FCG, RM, E>,
+        FCG: FunctionCodeGenerator<E>,
+        RM: RunnableModule + 'static,
+        E: Debug,
+        CGEN: Fn() -> MiddlewareChain,
+    > Compiler for StreamingCompiler<MCG, FCG, RM, E, CGEN>
+{
     fn compile(
         &self,
         wasm: &[u8],
@@ -124,10 +127,18 @@ impl<
 
         let mut mcg = MCG::new();
         let mut chain = (self.middleware_chain_generator)();
-        let info = crate::parse::read_module(wasm, MCG::backend_id(), &mut mcg, &mut chain, &compiler_config)?;
-        let exec_context = mcg.finalize(&info).map_err(|x| CompileError::InternalError {
-            msg: format!("{:?}", x),
-        })?;
+        let info = crate::parse::read_module(
+            wasm,
+            MCG::backend_id(),
+            &mut mcg,
+            &mut chain,
+            &compiler_config,
+        )?;
+        let exec_context = mcg
+            .finalize(&info)
+            .map_err(|x| CompileError::InternalError {
+                msg: format!("{:?}", x),
+            })?;
         Ok(ModuleInner {
             cache_gen: Box::new(Placeholder),
             runnable_module: Box::new(exec_context),
@@ -143,7 +154,7 @@ impl<
 }
 
 pub struct EventSink<'a, 'b> {
-    buffer: SmallVec<[Event<'a, 'b>; 2]>
+    buffer: SmallVec<[Event<'a, 'b>; 2]>,
 }
 
 impl<'a, 'b> EventSink<'a, 'b> {
@@ -158,16 +169,19 @@ pub struct MiddlewareChain {
 
 impl MiddlewareChain {
     pub fn new() -> MiddlewareChain {
-        MiddlewareChain {
-            chain: vec! [],
-        }
+        MiddlewareChain { chain: vec![] }
     }
 
     pub fn push<M: FunctionMiddleware + 'static>(&mut self, m: M) {
         self.chain.push(Box::new(m));
     }
 
-    pub(crate) fn run<E: Debug, FCG: FunctionCodeGenerator<E>>(&mut self, fcg: Option<&mut FCG>, ev: Event, module_info: &ModuleInfo) -> Result<(), String> {
+    pub(crate) fn run<E: Debug, FCG: FunctionCodeGenerator<E>>(
+        &mut self,
+        fcg: Option<&mut FCG>,
+        ev: Event,
+        module_info: &ModuleInfo,
+    ) -> Result<(), String> {
         let mut sink = EventSink {
             buffer: SmallVec::new(),
         };
@@ -180,7 +194,8 @@ impl MiddlewareChain {
         }
         if let Some(fcg) = fcg {
             for ev in sink.buffer {
-                fcg.feed_event(ev, module_info).map_err(|x| format!("{:?}", x))?;
+                fcg.feed_event(ev, module_info)
+                    .map_err(|x| format!("{:?}", x))?;
             }
         }
 
@@ -190,31 +205,32 @@ impl MiddlewareChain {
 
 pub trait FunctionMiddleware {
     type Error: Debug;
-    fn feed_event(
+    fn feed_event<'a, 'b: 'a>(
         &mut self,
-        op: Event,
+        op: Event<'a, 'b>,
         module_info: &ModuleInfo,
-        sink: &mut EventSink,
+        sink: &mut EventSink<'a, 'b>,
     ) -> Result<(), Self::Error>;
 }
 
 pub(crate) trait GenericFunctionMiddleware {
-    fn feed_event(
+    fn feed_event<'a, 'b: 'a>(
         &mut self,
-        op: Event,
+        op: Event<'a, 'b>,
         module_info: &ModuleInfo,
-        sink: &mut EventSink,
+        sink: &mut EventSink<'a, 'b>,
     ) -> Result<(), String>;
 }
 
 impl<E: Debug, T: FunctionMiddleware<Error = E>> GenericFunctionMiddleware for T {
-    fn feed_event(
+    fn feed_event<'a, 'b: 'a>(
         &mut self,
-        op: Event,
+        op: Event<'a, 'b>,
         module_info: &ModuleInfo,
-        sink: &mut EventSink,
+        sink: &mut EventSink<'a, 'b>,
     ) -> Result<(), String> {
-        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink).map_err(|x| format!("{:?}", x))
+        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink)
+            .map_err(|x| format!("{:?}", x))
     }
 }
 
