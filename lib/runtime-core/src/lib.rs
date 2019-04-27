@@ -31,6 +31,8 @@ pub mod units;
 pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
+pub mod codegen;
+pub mod parse;
 
 use self::error::CompileResult;
 #[doc(inline)]

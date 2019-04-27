@@ -1,6 +1,5 @@
 #![allow(clippy::forget_copy)] // Used by dynasm.
 
-use super::codegen::*;
 use crate::emitter_x64::*;
 use crate::machine::*;
 use crate::protect_unix;
@@ -11,7 +10,7 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::RunnableModule,
+    backend::{Backend, RunnableModule},
     memory::MemoryType,
     module::ModuleInfo,
     structures::{Map, TypedIndex},
@@ -22,6 +21,7 @@ use wasmer_runtime_core::{
     },
     vm::{self, LocalGlobal, LocalMemory, LocalTable},
     vmcalls,
+    codegen::*,
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -262,8 +262,13 @@ impl RunnableModule for X64ExecutionContext {
     }
 }
 
-impl X64ModuleCodeGenerator {
-    pub fn new() -> X64ModuleCodeGenerator {
+#[derive(Debug)]
+pub struct CodegenError {
+    pub message: &'static str,
+}
+
+impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError> for X64ModuleCodeGenerator {
+    fn new() -> X64ModuleCodeGenerator {
         X64ModuleCodeGenerator {
             functions: vec![],
             signatures: None,
@@ -273,9 +278,11 @@ impl X64ModuleCodeGenerator {
             func_import_count: 0,
         }
     }
-}
 
-impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCodeGenerator {
+    fn backend_id() -> Backend {
+        Backend::Singlepass
+    }
+
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         Ok(())
     }
@@ -1335,7 +1342,7 @@ impl X64FunctionCode {
     }
 }
 
-impl FunctionCodeGenerator for X64FunctionCode {
+impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
     fn feed_return(&mut self, ty: WpType) -> Result<(), CodegenError> {
         self.returns.push(ty);
         Ok(())
@@ -1377,7 +1384,13 @@ impl FunctionCodeGenerator for X64FunctionCode {
         Ok(())
     }
 
-    fn feed_opcode(&mut self, op: &Operator, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn feed_event(&mut self, ev: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        let op = match ev {
+            Event::Wasm(x) => x,
+            Event::Internal(x) => {
+                return Ok(());
+            }
+        };
         //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
 
