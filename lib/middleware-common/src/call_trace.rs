@@ -16,7 +16,7 @@ impl FunctionMiddleware for CallTrace {
         match op {
             Event::Internal(InternalEvent::FunctionBegin(id)) => {
                 sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(move |_| {
-                    println!("func ({})", id);
+                    eprintln!("func ({})", id);
                 }))))
             }
             _ => {}
