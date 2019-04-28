@@ -657,10 +657,3 @@ impl<'a> DynFunc<'a> {
         }
     }
 }
-
-#[doc(hidden)]
-impl Instance {
-    pub fn memory_offset_addr(&self, _: u32, _: usize) -> *const u8 {
-        unimplemented!()
-    }
-}

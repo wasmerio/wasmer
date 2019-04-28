@@ -9,45 +9,39 @@ use std::{
     cell::Cell,
     fs,
     io::{self, Read, Seek, Write},
+    path::PathBuf,
     time::SystemTime,
 };
 use wasmer_runtime_core::debug;
-use zbox::init_env as zbox_init_env;
 
 pub const MAX_SYMLINKS: usize = 100;
 
 #[derive(Debug)]
 pub enum WasiFile {
-    #[allow(dead_code)]
-    ZboxFile(zbox::File),
     HostFile(fs::File),
 }
 
 impl Write for WasiFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.write(buf),
             WasiFile::HostFile(hf) => hf.write(buf),
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.flush(),
             WasiFile::HostFile(hf) => hf.flush(),
         }
     }
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.write_all(buf),
             WasiFile::HostFile(hf) => hf.write_all(buf),
         }
     }
 
     fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.write_fmt(fmt),
             WasiFile::HostFile(hf) => hf.write_fmt(fmt),
         }
     }
@@ -56,28 +50,24 @@ impl Write for WasiFile {
 impl Read for WasiFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.read(buf),
             WasiFile::HostFile(hf) => hf.read(buf),
         }
     }
 
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.read_to_end(buf),
             WasiFile::HostFile(hf) => hf.read_to_end(buf),
         }
     }
 
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.read_to_string(buf),
             WasiFile::HostFile(hf) => hf.read_to_string(buf),
         }
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.read_exact(buf),
             WasiFile::HostFile(hf) => hf.read_exact(buf),
         }
     }
@@ -86,7 +76,6 @@ impl Read for WasiFile {
 impl Seek for WasiFile {
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.seek(pos),
             WasiFile::HostFile(hf) => hf.seek(pos),
         }
     }
@@ -150,7 +139,9 @@ pub enum Kind {
         handle: WasiFile,
     },
     Dir {
-        handle: WasiFile,
+        // TODO: wrap it like WasiFile
+        /// The path on the host system where the directory is located
+        path: PathBuf,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, Inode>,
     },
@@ -182,10 +173,7 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
-    pub fn new(preopened_files: &[String]) -> Result<Self, String> {
-        debug!("wasi::fs::init");
-        zbox_init_env();
-        debug!("wasi::fs::repo");
+    pub fn new(preopened_dirs: &[String]) -> Result<Self, String> {
         /*let repo = RepoOpener::new()
         .create(true)
         .open("mem://wasmer-test-fs", "")
@@ -200,29 +188,26 @@ impl WasiFs {
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1000),
         };
-        for file in preopened_files {
-            debug!("Attempting to preopen {}", &file);
+        for dir in preopened_dirs {
+            debug!("Attempting to preopen {}", &dir);
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
-            let cur_file: fs::File = fs::OpenOptions::new()
-                .read(true)
-                .open(file)
-                .expect("Could not find file");
-            let cur_file_metadata = cur_file.metadata().unwrap();
-            let kind = if cur_file_metadata.is_dir() {
+            let cur_dir = PathBuf::from(dir);
+            let cur_dir_metadata = cur_dir.metadata().expect("Could not find directory");
+            let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
-                    handle: WasiFile::HostFile(cur_file),
+                    path: cur_dir.clone(),
                     entries: Default::default(),
                 }
             } else {
                 return Err(format!(
                     "WASI only supports pre-opened directories right now; found \"{}\"",
-                    file
+                    &dir
                 ));
             };
             // TODO: handle nested pats in `file`
             let inode_val =
-                InodeVal::from_file_metadata(&cur_file_metadata, file.clone(), true, kind);
+                InodeVal::from_file_metadata(&cur_dir_metadata, dir.clone(), true, kind);
 
             let inode = wasi_fs.inodes.insert(inode_val);
             wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
