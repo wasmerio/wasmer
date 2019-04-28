@@ -14,11 +14,11 @@ impl FunctionMiddleware for CallTrace {
         sink: &mut EventSink<'a, 'b>,
     ) -> Result<(), Self::Error> {
         match op {
-            Event::Internal(InternalEvent::FunctionBegin(id)) => {
-                sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(move |_| {
+            Event::Internal(InternalEvent::FunctionBegin(id)) => sink.push(Event::Internal(
+                InternalEvent::Breakpoint(Box::new(move |_| {
                     eprintln!("func ({})", id);
-                }))))
-            }
+                })),
+            )),
             _ => {}
         }
         sink.push(op);
