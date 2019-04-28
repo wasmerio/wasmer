@@ -314,7 +314,7 @@ pub fn read_module<
                             base = Some(eval_init_expr(op)?)
                         }
                         ParserState::DataSectionEntryBodyChunk(chunk) => {
-                            data = chunk.to_vec();
+                            data.extend_from_slice(chunk);
                         }
                         ParserState::BeginInitExpressionBody
                         | ParserState::EndInitExpressionBody => {}
