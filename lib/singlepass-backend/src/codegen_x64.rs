@@ -1063,7 +1063,7 @@ impl X64FunctionCode {
         let mut call_movs: Vec<(Location, GPR)> = vec![];
 
         // Prepare register & stack parameters.
-        for (i, param) in params.iter().enumerate() {
+        for (i, param) in params.iter().enumerate().rev() {
             let loc = Machine::get_param_location(1 + i);
             match loc {
                 Location::GPR(x) => {
@@ -1395,6 +1395,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         self.locals = self
             .machine
             .init_locals(a, self.num_locals, self.num_params);
+
+        a.emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
 
         self.control_stack.push(ControlFrame {
             label: a.get_label(),
