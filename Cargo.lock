@@ -2233,6 +2233,7 @@ dependencies = [
  "wasmer-clif-backend 0.3.0",
  "wasmer-emscripten 0.3.0",
  "wasmer-llvm-backend 0.3.0",
+ "wasmer-middleware-common 0.3.0",
  "wasmer-runtime 0.3.0",
  "wasmer-runtime-abi 0.3.0",
  "wasmer-runtime-core 0.3.0",
@@ -2300,6 +2301,13 @@ dependencies = [
  "wabt 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.3.0",
  "wasmparser 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "wasmer-middleware-common"
+version = "0.3.0"
+dependencies = [
+ "wasmer-runtime-core 0.3.0",
 ]
 
 [[package]]
@@ -2381,7 +2389,7 @@ dependencies = [
  "nix 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.3.0",
- "wasmparser 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.29.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -25,6 +25,7 @@ wabt = "0.7.2"
 hashbrown = "0.1.8"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
+wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
 wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
 wasmer-runtime-core = { path = "lib/runtime-core" }
@@ -33,7 +34,7 @@ wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 
 [workspace]
-members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi"]
+members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi", "lib/middleware-common"]
 
 [build-dependencies]
 wabt = "0.7.2"
