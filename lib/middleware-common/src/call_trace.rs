@@ -15,7 +15,7 @@ impl FunctionMiddleware for CallTrace {
     ) -> Result<(), Self::Error> {
         match op {
             Event::Internal(InternalEvent::FunctionBegin(id)) => {
-                sink.push(Event::Internal(InternalEvent::Bkpt(Box::new(move |_| {
+                sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(move |_| {
                     println!("func ({})", id);
                 }))))
             }

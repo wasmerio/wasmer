@@ -21,7 +21,7 @@ pub enum Event<'a, 'b> {
 pub enum InternalEvent {
     FunctionBegin(u32),
     FunctionEnd,
-    Bkpt(Box<Fn(BkptInfo) + Send + Sync + 'static>),
+    Breakpoint(Box<Fn(BkptInfo) + Send + Sync + 'static>),
     SetInternal(u32),
     GetInternal(u32),
 }
@@ -120,7 +120,7 @@ impl<
         impl CacheGen for Placeholder {
             fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
                 Err(CacheError::Unknown(
-                    "the singlepass backend doesn't support caching yet".to_string(),
+                    "the streaming compiler API doesn't support caching yet".to_string(),
                 ))
             }
         }
@@ -148,7 +148,7 @@ impl<
 
     unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         Err(CacheError::Unknown(
-            "the singlepass backend doesn't support caching yet".to_string(),
+            "the streaming compiler API doesn't support caching yet".to_string(),
         ))
     }
 }

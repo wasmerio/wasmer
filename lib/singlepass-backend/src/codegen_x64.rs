@@ -1453,7 +1453,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Event::Wasm(x) => x,
             Event::Internal(x) => {
                 match x {
-                    InternalEvent::Bkpt(callback) => {
+                    InternalEvent::Breakpoint(callback) => {
                         a.emit_bkpt();
                         self.breakpoints
                             .as_mut()
