@@ -10,6 +10,7 @@ fn it_works(_ctx: &mut Ctx) -> i32 {
 }
 
 fn main() {
+    // Load the plugin data
     let wasm_bytes = std::fs::read(PLUGIN_LOCATION).expect(&format!(
         "Could not read in WASM plugin at {}",
         PLUGIN_LOCATION
