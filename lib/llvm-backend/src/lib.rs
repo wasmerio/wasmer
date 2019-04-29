@@ -26,6 +26,14 @@ impl LLVMCompiler {
     }
 }
 
+use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
+pub type LLVMStreamingCompiler = SimpleStreamingCompilerGen<
+    code::LLVMModuleCodeGenerator,
+    code::LLVMFunctionCodeGenerator,
+    backend::LLVMBackend,
+    code::CodegenError,
+>;
+
 impl Compiler for LLVMCompiler {
     fn compile(
         &self,

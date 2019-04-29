@@ -18,8 +18,8 @@ fn get_compiler() -> impl Compiler {
 
 #[cfg(feature = "llvm")]
 fn get_compiler() -> impl Compiler {
-    use wasmer_llvm_backend::LLVMCompiler;
-    LLVMCompiler::new()
+    use wasmer_llvm_backend::LLVMStreamingCompiler;
+    LLVMStreamingCompiler::new()
 }
 
 #[cfg(feature = "singlepass")]
