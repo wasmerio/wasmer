@@ -23,11 +23,15 @@ fn main() {
             "it_works" => func!(it_works),
         },
     };
+    // The WASI imports object contains all required import functions for a WASI module to run.
+    // Extend this imports with our custom imports containing "it_works" function so that our custom wasm code may run.
     base_imports.extend(custom_imports);
     let instance =
         instantiate(&wasm_bytes[..], &base_imports).expect("failed to instantiate wasm module");
 
+    // get a reference to the function "plugin_entrypoint" which takes an i32 and returns an i32
     let entry_point = instance.func::<(i32), i32>("plugin_entrypoint").unwrap();
+    // call the "entry_point" function in WebAssembly with the number "2" as the i32 argument
     let result = entry_point.call(2).expect("failed to execute plugin");
     println!("result: {}", result);
 }
