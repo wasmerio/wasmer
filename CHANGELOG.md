@@ -28,14 +28,14 @@ Blocks of changes will separated by version increments.
 
 ## 0.3.0 - 2018-04-12
 
-- [#276] [#288] [#344] Use new singlepass backend (with the `--backend=singlepass` when running Wasmer)
-- [#338] Actually catch traps/panics/etc when using a typed func.
-- [#325] Fixed func_index in debug mode
-- [#323] Add validate subcommand to validate Wasm files
-- [#321] Upgrade to Cranelift 0.3.0
-- [#319] Add Export and GlobalDescriptor to Runtime API
-- [#310] Cleanup warnings
-- [#299] [#300] [#301] [#303] [#304] [#305] [#306] [#307] Add support for WASI 🎉
-- [#286] Add extend to imports
-- [#278] Add versioning to cache
-- [#250] Setup bors
+- [#276](https://github.com/wasmerio/wasmer/pull/276) [#288](https://github.com/wasmerio/wasmer/pull/288) [#344](https://github.com/wasmerio/wasmer/pull/344) Use new singlepass backend (with the `--backend=singlepass` when running Wasmer)
+- [#338](https://github.com/wasmerio/wasmer/pull/338) Actually catch traps/panics/etc when using a typed func.
+- [#325](https://github.com/wasmerio/wasmer/pull/325) Fixed func_index in debug mode
+- [#323](https://github.com/wasmerio/wasmer/pull/323) Add validate subcommand to validate Wasm files
+- [#321](https://github.com/wasmerio/wasmer/pull/321) Upgrade to Cranelift 0.3.0
+- [#319](https://github.com/wasmerio/wasmer/pull/319) Add Export and GlobalDescriptor to Runtime API
+- [#310](https://github.com/wasmerio/wasmer/pull/310) Cleanup warnings
+- [#299](https://github.com/wasmerio/wasmer/pull/299) [#300](https://github.com/wasmerio/wasmer/pull/300) [#301](https://github.com/wasmerio/wasmer/pull/301) [#303](https://github.com/wasmerio/wasmer/pull/303) [#304](https://github.com/wasmerio/wasmer/pull/304) [#305](https://github.com/wasmerio/wasmer/pull/305) [#306](https://github.com/wasmerio/wasmer/pull/306) [#307](https://github.com/wasmerio/wasmer/pull/307) Add support for WASI 🎉
+- [#286](https://github.com/wasmerio/wasmer/pull/286) Add extend to imports
+- [#278](https://github.com/wasmerio/wasmer/pull/278) Add versioning to cache
+- [#250](https://github.com/wasmerio/wasmer/pull/250) Setup bors
