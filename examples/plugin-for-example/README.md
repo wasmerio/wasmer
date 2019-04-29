@@ -5,7 +5,7 @@ In this example we extend the imports of Wasmer's WASI ABI to demonstrate how cu
 See the `wasmer/examples/plugin.rs` file for the source code of the host system.
 
 ## Compiling
-
+_Attention Windows users: WASI target only works with the `nightly-x86_64-pc-windows-gnu` toolchain._ 
 ```
 # Install an up to date version of Rust nightly
 # Add the target
