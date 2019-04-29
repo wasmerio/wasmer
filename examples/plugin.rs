@@ -18,6 +18,8 @@ fn main() {
             "it_works" => func!(it_works),
         },
     };
+    // The WASI imports object contains all required import functions for a WASI module to run.
+    // Extend this imports with our custom imports containing "it_works" function so that our custom wasm code may run.
     base_imports.extend(custom_imports);
     let instance =
         instantiate(PLUGIN_WASM, &base_imports).expect("failed to instantiate wasm module");
