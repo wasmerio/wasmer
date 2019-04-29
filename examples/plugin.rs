@@ -24,6 +24,7 @@ fn main() {
     let instance =
         instantiate(PLUGIN_WASM, &base_imports).expect("failed to instantiate wasm module");
 
+    // get a reference to the function "plugin_entrypoint" which takes an i32 and returns an i32
     let entry_point = instance.func::<(i32), i32>("plugin_entrypoint").unwrap();
     let result = entry_point.call(2).expect("failed to execute plugin");
     println!("result: {}", result);
