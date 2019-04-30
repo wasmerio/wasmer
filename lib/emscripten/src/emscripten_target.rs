@@ -62,7 +62,12 @@ pub fn _pthread_attr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_attr_destroy");
     0
 }
-pub fn _pthread_attr_getstack(_ctx: &mut Ctx, _stackaddr: i32, _stacksize: i32, _other: i32) -> i32 {
+pub fn _pthread_attr_getstack(
+    _ctx: &mut Ctx,
+    _stackaddr: i32,
+    _stacksize: i32,
+    _other: i32,
+) -> i32 {
     debug!("emscripten::_pthread_attr_getstack");
     // TODO: Translate from Emscripten
     // HEAP32[stackaddr >> 2] = STACK_BASE;
