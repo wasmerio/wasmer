@@ -1,6 +1,6 @@
 [Setup]
 AppName=Wasmer
-AppVersion=1.5
+AppVersion=0.4.0
 DefaultDirName={pf}\Wasmer
 DefaultGroupName=Wasmer
 Compression=lzma2
@@ -9,9 +9,14 @@ OutputDir=.\
 DisableProgramGroupPage=yes
 ChangesEnvironment=yes
 OutputBaseFilename=WasmerInstaller
+WizardImageFile=..\..\media\wizard_logo_2.bmp
+WizardSmallImageFile=..\..\media\wizard_logo_small.bmp
+SetupIconFile=..\..\media\wizard_logo.ico
+DisableWelcomePage=no
 
 [Files]
 Source: "..\..\target\release\wasmer.exe"; DestDir: "{app}\bin"
+Source: "..\..\wapm-cli\target\release\wapm.exe"; DestDir: "{app}\bin"
 
 [Code]
 const EnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
@@ -61,11 +66,17 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
     if CurStep = ssPostInstall 
-     then EnvAddPath(ExpandConstant('{app}') +'\bin');
+     then begin 
+     EnvAddPath(ExpandConstant('{app}') +'\bin');
+     EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
+     end
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
     if CurUninstallStep = usPostUninstall
-    then EnvRemovePath(ExpandConstant('{app}') +'\bin');
+    then begin 
+    EnvRemovePath(ExpandConstant('{app}') +'\bin');
+    EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
+    end
 end;
