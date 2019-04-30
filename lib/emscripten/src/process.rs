@@ -159,7 +159,7 @@ pub fn _system(_ctx: &mut Ctx, _one: i32) -> c_int {
     debug!("emscripten::_system");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Can't call external programs");
-    return EAGAIN;
+    EAGAIN
 }
 
 pub fn _popen(_ctx: &mut Ctx, _one: i32, _two: i32) -> c_int {
