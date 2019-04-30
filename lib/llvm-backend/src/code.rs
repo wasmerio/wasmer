@@ -1468,7 +1468,7 @@ fn parse_function(
                     context,
                     &function,
                     -2147483904.0,
-                    2147483648.0,
+                    2_147_483_648.0,
                     v1,
                 );
                 let res =
@@ -1482,8 +1482,8 @@ fn parse_function(
                     intrinsics,
                     context,
                     &function,
-                    -2147483649.0,
-                    2147483648.0,
+                    -2_147_483_649.0,
+                    2_147_483_648.0,
                     v1,
                 );
                 let res =
@@ -1503,8 +1503,8 @@ fn parse_function(
                     intrinsics,
                     context,
                     &function,
-                    -9223373136366403584.0,
-                    9223372036854775808.0,
+                    -9_223_373_136_366_403_584.0,
+                    9_223_372_036_854_775_808.0,
                     v1,
                 );
                 let res =
