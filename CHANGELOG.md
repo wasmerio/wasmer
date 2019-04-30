@@ -8,6 +8,7 @@ Blocks of changes will separated by version increments.
 - [#399](https://github.com/wasmerio/wasmer/pull/399) Add example of using a plugin extended from WASI
 - [#397](https://github.com/wasmerio/wasmer/pull/397) Fix WASI fs abstraction to work on Windows
 - [#390](https://github.com/wasmerio/wasmer/pull/390) Pin released wapm version and add it as a git submodule
+- [#408](https://github.com/wasmerio/wasmer/pull/408) Add images to windows installer and update installer to add wapm bin directory to path
 
 ## 0.4.0 - 2018-04-23
 
