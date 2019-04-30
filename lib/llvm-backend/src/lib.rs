@@ -16,25 +16,25 @@ mod read_info;
 mod state;
 mod trampolines;
 
-pub struct LLVMCompiler {
+pub struct LLVMOldCompiler {
     _private: (),
 }
 
-impl LLVMCompiler {
+impl LLVMOldCompiler {
     pub fn new() -> Self {
         Self { _private: () }
     }
 }
 
 use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
-pub type LLVMStreamingCompiler = SimpleStreamingCompilerGen<
+pub type LLVMCompiler = SimpleStreamingCompilerGen<
     code::LLVMModuleCodeGenerator,
     code::LLVMFunctionCodeGenerator,
     backend::LLVMBackend,
     code::CodegenError,
 >;
 
-impl Compiler for LLVMCompiler {
+impl Compiler for LLVMOldCompiler {
     fn compile(
         &self,
         wasm: &[u8],

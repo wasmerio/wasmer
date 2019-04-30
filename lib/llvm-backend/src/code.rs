@@ -1733,7 +1733,7 @@ fn parse_function(
              * Load and Store instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#load-and-store-instructions
              ***************************/
-            Operator::I32Load { memarg } => {
+            Operator::I32Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1747,7 +1747,7 @@ fn parse_function(
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load { memarg } => {
+            Operator::I64Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1761,7 +1761,7 @@ fn parse_function(
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::F32Load { memarg } => {
+            Operator::F32Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1775,7 +1775,7 @@ fn parse_function(
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::F64Load { memarg } => {
+            Operator::F64Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1790,7 +1790,7 @@ fn parse_function(
                 state.push1(result);
             }
 
-            Operator::I32Store { memarg } => {
+            Operator::I32Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -1804,7 +1804,7 @@ fn parse_function(
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::I64Store { memarg } => {
+            Operator::I64Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -1818,7 +1818,7 @@ fn parse_function(
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::F32Store { memarg } => {
+            Operator::F32Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -1832,7 +1832,7 @@ fn parse_function(
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::F64Store { memarg } => {
+            Operator::F64Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -1847,7 +1847,7 @@ fn parse_function(
                 builder.build_store(effective_address, value);
             }
 
-            Operator::I32Load8S { memarg } => {
+            Operator::I32Load8S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1865,7 +1865,7 @@ fn parse_function(
                     builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I32Load16S { memarg } => {
+            Operator::I32Load16S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1883,7 +1883,7 @@ fn parse_function(
                     builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load8S { memarg } => {
+            Operator::I64Load8S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1901,7 +1901,7 @@ fn parse_function(
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load16S { memarg } => {
+            Operator::I64Load16S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1919,7 +1919,7 @@ fn parse_function(
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load32S { memarg } => {
+            Operator::I64Load32S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1938,7 +1938,7 @@ fn parse_function(
                 state.push1(result);
             }
 
-            Operator::I32Load8U { memarg } => {
+            Operator::I32Load8U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1956,7 +1956,7 @@ fn parse_function(
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I32Load16U { memarg } => {
+            Operator::I32Load16U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1974,7 +1974,7 @@ fn parse_function(
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load8U { memarg } => {
+            Operator::I64Load8U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1992,7 +1992,7 @@ fn parse_function(
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load16U { memarg } => {
+            Operator::I64Load16U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -2010,7 +2010,7 @@ fn parse_function(
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load32U { memarg } => {
+            Operator::I64Load32U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -2029,7 +2029,7 @@ fn parse_function(
                 state.push1(result);
             }
 
-            Operator::I32Store8 { memarg } | Operator::I64Store8 { memarg } => {
+            Operator::I32Store8 { ref memarg } | Operator::I64Store8 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -2045,7 +2045,7 @@ fn parse_function(
                     builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
                 builder.build_store(effective_address, narrow_value);
             }
-            Operator::I32Store16 { memarg } | Operator::I64Store16 { memarg } => {
+            Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -2061,7 +2061,7 @@ fn parse_function(
                     builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
                 builder.build_store(effective_address, narrow_value);
             }
-            Operator::I64Store32 { memarg } => {
+            Operator::I64Store32 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -2392,7 +2392,7 @@ fn resolve_memory_ptr(
     function: &FunctionValue,
     state: &mut State,
     ctx: &mut CtxType,
-    memarg: MemoryImmediate,
+    memarg: &MemoryImmediate,
     ptr_ty: PointerType,
 ) -> Result<PointerValue, BinaryReaderError> {
     // Ignore alignment hint for the time being.
@@ -2468,21 +2468,24 @@ fn resolve_memory_ptr(
 
 #[derive(Debug)]
 pub struct CodegenError {
-    pub message: &'static str,
+    pub message: String,
 }
 
 pub struct LLVMModuleCodeGenerator {
     context: Context,
-    builder: &'static Builder,
+    builder: Builder,
     functions: Vec<LLVMFunctionCodeGenerator>,
-    functions_llvm: &'static SliceMap<LocalFuncIndex, FunctionValue>,
+    functions_llvm: Map<LocalFuncIndex, FunctionValue>,
 //    signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
-    signatures: &'static SliceMap<SigIndex, FunctionType>,
+    signatures: Map<SigIndex, FunctionType>,
+    signatures_raw: Map<SigIndex, FuncSig>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
     // function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     // assembler: Option<Assembler>,
     func_import_count: usize,
-    intrinsics: &'static Intrinsics,
+    intrinsics: Intrinsics,
+    personality_func: FunctionValue,
+    module: Module,
 //    ctx: CtxType,
 }
 
@@ -2503,9 +2506,9 @@ pub struct LLVMFunctionCodeGenerator {
     builder: &'static Builder,
     context: &'static Context,
     function: FunctionValue,
-    func_sig: &'static FuncSig,
+    func_sig: FuncSig,
     intrinsics: &'static Intrinsics,
-    signatures: &'static SliceMap<SigIndex, FunctionType>,
+    signatures: Map<SigIndex, FunctionType>,
     // signatures: Arc<Map<SigIndex, FuncSig>>,
 
     // function_signatures: Arc<Map<FuncIndex, SigIndex>>,
@@ -2538,7 +2541,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     }
 
     fn begin_body(&mut self) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 
     fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
@@ -2619,7 +2622,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let intrinsics = self.intrinsics;
         let locals = &self.locals;
         let info = module_info;
-        let signatures = self.signatures;
+        let signatures = &self.signatures;
 
 
         // TODO this should be done only once per function I believe
@@ -2633,7 +2636,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let op = match event {
             Event::Wasm(x) => x,
             Event::Internal(x) => {
-                unimplemented!()
+                return Ok(());
+                //unimplemented!()
             }
         };
 
@@ -4151,7 +4155,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
              * Load and Store instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#load-and-store-instructions
              ***************************/
-            Operator::I32Load { memarg } => {
+            Operator::I32Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4165,7 +4169,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load { memarg } => {
+            Operator::I64Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4179,7 +4183,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::F32Load { memarg } => {
+            Operator::F32Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4193,7 +4197,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::F64Load { memarg } => {
+            Operator::F64Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4208,7 +4212,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(result);
             }
 
-            Operator::I32Store { memarg } => {
+            Operator::I32Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -4222,7 +4226,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::I64Store { memarg } => {
+            Operator::I64Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -4236,7 +4240,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::F32Store { memarg } => {
+            Operator::F32Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -4250,7 +4254,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::F64Store { memarg } => {
+            Operator::F64Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -4265,7 +4269,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 builder.build_store(effective_address, value);
             }
 
-            Operator::I32Load8S { memarg } => {
+            Operator::I32Load8S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4283,7 +4287,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I32Load16S { memarg } => {
+            Operator::I32Load16S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4301,7 +4305,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load8S { memarg } => {
+            Operator::I64Load8S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4319,7 +4323,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load16S { memarg } => {
+            Operator::I64Load16S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4337,7 +4341,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load32S { memarg } => {
+            Operator::I64Load32S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4356,7 +4360,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(result);
             }
 
-            Operator::I32Load8U { memarg } => {
+            Operator::I32Load8U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4374,7 +4378,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I32Load16U { memarg } => {
+            Operator::I32Load16U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4392,7 +4396,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load8U { memarg } => {
+            Operator::I64Load8U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4410,7 +4414,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load16U { memarg } => {
+            Operator::I64Load16U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4428,7 +4432,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load32U { memarg } => {
+            Operator::I64Load32U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -4447,7 +4451,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(result);
             }
 
-            Operator::I32Store8 { memarg } | Operator::I64Store8 { memarg } => {
+            Operator::I32Store8 { ref memarg } | Operator::I64Store8 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -4463,7 +4467,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
                 builder.build_store(effective_address, narrow_value);
             }
-            Operator::I32Store16 { memarg } | Operator::I64Store16 { memarg } => {
+            Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -4479,7 +4483,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
                 builder.build_store(effective_address, narrow_value);
             }
-            Operator::I64Store32 { memarg } => {
+            Operator::I64Store32 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -4562,7 +4566,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 );
                 state.push1(result.try_as_basic_value().left().unwrap());
             }
-            op @ _ => {
+            _ => {
                 unimplemented!("{:?}", op);
             }
         }
@@ -4578,8 +4582,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
 impl From<BinaryReaderError> for CodegenError {
     fn from(other: BinaryReaderError) -> CodegenError {
-        unimplemented!()
-        //CodegenError
+        CodegenError { message: format!("{:?}", other) }
     }
 }
 
@@ -4627,15 +4630,18 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         LLVMModuleCodeGenerator {
             context: context,
-            builder: &builder,
+            builder: builder,
+            module: module,
             functions: vec![],
-            functions_llvm: &functions,
-            signatures: &signatures,
+            functions_llvm: functions,
+            signatures: signatures,
+            signatures_raw: Map::new(),
             function_signatures: None,
             // function_labels: Some(HashMap::new()),
             // assembler: Some(Assembler::new().unwrap()),
             func_import_count: 0,
-            intrinsics: &intrinsics,
+            intrinsics: intrinsics,
+            personality_func: personality_func,
 //            ctx: ctx,
         }
     }
@@ -4653,19 +4659,24 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         use std::mem;
 
-        let func_sig_dummy: FuncSig = unsafe { mem::uninitialized() };
-        let function_dummy: FunctionValue = unsafe { mem::uninitialized() };
-        let intrinsics_dummy: &Intrinsics = unsafe { mem::uninitialized() };
-        let context_dummy: &Context = unsafe { mem::uninitialized() };
+        let sig_id = self.function_signatures.as_ref().unwrap()[FuncIndex::new(self.func_import_count + self.functions.len())];
+        let func_sig = self.signatures_raw[sig_id].clone();
+
+        let func = self.module.add_function(
+            &format!("fn{}", self.func_import_count + self.functions.len()),
+            self.signatures[sig_id],
+            Some(Linkage::External),
+        );
+        func.set_personality_function(self.personality_func);
 
         let code = LLVMFunctionCodeGenerator {
             state: State::new(),
-            builder: self.builder,
-            context: context_dummy, //&self.context,
-            function: function_dummy,
-            func_sig: &func_sig_dummy,
+            builder: unsafe { ::std::mem::transmute::<&Builder, &'static Builder>(&self.builder) },
+            context: unsafe { ::std::mem::transmute::<&Context, &'static Context>(&self.context) },
+            function: func,
+            func_sig: func_sig,
             locals: vec![],
-            signatures: &Map::new(),
+            signatures: self.signatures.clone(),
 //            context: self.fu
 
 //            signatures: self.signatures.as_ref().unwrap().clone(),
@@ -4683,7 +4694,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 //            control_stack: vec![],
 //            machine: Machine::new(),
 //            unreachable_depth: 0,
-            intrinsics: intrinsics_dummy,
+            intrinsics: unsafe { ::std::mem::transmute::<&Intrinsics, &'static Intrinsics>(&self.intrinsics) },
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -4694,7 +4705,11 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
-//        self.signatures = Some(Arc::new(signatures));
+        self.signatures = signatures
+            .iter()
+            .map(|(_, sig)| func_sig_to_llvm(&self.context, &self.intrinsics, sig))
+            .collect();
+        self.signatures_raw = signatures.clone();
         Ok(())
     }
 
@@ -4704,7 +4719,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     }
 
     fn feed_import_function(&mut self) -> Result<(), CodegenError> {
-        // TODO
+        self.func_import_count += 1;
         Ok(())
     }
 }
