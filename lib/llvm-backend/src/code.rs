@@ -4724,6 +4724,12 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         );
         let num_params = locals.len();
 
+        let start_of_code_block = self.context.append_basic_block(&function, "start_of_code");
+        let entry_end_inst = self
+            .builder
+            .build_unconditional_branch(&start_of_code_block);
+        self.builder.position_at_end(&start_of_code_block);
+
         let code = LLVMFunctionCodeGenerator {
             state,
             builder: unsafe { ::std::mem::transmute::<&Builder, &'static Builder>(&self.builder) },
