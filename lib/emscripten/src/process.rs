@@ -83,7 +83,12 @@ pub fn _raise(_ctx: &mut Ctx, _one: i32) -> i32 {
 
 pub fn _sem_init(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32) -> i32 {
     debug!("emscripten::_sem_init");
-    -1
+    0
+}
+
+pub fn _sem_destroy(_ctx: &mut Ctx, _one: i32) -> i32 {
+    debug!("emscripten::_sem_destroy");
+    0
 }
 
 pub fn _sem_post(_ctx: &mut Ctx, _one: i32) -> i32 {
@@ -159,7 +164,7 @@ pub fn _system(_ctx: &mut Ctx, _one: i32) -> c_int {
     debug!("emscripten::_system");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Can't call external programs");
-    return EAGAIN;
+    EAGAIN
 }
 
 pub fn _popen(_ctx: &mut Ctx, _one: i32, _two: i32) -> c_int {

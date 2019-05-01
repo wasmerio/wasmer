@@ -619,6 +619,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_llvm_eh_typeid_for" => func!(crate::process::_llvm_eh_typeid_for),
         "_raise" => func!(crate::process::_raise),
         "_sem_init" => func!(crate::process::_sem_init),
+        "_sem_destroy" => func!(crate::process::_sem_destroy),
         "_sem_post" => func!(crate::process::_sem_post),
         "_sem_wait" => func!(crate::process::_sem_wait),
         "_getgrent" => func!(crate::process::_getgrent),
@@ -646,6 +647,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_emscripten_get_heap_size" => func!(crate::memory::_emscripten_get_heap_size),
         "_emscripten_resize_heap" => func!(crate::memory::_emscripten_resize_heap),
         "enlargeMemory" => func!(crate::memory::enlarge_memory),
+        "segfault" => func!(crate::memory::segfault),
+        "alignfault" => func!(crate::memory::alignfault),
+        "ftfault" => func!(crate::memory::ftfault),
         "getTotalMemory" => func!(crate::memory::get_total_memory),
         "___map_file" => func!(crate::memory::___map_file),
 
@@ -655,6 +659,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___cxa_begin_catch" => func!(crate::exception::___cxa_begin_catch),
         "___cxa_end_catch" => func!(crate::exception::___cxa_end_catch),
         "___cxa_uncaught_exception" => func!(crate::exception::___cxa_uncaught_exception),
+        "___cxa_pure_virtual" => func!(crate::exception::___cxa_pure_virtual),
 
         // Time
         "_gettimeofday" => func!(crate::time::_gettimeofday),
@@ -683,6 +688,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_llvm_cos_f64" => func!(crate::math::_llvm_cos_f64),
         "_llvm_exp2_f32" => func!(crate::math::_llvm_exp2_f32),
         "_llvm_exp2_f64" => func!(crate::math::_llvm_exp2_f64),
+        "_llvm_trunc_f64" => func!(crate::math::_llvm_trunc_f64),
         "_emscripten_random" => func!(crate::math::_emscripten_random),
 
         // Jump
@@ -701,6 +707,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_dlsym" => func!(crate::linking::_dlsym),
 
         // wasm32-unknown-emscripten
+        "_atexit" => func!(crate::emscripten_target::_atexit),
         "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
         "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
         "invoke_i" => func!(crate::emscripten_target::invoke_i),
@@ -723,10 +730,15 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___resumeException" => func!(crate::emscripten_target::___resumeException),
         "_dladdr" => func!(crate::emscripten_target::_dladdr),
         "_pthread_create" => func!(crate::emscripten_target::_pthread_create),
+        "_pthread_detach" => func!(crate::emscripten_target::_pthread_detach),
         "_pthread_join" => func!(crate::emscripten_target::_pthread_join),
-        "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
+        "_pthread_attr_init" => func!(crate::emscripten_target::_pthread_attr_init),
+        "_pthread_attr_destroy" => func!(crate::emscripten_target::_pthread_attr_destroy),
+        "_pthread_attr_getstack" => func!(crate::emscripten_target::_pthread_attr_getstack),
         "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
+        "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
         "_pthread_cond_signal" => func!(crate::emscripten_target::_pthread_cond_signal),
+        "_pthread_cond_timedwait" => func!(crate::emscripten_target::_pthread_cond_timedwait),
         "_pthread_cond_wait" => func!(crate::emscripten_target::_pthread_cond_wait),
         "_pthread_condattr_destroy" => func!(crate::emscripten_target::_pthread_condattr_destroy),
         "_pthread_condattr_init" => func!(crate::emscripten_target::_pthread_condattr_init),
@@ -740,6 +752,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
         "_pthread_setcancelstate" => func!(crate::emscripten_target::_pthread_setcancelstate),
         "_pthread_getspecific" => func!(crate::emscripten_target::_pthread_getspecific),
+        "_pthread_getattr_np" => func!(crate::emscripten_target::_pthread_getattr_np),
         "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
         "_pthread_once" => func!(crate::emscripten_target::_pthread_once),
         "_pthread_key_create" => func!(crate::emscripten_target::_pthread_key_create),

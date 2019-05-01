@@ -95,6 +95,24 @@ pub fn abort_on_cannot_grow_memory_old(ctx: &mut Ctx) -> u32 {
     0
 }
 
+/// emscripten: segfault
+pub fn segfault(ctx: &mut Ctx) {
+    debug!("emscripten::segfault");
+    abort_with_message(ctx, "segmentation fault");
+}
+
+/// emscripten: alignfault
+pub fn alignfault(ctx: &mut Ctx) {
+    debug!("emscripten::alignfault");
+    abort_with_message(ctx, "alignment fault");
+}
+
+/// emscripten: ftfault
+pub fn ftfault(ctx: &mut Ctx) {
+    debug!("emscripten::ftfault");
+    abort_with_message(ctx, "Function table mask error");
+}
+
 /// emscripten: ___map_file
 pub fn ___map_file(_ctx: &mut Ctx, _one: u32, _two: u32) -> c_int {
     debug!("emscripten::___map_file");
