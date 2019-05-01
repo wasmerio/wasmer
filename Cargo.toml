@@ -34,7 +34,7 @@ wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 
 [workspace]
-members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi", "lib/middleware-common"]
+members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi", "lib/middleware-common", "examples/plugin-for-example"]
 
 [build-dependencies]
 wabt = "0.7.2"
@@ -50,3 +50,7 @@ fast-tests = []
 "backend:singlepass" = ["wasmer-singlepass-backend"]
 wasi = ["wasmer-wasi"]
 vfs = ["wasmer-runtime-abi"]
+
+[[example]]
+name = "plugin"
+crate-type = ["bin"]

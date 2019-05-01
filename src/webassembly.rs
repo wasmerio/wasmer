@@ -1,13 +1,6 @@
 use std::panic;
 pub use wasmer_runtime::compile_with_config_with;
-use wasmer_runtime::{
-    self as runtime,
-    error::{CallResult, Result},
-    ImportObject, Instance, Module,
-};
-use wasmer_runtime_core::types::Value;
-
-use wasmer_emscripten::run_emscripten_instance;
+use wasmer_runtime::{self as runtime, error::Result, ImportObject, Instance, Module};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
