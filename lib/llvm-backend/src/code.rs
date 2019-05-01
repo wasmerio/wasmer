@@ -4593,11 +4593,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
         }
 
-        unimplemented!()
+        Ok(())
     }
 
     fn finalize(&mut self) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 }
 
@@ -4692,6 +4692,22 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         );
         function.set_personality_function(self.personality_func);
 
+        let mut state = State::new();
+        let entry_block = self.context.append_basic_block(&function, "entry");
+
+        let return_block = self.context.append_basic_block(&function, "return");
+        self.builder.position_at_end(&return_block);
+
+        let phis: SmallVec<[PhiValue; 1]> = func_sig
+            .returns()
+            .iter()
+            .map(|&wasmer_ty| type_to_llvm(&self.intrinsics, wasmer_ty))
+            .map(|ty| self.builder.build_phi(ty, &state.var_name()))
+            .collect();
+
+        state.push_block(return_block, phis);
+        self.builder.position_at_end(&entry_block);
+
         let mut locals = Vec::new();
         locals.extend(
             function
@@ -4709,7 +4725,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         let num_params = locals.len();
 
         let code = LLVMFunctionCodeGenerator {
-            state: State::new(),
+            state,
             builder: unsafe { ::std::mem::transmute::<&Builder, &'static Builder>(&self.builder) },
             context: unsafe { ::std::mem::transmute::<&Context, &'static Context>(&self.context) },
             function,
@@ -4742,7 +4758,35 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     }
 
     fn finalize(self, module_info: &ModuleInfo) -> Result<LLVMBackend, CodegenError> {
-        unimplemented!()
+//         self.module.print_to_stderr();
+
+        generate_trampolines(
+            module_info,
+            &self.signatures,
+            &self.module,
+            &self.context,
+            &self.builder,
+            &self.intrinsics,
+        );
+
+        let pass_manager = PassManager::create_for_module();
+        // pass_manager.add_verifier_pass();
+        pass_manager.add_function_inlining_pass();
+        pass_manager.add_promote_memory_to_register_pass();
+        pass_manager.add_cfg_simplification_pass();
+        // pass_manager.add_instruction_combining_pass();
+        pass_manager.add_aggressive_inst_combiner_pass();
+        pass_manager.add_merged_load_store_motion_pass();
+        // pass_manager.add_sccp_pass();
+        // pass_manager.add_gvn_pass();
+        pass_manager.add_new_gvn_pass();
+        pass_manager.add_aggressive_dce_pass();
+        pass_manager.run_on_module(&self.module);
+
+        // self.module.print_to_stderr();
+
+        let (backend, _cache_gen) = LLVMBackend::new(self.module, self.intrinsics);
+        Ok(backend)
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
