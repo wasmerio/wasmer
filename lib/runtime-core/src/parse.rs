@@ -1,7 +1,7 @@
-use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
-use hashbrown::HashMap;
-use wasmer_runtime_core::{
+use crate::codegen::*;
+use crate::{
     backend::{Backend, CompilerConfig, RunnableModule},
+    error::CompileError,
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -14,6 +14,8 @@ use wasmer_runtime_core::{
     },
     units::Pages,
 };
+use hashbrown::HashMap;
+use std::fmt::Debug;
 use wasmparser::{
     BinaryReaderError, ExternalKind, FuncType, ImportSectionEntryType, Operator, Type as WpType,
     WasmDecoder,
@@ -22,7 +24,15 @@ use wasmparser::{
 #[derive(Debug)]
 pub enum LoadError {
     Parse(BinaryReaderError),
-    Codegen(CodegenError),
+    Codegen(String),
+}
+
+impl From<LoadError> for CompileError {
+    fn from(other: LoadError) -> CompileError {
+        CompileError::InternalError {
+            msg: format!("{:?}", other),
+        }
+    }
 }
 
 impl From<BinaryReaderError> for LoadError {
@@ -31,20 +41,16 @@ impl From<BinaryReaderError> for LoadError {
     }
 }
 
-impl From<CodegenError> for LoadError {
-    fn from(other: CodegenError) -> LoadError {
-        LoadError::Codegen(other)
-    }
-}
-
 pub fn read_module<
-    MCG: ModuleCodeGenerator<FCG, RM>,
-    FCG: FunctionCodeGenerator,
+    MCG: ModuleCodeGenerator<FCG, RM, E>,
+    FCG: FunctionCodeGenerator<E>,
     RM: RunnableModule,
+    E: Debug,
 >(
     wasm: &[u8],
     backend: Backend,
     mcg: &mut MCG,
+    middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
 ) -> Result<ModuleInfo, LoadError> {
     let mut info = ModuleInfo {
@@ -115,7 +121,8 @@ pub fn read_module<
                         let sigindex = SigIndex::new(sigindex as usize);
                         info.imported_functions.push(import_name);
                         info.func_assoc.push(sigindex);
-                        mcg.feed_import_function()?;
+                        mcg.feed_import_function()
+                            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     }
                     ImportSectionEntryType::Table(table_ty) => {
                         assert_eq!(table_ty.element_type, WpType::AnyFunc);
@@ -185,12 +192,25 @@ pub fn read_module<
                 if func_count == 0 {
                     info.namespace_table = namespace_builder.take().unwrap().finish();
                     info.name_table = name_builder.take().unwrap().finish();
-                    mcg.feed_signatures(info.signatures.clone())?;
-                    mcg.feed_function_signatures(info.func_assoc.clone())?;
-                    mcg.check_precondition(&info)?;
+                    mcg.feed_signatures(info.signatures.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.feed_function_signatures(info.func_assoc.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.check_precondition(&info)
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
 
-                let fcg = mcg.next_function()?;
+                let fcg = mcg
+                    .next_function()
+                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                middlewares
+                    .run(
+                        Some(fcg),
+                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
+                        &info,
+                    )
+                    .map_err(|x| LoadError::Codegen(x))?;
+
                 let sig = info
                     .signatures
                     .get(
@@ -201,10 +221,12 @@ pub fn read_module<
                     )
                     .unwrap();
                 for ret in sig.returns() {
-                    fcg.feed_return(type_to_wp_type(*ret))?;
+                    fcg.feed_return(type_to_wp_type(*ret))
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
                 for param in sig.params() {
-                    fcg.feed_param(type_to_wp_type(*param))?;
+                    fcg.feed_param(type_to_wp_type(*param))
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
 
                 let mut body_begun = false;
@@ -215,21 +237,33 @@ pub fn read_module<
                         ParserState::Error(err) => return Err(LoadError::Parse(err)),
                         ParserState::FunctionBodyLocals { ref locals } => {
                             for &(count, ty) in locals.iter() {
-                                fcg.feed_local(ty, count as usize)?;
+                                fcg.feed_local(ty, count as usize)
+                                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
                         }
                         ParserState::CodeOperator(ref op) => {
                             if !body_begun {
                                 body_begun = true;
-                                fcg.begin_body()?;
+                                fcg.begin_body()
+                                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
-                            fcg.feed_opcode(op, &info)?;
+                            middlewares
+                                .run(Some(fcg), Event::Wasm(op), &info)
+                                .map_err(|x| LoadError::Codegen(x))?;
                         }
                         ParserState::EndFunctionBody => break,
                         _ => unreachable!(),
                     }
                 }
-                fcg.finalize()?;
+                middlewares
+                    .run(
+                        Some(fcg),
+                        Event::Internal(InternalEvent::FunctionEnd),
+                        &info,
+                    )
+                    .map_err(|x| LoadError::Codegen(x))?;
+                fcg.finalize()
+                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
             }
             ParserState::BeginActiveElementSectionEntry(table_index) => {
                 let table_index = TableIndex::new(table_index as usize);
@@ -280,7 +314,7 @@ pub fn read_module<
                             base = Some(eval_init_expr(op)?)
                         }
                         ParserState::DataSectionEntryBodyChunk(chunk) => {
-                            data = chunk.to_vec();
+                            data.extend_from_slice(chunk);
                         }
                         ParserState::BeginInitExpressionBody
                         | ParserState::EndInitExpressionBody => {}

@@ -1,6 +1,5 @@
 #![allow(clippy::forget_copy)] // Used by dynasm.
 
-use super::codegen::*;
 use crate::emitter_x64::*;
 use crate::machine::*;
 use crate::protect_unix;
@@ -11,7 +10,8 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::RunnableModule,
+    backend::{Backend, RunnableModule},
+    codegen::*,
     memory::MemoryType,
     module::ModuleInfo,
     structures::{Map, TypedIndex},
@@ -135,6 +135,7 @@ pub struct X64FunctionCode {
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     br_table_data: Option<Vec<Vec<usize>>>,
+    breakpoints: Option<HashMap<AssemblyOffset, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
     returns: SmallVec<[WpType; 1]>,
     locals: Vec<Location>,
     num_params: usize,
@@ -160,6 +161,7 @@ pub struct X64ExecutionContext {
     function_pointers: Vec<FuncPtr>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
     _br_table_data: Vec<Vec<usize>>,
+    breakpoints: Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
     func_import_count: usize,
 }
 
@@ -209,12 +211,18 @@ impl RunnableModule for X64ExecutionContext {
             user_error: *mut Option<Box<dyn Any>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
+            let rm: &Box<dyn RunnableModule> = &unsafe { &*(*ctx).module }.runnable_module;
+            let execution_context = unsafe {
+                ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm)
+            };
             let args = ::std::slice::from_raw_parts(
                 args,
                 num_params_plus_one.unwrap().as_ptr() as usize - 1,
             );
             let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
-            match protect_unix::call_protected(|| {
+            protect_unix::BKPT_MAP
+                .with(|x| x.borrow_mut().push(execution_context.breakpoints.clone()));
+            let ret = match protect_unix::call_protected(|| {
                 CONSTRUCT_STACK_AND_CALL_WASM(
                     args_reverse.as_ptr(),
                     args_reverse.as_ptr().offset(args_reverse.len() as isize),
@@ -235,7 +243,9 @@ impl RunnableModule for X64ExecutionContext {
                     }
                     false
                 }
-            }
+            };
+            protect_unix::BKPT_MAP.with(|x| x.borrow_mut().pop().unwrap());
+            ret
         }
 
         unsafe extern "C" fn dummy_trampoline(
@@ -262,8 +272,15 @@ impl RunnableModule for X64ExecutionContext {
     }
 }
 
-impl X64ModuleCodeGenerator {
-    pub fn new() -> X64ModuleCodeGenerator {
+#[derive(Debug)]
+pub struct CodegenError {
+    pub message: &'static str,
+}
+
+impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
+    for X64ModuleCodeGenerator
+{
+    fn new() -> X64ModuleCodeGenerator {
         X64ModuleCodeGenerator {
             functions: vec![],
             signatures: None,
@@ -273,26 +290,31 @@ impl X64ModuleCodeGenerator {
             func_import_count: 0,
         }
     }
-}
 
-impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCodeGenerator {
+    fn backend_id() -> Backend {
+        Backend::Singlepass
+    }
+
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         Ok(())
     }
 
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
-        let (mut assembler, mut function_labels, br_table_data) = match self.functions.last_mut() {
-            Some(x) => (
-                x.assembler.take().unwrap(),
-                x.function_labels.take().unwrap(),
-                x.br_table_data.take().unwrap(),
-            ),
-            None => (
-                self.assembler.take().unwrap(),
-                self.function_labels.take().unwrap(),
-                vec![],
-            ),
-        };
+        let (mut assembler, mut function_labels, br_table_data, breakpoints) =
+            match self.functions.last_mut() {
+                Some(x) => (
+                    x.assembler.take().unwrap(),
+                    x.function_labels.take().unwrap(),
+                    x.br_table_data.take().unwrap(),
+                    x.breakpoints.take().unwrap(),
+                ),
+                None => (
+                    self.assembler.take().unwrap(),
+                    self.function_labels.take().unwrap(),
+                    vec![],
+                    HashMap::new(),
+                ),
+            };
         let begin_offset = assembler.offset();
         let begin_label_info = function_labels
             .entry(self.functions.len() + self.func_import_count)
@@ -313,6 +335,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             assembler: Some(assembler),
             function_labels: Some(function_labels),
             br_table_data: Some(br_table_data),
+            breakpoints: Some(breakpoints),
             returns: smallvec![],
             locals: vec![],
             num_params: 0,
@@ -327,8 +350,12 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
     }
 
     fn finalize(mut self, _: &ModuleInfo) -> Result<X64ExecutionContext, CodegenError> {
-        let (assembler, mut br_table_data) = match self.functions.last_mut() {
-            Some(x) => (x.assembler.take().unwrap(), x.br_table_data.take().unwrap()),
+        let (assembler, mut br_table_data, breakpoints) = match self.functions.last_mut() {
+            Some(x) => (
+                x.assembler.take().unwrap(),
+                x.br_table_data.take().unwrap(),
+                x.breakpoints.take().unwrap(),
+            ),
             None => {
                 return Err(CodegenError {
                     message: "no function",
@@ -370,11 +397,19 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             out_labels.push(FuncPtr(output.ptr(*offset) as _));
         }
 
+        let breakpoints: Arc<HashMap<_, _>> = Arc::new(
+            breakpoints
+                .into_iter()
+                .map(|(offset, f)| (output.ptr(offset) as usize, f))
+                .collect(),
+        );
+
         Ok(X64ExecutionContext {
             code: output,
             functions: self.functions,
             signatures: self.signatures.as_ref().unwrap().clone(),
             _br_table_data: br_table_data,
+            breakpoints: breakpoints,
             func_import_count: self.func_import_count,
             function_pointers: out_labels,
         })
@@ -1028,7 +1063,7 @@ impl X64FunctionCode {
         let mut call_movs: Vec<(Location, GPR)> = vec![];
 
         // Prepare register & stack parameters.
-        for (i, param) in params.iter().enumerate() {
+        for (i, param) in params.iter().enumerate().rev() {
             let loc = Machine::get_param_location(1 + i);
             match loc {
                 Location::GPR(x) => {
@@ -1335,7 +1370,7 @@ impl X64FunctionCode {
     }
 }
 
-impl FunctionCodeGenerator for X64FunctionCode {
+impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
     fn feed_return(&mut self, ty: WpType) -> Result<(), CodegenError> {
         self.returns.push(ty);
         Ok(())
@@ -1361,6 +1396,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
             .machine
             .init_locals(a, self.num_locals, self.num_params);
 
+        a.emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
+
         self.control_stack.push(ControlFrame {
             label: a.get_label(),
             loop_like: false,
@@ -1377,30 +1414,33 @@ impl FunctionCodeGenerator for X64FunctionCode {
         Ok(())
     }
 
-    fn feed_opcode(&mut self, op: &Operator, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn feed_event(&mut self, ev: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
         //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
 
         if self.unreachable_depth > 0 {
             was_unreachable = true;
-            match *op {
-                Operator::Block { .. } | Operator::Loop { .. } | Operator::If { .. } => {
-                    self.unreachable_depth += 1;
-                }
-                Operator::End => {
-                    self.unreachable_depth -= 1;
-                }
-                Operator::Else => {
-                    // We are in a reachable true branch
-                    if self.unreachable_depth == 1 {
-                        if let Some(IfElseState::If(_)) =
-                            self.control_stack.last().map(|x| x.if_else)
-                        {
-                            self.unreachable_depth -= 1;
+
+            if let Event::Wasm(op) = ev {
+                match *op {
+                    Operator::Block { .. } | Operator::Loop { .. } | Operator::If { .. } => {
+                        self.unreachable_depth += 1;
+                    }
+                    Operator::End => {
+                        self.unreachable_depth -= 1;
+                    }
+                    Operator::Else => {
+                        // We are in a reachable true branch
+                        if self.unreachable_depth == 1 {
+                            if let Some(IfElseState::If(_)) =
+                                self.control_stack.last().map(|x| x.if_else)
+                            {
+                                self.unreachable_depth -= 1;
+                            }
                         }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
             if self.unreachable_depth > 0 {
                 return Ok(());
@@ -1410,6 +1450,24 @@ impl FunctionCodeGenerator for X64FunctionCode {
         }
 
         let a = self.assembler.as_mut().unwrap();
+
+        let op = match ev {
+            Event::Wasm(x) => x,
+            Event::Internal(x) => {
+                match x {
+                    InternalEvent::Breakpoint(callback) => {
+                        a.emit_bkpt();
+                        self.breakpoints
+                            .as_mut()
+                            .unwrap()
+                            .insert(a.get_offset(), callback);
+                    }
+                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {}
+                    _ => unimplemented!(),
+                }
+                return Ok(());
+            }
+        };
         match *op {
             Operator::GetGlobal { global_index } => {
                 let global_index = global_index as usize;
