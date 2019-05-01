@@ -9,9 +9,11 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{Fd, InodeVal, Kind, WasiFile, WasiState, MAX_SYMLINKS},
+    ExitCode,
 };
 use rand::{thread_rng, Rng};
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::io::{self, Read, Seek, Write};
 use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
@@ -1240,15 +1242,12 @@ pub fn path_open(
                         };
                         // TODO: handle __WASI_O_TRUNC on directories
 
-                        let cur_dir = wasi_try!(open_options
-                            .open(&cumulative_path)
-                            .map_err(|_| __WASI_EINVAL));
-
                         // TODO: refactor and reuse
-                        let cur_file_metadata = cur_dir.metadata().unwrap();
+                        let cur_file_metadata =
+                            wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_EINVAL));
                         let kind = if cur_file_metadata.is_dir() {
                             Kind::Dir {
-                                handle: WasiFile::HostFile(cur_dir),
+                                path: cumulative_path.clone(),
                                 entries: Default::default(),
                             }
                         } else {
@@ -1430,9 +1429,9 @@ pub fn poll_oneoff(
     debug!("wasi::poll_oneoff");
     unimplemented!()
 }
-pub fn proc_exit(ctx: &mut Ctx, rval: __wasi_exitcode_t) -> Result<(), &'static str> {
-    debug!("wasi::proc_exit, {}", rval);
-    Err("Instance exited")
+pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<Infallible, ExitCode> {
+    debug!("wasi::proc_exit, {}", code);
+    Err(ExitCode { code })
 }
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
     debug!("wasi::proc_raise");

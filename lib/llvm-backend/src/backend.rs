@@ -93,6 +93,7 @@ extern "C" {
         params: *const u64,
         results: *mut u64,
         trap_out: *mut WasmTrapInfo,
+        user_error: *mut Option<Box<dyn Any>>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
@@ -297,7 +298,7 @@ impl LLVMBackend {
         let callbacks = get_callbacks();
         let mut module: *mut LLVMModule = ptr::null_mut();
 
-        let slice = unsafe { memory.as_slice() };
+        let slice = memory.as_slice();
 
         let res = module_load(slice.as_ptr(), slice.len(), callbacks, &mut module);
 
@@ -307,7 +308,7 @@ impl LLVMBackend {
 
         static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
 
-        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
+        SIGNAL_HANDLER_INSTALLED.call_once(|| {
             crate::platform::install_signal_handler();
         });
 

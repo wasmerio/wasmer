@@ -528,6 +528,7 @@ fn call_func_with_index(
 
     let run_wasm = |result_space: *mut u64| unsafe {
         let mut trap_info = WasmTrapInfo::Unknown;
+        let mut user_error = None;
 
         let success = invoke(
             trampoline,
@@ -536,15 +537,20 @@ fn call_func_with_index(
             raw_args.as_ptr(),
             result_space,
             &mut trap_info,
+            &mut user_error,
             invoke_env,
         );
 
         if success {
             Ok(())
         } else {
-            Err(RuntimeError::Trap {
-                msg: trap_info.to_string().into(),
-            })
+            if let Some(data) = user_error {
+                Err(RuntimeError::Error { data })
+            } else {
+                Err(RuntimeError::Trap {
+                    msg: trap_info.to_string().into(),
+                })
+            }
         }
     };
 
@@ -649,12 +655,5 @@ impl<'a> DynFunc<'a> {
                 self.instance_inner.import_backing.vm_functions[import_func_index].func
             }
         }
-    }
-}
-
-#[doc(hidden)]
-impl Instance {
-    pub fn memory_offset_addr(&self, _: u32, _: usize) -> *const u8 {
-        unimplemented!()
     }
 }

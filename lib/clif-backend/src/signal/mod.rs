@@ -27,6 +27,11 @@ thread_local! {
     pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
 }
 
+pub enum CallProtError {
+    Trap(WasmTrapInfo),
+    Error(Box<dyn Any>),
+}
+
 pub struct Caller {
     handler_data: HandlerData,
     trampolines: Arc<Trampolines>,
@@ -59,7 +64,8 @@ impl RunnableModule for Caller {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            _trap_info: *mut WasmTrapInfo,
+            trap_info: *mut WasmTrapInfo,
+            user_error: *mut Option<Box<dyn Any>>,
             invoke_env: Option<NonNull<c_void>>,
         ) -> bool {
             let handler_data = &*invoke_env.unwrap().cast().as_ptr();
@@ -68,14 +74,22 @@ impl RunnableModule for Caller {
             let res = call_protected(handler_data, || {
                 // Leap of faith.
                 trampoline(ctx, func, args, rets);
-            })
-            .is_ok();
+            });
 
             // the trampoline is called from C on windows
             #[cfg(target_os = "windows")]
-            let res = call_protected(handler_data, trampoline, ctx, func, args, rets).is_ok();
+            let res = call_protected(handler_data, trampoline, ctx, func, args, rets);
 
-            res
+            match res {
+                Err(err) => {
+                    match err {
+                        CallProtError::Trap(info) => *trap_info = info,
+                        CallProtError::Error(data) => *user_error = Some(data),
+                    }
+                    false
+                }
+                Ok(()) => true,
+            }
         }
 
         let trampoline = self

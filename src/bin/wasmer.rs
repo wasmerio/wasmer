@@ -11,12 +11,15 @@ use std::str::FromStr;
 use hashbrown::HashMap;
 use structopt::StructOpt;
 
-use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend:llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
-use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
+use wasmer_runtime::{
+    cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
+    error::RuntimeError,
+    Func, Value,
+};
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig},
@@ -105,7 +108,13 @@ enum Backend {
 
 impl Backend {
     pub fn variants() -> &'static [&'static str] {
-        &["singlepass", "cranelift", "llvm"]
+        &[
+            "cranelift",
+            #[cfg(feature = "backend:singlepass")]
+            "singlepass",
+            #[cfg(feature = "backend:llvm")]
+            "llvm",
+        ]
     }
 }
 
@@ -295,60 +304,81 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     // TODO: refactor this
-    let (abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
+    if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
-        (
-            InstanceABI::Emscripten,
-            wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
-            Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
+        let import_object = wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals);
+        let mut instance = module
+            .instantiate(&import_object)
+            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+
+        wasmer_emscripten::run_emscripten_instance(
+            &module,
+            &mut instance,
+            if let Some(cn) = &options.command_name {
+                cn
+            } else {
+                options.path.to_str().unwrap()
+            },
+            options.args.iter().map(|arg| arg.as_str()).collect(),
         )
+        .map_err(|e| format!("{:?}", e))?;
     } else {
         if cfg!(feature = "wasi") && wasmer_wasi::is_wasi_module(&module) {
-            (
-                InstanceABI::WASI,
-                wasmer_wasi::generate_import_object(
-                    if let Some(cn) = &options.command_name {
-                        [cn.clone()]
-                    } else {
-                        [options.path.to_str().unwrap().to_owned()]
-                    }
-                    .iter()
-                    .chain(options.args.iter())
-                    .cloned()
-                    .map(|arg| arg.into_bytes())
+            let import_object = wasmer_wasi::generate_import_object(
+                if let Some(cn) = &options.command_name {
+                    [cn.clone()]
+                } else {
+                    [options.path.to_str().unwrap().to_owned()]
+                }
+                .iter()
+                .chain(options.args.iter())
+                .cloned()
+                .map(|arg| arg.into_bytes())
+                .collect(),
+                env::vars()
+                    .map(|(k, v)| format!("{}={}", k, v).into_bytes())
                     .collect(),
-                    env::vars()
-                        .map(|(k, v)| format!("{}={}", k, v).into_bytes())
-                        .collect(),
-                    options.pre_opened_directories.clone(),
-                ),
-                None,
-            )
+                options.pre_opened_directories.clone(),
+            );
+
+            let instance = module
+                .instantiate(&import_object)
+                .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+
+            let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
+
+            let result = start.call();
+
+            if let Err(ref err) = result {
+                match err {
+                    RuntimeError::Trap { msg } => panic!("wasm trap occured: {}", msg),
+                    RuntimeError::Error { data } => {
+                        if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
+                            std::process::exit(error_code.code as i32)
+                        }
+                    }
+                }
+                panic!("error: {:?}", err)
+            }
         } else {
-            (
-                InstanceABI::None,
-                wasmer_runtime_core::import::ImportObject::new(),
-                None,
-            )
+            let import_object = wasmer_runtime_core::import::ImportObject::new();
+            let instance = module
+                .instantiate(&import_object)
+                .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+
+            let args: Vec<Value> = options
+                .args
+                .iter()
+                .map(|arg| arg.as_str())
+                .map(|x| Value::I32(x.parse().unwrap()))
+                .collect();
+            instance
+                .dyn_func("main")
+                .map_err(|e| format!("{:?}", e))?
+                .call(&args)
+                .map_err(|e| format!("{:?}", e))?;
         }
-    };
-
-    let mut instance = module
-        .instantiate(&import_object)
-        .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
-
-    webassembly::run_instance(
-        &module,
-        &mut instance,
-        abi,
-        if let Some(cn) = &options.command_name {
-            cn
-        } else {
-            options.path.to_str().unwrap()
-        },
-        options.args.iter().map(|arg| arg.as_str()).collect(),
-    )
-    .map_err(|e| format!("{:?}", e))?;
+    }
 
     Ok(())
 }
