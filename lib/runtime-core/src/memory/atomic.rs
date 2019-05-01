@@ -52,6 +52,7 @@ macro_rules! intcast {
 }
 intcast! { u8 i8 u16 i16 u32 i32 u64 i64 }
 
+#[repr(transparent)]
 pub struct Atomic<T> {
     v: UnsafeCell<Wrapping<T>>,
 }
