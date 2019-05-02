@@ -23,6 +23,7 @@ use wasmer_runtime::{
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig},
+    loader::{self, Loader, Instance as _, LocalLoader},
 };
 #[cfg(feature = "backend:singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
@@ -90,12 +91,43 @@ struct Run {
     #[structopt(long = "dir", multiple = true, group = "wasi")]
     pre_opened_directories: Vec<String>,
 
+    // Custom code loader
+    #[structopt(
+        long = "loader",
+        raw(possible_values = "LoaderName::variants()", case_insensitive = "true")
+    )]
+    loader: Option<LoaderName>,
+
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
 
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
+enum LoaderName {
+    Local,
+}
+
+impl LoaderName {
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            "local",
+        ]
+    }
+}
+
+impl FromStr for LoaderName {
+    type Err = String;
+    fn from_str(s: &str) -> Result<LoaderName, String> {
+        match s.to_lowercase().as_str() {
+            "local" => Ok(LoaderName::Local),
+            _ => Err(format!("The loader {} doesn't exist", s)),
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -302,6 +334,28 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
+
+    if let Some(loader) = options.loader {
+        let import_object = wasmer_runtime_core::import::ImportObject::new();
+        let instance = module
+            .instantiate(&import_object)
+            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+
+        let args: Vec<Value> = options
+            .args
+            .iter()
+            .map(|arg| arg.as_str())
+            .map(|x| Value::I32(x.parse().unwrap()))
+            .collect();
+        let index = instance.resolve_local_func("main").unwrap();
+        match loader {
+            LoaderName::Local => {
+                let mut ins = instance.load(LocalLoader).unwrap();
+                println!("{:?}", ins.call(index, &args));
+            },
+        }
+        return Ok(())
+    }
 
     // TODO: refactor this
     if wasmer_emscripten::is_emscripten_module(&module) {

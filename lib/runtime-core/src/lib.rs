@@ -33,6 +33,7 @@ pub mod units;
 pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
+pub mod loader;
 
 use self::error::CompileResult;
 #[doc(inline)]

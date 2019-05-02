@@ -159,6 +159,7 @@ pub struct X64ExecutionContext {
     #[allow(dead_code)]
     functions: Vec<X64FunctionCode>,
     function_pointers: Vec<FuncPtr>,
+    function_offsets: Vec<AssemblyOffset>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
     _br_table_data: Vec<Vec<usize>>,
     breakpoints: Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
@@ -270,6 +271,14 @@ impl RunnableModule for X64ExecutionContext {
         protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
         protect_unix::trigger_trap();
     }
+
+    fn get_code(&self) -> Option<&[u8]> {
+        Some(&self.code)
+    }
+
+    fn get_offsets(&self) -> Option<Vec<usize>> {
+        Some(self.function_offsets.iter().map(|x| x.0).collect())
+    }
 }
 
 #[derive(Debug)]
@@ -376,6 +385,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             self.function_labels.as_ref().unwrap()
         };
         let mut out_labels: Vec<FuncPtr> = vec![];
+        let mut out_offsets: Vec<AssemblyOffset> = vec![];
 
         for i in 0..function_labels.len() {
             let (_, offset) = match function_labels.get(&i) {
@@ -395,6 +405,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 }
             };
             out_labels.push(FuncPtr(output.ptr(*offset) as _));
+            out_offsets.push(*offset);
         }
 
         let breakpoints: Arc<HashMap<_, _>> = Arc::new(
@@ -412,6 +423,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             breakpoints: breakpoints,
             func_import_count: self.func_import_count,
             function_pointers: out_labels,
+            function_offsets: out_offsets,
         })
     }
 
