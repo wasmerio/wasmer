@@ -60,7 +60,7 @@ wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 Installing Wasmer through `get.wasmer.io` includes
 [wapm](https://github.com/wasmerio/wapm-cli), the WebAssembly package manager.
 
-Wapm allows us to easily download, run, and distribute WebAssembly binaries.
+Wapm allows you to easily download, run, and distribute WebAssembly binaries.
 
 ```sh
 # Install cowsay globally
