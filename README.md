@@ -64,7 +64,7 @@ Wapm allows you to easily download, run, and distribute WebAssembly binaries.
 
 ```sh
 # Install cowsay globally
-wapm install cowsay
+wapm install -g cowsay
 
 # Run cowsay
 wapm run cowsay "Hello, world!"
