@@ -1387,7 +1387,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         Ok(())
     }
 
-    fn begin_body(&mut self) -> Result<(), CodegenError> {
+    fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
         a.emit_push(Size::S64, Location::GPR(GPR::RBP));
         a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));

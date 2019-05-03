@@ -2520,6 +2520,7 @@ pub struct LLVMFunctionCodeGenerator {
     // returns: SmallVec<[WpType; 1]>,
     locals: Vec<PointerValue>, // Contains params and locals
     num_params: usize,
+    ctx: Option<CtxType<'static>>,
     // num_locals: usize,
     // value_stack: Vec<(Location, LocalOrTemp)>,
     // control_stack: Vec<ControlFrame>,
@@ -2565,7 +2566,27 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         Ok(())
     }
 
-    fn begin_body(&mut self) -> Result<(), CodegenError> {
+    fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        let start_of_code_block = self
+            .context
+            .append_basic_block(&self.function, "start_of_code");
+        let entry_end_inst = self
+            .builder
+            .build_unconditional_branch(&start_of_code_block);
+        self.builder.position_at_end(&start_of_code_block);
+
+        let cache_builder = self.context.create_builder();
+        cache_builder.position_before(&entry_end_inst);
+        let module_info =
+            unsafe { ::std::mem::transmute::<&ModuleInfo, &'static ModuleInfo>(module_info) };
+        let function = unsafe {
+            ::std::mem::transmute::<&FunctionValue, &'static FunctionValue>(&self.function)
+        };
+        let mut ctx = self
+            .intrinsics
+            .ctx(module_info, self.builder, function, cache_builder);
+
+        self.ctx = Some(ctx);
         Ok(())
     }
 
@@ -2637,6 +2658,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         //
         //        let cache_builder = context.create_builder();
         //        cache_builder.position_before(&entry_end_inst);
+        let op = match event {
+            Event::Wasm(x) => x,
+            Event::Internal(x) => {
+                return Ok(());
+            }
+        };
 
         let mut state = &mut self.state;
         let builder = self.builder;
@@ -2646,21 +2673,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let locals = &self.locals;
         let info = module_info;
         let signatures = &self.signatures;
-
-        // TODO this should be done only once per function I believe
-        // just adding here to get compilation
-        let cache_builder = context.create_builder();
-        //        cache_builder.position_before(&entry_end_inst);
-        let mut ctx = intrinsics.ctx(info, builder, &function, cache_builder);
-        //            self.ctx;
-
-        let op = match event {
-            Event::Wasm(x) => x,
-            Event::Internal(x) => {
-                return Ok(());
-                //unimplemented!()
-            }
-        };
+        let mut ctx = self.ctx.as_mut().unwrap();
 
         let mut unreachable_depth = 0;
         if !state.reachable {
@@ -4724,12 +4737,6 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         );
         let num_params = locals.len();
 
-        let start_of_code_block = self.context.append_basic_block(&function, "start_of_code");
-        let entry_end_inst = self
-            .builder
-            .build_unconditional_branch(&start_of_code_block);
-        self.builder.position_at_end(&start_of_code_block);
-
         let code = LLVMFunctionCodeGenerator {
             state,
             builder: unsafe { ::std::mem::transmute::<&Builder, &'static Builder>(&self.builder) },
@@ -4758,13 +4765,14 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             intrinsics: unsafe {
                 ::std::mem::transmute::<&Intrinsics, &'static Intrinsics>(&self.intrinsics)
             },
+            ctx: None,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
     }
 
     fn finalize(self, module_info: &ModuleInfo) -> Result<LLVMBackend, CodegenError> {
-//         self.module.print_to_stderr();
+        //         self.module.print_to_stderr();
 
         generate_trampolines(
             module_info,

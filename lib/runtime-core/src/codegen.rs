@@ -12,7 +12,9 @@ use smallvec::SmallVec;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use wasmparser::{Operator, Type as WpType};
+use std::fmt;
 
+#[derive(Debug)]
 pub enum Event<'a, 'b> {
     Internal(InternalEvent),
     Wasm(&'b Operator<'a>),
@@ -24,6 +26,19 @@ pub enum InternalEvent {
     Breakpoint(Box<Fn(BkptInfo) + Send + Sync + 'static>),
     SetInternal(u32),
     GetInternal(u32),
+}
+
+impl fmt::Debug for InternalEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            InternalEvent::FunctionBegin(_) => write!(f, "FunctionBegin"),
+            InternalEvent::FunctionEnd => write!(f, "FunctionEnd"),
+            InternalEvent::Breakpoint(_) => write!(f, "Breakpoint"),
+            InternalEvent::SetInternal(_) => write!(f, "SetInternal"),
+            InternalEvent::GetInternal(_) => write!(f, "GetInternal"),
+            _ => panic!("unknown event")
+        }
+    }
 }
 
 pub struct BkptInfo {}
@@ -246,7 +261,7 @@ pub trait FunctionCodeGenerator<E: Debug> {
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), E>;
 
     /// Called before the first call to `feed_opcode`.
-    fn begin_body(&mut self) -> Result<(), E>;
+    fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
 
     /// Called for each operator.
     fn feed_event(&mut self, op: Event, module_info: &ModuleInfo) -> Result<(), E>;
