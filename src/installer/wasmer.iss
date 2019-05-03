@@ -18,6 +18,9 @@ DisableWelcomePage=no
 Source: "..\..\target\release\wasmer.exe"; DestDir: "{app}\bin"
 Source: "..\..\wapm-cli\target\release\wapm.exe"; DestDir: "{app}\bin"
 
+[Dirs]
+Name: "{%USERPROFILE}\.wasmer"
+
 [Code]
 const EnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
 
@@ -68,7 +71,7 @@ begin
     if CurStep = ssPostInstall 
      then begin 
      EnvAddPath(ExpandConstant('{app}') +'\bin');
-     EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
+     EnvAddPath(ExpandConstant('{%USERPROFILE}') +'\globals\wapm_packages\.bin');
      end
 end;
 
@@ -77,6 +80,6 @@ begin
     if CurUninstallStep = usPostUninstall
     then begin 
     EnvRemovePath(ExpandConstant('{app}') +'\bin');
-    EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
+    EnvAddPath(ExpandConstant('{%USERPROFILE}') +'\globals\wapm_packages\.bin');
     end
 end;
