@@ -246,12 +246,22 @@ pub fn ___syscall192(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     if fd == -1 {
         let ptr = env::call_memalign(ctx, 16384, len);
         if ptr == 0 {
-            return -1;
+            // ENOMEM
+            return -12;
         }
+        let real_ptr = emscripten_memory_pointer!(ctx.memory(0), ptr) as *const u8;
         env::call_memset(ctx, ptr, 0, len);
-        ptr as _
+        for i in 0..(len as usize) {
+            unsafe {
+                assert_eq!(*real_ptr.add(i), 0);
+            }
+        }
+        debug!("=> ptr: {}", ptr);
+        return ptr as i32;
     } else {
-        -1
+        unimplemented!("temp during dev");
+        // return ENODEV
+        return -19;
     }
 }
 

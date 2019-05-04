@@ -282,6 +282,7 @@ pub fn run_emscripten_instance(
     instance: &mut Instance,
     path: &str,
     args: Vec<&str>,
+    entrypoint: Option<String>,
 ) -> CallResult<()> {
     let mut data = EmscriptenData::new(instance);
     let data_ptr = &mut data as *mut _ as *mut c_void;
@@ -299,21 +300,29 @@ pub fn run_emscripten_instance(
 
     // println!("running emscripten instance");
 
-    let main_func = instance.dyn_func("_main")?;
-    let num_params = main_func.signature().params().len();
-    let _result = match num_params {
-        2 => {
-            let (argc, argv) = store_module_arguments(instance.context_mut(), path, args);
-            instance.call("_main", &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
-        }
-        0 => {
-            instance.call("_main", &[])?;
-        }
-        _ => panic!(
-            "The emscripten main function has received an incorrect number of params {}",
-            num_params
-        ),
-    };
+    if let Some(ep) = entrypoint {
+        println!("RUnning entry point: {}", &ep);
+        let ep_fn = instance.dyn_func(&ep)?;
+        let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
+        //let (argc, argv) = store_module_arguments(instance.context_mut(), path, args);
+        instance.call(&ep, &[Value::I32(arg as i32)])?;
+    } else {
+        let main_func = instance.dyn_func("_main")?;
+        let num_params = main_func.signature().params().len();
+        let _result = match num_params {
+            2 => {
+                let (argc, argv) = store_module_arguments(instance.context_mut(), path, args);
+                instance.call("_main", &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
+            }
+            0 => {
+                instance.call("_main", &[])?;
+            }
+            _ => panic!(
+                "The emscripten main function has received an incorrect number of params {}",
+                num_params
+            ),
+        };
+    }
 
     // TODO atexit for emscripten
     // println!("{:?}", data);
