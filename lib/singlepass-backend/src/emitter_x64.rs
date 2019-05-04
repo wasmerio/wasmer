@@ -89,6 +89,8 @@ pub trait Emitter {
     fn get_label(&mut self) -> Self::Label;
     fn get_offset(&mut self) -> Self::Offset;
 
+    fn emit_u64(&mut self, x: u64);
+
     fn emit_label(&mut self, label: Self::Label);
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
@@ -488,6 +490,10 @@ impl Emitter for Assembler {
 
     fn get_offset(&mut self) -> AssemblyOffset {
         self.offset()
+    }
+
+    fn emit_u64(&mut self, x: u64) {
+        self.push_u64(x);
     }
 
     fn emit_label(&mut self, label: Self::Label) {
