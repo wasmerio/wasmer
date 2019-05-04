@@ -23,7 +23,7 @@ use wasmer_runtime::{
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig},
-    loader::{self, Loader, Instance as _, LocalLoader},
+    loader::{self, Loader, Instance as LoadedInstance, LocalLoader},
 };
 #[cfg(feature = "backend:singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
@@ -110,12 +110,14 @@ struct Run {
 #[derive(Debug, Copy, Clone)]
 enum LoaderName {
     Local,
+    Kernel,
 }
 
 impl LoaderName {
     pub fn variants() -> &'static [&'static str] {
         &[
             "local",
+            "kernel",
         ]
     }
 }
@@ -125,6 +127,7 @@ impl FromStr for LoaderName {
     fn from_str(s: &str) -> Result<LoaderName, String> {
         match s.to_lowercase().as_str() {
             "local" => Ok(LoaderName::Local),
+            "kernel" => Ok(LoaderName::Kernel),
             _ => Err(format!("The loader {} doesn't exist", s)),
         }
     }
@@ -348,12 +351,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map(|x| Value::I32(x.parse().unwrap()))
             .collect();
         let index = instance.resolve_local_func("main").unwrap();
-        match loader {
-            LoaderName::Local => {
-                let mut ins = instance.load(LocalLoader).unwrap();
-                println!("{:?}", ins.call(index, &args));
-            },
-        }
+        let mut ins: Box<LoadedInstance<Error = String>> = match loader {
+            LoaderName::Local => Box::new(instance.load(LocalLoader).unwrap()),
+            LoaderName::Kernel => Box::new(instance.load(::kwasm_loader::KernelLoader).unwrap()),
+        };
+        println!("{:?}", ins.call(index, &args));
         return Ok(())
     }
 
