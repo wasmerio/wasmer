@@ -48,13 +48,16 @@ struct RunCodeRequest {
     memory: *const u8,
     memory_len: u32,
     memory_max: u32,
-    table: *const u32,
+    table: *const TableEntryRequest,
     table_count: u32,
     globals: *const u64,
     global_count: u32,
 
     imported_funcs: *const ImportRequest,
     imported_func_count: u32,
+
+    dynamic_sigindices: *const u32,
+    dynamic_sigindice_count: u32,
 
     entry_offset: u32,
     params: *const u64,
@@ -66,6 +69,12 @@ struct ImportRequest {
     name: [u8; 64],
 }
 
+#[repr(C)]
+pub struct TableEntryRequest {
+    pub offset: usize,
+    pub sig_id: u32,
+}
+
 pub struct RunProfile<'a> {
     pub code: &'a [u8],
     pub memory: Option<&'a [u8]>,
@@ -73,7 +82,9 @@ pub struct RunProfile<'a> {
     pub globals: &'a [u64],
     pub params: &'a [u64],
     pub entry_offset: u32,
-    pub imports: &'a [String]
+    pub imports: &'a [String],
+    pub dynamic_sigindices: &'a [u32],
+    pub table: Option<&'a [TableEntryRequest]>,
 }
 
 pub struct ServiceContext {
@@ -104,12 +115,14 @@ impl ServiceContext {
             memory: run.memory.map(|x| x.as_ptr()).unwrap_or(::std::ptr::null()),
             memory_len: run.memory.map(|x| x.len() as u32).unwrap_or(0),
             memory_max: run.memory_max as u32,
-            table: ::std::ptr::null(),
-            table_count: 0,
+            table: run.table.map(|x| x.as_ptr()).unwrap_or(::std::ptr::null()),
+            table_count: run.table.map(|x| x.len() as u32).unwrap_or(0),
             globals: run.globals.as_ptr(),
             global_count: run.globals.len() as u32,
             imported_funcs: imports.as_ptr(),
             imported_func_count: imports.len() as u32,
+            dynamic_sigindices: run.dynamic_sigindices.as_ptr(),
+            dynamic_sigindice_count: run.dynamic_sigindices.len() as u32,
             params: run.params.as_ptr(),
             param_count: run.params.len() as u32,
             entry_offset: run.entry_offset,

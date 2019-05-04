@@ -4,7 +4,7 @@ use std::{
 };
 use crate::{
     backend::RunnableModule,
-    vm::InternalCtx,
+    vm::Ctx,
     module::ModuleInfo,
     types::Value,
 };
@@ -17,7 +17,7 @@ pub trait Loader {
     type Instance: Instance;
     type Error: Debug;
 
-    fn load(&self, rm: &dyn RunnableModule, module: &ModuleInfo, ctx: &InternalCtx) -> Result<Self::Instance, Self::Error>;
+    fn load(&self, rm: &dyn RunnableModule, module: &ModuleInfo, ctx: &Ctx) -> Result<Self::Instance, Self::Error>;
 }
 
 pub trait Instance {
@@ -31,7 +31,7 @@ impl Loader for LocalLoader {
     type Instance = LocalInstance;
     type Error = String;
 
-    fn load(&self, rm: &dyn RunnableModule, module: &ModuleInfo, ctx: &InternalCtx) -> Result<Self::Instance, Self::Error> {
+    fn load(&self, rm: &dyn RunnableModule, module: &ModuleInfo, ctx: &Ctx) -> Result<Self::Instance, Self::Error> {
         let code = rm.get_code().unwrap();
         let mut code_mem = CodeMemory::new(code.len());
         code_mem[..code.len()].copy_from_slice(code);

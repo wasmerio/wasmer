@@ -16,7 +16,7 @@ use hashbrown::HashMap;
 #[repr(C)]
 pub struct Ctx {
     // `internal` must be the first field of `Ctx`.
-    pub(crate) internal: InternalCtx,
+    pub internal: InternalCtx,
 
     pub(crate) local_functions: *const *const Func,
 
@@ -162,6 +162,13 @@ impl Ctx {
     /// Gives access to the emscripten symbol map, used for debugging
     pub unsafe fn borrow_symbol_map(&self) -> &Option<HashMap<u32, String>> {
         &(*self.module).info.em_symbol_map
+    }
+
+    /// Returns the number of dynamic sigindices.
+    pub fn dynamic_sigindice_count(&self) -> usize {
+        unsafe {
+            (*self.local_backing).dynamic_sigindices.len()
+        }
     }
 }
 
