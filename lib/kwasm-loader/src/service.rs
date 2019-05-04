@@ -53,9 +53,17 @@ struct RunCodeRequest {
     globals: *const u64,
     global_count: u32,
 
+    imported_funcs: *const ImportRequest,
+    imported_func_count: u32,
+
     entry_offset: u32,
     params: *const u64,
     param_count: u32,
+}
+
+#[repr(C)]
+struct ImportRequest {
+    name: [u8; 64],
 }
 
 pub struct RunProfile<'a> {
@@ -65,6 +73,7 @@ pub struct RunProfile<'a> {
     pub globals: &'a [u64],
     pub params: &'a [u64],
     pub entry_offset: u32,
+    pub imports: &'a [String]
 }
 
 pub struct ServiceContext {
@@ -79,6 +88,16 @@ impl ServiceContext {
     }
 
     pub fn run_code(&mut self, run: RunProfile) -> ServiceResult<i32> {
+        let imports: Vec<ImportRequest> = run.imports.iter().map(|x| {
+            let mut req: ImportRequest = unsafe { ::std::mem::zeroed() };
+            let x = x.as_bytes();
+            let mut count = req.name.len() - 1;
+            if x.len() < count {
+                count = x.len();
+            }
+            req.name[..count].copy_from_slice(&x[..count]);
+            req
+        }).collect();
         let req = RunCodeRequest {
             code: run.code.as_ptr(),
             code_len: run.code.len() as u32,
@@ -89,6 +108,8 @@ impl ServiceContext {
             table_count: 0,
             globals: run.globals.as_ptr(),
             global_count: run.globals.len() as u32,
+            imported_funcs: imports.as_ptr(),
+            imported_func_count: imports.len() as u32,
             params: run.params.as_ptr(),
             param_count: run.params.len() as u32,
             entry_offset: run.entry_offset,

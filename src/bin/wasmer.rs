@@ -339,7 +339,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     if let Some(loader) = options.loader {
-        let import_object = wasmer_runtime_core::import::ImportObject::new();
+        let mut import_object = wasmer_runtime_core::import::ImportObject::new();
+        import_object.allow_missing_functions = true; // Import initialization might be left to the loader.
         let instance = module
             .instantiate(&import_object)
             .map_err(|e| format!("Can't instantiate module: {:?}", e))?;

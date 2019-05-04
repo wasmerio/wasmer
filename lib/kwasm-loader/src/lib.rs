@@ -34,12 +34,18 @@ impl Loader for KernelLoader {
             let globals: &[*mut LocalGlobal] = ::std::slice::from_raw_parts(ctx.globals, module.globals.len());
             globals.iter().map(|x| (**x).data).collect()
         };
+        let mut import_names: Vec<String> = vec![];
+        for (_, import) in &module.imported_functions {
+            let name = format!("{}##{}", module.namespace_table.get(import.namespace_index), module.name_table.get(import.name_index));
+            import_names.push(name);
+        }
         Ok(KernelInstance {
             context: ServiceContext::connect().map_err(|x| format!("{:?}", x))?,
             code: code.to_vec(),
             memory: memory,
             globals: globals,
             offsets: rm.get_offsets().unwrap(),
+            import_names: import_names,
         })
     }
 }
@@ -50,6 +56,7 @@ pub struct KernelInstance {
     memory: Option<Vec<u8>>,
     globals: Vec<u64>,
     offsets: Vec<usize>,
+    import_names: Vec<String>,
 }
 
 impl Instance for KernelInstance {
@@ -64,6 +71,7 @@ impl Instance for KernelInstance {
             globals: &self.globals,
             params: &args,
             entry_offset: self.offsets[id] as u32,
+            imports: &self.import_names,
         }).map_err(|x| format!("{:?}", x))?;
         Ok(ret as u64)
     }
