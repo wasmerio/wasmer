@@ -4610,6 +4610,21 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     }
 
     fn finalize(&mut self) -> Result<(), CodegenError> {
+        let results = self.state.popn_save(self.func_sig.returns().len())?;
+
+        match results.as_slice() {
+            [] => {
+                self.builder.build_return(None);
+            }
+            [one_value] => {
+                self.builder.build_return(Some(one_value));
+            }
+            _ => {
+                // let struct_ty = llvm_sig.get_return_type().as_struct_type();
+                // let ret_struct = struct_ty.const_zero();
+                unimplemented!("multi-value returns not yet implemented")
+            }
+        }
         Ok(())
     }
 }
