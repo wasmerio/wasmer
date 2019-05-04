@@ -1,9 +1,11 @@
 pub use crate::backing::{ImportBacking, LocalBacking};
 use crate::{
-    memory::Memory,
-    module::ModuleInner,
+    memory::{Memory, MemoryType},
+    module::{ModuleInfo, ModuleInner},
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex},
+    types::{LocalOrImport, MemoryIndex, LocalMemoryIndex},
+    units::{Pages},
+    vmcalls,
 };
 use std::{ffi::c_void, mem, ptr};
 
@@ -61,6 +63,77 @@ pub struct InternalCtx {
     /// signature id. This is used to allow call-indirect to other
     /// modules safely.
     pub dynamic_sigindices: *const SigId,
+
+    pub intrinsics: *const Intrinsics,
+}
+
+#[repr(C)]
+pub struct Intrinsics {
+    pub memory_grow: *const Func,
+    pub memory_size: *const Func,
+    /*pub memory_grow: unsafe extern "C" fn(
+        ctx: &mut Ctx,
+        memory_index: usize,
+        delta: Pages,
+    ) -> i32,
+    pub memory_size: unsafe extern "C" fn(
+        ctx: &Ctx,
+        memory_index: usize,
+    ) -> Pages,*/
+}
+
+unsafe impl Send for Intrinsics {}
+unsafe impl Sync for Intrinsics {}
+
+impl Intrinsics {
+    pub fn offset_memory_grow() -> u8 {
+        (0 * ::std::mem::size_of::<usize>()) as u8
+    }
+    pub fn offset_memory_size() -> u8 {
+        (1 * ::std::mem::size_of::<usize>()) as u8
+    }
+}
+
+pub static INTRINSICS_LOCAL_STATIC_MEMORY: Intrinsics = Intrinsics {
+    memory_grow: vmcalls::local_static_memory_grow as _,
+    memory_size: vmcalls::local_static_memory_size as _,
+};
+pub static INTRINSICS_LOCAL_DYNAMIC_MEMORY: Intrinsics = Intrinsics {
+    memory_grow: vmcalls::local_dynamic_memory_grow as _,
+    memory_size: vmcalls::local_dynamic_memory_size as _,
+};
+pub static INTRINSICS_IMPORTED_STATIC_MEMORY: Intrinsics = Intrinsics {
+    memory_grow: vmcalls::imported_static_memory_grow as _,
+    memory_size: vmcalls::imported_static_memory_size as _,
+};
+pub static INTRINSICS_IMPORTED_DYNAMIC_MEMORY: Intrinsics = Intrinsics {
+    memory_grow: vmcalls::imported_dynamic_memory_grow as _,
+    memory_size: vmcalls::imported_dynamic_memory_size as _,
+};
+
+fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
+    if m.memories.len() == 0 && m.imported_memories.len() == 0 {
+        ::std::ptr::null()
+    } else {
+        match MemoryIndex::new(0).local_or_import(m) {
+            LocalOrImport::Local(local_mem_index) => {
+                let mem_desc = &m.memories[local_mem_index];
+                match mem_desc.memory_type() {
+                    MemoryType::Dynamic => &INTRINSICS_LOCAL_DYNAMIC_MEMORY,
+                    MemoryType::Static => &INTRINSICS_LOCAL_STATIC_MEMORY,
+                    MemoryType::SharedStatic => unimplemented!(),
+                }
+            }
+            LocalOrImport::Import(import_mem_index) => {
+                let mem_desc = &m.imported_memories[import_mem_index].1;
+                match mem_desc.memory_type() {
+                    MemoryType::Dynamic => &INTRINSICS_IMPORTED_DYNAMIC_MEMORY,
+                    MemoryType::Static => &INTRINSICS_IMPORTED_STATIC_MEMORY,
+                    MemoryType::SharedStatic => unimplemented!(),
+                }
+            }
+        }
+    }
 }
 
 impl Ctx {
@@ -82,6 +155,8 @@ impl Ctx {
                 imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
                 dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+
+                intrinsics: get_intrinsics_for_module(&module.info),
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -114,6 +189,8 @@ impl Ctx {
                 imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
                 dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+
+                intrinsics: get_intrinsics_for_module(&module.info),
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -207,8 +284,12 @@ impl Ctx {
         7 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_local_functions() -> u8 {
+    pub fn offset_intrinsics() -> u8 {
         8 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn offset_local_functions() -> u8 {
+        9 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -401,6 +482,11 @@ mod vm_offset_tests {
         assert_eq!(
             Ctx::offset_imported_funcs() as usize,
             offset_of!(InternalCtx => imported_funcs).get_byte_offset(),
+        );
+
+        assert_eq!(
+            Ctx::offset_intrinsics() as usize,
+            offset_of!(InternalCtx => intrinsics).get_byte_offset(),
         );
 
         assert_eq!(
