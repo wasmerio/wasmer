@@ -134,7 +134,6 @@ pub struct X64FunctionCode {
 
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
-    br_table_data: Option<Vec<Vec<usize>>>,
     breakpoints: Option<HashMap<AssemblyOffset, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
     returns: SmallVec<[WpType; 1]>,
     locals: Vec<Location>,
@@ -161,7 +160,6 @@ pub struct X64ExecutionContext {
     function_pointers: Vec<FuncPtr>,
     function_offsets: Vec<AssemblyOffset>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
-    _br_table_data: Vec<Vec<usize>>,
     breakpoints: Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
     func_import_count: usize,
 }
@@ -309,18 +307,16 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     }
 
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
-        let (mut assembler, mut function_labels, br_table_data, breakpoints) =
+        let (mut assembler, mut function_labels, breakpoints) =
             match self.functions.last_mut() {
                 Some(x) => (
                     x.assembler.take().unwrap(),
                     x.function_labels.take().unwrap(),
-                    x.br_table_data.take().unwrap(),
                     x.breakpoints.take().unwrap(),
                 ),
                 None => (
                     self.assembler.take().unwrap(),
                     self.function_labels.take().unwrap(),
-                    vec![],
                     HashMap::new(),
                 ),
             };
@@ -343,7 +339,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
             assembler: Some(assembler),
             function_labels: Some(function_labels),
-            br_table_data: Some(br_table_data),
             breakpoints: Some(breakpoints),
             returns: smallvec![],
             locals: vec![],
@@ -359,10 +354,9 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     }
 
     fn finalize(mut self, _: &ModuleInfo) -> Result<X64ExecutionContext, CodegenError> {
-        let (assembler, mut br_table_data, breakpoints) = match self.functions.last_mut() {
+        let (assembler, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
-                x.br_table_data.take().unwrap(),
                 x.breakpoints.take().unwrap(),
             ),
             None => {
@@ -372,12 +366,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             }
         };
         let output = assembler.finalize().unwrap();
-
-        for table in &mut br_table_data {
-            for entry in table {
-                *entry = output.ptr(AssemblyOffset(*entry)) as usize;
-            }
-        }
 
         let function_labels = if let Some(x) = self.functions.last() {
             x.function_labels.as_ref().unwrap()
@@ -419,7 +407,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             code: output,
             functions: self.functions,
             signatures: self.signatures.as_ref().unwrap().clone(),
-            _br_table_data: br_table_data,
             breakpoints: breakpoints,
             func_import_count: self.func_import_count,
             function_pointers: out_labels,
@@ -4051,7 +4038,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let (targets, default_target) = table.read_table().unwrap();
                 let cond =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let mut table = vec![0usize; targets.len()];
+                let mut table_label = a.get_label();
+                let mut table: Vec<DynamicLabel> = vec![];
                 let default_br = a.get_label();
                 Self::emit_relaxed_binop(
                     a,
@@ -4063,19 +4051,19 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
                 a.emit_jmp(Condition::AboveEqual, default_br);
 
-                a.emit_mov(
-                    Size::S64,
-                    Location::Imm64(table.as_ptr() as usize as u64),
+                a.emit_lea_label(
+                    table_label,
                     Location::GPR(GPR::RCX),
                 );
                 a.emit_mov(Size::S32, cond, Location::GPR(GPR::RDX));
-                a.emit_shl(Size::S32, Location::Imm8(3), Location::GPR(GPR::RDX));
+                a.emit_imul_imm32_gpr64(5, GPR::RDX);
                 a.emit_add(Size::S64, Location::GPR(GPR::RCX), Location::GPR(GPR::RDX));
-                a.emit_jmp_location(Location::Memory(GPR::RDX, 0));
+                a.emit_jmp_location(Location::GPR(GPR::RDX));
 
                 for (i, target) in targets.iter().enumerate() {
-                    let AssemblyOffset(offset) = a.offset();
-                    table[i] = offset;
+                    let label = a.get_label();
+                    a.emit_label(label);
+                    table.push(label);
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     if !frame.loop_like && frame.returns.len() > 0 {
@@ -4110,7 +4098,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a.emit_jmp(Condition::None, frame.label);
                 }
 
-                self.br_table_data.as_mut().unwrap().push(table);
+                a.emit_label(table_label);
+                for x in table {
+                    a.emit_jmp(Condition::None, x);
+                }
                 self.unreachable_depth = 1;
             }
             Operator::Drop => {
