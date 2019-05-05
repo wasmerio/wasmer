@@ -5,8 +5,14 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#409](https://github.com/wasmerio/wasmer/pull/409) Improved Emscripten functions to run JavascriptCore compiled to wasm
+- [#399](https://github.com/wasmerio/wasmer/pull/399) Add example of using a plugin extended from WASI
 - [#397](https://github.com/wasmerio/wasmer/pull/397) Fix WASI fs abstraction to work on Windows
 - [#390](https://github.com/wasmerio/wasmer/pull/390) Pin released wapm version and add it as a git submodule
+- [#408](https://github.com/wasmerio/wasmer/pull/408) Add images to windows installer and update installer to add wapm bin directory to path
+
+## 0.4.0 - 2018-04-23
+
 - [#383](https://github.com/wasmerio/wasmer/pull/383) Hook up wasi exit code to wasmer cli.
 - [#382](https://github.com/wasmerio/wasmer/pull/382) Improve error message on `--backend` flag to only suggest currently enabled backends
 - [#381](https://github.com/wasmerio/wasmer/pull/381) Allow retrieving propagated user errors.
@@ -22,3 +28,17 @@ Blocks of changes will separated by version increments.
 - [#351](https://github.com/wasmerio/wasmer/pull/351) Add hidden option to specify wasm program name (can be used to improve error messages)
 - [#350](https://github.com/wasmerio/wasmer/pull/350) Enforce that CHANGELOG.md is updated through CI.
 - [#349](https://github.com/wasmerio/wasmer/pull/349) Add [CHANGELOG.md](https://github.com/wasmerio/wasmer/blob/master/CHANGELOG.md).
+
+## 0.3.0 - 2018-04-12
+
+- [#276](https://github.com/wasmerio/wasmer/pull/276) [#288](https://github.com/wasmerio/wasmer/pull/288) [#344](https://github.com/wasmerio/wasmer/pull/344) Use new singlepass backend (with the `--backend=singlepass` when running Wasmer)
+- [#338](https://github.com/wasmerio/wasmer/pull/338) Actually catch traps/panics/etc when using a typed func.
+- [#325](https://github.com/wasmerio/wasmer/pull/325) Fixed func_index in debug mode
+- [#323](https://github.com/wasmerio/wasmer/pull/323) Add validate subcommand to validate Wasm files
+- [#321](https://github.com/wasmerio/wasmer/pull/321) Upgrade to Cranelift 0.3.0
+- [#319](https://github.com/wasmerio/wasmer/pull/319) Add Export and GlobalDescriptor to Runtime API
+- [#310](https://github.com/wasmerio/wasmer/pull/310) Cleanup warnings
+- [#299](https://github.com/wasmerio/wasmer/pull/299) [#300](https://github.com/wasmerio/wasmer/pull/300) [#301](https://github.com/wasmerio/wasmer/pull/301) [#303](https://github.com/wasmerio/wasmer/pull/303) [#304](https://github.com/wasmerio/wasmer/pull/304) [#305](https://github.com/wasmerio/wasmer/pull/305) [#306](https://github.com/wasmerio/wasmer/pull/306) [#307](https://github.com/wasmerio/wasmer/pull/307) Add support for WASI 🎉
+- [#286](https://github.com/wasmerio/wasmer/pull/286) Add extend to imports
+- [#278](https://github.com/wasmerio/wasmer/pull/278) Add versioning to cache
+- [#250](https://github.com/wasmerio/wasmer/pull/250) Setup bors

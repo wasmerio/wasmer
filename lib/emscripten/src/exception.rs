@@ -28,3 +28,9 @@ pub fn ___cxa_uncaught_exception(_ctx: &mut Ctx) -> i32 {
     debug!("emscripten::___cxa_uncaught_exception");
     -1
 }
+
+pub fn ___cxa_pure_virtual(_ctx: &mut Ctx) {
+    debug!("emscripten::___cxa_pure_virtual");
+    // ABORT = true
+    panic!("Pure virtual function called!");
+}

@@ -15,6 +15,15 @@ pub fn getTempRet0(ctx: &mut Ctx) -> i32 {
     get_emscripten_data(ctx).temp_ret_0
 }
 
+pub fn _atexit(_ctx: &mut Ctx, _func: i32) -> i32 {
+    debug!("emscripten::_atexit");
+    // TODO: implement atexit properly
+    // __ATEXIT__.unshift({
+    //     func: func,
+    //     arg: arg
+    // });
+    0
+}
 pub fn __Unwind_Backtrace(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::__Unwind_Backtrace");
     0
@@ -45,12 +54,40 @@ pub fn _dladdr(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_dladdr");
     0
 }
+pub fn _pthread_attr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
+    debug!("emscripten::_pthread_attr_init");
+    0
+}
+pub fn _pthread_attr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
+    debug!("emscripten::_pthread_attr_destroy");
+    0
+}
+pub fn _pthread_attr_getstack(
+    _ctx: &mut Ctx,
+    _stackaddr: i32,
+    _stacksize: i32,
+    _other: i32,
+) -> i32 {
+    debug!("emscripten::_pthread_attr_getstack");
+    // TODO: Translate from Emscripten
+    // HEAP32[stackaddr >> 2] = STACK_BASE;
+    // HEAP32[stacksize >> 2] = TOTAL_STACK;
+    0
+}
 pub fn _pthread_cond_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_cond_destroy");
     0
 }
+pub fn _pthread_cond_timedwait(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32) -> i32 {
+    debug!("emscripten::_pthread_cond_timedwait");
+    0
+}
 pub fn _pthread_getspecific(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_getspecific");
+    0
+}
+pub fn _pthread_getattr_np(_ctx: &mut Ctx, _thread: i32, _attr: i32) -> i32 {
+    debug!("emscripten::_pthread_getattr_np");
     0
 }
 pub fn _pthread_setspecific(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
@@ -67,6 +104,10 @@ pub fn _pthread_key_create(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
 }
 pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
     debug!("emscripten::_pthread_create");
+    0
+}
+pub fn _pthread_detach(_ctx: &mut Ctx, _a: i32) -> i32 {
+    debug!("emscripten::_pthread_detach");
     0
 }
 pub fn _pthread_join(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {

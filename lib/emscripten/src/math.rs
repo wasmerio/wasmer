@@ -44,6 +44,11 @@ pub fn _llvm_exp2_f64(_ctx: &mut Ctx, value: f64) -> f64 {
     2f64.powf(value)
 }
 
+pub fn _llvm_trunc_f64(_ctx: &mut Ctx, value: f64) -> f64 {
+    debug!("emscripten::_llvm_trunc_f64");
+    value.trunc()
+}
+
 pub fn _emscripten_random(_ctx: &mut Ctx) -> f64 {
     debug!("emscripten::_emscripten_random");
     -1.0

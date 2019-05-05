@@ -345,7 +345,7 @@ pub fn _strftime(
     // pad for null?
     let bytes = result_str.chars().count();
     if bytes as u32 > maxsize {
-        return 0;
+        0
     } else {
         // write output string
         for (i, c) in result_str.chars().enumerate() {
