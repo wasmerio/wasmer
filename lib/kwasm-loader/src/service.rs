@@ -15,12 +15,14 @@ macro_rules! impl_debug_display {
 
 #[repr(i32)]
 pub enum Command {
-    RunCode = 0x1001,
+    LoadCode = 0x1001,
+    RunCode = 0x1002,
 }
 
 #[derive(Debug)]
 pub enum ServiceError {
     Io(io::Error),
+    Code(i32),
     InvalidInput,
     Rejected
 }
@@ -42,7 +44,7 @@ impl From<io::Error> for ServiceError {
 }
 
 #[repr(C)]
-struct RunCodeRequest {
+struct LoadCodeRequest {
     code: *const u8,
     code_len: u32,
     memory: *const u8,
@@ -58,7 +60,10 @@ struct RunCodeRequest {
 
     dynamic_sigindices: *const u32,
     dynamic_sigindice_count: u32,
+}
 
+#[repr(C)]
+struct RunCodeRequest {
     entry_offset: u32,
     params: *const u64,
     param_count: u32,
@@ -75,16 +80,19 @@ pub struct TableEntryRequest {
     pub sig_id: u32,
 }
 
-pub struct RunProfile<'a> {
+pub struct LoadProfile<'a> {
     pub code: &'a [u8],
     pub memory: Option<&'a [u8]>,
     pub memory_max: usize,
     pub globals: &'a [u64],
-    pub params: &'a [u64],
-    pub entry_offset: u32,
     pub imports: &'a [String],
     pub dynamic_sigindices: &'a [u32],
     pub table: Option<&'a [TableEntryRequest]>,
+}
+
+pub struct RunProfile<'a> {
+    pub entry_offset: u32,
+    pub params: &'a [u64],
 }
 
 pub struct ServiceContext {
@@ -92,14 +100,9 @@ pub struct ServiceContext {
 }
 
 impl ServiceContext {
-    pub fn connect() -> ServiceResult<ServiceContext> {
-        Ok(ServiceContext {
-            dev: File::open("/dev/wasmctl")?
-        })
-    }
-
-    pub fn run_code(&mut self, run: RunProfile) -> ServiceResult<i32> {
-        let imports: Vec<ImportRequest> = run.imports.iter().map(|x| {
+    pub fn new(load: LoadProfile) -> ServiceResult<ServiceContext> {
+        let dev = File::open("/dev/wasmctl")?;
+        let imports: Vec<ImportRequest> = load.imports.iter().map(|x| {
             let mut req: ImportRequest = unsafe { ::std::mem::zeroed() };
             let x = x.as_bytes();
             let mut count = req.name.len() - 1;
@@ -109,23 +112,43 @@ impl ServiceContext {
             req.name[..count].copy_from_slice(&x[..count]);
             req
         }).collect();
-        let req = RunCodeRequest {
-            code: run.code.as_ptr(),
-            code_len: run.code.len() as u32,
-            memory: run.memory.map(|x| x.as_ptr()).unwrap_or(::std::ptr::null()),
-            memory_len: run.memory.map(|x| x.len() as u32).unwrap_or(0),
-            memory_max: run.memory_max as u32,
-            table: run.table.map(|x| x.as_ptr()).unwrap_or(::std::ptr::null()),
-            table_count: run.table.map(|x| x.len() as u32).unwrap_or(0),
-            globals: run.globals.as_ptr(),
-            global_count: run.globals.len() as u32,
+        let req = LoadCodeRequest {
+            code: load.code.as_ptr(),
+            code_len: load.code.len() as u32,
+            memory: load.memory.map(|x| x.as_ptr()).unwrap_or(::std::ptr::null()),
+            memory_len: load.memory.map(|x| x.len() as u32).unwrap_or(0),
+            memory_max: load.memory_max as u32,
+            table: load.table.map(|x| x.as_ptr()).unwrap_or(::std::ptr::null()),
+            table_count: load.table.map(|x| x.len() as u32).unwrap_or(0),
+            globals: load.globals.as_ptr(),
+            global_count: load.globals.len() as u32,
             imported_funcs: imports.as_ptr(),
             imported_func_count: imports.len() as u32,
-            dynamic_sigindices: run.dynamic_sigindices.as_ptr(),
-            dynamic_sigindice_count: run.dynamic_sigindices.len() as u32,
+            dynamic_sigindices: load.dynamic_sigindices.as_ptr(),
+            dynamic_sigindice_count: load.dynamic_sigindices.len() as u32,
+        };
+        let fd = dev.as_raw_fd();
+        let ret = unsafe {
+            ::libc::ioctl(
+                fd,
+                Command::LoadCode as i32 as ::libc::c_ulong,
+                &req as *const _ as ::libc::c_ulong
+            )
+        };
+        if ret != 0 {
+            Err(ServiceError::Code(ret))
+        } else {
+            Ok(ServiceContext {
+                dev: dev,
+            })
+        }
+    }
+
+    pub fn run_code(&mut self, run: RunProfile) -> ServiceResult<i32> {
+        let req = RunCodeRequest {
+            entry_offset: run.entry_offset,
             params: run.params.as_ptr(),
             param_count: run.params.len() as u32,
-            entry_offset: run.entry_offset,
         };
         let fd = self.dev.as_raw_fd();
         let ret = unsafe {

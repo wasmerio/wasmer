@@ -8,7 +8,7 @@ use wasmer_runtime_core::{
     types::{Value, LocalMemoryIndex, LocalTableIndex, ImportedMemoryIndex, ImportedTableIndex},
     structures::TypedIndex,
 };
-use service::{ServiceContext, RunProfile, TableEntryRequest};
+use service::{ServiceContext, LoadProfile, RunProfile, TableEntryRequest};
 
 pub struct KernelLoader;
 
@@ -22,7 +22,7 @@ impl Loader for KernelLoader {
         let memory = if let Some(_) = module.memories.get(LocalMemoryIndex::new(0)) {
             Some(unsafe {
                 ::std::slice::from_raw_parts((**ctx.memories).base, (**ctx.memories).bound)
-            }.to_vec())
+            })
         } else if let Some(_) = module.imported_memories.get(ImportedMemoryIndex::new(0)) {
             return Err("imported memory is not supported".into());
         } else {
@@ -63,30 +63,31 @@ impl Loader for KernelLoader {
             let name = format!("{}##{}", module.namespace_table.get(import.namespace_index), module.name_table.get(import.name_index));
             import_names.push(name);
         }
-        Ok(KernelInstance {
-            context: ServiceContext::connect().map_err(|x| format!("{:?}", x))?,
-            code: code.to_vec(),
-            memory: memory,
-            table: table,
-            globals: globals,
-            offsets: rm.get_offsets().unwrap(),
-            import_names: import_names,
-            dynamic_sigindices: unsafe {
+        let dynamic_sigindices: &[u32] = unsafe {
+            ::std::mem::transmute::<&[SigId], &[u32]>(
                 ::std::slice::from_raw_parts(ctx.dynamic_sigindices, full_ctx.dynamic_sigindice_count())
-            }.iter().map(|x| x.0).collect(),
+            )
+        };
+        let profile = LoadProfile {
+            code: code,
+            memory: memory,
+            memory_max: 0,
+            globals: &globals,
+            imports: &import_names,
+            dynamic_sigindices: dynamic_sigindices,
+            table: table.as_ref().map(|x| x.as_slice()),
+        };
+        let sc = ServiceContext::new(profile).map_err(|x| format!("{:?}", x))?;
+        Ok(KernelInstance {
+            context: sc,
+            offsets: rm.get_offsets().unwrap(),
         })
     }
 }
 
 pub struct KernelInstance {
     context: ServiceContext,
-    code: Vec<u8>,
-    memory: Option<Vec<u8>>,
-    table: Option<Vec<TableEntryRequest>>,
-    globals: Vec<u64>,
     offsets: Vec<usize>,
-    import_names: Vec<String>,
-    dynamic_sigindices: Vec<u32>,
 }
 
 impl Instance for KernelInstance {
@@ -95,15 +96,8 @@ impl Instance for KernelInstance {
         let args: Vec<u64> = args.iter().map(|x| x.to_u64()).collect();
 
         let ret = self.context.run_code(RunProfile {
-            code: &self.code,
-            memory: if let Some(ref x) = self.memory { Some(&*x) } else { None },
-            memory_max: 0,
-            globals: &self.globals,
-            params: &args,
             entry_offset: self.offsets[id] as u32,
-            imports: &self.import_names,
-            dynamic_sigindices: &self.dynamic_sigindices,
-            table: self.table.as_ref().map(|x| x.as_slice()),
+            params: &args,
         }).map_err(|x| format!("{:?}", x))?;
         Ok(ret as u64)
     }
