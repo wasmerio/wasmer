@@ -471,6 +471,12 @@ pub fn ___syscall300(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+// utimensat
+pub fn ___syscall320(ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall320 (utimensat), {}", _which);
+    0
+}
+
 pub fn ___syscall334(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall334");
     -1

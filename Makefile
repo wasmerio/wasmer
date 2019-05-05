@@ -62,7 +62,7 @@ test-emscripten-clif:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
 
 test-emscripten-singlepass:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
+	cargo +nightly test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
 
 singlepass-debug-release:
 	cargo +nightly build --features "backend:singlepass debug" --release

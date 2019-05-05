@@ -127,6 +127,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_viijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vj: Option<Func<'a, (i32, i32, i32)>>,
+    pub dyn_call_vjji: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vij: Option<Func<'a, (i32, i32, i32, i32)>>,
     pub dyn_call_viji: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
@@ -146,11 +147,7 @@ impl<'a> EmscriptenData<'a> {
     pub fn new(instance: &'a mut Instance) -> EmscriptenData<'a> {
         let malloc = instance.func("_malloc").unwrap();
         let free = instance.func("_free").unwrap();
-        let memalign = if let Ok(func) = instance.func("_memalign") {
-            Some(func)
-        } else {
-            None
-        };
+        let memalign = instance.func("_memalign").ok();
         let memset = instance.func("_memset").unwrap();
         let stack_alloc = instance.func("stackAlloc").unwrap();
 
@@ -198,6 +195,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_viijiii = instance.func("dynCall_viijiii").ok();
         let dyn_call_viijj = instance.func("dynCall_viijj").ok();
         let dyn_call_vj = instance.func("dynCall_vj").ok();
+        let dyn_call_vjji = instance.func("dynCall_vjji").ok();
         let dyn_call_vij = instance.func("dynCall_vij").ok();
         let dyn_call_viji = instance.func("dynCall_viji").ok();
         let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
@@ -261,6 +259,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_viijiii,
             dyn_call_viijj,
             dyn_call_vj,
+            dyn_call_vjji,
             dyn_call_vij,
             dyn_call_viji,
             dyn_call_vijiii,
@@ -301,17 +300,19 @@ pub fn run_emscripten_instance(
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
-        println!("RUnning entry point: {}", &ep);
+        println!("Running entry point: {}", &ep);
         let ep_fn = instance.dyn_func(&ep)?;
         let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
-        //let (argc, argv) = store_module_arguments(instance.context_mut(), path, args);
+        //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         instance.call(&ep, &[Value::I32(arg as i32)])?;
     } else {
         let main_func = instance.dyn_func("_main")?;
         let num_params = main_func.signature().params().len();
         let _result = match num_params {
             2 => {
-                let (argc, argv) = store_module_arguments(instance.context_mut(), path, args);
+                let mut new_args = vec![path];
+                new_args.extend(args);
+                let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
                 instance.call("_main", &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
             }
             0 => {
@@ -329,12 +330,11 @@ pub fn run_emscripten_instance(
     Ok(())
 }
 
-fn store_module_arguments(ctx: &mut Ctx, path: &str, args: Vec<&str>) -> (u32, u32) {
+fn store_module_arguments(ctx: &mut Ctx, args: Vec<&str>) -> (u32, u32) {
     let argc = args.len() + 1;
 
     let mut args_slice = vec![0; argc];
-    args_slice[0] = unsafe { allocate_cstr_on_stack(ctx, path).0 };
-    for (slot, arg) in args_slice[1..argc].iter_mut().zip(args.iter()) {
+    for (slot, arg) in args_slice[0..argc].iter_mut().zip(args.iter()) {
         *slot = unsafe { allocate_cstr_on_stack(ctx, &arg).0 };
     }
 
@@ -606,6 +606,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall272" => func!(crate::syscalls::___syscall272),
         "___syscall295" => func!(crate::syscalls::___syscall295),
         "___syscall300" => func!(crate::syscalls::___syscall300),
+        "___syscall320" => func!(crate::syscalls::___syscall320),
         "___syscall324" => func!(crate::syscalls::___syscall324),
         "___syscall330" => func!(crate::syscalls::___syscall330),
         "___syscall334" => func!(crate::syscalls::___syscall334),
@@ -727,6 +728,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_v" => func!(crate::emscripten_target::invoke_v),
         "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
         "invoke_vj" => func!(crate::emscripten_target::invoke_vj),
+        "invoke_vjji" => func!(crate::emscripten_target::invoke_vjji),
         "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
         "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
         "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
