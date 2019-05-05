@@ -2525,7 +2525,7 @@ pub struct LLVMFunctionCodeGenerator {
     // value_stack: Vec<(Location, LocalOrTemp)>,
     // control_stack: Vec<ControlFrame>,
     // machine: Machine,
-    // unreachable_depth: usize,
+    unreachable_depth: usize,
 }
 
 impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
@@ -2675,29 +2675,24 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let signatures = &self.signatures;
         let mut ctx = self.ctx.as_mut().unwrap();
 
-        let mut unreachable_depth = 0;
         if !state.reachable {
             match *op {
                 Operator::Block { ty: _ } | Operator::Loop { ty: _ } | Operator::If { ty: _ } => {
-                    unreachable_depth += 1;
-                    //                    continue;
+                    self.unreachable_depth += 1;
                     return Ok(());
                 }
                 Operator::Else => {
-                    if unreachable_depth != 0 {
-                        //                    continue;
+                    if self.unreachable_depth != 0 {
                         return Ok(());
                     }
                 }
                 Operator::End => {
-                    if unreachable_depth != 0 {
-                        unreachable_depth -= 1;
-                        //                    continue;
+                    if self.unreachable_depth != 0 {
+                        self.unreachable_depth -= 1;
                         return Ok(());
                     }
                 }
                 _ => {
-                    //                    continue;
                     return Ok(());
                 }
             }
@@ -4781,6 +4776,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
                 ::std::mem::transmute::<&Intrinsics, &'static Intrinsics>(&self.intrinsics)
             },
             ctx: None,
+            unreachable_depth: 0,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
