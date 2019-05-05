@@ -31,13 +31,13 @@ use libc::{
     off_t,
     //    open,
     read,
+    rename,
+    // sockaddr_in,
     // readv,
     rmdir,
     // writev,
     stat,
     write,
-    rename,
-    // sockaddr_in,
 };
 use wasmer_runtime_core::vm::Ctx;
 

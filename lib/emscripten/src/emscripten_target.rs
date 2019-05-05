@@ -68,7 +68,10 @@ pub fn _pthread_attr_getstack(
     _stacksize: i32,
     _other: i32,
 ) -> i32 {
-    debug!("emscripten::_pthread_attr_getstack({}, {}, {})", _stackaddr, _stacksize, _other);
+    debug!(
+        "emscripten::_pthread_attr_getstack({}, {}, {})",
+        _stackaddr, _stacksize, _other
+    );
     // TODO: Translate from Emscripten
     // HEAP32[stackaddr >> 2] = STACK_BASE;
     // HEAP32[stacksize >> 2] = TOTAL_STACK;
@@ -734,16 +737,7 @@ pub fn invoke_vj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) {
 }
 pub fn invoke_vjji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
     debug!("emscripten::invoke_vjji");
-    invoke_no_return!(
-        ctx,
-        dyn_call_vjji,
-        index,
-        a1,
-        a2,
-        a3,
-        a4,
-        a5
-    )
+    invoke_no_return!(ctx, dyn_call_vjji, index, a1, a2, a3, a4, a5)
 }
 pub fn invoke_vij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_vij");
