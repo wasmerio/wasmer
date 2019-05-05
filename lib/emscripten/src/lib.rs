@@ -339,14 +339,14 @@ fn store_module_arguments(ctx: &mut Ctx, args: Vec<&str>) -> (u32, u32) {
     }
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
-        unsafe { allocate_on_stack(ctx, ((argc + 1) * 4) as u32) };
+        unsafe { allocate_on_stack(ctx, ((argc) * 4) as u32) };
     assert!(!argv_slice.is_empty());
     for (slot, arg) in argv_slice[0..argc].iter_mut().zip(args_slice.iter()) {
         *slot = *arg
     }
     argv_slice[argc] = 0;
 
-    (argc as u32, argv_offset)
+    (argc as u32 - 1, argv_offset)
 }
 
 pub fn emscripten_set_up_memory(memory: &Memory, globals: &EmscriptenGlobalsData) {
