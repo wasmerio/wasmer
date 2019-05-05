@@ -300,7 +300,7 @@ pub fn run_emscripten_instance(
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
-        println!("Running entry point: {}", &ep);
+        debug!("Running entry point: {}", &ep);
         let ep_fn = instance.dyn_func(&ep)?;
         let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
