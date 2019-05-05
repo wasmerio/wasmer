@@ -87,8 +87,8 @@ struct Run {
     em_symbol_map: Option<PathBuf>,
 
     /// Begin execution at the specified symbol
-    #[structopt(long = "with-entry-point")]
-    entrypoint: Option<String>,
+    #[structopt(long = "em-entrypoint", group = "emscripten")]
+    em_entrypoint: Option<String>,
 
     /// WASI pre-opened directory
     #[structopt(long = "dir", multiple = true, group = "wasi")]
@@ -324,7 +324,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 options.path.to_str().unwrap()
             },
             options.args.iter().map(|arg| arg.as_str()).collect(),
-            options.entrypoint.clone(),
+            options.em_entrypoint.clone(),
         )
         .map_err(|e| format!("{:?}", e))?;
     } else {
