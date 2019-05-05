@@ -9,10 +9,10 @@ use crate::{
     types::{FuncIndex, FuncSig, SigIndex},
 };
 use smallvec::SmallVec;
+use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use wasmparser::{Operator, Type as WpType};
-use std::fmt;
 
 #[derive(Debug)]
 pub enum Event<'a, 'b> {
@@ -36,7 +36,7 @@ impl fmt::Debug for InternalEvent {
             InternalEvent::Breakpoint(_) => write!(f, "Breakpoint"),
             InternalEvent::SetInternal(_) => write!(f, "SetInternal"),
             InternalEvent::GetInternal(_) => write!(f, "GetInternal"),
-            _ => panic!("unknown event")
+            _ => panic!("unknown event"),
         }
     }
 }
