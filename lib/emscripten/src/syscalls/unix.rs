@@ -251,8 +251,9 @@ pub fn ___syscall33(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
     let result = unsafe { access(path, amode) };
     debug!(
-        "=> path: {}, result: {}",
+        "=> path: {}, amode: {}, result: {}",
         unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
+        amode,
         result
     );
     result

@@ -36,6 +36,7 @@ use libc::{
     // writev,
     stat,
     write,
+    rename,
     // sockaddr_in,
 };
 use wasmer_runtime_core::vm::Ctx;
@@ -118,9 +119,23 @@ pub fn ___syscall20(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     unsafe { getpid() }
 }
 
-pub fn ___syscall38(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall38");
-    -1
+// rename
+pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall38 (rename)");
+    let old_path_addr: u32 = varargs.get(ctx);
+    let new_path_addr: u32 = varargs.get(ctx);
+    let old_path = emscripten_memory_pointer!(ctx.memory(0), old_path_addr) as *const i8;
+    let new_path = emscripten_memory_pointer!(ctx.memory(0), new_path_addr) as *const i8;
+    let result = unsafe { rename(old_path, new_path) };
+    unsafe {
+        debug!(
+            "=> old_path: {}, new_path: {}, result: {}",
+            std::ffi::CStr::from_ptr(old_path).to_str().unwrap(),
+            std::ffi::CStr::from_ptr(new_path).to_str().unwrap(),
+            result
+        );
+    }
+    result
 }
 
 // rmdir
