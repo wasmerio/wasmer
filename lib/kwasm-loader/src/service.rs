@@ -17,6 +17,8 @@ macro_rules! impl_debug_display {
 pub enum Command {
     LoadCode = 0x1001,
     RunCode = 0x1002,
+    ReadMemory = 0x1003,
+    WriteMemory = 0x1004,
 }
 
 #[derive(Debug)]
@@ -67,6 +69,27 @@ struct RunCodeRequest {
     entry_offset: u32,
     params: *const u64,
     param_count: u32,
+    result: *mut RunCodeResult,
+}
+
+#[repr(C)]
+struct RunCodeResult {
+    success: u32,
+    retval: u64,
+}
+
+#[repr(C)]
+struct ReadMemoryRequest {
+    out: *mut u8,
+    offset: u32,
+    len: u32,
+}
+
+#[repr(C)]
+struct WriteMemoryRequest {
+    _in: *const u8,
+    offset: u32,
+    len: u32,
 }
 
 #[repr(C)]
@@ -144,20 +167,75 @@ impl ServiceContext {
         }
     }
 
-    pub fn run_code(&mut self, run: RunProfile) -> ServiceResult<i32> {
-        let req = RunCodeRequest {
+    pub fn run_code(&mut self, run: RunProfile) -> ServiceResult<u64> {
+        let mut result: RunCodeResult = unsafe { ::std::mem::zeroed() };
+        let mut req = RunCodeRequest {
             entry_offset: run.entry_offset,
             params: run.params.as_ptr(),
             param_count: run.params.len() as u32,
+            result: &mut result,
         };
         let fd = self.dev.as_raw_fd();
-        let ret = unsafe {
+        let err = unsafe {
             ::libc::ioctl(
                 fd,
                 Command::RunCode as i32 as ::libc::c_ulong,
+                &mut req as *mut _ as ::libc::c_ulong
+            )
+        };
+        if err < 0 {
+            Err(ServiceError::Code(err))
+        } else if result.success == 0 {
+            println!("Rejected {} {}", result.success, result.retval);
+            Err(ServiceError::Rejected)
+        } else {
+            Ok(result.retval)
+        }
+    }
+
+    pub fn read_memory(&mut self, offset: u32, len: u32) -> ServiceResult<Vec<u8>> {
+        let fd = self.dev.as_raw_fd();
+        let mut ret = Vec::with_capacity(len as usize);
+        unsafe {
+            ret.set_len(len as usize);
+        }
+        let req = ReadMemoryRequest {
+            out: ret.as_mut_ptr(),
+            offset: offset,
+            len: len,
+        };
+        let err = unsafe {
+            ::libc::ioctl(
+                fd,
+                Command::ReadMemory as i32 as ::libc::c_ulong,
                 &req as *const _ as ::libc::c_ulong
             )
         };
-        Ok(ret)
+        if err < 0 {
+            Err(ServiceError::Code(err))
+        } else {
+            Ok(ret)
+        }
+    }
+
+    pub fn write_memory(&mut self, offset: u32, len: u32, buf: &[u8]) -> ServiceResult<()> {
+        let fd = self.dev.as_raw_fd();
+        let req = WriteMemoryRequest {
+            _in: buf.as_ptr(),
+            offset: offset,
+            len: len,
+        };
+        let err = unsafe {
+            ::libc::ioctl(
+                fd,
+                Command::WriteMemory as i32 as ::libc::c_ulong,
+                &req as *const _ as ::libc::c_ulong
+            )
+        };
+        if err < 0 {
+            Err(ServiceError::Code(err))
+        } else {
+            Ok(())
+        }
     }
 }

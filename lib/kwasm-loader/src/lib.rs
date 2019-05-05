@@ -99,6 +99,14 @@ impl Instance for KernelInstance {
             entry_offset: self.offsets[id] as u32,
             params: &args,
         }).map_err(|x| format!("{:?}", x))?;
-        Ok(ret as u64)
+        Ok(ret)
+    }
+
+    fn read_memory(&mut self, offset: u32, len: u32) -> Result<Vec<u8>, String> {
+        self.context.read_memory(offset, len).map_err(|x| format!("{:?}", x))
+    }
+
+    fn write_memory(&mut self, offset: u32, len: u32, buf: &[u8]) -> Result<(), String> {
+        self.context.write_memory(offset, len, buf).map_err(|x| format!("{:?}", x))
     }
 }

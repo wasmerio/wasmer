@@ -23,6 +23,13 @@ pub trait Loader {
 pub trait Instance {
     type Error: Debug;
     fn call(&mut self, id: usize, args: &[Value]) -> Result<u64, Self::Error>;
+    fn read_memory(&mut self, offset: u32, len: u32) -> Result<Vec<u8>, Self::Error> {
+        unimplemented!()
+    }
+
+    fn write_memory(&mut self, offset: u32, len: u32, buf: &[u8]) -> Result<(), Self::Error> {
+        unimplemented!()
+    }
 }
 
 pub struct LocalLoader;
