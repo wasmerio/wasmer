@@ -43,7 +43,7 @@ rustc_version = "0.2.3"
 
 [features]
 default = ["fast-tests", "wasi"]
-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
+debug = ["wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
 "backend:llvm" = ["wasmer-llvm-backend"]
