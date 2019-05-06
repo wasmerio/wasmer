@@ -57,7 +57,7 @@ wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 
 #### With WAPM
 
-Installing Wasmer through `get.wasmer.io` includes
+Installing Wasmer through `wasmer.io` includes
 [wapm](https://github.com/wasmerio/wapm-cli), the WebAssembly package manager.
 
 Wapm allows you to easily download, run, and distribute WebAssembly binaries.
