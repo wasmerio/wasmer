@@ -50,7 +50,7 @@ mod varargs;
 
 pub use self::storage::{align_memory, static_alloc};
 pub use self::utils::{
-    allocate_cstr_on_stack, allocate_on_stack, get_emscripten_memory_size,
+    allocate_cstr_on_stack, allocate_on_stack, get_emscripten_memory_size, get_emscripten_metadata,
     get_emscripten_table_size, is_emscripten_module,
 };
 
@@ -351,9 +351,7 @@ fn store_module_arguments(ctx: &mut Ctx, args: Vec<&str>) -> (u32, u32) {
 
 pub fn emscripten_set_up_memory(memory: &Memory, globals: &EmscriptenGlobalsData) {
     let dynamictop_ptr = globals.dynamictop_ptr;
-    let stack_max = globals.stack_max;
-
-    let dynamic_base = align_memory(stack_max);
+    let dynamic_base = globals.dynamic_base;
 
     memory.view::<u32>()[(dynamictop_ptr / 4) as usize].set(dynamic_base);
 }
@@ -364,6 +362,7 @@ pub struct EmscriptenGlobalsData {
     stacktop: u32,
     stack_max: u32,
     dynamictop_ptr: u32,
+    dynamic_base: u32,
     memory_base: u32,
     table_base: u32,
     temp_double_ptr: u32,
@@ -433,7 +432,14 @@ impl EmscriptenGlobals {
             let temp_double_ptr = static_top;
             static_top += 16;
 
-            let dynamictop_ptr = static_alloc(&mut static_top, 4);
+            let (dynamic_base, dynamictop_ptr) =
+                get_emscripten_metadata(&module).unwrap_or_else(|| {
+                    let dynamictop_ptr = static_alloc(&mut static_top, 4);
+                    (
+                        align_memory(align_memory(static_top) + TOTAL_STACK),
+                        dynamictop_ptr,
+                    )
+                });
 
             let stacktop = align_memory(static_top);
             let stack_max = stacktop + TOTAL_STACK;
@@ -443,6 +449,7 @@ impl EmscriptenGlobals {
                 stacktop,
                 stack_max,
                 dynamictop_ptr,
+                dynamic_base,
                 memory_base,
                 table_base,
                 temp_double_ptr,
