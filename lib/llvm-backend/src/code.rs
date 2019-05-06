@@ -10,10 +10,11 @@ use inkwell::{
 use smallvec::SmallVec;
 use std::sync::Arc;
 use wasmer_runtime_core::{
-    backend::Backend,
+    backend::{Backend, CacheGen, Token},
+    cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
-    module::ModuleInfo,
+    module::{ModuleInfo, ModuleInner},
     structures::{Map, SliceMap, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
@@ -25,7 +26,7 @@ use wasmparser::{
     Type as WpType,
 };
 
-use crate::backend::LLVMBackend;
+use crate::backend::{LLVMBackend, LLVMCache};
 use crate::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
 use crate::read_info::type_to_type;
 use crate::state::{ControlFrame, IfElseState, State};
@@ -4640,7 +4641,10 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         Ok(self.functions.last_mut().unwrap())
     }
 
-    fn finalize(self, module_info: &ModuleInfo) -> Result<LLVMBackend, CodegenError> {
+    fn finalize(
+        self,
+        module_info: &ModuleInfo,
+    ) -> Result<(LLVMBackend, Box<dyn CacheGen>), CodegenError> {
         //         self.module.print_to_stderr();
 
         generate_trampolines(
@@ -4668,8 +4672,8 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         // self.module.print_to_stderr();
 
-        let (backend, _cache_gen) = LLVMBackend::new(self.module, self.intrinsics);
-        Ok(backend)
+        let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics);
+        Ok((backend, Box::new(cache_gen)))
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
@@ -4692,5 +4696,18 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     fn feed_import_function(&mut self) -> Result<(), CodegenError> {
         self.func_import_count += 1;
         Ok(())
+    }
+
+    unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        let (info, _, memory) = artifact.consume();
+        let (backend, cache_gen) =
+            LLVMBackend::from_buffer(memory).map_err(CacheError::DeserializeError)?;
+
+        Ok(ModuleInner {
+            runnable_module: Box::new(backend),
+            cache_gen: Box::new(cache_gen),
+
+            info,
+        })
     }
 }

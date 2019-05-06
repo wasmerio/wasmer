@@ -10,10 +10,11 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{Backend, RunnableModule},
+    backend::{sys::Memory, Backend, CacheGen, RunnableModule, Token},
+    cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
-    module::ModuleInfo,
+    module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     typed_func::Wasm,
     types::{
@@ -349,7 +350,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(self.functions.last_mut().unwrap())
     }
 
-    fn finalize(mut self, _: &ModuleInfo) -> Result<X64ExecutionContext, CodegenError> {
+    fn finalize(
+        mut self,
+        _: &ModuleInfo,
+    ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
         let (assembler, mut br_table_data, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
@@ -404,15 +408,27 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 .collect(),
         );
 
-        Ok(X64ExecutionContext {
-            code: output,
-            functions: self.functions,
-            signatures: self.signatures.as_ref().unwrap().clone(),
-            _br_table_data: br_table_data,
-            breakpoints: breakpoints,
-            func_import_count: self.func_import_count,
-            function_pointers: out_labels,
-        })
+        struct Placeholder;
+        impl CacheGen for Placeholder {
+            fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
+                Err(CacheError::Unknown(
+                    "the singlepass backend doesn't support caching yet".to_string(),
+                ))
+            }
+        }
+
+        Ok((
+            X64ExecutionContext {
+                code: output,
+                functions: self.functions,
+                signatures: self.signatures.as_ref().unwrap().clone(),
+                _br_table_data: br_table_data,
+                breakpoints: breakpoints,
+                func_import_count: self.func_import_count,
+                function_pointers: out_labels,
+            },
+            Box::new(Placeholder),
+        ))
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
@@ -460,6 +476,12 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         self.func_import_count += 1;
 
         Ok(())
+    }
+
+    unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        Err(CacheError::Unknown(
+            "the singlepass compiler API doesn't support caching yet".to_string(),
+        ))
     }
 }
 
