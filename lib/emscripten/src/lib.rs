@@ -301,7 +301,6 @@ pub fn run_emscripten_instance(
 
     if let Some(ep) = entrypoint {
         debug!("Running entry point: {}", &ep);
-        let ep_fn = instance.dyn_func(&ep)?;
         let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         instance.call(&ep, &[Value::I32(arg as i32)])?;
