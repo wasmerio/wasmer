@@ -287,7 +287,32 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
-    let module = if !disable_cache {
+    let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
+        true
+    } else {
+        false
+    };
+
+    let module = if is_kernel_loader {
+        webassembly::compile_with_config_with(
+            &wasm_binary[..],
+            CompilerConfig {
+                symbol_map: em_symbol_map,
+                enforce_memory_bound_check: true,
+                enforce_stack_check: true,
+            },
+            &*compiler,
+        ).map_err(|e| format!("Can't compile module: {:?}", e))?
+    } else if disable_cache {
+        webassembly::compile_with_config_with(
+            &wasm_binary[..],
+            CompilerConfig {
+                symbol_map: em_symbol_map,
+                ..Default::default()
+            },
+            &*compiler,
+        ).map_err(|e| format!("Can't compile module: {:?}", e))?
+    } else {
         // If we have cache enabled
 
         // We generate a hash for the given binary, so we can use it as key
@@ -316,6 +341,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     &wasm_binary[..],
                     CompilerConfig {
                         symbol_map: em_symbol_map,
+                        ..Default::default()
                     },
                     &*compiler,
                 )
@@ -327,15 +353,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             }
         };
         module
-    } else {
-        webassembly::compile_with_config_with(
-            &wasm_binary[..],
-            CompilerConfig {
-                symbol_map: em_symbol_map,
-            },
-            &*compiler,
-        )
-        .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
 
     if let Some(loader) = options.loader {

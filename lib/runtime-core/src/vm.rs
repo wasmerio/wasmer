@@ -65,6 +65,8 @@ pub struct InternalCtx {
     pub dynamic_sigindices: *const SigId,
 
     pub intrinsics: *const Intrinsics,
+
+    pub stack_lower_bound: *mut u8,
 }
 
 #[repr(C)]
@@ -157,6 +159,8 @@ impl Ctx {
                 dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
 
                 intrinsics: get_intrinsics_for_module(&module.info),
+
+                stack_lower_bound: ::std::ptr::null_mut(),
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -191,6 +195,8 @@ impl Ctx {
                 dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
 
                 intrinsics: get_intrinsics_for_module(&module.info),
+
+                stack_lower_bound: ::std::ptr::null_mut(),
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -288,8 +294,12 @@ impl Ctx {
         8 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_local_functions() -> u8 {
+    pub fn offset_stack_lower_bound() -> u8 {
         9 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn offset_local_functions() -> u8 {
+        10 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -487,6 +497,11 @@ mod vm_offset_tests {
         assert_eq!(
             Ctx::offset_intrinsics() as usize,
             offset_of!(InternalCtx => intrinsics).get_byte_offset(),
+        );
+
+        assert_eq!(
+            Ctx::offset_stack_lower_bound() as usize,
+            offset_of!(InternalCtx => stack_lower_bound).get_byte_offset(),
         );
 
         assert_eq!(

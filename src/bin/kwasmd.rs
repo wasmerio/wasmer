@@ -50,6 +50,8 @@ fn handle_client(mut stream: UnixStream) {
         &wasm_binary[..],
         CompilerConfig {
             symbol_map: None,
+            enforce_memory_bound_check: true,
+            enforce_stack_check: true,
         },
         &SinglePassCompiler::new(),
     ).unwrap();

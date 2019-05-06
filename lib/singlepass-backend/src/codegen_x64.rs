@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{Backend, RunnableModule},
+    backend::{Backend, RunnableModule, CompilerConfig},
     codegen::*,
     memory::MemoryType,
     module::ModuleInfo,
@@ -120,6 +120,8 @@ pub struct X64ModuleCodeGenerator {
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     assembler: Option<Assembler>,
     func_import_count: usize,
+
+    config: Option<Arc<CodegenConfig>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -143,6 +145,8 @@ pub struct X64FunctionCode {
     control_stack: Vec<ControlFrame>,
     machine: Machine,
     unreachable_depth: usize,
+
+    config: Arc<CodegenConfig>,
 }
 
 enum FuncPtrInner {}
@@ -284,6 +288,12 @@ pub struct CodegenError {
     pub message: &'static str,
 }
 
+#[derive(Copy, Clone, Debug)]
+struct CodegenConfig {
+    enforce_memory_bound_check: bool,
+    enforce_stack_check: bool,
+}
+
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     for X64ModuleCodeGenerator
 {
@@ -295,6 +305,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             function_labels: Some(HashMap::new()),
             assembler: Some(Assembler::new().unwrap()),
             func_import_count: 0,
+            config: None,
         }
     }
 
@@ -348,6 +359,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             control_stack: vec![],
             machine: Machine::new(),
             unreachable_depth: 0,
+            config: self.config.as_ref().unwrap().clone(),
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -458,6 +470,14 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
         self.func_import_count += 1;
 
+        Ok(())
+    }
+
+    fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
+        self.config = Some(Arc::new(CodegenConfig {
+            enforce_memory_bound_check: config.enforce_memory_bound_check,
+            enforce_stack_check: config.enforce_stack_check,
+        }));
         Ok(())
     }
 }
@@ -1173,6 +1193,7 @@ impl X64FunctionCode {
     /// Emits a memory operation.
     fn emit_memory_op<F: FnOnce(&mut Assembler, &mut Machine, GPR)>(
         module_info: &ModuleInfo,
+        config: &CodegenConfig,
         a: &mut Assembler,
         m: &mut Machine,
         addr: Location,
@@ -1222,9 +1243,13 @@ impl X64FunctionCode {
                 &module_info.imported_memories[import_mem_index].1
             }
         };
-        let need_check = match mem_desc.memory_type() {
-            MemoryType::Dynamic => true,
-            MemoryType::Static | MemoryType::SharedStatic => false,
+        let need_check = if config.enforce_memory_bound_check {
+            true
+        } else {
+            match mem_desc.memory_type() {
+                MemoryType::Dynamic => true,
+                MemoryType::Static | MemoryType::SharedStatic => false,
+            }
         };
 
         if need_check {
@@ -1390,6 +1415,19 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         let a = self.assembler.as_mut().unwrap();
         a.emit_push(Size::S64, Location::GPR(GPR::RBP));
         a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
+
+        // Stack check.
+        if self.config.enforce_stack_check {
+            a.emit_cmp(
+                Size::S64,
+                Location::Memory(
+                    GPR::RDI, // first parameter is vmctx
+                    vm::Ctx::offset_stack_lower_bound() as i32,
+                ),
+                Location::GPR(GPR::RSP)
+            );
+            a.emit_conditional_trap(Condition::Below);
+        }
 
         self.locals = self
             .machine
@@ -3351,6 +3389,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3376,6 +3415,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3401,6 +3441,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3427,6 +3468,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3453,6 +3495,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3479,6 +3522,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3505,6 +3549,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3530,6 +3575,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3555,6 +3601,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3580,6 +3627,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3605,6 +3653,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3630,6 +3679,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3655,6 +3705,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3681,6 +3732,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3707,6 +3759,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3733,6 +3786,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3759,6 +3813,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3790,6 +3845,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3816,6 +3872,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3841,6 +3898,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3866,6 +3924,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3891,6 +3950,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3916,6 +3976,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,

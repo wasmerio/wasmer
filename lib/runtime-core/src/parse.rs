@@ -53,6 +53,8 @@ pub fn read_module<
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
 ) -> Result<ModuleInfo, LoadError> {
+    mcg.feed_compiler_config(compiler_config)
+        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
     let mut info = ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),

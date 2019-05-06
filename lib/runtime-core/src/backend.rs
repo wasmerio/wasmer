@@ -40,15 +40,12 @@ impl Token {
 }
 
 /// Configuration data for the compiler
+#[derive(Default)]
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
-}
-
-impl Default for CompilerConfig {
-    fn default() -> CompilerConfig {
-        CompilerConfig { symbol_map: None }
-    }
+    pub enforce_memory_bound_check: bool,
+    pub enforce_stack_check: bool,
 }
 
 pub trait Compiler {
