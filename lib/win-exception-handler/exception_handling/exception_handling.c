@@ -5,6 +5,7 @@
 #define CALL_FIRST 1
 
 __declspec(thread) jmp_buf jmpBuf;
+__declspec(thread) DWORD caughtExceptionCode;
 __declspec(thread) PVOID caughtExceptionAddress;
 __declspec(thread) DWORD64 caughtInstructionPointer;
 __declspec(thread) PVOID savedStackPointer;
@@ -25,6 +26,7 @@ static LONG WINAPI
 exceptionHandler(struct _EXCEPTION_POINTERS *ExceptionInfo) {
     EXCEPTION_RECORD* pExceptionRecord = ExceptionInfo->ExceptionRecord;
     PCONTEXT pCONTEXT = ExceptionInfo->ContextRecord;
+    caughtExceptionCode = pExceptionRecord->ExceptionCode;
     caughtExceptionAddress = pExceptionRecord->ExceptionAddress;
     caughtInstructionPointer = pCONTEXT->Rip;
     if (alreadyHandlingException == TRUE) {
@@ -61,8 +63,9 @@ uint8_t callProtected(trampoline_t trampoline,
     }
 
     // jmp jmp jmp!
-    int signum = setjmp(jmpBuf);
-    if (signum == 0) {
+    int status = setjmp(jmpBuf);
+    if (status == 0) // 0 means the original call
+    {
         // save the stack pointer
         savedStackPointer = get_callee_frame_address();
         trampoline(ctx, func, param_vec, return_vec);
@@ -74,7 +77,7 @@ uint8_t callProtected(trampoline_t trampoline,
         return TRUE;
     }
 
-    out_result->code = (uint64_t)signum;
+    out_result->code = (uint64_t)caughtExceptionCode;
     out_result->exception_address = (uint64_t)caughtExceptionAddress;
     out_result->instruction_pointer = caughtInstructionPointer;
 
