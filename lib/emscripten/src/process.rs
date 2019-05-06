@@ -82,7 +82,7 @@ pub fn _raise(_ctx: &mut Ctx, _one: i32) -> i32 {
 }
 
 pub fn _sem_init(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32) -> i32 {
-    debug!("emscripten::_sem_init");
+    debug!("emscripten::_sem_init: {}, {}, {}", _one, _two, _three);
     0
 }
 

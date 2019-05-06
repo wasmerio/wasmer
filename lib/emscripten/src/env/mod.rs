@@ -60,21 +60,51 @@ pub fn ___build_environment(ctx: &mut Ctx, environ: c_int) {
     const MAX_ENV_VALUES: u32 = 64;
     const TOTAL_ENV_SIZE: u32 = 1024;
     let environment = emscripten_memory_pointer!(ctx.memory(0), environ) as *mut c_int;
-    unsafe {
+    let (mut pool_offset, env_ptr, mut pool_ptr) = unsafe {
         let (pool_offset, _pool_slice): (u32, &mut [u8]) =
             allocate_on_stack(ctx, TOTAL_ENV_SIZE as u32);
         let (env_offset, _env_slice): (u32, &mut [u8]) =
             allocate_on_stack(ctx, (MAX_ENV_VALUES * 4) as u32);
         let env_ptr = emscripten_memory_pointer!(ctx.memory(0), env_offset) as *mut c_int;
-        let mut _pool_ptr = emscripten_memory_pointer!(ctx.memory(0), pool_offset) as *mut c_int;
+        let pool_ptr = emscripten_memory_pointer!(ctx.memory(0), pool_offset) as *mut u8;
         *env_ptr = pool_offset as i32;
         *environment = env_offset as i32;
 
-        // *env_ptr = 0;
+        (pool_offset, env_ptr, pool_ptr)
     };
-    // unsafe {
-    //     *env_ptr = 0;
-    // };
+
+    // *env_ptr = 0;
+    let default_vars = vec![
+        ["USER", "web_user"],
+        ["LOGNAME", "web_user"],
+        ["PATH", "/"],
+        ["PWD", "/"],
+        ["HOME", "/home/web_user"],
+        ["LANG", "C.UTF-8"],
+        ["_", "thisProgram"],
+    ];
+    let mut strings = vec![];
+    let mut total_size = 0;
+    for [key, val] in &default_vars {
+        let line = key.to_string() + "=" + val;
+        total_size += line.len();
+        strings.push(line);
+    }
+    if total_size as u32 > TOTAL_ENV_SIZE {
+        panic!("Environment size exceeded TOTAL_ENV_SIZE!");
+    }
+    unsafe {
+        for (i, s) in strings.iter().enumerate() {
+            for (j, c) in s.chars().enumerate() {
+                debug_assert!(c < u8::max_value() as char);
+                *pool_ptr.add(j) = c as u8;
+            }
+            *env_ptr.add(i * 4) = pool_offset as i32;
+            pool_offset += s.len() as u32 + 1;
+            pool_ptr = pool_ptr.add(s.len() + 1);
+        }
+        *env_ptr.add(strings.len() * 4) = 0;
+    }
 }
 
 pub fn ___assert_fail(_ctx: &mut Ctx, _a: c_int, _b: c_int, _c: c_int, _d: c_int) {
