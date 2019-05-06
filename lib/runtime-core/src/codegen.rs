@@ -4,7 +4,6 @@ use crate::{
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
-    parse::LoadError,
     structures::Map,
     types::{FuncIndex, FuncSig, SigIndex},
 };
