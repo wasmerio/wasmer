@@ -129,8 +129,8 @@ pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     let result = unsafe { rename(old_path, new_path) };
     debug!(
         "=> old_path: {}, new_path: {}, result: {}",
-        std::ffi::CStr::from_ptr(old_path).to_str().unwrap(),
-        std::ffi::CStr::from_ptr(new_path).to_str().unwrap(),
+        unsafe { std::ffi::CStr::from_ptr(old_path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(new_path).to_str().unwrap() },
         result
     );
     result
