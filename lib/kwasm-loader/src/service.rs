@@ -95,6 +95,7 @@ struct WriteMemoryRequest {
 #[repr(C)]
 struct ImportRequest {
     name: [u8; 64],
+    param_count: u32,
 }
 
 #[repr(C)]
@@ -108,9 +109,14 @@ pub struct LoadProfile<'a> {
     pub memory: Option<&'a [u8]>,
     pub memory_max: usize,
     pub globals: &'a [u64],
-    pub imports: &'a [String],
+    pub imports: &'a [ImportInfo],
     pub dynamic_sigindices: &'a [u32],
     pub table: Option<&'a [TableEntryRequest]>,
+}
+
+pub struct ImportInfo {
+    pub name: String,
+    pub param_count: usize,
 }
 
 pub struct RunProfile<'a> {
@@ -126,13 +132,16 @@ impl ServiceContext {
     pub fn new(load: LoadProfile) -> ServiceResult<ServiceContext> {
         let dev = File::open("/dev/wasmctl")?;
         let imports: Vec<ImportRequest> = load.imports.iter().map(|x| {
-            let mut req: ImportRequest = unsafe { ::std::mem::zeroed() };
-            let x = x.as_bytes();
+            let mut req = ImportRequest {
+                name: [0u8; 64],
+                param_count: x.param_count as u32,
+            };
+            let name = x.name.as_bytes();
             let mut count = req.name.len() - 1;
-            if x.len() < count {
-                count = x.len();
+            if name.len() < count {
+                count = name.len();
             }
-            req.name[..count].copy_from_slice(&x[..count]);
+            req.name[..count].copy_from_slice(&name[..count]);
             req
         }).collect();
         let req = LoadCodeRequest {

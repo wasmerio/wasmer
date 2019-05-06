@@ -5,10 +5,10 @@ use wasmer_runtime_core::{
     backend::RunnableModule,
     vm::{Ctx, LocalGlobal, SigId, Anyfunc},
     module::ModuleInfo,
-    types::{Value, LocalMemoryIndex, LocalTableIndex, ImportedMemoryIndex, ImportedTableIndex},
+    types::{Value, LocalMemoryIndex, LocalTableIndex, ImportedMemoryIndex, ImportedTableIndex, FuncIndex},
     structures::TypedIndex,
 };
-use service::{ServiceContext, LoadProfile, RunProfile, TableEntryRequest};
+use service::{ServiceContext, LoadProfile, RunProfile, TableEntryRequest, ImportInfo};
 
 pub struct KernelLoader;
 
@@ -58,10 +58,16 @@ impl Loader for KernelLoader {
             let globals: &[*mut LocalGlobal] = ::std::slice::from_raw_parts(ctx.globals, module.globals.len());
             globals.iter().map(|x| (**x).data).collect()
         };
-        let mut import_names: Vec<String> = vec![];
-        for (_, import) in &module.imported_functions {
+        let mut import_names: Vec<ImportInfo> = vec![];
+        for (idx, import) in &module.imported_functions {
             let name = format!("{}##{}", module.namespace_table.get(import.namespace_index), module.name_table.get(import.name_index));
-            import_names.push(name);
+            let sig = module.signatures.get(
+                *module.func_assoc.get(FuncIndex::new(idx.index())).unwrap()
+            ).unwrap();
+            import_names.push(ImportInfo {
+                name: name,
+                param_count: sig.params().len(),
+            });
         }
         let dynamic_sigindices: &[u32] = unsafe {
             ::std::mem::transmute::<&[SigId], &[u32]>(
