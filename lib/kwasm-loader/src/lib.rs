@@ -74,6 +74,9 @@ impl Loader for KernelLoader {
                 ::std::slice::from_raw_parts(ctx.dynamic_sigindices, full_ctx.dynamic_sigindice_count())
             )
         };
+        let local_param_counts: Vec<usize> = (module.imported_functions.len()..module.func_assoc.len())
+            .map(|x| module.signatures.get(*module.func_assoc.get(FuncIndex::new(x)).unwrap()).unwrap().params().len())
+            .collect();
         let profile = LoadProfile {
             code: code,
             memory: memory,
@@ -87,6 +90,7 @@ impl Loader for KernelLoader {
         Ok(KernelInstance {
             context: sc,
             offsets: rm.get_offsets().unwrap(),
+            param_counts: local_param_counts,
         })
     }
 }
@@ -94,11 +98,15 @@ impl Loader for KernelLoader {
 pub struct KernelInstance {
     context: ServiceContext,
     offsets: Vec<usize>,
+    param_counts: Vec<usize>, // FIXME: Full signature check
 }
 
 impl Instance for KernelInstance {
     type Error = String;
     fn call(&mut self, id: usize, args: &[Value]) -> Result<u64, String> {
+        if args.len() != self.param_counts[id] {
+            return Err("param count mismatch".into());
+        }
         let args: Vec<u64> = args.iter().map(|x| x.to_u64()).collect();
 
         let ret = self.context.run_code(RunProfile {
