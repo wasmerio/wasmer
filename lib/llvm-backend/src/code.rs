@@ -8,6 +8,7 @@ use inkwell::{
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, Token},
@@ -292,7 +293,7 @@ fn resolve_memory_ptr(
     let var_offset =
         builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
     let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
-    let memory_cache = ctx.memory(MemoryIndex::new(0));
+    let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics);
 
     let mem_base_int = match memory_cache {
         MemoryCache::Dynamic {
@@ -363,25 +364,25 @@ pub struct CodegenError {
 }
 
 pub struct LLVMModuleCodeGenerator {
-    context: Context,
-    builder: Builder,
+    context: Option<Context>,
+    builder: Option<Builder>,
+    intrinsics: Option<Intrinsics>,
     functions: Vec<LLVMFunctionCodeGenerator>,
     signatures: Map<SigIndex, FunctionType>,
     signatures_raw: Map<SigIndex, FuncSig>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
     func_import_count: usize,
-    intrinsics: Intrinsics,
     personality_func: FunctionValue,
     module: Module,
 }
 
 pub struct LLVMFunctionCodeGenerator {
+    context: Option<Context>,
+    builder: Option<Builder>,
+    intrinsics: Option<Intrinsics>,
     state: State,
-    builder: &'static Builder,
-    context: &'static Context,
     function: FunctionValue,
     func_sig: FuncSig,
-    intrinsics: &'static Intrinsics,
     signatures: Map<SigIndex, FunctionType>,
     locals: Vec<PointerValue>, // Contains params and locals
     num_params: usize,
@@ -405,21 +406,23 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         //            let (count, ty) = local?;
         let count = n;
         let wasmer_ty = type_to_type(ty)?;
-        let ty = type_to_llvm(self.intrinsics, wasmer_ty);
+
+        let intrinsics = self.intrinsics.as_ref().unwrap();
+        let ty = type_to_llvm(intrinsics, wasmer_ty);
 
         let default_value = match wasmer_ty {
-            Type::I32 => self.intrinsics.i32_zero.as_basic_value_enum(),
-            Type::I64 => self.intrinsics.i64_zero.as_basic_value_enum(),
-            Type::F32 => self.intrinsics.f32_zero.as_basic_value_enum(),
-            Type::F64 => self.intrinsics.f64_zero.as_basic_value_enum(),
+            Type::I32 => intrinsics.i32_zero.as_basic_value_enum(),
+            Type::I64 => intrinsics.i64_zero.as_basic_value_enum(),
+            Type::F32 => intrinsics.f32_zero.as_basic_value_enum(),
+            Type::F64 => intrinsics.f64_zero.as_basic_value_enum(),
         };
 
-        for _ in 0..count {
-            let alloca = self
-                .builder
-                .build_alloca(ty, &format!("local{}", param_len + local_idx));
+        let builder = self.builder.as_ref().unwrap();
 
-            self.builder.build_store(alloca, default_value);
+        for _ in 0..count {
+            let alloca = builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
+
+            builder.build_store(alloca, default_value);
 
             self.locals.push(alloca);
             local_idx += 1;
@@ -430,22 +433,27 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let start_of_code_block = self
             .context
+            .as_ref()
+            .unwrap()
             .append_basic_block(&self.function, "start_of_code");
         let entry_end_inst = self
             .builder
+            .as_ref()
+            .unwrap()
             .build_unconditional_branch(&start_of_code_block);
-        self.builder.position_at_end(&start_of_code_block);
+        self.builder
+            .as_ref()
+            .unwrap()
+            .position_at_end(&start_of_code_block);
 
-        let cache_builder = self.context.create_builder();
+        let cache_builder = self.context.as_ref().unwrap().create_builder();
         cache_builder.position_before(&entry_end_inst);
         let module_info =
             unsafe { ::std::mem::transmute::<&ModuleInfo, &'static ModuleInfo>(module_info) };
         let function = unsafe {
             ::std::mem::transmute::<&FunctionValue, &'static FunctionValue>(&self.function)
         };
-        let ctx = self
-            .intrinsics
-            .ctx(module_info, self.builder, function, cache_builder);
+        let ctx = CtxType::new(module_info, function, cache_builder);
 
         self.ctx = Some(ctx);
         Ok(())
@@ -460,10 +468,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         };
 
         let mut state = &mut self.state;
-        let builder = self.builder;
-        let context = self.context;
+        let builder = self.builder.as_ref().unwrap();
+        let context = self.context.as_ref().unwrap();
         let function = self.function;
-        let intrinsics = self.intrinsics;
+        let intrinsics = self.intrinsics.as_ref().unwrap();
         let locals = &self.locals;
         let info = module_info;
         let signatures = &self.signatures;
@@ -868,7 +876,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
             Operator::GetGlobal { global_index } => {
                 let index = GlobalIndex::new(global_index as usize);
-                let global_cache = ctx.global_cache(index);
+                let global_cache = ctx.global_cache(index, intrinsics);
                 match global_cache {
                     GlobalCache::Const { value } => {
                         state.push1(value);
@@ -882,7 +890,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::SetGlobal { global_index } => {
                 let value = state.pop1()?;
                 let index = GlobalIndex::new(global_index as usize);
-                let global_cache = ctx.global_cache(index);
+                let global_cache = ctx.global_cache(index, intrinsics);
                 match global_cache {
                     GlobalCache::Mut { ptr_to_value } => {
                         builder.build_store(ptr_to_value, value);
@@ -918,12 +926,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                             .map(|v| *v)
                             .collect();
 
-                        let func_ptr = ctx.local_func(local_func_index, llvm_sig);
+                        let func_ptr =
+                            ctx.local_func(local_func_index, llvm_sig, intrinsics, builder);
 
                         builder.build_call(func_ptr, &params, &state.var_name())
                     }
                     LocalOrImport::Import(import_func_index) => {
-                        let (func_ptr_untyped, ctx_ptr) = ctx.imported_func(import_func_index);
+                        let (func_ptr_untyped, ctx_ptr) =
+                            ctx.imported_func(import_func_index, intrinsics);
                         let params: Vec<_> = [ctx_ptr.as_basic_value_enum()]
                             .iter()
                             .chain(state.peekn(func_sig.params().len())?.iter())
@@ -962,8 +972,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::CallIndirect { index, table_index } => {
                 let sig_index = SigIndex::new(index as usize);
-                let expected_dynamic_sigindex = ctx.dynamic_sigindex(sig_index);
-                let (table_base, table_bound) = ctx.table(TableIndex::new(table_index as usize));
+                let expected_dynamic_sigindex = ctx.dynamic_sigindex(sig_index, intrinsics);
+                let (table_base, table_bound) =
+                    ctx.table(TableIndex::new(table_index as usize), intrinsics, builder);
                 let func_index = state.pop1()?.into_int_value();
 
                 // We assume the table has the `anyfunc` element type.
@@ -2404,10 +2415,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
         match results.as_slice() {
             [] => {
-                self.builder.build_return(None);
+                self.builder.as_ref().unwrap().build_return(None);
             }
             [one_value] => {
-                self.builder.build_return(Some(one_value));
+                self.builder.as_ref().unwrap().build_return(Some(one_value));
             }
             _ => {
                 // let struct_ty = llvm_sig.get_return_type().as_struct_type();
@@ -2446,15 +2457,15 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         let signatures = Map::new();
 
         LLVMModuleCodeGenerator {
-            context,
-            builder,
+            context: Some(context),
+            builder: Some(builder),
+            intrinsics: Some(intrinsics),
             module,
             functions: vec![],
             signatures,
             signatures_raw: Map::new(),
             function_signatures: None,
             func_import_count: 0,
-            intrinsics,
             personality_func,
         }
     }
@@ -2469,6 +2480,18 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
     fn next_function(&mut self) -> Result<&mut LLVMFunctionCodeGenerator, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
+        let (context, builder, intrinsics) = match self.functions.last_mut() {
+            Some(x) => (
+                x.context.take().unwrap(),
+                x.builder.take().unwrap(),
+                x.intrinsics.take().unwrap(),
+            ),
+            None => (
+                self.context.take().unwrap(),
+                self.builder.take().unwrap(),
+                self.intrinsics.take().unwrap(),
+            ),
+        };
 
         let sig_id = self.function_signatures.as_ref().unwrap()
             [FuncIndex::new(self.func_import_count + self.functions.len())];
@@ -2482,20 +2505,20 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         function.set_personality_function(self.personality_func);
 
         let mut state = State::new();
-        let entry_block = self.context.append_basic_block(&function, "entry");
+        let entry_block = context.append_basic_block(&function, "entry");
 
-        let return_block = self.context.append_basic_block(&function, "return");
-        self.builder.position_at_end(&return_block);
+        let return_block = context.append_basic_block(&function, "return");
+        builder.position_at_end(&return_block);
 
         let phis: SmallVec<[PhiValue; 1]> = func_sig
             .returns()
             .iter()
-            .map(|&wasmer_ty| type_to_llvm(&self.intrinsics, wasmer_ty))
-            .map(|ty| self.builder.build_phi(ty, &state.var_name()))
+            .map(|&wasmer_ty| type_to_llvm(&intrinsics, wasmer_ty))
+            .map(|ty| builder.build_phi(ty, &state.var_name()))
             .collect();
 
         state.push_block(return_block, phis);
-        self.builder.position_at_end(&entry_block);
+        builder.position_at_end(&entry_block);
 
         let mut locals = Vec::new();
         locals.extend(
@@ -2506,8 +2529,8 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
                 .map(|(index, param)| {
                     let ty = param.get_type();
 
-                    let alloca = self.builder.build_alloca(ty, &format!("local{}", index));
-                    self.builder.build_store(alloca, param);
+                    let alloca = builder.build_alloca(ty, &format!("local{}", index));
+                    builder.build_store(alloca, param);
                     alloca
                 }),
         );
@@ -2515,16 +2538,14 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         let code = LLVMFunctionCodeGenerator {
             state,
-            builder: unsafe { ::std::mem::transmute::<&Builder, &'static Builder>(&self.builder) },
-            context: unsafe { ::std::mem::transmute::<&Context, &'static Context>(&self.context) },
+            context: Some(context),
+            builder: Some(builder),
+            intrinsics: Some(intrinsics),
             function,
             func_sig: func_sig,
             locals,
             signatures: self.signatures.clone(),
             num_params,
-            intrinsics: unsafe {
-                ::std::mem::transmute::<&Intrinsics, &'static Intrinsics>(&self.intrinsics)
-            },
             ctx: None,
             unreachable_depth: 0,
         };
@@ -2533,18 +2554,33 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     }
 
     fn finalize(
-        self,
+        mut self,
         module_info: &ModuleInfo,
     ) -> Result<(LLVMBackend, Box<dyn CacheGen>), CodegenError> {
         //         self.module.print_to_stderr();
+        let (context, builder, intrinsics) = match self.functions.last_mut() {
+            Some(x) => (
+                x.context.take().unwrap(),
+                x.builder.take().unwrap(),
+                x.intrinsics.take().unwrap(),
+            ),
+            None => (
+                self.context.take().unwrap(),
+                self.builder.take().unwrap(),
+                self.intrinsics.take().unwrap(),
+            ),
+        };
+        self.context = Some(context);
+        self.builder = Some(builder);
+        self.intrinsics = Some(intrinsics);
 
         generate_trampolines(
             module_info,
             &self.signatures,
             &self.module,
-            &self.context,
-            &self.builder,
-            &self.intrinsics,
+            self.context.as_ref().unwrap(),
+            self.builder.as_ref().unwrap(),
+            self.intrinsics.as_ref().unwrap(),
         );
 
         let pass_manager = PassManager::create_for_module();
@@ -2563,14 +2599,20 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         // self.module.print_to_stderr();
 
-        let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics);
+        let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics.take().unwrap());
         Ok((backend, Box::new(cache_gen)))
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
         self.signatures = signatures
             .iter()
-            .map(|(_, sig)| func_sig_to_llvm(&self.context, &self.intrinsics, sig))
+            .map(|(_, sig)| {
+                func_sig_to_llvm(
+                    self.context.as_ref().unwrap(),
+                    self.intrinsics.as_ref().unwrap(),
+                    sig,
+                )
+            })
             .collect();
         self.signatures_raw = signatures.clone();
         Ok(())
