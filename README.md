@@ -55,6 +55,24 @@ wasmer run examples/sqlite.wasm
 wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 ```
 
+#### With WAPM
+
+Installing Wasmer through `wasmer.io` includes
+[wapm](https://github.com/wasmerio/wapm-cli), the WebAssembly package manager.
+
+Wapm allows you to easily download, run, and distribute WebAssembly binaries.
+
+```sh
+# Install cowsay globally
+wapm install -g cowsay
+
+# Run cowsay
+wapm run cowsay "Hello, world!"
+```
+
+For more information about wapm, check out the [website](https://www.wapm.io)
+and this [example program](https://github.com/wapm-packages/rust-wasi-example).
+
 ## Code Structure
 
 Wasmer is structured into different directories:
