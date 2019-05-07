@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-middleware-common"
-version = "0.4.0"
+version = "0.4.1"
 repository = "https://github.com/wasmerio/wasmer"
 description = "Wasmer runtime common middlewares"
 license = "MIT"
@@ -8,4 +8,4 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.4.0" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.4.1" }
