@@ -220,7 +220,7 @@ impl Instance {
         }
     }
 
-    pub fn resolve_local_func(&self, name: &str) -> ResolveResult<usize> {
+    pub fn resolve_func(&self, name: &str) -> ResolveResult<usize> {
         let export_index =
             self.module
                 .info
@@ -231,13 +231,7 @@ impl Instance {
                 })?;
 
         if let ExportIndex::Func(func_index) = export_index {
-            match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(x) => Ok(x.index()),
-                LocalOrImport::Import(x) => Err(ResolveError::ExportWrongType {
-                    name: name.to_string(),
-                }
-                .into())
-            }
+            Ok(func_index.index())
         } else {
             Err(ResolveError::ExportWrongType {
                 name: name.to_string(),

@@ -84,7 +84,7 @@ fn handle_client(mut stream: UnixStream) {
                     args.push(Value::I64(stream.read_u64::<LittleEndian>().unwrap() as _));
                 }
 
-                let index = instance.resolve_local_func(func_name).unwrap();
+                let index = instance.resolve_func(func_name).unwrap();
                 let ret = ins.call(index, &args);
                 match ret {
                     Ok(x) => {

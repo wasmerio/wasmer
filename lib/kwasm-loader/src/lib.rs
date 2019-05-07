@@ -74,7 +74,7 @@ impl Loader for KernelLoader {
                 ::std::slice::from_raw_parts(ctx.dynamic_sigindices, full_ctx.dynamic_sigindice_count())
             )
         };
-        let local_param_counts: Vec<usize> = (module.imported_functions.len()..module.func_assoc.len())
+        let param_counts: Vec<usize> = (0..module.func_assoc.len())
             .map(|x| module.signatures.get(*module.func_assoc.get(FuncIndex::new(x)).unwrap()).unwrap().params().len())
             .collect();
         let profile = LoadProfile {
@@ -90,7 +90,7 @@ impl Loader for KernelLoader {
         Ok(KernelInstance {
             context: sc,
             offsets: rm.get_offsets().unwrap(),
-            param_counts: local_param_counts,
+            param_counts: param_counts,
         })
     }
 }
