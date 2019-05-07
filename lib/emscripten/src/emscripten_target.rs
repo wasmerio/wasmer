@@ -55,7 +55,7 @@ pub fn _dladdr(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     0
 }
 pub fn _pthread_attr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_attr_init");
+    debug!("emscripten::_pthread_attr_init({})", _a);
     0
 }
 pub fn _pthread_attr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
@@ -68,7 +68,10 @@ pub fn _pthread_attr_getstack(
     _stacksize: i32,
     _other: i32,
 ) -> i32 {
-    debug!("emscripten::_pthread_attr_getstack");
+    debug!(
+        "emscripten::_pthread_attr_getstack({}, {}, {})",
+        _stackaddr, _stacksize, _other
+    );
     // TODO: Translate from Emscripten
     // HEAP32[stackaddr >> 2] = STACK_BASE;
     // HEAP32[stacksize >> 2] = TOTAL_STACK;
@@ -87,7 +90,7 @@ pub fn _pthread_getspecific(_ctx: &mut Ctx, _a: i32) -> i32 {
     0
 }
 pub fn _pthread_getattr_np(_ctx: &mut Ctx, _thread: i32, _attr: i32) -> i32 {
-    debug!("emscripten::_pthread_getattr_np");
+    debug!("emscripten::_pthread_getattr_np({}, {})", _thread, _attr);
     0
 }
 pub fn _pthread_setspecific(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
@@ -731,6 +734,10 @@ pub fn invoke_vj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) {
     } else {
         panic!("dyn_call_vj is set to None");
     }
+}
+pub fn invoke_vjji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
+    debug!("emscripten::invoke_vjji");
+    invoke_no_return!(ctx, dyn_call_vjji, index, a1, a2, a3, a4, a5)
 }
 pub fn invoke_vij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_vij");

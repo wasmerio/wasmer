@@ -21,8 +21,11 @@ pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u
 
 /// emscripten: _emscripten_get_heap_size
 pub fn _emscripten_get_heap_size(ctx: &mut Ctx) -> u32 {
-    debug!("emscripten::_emscripten_get_heap_size",);
-    ctx.memory(0).size().bytes().0 as u32
+    debug!("emscripten::_emscripten_get_heap_size");
+    let result = ctx.memory(0).size().bytes().0 as u32;
+    debug!("=> {}", result);
+
+    result
 }
 
 // From emscripten implementation

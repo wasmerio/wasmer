@@ -31,12 +31,13 @@ use libc::{
     off_t,
     //    open,
     read,
+    rename,
+    // sockaddr_in,
     // readv,
     rmdir,
     // writev,
     stat,
     write,
-    // sockaddr_in,
 };
 use wasmer_runtime_core::vm::Ctx;
 
@@ -118,9 +119,21 @@ pub fn ___syscall20(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     unsafe { getpid() }
 }
 
-pub fn ___syscall38(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall38");
-    -1
+// rename
+pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall38 (rename)");
+    let old_path_addr: u32 = varargs.get(ctx);
+    let new_path_addr: u32 = varargs.get(ctx);
+    let old_path = emscripten_memory_pointer!(ctx.memory(0), old_path_addr) as *const i8;
+    let new_path = emscripten_memory_pointer!(ctx.memory(0), new_path_addr) as *const i8;
+    let result = unsafe { rename(old_path, new_path) };
+    debug!(
+        "=> old_path: {}, new_path: {}, result: {}",
+        unsafe { std::ffi::CStr::from_ptr(old_path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(new_path).to_str().unwrap() },
+        result
+    );
+    result
 }
 
 // rmdir
@@ -246,12 +259,21 @@ pub fn ___syscall192(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     if fd == -1 {
         let ptr = env::call_memalign(ctx, 16384, len);
         if ptr == 0 {
-            return -1;
+            // ENOMEM
+            return -12;
         }
+        let real_ptr = emscripten_memory_pointer!(ctx.memory(0), ptr) as *const u8;
         env::call_memset(ctx, ptr, 0, len);
-        ptr as _
+        for i in 0..(len as usize) {
+            unsafe {
+                assert_eq!(*real_ptr.add(i), 0);
+            }
+        }
+        debug!("=> ptr: {}", ptr);
+        return ptr as i32;
     } else {
-        -1
+        // return ENODEV
+        return -19;
     }
 }
 
@@ -459,6 +481,12 @@ pub fn ___syscall295(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 pub fn ___syscall300(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall300");
     -1
+}
+
+// utimensat
+pub fn ___syscall320(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall320 (utimensat), {}", _which);
+    0
 }
 
 pub fn ___syscall334(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
