@@ -8,7 +8,6 @@ use inkwell::{
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
-use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, Token},
@@ -2420,11 +2419,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             [one_value] => {
                 self.builder.as_ref().unwrap().build_return(Some(one_value));
             }
-            _ => {
-                // let struct_ty = llvm_sig.get_return_type().as_struct_type();
-                // let ret_struct = struct_ty.const_zero();
-                unimplemented!("multi-value returns not yet implemented")
-            }
+            _ => unimplemented!("multi-value returns not yet implemented"),
         }
         Ok(())
     }
@@ -2557,7 +2552,6 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         mut self,
         module_info: &ModuleInfo,
     ) -> Result<(LLVMBackend, Box<dyn CacheGen>), CodegenError> {
-        //         self.module.print_to_stderr();
         let (context, builder, intrinsics) = match self.functions.last_mut() {
             Some(x) => (
                 x.context.take().unwrap(),
@@ -2584,15 +2578,14 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         );
 
         let pass_manager = PassManager::create_for_module();
-        // pass_manager.add_verifier_pass();
+        if cfg!(test) {
+            pass_manager.add_verifier_pass();
+        }
         pass_manager.add_function_inlining_pass();
         pass_manager.add_promote_memory_to_register_pass();
         pass_manager.add_cfg_simplification_pass();
-        // pass_manager.add_instruction_combining_pass();
         pass_manager.add_aggressive_inst_combiner_pass();
         pass_manager.add_merged_load_store_motion_pass();
-        // pass_manager.add_sccp_pass();
-        // pass_manager.add_gvn_pass();
         pass_manager.add_new_gvn_pass();
         pass_manager.add_aggressive_dce_pass();
         pass_manager.run_on_module(&self.module);
