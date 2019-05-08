@@ -33,7 +33,13 @@ impl Memory {
 
         let protect = protection.to_protect_const();
 
-        let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, protect) };
+        let flags = if protection == Protect::None {
+            MEM_RESERVE
+        } else {
+            MEM_RESERVE | MEM_COMMIT
+        };
+
+        let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, flags, protect) };
 
         if ptr.is_null() {
             Err("unable to allocate memory".to_string())
@@ -228,4 +234,26 @@ fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
 /// Round `size` down to the nearest multiple of `page_size`.
 fn round_down_to_page_size(size: usize, page_size: usize) -> usize {
     size & !(page_size - 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clone() {
+        // these should work
+        let _ = Memory::with_size_protect(200_000, Protect::Read)
+            .unwrap()
+            .clone();
+        let _ = Memory::with_size_protect(200_000, Protect::ReadWrite)
+            .unwrap()
+            .clone();
+        let _ = Memory::with_size_protect(200_000, Protect::ReadExec)
+            .unwrap()
+            .clone();
+
+        // this would cause segmentation fault as uncommited memory with no access
+        //let _ = Memory::with_size_protect(200_000, Protect::None).unwrap().clone();
+    }
 }
