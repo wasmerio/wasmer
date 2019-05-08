@@ -10,7 +10,7 @@ use wasmer_runtime::{
 };
 use wasmer_runtime_core::{
     self,
-    backend::{Compiler, CompilerConfig},
+    backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
     loader::{self, Loader, Instance as LoadedInstance, LocalLoader},
 };
 use wasmer_singlepass_backend::SinglePassCompiler;
@@ -50,7 +50,7 @@ fn handle_client(mut stream: UnixStream) {
         &wasm_binary[..],
         CompilerConfig {
             symbol_map: None,
-            enforce_memory_bound_check: true,
+            memory_bound_check_mode: MemoryBoundCheckMode::Disable,
             enforce_stack_check: true,
         },
         &SinglePassCompiler::new(),

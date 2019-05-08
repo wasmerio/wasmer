@@ -39,12 +39,25 @@ impl Token {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum MemoryBoundCheckMode {
+    Default,
+    Enable,
+    Disable,
+}
+
+impl Default for MemoryBoundCheckMode {
+    fn default() -> MemoryBoundCheckMode {
+        MemoryBoundCheckMode::Default
+    }
+}
+
 /// Configuration data for the compiler
 #[derive(Default)]
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
-    pub enforce_memory_bound_check: bool,
+    pub memory_bound_check_mode: MemoryBoundCheckMode,
     pub enforce_stack_check: bool,
 }
 

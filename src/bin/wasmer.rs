@@ -22,7 +22,7 @@ use wasmer_runtime::{
 };
 use wasmer_runtime_core::{
     self,
-    backend::{Compiler, CompilerConfig},
+    backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
     loader::{self, Loader, Instance as LoadedInstance, LocalLoader},
 };
 #[cfg(feature = "backend:singlepass")]
@@ -298,7 +298,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             &wasm_binary[..],
             CompilerConfig {
                 symbol_map: em_symbol_map,
-                enforce_memory_bound_check: true,
+                memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
             },
             &*compiler,
@@ -368,7 +368,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map(|arg| arg.as_str())
             .map(|x| Value::I32(x.parse().unwrap()))
             .collect();
-        let index = instance.resolve_local_func("main").unwrap();
+        let index = instance.resolve_func("_start").unwrap();
         let mut ins: Box<LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(instance.load(LocalLoader).unwrap()),
             LoaderName::Kernel => Box::new(instance.load(::kwasm_loader::KernelLoader).unwrap()),

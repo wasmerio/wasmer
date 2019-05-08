@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{Backend, RunnableModule, CompilerConfig},
+    backend::{Backend, RunnableModule, CompilerConfig, MemoryBoundCheckMode},
     codegen::*,
     memory::MemoryType,
     module::ModuleInfo,
@@ -290,7 +290,7 @@ pub struct CodegenError {
 
 #[derive(Copy, Clone, Debug)]
 struct CodegenConfig {
-    enforce_memory_bound_check: bool,
+    memory_bound_check_mode: MemoryBoundCheckMode,
     enforce_stack_check: bool,
 }
 
@@ -475,7 +475,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
     fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
         self.config = Some(Arc::new(CodegenConfig {
-            enforce_memory_bound_check: config.enforce_memory_bound_check,
+            memory_bound_check_mode: config.memory_bound_check_mode,
             enforce_stack_check: config.enforce_stack_check,
         }));
         Ok(())
@@ -1243,13 +1243,13 @@ impl X64FunctionCode {
                 &module_info.imported_memories[import_mem_index].1
             }
         };
-        let need_check = if config.enforce_memory_bound_check {
-            true
-        } else {
-            match mem_desc.memory_type() {
+        let need_check = match config.memory_bound_check_mode {
+            MemoryBoundCheckMode::Default => match mem_desc.memory_type() {
                 MemoryType::Dynamic => true,
                 MemoryType::Static | MemoryType::SharedStatic => false,
-            }
+            },
+            MemoryBoundCheckMode::Enable => true,
+            MemoryBoundCheckMode::Disable => false,
         };
 
         if need_check {
