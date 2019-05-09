@@ -50,7 +50,7 @@ mod varargs;
 
 pub use self::storage::{align_memory, static_alloc};
 pub use self::utils::{
-    allocate_cstr_on_stack, allocate_on_stack, get_emscripten_memory_size,
+    allocate_cstr_on_stack, allocate_on_stack, get_emscripten_memory_size, get_emscripten_metadata,
     get_emscripten_table_size, is_emscripten_module,
 };
 
@@ -127,6 +127,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_viijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vj: Option<Func<'a, (i32, i32, i32)>>,
+    pub dyn_call_vjji: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vij: Option<Func<'a, (i32, i32, i32, i32)>>,
     pub dyn_call_viji: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
@@ -146,11 +147,7 @@ impl<'a> EmscriptenData<'a> {
     pub fn new(instance: &'a mut Instance) -> EmscriptenData<'a> {
         let malloc = instance.func("_malloc").unwrap();
         let free = instance.func("_free").unwrap();
-        let memalign = if let Ok(func) = instance.func("_memalign") {
-            Some(func)
-        } else {
-            None
-        };
+        let memalign = instance.func("_memalign").ok();
         let memset = instance.func("_memset").unwrap();
         let stack_alloc = instance.func("stackAlloc").unwrap();
 
@@ -198,6 +195,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_viijiii = instance.func("dynCall_viijiii").ok();
         let dyn_call_viijj = instance.func("dynCall_viijj").ok();
         let dyn_call_vj = instance.func("dynCall_vj").ok();
+        let dyn_call_vjji = instance.func("dynCall_vjji").ok();
         let dyn_call_vij = instance.func("dynCall_vij").ok();
         let dyn_call_viji = instance.func("dynCall_viji").ok();
         let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
@@ -261,6 +259,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_viijiii,
             dyn_call_viijj,
             dyn_call_vj,
+            dyn_call_vjji,
             dyn_call_vij,
             dyn_call_viji,
             dyn_call_vijiii,
@@ -282,6 +281,7 @@ pub fn run_emscripten_instance(
     instance: &mut Instance,
     path: &str,
     args: Vec<&str>,
+    entrypoint: Option<String>,
 ) -> CallResult<()> {
     let mut data = EmscriptenData::new(instance);
     let data_ptr = &mut data as *mut _ as *mut c_void;
@@ -299,52 +299,58 @@ pub fn run_emscripten_instance(
 
     // println!("running emscripten instance");
 
-    let main_func = instance.dyn_func("_main")?;
-    let num_params = main_func.signature().params().len();
-    let _result = match num_params {
-        2 => {
-            let (argc, argv) = store_module_arguments(instance.context_mut(), path, args);
-            instance.call("_main", &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
-        }
-        0 => {
-            instance.call("_main", &[])?;
-        }
-        _ => panic!(
-            "The emscripten main function has received an incorrect number of params {}",
-            num_params
-        ),
-    };
+    if let Some(ep) = entrypoint {
+        debug!("Running entry point: {}", &ep);
+        let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
+        //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
+        instance.call(&ep, &[Value::I32(arg as i32)])?;
+    } else {
+        let main_func = instance.dyn_func("_main")?;
+        let num_params = main_func.signature().params().len();
+        let _result = match num_params {
+            2 => {
+                let mut new_args = vec![path];
+                new_args.extend(args);
+                let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
+                instance.call("_main", &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
+            }
+            0 => {
+                instance.call("_main", &[])?;
+            }
+            _ => panic!(
+                "The emscripten main function has received an incorrect number of params {}",
+                num_params
+            ),
+        };
+    }
 
     // TODO atexit for emscripten
     // println!("{:?}", data);
     Ok(())
 }
 
-fn store_module_arguments(ctx: &mut Ctx, path: &str, args: Vec<&str>) -> (u32, u32) {
+fn store_module_arguments(ctx: &mut Ctx, args: Vec<&str>) -> (u32, u32) {
     let argc = args.len() + 1;
 
     let mut args_slice = vec![0; argc];
-    args_slice[0] = unsafe { allocate_cstr_on_stack(ctx, path).0 };
-    for (slot, arg) in args_slice[1..argc].iter_mut().zip(args.iter()) {
+    for (slot, arg) in args_slice[0..argc].iter_mut().zip(args.iter()) {
         *slot = unsafe { allocate_cstr_on_stack(ctx, &arg).0 };
     }
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
-        unsafe { allocate_on_stack(ctx, ((argc + 1) * 4) as u32) };
+        unsafe { allocate_on_stack(ctx, ((argc) * 4) as u32) };
     assert!(!argv_slice.is_empty());
     for (slot, arg) in argv_slice[0..argc].iter_mut().zip(args_slice.iter()) {
         *slot = *arg
     }
     argv_slice[argc] = 0;
 
-    (argc as u32, argv_offset)
+    (argc as u32 - 1, argv_offset)
 }
 
 pub fn emscripten_set_up_memory(memory: &Memory, globals: &EmscriptenGlobalsData) {
     let dynamictop_ptr = globals.dynamictop_ptr;
-    let stack_max = globals.stack_max;
-
-    let dynamic_base = align_memory(stack_max);
+    let dynamic_base = globals.dynamic_base;
 
     memory.view::<u32>()[(dynamictop_ptr / 4) as usize].set(dynamic_base);
 }
@@ -355,6 +361,7 @@ pub struct EmscriptenGlobalsData {
     stacktop: u32,
     stack_max: u32,
     dynamictop_ptr: u32,
+    dynamic_base: u32,
     memory_base: u32,
     table_base: u32,
     temp_double_ptr: u32,
@@ -424,7 +431,14 @@ impl EmscriptenGlobals {
             let temp_double_ptr = static_top;
             static_top += 16;
 
-            let dynamictop_ptr = static_alloc(&mut static_top, 4);
+            let (dynamic_base, dynamictop_ptr) =
+                get_emscripten_metadata(&module).unwrap_or_else(|| {
+                    let dynamictop_ptr = static_alloc(&mut static_top, 4);
+                    (
+                        align_memory(align_memory(static_top) + TOTAL_STACK),
+                        dynamictop_ptr,
+                    )
+                });
 
             let stacktop = align_memory(static_top);
             let stack_max = stacktop + TOTAL_STACK;
@@ -434,6 +448,7 @@ impl EmscriptenGlobals {
                 stacktop,
                 stack_max,
                 dynamictop_ptr,
+                dynamic_base,
                 memory_base,
                 table_base,
                 temp_double_ptr,
@@ -597,6 +612,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall272" => func!(crate::syscalls::___syscall272),
         "___syscall295" => func!(crate::syscalls::___syscall295),
         "___syscall300" => func!(crate::syscalls::___syscall300),
+        "___syscall320" => func!(crate::syscalls::___syscall320),
         "___syscall324" => func!(crate::syscalls::___syscall324),
         "___syscall330" => func!(crate::syscalls::___syscall330),
         "___syscall334" => func!(crate::syscalls::___syscall334),
@@ -619,6 +635,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_llvm_eh_typeid_for" => func!(crate::process::_llvm_eh_typeid_for),
         "_raise" => func!(crate::process::_raise),
         "_sem_init" => func!(crate::process::_sem_init),
+        "_sem_destroy" => func!(crate::process::_sem_destroy),
         "_sem_post" => func!(crate::process::_sem_post),
         "_sem_wait" => func!(crate::process::_sem_wait),
         "_getgrent" => func!(crate::process::_getgrent),
@@ -646,6 +663,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_emscripten_get_heap_size" => func!(crate::memory::_emscripten_get_heap_size),
         "_emscripten_resize_heap" => func!(crate::memory::_emscripten_resize_heap),
         "enlargeMemory" => func!(crate::memory::enlarge_memory),
+        "segfault" => func!(crate::memory::segfault),
+        "alignfault" => func!(crate::memory::alignfault),
+        "ftfault" => func!(crate::memory::ftfault),
         "getTotalMemory" => func!(crate::memory::get_total_memory),
         "___map_file" => func!(crate::memory::___map_file),
 
@@ -655,6 +675,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___cxa_begin_catch" => func!(crate::exception::___cxa_begin_catch),
         "___cxa_end_catch" => func!(crate::exception::___cxa_end_catch),
         "___cxa_uncaught_exception" => func!(crate::exception::___cxa_uncaught_exception),
+        "___cxa_pure_virtual" => func!(crate::exception::___cxa_pure_virtual),
 
         // Time
         "_gettimeofday" => func!(crate::time::_gettimeofday),
@@ -683,6 +704,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_llvm_cos_f64" => func!(crate::math::_llvm_cos_f64),
         "_llvm_exp2_f32" => func!(crate::math::_llvm_exp2_f32),
         "_llvm_exp2_f64" => func!(crate::math::_llvm_exp2_f64),
+        "_llvm_trunc_f64" => func!(crate::math::_llvm_trunc_f64),
         "_emscripten_random" => func!(crate::math::_emscripten_random),
 
         // Jump
@@ -701,6 +723,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_dlsym" => func!(crate::linking::_dlsym),
 
         // wasm32-unknown-emscripten
+        "_atexit" => func!(crate::emscripten_target::_atexit),
         "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
         "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
         "invoke_i" => func!(crate::emscripten_target::invoke_i),
@@ -711,6 +734,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_v" => func!(crate::emscripten_target::invoke_v),
         "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
         "invoke_vj" => func!(crate::emscripten_target::invoke_vj),
+        "invoke_vjji" => func!(crate::emscripten_target::invoke_vjji),
         "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
         "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
         "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
@@ -723,10 +747,15 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___resumeException" => func!(crate::emscripten_target::___resumeException),
         "_dladdr" => func!(crate::emscripten_target::_dladdr),
         "_pthread_create" => func!(crate::emscripten_target::_pthread_create),
+        "_pthread_detach" => func!(crate::emscripten_target::_pthread_detach),
         "_pthread_join" => func!(crate::emscripten_target::_pthread_join),
-        "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
+        "_pthread_attr_init" => func!(crate::emscripten_target::_pthread_attr_init),
+        "_pthread_attr_destroy" => func!(crate::emscripten_target::_pthread_attr_destroy),
+        "_pthread_attr_getstack" => func!(crate::emscripten_target::_pthread_attr_getstack),
         "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
+        "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
         "_pthread_cond_signal" => func!(crate::emscripten_target::_pthread_cond_signal),
+        "_pthread_cond_timedwait" => func!(crate::emscripten_target::_pthread_cond_timedwait),
         "_pthread_cond_wait" => func!(crate::emscripten_target::_pthread_cond_wait),
         "_pthread_condattr_destroy" => func!(crate::emscripten_target::_pthread_condattr_destroy),
         "_pthread_condattr_init" => func!(crate::emscripten_target::_pthread_condattr_init),
@@ -740,6 +769,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
         "_pthread_setcancelstate" => func!(crate::emscripten_target::_pthread_setcancelstate),
         "_pthread_getspecific" => func!(crate::emscripten_target::_pthread_getspecific),
+        "_pthread_getattr_np" => func!(crate::emscripten_target::_pthread_getattr_np),
         "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
         "_pthread_once" => func!(crate::emscripten_target::_pthread_once),
         "_pthread_key_create" => func!(crate::emscripten_target::_pthread_key_create),

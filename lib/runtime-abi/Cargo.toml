@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-abi"
-version = "0.3.0"
+version = "0.4.1"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -13,7 +13,7 @@ wasmer-runtime-core = { path = "../runtime-core" }
 hashbrown = "0.1"
 failure = "0.1"
 tar = "0.4"
-wasmparser = "0.23.0"
+wasmparser = "0.29.2"
 zstd = "0.4"
 
 [target.'cfg(unix)'.dependencies.zbox]

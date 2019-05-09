@@ -53,6 +53,7 @@ macro_rules! assert_emscripten_output {
             &mut instance,
             $name,
             $args,
+            None,
         ).expect("run_emscripten_instance finishes");
 
         let output = capturer.end().unwrap().0;

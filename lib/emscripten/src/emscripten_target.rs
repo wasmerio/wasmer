@@ -15,6 +15,15 @@ pub fn getTempRet0(ctx: &mut Ctx) -> i32 {
     get_emscripten_data(ctx).temp_ret_0
 }
 
+pub fn _atexit(_ctx: &mut Ctx, _func: i32) -> i32 {
+    debug!("emscripten::_atexit");
+    // TODO: implement atexit properly
+    // __ATEXIT__.unshift({
+    //     func: func,
+    //     arg: arg
+    // });
+    0
+}
 pub fn __Unwind_Backtrace(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::__Unwind_Backtrace");
     0
@@ -45,12 +54,43 @@ pub fn _dladdr(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_dladdr");
     0
 }
+pub fn _pthread_attr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
+    debug!("emscripten::_pthread_attr_init({})", _a);
+    0
+}
+pub fn _pthread_attr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
+    debug!("emscripten::_pthread_attr_destroy");
+    0
+}
+pub fn _pthread_attr_getstack(
+    _ctx: &mut Ctx,
+    _stackaddr: i32,
+    _stacksize: i32,
+    _other: i32,
+) -> i32 {
+    debug!(
+        "emscripten::_pthread_attr_getstack({}, {}, {})",
+        _stackaddr, _stacksize, _other
+    );
+    // TODO: Translate from Emscripten
+    // HEAP32[stackaddr >> 2] = STACK_BASE;
+    // HEAP32[stacksize >> 2] = TOTAL_STACK;
+    0
+}
 pub fn _pthread_cond_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_cond_destroy");
     0
 }
+pub fn _pthread_cond_timedwait(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32) -> i32 {
+    debug!("emscripten::_pthread_cond_timedwait");
+    0
+}
 pub fn _pthread_getspecific(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_getspecific");
+    0
+}
+pub fn _pthread_getattr_np(_ctx: &mut Ctx, _thread: i32, _attr: i32) -> i32 {
+    debug!("emscripten::_pthread_getattr_np({}, {})", _thread, _attr);
     0
 }
 pub fn _pthread_setspecific(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
@@ -67,6 +107,10 @@ pub fn _pthread_key_create(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
 }
 pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
     debug!("emscripten::_pthread_create");
+    0
+}
+pub fn _pthread_detach(_ctx: &mut Ctx, _a: i32) -> i32 {
+    debug!("emscripten::_pthread_detach");
     0
 }
 pub fn _pthread_join(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
@@ -690,6 +734,10 @@ pub fn invoke_vj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) {
     } else {
         panic!("dyn_call_vj is set to None");
     }
+}
+pub fn invoke_vjji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
+    debug!("emscripten::invoke_vjji");
+    invoke_no_return!(ctx, dyn_call_vjji, index, a1, a2, a3, a4, a5)
 }
 pub fn invoke_vij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_vij");

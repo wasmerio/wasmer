@@ -1,5 +1,6 @@
 use super::env;
 use super::env::get_emscripten_data;
+use crate::storage::align_memory;
 use libc::stat;
 use std::ffi::CStr;
 use std::mem::size_of;
@@ -37,6 +38,43 @@ pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
 pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
     let (_, memory) = &module.info().imported_memories[ImportedMemoryIndex::new(0)];
     (memory.minimum, memory.maximum)
+}
+
+/// Reads values written by `-s EMIT_EMSCRIPTEN_METADATA=1`
+/// Assumes values start from the end in this order:
+/// Last export: Dynamic Base
+/// Second-to-Last export: Dynamic top pointer
+pub fn get_emscripten_metadata(module: &Module) -> Option<(u32, u32)> {
+    let max_idx = &module.info().globals.iter().map(|(k, _)| k).max()?;
+    let snd_max_idx = &module
+        .info()
+        .globals
+        .iter()
+        .map(|(k, _)| k)
+        .filter(|k| k != max_idx)
+        .max()?;
+
+    use wasmer_runtime_core::types::{GlobalInit, Initializer::Const, Value::I32};
+    if let (
+        GlobalInit {
+            init: Const(I32(dynamic_base)),
+            ..
+        },
+        GlobalInit {
+            init: Const(I32(dynamictop_ptr)),
+            ..
+        },
+    ) = (
+        &module.info().globals[*max_idx],
+        &module.info().globals[*snd_max_idx],
+    ) {
+        Some((
+            align_memory(*dynamic_base as u32 - 32),
+            align_memory(*dynamictop_ptr as u32 - 32),
+        ))
+    } else {
+        None
+    }
 }
 
 pub unsafe fn write_to_buf(ctx: &mut Ctx, string: *const c_char, buf: u32, max: u32) -> u32 {

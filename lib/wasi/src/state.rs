@@ -13,42 +13,35 @@ use std::{
     time::SystemTime,
 };
 use wasmer_runtime_core::debug;
-//use zbox::init_env as zbox_init_env;
 
 pub const MAX_SYMLINKS: usize = 100;
 
 #[derive(Debug)]
 pub enum WasiFile {
-    #[allow(dead_code)]
-    ZboxFile(zbox::File),
     HostFile(fs::File),
 }
 
 impl Write for WasiFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.write(buf),
             WasiFile::HostFile(hf) => hf.write(buf),
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.flush(),
             WasiFile::HostFile(hf) => hf.flush(),
         }
     }
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.write_all(buf),
             WasiFile::HostFile(hf) => hf.write_all(buf),
         }
     }
 
     fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.write_fmt(fmt),
             WasiFile::HostFile(hf) => hf.write_fmt(fmt),
         }
     }
@@ -57,28 +50,24 @@ impl Write for WasiFile {
 impl Read for WasiFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.read(buf),
             WasiFile::HostFile(hf) => hf.read(buf),
         }
     }
 
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.read_to_end(buf),
             WasiFile::HostFile(hf) => hf.read_to_end(buf),
         }
     }
 
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.read_to_string(buf),
             WasiFile::HostFile(hf) => hf.read_to_string(buf),
         }
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.read_exact(buf),
             WasiFile::HostFile(hf) => hf.read_exact(buf),
         }
     }
@@ -87,7 +76,6 @@ impl Read for WasiFile {
 impl Seek for WasiFile {
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         match self {
-            WasiFile::ZboxFile(zbf) => zbf.seek(pos),
             WasiFile::HostFile(hf) => hf.seek(pos),
         }
     }
@@ -151,9 +139,11 @@ pub enum Kind {
         handle: WasiFile,
     },
     Dir {
-        // parent directory
+        /// parent directory
         parent: Option<Inode>,
-        handle: WasiFile,
+        // TODO: wrap it like WasiFile
+        /// The path on the host system where the directory is located
+        path: PathBuf,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, Inode>,
     },
@@ -253,11 +243,11 @@ impl WasiFs {
             );
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
-            let cur_file: fs::File = fs::OpenOptions::new()
-                .read(true)
-                .open(&canonical_file)
-                .expect("Could not find file");
-            let cur_file_metadata = cur_file
+                                             /*let cur_file: fs::File = fs::OpenOptions::new()
+                                             .read(true)
+                                             .open(&canonical_file)
+                                             .expect("Could not find file");*/
+            let cur_file_metadata = canonical_file
                 .metadata()
                 .expect("Could not get metadata for file");
             // return how deep we had to go to find a parent
@@ -295,18 +285,15 @@ impl WasiFs {
                                 let mid_dir_name = comp.as_os_str().to_string_lossy().to_string();
 
                                 let default_rights = 0x1FFFFFFF; // all rights
-                                let cur_file: fs::File = fs::OpenOptions::new()
-                                    .read(true)
-                                    .open(&cumulative_path)
-                                    .expect("Could not find file");
-                                let mid_dir_metadata = cur_file
+                                let cur_dir = cumulative_path.clone();
+                                let mid_dir_metadata = cur_dir
                                     .metadata()
                                     .expect("Could not get metadata for intermediate file");
 
                                 let kind = if mid_dir_metadata.is_dir() {
                                     Kind::Dir {
                                         parent: Some(cur_parent),
-                                        handle: WasiFile::HostFile(cur_file),
+                                        path: cur_dir.clone(),
                                         entries: Default::default(),
                                     }
                                 } else {
@@ -362,7 +349,7 @@ impl WasiFs {
             let kind = if cur_file_metadata.is_dir() {
                 Kind::Dir {
                     parent,
-                    handle: WasiFile::HostFile(cur_file),
+                    path: cur_dir.clone(),
                     entries: Default::default(),
                 }
             } else {

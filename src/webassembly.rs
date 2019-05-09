@@ -1,13 +1,6 @@
 use std::panic;
 pub use wasmer_runtime::compile_with_config_with;
-use wasmer_runtime::{
-    self as runtime,
-    error::{CallResult, Result},
-    ImportObject, Instance, Module,
-};
-use wasmer_runtime_core::types::Value;
-
-use wasmer_emscripten::run_emscripten_instance;
+use wasmer_runtime::{self as runtime, error::Result, ImportObject, Instance, Module};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -76,41 +69,4 @@ pub fn instantiate_streaming(
 pub fn compile(buffer_source: &[u8]) -> Result<Module> {
     let module = runtime::compile(buffer_source)?;
     Ok(module)
-}
-
-// /// The same as `compile` but takes a `CompilerConfig` for the purpose of
-// /// changing the compiler's behavior
-// pub fn compile_with_config_with(
-//     buffer_source: &[u8],
-//     compiler_config: CompilerConfig,
-// ) -> Result<Module> {
-//     let module = runtime::compile_with_config(buffer_source, compiler_config)?;
-//     Ok(module)
-// }
-
-/// Performs common instance operations needed when an instance is first run
-/// including data setup, handling arguments and calling a main function
-pub fn run_instance(
-    module: &Module,
-    instance: &mut Instance,
-    abi: InstanceABI,
-    path: &str,
-    args: Vec<&str>,
-) -> CallResult<()> {
-    match abi {
-        InstanceABI::Emscripten => {
-            run_emscripten_instance(module, instance, path, args)?;
-        }
-        InstanceABI::WASI => {
-            instance.call("_start", &[])?;
-        }
-        InstanceABI::None => {
-            let args: Vec<Value> = args
-                .into_iter()
-                .map(|x| Value::I32(x.parse().unwrap()))
-                .collect();
-            instance.call("main", &args)?;
-        }
-    }
-    Ok(())
 }

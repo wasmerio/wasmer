@@ -21,8 +21,11 @@ pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u
 
 /// emscripten: _emscripten_get_heap_size
 pub fn _emscripten_get_heap_size(ctx: &mut Ctx) -> u32 {
-    debug!("emscripten::_emscripten_get_heap_size",);
-    ctx.memory(0).size().bytes().0 as u32
+    debug!("emscripten::_emscripten_get_heap_size");
+    let result = ctx.memory(0).size().bytes().0 as u32;
+    debug!("=> {}", result);
+
+    result
 }
 
 // From emscripten implementation
@@ -93,6 +96,24 @@ pub fn abort_on_cannot_grow_memory_old(ctx: &mut Ctx) -> u32 {
     debug!("emscripten::abort_on_cannot_grow_memory");
     abort_with_message(ctx, "Cannot enlarge memory arrays!");
     0
+}
+
+/// emscripten: segfault
+pub fn segfault(ctx: &mut Ctx) {
+    debug!("emscripten::segfault");
+    abort_with_message(ctx, "segmentation fault");
+}
+
+/// emscripten: alignfault
+pub fn alignfault(ctx: &mut Ctx) {
+    debug!("emscripten::alignfault");
+    abort_with_message(ctx, "alignment fault");
+}
+
+/// emscripten: ftfault
+pub fn ftfault(ctx: &mut Ctx) {
+    debug!("emscripten::ftfault");
+    abort_with_message(ctx, "Function table mask error");
 }
 
 /// emscripten: ___map_file

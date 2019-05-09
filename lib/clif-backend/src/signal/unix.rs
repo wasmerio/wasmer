@@ -107,7 +107,7 @@ pub fn call_protected<T>(
                         Ok(SIGSEGV) => "segmentation violation",
                         Ok(SIGBUS) => "bus error",
                         Err(_) => "error while getting the Signal",
-                        _ => "unkown trapped signal",
+                        _ => "unknown trapped signal",
                     };
                     // When the trap-handler is fully implemented, this will return more information.
                     let s = format!("unknown trap at {:p} - {}", faulting_addr, signal);

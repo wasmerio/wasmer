@@ -14,6 +14,7 @@ pub mod backend;
 mod backing;
 
 pub mod cache;
+pub mod codegen;
 pub mod error;
 pub mod export;
 pub mod global;
@@ -21,6 +22,7 @@ pub mod import;
 pub mod instance;
 pub mod memory;
 pub mod module;
+pub mod parse;
 mod sig_registry;
 pub mod structures;
 mod sys;

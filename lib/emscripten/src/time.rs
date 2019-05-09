@@ -28,7 +28,9 @@ use wasmer_runtime_core::vm::Ctx;
 use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
 
 #[cfg(target_os = "macos")]
-use libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
+use libc::CLOCK_REALTIME;
+#[cfg(target_os = "macos")]
+const CLOCK_MONOTONIC: clockid_t = 1;
 #[cfg(target_os = "macos")]
 const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
@@ -345,7 +347,7 @@ pub fn _strftime(
     // pad for null?
     let bytes = result_str.chars().count();
     if bytes as u32 > maxsize {
-        return 0;
+        0
     } else {
         // write output string
         for (i, c) in result_str.chars().enumerate() {

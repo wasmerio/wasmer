@@ -27,10 +27,12 @@ curl https://get.wasmer.io -sSfL | sh
 ```
 
 Wasmer runtime can also be embedded in different languages, so you can use WebAssembly anywhere ✨:
+
 * [**Rust**](https://github.com/wasmerio/wasmer-rust-example)
 * [**C/C++**](https://github.com/wasmerio/wasmer-c-api)
-* [**PHP**](https://github.com/wasmerio/php-ext-wasm)
-* [**Python**](https://github.com/wasmerio/python-ext-wasm)
+* [**🐘 PHP**](https://github.com/wasmerio/php-ext-wasm)
+* [**🐍 Python**](https://github.com/wasmerio/python-ext-wasm)
+* [**💎 Ruby**](https://github.com/wasmerio/ruby-ext-wasm)
 
 ### Usage
 
@@ -52,6 +54,24 @@ wasmer run examples/sqlite.wasm
 # Run nginx
 wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 ```
+
+#### With WAPM
+
+Installing Wasmer through `wasmer.io` includes
+[wapm](https://github.com/wasmerio/wapm-cli), the WebAssembly package manager.
+
+Wapm allows you to easily download, run, and distribute WebAssembly binaries.
+
+```sh
+# Install cowsay globally
+wapm install -g cowsay
+
+# Run cowsay
+wapm run cowsay "Hello, world!"
+```
+
+For more information about wapm, check out the [website](https://www.wapm.io)
+and this [example program](https://github.com/wapm-packages/rust-wasi-example).
 
 ## Code Structure
 
@@ -100,7 +120,7 @@ sudo port install cmake
 #### Debian-based Linuxes
 
 ```sh
-sudo apt install cmake
+sudo apt install cmake pkg-config libssl-dev
 ```
 
 #### FreeBSD
@@ -181,7 +201,7 @@ Below are some of the goals of this project (in order of priority):
 
 - [x] It should be 100% compatible with the [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests)
 - [x] It should be fast _(partially achieved)_
-- [ ] Support WASI _(in the works)_
+- [x] Support WASI - released in [0.3.0](https://github.com/wasmerio/wasmer/releases/tag/0.3.0)
 - [ ] Support Emscripten calls _(in the works)_
 - [ ] Support Rust ABI calls
 - [ ] Support Go ABI calls

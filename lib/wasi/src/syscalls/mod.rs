@@ -1284,16 +1284,13 @@ pub fn path_open(
                         };
                         // TODO: handle __WASI_O_TRUNC on directories
 
-                        let cur_dir = wasi_try!(open_options
-                            .open(&cumulative_path)
-                            .map_err(|_| __WASI_EINVAL));
-
                         // TODO: refactor and reuse
-                        let cur_file_metadata = cur_dir.metadata().unwrap();
+                        let cur_file_metadata =
+                            wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_EINVAL));
                         let kind = if cur_file_metadata.is_dir() {
                             Kind::Dir {
                                 parent: Some(cur_dir_inode),
-                                handle: WasiFile::HostFile(cur_dir),
+                                path: cumulative_path.clone(),
                                 entries: Default::default(),
                             }
                         } else {

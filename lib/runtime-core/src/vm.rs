@@ -22,7 +22,7 @@ pub struct Ctx {
 
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
-    pub(crate) module: *const ModuleInner,
+    pub module: *const ModuleInner,
 
     pub data: *mut c_void,
     pub data_finalizer: Option<fn(data: *mut c_void)>,
