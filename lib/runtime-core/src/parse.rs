@@ -244,7 +244,7 @@ pub fn read_module<
                         ParserState::CodeOperator(ref op) => {
                             if !body_begun {
                                 body_begun = true;
-                                fcg.begin_body()
+                                fcg.begin_body(&info)
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
                             middlewares

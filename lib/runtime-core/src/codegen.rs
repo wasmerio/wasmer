@@ -8,10 +8,12 @@ use crate::{
     types::{FuncIndex, FuncSig, SigIndex},
 };
 use smallvec::SmallVec;
+use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use wasmparser::{Operator, Type as WpType};
 
+#[derive(Debug)]
 pub enum Event<'a, 'b> {
     Internal(InternalEvent),
     Wasm(&'b Operator<'a>),
@@ -25,6 +27,19 @@ pub enum InternalEvent {
     GetInternal(u32),
 }
 
+impl fmt::Debug for InternalEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            InternalEvent::FunctionBegin(_) => write!(f, "FunctionBegin"),
+            InternalEvent::FunctionEnd => write!(f, "FunctionEnd"),
+            InternalEvent::Breakpoint(_) => write!(f, "Breakpoint"),
+            InternalEvent::SetInternal(_) => write!(f, "SetInternal"),
+            InternalEvent::GetInternal(_) => write!(f, "GetInternal"),
+            _ => panic!("unknown event"),
+        }
+    }
+}
+
 pub struct BkptInfo {}
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {
@@ -34,7 +49,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
 
     /// Creates a new function and returns the function-scope code generator for it.
     fn next_function(&mut self) -> Result<&mut FCG, E>;
-    fn finalize(self, module_info: &ModuleInfo) -> Result<RM, E>;
+    fn finalize(self, module_info: &ModuleInfo) -> Result<(RM, Box<dyn CacheGen>), E>;
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
 
     /// Sets function signatures.
@@ -42,6 +57,8 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
 
     /// Adds an import function.
     fn feed_import_function(&mut self) -> Result<(), E>;
+
+    unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
 
 pub struct StreamingCompiler<
@@ -115,15 +132,6 @@ impl<
         compiler_config: CompilerConfig,
         _: Token,
     ) -> CompileResult<ModuleInner> {
-        struct Placeholder;
-        impl CacheGen for Placeholder {
-            fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
-                Err(CacheError::Unknown(
-                    "the streaming compiler API doesn't support caching yet".to_string(),
-                ))
-            }
-        }
-
         let mut mcg = MCG::new();
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(
@@ -133,22 +141,24 @@ impl<
             &mut chain,
             &compiler_config,
         )?;
-        let exec_context = mcg
-            .finalize(&info)
-            .map_err(|x| CompileError::InternalError {
-                msg: format!("{:?}", x),
-            })?;
+        let (exec_context, cache_gen) =
+            mcg.finalize(&info)
+                .map_err(|x| CompileError::InternalError {
+                    msg: format!("{:?}", x),
+                })?;
         Ok(ModuleInner {
-            cache_gen: Box::new(Placeholder),
+            cache_gen,
             runnable_module: Box::new(exec_context),
-            info: info,
+            info,
         })
     }
 
-    unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        Err(CacheError::Unknown(
-            "the streaming compiler API doesn't support caching yet".to_string(),
-        ))
+    unsafe fn from_cache(
+        &self,
+        artifact: Artifact,
+        token: Token,
+    ) -> Result<ModuleInner, CacheError> {
+        MCG::from_cache(artifact, token)
     }
 }
 
@@ -245,7 +255,7 @@ pub trait FunctionCodeGenerator<E: Debug> {
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), E>;
 
     /// Called before the first call to `feed_opcode`.
-    fn begin_body(&mut self) -> Result<(), E>;
+    fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
 
     /// Called for each operator.
     fn feed_event(&mut self, op: Event, module_info: &ModuleInfo) -> Result<(), E>;

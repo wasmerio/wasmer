@@ -8,19 +8,21 @@ use inkwell::{
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
+use std::sync::Arc;
 use wasmer_runtime_core::{
+    backend::{Backend, CacheGen, Token},
+    cache::{Artifact, Error as CacheError},
+    codegen::*,
     memory::MemoryType,
-    module::ModuleInfo,
-    structures::{Map, SliceMap, TypedIndex},
+    module::{ModuleInfo, ModuleInner},
+    structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
-        TableIndex, Type,
+        FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
     },
 };
-use wasmparser::{
-    BinaryReaderError, CodeSectionReader, LocalsReader, MemoryImmediate, Operator, OperatorsReader,
-};
+use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
 
+use crate::backend::LLVMBackend;
 use crate::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
 use crate::read_info::type_to_type;
 use crate::state::{ControlFrame, IfElseState, State};
@@ -58,141 +60,353 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
     }
 }
 
-pub fn parse_function_bodies(
-    info: &ModuleInfo,
-    code_reader: CodeSectionReader,
-) -> Result<(Module, Intrinsics), BinaryReaderError> {
-    let context = Context::create();
-    let module = context.create_module("module");
-    let builder = context.create_builder();
-
-    let intrinsics = Intrinsics::declare(&module, &context);
-
-    let personality_func = module.add_function(
-        "__gxx_personality_v0",
-        intrinsics.i32_ty.fn_type(&[], false),
-        Some(Linkage::External),
-    );
-
-    let signatures: Map<SigIndex, FunctionType> = info
-        .signatures
-        .iter()
-        .map(|(_, sig)| func_sig_to_llvm(&context, &intrinsics, sig))
-        .collect();
-    let functions: Map<LocalFuncIndex, FunctionValue> = info
-        .func_assoc
-        .iter()
-        .skip(info.imported_functions.len())
-        .map(|(func_index, &sig_index)| {
-            let func = module.add_function(
-                &format!("fn{}", func_index.index()),
-                signatures[sig_index],
-                Some(Linkage::External),
-            );
-            func.set_personality_function(personality_func);
-            func
-        })
-        .collect();
-
-    for (local_func_index, body) in code_reader.into_iter().enumerate() {
-        let body = body?;
-
-        let locals_reader = body.get_locals_reader()?;
-        let op_reader = body.get_operators_reader()?;
-
-        parse_function(
-            &context,
-            &builder,
-            &intrinsics,
-            info,
-            &signatures,
-            &functions,
-            LocalFuncIndex::new(local_func_index),
-            locals_reader,
-            op_reader,
-        )
-        .map_err(|e| BinaryReaderError {
-            message: e.message,
-            offset: local_func_index,
-        })?;
-    }
-
-    // module.print_to_stderr();
-
-    generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
-
-    let pass_manager = PassManager::create_for_module();
-    // pass_manager.add_verifier_pass();
-    pass_manager.add_function_inlining_pass();
-    pass_manager.add_promote_memory_to_register_pass();
-    pass_manager.add_cfg_simplification_pass();
-    // pass_manager.add_instruction_combining_pass();
-    pass_manager.add_aggressive_inst_combiner_pass();
-    pass_manager.add_merged_load_store_motion_pass();
-    // pass_manager.add_sccp_pass();
-    // pass_manager.add_gvn_pass();
-    pass_manager.add_new_gvn_pass();
-    pass_manager.add_aggressive_dce_pass();
-    pass_manager.run_on_module(&module);
-
-    // module.print_to_stderr();
-
-    Ok((module, intrinsics))
-}
-
-fn parse_function(
-    context: &Context,
+fn trap_if_not_representatable_as_int(
     builder: &Builder,
     intrinsics: &Intrinsics,
-    info: &ModuleInfo,
-    signatures: &SliceMap<SigIndex, FunctionType>,
-    functions: &SliceMap<LocalFuncIndex, FunctionValue>,
-    func_index: LocalFuncIndex,
-    locals_reader: LocalsReader,
-    op_reader: OperatorsReader,
-) -> Result<(), BinaryReaderError> {
-    let sig_index = info.func_assoc[func_index.convert_up(info)];
-    let func_sig = &info.signatures[sig_index];
+    context: &Context,
+    function: &FunctionValue,
+    lower_bounds: f64,
+    upper_bound: f64,
+    value: FloatValue,
+) {
+    enum FloatSize {
+        Bits32,
+        Bits64,
+    }
 
-    let function = functions[func_index];
-    let mut state = State::new();
-    let entry_block = context.append_basic_block(&function, "entry");
+    let failure_block = context.append_basic_block(function, "conversion_failure_block");
+    let continue_block = context.append_basic_block(function, "conversion_success_block");
 
-    let return_block = context.append_basic_block(&function, "return");
-    builder.position_at_end(&return_block);
+    let float_ty = value.get_type();
+    let (int_ty, float_ptr_ty, float_size) = if float_ty == intrinsics.f32_ty {
+        (intrinsics.i32_ty, intrinsics.f32_ptr_ty, FloatSize::Bits32)
+    } else if float_ty == intrinsics.f64_ty {
+        (intrinsics.i64_ty, intrinsics.f64_ptr_ty, FloatSize::Bits64)
+    } else {
+        unreachable!()
+    };
 
-    let phis: SmallVec<[PhiValue; 1]> = func_sig
-        .returns()
-        .iter()
-        .map(|&wasmer_ty| type_to_llvm(intrinsics, wasmer_ty))
-        .map(|ty| builder.build_phi(ty, &state.var_name()))
-        .collect();
+    let (exponent, invalid_exponent) = {
+        let float_bits = {
+            let space = builder.build_alloca(int_ty, "space");
+            let float_ptr = builder.build_pointer_cast(space, float_ptr_ty, "float_ptr");
+            builder.build_store(float_ptr, value);
+            builder.build_load(space, "float_bits").into_int_value()
+        };
 
-    state.push_block(return_block, phis);
-    builder.position_at_end(&entry_block);
+        let (shift_amount, exponent_mask, invalid_exponent) = match float_size {
+            FloatSize::Bits32 => (23, 0b01111111100000000000000000000000, 0b11111111),
+            FloatSize::Bits64 => (
+                52,
+                0b0111111111110000000000000000000000000000000000000000000000000000,
+                0b11111111111,
+            ),
+        };
 
-    let mut locals = Vec::with_capacity(locals_reader.get_count() as usize); // TODO fix capacity
+        builder.build_and(
+            float_bits,
+            int_ty.const_int(exponent_mask, false),
+            "masked_bits",
+        );
 
-    locals.extend(
-        function
-            .get_param_iter()
-            .skip(1)
-            .enumerate()
-            .map(|(index, param)| {
-                let ty = param.get_type();
+        (
+            builder.build_right_shift(
+                float_bits,
+                int_ty.const_int(shift_amount, false),
+                false,
+                "exponent",
+            ),
+            invalid_exponent,
+        )
+    };
 
-                let alloca = builder.build_alloca(ty, &format!("local{}", index));
-                builder.build_store(alloca, param);
-                alloca
-            }),
+    let is_invalid_float = builder.build_or(
+        builder.build_int_compare(
+            IntPredicate::EQ,
+            exponent,
+            int_ty.const_int(invalid_exponent, false),
+            "is_not_normal",
+        ),
+        builder.build_or(
+            builder.build_float_compare(
+                FloatPredicate::ULT,
+                value,
+                float_ty.const_float(lower_bounds),
+                "less_than_lower_bounds",
+            ),
+            builder.build_float_compare(
+                FloatPredicate::UGT,
+                value,
+                float_ty.const_float(upper_bound),
+                "greater_than_upper_bounds",
+            ),
+            "float_not_in_bounds",
+        ),
+        "is_invalid_float",
     );
 
-    let param_len = locals.len();
+    let is_invalid_float = builder
+        .build_call(
+            intrinsics.expect_i1,
+            &[
+                is_invalid_float.as_basic_value_enum(),
+                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
+            ],
+            "is_invalid_float_expect",
+        )
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .into_int_value();
 
-    let mut local_idx = 0;
-    for local in locals_reader.into_iter() {
-        let (count, ty) = local?;
+    builder.build_conditional_branch(is_invalid_float, &failure_block, &continue_block);
+    builder.position_at_end(&failure_block);
+    builder.build_call(
+        intrinsics.throw_trap,
+        &[intrinsics.trap_illegal_arithmetic],
+        "throw",
+    );
+    builder.build_unreachable();
+    builder.position_at_end(&continue_block);
+}
+
+fn trap_if_zero_or_overflow(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    context: &Context,
+    function: &FunctionValue,
+    left: IntValue,
+    right: IntValue,
+) {
+    let int_type = left.get_type();
+
+    let (min_value, neg_one_value) = if int_type == intrinsics.i32_ty {
+        let min_value = int_type.const_int(i32::min_value() as u64, false);
+        let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
+        (min_value, neg_one_value)
+    } else if int_type == intrinsics.i64_ty {
+        let min_value = int_type.const_int(i64::min_value() as u64, false);
+        let neg_one_value = int_type.const_int(-1i64 as u64, false);
+        (min_value, neg_one_value)
+    } else {
+        unreachable!()
+    };
+
+    let should_trap = builder.build_or(
+        builder.build_int_compare(
+            IntPredicate::EQ,
+            right,
+            int_type.const_int(0, false),
+            "divisor_is_zero",
+        ),
+        builder.build_and(
+            builder.build_int_compare(IntPredicate::EQ, left, min_value, "left_is_min"),
+            builder.build_int_compare(IntPredicate::EQ, right, neg_one_value, "right_is_neg_one"),
+            "div_will_overflow",
+        ),
+        "div_should_trap",
+    );
+
+    let should_trap = builder
+        .build_call(
+            intrinsics.expect_i1,
+            &[
+                should_trap.as_basic_value_enum(),
+                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
+            ],
+            "should_trap_expect",
+        )
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .into_int_value();
+
+    let shouldnt_trap_block = context.append_basic_block(function, "shouldnt_trap_block");
+    let should_trap_block = context.append_basic_block(function, "should_trap_block");
+    builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
+    builder.position_at_end(&should_trap_block);
+    builder.build_call(
+        intrinsics.throw_trap,
+        &[intrinsics.trap_illegal_arithmetic],
+        "throw",
+    );
+    builder.build_unreachable();
+    builder.position_at_end(&shouldnt_trap_block);
+}
+
+fn trap_if_zero(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    context: &Context,
+    function: &FunctionValue,
+    value: IntValue,
+) {
+    let int_type = value.get_type();
+    let should_trap = builder.build_int_compare(
+        IntPredicate::EQ,
+        value,
+        int_type.const_int(0, false),
+        "divisor_is_zero",
+    );
+
+    let should_trap = builder
+        .build_call(
+            intrinsics.expect_i1,
+            &[
+                should_trap.as_basic_value_enum(),
+                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
+            ],
+            "should_trap_expect",
+        )
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .into_int_value();
+
+    let shouldnt_trap_block = context.append_basic_block(function, "shouldnt_trap_block");
+    let should_trap_block = context.append_basic_block(function, "should_trap_block");
+    builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
+    builder.position_at_end(&should_trap_block);
+    builder.build_call(
+        intrinsics.throw_trap,
+        &[intrinsics.trap_illegal_arithmetic],
+        "throw",
+    );
+    builder.build_unreachable();
+    builder.position_at_end(&shouldnt_trap_block);
+}
+
+fn resolve_memory_ptr(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    context: &Context,
+    function: &FunctionValue,
+    state: &mut State,
+    ctx: &mut CtxType,
+    memarg: &MemoryImmediate,
+    ptr_ty: PointerType,
+) -> Result<PointerValue, BinaryReaderError> {
+    // Ignore alignment hint for the time being.
+    let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
+    let var_offset_i32 = state.pop1()?.into_int_value();
+    let var_offset =
+        builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
+    let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
+    let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics);
+
+    let mem_base_int = match memory_cache {
+        MemoryCache::Dynamic {
+            ptr_to_base_ptr,
+            ptr_to_bounds,
+        } => {
+            let base = builder
+                .build_load(ptr_to_base_ptr, "base")
+                .into_pointer_value();
+            let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
+
+            let base_as_int = builder.build_ptr_to_int(base, intrinsics.i64_ty, "base_as_int");
+
+            let base_in_bounds = builder.build_int_compare(
+                IntPredicate::ULT,
+                effective_offset,
+                bounds,
+                "base_in_bounds",
+            );
+
+            let base_in_bounds = builder
+                .build_call(
+                    intrinsics.expect_i1,
+                    &[
+                        base_in_bounds.as_basic_value_enum(),
+                        intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                    ],
+                    "base_in_bounds_expect",
+                )
+                .try_as_basic_value()
+                .left()
+                .unwrap()
+                .into_int_value();
+
+            let in_bounds_continue_block =
+                context.append_basic_block(function, "in_bounds_continue_block");
+            let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
+            builder.build_conditional_branch(
+                base_in_bounds,
+                &in_bounds_continue_block,
+                &not_in_bounds_block,
+            );
+            builder.position_at_end(&not_in_bounds_block);
+            builder.build_call(
+                intrinsics.throw_trap,
+                &[intrinsics.trap_memory_oob],
+                "throw",
+            );
+            builder.build_unreachable();
+            builder.position_at_end(&in_bounds_continue_block);
+
+            base_as_int
+        }
+        MemoryCache::Static {
+            base_ptr,
+            bounds: _,
+        } => builder.build_ptr_to_int(base_ptr, intrinsics.i64_ty, "base_as_int"),
+    };
+
+    let effective_address_int =
+        builder.build_int_add(mem_base_int, effective_offset, &state.var_name());
+    Ok(builder.build_int_to_ptr(effective_address_int, ptr_ty, &state.var_name()))
+}
+
+#[derive(Debug)]
+pub struct CodegenError {
+    pub message: String,
+}
+
+pub struct LLVMModuleCodeGenerator {
+    context: Option<Context>,
+    builder: Option<Builder>,
+    intrinsics: Option<Intrinsics>,
+    functions: Vec<LLVMFunctionCodeGenerator>,
+    signatures: Map<SigIndex, FunctionType>,
+    signatures_raw: Map<SigIndex, FuncSig>,
+    function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
+    func_import_count: usize,
+    personality_func: FunctionValue,
+    module: Module,
+}
+
+pub struct LLVMFunctionCodeGenerator {
+    context: Option<Context>,
+    builder: Option<Builder>,
+    intrinsics: Option<Intrinsics>,
+    state: State,
+    function: FunctionValue,
+    func_sig: FuncSig,
+    signatures: Map<SigIndex, FunctionType>,
+    locals: Vec<PointerValue>, // Contains params and locals
+    num_params: usize,
+    ctx: Option<CtxType<'static>>,
+    unreachable_depth: usize,
+}
+
+impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
+    fn feed_return(&mut self, _ty: WpType) -> Result<(), CodegenError> {
+        Ok(())
+    }
+
+    fn feed_param(&mut self, _ty: WpType) -> Result<(), CodegenError> {
+        Ok(())
+    }
+
+    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
+        let param_len = self.num_params;
+
+        let mut local_idx = 0;
+        //            let (count, ty) = local?;
+        let count = n;
         let wasmer_ty = type_to_type(ty)?;
+
+        let intrinsics = self.intrinsics.as_ref().unwrap();
         let ty = type_to_llvm(intrinsics, wasmer_ty);
 
         let default_value = match wasmer_ty {
@@ -202,51 +416,90 @@ fn parse_function(
             Type::F64 => intrinsics.f64_zero.as_basic_value_enum(),
         };
 
+        let builder = self.builder.as_ref().unwrap();
+
         for _ in 0..count {
             let alloca = builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
 
             builder.build_store(alloca, default_value);
 
-            locals.push(alloca);
+            self.locals.push(alloca);
             local_idx += 1;
         }
+        Ok(())
     }
 
-    let start_of_code_block = context.append_basic_block(&function, "start_of_code");
-    let entry_end_inst = builder.build_unconditional_branch(&start_of_code_block);
-    builder.position_at_end(&start_of_code_block);
+    fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        let start_of_code_block = self
+            .context
+            .as_ref()
+            .unwrap()
+            .append_basic_block(&self.function, "start_of_code");
+        let entry_end_inst = self
+            .builder
+            .as_ref()
+            .unwrap()
+            .build_unconditional_branch(&start_of_code_block);
+        self.builder
+            .as_ref()
+            .unwrap()
+            .position_at_end(&start_of_code_block);
 
-    let cache_builder = context.create_builder();
-    cache_builder.position_before(&entry_end_inst);
-    let mut ctx = intrinsics.ctx(info, builder, &function, cache_builder);
-    let mut unreachable_depth = 0;
+        let cache_builder = self.context.as_ref().unwrap().create_builder();
+        cache_builder.position_before(&entry_end_inst);
+        let module_info =
+            unsafe { ::std::mem::transmute::<&ModuleInfo, &'static ModuleInfo>(module_info) };
+        let function = unsafe {
+            ::std::mem::transmute::<&FunctionValue, &'static FunctionValue>(&self.function)
+        };
+        let ctx = CtxType::new(module_info, function, cache_builder);
 
-    for op in op_reader {
-        let op = op?;
+        self.ctx = Some(ctx);
+        Ok(())
+    }
+
+    fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        let op = match event {
+            Event::Wasm(x) => x,
+            Event::Internal(_x) => {
+                return Ok(());
+            }
+        };
+
+        let mut state = &mut self.state;
+        let builder = self.builder.as_ref().unwrap();
+        let context = self.context.as_ref().unwrap();
+        let function = self.function;
+        let intrinsics = self.intrinsics.as_ref().unwrap();
+        let locals = &self.locals;
+        let info = module_info;
+        let signatures = &self.signatures;
+        let mut ctx = self.ctx.as_mut().unwrap();
+
         if !state.reachable {
-            match op {
+            match *op {
                 Operator::Block { ty: _ } | Operator::Loop { ty: _ } | Operator::If { ty: _ } => {
-                    unreachable_depth += 1;
-                    continue;
+                    self.unreachable_depth += 1;
+                    return Ok(());
                 }
                 Operator::Else => {
-                    if unreachable_depth != 0 {
-                        continue;
+                    if self.unreachable_depth != 0 {
+                        return Ok(());
                     }
                 }
                 Operator::End => {
-                    if unreachable_depth != 0 {
-                        unreachable_depth -= 1;
-                        continue;
+                    if self.unreachable_depth != 0 {
+                        self.unreachable_depth -= 1;
+                        return Ok(());
                     }
                 }
                 _ => {
-                    continue;
+                    return Ok(());
                 }
             }
         }
 
-        match op {
+        match *op {
             /***************************
              * Control Flow instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
@@ -380,7 +633,12 @@ fn parse_function(
                     .iter()
                     .enumerate()
                     .map(|(case_index, &depth)| {
-                        let frame = state.frame_at_depth(depth)?;
+                        let frame_result: Result<&ControlFrame, BinaryReaderError> =
+                            state.frame_at_depth(depth);
+                        let frame = match frame_result {
+                            Ok(v) => v,
+                            Err(e) => return Err(e),
+                        };
                         let case_index_literal =
                             context.i32_type().const_int(case_index as u64, false);
 
@@ -394,7 +652,8 @@ fn parse_function(
 
                 builder.build_switch(index.into_int_value(), default_frame.br_dest(), &cases[..]);
 
-                state.popn(args.len())?;
+                let args_len = args.len();
+                state.popn(args_len)?;
                 state.reachable = false;
             }
             Operator::If { ty } => {
@@ -616,7 +875,7 @@ fn parse_function(
 
             Operator::GetGlobal { global_index } => {
                 let index = GlobalIndex::new(global_index as usize);
-                let global_cache = ctx.global_cache(index);
+                let global_cache = ctx.global_cache(index, intrinsics);
                 match global_cache {
                     GlobalCache::Const { value } => {
                         state.push1(value);
@@ -630,7 +889,7 @@ fn parse_function(
             Operator::SetGlobal { global_index } => {
                 let value = state.pop1()?;
                 let index = GlobalIndex::new(global_index as usize);
-                let global_cache = ctx.global_cache(index);
+                let global_cache = ctx.global_cache(index, intrinsics);
                 match global_cache {
                     GlobalCache::Mut { ptr_to_value } => {
                         builder.build_store(ptr_to_value, value);
@@ -666,12 +925,14 @@ fn parse_function(
                             .map(|v| *v)
                             .collect();
 
-                        let func_ptr = ctx.local_func(local_func_index, llvm_sig);
+                        let func_ptr =
+                            ctx.local_func(local_func_index, llvm_sig, intrinsics, builder);
 
                         builder.build_call(func_ptr, &params, &state.var_name())
                     }
                     LocalOrImport::Import(import_func_index) => {
-                        let (func_ptr_untyped, ctx_ptr) = ctx.imported_func(import_func_index);
+                        let (func_ptr_untyped, ctx_ptr) =
+                            ctx.imported_func(import_func_index, intrinsics);
                         let params: Vec<_> = [ctx_ptr.as_basic_value_enum()]
                             .iter()
                             .chain(state.peekn(func_sig.params().len())?.iter())
@@ -710,8 +971,9 @@ fn parse_function(
             }
             Operator::CallIndirect { index, table_index } => {
                 let sig_index = SigIndex::new(index as usize);
-                let expected_dynamic_sigindex = ctx.dynamic_sigindex(sig_index);
-                let (table_base, table_bound) = ctx.table(TableIndex::new(table_index as usize));
+                let expected_dynamic_sigindex = ctx.dynamic_sigindex(sig_index, intrinsics);
+                let (table_base, table_bound) =
+                    ctx.table(TableIndex::new(table_index as usize), intrinsics, builder);
                 let func_index = state.pop1()?.into_int_value();
 
                 // We assume the table has the `anyfunc` element type.
@@ -1468,7 +1730,7 @@ fn parse_function(
                     context,
                     &function,
                     -2147483904.0,
-                    2_147_483_648.0,
+                    2147483648.0,
                     v1,
                 );
                 let res =
@@ -1482,8 +1744,8 @@ fn parse_function(
                     intrinsics,
                     context,
                     &function,
-                    -2_147_483_649.0,
-                    2_147_483_648.0,
+                    -2147483649.0,
+                    2147483648.0,
                     v1,
                 );
                 let res =
@@ -1503,8 +1765,8 @@ fn parse_function(
                     intrinsics,
                     context,
                     &function,
-                    -9_223_373_136_366_403_584.0,
-                    9_223_372_036_854_775_808.0,
+                    -9223373136366403584.0,
+                    9223372036854775808.0,
                     v1,
                 );
                 let res =
@@ -1728,7 +1990,7 @@ fn parse_function(
              * Load and Store instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#load-and-store-instructions
              ***************************/
-            Operator::I32Load { memarg } => {
+            Operator::I32Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1742,7 +2004,7 @@ fn parse_function(
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load { memarg } => {
+            Operator::I64Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1756,7 +2018,7 @@ fn parse_function(
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::F32Load { memarg } => {
+            Operator::F32Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1770,7 +2032,7 @@ fn parse_function(
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
-            Operator::F64Load { memarg } => {
+            Operator::F64Load { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1785,7 +2047,7 @@ fn parse_function(
                 state.push1(result);
             }
 
-            Operator::I32Store { memarg } => {
+            Operator::I32Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -1799,7 +2061,7 @@ fn parse_function(
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::I64Store { memarg } => {
+            Operator::I64Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -1813,7 +2075,7 @@ fn parse_function(
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::F32Store { memarg } => {
+            Operator::F32Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -1827,7 +2089,7 @@ fn parse_function(
                 )?;
                 builder.build_store(effective_address, value);
             }
-            Operator::F64Store { memarg } => {
+            Operator::F64Store { ref memarg } => {
                 let value = state.pop1()?;
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -1842,7 +2104,7 @@ fn parse_function(
                 builder.build_store(effective_address, value);
             }
 
-            Operator::I32Load8S { memarg } => {
+            Operator::I32Load8S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1860,7 +2122,7 @@ fn parse_function(
                     builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I32Load16S { memarg } => {
+            Operator::I32Load16S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1878,7 +2140,7 @@ fn parse_function(
                     builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load8S { memarg } => {
+            Operator::I64Load8S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1896,7 +2158,7 @@ fn parse_function(
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load16S { memarg } => {
+            Operator::I64Load16S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1914,7 +2176,7 @@ fn parse_function(
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load32S { memarg } => {
+            Operator::I64Load32S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1933,7 +2195,7 @@ fn parse_function(
                 state.push1(result);
             }
 
-            Operator::I32Load8U { memarg } => {
+            Operator::I32Load8U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1951,7 +2213,7 @@ fn parse_function(
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I32Load16U { memarg } => {
+            Operator::I32Load16U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1969,7 +2231,7 @@ fn parse_function(
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load8U { memarg } => {
+            Operator::I64Load8U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -1987,7 +2249,7 @@ fn parse_function(
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load16U { memarg } => {
+            Operator::I64Load16U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -2005,7 +2267,7 @@ fn parse_function(
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
             }
-            Operator::I64Load32U { memarg } => {
+            Operator::I64Load32U { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
@@ -2024,7 +2286,7 @@ fn parse_function(
                 state.push1(result);
             }
 
-            Operator::I32Store8 { memarg } | Operator::I64Store8 { memarg } => {
+            Operator::I32Store8 { ref memarg } | Operator::I64Store8 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -2040,7 +2302,7 @@ fn parse_function(
                     builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
                 builder.build_store(effective_address, narrow_value);
             }
-            Operator::I32Store16 { memarg } | Operator::I64Store16 { memarg } => {
+            Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -2056,7 +2318,7 @@ fn parse_function(
                     builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
                 builder.build_store(effective_address, narrow_value);
             }
-            Operator::I64Store32 { memarg } => {
+            Operator::I64Store32 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -2139,324 +2401,239 @@ fn parse_function(
                 );
                 state.push1(result.try_as_basic_value().left().unwrap());
             }
-            op @ _ => {
+            _ => {
                 unimplemented!("{:?}", op);
             }
         }
+
+        Ok(())
     }
 
-    let results = state.popn_save(func_sig.returns().len())?;
+    fn finalize(&mut self) -> Result<(), CodegenError> {
+        let results = self.state.popn_save(self.func_sig.returns().len())?;
 
-    match results.as_slice() {
-        [] => {
-            builder.build_return(None);
+        match results.as_slice() {
+            [] => {
+                self.builder.as_ref().unwrap().build_return(None);
+            }
+            [one_value] => {
+                self.builder.as_ref().unwrap().build_return(Some(one_value));
+            }
+            _ => unimplemented!("multi-value returns not yet implemented"),
         }
-        [one_value] => {
-            builder.build_return(Some(one_value));
-        }
-        _ => {
-            // let struct_ty = llvm_sig.get_return_type().as_struct_type();
-            // let ret_struct = struct_ty.const_zero();
-            unimplemented!("multi-value returns not yet implemented")
-        }
+        Ok(())
     }
-
-    Ok(())
 }
 
-fn trap_if_not_representatable_as_int(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    function: &FunctionValue,
-    lower_bounds: f64,
-    upper_bound: f64,
-    value: FloatValue,
-) {
-    enum FloatSize {
-        Bits32,
-        Bits64,
+impl From<BinaryReaderError> for CodegenError {
+    fn from(other: BinaryReaderError) -> CodegenError {
+        CodegenError {
+            message: format!("{:?}", other),
+        }
     }
+}
 
-    let failure_block = context.append_basic_block(function, "conversion_failure_block");
-    let continue_block = context.append_basic_block(function, "conversion_success_block");
+impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
+    for LLVMModuleCodeGenerator
+{
+    fn new() -> LLVMModuleCodeGenerator {
+        let context = Context::create();
+        let module = context.create_module("module");
+        let builder = context.create_builder();
 
-    let float_ty = value.get_type();
-    let (int_ty, float_ptr_ty, float_size) = if float_ty == intrinsics.f32_ty {
-        (intrinsics.i32_ty, intrinsics.f32_ptr_ty, FloatSize::Bits32)
-    } else if float_ty == intrinsics.f64_ty {
-        (intrinsics.i64_ty, intrinsics.f64_ptr_ty, FloatSize::Bits64)
-    } else {
-        unreachable!()
-    };
+        let intrinsics = Intrinsics::declare(&module, &context);
 
-    let (exponent, invalid_exponent) = {
-        let float_bits = {
-            let space = builder.build_alloca(int_ty, "space");
-            let float_ptr = builder.build_pointer_cast(space, float_ptr_ty, "float_ptr");
-            builder.build_store(float_ptr, value);
-            builder.build_load(space, "float_bits").into_int_value()
-        };
-
-        let (shift_amount, exponent_mask, invalid_exponent) = match float_size {
-            FloatSize::Bits32 => (23, 0b01111111100000000000000000000000, 0b11111111),
-            FloatSize::Bits64 => (
-                52,
-                0b0111111111110000000000000000000000000000000000000000000000000000,
-                0b11111111111,
-            ),
-        };
-
-        builder.build_and(
-            float_bits,
-            int_ty.const_int(exponent_mask, false),
-            "masked_bits",
+        let personality_func = module.add_function(
+            "__gxx_personality_v0",
+            intrinsics.i32_ty.fn_type(&[], false),
+            Some(Linkage::External),
         );
 
-        (
-            builder.build_right_shift(
-                float_bits,
-                int_ty.const_int(shift_amount, false),
-                false,
-                "exponent",
-            ),
-            invalid_exponent,
-        )
-    };
+        let signatures = Map::new();
 
-    let is_invalid_float = builder.build_or(
-        builder.build_int_compare(
-            IntPredicate::EQ,
-            exponent,
-            int_ty.const_int(invalid_exponent, false),
-            "is_not_normal",
-        ),
-        builder.build_or(
-            builder.build_float_compare(
-                FloatPredicate::ULT,
-                value,
-                float_ty.const_float(lower_bounds),
-                "less_than_lower_bounds",
-            ),
-            builder.build_float_compare(
-                FloatPredicate::UGT,
-                value,
-                float_ty.const_float(upper_bound),
-                "greater_than_upper_bounds",
-            ),
-            "float_not_in_bounds",
-        ),
-        "is_invalid_float",
-    );
-
-    let is_invalid_float = builder
-        .build_call(
-            intrinsics.expect_i1,
-            &[
-                is_invalid_float.as_basic_value_enum(),
-                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
-            ],
-            "is_invalid_float_expect",
-        )
-        .try_as_basic_value()
-        .left()
-        .unwrap()
-        .into_int_value();
-
-    builder.build_conditional_branch(is_invalid_float, &failure_block, &continue_block);
-    builder.position_at_end(&failure_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
-    );
-    builder.build_unreachable();
-    builder.position_at_end(&continue_block);
-}
-
-fn trap_if_zero_or_overflow(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    function: &FunctionValue,
-    left: IntValue,
-    right: IntValue,
-) {
-    let int_type = left.get_type();
-
-    let (min_value, neg_one_value) = if int_type == intrinsics.i32_ty {
-        let min_value = int_type.const_int(i32::min_value() as u64, false);
-        let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
-        (min_value, neg_one_value)
-    } else if int_type == intrinsics.i64_ty {
-        let min_value = int_type.const_int(i64::min_value() as u64, false);
-        let neg_one_value = int_type.const_int(-1i64 as u64, false);
-        (min_value, neg_one_value)
-    } else {
-        unreachable!()
-    };
-
-    let should_trap = builder.build_or(
-        builder.build_int_compare(
-            IntPredicate::EQ,
-            right,
-            int_type.const_int(0, false),
-            "divisor_is_zero",
-        ),
-        builder.build_and(
-            builder.build_int_compare(IntPredicate::EQ, left, min_value, "left_is_min"),
-            builder.build_int_compare(IntPredicate::EQ, right, neg_one_value, "right_is_neg_one"),
-            "div_will_overflow",
-        ),
-        "div_should_trap",
-    );
-
-    let should_trap = builder
-        .build_call(
-            intrinsics.expect_i1,
-            &[
-                should_trap.as_basic_value_enum(),
-                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
-            ],
-            "should_trap_expect",
-        )
-        .try_as_basic_value()
-        .left()
-        .unwrap()
-        .into_int_value();
-
-    let shouldnt_trap_block = context.append_basic_block(function, "shouldnt_trap_block");
-    let should_trap_block = context.append_basic_block(function, "should_trap_block");
-    builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
-    builder.position_at_end(&should_trap_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
-    );
-    builder.build_unreachable();
-    builder.position_at_end(&shouldnt_trap_block);
-}
-
-fn trap_if_zero(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    function: &FunctionValue,
-    value: IntValue,
-) {
-    let int_type = value.get_type();
-    let should_trap = builder.build_int_compare(
-        IntPredicate::EQ,
-        value,
-        int_type.const_int(0, false),
-        "divisor_is_zero",
-    );
-
-    let should_trap = builder
-        .build_call(
-            intrinsics.expect_i1,
-            &[
-                should_trap.as_basic_value_enum(),
-                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
-            ],
-            "should_trap_expect",
-        )
-        .try_as_basic_value()
-        .left()
-        .unwrap()
-        .into_int_value();
-
-    let shouldnt_trap_block = context.append_basic_block(function, "shouldnt_trap_block");
-    let should_trap_block = context.append_basic_block(function, "should_trap_block");
-    builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
-    builder.position_at_end(&should_trap_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
-    );
-    builder.build_unreachable();
-    builder.position_at_end(&shouldnt_trap_block);
-}
-
-fn resolve_memory_ptr(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    function: &FunctionValue,
-    state: &mut State,
-    ctx: &mut CtxType,
-    memarg: MemoryImmediate,
-    ptr_ty: PointerType,
-) -> Result<PointerValue, BinaryReaderError> {
-    // Ignore alignment hint for the time being.
-    let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
-    let var_offset_i32 = state.pop1()?.into_int_value();
-    let var_offset =
-        builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
-    let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
-    let memory_cache = ctx.memory(MemoryIndex::new(0));
-
-    let mem_base_int = match memory_cache {
-        MemoryCache::Dynamic {
-            ptr_to_base_ptr,
-            ptr_to_bounds,
-        } => {
-            let base = builder
-                .build_load(ptr_to_base_ptr, "base")
-                .into_pointer_value();
-            let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
-
-            let base_as_int = builder.build_ptr_to_int(base, intrinsics.i64_ty, "base_as_int");
-
-            let base_in_bounds = builder.build_int_compare(
-                IntPredicate::ULT,
-                effective_offset,
-                bounds,
-                "base_in_bounds",
-            );
-
-            let base_in_bounds = builder
-                .build_call(
-                    intrinsics.expect_i1,
-                    &[
-                        base_in_bounds.as_basic_value_enum(),
-                        intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
-                    ],
-                    "base_in_bounds_expect",
-                )
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-
-            let in_bounds_continue_block =
-                context.append_basic_block(function, "in_bounds_continue_block");
-            let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
-            builder.build_conditional_branch(
-                base_in_bounds,
-                &in_bounds_continue_block,
-                &not_in_bounds_block,
-            );
-            builder.position_at_end(&not_in_bounds_block);
-            builder.build_call(
-                intrinsics.throw_trap,
-                &[intrinsics.trap_memory_oob],
-                "throw",
-            );
-            builder.build_unreachable();
-            builder.position_at_end(&in_bounds_continue_block);
-
-            base_as_int
+        LLVMModuleCodeGenerator {
+            context: Some(context),
+            builder: Some(builder),
+            intrinsics: Some(intrinsics),
+            module,
+            functions: vec![],
+            signatures,
+            signatures_raw: Map::new(),
+            function_signatures: None,
+            func_import_count: 0,
+            personality_func,
         }
-        MemoryCache::Static {
-            base_ptr,
-            bounds: _,
-        } => builder.build_ptr_to_int(base_ptr, intrinsics.i64_ty, "base_as_int"),
-    };
+    }
 
-    let effective_address_int =
-        builder.build_int_add(mem_base_int, effective_offset, &state.var_name());
-    Ok(builder.build_int_to_ptr(effective_address_int, ptr_ty, &state.var_name()))
+    fn backend_id() -> Backend {
+        Backend::LLVM
+    }
+
+    fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        Ok(())
+    }
+
+    fn next_function(&mut self) -> Result<&mut LLVMFunctionCodeGenerator, CodegenError> {
+        // Creates a new function and returns the function-scope code generator for it.
+        let (context, builder, intrinsics) = match self.functions.last_mut() {
+            Some(x) => (
+                x.context.take().unwrap(),
+                x.builder.take().unwrap(),
+                x.intrinsics.take().unwrap(),
+            ),
+            None => (
+                self.context.take().unwrap(),
+                self.builder.take().unwrap(),
+                self.intrinsics.take().unwrap(),
+            ),
+        };
+
+        let sig_id = self.function_signatures.as_ref().unwrap()
+            [FuncIndex::new(self.func_import_count + self.functions.len())];
+        let func_sig = self.signatures_raw[sig_id].clone();
+
+        let function = self.module.add_function(
+            &format!("fn{}", self.func_import_count + self.functions.len()),
+            self.signatures[sig_id],
+            Some(Linkage::External),
+        );
+        function.set_personality_function(self.personality_func);
+
+        let mut state = State::new();
+        let entry_block = context.append_basic_block(&function, "entry");
+
+        let return_block = context.append_basic_block(&function, "return");
+        builder.position_at_end(&return_block);
+
+        let phis: SmallVec<[PhiValue; 1]> = func_sig
+            .returns()
+            .iter()
+            .map(|&wasmer_ty| type_to_llvm(&intrinsics, wasmer_ty))
+            .map(|ty| builder.build_phi(ty, &state.var_name()))
+            .collect();
+
+        state.push_block(return_block, phis);
+        builder.position_at_end(&entry_block);
+
+        let mut locals = Vec::new();
+        locals.extend(
+            function
+                .get_param_iter()
+                .skip(1)
+                .enumerate()
+                .map(|(index, param)| {
+                    let ty = param.get_type();
+
+                    let alloca = builder.build_alloca(ty, &format!("local{}", index));
+                    builder.build_store(alloca, param);
+                    alloca
+                }),
+        );
+        let num_params = locals.len();
+
+        let code = LLVMFunctionCodeGenerator {
+            state,
+            context: Some(context),
+            builder: Some(builder),
+            intrinsics: Some(intrinsics),
+            function,
+            func_sig: func_sig,
+            locals,
+            signatures: self.signatures.clone(),
+            num_params,
+            ctx: None,
+            unreachable_depth: 0,
+        };
+        self.functions.push(code);
+        Ok(self.functions.last_mut().unwrap())
+    }
+
+    fn finalize(
+        mut self,
+        module_info: &ModuleInfo,
+    ) -> Result<(LLVMBackend, Box<dyn CacheGen>), CodegenError> {
+        let (context, builder, intrinsics) = match self.functions.last_mut() {
+            Some(x) => (
+                x.context.take().unwrap(),
+                x.builder.take().unwrap(),
+                x.intrinsics.take().unwrap(),
+            ),
+            None => (
+                self.context.take().unwrap(),
+                self.builder.take().unwrap(),
+                self.intrinsics.take().unwrap(),
+            ),
+        };
+        self.context = Some(context);
+        self.builder = Some(builder);
+        self.intrinsics = Some(intrinsics);
+
+        generate_trampolines(
+            module_info,
+            &self.signatures,
+            &self.module,
+            self.context.as_ref().unwrap(),
+            self.builder.as_ref().unwrap(),
+            self.intrinsics.as_ref().unwrap(),
+        );
+
+        let pass_manager = PassManager::create_for_module();
+        if cfg!(test) {
+            pass_manager.add_verifier_pass();
+        }
+        pass_manager.add_function_inlining_pass();
+        pass_manager.add_promote_memory_to_register_pass();
+        pass_manager.add_cfg_simplification_pass();
+        pass_manager.add_aggressive_inst_combiner_pass();
+        pass_manager.add_merged_load_store_motion_pass();
+        pass_manager.add_new_gvn_pass();
+        pass_manager.add_aggressive_dce_pass();
+        pass_manager.run_on_module(&self.module);
+
+        // self.module.print_to_stderr();
+
+        let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics.take().unwrap());
+        Ok((backend, Box::new(cache_gen)))
+    }
+
+    fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
+        self.signatures = signatures
+            .iter()
+            .map(|(_, sig)| {
+                func_sig_to_llvm(
+                    self.context.as_ref().unwrap(),
+                    self.intrinsics.as_ref().unwrap(),
+                    sig,
+                )
+            })
+            .collect();
+        self.signatures_raw = signatures.clone();
+        Ok(())
+    }
+
+    fn feed_function_signatures(
+        &mut self,
+        assoc: Map<FuncIndex, SigIndex>,
+    ) -> Result<(), CodegenError> {
+        self.function_signatures = Some(Arc::new(assoc));
+        Ok(())
+    }
+
+    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+        self.func_import_count += 1;
+        Ok(())
+    }
+
+    unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        let (info, _, memory) = artifact.consume();
+        let (backend, cache_gen) =
+            LLVMBackend::from_buffer(memory).map_err(CacheError::DeserializeError)?;
+
+        Ok(ModuleInner {
+            runnable_module: Box::new(backend),
+            cache_gen: Box::new(cache_gen),
+
+            info,
+        })
+    }
 }
