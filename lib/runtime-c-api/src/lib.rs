@@ -1,3 +1,5 @@
+#![deny(unused_imports, unused_variables)]
+
 extern crate wasmer_runtime;
 extern crate wasmer_runtime_core;
 

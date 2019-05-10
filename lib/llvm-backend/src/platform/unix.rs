@@ -34,7 +34,7 @@ pub unsafe fn visit_fde(addr: *mut u8, size: usize, visitor: extern "C" fn(*mut 
 }
 
 #[cfg(not(target_os = "macos"))]
-pub unsafe fn visit_fde(addr: *mut u8, size: usize, visitor: extern "C" fn(*mut u8)) {
+pub unsafe fn visit_fde(addr: *mut u8, _size: usize, visitor: extern "C" fn(*mut u8)) {
     visitor(addr);
 }
 

@@ -1,3 +1,4 @@
+#![deny(unused_imports, unused_variables)]
 #![feature(proc_macro_hygiene)]
 
 #[cfg(not(any(

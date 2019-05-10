@@ -1,3 +1,5 @@
+#![deny(unused_imports, unused_variables)]
+
 extern crate structopt;
 
 use std::env;

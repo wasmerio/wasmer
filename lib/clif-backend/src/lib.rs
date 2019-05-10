@@ -1,3 +1,5 @@
+#![deny(unused_imports, unused_variables)]
+
 mod cache;
 mod func_env;
 mod libcalls;
