@@ -1111,15 +1111,12 @@ pub fn path_filestat_get(
                     } else {
                         // lazily load
                         debug!("Lazily loading entry {:?}", &segment);
-                        debug!("EEE");
                         let path_metadata =
                             wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_ENOENT));
-                        debug!("DDD");
                         if !path_metadata.is_dir() {
                             // TODO: should this just return invalid arg?
                             return __WASI_ENOTDIR;
                         }
-                        debug!("AAA");
                         let kind = Kind::Dir {
                             path: std::path::PathBuf::from(&segment),
                             entries: Default::default(),
