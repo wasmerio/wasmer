@@ -85,7 +85,7 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
     // accidentally read into garbage.
     buffer[error_message.len()] = 0;
 
-    error_message.len() as c_int
+    error_message.len() as c_int + 1
 }
 
 #[derive(Debug)]
