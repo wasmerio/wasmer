@@ -1,3 +1,5 @@
+#![deny(unused_imports, unused_variables)]
+
 #[cfg(windows)]
 mod exception_handling;
 

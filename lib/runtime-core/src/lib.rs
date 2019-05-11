@@ -1,3 +1,4 @@
+#![deny(unused_imports, unused_variables)]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
 #[cfg(test)]
