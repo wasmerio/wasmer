@@ -76,44 +76,44 @@ where
     Self: Sized,
 {
     const TYPE: Type;
-    fn from_bits(bits: u64) -> Self;
-    fn to_bits(self) -> u64;
+    fn from_binary(bits: u64) -> Self;
+    fn to_binary(self) -> u64;
 }
 
 unsafe impl NativeWasmType for i32 {
     const TYPE: Type = Type::I32;
-    fn from_bits(bits: u64) -> Self {
+    fn from_binary(bits: u64) -> Self {
         bits as _
     }
-    fn to_bits(self) -> u64 {
+    fn to_binary(self) -> u64 {
         self as _
     }
 }
 unsafe impl NativeWasmType for i64 {
     const TYPE: Type = Type::I64;
-    fn from_bits(bits: u64) -> Self {
+    fn from_binary(bits: u64) -> Self {
         bits as _
     }
-    fn to_bits(self) -> u64 {
+    fn to_binary(self) -> u64 {
         self as _
     }
 }
 unsafe impl NativeWasmType for f32 {
     const TYPE: Type = Type::F32;
-    fn from_bits(bits: u64) -> Self {
-        bits as _
+    fn from_binary(bits: u64) -> Self {
+        f32::from_bits(bits as u32)
     }
-    fn to_bits(self) -> u64 {
-        self as _
+    fn to_binary(self) -> u64 {
+        self.to_bits() as _
     }
 }
 unsafe impl NativeWasmType for f64 {
     const TYPE: Type = Type::F64;
-    fn from_bits(bits: u64) -> Self {
-        bits as _
+    fn from_binary(bits: u64) -> Self {
+        f64::from_bits(bits)
     }
-    fn to_bits(self) -> u64 {
-        self as _
+    fn to_binary(self) -> u64 {
+        self.to_bits()
     }
 }
 
@@ -515,4 +515,59 @@ where
             LocalOrImport::Local(_) => None,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::NativeWasmType;
+    use crate::types::WasmExternType;
+
+    #[test]
+    fn test_native_types_round_trip() {
+        assert_eq!(
+            42i32,
+            i32::from_native(i32::from_binary((42i32).to_native().to_binary()))
+        );
+
+        assert_eq!(
+            -42i32,
+            i32::from_native(i32::from_binary((-42i32).to_native().to_binary()))
+        );
+
+        use std::i64;
+        let xi64 = i64::MAX;
+        assert_eq!(
+            xi64,
+            i64::from_native(i64::from_binary((xi64).to_native().to_binary()))
+        );
+        let yi64 = i64::MIN;
+        assert_eq!(
+            yi64,
+            i64::from_native(i64::from_binary((yi64).to_native().to_binary()))
+        );
+
+        assert_eq!(
+            16.5f32,
+            f32::from_native(f32::from_binary((16.5f32).to_native().to_binary()))
+        );
+
+        assert_eq!(
+            -16.5f32,
+            f32::from_native(f32::from_binary((-16.5f32).to_native().to_binary()))
+        );
+
+        use std::f64;
+        let xf64: f64 = f64::MAX;
+        assert_eq!(
+            xf64,
+            f64::from_native(f64::from_binary((xf64).to_native().to_binary()))
+        );
+
+        let yf64: f64 = f64::MIN;
+        assert_eq!(
+            yf64,
+            f64::from_native(f64::from_binary((yf64).to_native().to_binary()))
+        );
+    }
+
 }

@@ -247,7 +247,7 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
     type CStruct = S1<A>;
     type RetArray = [u64; 1];
     fn from_ret_array(array: Self::RetArray) -> Self {
-        (WasmExternType::from_native(NativeWasmType::from_bits(
+        (WasmExternType::from_native(NativeWasmType::from_binary(
             array[0],
         )),)
     }
@@ -274,7 +274,7 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
         ctx: *mut Ctx,
     ) -> Result<Rets, RuntimeError> {
         let (a,) = self;
-        let args = [a.to_native().to_bits()];
+        let args = [a.to_native().to_binary()];
         let mut rets = Rets::empty_ret_array();
         let mut trap = WasmTrapInfo::Unknown;
         let mut user_error = None;
@@ -322,7 +322,7 @@ macro_rules! impl_traits {
             fn from_ret_array(array: Self::RetArray) -> Self {
                 #[allow(non_snake_case)]
                 let [ $( $x ),* ] = array;
-                ( $( WasmExternType::from_native(NativeWasmType::from_bits($x)) ),* )
+                ( $( WasmExternType::from_native(NativeWasmType::from_binary($x)) ),* )
             }
             fn empty_ret_array() -> Self::RetArray {
                 [0; count_idents!( $( $x ),* )]
@@ -344,7 +344,7 @@ macro_rules! impl_traits {
             unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
-                let args = [ $( $x.to_native().to_bits() ),* ];
+                let args = [ $( $x.to_native().to_binary()),* ];
                 let mut rets = Rets::empty_ret_array();
                 let mut trap = WasmTrapInfo::Unknown;
                 let mut user_error = None;
