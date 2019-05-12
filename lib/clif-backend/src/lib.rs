@@ -1,6 +1,7 @@
 #![deny(unused_imports, unused_variables)]
 
 mod cache;
+mod code;
 mod func_env;
 mod libcalls;
 mod module;
@@ -31,15 +32,15 @@ extern crate serde;
 
 use wasmparser::{self, WasmDecoder};
 
-pub struct CraneliftCompiler {}
+pub struct OldCraneliftCompiler {}
 
-impl CraneliftCompiler {
+impl OldCraneliftCompiler {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl Compiler for CraneliftCompiler {
+impl Compiler for OldCraneliftCompiler {
     /// Compiles wasm binary to a wasmer module.
     fn compile(
         &self,
@@ -129,3 +130,12 @@ fn validate(bytes: &[u8]) -> CompileResult<()> {
 
 /// The current version of this crate
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
+
+pub type CraneliftCompiler = SimpleStreamingCompilerGen<
+    code::CraneliftModuleCodeGenerator,
+    code::CraneliftFunctionCodeGenerator,
+    signal::Caller,
+    code::CodegenError,
+>;
