@@ -35,7 +35,6 @@ impl fmt::Debug for InternalEvent {
             InternalEvent::Breakpoint(_) => write!(f, "Breakpoint"),
             InternalEvent::SetInternal(_) => write!(f, "SetInternal"),
             InternalEvent::GetInternal(_) => write!(f, "GetInternal"),
-            _ => panic!("unknown event"),
         }
     }
 }
