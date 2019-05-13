@@ -36,7 +36,7 @@ wasmer-wasi = { path = "lib/wasi", optional = true }
 kwasm-loader = { path = "lib/kwasm-loader" }
 
 [workspace]
-members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi", "lib/middleware-common", "lib/kwasm-loader", "examples/kernel/hello_world", "examples/pipe", "examples/plugin-for-example"]
+members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi", "lib/middleware-common", "lib/kwasm-loader", "lib/kwasm-net", "examples/pipe", "examples/wasi-networking", "examples/plugin-for-example"]
 
 [build-dependencies]
 wabt = "0.7.2"
