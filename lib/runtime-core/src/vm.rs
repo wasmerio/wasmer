@@ -11,8 +11,8 @@ use hashbrown::HashMap;
 
 /// The context of the currently running WebAssembly instance.
 ///
-/// This is implicitly passed to every webassembly function.
-/// Since this is per-module, each field has a statically
+/// This is implicitly passed to every WebAssembly function.
+/// Since this is per-instance, each field has a statically
 /// (as in after compiling the wasm) known size, so no
 /// runtime checks are necessary.
 ///
@@ -38,7 +38,7 @@ pub struct Ctx {
     //// This is intended to be user-supplied, per-instance
     /// contextual data. There are currently some issue with it,
     /// notably that it cannot be set before running the `start`
-    /// function in a webassembly module.
+    /// function in a WebAssembly module.
     ///
     /// [#219](https://github.com/wasmerio/wasmer/pull/219) fixes that
     /// issue, as well as allowing the user to have *per-function*

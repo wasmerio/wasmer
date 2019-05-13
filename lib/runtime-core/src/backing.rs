@@ -17,7 +17,7 @@ use crate::{
 };
 use std::slice;
 
-/// The `LocalBacking` "owns" the memory used by all the local resources.
+/// The `LocalBacking` "owns" the memory used by all the local resources of an Instance.
 /// That is, local memories, tables, and globals (as well as some additional
 /// data for the virtual call machinery).
 #[derive(Debug)]
@@ -103,7 +103,7 @@ impl LocalBacking {
         memories.into_boxed_map()
     }
 
-    /// Initialize each local memory.
+    /// Initialize each locally-defined memory in the Module.
     ///
     /// This involves copying in the data initializers.
     fn finalize_memories(
@@ -178,7 +178,7 @@ impl LocalBacking {
         tables.into_boxed_map()
     }
 
-    /// This initializes all of the local tables, e.g.
+    /// This initializes all of the locally-defined tables in the Module, e.g.
     /// putting all the table elements (function pointers)
     /// in the right places.
     #[allow(clippy::cast_ptr_alignment)]

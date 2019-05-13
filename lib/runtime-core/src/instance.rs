@@ -262,7 +262,7 @@ impl Instance {
         }
     }
 
-    /// Call an exported webassembly function given the export name.
+    /// Call an exported WebAssembly function given the export name.
     /// Pass arguments by wrapping each one in the [`Value`] enum.
     /// The returned values are also each wrapped in a [`Value`].
     ///
@@ -270,7 +270,7 @@ impl Instance {
     ///
     /// # Note:
     /// This returns `CallResult<Vec<Value>>` in order to support
-    /// the future multi-value returns webassembly feature.
+    /// the future multi-value returns WebAssembly feature.
     ///
     /// # Usage:
     /// ```
@@ -601,7 +601,7 @@ pub struct DynFunc<'a> {
 }
 
 impl<'a> DynFunc<'a> {
-    /// Call an exported webassembly function safely.
+    /// Call an exported WebAssembly function safely.
     ///
     /// Pass arguments by wrapping each one in the [`Value`] enum.
     /// The returned values are also each wrapped in a [`Value`].
@@ -610,7 +610,7 @@ impl<'a> DynFunc<'a> {
     ///
     /// # Note:
     /// This returns `CallResult<Vec<Value>>` in order to support
-    /// the future multi-value returns webassembly feature.
+    /// the future multi-value returns WebAssembly feature.
     ///
     /// # Usage:
     /// ```
