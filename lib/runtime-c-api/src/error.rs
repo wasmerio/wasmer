@@ -69,7 +69,7 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
     let length = length as usize;
 
     if error_message.len() >= length {
-        // buffer to small to hold the error message
+        // buffer is too small to hold the error message
         return -1;
     }
 
