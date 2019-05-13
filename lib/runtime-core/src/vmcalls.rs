@@ -20,10 +20,15 @@ pub unsafe extern "C" fn local_static_memory_grow(
     let local_memory = *ctx.internal.memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut StaticMemory;
 
-    match (*memory).grow(delta, &mut *local_memory) {
+    let ret = match (*memory).grow(delta, &mut *local_memory) {
         Ok(old) => old.0 as i32,
         Err(_) => -1,
-    }
+    };
+
+    ctx.internal.memory_base = (*local_memory).base;
+    ctx.internal.memory_bound = (*local_memory).bound;
+
+    ret
 }
 
 pub unsafe extern "C" fn local_static_memory_size(
@@ -44,10 +49,15 @@ pub unsafe extern "C" fn local_dynamic_memory_grow(
     let local_memory = *ctx.internal.memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut DynamicMemory;
 
-    match (*memory).grow(delta, &mut *local_memory) {
+    let ret = match (*memory).grow(delta, &mut *local_memory) {
         Ok(old) => old.0 as i32,
         Err(_) => -1,
-    }
+    };
+
+    ctx.internal.memory_base = (*local_memory).base;
+    ctx.internal.memory_bound = (*local_memory).bound;
+
+    ret
 }
 
 pub unsafe extern "C" fn local_dynamic_memory_size(
@@ -75,10 +85,15 @@ pub unsafe extern "C" fn imported_static_memory_grow(
         .add(import_memory_index.index());
     let memory = (*local_memory).memory as *mut StaticMemory;
 
-    match (*memory).grow(delta, &mut *local_memory) {
+    let ret = match (*memory).grow(delta, &mut *local_memory) {
         Ok(old) => old.0 as i32,
         Err(_) => -1,
-    }
+    };
+
+    ctx.internal.memory_base = (*local_memory).base;
+    ctx.internal.memory_bound = (*local_memory).bound;
+
+    ret
 }
 
 pub unsafe extern "C" fn imported_static_memory_size(
@@ -102,10 +117,15 @@ pub unsafe extern "C" fn imported_dynamic_memory_grow(
     let local_memory = *ctx.internal.imported_memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut DynamicMemory;
 
-    match (*memory).grow(delta, &mut *local_memory) {
+    let ret = match (*memory).grow(delta, &mut *local_memory) {
         Ok(old) => old.0 as i32,
         Err(_) => -1,
-    }
+    };
+
+    ctx.internal.memory_base = (*local_memory).base;
+    ctx.internal.memory_bound = (*local_memory).bound;
+
+    ret
 }
 
 pub unsafe extern "C" fn imported_dynamic_memory_size(

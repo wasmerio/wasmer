@@ -1201,41 +1201,6 @@ impl X64FunctionCode {
         value_size: usize,
         cb: F,
     ) {
-        let tmp_addr = m.acquire_temp_gpr().unwrap();
-        let tmp_base = m.acquire_temp_gpr().unwrap();
-        let tmp_bound = m.acquire_temp_gpr().unwrap();
-
-        // Loads both base and bound into temporary registers.
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(
-                Machine::get_vmctx_reg(),
-                match MemoryIndex::new(0).local_or_import(module_info) {
-                    LocalOrImport::Local(_) => vm::Ctx::offset_memories(),
-                    LocalOrImport::Import(_) => vm::Ctx::offset_imported_memories(),
-                } as i32,
-            ),
-            Location::GPR(tmp_base),
-        );
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(tmp_base, 0),
-            Location::GPR(tmp_base),
-        );
-        a.emit_mov(
-            Size::S32,
-            Location::Memory(tmp_base, LocalMemory::offset_bound() as i32),
-            Location::GPR(tmp_bound),
-        );
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(tmp_base, LocalMemory::offset_base() as i32),
-            Location::GPR(tmp_base),
-        );
-
-        // Adds base to bound so `tmp_bound` now holds the end of linear memory.
-        a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
-
         // If the memory is dynamic, we need to do bound checking at runtime.
         let mem_desc = match MemoryIndex::new(0).local_or_import(module_info) {
             LocalOrImport::Local(local_mem_index) => &module_info.memories[local_mem_index],
@@ -1251,8 +1216,32 @@ impl X64FunctionCode {
             MemoryBoundCheckMode::Enable => true,
             MemoryBoundCheckMode::Disable => false,
         };
+        
+        let tmp_addr = m.acquire_temp_gpr().unwrap();
+        let tmp_base = m.acquire_temp_gpr().unwrap();
+        let tmp_bound = m.acquire_temp_gpr().unwrap();
+
+        // Load base into temporary register.
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(
+                Machine::get_vmctx_reg(),
+                vm::Ctx::offset_memory_base() as i32,
+            ),
+            Location::GPR(tmp_base),
+        );
 
         if need_check {
+            a.emit_mov(
+                Size::S64,
+                Location::Memory(
+                    Machine::get_vmctx_reg(),
+                    vm::Ctx::offset_memory_bound() as i32,
+                ),
+                Location::GPR(tmp_bound),
+            );
+            // Adds base to bound so `tmp_bound` now holds the end of linear memory.
+            a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
             a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
 
             // This branch is used for emitting "faster" code for the special case of (offset + value_size) not exceeding u32 range.
