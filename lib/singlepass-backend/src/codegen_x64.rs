@@ -212,10 +212,10 @@ impl RunnableModule for X64ExecutionContext {
             user_error: *mut Option<Box<dyn Any>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
-            let rm: &Box<dyn RunnableModule> = &unsafe { &*(*ctx).module }.runnable_module;
-            let execution_context = unsafe {
-                ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm)
-            };
+            let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
+            let execution_context =
+                ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
+
             let args = ::std::slice::from_raw_parts(
                 args,
                 num_params_plus_one.unwrap().as_ptr() as usize - 1,
@@ -478,7 +478,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(())
     }
 
-    unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+    unsafe fn from_cache(_artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         Err(CacheError::Unknown(
             "the singlepass compiler API doesn't support caching yet".to_string(),
         ))
@@ -1409,7 +1409,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         Ok(())
     }
 
-    fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn begin_body(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
         a.emit_push(Size::S64, Location::GPR(GPR::RBP));
         a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));

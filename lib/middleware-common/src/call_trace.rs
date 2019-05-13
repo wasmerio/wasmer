@@ -10,7 +10,7 @@ impl FunctionMiddleware for CallTrace {
     fn feed_event<'a, 'b: 'a>(
         &mut self,
         op: Event<'a, 'b>,
-        module_info: &ModuleInfo,
+        _module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
     ) -> Result<(), Self::Error> {
         match op {

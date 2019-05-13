@@ -7,6 +7,7 @@ Blocks of changes will separated by version increments.
 ## **[Unreleased]**
 
 - [#432](https://github.com/wasmerio/wasmer/pull/432) Fix returned value of `wasmer_last_error_message` in the runtime C API
+- [#429](https://github.com/wasmerio/wasmer/pull/429) Get wasi::path_filestat_get working for some programs; misc. minor WASI FS improvements
 - [#413](https://github.com/wasmerio/wasmer/pull/413) Update LLVM backend to use new parser codegen traits
 
 ## 0.4.1 - 2018-05-06

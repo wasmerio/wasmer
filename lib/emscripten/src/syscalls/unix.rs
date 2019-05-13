@@ -1,4 +1,6 @@
 use crate::varargs::VarArgs;
+#[cfg(target_os = "macos")]
+use libc::size_t;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
@@ -53,7 +55,6 @@ use libc::{
     sendto,
     setpgid,
     setsockopt,
-    size_t,
     sockaddr,
     socket,
     socklen_t,

@@ -1,6 +1,6 @@
 use crate::{
     backend::RunnableModule,
-    backend::{sys::Memory, Backend, CacheGen, Compiler, CompilerConfig, Token},
+    backend::{Backend, CacheGen, Compiler, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
@@ -35,7 +35,6 @@ impl fmt::Debug for InternalEvent {
             InternalEvent::Breakpoint(_) => write!(f, "Breakpoint"),
             InternalEvent::SetInternal(_) => write!(f, "SetInternal"),
             InternalEvent::GetInternal(_) => write!(f, "GetInternal"),
-            _ => panic!("unknown event"),
         }
     }
 }
