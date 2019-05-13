@@ -1,4 +1,4 @@
-//! Wasm memory.o
+//! Create, read, write, grow, destroy memory of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
 use libc::{uint32_t, uint8_t};

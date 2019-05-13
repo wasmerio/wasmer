@@ -1,4 +1,4 @@
-//! Errors.
+//! Read runtime errors.
 
 use libc::{c_char, c_int};
 use std::cell::RefCell;

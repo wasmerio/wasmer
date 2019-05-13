@@ -1,4 +1,4 @@
-//! Wasm module.
+//! Compile, validate, instantiate, serialize, and destroy modules.
 
 use crate::{
     error::{update_last_error, CApiError},
