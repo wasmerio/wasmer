@@ -1,8 +1,14 @@
 #[macro_export]
 #[cfg(feature = "debug")]
 macro_rules! debug {
-    ($fmt:expr) => (println!(concat!("wasmer-runtime(:{})::", $fmt), line!()));
-    ($fmt:expr, $($arg:tt)*) => (println!(concat!("wasmer-runtime(:{})::", $fmt, "\n"), line!(), $($arg)*));
+    ($fmt:expr) => (println!(concat!("[{}] wasmer-runtime(:{}) ", $fmt), {
+       let time = ::std::time::SystemTime::now().duration_since(::std::time::UNIX_EPOCH).expect("Can't get time");
+       format!("{}.{:03}", time.as_secs(), time.subsec_millis())
+    }, line!()));
+    ($fmt:expr, $($arg:tt)*) => (println!(concat!("[{}] wasmer-runtime(:{}) ", $fmt, "\n"), {
+       let time = ::std::time::SystemTime::now().duration_since(::std::time::UNIX_EPOCH).expect("Can't get time");
+       format!("{}.{:03}", time.as_secs(), time.subsec_millis())
+    }, line!(), $($arg)*));
 }
 
 #[macro_export]
@@ -38,6 +44,13 @@ macro_rules! func {
 ///     },
 /// };
 ///
+/// let imports_with_state = imports! {
+///     || (0 as _, |_a| {}),
+///     "env" => {
+///         "foo" => func!(foo),
+///     },
+/// };
+///
 /// fn foo(_: &mut Ctx, n: i32) -> i32 {
 ///     n
 /// }
@@ -50,6 +63,21 @@ macro_rules! imports {
         };
 
         let mut import_object = ImportObject::new();
+
+        $({
+            let ns = $crate::__imports_internal!($ns);
+
+            import_object.register($ns_name, ns);
+        })*
+
+        import_object
+    }};
+    ($state_gen:expr, $( $ns_name:expr => $ns:tt, )* ) => {{
+        use $crate::{
+            import::{ImportObject, Namespace},
+        };
+
+        let mut import_object = ImportObject::new_with_data($state_gen);
 
         $({
             let ns = $crate::__imports_internal!($ns);
@@ -74,4 +102,16 @@ macro_rules! __imports_internal {
     ($ns:ident) => {
         $ns
     };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! namespace {
+    ( $( $imp_name:expr => $import_item:expr, )* ) => {{
+        let mut ns = $crate::import::Namespace::new();
+        $(
+            ns.insert($imp_name, $import_item);
+        )*
+        ns
+    }};
 }

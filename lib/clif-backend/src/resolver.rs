@@ -21,7 +21,6 @@ use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
     backend::{
-        self,
         sys::{Memory, Protect},
         SigRegistry,
     },
@@ -357,13 +356,8 @@ pub struct FuncResolver {
     pub(crate) memory: Arc<Memory>,
 }
 
-// Implements FuncResolver trait.
-impl backend::FuncResolver for FuncResolver {
-    fn get(
-        &self,
-        _module: &wasmer_runtime_core::module::ModuleInner,
-        index: LocalFuncIndex,
-    ) -> Option<NonNull<vm::Func>> {
+impl FuncResolver {
+    pub fn lookup(&self, index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
         lookup_func(&self.map, &self.memory, index)
     }
 }
@@ -374,20 +368,26 @@ fn round_up(n: usize, multiple: usize) -> usize {
 }
 
 extern "C" fn i32_print(_ctx: &mut vm::Ctx, n: i32) {
-    print!(" i32: {},", n);
+    eprint!(" i32: {},", n);
 }
 extern "C" fn i64_print(_ctx: &mut vm::Ctx, n: i64) {
-    print!(" i64: {},", n);
+    eprint!(" i64: {},", n);
 }
 extern "C" fn f32_print(_ctx: &mut vm::Ctx, n: f32) {
-    print!(" f32: {},", n);
+    eprint!(" f32: {},", n);
 }
 extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
-    print!(" f64: {},", n);
+    eprint!(" f64: {},", n);
 }
-extern "C" fn start_debug(_ctx: &mut vm::Ctx, func_index: u32) {
-    print!("func ({}), args: [", func_index);
+extern "C" fn start_debug(ctx: &mut vm::Ctx, func_index: u32) {
+    if let Some(symbol_map) = unsafe { ctx.borrow_symbol_map() } {
+        if let Some(fn_name) = symbol_map.get(&func_index) {
+            eprint!("func ({} ({})), args: [", fn_name, func_index);
+            return;
+        }
+    }
+    eprint!("func ({}), args: [", func_index);
 }
 extern "C" fn end_debug(_ctx: &mut vm::Ctx) {
-    println!(" ]");
+    eprintln!(" ]");
 }

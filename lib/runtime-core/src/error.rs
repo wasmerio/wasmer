@@ -1,4 +1,4 @@
-use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value};
+use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
 use core::borrow::Borrow;
 use std::any::Any;
 
@@ -8,6 +8,7 @@ pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
 pub type RuntimeResult<T> = std::result::Result<T, RuntimeError>;
 pub type CallResult<T> = std::result::Result<T, CallError>;
 pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
+pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
 /// This is returned when the chosen compiler is unable to
 /// successfully compile the provided webassembly module into
@@ -118,11 +119,9 @@ impl std::error::Error for LinkError {}
 /// The main way to do this is `Instance.call`.
 ///
 /// Comparing two `RuntimeError`s always evaluates to false.
-#[derive(Debug)]
 pub enum RuntimeError {
     Trap { msg: Box<str> },
-    Exception { data: Box<[Value]> },
-    Panic { data: Box<dyn Any> },
+    Error { data: Box<dyn Any> },
 }
 
 impl PartialEq for RuntimeError {
@@ -137,11 +136,22 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::Trap { ref msg } => {
                 write!(f, "WebAssembly trap occured during runtime: {}", msg)
             }
-            RuntimeError::Exception { ref data } => {
-                write!(f, "Uncaught WebAssembly exception: {:?}", data)
+            RuntimeError::Error { data } => {
+                if let Some(s) = data.downcast_ref::<String>() {
+                    write!(f, "\"{}\"", s)
+                } else if let Some(s) = data.downcast_ref::<&str>() {
+                    write!(f, "\"{}\"", s)
+                } else {
+                    write!(f, "unknown error")
+                }
             }
-            RuntimeError::Panic { data: _ } => write!(f, "User-defined \"panic\""),
         }
+    }
+}
+
+impl std::fmt::Debug for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -196,7 +206,6 @@ impl std::error::Error for ResolveError {}
 /// be the `CallError::Runtime(RuntimeError)` variant.
 ///
 /// Comparing two `CallError`s always evaluates to false.
-#[derive(Debug)]
 pub enum CallError {
     Resolve(ResolveError),
     Runtime(RuntimeError),
@@ -213,6 +222,15 @@ impl std::fmt::Display for CallError {
         match self {
             CallError::Resolve(resolve_error) => write!(f, "Call error: {}", resolve_error),
             CallError::Runtime(runtime_error) => write!(f, "Call error: {}", runtime_error),
+        }
+    }
+}
+
+impl std::fmt::Debug for CallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CallError::Resolve(resolve_err) => write!(f, "ResolveError: {:?}", resolve_err),
+            CallError::Runtime(runtime_err) => write!(f, "RuntimeError: {:?}", runtime_err),
         }
     }
 }
@@ -443,5 +461,16 @@ impl std::error::Error for MemoryProtectionError {}
 impl Into<GrowError> for MemoryProtectionError {
     fn into(self) -> GrowError {
         GrowError::CouldNotProtectMemory(self)
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseError {
+    BinaryReadError,
+}
+
+impl From<wasmparser::BinaryReaderError> for ParseError {
+    fn from(_: wasmparser::BinaryReaderError) -> Self {
+        ParseError::BinaryReadError
     }
 }

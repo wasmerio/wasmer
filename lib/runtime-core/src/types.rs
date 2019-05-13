@@ -1,5 +1,5 @@
 use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
-use std::{borrow::Cow, mem};
+use std::borrow::Cow;
 
 /// Represents a WebAssembly type.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -71,29 +71,150 @@ impl From<f64> for Value {
     }
 }
 
-pub unsafe trait WasmExternType: Copy + Clone
+pub unsafe trait NativeWasmType: Copy + Into<Value>
 where
     Self: Sized,
 {
     const TYPE: Type;
+    fn from_binary(bits: u64) -> Self;
+    fn to_binary(self) -> u64;
+}
+
+unsafe impl NativeWasmType for i32 {
+    const TYPE: Type = Type::I32;
+    fn from_binary(bits: u64) -> Self {
+        bits as _
+    }
+    fn to_binary(self) -> u64 {
+        self as _
+    }
+}
+unsafe impl NativeWasmType for i64 {
+    const TYPE: Type = Type::I64;
+    fn from_binary(bits: u64) -> Self {
+        bits as _
+    }
+    fn to_binary(self) -> u64 {
+        self as _
+    }
+}
+unsafe impl NativeWasmType for f32 {
+    const TYPE: Type = Type::F32;
+    fn from_binary(bits: u64) -> Self {
+        f32::from_bits(bits as u32)
+    }
+    fn to_binary(self) -> u64 {
+        self.to_bits() as _
+    }
+}
+unsafe impl NativeWasmType for f64 {
+    const TYPE: Type = Type::F64;
+    fn from_binary(bits: u64) -> Self {
+        f64::from_bits(bits)
+    }
+    fn to_binary(self) -> u64 {
+        self.to_bits()
+    }
+}
+
+pub unsafe trait WasmExternType: Copy
+where
+    Self: Sized,
+{
+    type Native: NativeWasmType;
+    fn from_native(native: Self::Native) -> Self;
+    fn to_native(self) -> Self::Native;
+}
+
+unsafe impl WasmExternType for i8 {
+    type Native = i32;
+    fn from_native(native: Self::Native) -> Self {
+        native as _
+    }
+    fn to_native(self) -> Self::Native {
+        self as _
+    }
+}
+unsafe impl WasmExternType for u8 {
+    type Native = i32;
+    fn from_native(native: Self::Native) -> Self {
+        native as _
+    }
+    fn to_native(self) -> Self::Native {
+        self as _
+    }
+}
+unsafe impl WasmExternType for i16 {
+    type Native = i32;
+    fn from_native(native: Self::Native) -> Self {
+        native as _
+    }
+    fn to_native(self) -> Self::Native {
+        self as _
+    }
+}
+unsafe impl WasmExternType for u16 {
+    type Native = i32;
+    fn from_native(native: Self::Native) -> Self {
+        native as _
+    }
+    fn to_native(self) -> Self::Native {
+        self as _
+    }
 }
 unsafe impl WasmExternType for i32 {
-    const TYPE: Type = Type::I32;
+    type Native = i32;
+    fn from_native(native: Self::Native) -> Self {
+        native
+    }
+    fn to_native(self) -> Self::Native {
+        self
+    }
 }
 unsafe impl WasmExternType for u32 {
-    const TYPE: Type = Type::I32;
+    type Native = i32;
+    fn from_native(native: Self::Native) -> Self {
+        native as _
+    }
+    fn to_native(self) -> Self::Native {
+        self as _
+    }
 }
 unsafe impl WasmExternType for i64 {
-    const TYPE: Type = Type::I64;
+    type Native = i64;
+    fn from_native(native: Self::Native) -> Self {
+        native
+    }
+    fn to_native(self) -> Self::Native {
+        self
+    }
 }
 unsafe impl WasmExternType for u64 {
-    const TYPE: Type = Type::I64;
+    type Native = i64;
+    fn from_native(native: Self::Native) -> Self {
+        native as _
+    }
+    fn to_native(self) -> Self::Native {
+        self as _
+    }
 }
 unsafe impl WasmExternType for f32 {
-    const TYPE: Type = Type::F32;
+    type Native = f32;
+    fn from_native(native: Self::Native) -> Self {
+        native
+    }
+    fn to_native(self) -> Self::Native {
+        self
+    }
 }
 unsafe impl WasmExternType for f64 {
-    const TYPE: Type = Type::F64;
+    type Native = f64;
+    fn from_native(native: Self::Native) -> Self {
+        native
+    }
+    fn to_native(self) -> Self::Native {
+        self
+    }
 }
 
 // pub trait IntegerAtomic
@@ -113,34 +234,15 @@ unsafe impl WasmExternType for f64 {
 //     fn swap(&self, other: Self::Primitive) -> Self::Primitive;
 // }
 
-pub enum ValueError {
-    BufferTooSmall,
-}
-
-pub trait ValueType: Copy
+pub unsafe trait ValueType: Copy
 where
     Self: Sized,
 {
-    fn into_le(self, buffer: &mut [u8]);
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError>;
 }
 
 macro_rules! convert_value_impl {
     ($t:ty) => {
-        impl ValueType for $t {
-            fn into_le(self, buffer: &mut [u8]) {
-                buffer[..mem::size_of::<Self>()].copy_from_slice(&self.to_le_bytes());
-            }
-            fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-                if buffer.len() >= mem::size_of::<Self>() {
-                    let mut array = [0u8; mem::size_of::<Self>()];
-                    array.copy_from_slice(&buffer[..mem::size_of::<Self>()]);
-                    Ok(Self::from_le_bytes(array))
-                } else {
-                    Err(ValueError::BufferTooSmall)
-                }
-            }
-        }
+        unsafe impl ValueType for $t {}
     };
     ( $($t:ty),* ) => {
         $(
@@ -149,25 +251,7 @@ macro_rules! convert_value_impl {
     };
 }
 
-convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64);
-
-impl ValueType for f32 {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.to_bits().into_le(buffer);
-    }
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        Ok(f32::from_bits(<u32 as ValueType>::from_le(buffer)?))
-    }
-}
-
-impl ValueType for f64 {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.to_bits().into_le(buffer);
-    }
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        Ok(f64::from_bits(<u64 as ValueType>::from_le(buffer)?))
-    }
-}
+convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {
@@ -207,6 +291,7 @@ pub enum Initializer {
     GetGlobal(ImportedGlobalIndex),
 }
 
+/// Describes the mutability and type of a Global
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlobalDescriptor {
     pub mutable: bool,
@@ -316,7 +401,7 @@ pub trait LocalImport {
 macro_rules! define_map_index {
     ($ty:ident) => {
         #[derive(Serialize, Deserialize)]
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct $ty (u32);
         impl TypedIndex for $ty {
             #[doc(hidden)]
@@ -430,4 +515,59 @@ where
             LocalOrImport::Local(_) => None,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::NativeWasmType;
+    use crate::types::WasmExternType;
+
+    #[test]
+    fn test_native_types_round_trip() {
+        assert_eq!(
+            42i32,
+            i32::from_native(i32::from_binary((42i32).to_native().to_binary()))
+        );
+
+        assert_eq!(
+            -42i32,
+            i32::from_native(i32::from_binary((-42i32).to_native().to_binary()))
+        );
+
+        use std::i64;
+        let xi64 = i64::MAX;
+        assert_eq!(
+            xi64,
+            i64::from_native(i64::from_binary((xi64).to_native().to_binary()))
+        );
+        let yi64 = i64::MIN;
+        assert_eq!(
+            yi64,
+            i64::from_native(i64::from_binary((yi64).to_native().to_binary()))
+        );
+
+        assert_eq!(
+            16.5f32,
+            f32::from_native(f32::from_binary((16.5f32).to_native().to_binary()))
+        );
+
+        assert_eq!(
+            -16.5f32,
+            f32::from_native(f32::from_binary((-16.5f32).to_native().to_binary()))
+        );
+
+        use std::f64;
+        let xf64: f64 = f64::MAX;
+        assert_eq!(
+            xf64,
+            f64::from_native(f64::from_binary((xf64).to_native().to_binary()))
+        );
+
+        let yf64: f64 = f64::MIN;
+        assert_eq!(
+            yf64,
+            f64::from_native(f64::from_binary((yf64).to_native().to_binary()))
+        );
+    }
+
 }

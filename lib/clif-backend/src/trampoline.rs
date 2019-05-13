@@ -6,8 +6,7 @@ use cranelift_codegen::{
     isa, Context,
 };
 use hashbrown::HashMap;
-use std::ffi::c_void;
-use std::{iter, mem};
+use std::{iter, mem, ptr::NonNull};
 use wasmer_runtime_core::{
     backend::sys::{Memory, Protect},
     module::{ExportIndex, ModuleInfo},
@@ -23,8 +22,7 @@ impl RelocSink for NullRelocSink {
     fn reloc_jt(&mut self, _: u32, _: Reloc, _: ir::JumpTable) {}
 }
 
-pub type Trampoline =
-    unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64) -> c_void;
+pub type Trampoline = unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64);
 
 pub struct Trampolines {
     memory: Memory,

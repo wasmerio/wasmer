@@ -1,8 +1,5 @@
 use std::mem;
-use wasmer_runtime_core::{
-    types::{Type, WasmExternType},
-    vm::Ctx,
-};
+use wasmer_runtime_core::{types::WasmExternType, vm::Ctx};
 
 #[repr(transparent)]
 #[derive(Copy, Clone)]
@@ -19,5 +16,12 @@ impl VarArgs {
 }
 
 unsafe impl WasmExternType for VarArgs {
-    const TYPE: Type = Type::I32;
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self.pointer as _
+    }
+    fn from_native(n: Self::Native) -> Self {
+        Self { pointer: n as u32 }
+    }
 }

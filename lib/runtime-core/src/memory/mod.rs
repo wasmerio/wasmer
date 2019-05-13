@@ -284,6 +284,7 @@ impl Clone for UnsharedMemory {
 }
 
 pub struct SharedMemory {
+    #[allow(dead_code)]
     desc: MemoryDescriptor,
 }
 

@@ -66,6 +66,8 @@ pub fn _unsetenv(ctx: &mut Ctx, name: c_int) -> c_int {
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
+    #[cfg(feature = "debug")]
+    let _ = name_ptr;
 
     #[repr(C)]
     struct GuestPasswd {

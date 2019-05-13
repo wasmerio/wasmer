@@ -7,6 +7,8 @@ use crate::{
 };
 use std::{ffi::c_void, mem, ptr};
 
+use hashbrown::HashMap;
+
 /// The context of the currently running WebAssembly instance.
 ///
 /// This is implicitly passed to every webassembly function.
@@ -22,32 +24,8 @@ use std::{ffi::c_void, mem, ptr};
 #[derive(Debug)]
 #[repr(C)]
 pub struct Ctx {
-    /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
-    pub(crate) memories: *mut *mut LocalMemory,
-
-    /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
-    pub(crate) tables: *mut *mut LocalTable,
-
-    /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
-    pub(crate) globals: *mut *mut LocalGlobal,
-
-    /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-    pub(crate) imported_memories: *mut *mut LocalMemory,
-
-    /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    pub(crate) imported_tables: *mut *mut LocalTable,
-
-    /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-    pub(crate) imported_globals: *mut *mut LocalGlobal,
-
-    /// A pointer to an array of imported functions, indexed by `FuncIndex`.
-    pub(crate) imported_funcs: *mut ImportedFunc,
-
-    /// A pointer to an array of signature ids. Conceptually, this maps
-    /// from a static, module-local signature id to a runtime-global
-    /// signature id. This is used to allow call-indirect to other
-    /// modules safely.
-    pub(crate) dynamic_sigindices: *const SigId,
+    // `internal` must be the first field of `Ctx`.
+    pub(crate) internal: InternalCtx,
 
     pub(crate) local_functions: *const *const Func,
 
@@ -55,7 +33,7 @@ pub struct Ctx {
     /// by the owning `Instance`.
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
-    module: *const ModuleInner,
+    pub module: *const ModuleInner,
 
     //// This is intended to be user-supplied, per-instance
     /// contextual data. There are currently some issue with it,
@@ -70,7 +48,42 @@ pub struct Ctx {
     /// If there's a function set in this field, it gets called
     /// when the context is destructed, e.g. when an `Instance`
     /// is dropped.
-    pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
+    pub data_finalizer: Option<fn(data: *mut c_void)>,
+}
+
+/// The internal context of the currently running WebAssembly instance.
+///
+///
+#[doc(hidden)]
+#[derive(Debug)]
+#[repr(C)]
+pub struct InternalCtx {
+    /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
+    pub memories: *mut *mut LocalMemory,
+
+    /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
+    pub tables: *mut *mut LocalTable,
+
+    /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
+    pub globals: *mut *mut LocalGlobal,
+
+    /// A pointer to an array of imported memories, indexed by `MemoryIndex,
+    pub imported_memories: *mut *mut LocalMemory,
+
+    /// A pointer to an array of imported tables, indexed by `TableIndex`.
+    pub imported_tables: *mut *mut LocalTable,
+
+    /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
+    pub imported_globals: *mut *mut LocalGlobal,
+
+    /// A pointer to an array of imported functions, indexed by `FuncIndex`.
+    pub imported_funcs: *mut ImportedFunc,
+
+    /// A pointer to an array of signature ids. Conceptually, this maps
+    /// from a static, module-local signature id to a runtime-global
+    /// signature id. This is used to allow call-indirect to other
+    /// modules safely.
+    pub dynamic_sigindices: *const SigId,
 }
 
 impl Ctx {
@@ -81,16 +94,18 @@ impl Ctx {
         module: &ModuleInner,
     ) -> Self {
         Self {
-            memories: local_backing.vm_memories.as_mut_ptr(),
-            tables: local_backing.vm_tables.as_mut_ptr(),
-            globals: local_backing.vm_globals.as_mut_ptr(),
+            internal: InternalCtx {
+                memories: local_backing.vm_memories.as_mut_ptr(),
+                tables: local_backing.vm_tables.as_mut_ptr(),
+                globals: local_backing.vm_globals.as_mut_ptr(),
 
-            imported_memories: import_backing.vm_memories.as_mut_ptr(),
-            imported_tables: import_backing.vm_tables.as_mut_ptr(),
-            imported_globals: import_backing.vm_globals.as_mut_ptr(),
-            imported_funcs: import_backing.vm_functions.as_mut_ptr(),
+                imported_memories: import_backing.vm_memories.as_mut_ptr(),
+                imported_tables: import_backing.vm_tables.as_mut_ptr(),
+                imported_globals: import_backing.vm_globals.as_mut_ptr(),
+                imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
-            dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+                dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+            },
             local_functions: local_backing.local_functions.as_ptr(),
 
             local_backing,
@@ -108,19 +123,21 @@ impl Ctx {
         import_backing: &mut ImportBacking,
         module: &ModuleInner,
         data: *mut c_void,
-        data_finalizer: extern "C" fn(*mut c_void),
+        data_finalizer: fn(*mut c_void),
     ) -> Self {
         Self {
-            memories: local_backing.vm_memories.as_mut_ptr(),
-            tables: local_backing.vm_tables.as_mut_ptr(),
-            globals: local_backing.vm_globals.as_mut_ptr(),
+            internal: InternalCtx {
+                memories: local_backing.vm_memories.as_mut_ptr(),
+                tables: local_backing.vm_tables.as_mut_ptr(),
+                globals: local_backing.vm_globals.as_mut_ptr(),
 
-            imported_memories: import_backing.vm_memories.as_mut_ptr(),
-            imported_tables: import_backing.vm_tables.as_mut_ptr(),
-            imported_globals: import_backing.vm_globals.as_mut_ptr(),
-            imported_funcs: import_backing.vm_functions.as_mut_ptr(),
+                imported_memories: import_backing.vm_memories.as_mut_ptr(),
+                imported_tables: import_backing.vm_tables.as_mut_ptr(),
+                imported_globals: import_backing.vm_globals.as_mut_ptr(),
+                imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
-            dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+                dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+            },
             local_functions: local_backing.local_functions.as_ptr(),
 
             local_backing,
@@ -163,6 +180,11 @@ impl Ctx {
                 &import_backing.memories[import_mem_index]
             },
         }
+    }
+
+    /// Gives access to the emscripten symbol map, used for debugging
+    pub unsafe fn borrow_symbol_map(&self) -> &Option<HashMap<u32, String>> {
+        &(*self.module).info.em_symbol_map
     }
 }
 
@@ -356,43 +378,45 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{Anyfunc, Ctx, ImportedFunc, LocalGlobal, LocalMemory, LocalTable};
+    use super::{Anyfunc, Ctx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable};
 
     #[test]
     fn vmctx() {
+        assert_eq!(0usize, offset_of!(Ctx => internal).get_byte_offset(),);
+
         assert_eq!(
             Ctx::offset_memories() as usize,
-            offset_of!(Ctx => memories).get_byte_offset(),
+            offset_of!(InternalCtx => memories).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_tables() as usize,
-            offset_of!(Ctx => tables).get_byte_offset(),
+            offset_of!(InternalCtx => tables).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_globals() as usize,
-            offset_of!(Ctx => globals).get_byte_offset(),
+            offset_of!(InternalCtx => globals).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_memories() as usize,
-            offset_of!(Ctx => imported_memories).get_byte_offset(),
+            offset_of!(InternalCtx => imported_memories).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_tables() as usize,
-            offset_of!(Ctx => imported_tables).get_byte_offset(),
+            offset_of!(InternalCtx => imported_tables).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_globals() as usize,
-            offset_of!(Ctx => imported_globals).get_byte_offset(),
+            offset_of!(InternalCtx => imported_globals).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_funcs() as usize,
-            offset_of!(Ctx => imported_funcs).get_byte_offset(),
+            offset_of!(InternalCtx => imported_funcs).get_byte_offset(),
         );
 
         assert_eq!(
@@ -480,7 +504,7 @@ mod vm_ctx_tests {
         str: String,
     }
 
-    extern "C" fn test_data_finalizer(data: *mut c_void) {
+    fn test_data_finalizer(data: *mut c_void) {
         let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
         assert_eq!(test_data.x, 10);
         assert_eq!(test_data.y, true);
@@ -543,52 +567,38 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{
-            sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
-        };
-        use crate::cache::{Error as CacheError, WasmHash};
-        use crate::error::RuntimeResult;
-        use crate::types::{FuncIndex, LocalFuncIndex, Value};
+        use crate::backend::{sys::Memory, Backend, CacheGen, RunnableModule};
+        use crate::cache::Error as CacheError;
+        use crate::typed_func::Wasm;
+        use crate::types::{LocalFuncIndex, SigIndex};
         use hashbrown::HashMap;
+        use std::any::Any;
         use std::ptr::NonNull;
         struct Placeholder;
-        impl FuncResolver for Placeholder {
-            fn get(
+        impl RunnableModule for Placeholder {
+            fn get_func(
                 &self,
-                _module: &ModuleInner,
+                _module: &ModuleInfo,
                 _local_func_index: LocalFuncIndex,
             ) -> Option<NonNull<Func>> {
                 None
             }
-        }
-        impl ProtectedCaller for Placeholder {
-            fn call(
-                &self,
-                _module: &ModuleInner,
-                _func_index: FuncIndex,
-                _params: &[Value],
-                _import_backing: &ImportBacking,
-                _vmctx: *mut Ctx,
-                _: Token,
-            ) -> RuntimeResult<Vec<Value>> {
-                Ok(vec![])
+
+            fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
+                unimplemented!()
             }
-            fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+            unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
                 unimplemented!()
             }
         }
         impl CacheGen for Placeholder {
-            fn generate_cache(
-                &self,
-                module: &ModuleInner,
-            ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+            fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
                 unimplemented!()
             }
         }
 
         ModuleInner {
-            func_resolver: Box::new(Placeholder),
-            protected_caller: Box::new(Placeholder),
+            runnable_module: Box::new(Placeholder),
             cache_gen: Box::new(Placeholder),
             info: ModuleInfo {
                 memories: Map::new(),
@@ -614,6 +624,10 @@ mod vm_ctx_tests {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
+
+                em_symbol_map: None,
+
+                custom_sections: HashMap::new(),
             },
         }
     }

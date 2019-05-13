@@ -28,19 +28,24 @@ use libc::{
     getpid,
     // iovec,
     lseek,
+    off_t,
     //    open,
     read,
+    rename,
+    // sockaddr_in,
     // readv,
     rmdir,
     // writev,
     stat,
     write,
-    // sockaddr_in,
 };
 use wasmer_runtime_core::vm::Ctx;
 
 use super::env;
 use std::cell::Cell;
+#[allow(unused_imports)]
+use std::io::Error;
+use std::mem;
 use std::slice;
 
 /// exit
@@ -114,9 +119,21 @@ pub fn ___syscall20(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     unsafe { getpid() }
 }
 
-pub fn ___syscall38(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall38");
-    -1
+// rename
+pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall38 (rename)");
+    let old_path_addr: u32 = varargs.get(ctx);
+    let new_path_addr: u32 = varargs.get(ctx);
+    let old_path = emscripten_memory_pointer!(ctx.memory(0), old_path_addr) as *const i8;
+    let new_path = emscripten_memory_pointer!(ctx.memory(0), new_path_addr) as *const i8;
+    let result = unsafe { rename(old_path, new_path) };
+    debug!(
+        "=> old_path: {}, new_path: {}, result: {}",
+        unsafe { std::ffi::CStr::from_ptr(old_path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(new_path).to_str().unwrap() },
+        result
+    );
+    result
 }
 
 // rmdir
@@ -190,8 +207,8 @@ pub fn ___syscall85(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 }
 
 pub fn ___syscall91(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall91");
-    -1
+    debug!("emscripten::___syscall91 - stub");
+    0
 }
 
 pub fn ___syscall97(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
@@ -205,9 +222,11 @@ pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 }
 
 // getcwd
-pub fn ___syscall183(ctx: &mut Ctx, buf_offset: u32, _size: u32) -> u32 {
+pub fn ___syscall183(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall183");
     use std::env;
+    let buf_offset: c_int = varargs.get(ctx);
+    let _size: c_int = varargs.get(ctx);
     let path = env::current_dir();
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
@@ -240,12 +259,21 @@ pub fn ___syscall192(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     if fd == -1 {
         let ptr = env::call_memalign(ctx, 16384, len);
         if ptr == 0 {
-            return -1;
+            // ENOMEM
+            return -12;
         }
+        let real_ptr = emscripten_memory_pointer!(ctx.memory(0), ptr) as *const u8;
         env::call_memset(ctx, ptr, 0, len);
-        ptr as _
+        for i in 0..(len as usize) {
+            unsafe {
+                assert_eq!(*real_ptr.add(i), 0);
+            }
+        }
+        debug!("=> ptr: {}", ptr);
+        return ptr as i32;
     } else {
-        -1
+        // return ENODEV
+        return -19;
     }
 }
 
@@ -254,10 +282,28 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", _which);
     let fd: i32 = varargs.get(ctx);
-    let offset: i32 = varargs.get(ctx);
+    let _ = varargs.get::<i32>(ctx); // ignore high offset
+    let offset_low: i32 = varargs.get(ctx);
+    let result_ptr_value = varargs.get::<i32>(ctx);
     let whence: i32 = varargs.get(ctx);
-    debug!("=> fd: {}, offset: {}, whence = {}", fd, offset, whence);
-    unsafe { lseek(fd, offset as _, whence) as _ }
+    let offset = offset_low as off_t;
+    let ret = unsafe { lseek(fd, offset, whence) as i32 };
+    #[allow(clippy::cast_ptr_alignment)]
+    let result_ptr = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
+    assert_eq!(8, mem::align_of_val(&result_ptr));
+    unsafe {
+        *result_ptr = ret;
+    }
+    debug!(
+        "=> fd: {}, offset: {}, result_ptr: {}, whence: {} = {}\nlast os error: {}",
+        fd,
+        offset,
+        result_ptr_value,
+        whence,
+        0,
+        Error::last_os_error(),
+    );
+    0
 }
 
 /// readv
@@ -343,16 +389,6 @@ pub fn ___syscall191(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
-pub fn ___syscall194(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall194 - stub");
-    -1
-}
-
-pub fn ___syscall196(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall194 - stub");
-    -1
-}
-
 pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall199 - stub");
     -1
@@ -369,7 +405,14 @@ pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     unsafe {
         let mut _stat: stat = std::mem::zeroed();
         let ret = stat(pathname_addr, &mut _stat);
-        debug!("ret: {}", ret);
+        debug!(
+            "=> pathname: {}, buf: {}, path: {} = {}\nlast os error: {}",
+            pathname,
+            buf,
+            std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap(),
+            ret,
+            Error::last_os_error()
+        );
         if ret != 0 {
             return ret;
         }
@@ -408,8 +451,14 @@ pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     // fcntl64
     let _fd: i32 = varargs.get(ctx);
     let cmd: u32 = varargs.get(ctx);
+    // (FAPPEND   - 0x08
+    // |FASYNC    - 0x40
+    // |FFSYNC    - 0x80
+    // |FNONBLOCK - 0x04
+    debug!("=> fd: {}, cmd: {}", _fd, cmd);
     match cmd {
         2 => 0,
+        13 | 14 => 0, // pretend file locking worked
         _ => -1,
     }
 }
@@ -432,6 +481,12 @@ pub fn ___syscall295(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 pub fn ___syscall300(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall300");
     -1
+}
+
+// utimensat
+pub fn ___syscall320(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall320 (utimensat), {}", _which);
+    0
 }
 
 pub fn ___syscall334(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {

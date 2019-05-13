@@ -1,3 +1,5 @@
+#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
+
 mod cache;
 mod func_env;
 mod libcalls;
@@ -16,7 +18,7 @@ use target_lexicon::Triple;
 
 use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 use wasmer_runtime_core::{
-    backend::{Compiler, Token},
+    backend::{Compiler, CompilerConfig, Token},
     error::{CompileError, CompileResult},
     module::ModuleInner,
 };
@@ -39,12 +41,17 @@ impl CraneliftCompiler {
 
 impl Compiler for CraneliftCompiler {
     /// Compiles wasm binary to a wasmer module.
-    fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner> {
+    fn compile(
+        &self,
+        wasm: &[u8],
+        compiler_config: CompilerConfig,
+        _: Token,
+    ) -> CompileResult<ModuleInner> {
         validate(wasm)?;
 
         let isa = get_isa();
 
-        let mut module = module::Module::new();
+        let mut module = module::Module::new(&compiler_config);
         let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
 
         let func_bodies = module_env.translate(wasm)?;
