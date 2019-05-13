@@ -1,4 +1,5 @@
 use crate::signal::Caller;
+use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, Token},
     cache::{Artifact, Error as CacheError},
@@ -9,25 +10,35 @@ use wasmer_runtime_core::{
 };
 use wasmparser::Type as WpType;
 
-pub struct CraneliftModuleCodeGenerator {}
+pub struct CraneliftModuleCodeGenerator {
+    signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
+    function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
+    functions: Vec<CraneliftFunctionCodeGenerator>,
+}
 
 impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     for CraneliftModuleCodeGenerator
 {
     fn new() -> Self {
-        unimplemented!()
+        CraneliftModuleCodeGenerator {
+            functions: vec![],
+            function_signatures: None,
+            signatures: None,
+        }
     }
 
     fn backend_id() -> Backend {
-        unimplemented!()
+        Backend::Cranelift
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 
     fn next_function(&mut self) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
-        unimplemented!()
+        let code = CraneliftFunctionCodeGenerator {};
+        self.functions.push(code);
+        Ok(self.functions.last_mut().unwrap())
     }
 
     fn finalize(
@@ -37,19 +48,21 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         unimplemented!()
     }
 
-    fn feed_signatures(&mut self, _signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
-        unimplemented!()
+    fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
+        self.signatures = Some(Arc::new(signatures));
+        Ok(())
     }
 
     fn feed_function_signatures(
         &mut self,
-        _assoc: Map<FuncIndex, SigIndex>,
+        assoc: Map<FuncIndex, SigIndex>,
     ) -> Result<(), CodegenError> {
-        unimplemented!()
+        self.function_signatures = Some(Arc::new(assoc));
+        Ok(())
     }
 
     fn feed_import_function(&mut self) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 
     unsafe fn from_cache(_cache: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
@@ -61,27 +74,27 @@ pub struct CraneliftFunctionCodeGenerator {}
 
 impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
     fn feed_return(&mut self, _ty: WpType) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 
     fn feed_param(&mut self, _ty: WpType) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 
     fn feed_local(&mut self, _ty: WpType, _n: usize) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 
     fn begin_body(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 
     fn feed_event(&mut self, _op: Event, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 
     fn finalize(&mut self) -> Result<(), CodegenError> {
-        unimplemented!()
+        Ok(())
     }
 }
 
