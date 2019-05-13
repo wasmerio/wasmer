@@ -1,7 +1,6 @@
 #![feature(wasi_ext)]
 
 use kwasm_net::{Epoll, Tcp4Listener, TcpStream, schedule};
-use std::io::{Read, Write};
 use std::sync::Arc;
 
 fn do_echo(stream: Arc<TcpStream>, buf: Vec<u8>) {
@@ -40,7 +39,7 @@ fn main() {
     listener.accept_async(epoll.clone(), |stream| {
         match stream {
             Ok(stream) => {
-                do_echo(stream, Vec::with_capacity(4096 * 4));
+                do_echo(stream, Vec::with_capacity(16384));
                 Ok(())
             },
             Err(code) => {
