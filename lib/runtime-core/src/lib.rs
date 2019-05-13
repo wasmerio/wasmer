@@ -1,3 +1,6 @@
+#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
+#![cfg_attr(nightly, feature(unwind_attributes))]
+
 #[cfg(test)]
 #[macro_use]
 extern crate field_offset;
@@ -12,6 +15,7 @@ pub mod backend;
 mod backing;
 
 pub mod cache;
+pub mod codegen;
 pub mod error;
 pub mod export;
 pub mod global;
@@ -19,11 +23,12 @@ pub mod import;
 pub mod instance;
 pub mod memory;
 pub mod module;
+pub mod parse;
 mod sig_registry;
 pub mod structures;
 mod sys;
 pub mod table;
-mod typed_func;
+pub mod typed_func;
 pub mod types;
 pub mod units;
 pub mod vm;
@@ -36,7 +41,7 @@ pub use self::error::Result;
 #[doc(inline)]
 pub use self::import::IsExport;
 #[doc(inline)]
-pub use self::instance::Instance;
+pub use self::instance::{DynFunc, Instance};
 #[doc(inline)]
 pub use self::module::Module;
 #[doc(inline)]
@@ -93,13 +98,18 @@ pub fn compile_with_config(
 /// WebAssembly specification. Returns `true` if validation
 /// succeeded, `false` if validation failed.
 pub fn validate(wasm: &[u8]) -> bool {
+    validate_and_report_errors(wasm).is_ok()
+}
+
+/// The same as `validate` but with an Error message on failure
+pub fn validate_and_report_errors(wasm: &[u8]) -> ::std::result::Result<(), String> {
     use wasmparser::WasmDecoder;
     let mut parser = wasmparser::ValidatingParser::new(wasm, None);
     loop {
         let state = parser.read();
         match *state {
-            wasmparser::ParserState::EndWasm => break true,
-            wasmparser::ParserState::Error(_) => break false,
+            wasmparser::ParserState::EndWasm => break Ok(()),
+            wasmparser::ParserState::Error(e) => break Err(format!("{}", e)),
             _ => {}
         }
     }

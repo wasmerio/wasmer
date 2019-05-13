@@ -1,4 +1,5 @@
 #[test]
+#[ignore]
 fn test_test_sizeof() {
     assert_emscripten_output!(
         "../../emtests/test_sizeof.wasm",

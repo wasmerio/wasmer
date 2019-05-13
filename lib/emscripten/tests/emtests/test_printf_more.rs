@@ -1,4 +1,5 @@
 #[test]
+#[ignore]
 fn test_test_printf_more() {
     assert_emscripten_output!(
         "../../emtests/test_printf_more.wasm",

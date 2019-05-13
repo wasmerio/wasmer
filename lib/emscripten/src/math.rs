@@ -34,12 +34,27 @@ pub fn _llvm_log2_f32(_ctx: &mut Ctx, _value: f64) -> f64 {
     -1.0
 }
 
+pub fn _llvm_exp2_f32(_ctx: &mut Ctx, value: f32) -> f32 {
+    debug!("emscripten::_llvm_exp2_f32");
+    2f32.powf(value)
+}
+
+pub fn _llvm_exp2_f64(_ctx: &mut Ctx, value: f64) -> f64 {
+    debug!("emscripten::_llvm_exp2_f64");
+    2f64.powf(value)
+}
+
+pub fn _llvm_trunc_f64(_ctx: &mut Ctx, value: f64) -> f64 {
+    debug!("emscripten::_llvm_trunc_f64");
+    value.trunc()
+}
+
 pub fn _emscripten_random(_ctx: &mut Ctx) -> f64 {
     debug!("emscripten::_emscripten_random");
     -1.0
 }
 
-// emscripten: f64-rem
+// emscripten: asm2wasm.f64-rem
 pub fn f64_rem(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
     debug!("emscripten::f64-rem");
     x % y
@@ -58,4 +73,10 @@ pub fn exp(_ctx: &mut Ctx, value: f64) -> f64 {
 // emscripten: global.Math log
 pub fn log(_ctx: &mut Ctx, value: f64) -> f64 {
     value.ln()
+}
+
+// emscripten: asm2wasm.f64-to-int
+pub fn f64_to_int(_ctx: &mut Ctx, value: f64) -> i32 {
+    debug!("emscripten::f64_to_int {}", value);
+    value as i32
 }

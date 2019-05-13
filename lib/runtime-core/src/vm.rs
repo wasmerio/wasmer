@@ -11,7 +11,16 @@ use hashbrown::HashMap;
 
 /// The context of the currently running WebAssembly instance.
 ///
+/// This is implicitly passed to every WebAssembly function.
+/// Since this is per-instance, each field has a statically
+/// (as in after compiling the wasm) known size, so no
+/// runtime checks are necessary.
 ///
+/// While the runtime currently just passes this around
+/// as the first, implicit parameter of every function,
+/// it may someday be pinned to a register (especially
+/// on arm, which has a ton of registers) to reduce
+/// register shuffling.
 #[derive(Debug)]
 #[repr(C)]
 pub struct Ctx {
@@ -20,12 +29,26 @@ pub struct Ctx {
 
     pub(crate) local_functions: *const *const Func,
 
+    /// These are pointers to things that are known to be owned
+    /// by the owning `Instance`.
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
-    module: *const ModuleInner,
+    pub module: *const ModuleInner,
 
+    //// This is intended to be user-supplied, per-instance
+    /// contextual data. There are currently some issue with it,
+    /// notably that it cannot be set before running the `start`
+    /// function in a WebAssembly module.
+    ///
+    /// [#219](https://github.com/wasmerio/wasmer/pull/219) fixes that
+    /// issue, as well as allowing the user to have *per-function*
+    /// context, instead of just per-instance.
     pub data: *mut c_void,
-    pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
+
+    /// If there's a function set in this field, it gets called
+    /// when the context is destructed, e.g. when an `Instance`
+    /// is dropped.
+    pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
 
 /// The internal context of the currently running WebAssembly instance.
@@ -100,7 +123,7 @@ impl Ctx {
         import_backing: &mut ImportBacking,
         module: &ModuleInner,
         data: *mut c_void,
-        data_finalizer: extern "C" fn(*mut c_void),
+        data_finalizer: fn(*mut c_void),
     ) -> Self {
         Self {
             internal: InternalCtx {
@@ -481,7 +504,7 @@ mod vm_ctx_tests {
         str: String,
     }
 
-    extern "C" fn test_data_finalizer(data: *mut c_void) {
+    fn test_data_finalizer(data: *mut c_void) {
         let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
         assert_eq!(test_data.x, 10);
         assert_eq!(test_data.y, true);
@@ -544,52 +567,38 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{
-            sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
-        };
+        use crate::backend::{sys::Memory, Backend, CacheGen, RunnableModule};
         use crate::cache::Error as CacheError;
-        use crate::error::RuntimeResult;
-        use crate::types::{FuncIndex, LocalFuncIndex, Value};
+        use crate::typed_func::Wasm;
+        use crate::types::{LocalFuncIndex, SigIndex};
         use hashbrown::HashMap;
+        use std::any::Any;
         use std::ptr::NonNull;
         struct Placeholder;
-        impl FuncResolver for Placeholder {
-            fn get(
+        impl RunnableModule for Placeholder {
+            fn get_func(
                 &self,
-                _module: &ModuleInner,
+                _module: &ModuleInfo,
                 _local_func_index: LocalFuncIndex,
             ) -> Option<NonNull<Func>> {
                 None
             }
-        }
-        impl ProtectedCaller for Placeholder {
-            fn call(
-                &self,
-                _module: &ModuleInner,
-                _func_index: FuncIndex,
-                _params: &[Value],
-                _import_backing: &ImportBacking,
-                _vmctx: *mut Ctx,
-                _: Token,
-            ) -> RuntimeResult<Vec<Value>> {
-                Ok(vec![])
+
+            fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
+                unimplemented!()
             }
-            fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+            unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
                 unimplemented!()
             }
         }
         impl CacheGen for Placeholder {
-            fn generate_cache(
-                &self,
-                module: &ModuleInner,
-            ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+            fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
                 unimplemented!()
             }
         }
 
         ModuleInner {
-            func_resolver: Box::new(Placeholder),
-            protected_caller: Box::new(Placeholder),
+            runnable_module: Box::new(Placeholder),
             cache_gen: Box::new(Placeholder),
             info: ModuleInfo {
                 memories: Map::new(),

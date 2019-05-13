@@ -1,4 +1,6 @@
 use crate::varargs::VarArgs;
+#[cfg(target_os = "macos")]
+use libc::size_t;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
@@ -53,10 +55,10 @@ use libc::{
     sendto,
     setpgid,
     setsockopt,
-    size_t,
     sockaddr,
     socket,
     socklen_t,
+    stat,
     symlink,
     uid_t,
     uname,
@@ -73,6 +75,7 @@ use libc::{
 };
 use wasmer_runtime_core::vm::Ctx;
 
+use crate::utils;
 #[allow(unused_imports)]
 use std::io::Error;
 use std::mem;
@@ -88,7 +91,7 @@ extern "C" {
 }
 
 #[cfg(not(target_os = "macos"))]
-use libc::{fallocate, fdatasync, ftruncate64, lstat64, madvise, wait4};
+use libc::{fallocate, fdatasync, ftruncate64, lstat, madvise, wait4};
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
@@ -249,8 +252,9 @@ pub fn ___syscall33(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
     let result = unsafe { access(path, amode) };
     debug!(
-        "=> path: {}, result: {}",
+        "=> path: {}, amode: {}, result: {}",
         unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
+        amode,
         result
     );
     result
@@ -352,8 +356,13 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     debug!("emscripten::___syscall54 (ioctl) {}", _which);
     let fd: i32 = varargs.get(ctx);
     let request: u32 = varargs.get(ctx);
-    debug!("fd: {}, op: {}", fd, request);
+    debug!("=> fd: {}, op: {}", fd, request);
     // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
+    // let argp: u32 = varargs.get(ctx);
+    // let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
+    // let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
+    // debug!("=> {}", ret);
+    // ret
     match request as _ {
         21537 => {
             // FIONBIO
@@ -763,19 +772,28 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) {}", _which);
     let path_ptr: c_int = varargs.get(ctx);
-    let buf_ptr: c_int = varargs.get(ctx);
-    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const c_char;
-    let buf = emscripten_memory_pointer!(ctx.memory(0), buf_ptr) as *mut c_void;
-    let result = unsafe { lstat64(path, buf as _) };
-    debug!(
-        "=> path: {}, buf: {} = fd: {}\npath: {}\nlast os error: {}",
-        path_ptr,
-        buf_ptr,
-        result,
-        unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
-        Error::last_os_error(),
-    );
-    result
+    let buf_ptr: u32 = varargs.get(ctx);
+    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
+    unsafe {
+        let mut stat: stat = std::mem::zeroed();
+
+        #[cfg(target_os = "macos")]
+        let stat_ptr = &mut stat as *mut stat as *mut c_void;
+        #[cfg(not(target_os = "macos"))]
+        let stat_ptr = &mut stat as *mut stat;
+
+        #[cfg(target_os = "macos")]
+        let ret = lstat64(path, stat_ptr);
+        #[cfg(not(target_os = "macos"))]
+        let ret = lstat(path, stat_ptr);
+
+        debug!("ret: {}", ret);
+        if ret != 0 {
+            return ret;
+        }
+        utils::copy_stat_into_wasm(ctx, buf_ptr, &stat);
+    }
+    0
 }
 
 /// fallocate

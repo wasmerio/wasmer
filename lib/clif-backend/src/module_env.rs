@@ -50,6 +50,20 @@ impl<'module, 'isa> ModuleEnv<'module, 'isa> {
 
         Ok(self.func_bodies)
     }
+
+    /// Return the global for the given global index.
+    pub fn get_global(&self, global_index: cranelift_wasm::GlobalIndex) -> &cranelift_wasm::Global {
+        &self.globals[Converter(global_index).into()]
+    }
+
+    /// Return the signature index for the given function index.
+    pub fn get_func_type(
+        &self,
+        func_index: cranelift_wasm::FuncIndex,
+    ) -> cranelift_wasm::SignatureIndex {
+        let sig_index: SigIndex = self.module.info.func_assoc[Converter(func_index).into()];
+        Converter(sig_index).into()
+    }
 }
 
 impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa> {
@@ -59,14 +73,9 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     }
 
     /// Declares a function signature to the environment.
-    fn declare_signature(&mut self, sig: &ir::Signature) {
+    fn declare_signature(&mut self, sig: ir::Signature) {
         self.signatures.push(sig.clone());
         self.module.info.signatures.push(Converter(sig).into());
-    }
-
-    /// Return the signature with the given index.
-    fn get_signature(&self, clif_sig_index: cranelift_wasm::SignatureIndex) -> &ir::Signature {
-        &self.signatures[Converter(clif_sig_index).into()]
     }
 
     /// Declares a function import to the environment.
@@ -92,11 +101,6 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         });
     }
 
-    /// Return the number of imported funcs.
-    fn get_num_func_imports(&self) -> usize {
-        self.module.info.imported_functions.len()
-    }
-
     /// Declares the type (signature) of a local function in the module.
     fn declare_func_type(&mut self, clif_sig_index: cranelift_wasm::SignatureIndex) {
         // We convert the cranelift signature index to
@@ -104,15 +108,6 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         // because we'll deduplicate later.
         let sig_index = Converter(clif_sig_index).into();
         self.module.info.func_assoc.push(sig_index);
-    }
-
-    /// Return the signature index for the given function index.
-    fn get_func_type(
-        &self,
-        func_index: cranelift_wasm::FuncIndex,
-    ) -> cranelift_wasm::SignatureIndex {
-        let sig_index: SigIndex = self.module.info.func_assoc[Converter(func_index).into()];
-        Converter(sig_index).into()
     }
 
     /// Declares a global to the environment.
@@ -180,11 +175,6 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         self.globals.push(global);
     }
 
-    /// Return the global for the given global index.
-    fn get_global(&self, global_index: cranelift_wasm::GlobalIndex) -> &cranelift_wasm::Global {
-        &self.globals[Converter(global_index).into()]
-    }
-
     /// Declares a table to the environment.
     fn declare_table(&mut self, table: cranelift_wasm::Table) {
         use cranelift_wasm::TableElementType;
@@ -238,7 +228,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         table_index: cranelift_wasm::TableIndex,
         base: Option<cranelift_wasm::GlobalIndex>,
         offset: usize,
-        elements: Vec<cranelift_wasm::FuncIndex>,
+        elements: Box<[cranelift_wasm::FuncIndex]>,
     ) {
         // Convert Cranelift GlobalIndex to wamser GlobalIndex
         // let base = base.map(|index| WasmerGlobalIndex::new(index.index()));
@@ -376,7 +366,11 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     }
 
     /// Provides the contents of a function body.
-    fn define_function_body(&mut self, body_bytes: &'data [u8]) -> cranelift_wasm::WasmResult<()> {
+    fn define_function_body(
+        &mut self,
+        body_bytes: &'data [u8],
+        body_offset: usize,
+    ) -> cranelift_wasm::WasmResult<()> {
         let mut func_translator = FuncTranslator::new();
 
         let func_body = {
@@ -390,7 +384,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
             let mut func = ir::Function::with_name_signature(name, sig);
 
-            func_translator.translate(body_bytes, &mut func, &mut func_env)?;
+            func_translator.translate(body_bytes, body_offset, &mut func, &mut func_env)?;
 
             #[cfg(feature = "debug")]
             {
@@ -530,7 +524,10 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     .special_param(ir::ArgumentPurpose::VMContext)
                     .expect("missing vmctx parameter");
 
-                let func_index = pos.ins().iconst(ir::types::I32, func_index.index() as i64);
+                let func_index = pos.ins().iconst(
+                    ir::types::I32,
+                    func_index.index() as i64 + self.module.info.imported_functions.len() as i64,
+                );
 
                 pos.ins().call(start_debug, &[vmctx, func_index]);
 

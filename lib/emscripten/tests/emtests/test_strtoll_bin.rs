@@ -1,4 +1,5 @@
 #[test]
+#[ignore]
 fn test_test_strtoll_bin() {
     assert_emscripten_output!(
         "../../emtests/test_strtoll_bin.wasm",

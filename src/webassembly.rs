@@ -1,13 +1,6 @@
 use std::panic;
-use wasmer_runtime::{
-    self as runtime,
-    error::{CallResult, Result},
-    ImportObject, Instance, Module,
-};
-use wasmer_runtime_core::backend::CompilerConfig;
-use wasmer_runtime_core::types::Value;
-
-use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
+pub use wasmer_runtime::compile_with_config_with;
+use wasmer_runtime::{self as runtime, error::Result, ImportObject, Instance, Module};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -21,6 +14,7 @@ pub struct ResultObject {
 #[derive(PartialEq)]
 pub enum InstanceABI {
     Emscripten,
+    WASI,
     None,
 }
 
@@ -75,35 +69,4 @@ pub fn instantiate_streaming(
 pub fn compile(buffer_source: &[u8]) -> Result<Module> {
     let module = runtime::compile(buffer_source)?;
     Ok(module)
-}
-
-/// The same as `compile` but takes a `CompilerConfig` for the purpose of
-/// changing the compiler's behavior
-pub fn compile_with_config(
-    buffer_source: &[u8],
-    compiler_config: CompilerConfig,
-) -> Result<Module> {
-    let module = runtime::compile_with_config(buffer_source, compiler_config)?;
-    Ok(module)
-}
-
-/// Performs common instance operations needed when an instance is first run
-/// including data setup, handling arguments and calling a main function
-pub fn run_instance(
-    module: &Module,
-    instance: &mut Instance,
-    path: &str,
-    args: Vec<&str>,
-) -> CallResult<()> {
-    if is_emscripten_module(module) {
-        run_emscripten_instance(module, instance, path, args)?;
-    } else {
-        let args: Vec<Value> = args
-            .into_iter()
-            .map(|x| Value::I32(x.parse().unwrap()))
-            .collect();
-        instance.call("main", &args)?;
-    };
-
-    Ok(())
 }

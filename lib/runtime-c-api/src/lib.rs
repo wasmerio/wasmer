@@ -80,6 +80,7 @@
 //!
 //! [wasmer_h]: ./wasmer.h
 //! [wasmer_hh]: ./wasmer.hh
+#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
 
 extern crate wasmer_runtime;
 extern crate wasmer_runtime_core;

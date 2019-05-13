@@ -1,10 +1,9 @@
 use crate::{
-    backend::{Backend, FuncResolver, ProtectedCaller},
+    backend::{Backend, RunnableModule},
     cache::{Artifact, Error as CacheError},
     error,
     import::ImportObject,
     structures::{Map, TypedIndex},
-    typed_func::EARLY_TRAPPER,
     types::{
         FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
         ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
@@ -22,9 +21,7 @@ use std::sync::Arc;
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
 pub struct ModuleInner {
-    pub func_resolver: Box<dyn FuncResolver>,
-    pub protected_caller: Box<dyn ProtectedCaller>,
-
+    pub runnable_module: Box<dyn RunnableModule>,
     pub cache_gen: Box<dyn CacheGen>,
 
     pub info: ModuleInfo,
@@ -73,7 +70,7 @@ impl ModuleInfo {
                 let len = reader.bytes_remaining();
                 let bytes = reader.read_bytes(len)?;
                 let data = bytes.to_vec();
-                let name = String::from_utf8_lossy(name).to_string();
+                let name = name.to_string();
                 self.custom_sections.insert(name, data);
             }
         }
@@ -94,10 +91,6 @@ pub struct Module {
 
 impl Module {
     pub(crate) fn new(inner: Arc<ModuleInner>) -> Self {
-        unsafe {
-            EARLY_TRAPPER
-                .with(|ucell| *ucell.get() = Some(inner.protected_caller.get_early_trapper()));
-        }
         Module { inner }
     }
 
@@ -128,8 +121,12 @@ impl Module {
     }
 
     pub fn cache(&self) -> Result<Artifact, CacheError> {
-        let (info, backend_metadata, code) = self.inner.cache_gen.generate_cache(&self.inner)?;
-        Ok(Artifact::from_parts(info, backend_metadata, code))
+        let (backend_metadata, code) = self.inner.cache_gen.generate_cache()?;
+        Ok(Artifact::from_parts(
+            Box::new(self.inner.info.clone()),
+            backend_metadata,
+            code,
+        ))
     }
 
     pub fn info(&self) -> &ModuleInfo {

@@ -224,6 +224,7 @@ pub enum TrapCode {
     IntegerDivisionByZero,
     BadConversionToInteger,
     Interrupt,
+    UnreachableCodeReached,
     User(u16),
 }
 
@@ -297,6 +298,7 @@ impl binemit::TrapSink for LocalTrapSink {
             ir::TrapCode::IntegerDivisionByZero => TrapCode::IntegerDivisionByZero,
             ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
             ir::TrapCode::Interrupt => TrapCode::Interrupt,
+            ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
             ir::TrapCode::User(x) => TrapCode::User(x),
         };
 
