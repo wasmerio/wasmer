@@ -11,7 +11,16 @@ use hashbrown::HashMap;
 
 /// The context of the currently running WebAssembly instance.
 ///
+/// This is implicitly passed to every WebAssembly function.
+/// Since this is per-instance, each field has a statically
+/// (as in after compiling the wasm) known size, so no
+/// runtime checks are necessary.
 ///
+/// While the runtime currently just passes this around
+/// as the first, implicit parameter of every function,
+/// it may someday be pinned to a register (especially
+/// on arm, which has a ton of registers) to reduce
+/// register shuffling.
 #[derive(Debug)]
 #[repr(C)]
 pub struct Ctx {
@@ -20,11 +29,25 @@ pub struct Ctx {
 
     pub(crate) local_functions: *const *const Func,
 
+    /// These are pointers to things that are known to be owned
+    /// by the owning `Instance`.
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
     pub module: *const ModuleInner,
 
+    //// This is intended to be user-supplied, per-instance
+    /// contextual data. There are currently some issue with it,
+    /// notably that it cannot be set before running the `start`
+    /// function in a WebAssembly module.
+    ///
+    /// [#219](https://github.com/wasmerio/wasmer/pull/219) fixes that
+    /// issue, as well as allowing the user to have *per-function*
+    /// context, instead of just per-instance.
     pub data: *mut c_void,
+
+    /// If there's a function set in this field, it gets called
+    /// when the context is destructed, e.g. when an `Instance`
+    /// is dropped.
     pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
 

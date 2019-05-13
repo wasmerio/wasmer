@@ -17,29 +17,30 @@ use crate::{
 };
 use std::slice;
 
+/// The `LocalBacking` "owns" the memory used by all the local resources of an Instance.
+/// That is, local memories, tables, and globals (as well as some additional
+/// data for the virtual call machinery).
 #[derive(Debug)]
 pub struct LocalBacking {
+    /// This is a map from the local resource index to actual memory,
+    /// table, and globals.
     pub(crate) memories: BoxedMap<LocalMemoryIndex, Memory>,
     pub(crate) tables: BoxedMap<LocalTableIndex, Table>,
     pub(crate) globals: BoxedMap<LocalGlobalIndex, Global>,
 
+    /// This own the memory containing the pointers to the local memories.
+    /// While simplifying implementation, this adds indirection and may hurt
+    /// performance, especially on cache-starved systems.
     pub(crate) vm_memories: BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory>,
     pub(crate) vm_tables: BoxedMap<LocalTableIndex, *mut vm::LocalTable>,
     pub(crate) vm_globals: BoxedMap<LocalGlobalIndex, *mut vm::LocalGlobal>,
 
+    /// The dynamic sigindices are used to efficiently support caching and
+    /// the `call_indirect` wasm instruction. This field (and local_functions
+    /// as well) are subject to change.
     pub(crate) dynamic_sigindices: BoxedMap<SigIndex, vm::SigId>,
     pub(crate) local_functions: BoxedMap<LocalFuncIndex, *const vm::Func>,
 }
-
-// impl LocalBacking {
-//     pub fn memory(&mut self, local_memory_index: LocalMemoryIndex) -> &mut Memory {
-//         &mut self.memories[local_memory_index]
-//     }
-
-//     pub fn table(&mut self, local_table_index: LocalTableIndex) -> &mut TableBacking {
-//         &mut self.tables[local_table_index]
-//     }
-// }
 
 impl LocalBacking {
     pub(crate) fn new(module: &ModuleInner, imports: &ImportBacking, vmctx: *mut vm::Ctx) -> Self {
@@ -102,6 +103,9 @@ impl LocalBacking {
         memories.into_boxed_map()
     }
 
+    /// Initialize each locally-defined memory in the Module.
+    ///
+    /// This involves copying in the data initializers.
     fn finalize_memories(
         module: &ModuleInner,
         imports: &ImportBacking,
@@ -174,6 +178,9 @@ impl LocalBacking {
         tables.into_boxed_map()
     }
 
+    /// This initializes all of the locally-defined tables in the Module, e.g.
+    /// putting all the table elements (function pointers)
+    /// in the right places.
     #[allow(clippy::cast_ptr_alignment)]
     fn finalize_tables(
         module: &ModuleInner,
