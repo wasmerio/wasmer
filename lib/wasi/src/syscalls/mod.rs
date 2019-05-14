@@ -797,6 +797,7 @@ pub fn fd_renumber(ctx: &mut Ctx, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_
             ..*fd_entry
         },
     );
+    state.fs.fd_map.remove(&from);
     __WASI_ESUCCESS
 }
 
