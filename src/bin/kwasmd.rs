@@ -10,6 +10,7 @@ use wasmer_runtime_core::{
     backend::{CompilerConfig, MemoryBoundCheckMode},
     loader::Instance as LoadedInstance,
 };
+#[cfg(feature = "loader:kwasm")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 
 use std::io::prelude::*;
