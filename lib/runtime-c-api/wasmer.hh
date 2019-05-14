@@ -178,7 +178,7 @@ wasmer_result_t wasmer_export_func_call(const wasmer_export_func_t *func,
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_export_func_params(const wasmer_export_func_t *func,
                                           wasmer_value_tag *params,
-                                          int params_len);
+                                          uint32_t params_len);
 
 /// Sets the result parameter to the arity of the params of the wasmer_export_func_t
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -192,7 +192,7 @@ wasmer_result_t wasmer_export_func_params_arity(const wasmer_export_func_t *func
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_export_func_returns(const wasmer_export_func_t *func,
                                            wasmer_value_tag *returns,
-                                           int returns_len);
+                                           uint32_t returns_len);
 
 /// Sets the result parameter to the arity of the returns of the wasmer_export_func_t
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -313,9 +313,9 @@ wasmer_result_t wasmer_import_func_returns_arity(const wasmer_import_func_t *fun
 wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                      const char *name,
                                      const wasmer_value_t *params,
-                                     int params_len,
+                                     uint32_t params_len,
                                      wasmer_value_t *results,
-                                     int results_len);
+                                     uint32_t results_len);
 
 /// Gets the `data` field within the context.
 void *wasmer_instance_context_data_get(const wasmer_instance_context_t *ctx);
