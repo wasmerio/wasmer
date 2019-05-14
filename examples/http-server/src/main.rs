@@ -25,13 +25,19 @@ fn serve(stream: Arc<TcpStream>, mut all: Vec<u8>) {
                             return;
                         }
                     };
-                    if let Some(pos) = s.find("\r\n\r\n") {
+                    if let Some(_pos) = s.find("\r\n\r\n") {
+                        let body = format!(
+                            "Hello, world!\n",
+                        ).into_bytes();
+                        let stream = stream2.clone();
                         stream2.write_all_async(
                             format!(
-                                "HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\nYour headers: \n\n{}\n",
-                                ::std::str::from_utf8(&all[..pos]).unwrap()
+                                "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+                                body.len()
                             ).into_bytes(),
-                            |result| {}
+                            |_| {
+                                stream.write_all_async(body, |_| {});
+                            }
                         );
                     } else {
                         schedule(|| serve(stream2, all));
