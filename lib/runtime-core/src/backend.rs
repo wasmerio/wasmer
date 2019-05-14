@@ -91,9 +91,12 @@ pub trait RunnableModule: Send + Sync {
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
 
+    /// Returns the machine code associated with this module.
     fn get_code(&self) -> Option<&[u8]> {
         None
     }
+
+    /// Returns the beginning offsets of all functions, including import trampolines.
     fn get_offsets(&self) -> Option<Vec<usize>> {
         None
     }
