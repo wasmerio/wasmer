@@ -767,14 +767,74 @@ pub fn fd_readdir(
 ) -> __wasi_errno_t {
     debug!("wasi::fd_readdir");
     let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    // TODO: figure out how this is supposed to work;
+    // is it supposed to pack the buffer full every time until it can't? or do one at a time?
 
-    if let (Ok(buf_arr_cell), Ok(bufused_cell)) =
-        (buf.deref(memory, 0, buf_len), bufused.deref(memory))
-    {
-        unimplemented!("wasi::fd_readdir")
+    let buf_arr_cell = wasi_try!(buf.deref(memory, 0, buf_len));
+    let bufused_cell = wasi_try!(bufused.deref(memory));
+    let working_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let mut cur_cookie = cookie;
+    let mut buf_idx = 0;
+
+    if let Kind::Dir { path, .. } = &state.fs.inodes[working_dir.inode].kind {
+        // we need to support multiple calls,
+        // simple and obviously correct implementation for now:
+        // maintain consistent order via lexacographic sorting
+        let mut entries = wasi_try!(wasi_try!(std::fs::read_dir(path).map_err(|_| __WASI_EIO))
+            .collect::<Result<Vec<std::fs::DirEntry>, _>>()
+            .map_err(|_| __WASI_EIO));
+        entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
+        for entry in entries.iter().skip(cookie as usize) {
+            cur_cookie += 1;
+            let entry_path = entry.path();
+            let entry_path_str = entry_path.to_string_lossy();
+            let namlen = entry_path_str.len();
+            let dirent = __wasi_dirent_t {
+                d_next: cur_cookie,
+                d_ino: 0, // TODO: inode
+                d_namlen: namlen as u32,
+                d_type: {
+                    let file_type = wasi_try!(entry.file_type().map_err(|_| __WASI_EIO));
+                    // TODO: handle other file types
+                    if file_type.is_dir() {
+                        __WASI_FILETYPE_DIRECTORY
+                    } else if file_type.is_file() {
+                        __WASI_FILETYPE_REGULAR_FILE
+                    } else if file_type.is_symlink() {
+                        __WASI_FILETYPE_SYMBOLIC_LINK
+                    } else {
+                        __WASI_FILETYPE_UNKNOWN
+                    }
+                },
+            };
+            let dirent_bytes = dirent_to_le_bytes(&dirent);
+            let upper_limit = std::cmp::min(
+                buf_len as usize - buf_idx,
+                std::mem::size_of::<__wasi_dirent_t>(),
+            );
+            for i in 0..upper_limit {
+                buf_arr_cell[i + buf_idx].set(dirent_bytes[i]);
+            }
+            buf_idx += upper_limit;
+            if upper_limit != std::mem::size_of::<__wasi_dirent_t>() {
+                break;
+            }
+            let upper_limit = std::cmp::min(buf_len as usize - buf_idx, namlen);
+            for (i, b) in entry_path_str.bytes().take(upper_limit).enumerate() {
+                buf_arr_cell[i + buf_idx].set(b);
+            }
+            buf_idx += upper_limit;
+            if upper_limit != namlen {
+                break;
+            }
+        }
     } else {
-        __WASI_EFAULT
+        return __WASI_ENOTDIR;
     }
+    bufused_cell.set(buf_idx as u32);
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_renumber()`

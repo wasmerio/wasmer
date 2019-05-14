@@ -139,10 +139,10 @@ pub enum Kind {
         handle: WasiFile,
     },
     Dir {
-        // TODO: wrap it like WasiFile
         /// Parent directory
         parent: Option<Inode>,
         /// The path on the host system where the directory is located
+        // TODO: wrap it like WasiFile
         path: PathBuf,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, Inode>,
@@ -439,7 +439,8 @@ impl WasiFs {
         Some(
             path_segments
                 .iter()
-                .fold("".to_string(), |a, b| a + "/" + b),
+                .skip(1)
+                .fold(path_segments.first()?.clone(), |a, b| a + "/" + b),
         )
     }
 }

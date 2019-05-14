@@ -43,6 +43,31 @@ pub struct __wasi_dirent_t {
     pub d_type: __wasi_filetype_t,
 }
 
+unsafe impl ValueType for __wasi_dirent_t {}
+
+pub fn dirent_to_le_bytes(ent: &__wasi_dirent_t) -> Vec<u8> {
+    use std::mem::transmute;
+    let mut out = Vec::with_capacity(std::mem::size_of::<__wasi_dirent_t>());
+    let bytes: [u8; 8] = unsafe { transmute(ent.d_next.to_le()) };
+    for &b in &bytes {
+        out.push(b);
+    }
+    let bytes: [u8; 8] = unsafe { transmute(ent.d_ino.to_le()) };
+    for &b in &bytes {
+        out.push(b);
+    }
+    let bytes: [u8; 4] = unsafe { transmute(ent.d_namlen.to_le()) };
+    for &b in &bytes {
+        out.push(b);
+    }
+    out.push(ent.d_type);
+    out.push(0);
+    out.push(0);
+    out.push(0);
+    assert_eq!(out.len(), std::mem::size_of::<__wasi_dirent_t>());
+    out
+}
+
 pub type __wasi_errno_t = u16;
 pub const __WASI_ESUCCESS: u16 = 0;
 pub const __WASI_E2BIG: u16 = 1;
