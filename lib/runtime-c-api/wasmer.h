@@ -197,7 +197,7 @@ wasmer_result_t wasmer_export_func_call(const wasmer_export_func_t *func,
  */
 wasmer_result_t wasmer_export_func_params(const wasmer_export_func_t *func,
                                           wasmer_value_tag *params,
-                                          int params_len);
+                                          uint32_t params_len);
 
 /**
  * Sets the result parameter to the arity of the params of the wasmer_export_func_t
