@@ -1025,7 +1025,7 @@ pub fn path_create_directory(
     wasi_try!(std::fs::create_dir(&path).map_err(|_| __WASI_EIO));
 
     let kind = Kind::Dir {
-        //parent: Some(working_dir.inode),
+        parent: Some(working_dir.inode),
         path: path.clone(),
         entries: Default::default(),
     };
@@ -1118,6 +1118,7 @@ pub fn path_filestat_get(
                             return __WASI_ENOTDIR;
                         }
                         let kind = Kind::Dir {
+                            parent: Some(inode),
                             path: std::path::PathBuf::from(&segment),
                             entries: Default::default(),
                         };
@@ -1177,6 +1178,7 @@ pub fn path_filestat_get(
                         is_preopened: false, // is this correct?
                         name: last_segment.clone(),
                         kind: Kind::Dir {
+                            parent: Some(inode),
                             path: std::path::PathBuf::from(&last_segment),
                             entries: Default::default(),
                         },
@@ -1361,7 +1363,12 @@ pub fn path_open(
     }
 
     let mut cur_dir_inode = working_dir.inode;
-    let mut cumulative_path = std::path::PathBuf::from(".");
+    let mut cumulative_path = std::path::PathBuf::from(
+        state
+            .fs
+            .get_base_path_for_directory(working_dir.inode)
+            .expect("TODO"),
+    );
 
     // traverse path
     if path_vec.len() > 1 {
@@ -1391,11 +1398,13 @@ pub fn path_open(
                         };
                         // TODO: handle __WASI_O_TRUNC on directories
 
+                        dbg!(&cumulative_path);
                         // TODO: refactor and reuse
                         let cur_file_metadata =
                             wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_EINVAL));
                         let kind = if cur_file_metadata.is_dir() {
                             Kind::Dir {
+                                parent: Some(cur_dir_inode),
                                 path: cumulative_path.clone(),
                                 entries: Default::default(),
                             }
@@ -1457,41 +1466,57 @@ pub fn path_open(
                 .fs
                 .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
         } else {
+            let file_metadata = wasi_try!(file_path.metadata().map_err(|_| __WASI_ENOENT));
             // if entry does not exist in parent directory, try to lazily
             // load it; possibly creating or truncating it if flags set
-            let real_opened_file = {
-                let mut open_options = std::fs::OpenOptions::new();
-                let open_options = open_options.read(true).write(true);
-                let open_options = if o_flags & __WASI_O_CREAT != 0 {
-                    debug!(
-                        "File {} may be created when opened if it does not exist",
-                        &path_string
-                    );
-                    open_options.create(true)
-                } else {
-                    open_options
-                };
-                let open_options = if o_flags & __WASI_O_TRUNC != 0 {
-                    debug!("File {} will be truncated when opened", &path_string);
-                    open_options.truncate(true)
-                } else {
-                    open_options
-                };
-                let real_open_file =
-                    wasi_try!(open_options.open(&file_path).map_err(|_| __WASI_EIO));
-                debug!("Opening host file {}", &path_string);
+            let kind = if file_metadata.is_dir() {
+                // special dir logic
+                Kind::Dir {
+                    parent: Some(cur_dir_inode),
+                    path: file_path.clone(),
+                    entries: Default::default(),
+                }
+            } else {
+                // file is not a dir
+                let real_opened_file = {
+                    let mut open_options = std::fs::OpenOptions::new();
+                    let open_options = open_options.read(true).write(true);
+                    let open_options = if o_flags & __WASI_O_CREAT != 0 {
+                        debug!(
+                            "File {:?} may be created when opened if it does not exist",
+                            &file_path
+                        );
+                        open_options.create(true)
+                    } else {
+                        open_options
+                    };
+                    let open_options = if o_flags & __WASI_O_TRUNC != 0 {
+                        debug!("File {:?} will be truncated when opened", &file_path);
+                        open_options.truncate(true)
+                    } else {
+                        open_options
+                    };
+                    debug!("Opening host file {:?}", &file_path);
+                    let real_open_file = wasi_try!(open_options.open(&file_path).map_err(|e| {
+                        dbg!(e);
+                        __WASI_EIO
+                    }));
 
-                real_open_file
+                    real_open_file
+                };
+                Kind::File {
+                    handle: WasiFile::HostFile(real_opened_file),
+                }
             };
+
             // record lazily loaded or newly created fd
             let new_inode = state.fs.inodes.insert(InodeVal {
                 stat: __wasi_filestat_t::default(),
                 is_preopened: false,
                 name: file_name.clone(),
-                kind: Kind::File {
-                    handle: WasiFile::HostFile(real_opened_file),
-                },
+                kind,
             });
+
             // reborrow to insert entry
             if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
                 entries.insert(file_name.clone(), new_inode);
