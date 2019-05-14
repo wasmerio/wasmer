@@ -5,15 +5,15 @@ use crate::{
     export::{Context, Export, ExportIter, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
+    loader::Loader,
     memory::Memory,
     module::{ExportIndex, Module, ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
+    structures::TypedIndex,
     table::Table,
     typed_func::{Func, Wasm, WasmTrapInfo, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Type, Value},
     vm,
-    loader::Loader,
-    structures::TypedIndex,
 };
 use smallvec::{smallvec, SmallVec};
 use std::{mem, ptr::NonNull, sync::Arc};
@@ -130,7 +130,9 @@ impl Instance {
     }
 
     pub fn load<T: Loader>(&self, loader: T) -> ::std::result::Result<T::Instance, T::Error> {
-        loader.load(&*self.module.runnable_module, &self.module.info, unsafe { &*self.inner.vmctx })
+        loader.load(&*self.module.runnable_module, &self.module.info, unsafe {
+            &*self.inner.vmctx
+        })
     }
 
     /// Through generic magic and the awe-inspiring power of traits, we bring you...

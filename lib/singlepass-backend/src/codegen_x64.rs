@@ -10,7 +10,9 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{sys::Memory, Backend, CacheGen, Token, RunnableModule, CompilerConfig, MemoryBoundCheckMode},
+    backend::{
+        sys::Memory, Backend, CacheGen, CompilerConfig, MemoryBoundCheckMode, RunnableModule, Token,
+    },
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -318,19 +320,18 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     }
 
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
-        let (mut assembler, mut function_labels, breakpoints) =
-            match self.functions.last_mut() {
-                Some(x) => (
-                    x.assembler.take().unwrap(),
-                    x.function_labels.take().unwrap(),
-                    x.breakpoints.take().unwrap(),
-                ),
-                None => (
-                    self.assembler.take().unwrap(),
-                    self.function_labels.take().unwrap(),
-                    HashMap::new(),
-                ),
-            };
+        let (mut assembler, mut function_labels, breakpoints) = match self.functions.last_mut() {
+            Some(x) => (
+                x.assembler.take().unwrap(),
+                x.function_labels.take().unwrap(),
+                x.breakpoints.take().unwrap(),
+            ),
+            None => (
+                self.assembler.take().unwrap(),
+                self.function_labels.take().unwrap(),
+                HashMap::new(),
+            ),
+        };
         let begin_offset = assembler.offset();
         let begin_label_info = function_labels
             .entry(self.functions.len() + self.func_import_count)
@@ -365,12 +366,12 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(self.functions.last_mut().unwrap())
     }
 
-    fn finalize(mut self, _: &ModuleInfo) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
+    fn finalize(
+        mut self,
+        _: &ModuleInfo,
+    ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
         let (assembler, breakpoints) = match self.functions.last_mut() {
-            Some(x) => (
-                x.assembler.take().unwrap(),
-                x.breakpoints.take().unwrap(),
-            ),
+            Some(x) => (x.assembler.take().unwrap(), x.breakpoints.take().unwrap()),
             None => {
                 return Err(CodegenError {
                     message: "no function",
@@ -1232,7 +1233,7 @@ impl X64FunctionCode {
             MemoryBoundCheckMode::Enable => true,
             MemoryBoundCheckMode::Disable => false,
         };
-        
+
         let tmp_addr = m.acquire_temp_gpr().unwrap();
         let tmp_base = m.acquire_temp_gpr().unwrap();
         let tmp_bound = m.acquire_temp_gpr().unwrap();
@@ -1429,7 +1430,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     GPR::RDI, // first parameter is vmctx
                     vm::Ctx::offset_stack_lower_bound() as i32,
                 ),
-                Location::GPR(GPR::RSP)
+                Location::GPR(GPR::RSP),
             );
             a.emit_conditional_trap(Condition::Below);
         }
@@ -3329,13 +3330,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let memory_index = MemoryIndex::new(reserved as usize);
                 a.emit_mov(
                     Size::S64,
-                    Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_intrinsics() as i32),
-                    Location::GPR(GPR::RAX)
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        vm::Ctx::offset_intrinsics() as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
                 );
                 a.emit_mov(
                     Size::S64,
                     Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_size() as i32),
-                    Location::GPR(GPR::RAX)
+                    Location::GPR(GPR::RAX),
                 );
                 Self::emit_call_sysv(
                     a,
@@ -3359,13 +3363,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 a.emit_mov(
                     Size::S64,
-                    Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_intrinsics() as i32),
-                    Location::GPR(GPR::RAX)
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        vm::Ctx::offset_intrinsics() as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
                 );
                 a.emit_mov(
                     Size::S64,
                     Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_grow() as i32),
-                    Location::GPR(GPR::RAX)
+                    Location::GPR(GPR::RAX),
                 );
 
                 Self::emit_call_sysv(
@@ -4091,10 +4098,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
                 a.emit_jmp(Condition::AboveEqual, default_br);
 
-                a.emit_lea_label(
-                    table_label,
-                    Location::GPR(GPR::RCX),
-                );
+                a.emit_lea_label(table_label, Location::GPR(GPR::RCX));
                 a.emit_mov(Size::S32, cond, Location::GPR(GPR::RDX));
                 a.emit_imul_imm32_gpr64(5, GPR::RDX);
                 a.emit_add(Size::S64, Location::GPR(GPR::RCX), Location::GPR(GPR::RDX));

@@ -1,24 +1,21 @@
+use crate::{backend::RunnableModule, module::ModuleInfo, types::Value, vm::Ctx};
+#[cfg(unix)]
+use libc::{mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE};
 use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
-};
-use crate::{
-    backend::RunnableModule,
-    vm::Ctx,
-    module::ModuleInfo,
-    types::Value,
-};
-#[cfg(unix)]
-use libc::{
-    mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ,
-    PROT_WRITE,
 };
 
 pub trait Loader {
     type Instance: Instance;
     type Error: Debug;
 
-    fn load(&self, rm: &dyn RunnableModule, module: &ModuleInfo, ctx: &Ctx) -> Result<Self::Instance, Self::Error>;
+    fn load(
+        &self,
+        rm: &dyn RunnableModule,
+        module: &ModuleInfo,
+        ctx: &Ctx,
+    ) -> Result<Self::Instance, Self::Error>;
 }
 
 pub trait Instance {
@@ -39,7 +36,12 @@ impl Loader for LocalLoader {
     type Instance = LocalInstance;
     type Error = String;
 
-    fn load(&self, rm: &dyn RunnableModule, _module: &ModuleInfo, _ctx: &Ctx) -> Result<Self::Instance, Self::Error> {
+    fn load(
+        &self,
+        rm: &dyn RunnableModule,
+        _module: &ModuleInfo,
+        _ctx: &Ctx,
+    ) -> Result<Self::Instance, Self::Error> {
         let code = rm.get_code().unwrap();
         let mut code_mem = CodeMemory::new(code.len());
         code_mem[..code.len()].copy_from_slice(code);
@@ -67,11 +69,29 @@ impl Instance for LocalInstance {
             match args.len() {
                 0 => (transmute::<_, extern "C" fn() -> u64>(addr))(),
                 1 => (transmute::<_, extern "C" fn(u64) -> u64>(addr))(args[0].to_u64()),
-                2 => (transmute::<_, extern "C" fn(u64, u64) -> u64>(addr))(args[0].to_u64(), args[1].to_u64()),
-                3 => (transmute::<_, extern "C" fn(u64, u64, u64) -> u64>(addr))(args[0].to_u64(), args[1].to_u64(), args[2].to_u64()),
-                4 => (transmute::<_, extern "C" fn(u64, u64, u64, u64) -> u64>(addr))(args[0].to_u64(), args[1].to_u64(), args[2].to_u64(), args[3].to_u64()),
-                5 => (transmute::<_, extern "C" fn(u64, u64, u64, u64, u64) -> u64>(addr))(args[0].to_u64(), args[1].to_u64(), args[2].to_u64(), args[3].to_u64(), args[4].to_u64()),
-                _ => return Err("too many arguments".into())
+                2 => (transmute::<_, extern "C" fn(u64, u64) -> u64>(addr))(
+                    args[0].to_u64(),
+                    args[1].to_u64(),
+                ),
+                3 => (transmute::<_, extern "C" fn(u64, u64, u64) -> u64>(addr))(
+                    args[0].to_u64(),
+                    args[1].to_u64(),
+                    args[2].to_u64(),
+                ),
+                4 => (transmute::<_, extern "C" fn(u64, u64, u64, u64) -> u64>(addr))(
+                    args[0].to_u64(),
+                    args[1].to_u64(),
+                    args[2].to_u64(),
+                    args[3].to_u64(),
+                ),
+                5 => (transmute::<_, extern "C" fn(u64, u64, u64, u64, u64) -> u64>(addr))(
+                    args[0].to_u64(),
+                    args[1].to_u64(),
+                    args[2].to_u64(),
+                    args[3].to_u64(),
+                    args[4].to_u64(),
+                ),
+                _ => return Err("too many arguments".into()),
             }
         })
     }
@@ -129,23 +149,21 @@ impl CodeMemory {
 #[cfg(unix)]
 impl Drop for CodeMemory {
     fn drop(&mut self) {
-        unsafe { munmap(self.ptr as _, self.size); }
+        unsafe {
+            munmap(self.ptr as _, self.size);
+        }
     }
 }
 
 impl Deref for CodeMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe {
-            ::std::slice::from_raw_parts(self.ptr, self.size)
-        }
+        unsafe { ::std::slice::from_raw_parts(self.ptr, self.size) }
     }
 }
 
 impl DerefMut for CodeMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe {
-            ::std::slice::from_raw_parts_mut(self.ptr, self.size)
-        }
+        unsafe { ::std::slice::from_raw_parts_mut(self.ptr, self.size) }
     }
 }

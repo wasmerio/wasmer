@@ -21,6 +21,7 @@ pub mod export;
 pub mod global;
 pub mod import;
 pub mod instance;
+pub mod loader;
 pub mod memory;
 pub mod module;
 pub mod parse;
@@ -34,7 +35,6 @@ pub mod units;
 pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
-pub mod loader;
 
 use self::error::CompileResult;
 #[doc(inline)]

@@ -1,14 +1,17 @@
 pub mod service;
 
+use service::{ImportInfo, LoadProfile, RunProfile, ServiceContext, TableEntryRequest};
 use wasmer_runtime_core::{
-    loader::{self, Loader, Instance},
     backend::RunnableModule,
-    vm::{Ctx, LocalGlobal, SigId, Anyfunc},
+    loader::{self, Instance, Loader},
     module::ModuleInfo,
-    types::{Value, LocalMemoryIndex, LocalTableIndex, ImportedMemoryIndex, ImportedTableIndex, FuncIndex},
     structures::TypedIndex,
+    types::{
+        FuncIndex, ImportedMemoryIndex, ImportedTableIndex, LocalMemoryIndex, LocalTableIndex,
+        Value,
+    },
+    vm::{Anyfunc, Ctx, LocalGlobal, SigId},
 };
-use service::{ServiceContext, LoadProfile, RunProfile, TableEntryRequest, ImportInfo};
 
 pub struct KernelLoader;
 
@@ -16,7 +19,12 @@ impl Loader for KernelLoader {
     type Instance = KernelInstance;
     type Error = String;
 
-    fn load(&self, rm: &dyn RunnableModule, module: &ModuleInfo, full_ctx: &Ctx) -> Result<Self::Instance, Self::Error> {
+    fn load(
+        &self,
+        rm: &dyn RunnableModule,
+        module: &ModuleInfo,
+        full_ctx: &Ctx,
+    ) -> Result<Self::Instance, Self::Error> {
         let ctx = &full_ctx.internal;
         let code = rm.get_code().unwrap();
         let memory = if let Some(_) = module.memories.get(LocalMemoryIndex::new(0)) {
@@ -28,54 +36,76 @@ impl Loader for KernelLoader {
         } else {
             None
         };
-        let table: Option<Vec<TableEntryRequest>> = if let Some(_) = module.tables.get(LocalTableIndex::new(0)) {
-            Some(unsafe {
-                let table = &**ctx.tables;
-                let elements: &[Anyfunc] = ::std::slice::from_raw_parts(table.base as *const Anyfunc, table.count);
-                let base_addr = code.as_ptr() as usize;
-                let end_addr = base_addr + code.len();
-                elements.iter().map(|x| {
-                    let func_addr = x.func as usize;
-                    TableEntryRequest {
-                        offset: if x.func.is_null() || func_addr < base_addr || func_addr >= end_addr {
-                            ::std::usize::MAX
-                        } else {
-                            x.func as usize - base_addr
-                        },
-                        sig_id: x.sig_id.0,
-                    }
-                }).collect()
-            })
-        } else if let Some(_) = module.imported_tables.get(ImportedTableIndex::new(0)) {
-            return Err("imported table is not supported".into());
-        } else {
-            None
-        };
+        let table: Option<Vec<TableEntryRequest>> =
+            if let Some(_) = module.tables.get(LocalTableIndex::new(0)) {
+                Some(unsafe {
+                    let table = &**ctx.tables;
+                    let elements: &[Anyfunc] =
+                        ::std::slice::from_raw_parts(table.base as *const Anyfunc, table.count);
+                    let base_addr = code.as_ptr() as usize;
+                    let end_addr = base_addr + code.len();
+                    elements
+                        .iter()
+                        .map(|x| {
+                            let func_addr = x.func as usize;
+                            TableEntryRequest {
+                                offset: if x.func.is_null()
+                                    || func_addr < base_addr
+                                    || func_addr >= end_addr
+                                {
+                                    ::std::usize::MAX
+                                } else {
+                                    x.func as usize - base_addr
+                                },
+                                sig_id: x.sig_id.0,
+                            }
+                        })
+                        .collect()
+                })
+            } else if let Some(_) = module.imported_tables.get(ImportedTableIndex::new(0)) {
+                return Err("imported table is not supported".into());
+            } else {
+                None
+            };
         if module.imported_globals.len() > 0 {
             return Err("imported globals are not supported".into());
         }
         let globals: Vec<u64> = unsafe {
-            let globals: &[*mut LocalGlobal] = ::std::slice::from_raw_parts(ctx.globals, module.globals.len());
+            let globals: &[*mut LocalGlobal] =
+                ::std::slice::from_raw_parts(ctx.globals, module.globals.len());
             globals.iter().map(|x| (**x).data).collect()
         };
         let mut import_names: Vec<ImportInfo> = vec![];
         for (idx, import) in &module.imported_functions {
-            let name = format!("{}##{}", module.namespace_table.get(import.namespace_index), module.name_table.get(import.name_index));
-            let sig = module.signatures.get(
-                *module.func_assoc.get(FuncIndex::new(idx.index())).unwrap()
-            ).unwrap();
+            let name = format!(
+                "{}##{}",
+                module.namespace_table.get(import.namespace_index),
+                module.name_table.get(import.name_index)
+            );
+            let sig = module
+                .signatures
+                .get(*module.func_assoc.get(FuncIndex::new(idx.index())).unwrap())
+                .unwrap();
             import_names.push(ImportInfo {
                 name: name,
                 param_count: sig.params().len(),
             });
         }
         let dynamic_sigindices: &[u32] = unsafe {
-            ::std::mem::transmute::<&[SigId], &[u32]>(
-                ::std::slice::from_raw_parts(ctx.dynamic_sigindices, full_ctx.dynamic_sigindice_count())
-            )
+            ::std::mem::transmute::<&[SigId], &[u32]>(::std::slice::from_raw_parts(
+                ctx.dynamic_sigindices,
+                full_ctx.dynamic_sigindice_count(),
+            ))
         };
         let param_counts: Vec<usize> = (0..module.func_assoc.len())
-            .map(|x| module.signatures.get(*module.func_assoc.get(FuncIndex::new(x)).unwrap()).unwrap().params().len())
+            .map(|x| {
+                module
+                    .signatures
+                    .get(*module.func_assoc.get(FuncIndex::new(x)).unwrap())
+                    .unwrap()
+                    .params()
+                    .len()
+            })
             .collect();
         let profile = LoadProfile {
             code: code,
@@ -109,18 +139,25 @@ impl Instance for KernelInstance {
         }
         let args: Vec<u64> = args.iter().map(|x| x.to_u64()).collect();
 
-        let ret = self.context.run_code(RunProfile {
-            entry_offset: self.offsets[id] as u32,
-            params: &args,
-        }).map_err(|x| format!("{:?}", x))?;
+        let ret = self
+            .context
+            .run_code(RunProfile {
+                entry_offset: self.offsets[id] as u32,
+                params: &args,
+            })
+            .map_err(|x| format!("{:?}", x))?;
         Ok(ret)
     }
 
     fn read_memory(&mut self, offset: u32, len: u32) -> Result<Vec<u8>, String> {
-        self.context.read_memory(offset, len).map_err(|x| format!("{:?}", x))
+        self.context
+            .read_memory(offset, len)
+            .map_err(|x| format!("{:?}", x))
     }
 
     fn write_memory(&mut self, offset: u32, len: u32, buf: &[u8]) -> Result<(), String> {
-        self.context.write_memory(offset, len, buf).map_err(|x| format!("{:?}", x))
+        self.context
+            .write_memory(offset, len, buf)
+            .map_err(|x| format!("{:?}", x))
     }
 }

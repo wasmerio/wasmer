@@ -1,6 +1,6 @@
+use std::error::Error;
 use std::fs::File;
 use std::io;
-use std::error::Error;
 use std::os::unix::io::AsRawFd;
 
 macro_rules! impl_debug_display {
@@ -10,7 +10,7 @@ macro_rules! impl_debug_display {
                 <Self as ::std::fmt::Debug>::fmt(self, f)
             }
         }
-    }
+    };
 }
 
 #[repr(i32)]
@@ -26,7 +26,7 @@ pub enum ServiceError {
     Io(io::Error),
     Code(i32),
     InvalidInput,
-    Rejected
+    Rejected,
 }
 
 pub type ServiceResult<T> = Result<T, ServiceError>;
@@ -125,29 +125,36 @@ pub struct RunProfile<'a> {
 }
 
 pub struct ServiceContext {
-    dev: File
+    dev: File,
 }
 
 impl ServiceContext {
     pub fn new(load: LoadProfile) -> ServiceResult<ServiceContext> {
         let dev = File::open("/dev/wasmctl")?;
-        let imports: Vec<ImportRequest> = load.imports.iter().map(|x| {
-            let mut req = ImportRequest {
-                name: [0u8; 64],
-                param_count: x.param_count as u32,
-            };
-            let name = x.name.as_bytes();
-            let mut count = req.name.len() - 1;
-            if name.len() < count {
-                count = name.len();
-            }
-            req.name[..count].copy_from_slice(&name[..count]);
-            req
-        }).collect();
+        let imports: Vec<ImportRequest> = load
+            .imports
+            .iter()
+            .map(|x| {
+                let mut req = ImportRequest {
+                    name: [0u8; 64],
+                    param_count: x.param_count as u32,
+                };
+                let name = x.name.as_bytes();
+                let mut count = req.name.len() - 1;
+                if name.len() < count {
+                    count = name.len();
+                }
+                req.name[..count].copy_from_slice(&name[..count]);
+                req
+            })
+            .collect();
         let req = LoadCodeRequest {
             code: load.code.as_ptr(),
             code_len: load.code.len() as u32,
-            memory: load.memory.map(|x| x.as_ptr()).unwrap_or(::std::ptr::null()),
+            memory: load
+                .memory
+                .map(|x| x.as_ptr())
+                .unwrap_or(::std::ptr::null()),
             memory_len: load.memory.map(|x| x.len() as u32).unwrap_or(0),
             memory_max: load.memory_max as u32,
             table: load.table.map(|x| x.as_ptr()).unwrap_or(::std::ptr::null()),
@@ -164,15 +171,13 @@ impl ServiceContext {
             ::libc::ioctl(
                 fd,
                 Command::LoadCode as i32 as ::libc::c_ulong,
-                &req as *const _ as ::libc::c_ulong
+                &req as *const _ as ::libc::c_ulong,
             )
         };
         if ret != 0 {
             Err(ServiceError::Code(ret))
         } else {
-            Ok(ServiceContext {
-                dev: dev,
-            })
+            Ok(ServiceContext { dev: dev })
         }
     }
 
@@ -189,7 +194,7 @@ impl ServiceContext {
             ::libc::ioctl(
                 fd,
                 Command::RunCode as i32 as ::libc::c_ulong,
-                &mut req as *mut _ as ::libc::c_ulong
+                &mut req as *mut _ as ::libc::c_ulong,
             )
         };
         if err < 0 {
@@ -217,7 +222,7 @@ impl ServiceContext {
             ::libc::ioctl(
                 fd,
                 Command::ReadMemory as i32 as ::libc::c_ulong,
-                &req as *const _ as ::libc::c_ulong
+                &req as *const _ as ::libc::c_ulong,
             )
         };
         if err < 0 {
@@ -238,7 +243,7 @@ impl ServiceContext {
             ::libc::ioctl(
                 fd,
                 Command::WriteMemory as i32 as ::libc::c_ulong,
-                &req as *const _ as ::libc::c_ulong
+                &req as *const _ as ::libc::c_ulong,
             )
         };
         if err < 0 {

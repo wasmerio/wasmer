@@ -315,7 +315,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 enforce_stack_check: true,
             },
             &*compiler,
-        ).map_err(|e| format!("Can't compile module: {:?}", e))?
+        )
+        .map_err(|e| format!("Can't compile module: {:?}", e))?
     } else if disable_cache {
         webassembly::compile_with_config_with(
             &wasm_binary[..],
@@ -324,7 +325,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 ..Default::default()
             },
             &*compiler,
-        ).map_err(|e| format!("Can't compile module: {:?}", e))?
+        )
+        .map_err(|e| format!("Can't compile module: {:?}", e))?
     } else {
         // If we have cache enabled
 
@@ -388,7 +390,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             LoaderName::Kernel => Box::new(instance.load(::kwasm_loader::KernelLoader).unwrap()),
         };
         println!("{:?}", ins.call(index, &args));
-        return Ok(())
+        return Ok(());
     }
 
     // TODO: refactor this

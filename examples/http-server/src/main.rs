@@ -1,6 +1,6 @@
 #![feature(wasi_ext)]
 
-use kwasm_net::{Epoll, Tcp4Listener, TcpStream, schedule};
+use kwasm_net::{schedule, Epoll, Tcp4Listener, TcpStream};
 use std::sync::Arc;
 
 fn serve(stream: Arc<TcpStream>, mut all: Vec<u8>) {
@@ -55,16 +55,14 @@ fn main() {
     let epoll = Arc::new(Epoll::new());
     let listener = Arc::new(Tcp4Listener::new("0.0.0.0", 2011, 128).unwrap());
 
-    listener.accept_async(epoll.clone(), |stream| {
-        match stream {
-            Ok(stream) => {
-                serve(stream, vec![]);
-                Ok(())
-            },
-            Err(code) => {
-                println!("failed to accept; code = {}", code);
-                Err(())
-            }
+    listener.accept_async(epoll.clone(), |stream| match stream {
+        Ok(stream) => {
+            serve(stream, vec![]);
+            Ok(())
+        }
+        Err(code) => {
+            println!("failed to accept; code = {}", code);
+            Err(())
         }
     });
     println!("start epoll");

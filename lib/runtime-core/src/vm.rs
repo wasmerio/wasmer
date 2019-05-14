@@ -300,9 +300,7 @@ impl Ctx {
 
     /// Returns the number of dynamic sigindices.
     pub fn dynamic_sigindice_count(&self) -> usize {
-        unsafe {
-            (*self.local_backing).dynamic_sigindices.len()
-        }
+        unsafe { (*self.local_backing).dynamic_sigindices.len() }
     }
 }
 

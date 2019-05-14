@@ -57,7 +57,9 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     /// Adds an import function.
     fn feed_import_function(&mut self) -> Result<(), E>;
 
-    fn feed_compiler_config(&mut self, _config: &CompilerConfig) -> Result<(), E> { Ok(()) }
+    fn feed_compiler_config(&mut self, _config: &CompilerConfig) -> Result<(), E> {
+        Ok(())
+    }
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
 

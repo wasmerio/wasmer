@@ -1,21 +1,19 @@
-extern crate structopt;
 extern crate byteorder;
+extern crate structopt;
 
 use std::thread;
 use structopt::StructOpt;
 use wasmer::*;
-use wasmer_runtime::{
-    Value,
-};
+use wasmer_runtime::Value;
 use wasmer_runtime_core::{
     self,
     backend::{CompilerConfig, MemoryBoundCheckMode},
-    loader::{Instance as LoadedInstance},
+    loader::Instance as LoadedInstance,
 };
 use wasmer_singlepass_backend::SinglePassCompiler;
 
-use std::os::unix::net::{UnixStream, UnixListener};
 use std::io::prelude::*;
+use std::os::unix::net::{UnixListener, UnixStream};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
@@ -54,7 +52,8 @@ fn handle_client(mut stream: UnixStream) {
             enforce_stack_check: true,
         },
         &SinglePassCompiler::new(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut import_object = wasmer_runtime_core::import::ImportObject::new();
     import_object.allow_missing_functions = true; // Import initialization might be left to the loader.
@@ -90,13 +89,13 @@ fn handle_client(mut stream: UnixStream) {
                     Ok(x) => {
                         stream.write_u32::<LittleEndian>(1).unwrap();
                         stream.write_u64::<LittleEndian>(x).unwrap();
-                    },
+                    }
                     Err(e) => {
                         println!("Execution error: {:?}", e);
                         stream.write_u32::<LittleEndian>(0).unwrap();
-                    },
+                    }
                 }
-            },
+            }
             CMD_READ_MEMORY => {
                 let offset = stream.read_u32::<LittleEndian>().unwrap();
                 let len = stream.read_u32::<LittleEndian>().unwrap();
@@ -106,7 +105,7 @@ fn handle_client(mut stream: UnixStream) {
                 }
                 let buf = ins.read_memory(offset, len).unwrap();
                 stream.write_all(&buf).unwrap();
-            },
+            }
             CMD_WRITE_MEMORY => {
                 let offset = stream.read_u32::<LittleEndian>().unwrap();
                 let len = stream.read_u32::<LittleEndian>().unwrap();
@@ -118,7 +117,7 @@ fn handle_client(mut stream: UnixStream) {
                 unsafe { buf.set_len(len as usize) };
                 stream.read_exact(&mut buf).unwrap();
                 ins.write_memory(offset, len, &buf).unwrap();
-            },
+            }
             _ => {
                 println!("Unknown command");
                 return;
@@ -137,7 +136,7 @@ fn run_listen(opts: Listen) {
                     match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
                         handle_client(stream);
                     })) {
-                        Ok(()) => {},
+                        Ok(()) => {}
                         Err(_) => {}
                     }
                 });

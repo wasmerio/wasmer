@@ -91,8 +91,12 @@ pub trait RunnableModule: Send + Sync {
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
 
-    fn get_code(&self) -> Option<&[u8]> { None }
-    fn get_offsets(&self) -> Option<Vec<usize>> { None }
+    fn get_code(&self) -> Option<&[u8]> {
+        None
+    }
+    fn get_offsets(&self) -> Option<Vec<usize>> {
+        None
+    }
 }
 
 pub trait CacheGen: Send + Sync {
