@@ -40,8 +40,13 @@ impl Loader for KernelLoader {
             if let Some(_) = module.tables.get(LocalTableIndex::new(0)) {
                 Some(unsafe {
                     let table = &**ctx.tables;
-                    let elements: &[Anyfunc] =
-                        ::std::slice::from_raw_parts(table.base as *const Anyfunc, table.count);
+                    let elements: &[Anyfunc];
+                    #[allow(clippy::cast_ptr_alignment)]
+                    {
+                        elements =
+                            ::std::slice::from_raw_parts(table.base as *const Anyfunc, table.count);
+                    }
+
                     let base_addr = code.as_ptr() as usize;
                     let end_addr = base_addr + code.len();
                     elements
