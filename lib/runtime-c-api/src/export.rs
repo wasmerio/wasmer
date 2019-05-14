@@ -252,7 +252,7 @@ pub unsafe extern "C" fn wasmer_export_func_params(
 pub unsafe extern "C" fn wasmer_export_func_returns(
     func: *const wasmer_export_func_t,
     returns: *mut wasmer_value_tag,
-    returns_len: c_int,
+    returns_len: uint32_t,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
