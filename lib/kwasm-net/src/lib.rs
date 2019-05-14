@@ -1,3 +1,4 @@
+#![cfg(all(target_arch = "wasm32", target_os = "wasi"))]
 #![feature(wasi_ext)]
 
 use std::cell::RefCell;
