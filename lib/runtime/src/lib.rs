@@ -1,3 +1,5 @@
+#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
+
 //! Wasmer-runtime is a library that makes embedding WebAssembly
 //! in your application easy, efficient, and safe.
 //!

@@ -1,5 +1,5 @@
 //! Installing signal handlers allows us to handle traps and out-of-bounds memory
-//! accesses that occur when runniing webassembly.
+//! accesses that occur when runniing WebAssembly.
 //!
 //! This code is inspired by: https://github.com/pepyakin/wasmtime/commit/625a2b6c0815b21996e111da51b9664feb174622
 //!
@@ -111,7 +111,7 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, CallProtError> {
                 //     Ok(SIGSEGV) => "segmentation violation",
                 //     Ok(SIGBUS) => "bus error",
                 //     Err(_) => "error while getting the Signal",
-                //     _ => "unkown trapped signal",
+                //     _ => "unknown trapped signal",
                 // };
                 // // When the trap-handler is fully implemented, this will return more information.
                 // Err(RuntimeError::Trap {

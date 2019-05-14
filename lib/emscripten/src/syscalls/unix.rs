@@ -1,4 +1,6 @@
 use crate::varargs::VarArgs;
+#[cfg(target_os = "macos")]
+use libc::size_t;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
@@ -53,7 +55,6 @@ use libc::{
     sendto,
     setpgid,
     setsockopt,
-    size_t,
     sockaddr,
     socket,
     socklen_t,
@@ -251,8 +252,9 @@ pub fn ___syscall33(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
     let result = unsafe { access(path, amode) };
     debug!(
-        "=> path: {}, result: {}",
+        "=> path: {}, amode: {}, result: {}",
         unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
+        amode,
         result
     );
     result
@@ -354,8 +356,13 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     debug!("emscripten::___syscall54 (ioctl) {}", _which);
     let fd: i32 = varargs.get(ctx);
     let request: u32 = varargs.get(ctx);
-    debug!("fd: {}, op: {}", fd, request);
+    debug!("=> fd: {}, op: {}", fd, request);
     // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
+    // let argp: u32 = varargs.get(ctx);
+    // let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
+    // let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
+    // debug!("=> {}", ret);
+    // ret
     match request as _ {
         21537 => {
             // FIONBIO

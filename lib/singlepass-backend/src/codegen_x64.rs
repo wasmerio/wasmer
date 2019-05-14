@@ -10,18 +10,18 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{Backend, RunnableModule, CompilerConfig, MemoryBoundCheckMode},
+    backend::{sys::Memory, Backend, CacheGen, Token, RunnableModule, CompilerConfig, MemoryBoundCheckMode},
+    cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
-    module::ModuleInfo,
+    module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     typed_func::Wasm,
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
-    vm::{self, LocalGlobal, LocalMemory, LocalTable},
-    vmcalls,
+    vm::{self, LocalGlobal, LocalTable},
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -214,10 +214,10 @@ impl RunnableModule for X64ExecutionContext {
             user_error: *mut Option<Box<dyn Any>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
-            let rm: &Box<dyn RunnableModule> = &unsafe { &*(*ctx).module }.runnable_module;
-            let execution_context = unsafe {
-                ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm)
-            };
+            let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
+            let execution_context =
+                ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
+
             let args = ::std::slice::from_raw_parts(
                 args,
                 num_params_plus_one.unwrap().as_ptr() as usize - 1,
@@ -365,7 +365,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(self.functions.last_mut().unwrap())
     }
 
-    fn finalize(mut self, _: &ModuleInfo) -> Result<X64ExecutionContext, CodegenError> {
+    fn finalize(mut self, _: &ModuleInfo) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
         let (assembler, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
@@ -415,15 +415,26 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 .collect(),
         );
 
-        Ok(X64ExecutionContext {
-            code: output,
-            functions: self.functions,
-            signatures: self.signatures.as_ref().unwrap().clone(),
-            breakpoints: breakpoints,
-            func_import_count: self.func_import_count,
-            function_pointers: out_labels,
-            function_offsets: out_offsets,
-        })
+        struct Placeholder;
+        impl CacheGen for Placeholder {
+            fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
+                Err(CacheError::Unknown(
+                    "the singlepass backend doesn't support caching yet".to_string(),
+                ))
+            }
+        }
+        Ok((
+            X64ExecutionContext {
+                code: output,
+                functions: self.functions,
+                signatures: self.signatures.as_ref().unwrap().clone(),
+                breakpoints: breakpoints,
+                func_import_count: self.func_import_count,
+                function_pointers: out_labels,
+                function_offsets: out_offsets,
+            },
+            Box::new(Placeholder),
+        ))
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
@@ -479,6 +490,11 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             enforce_stack_check: config.enforce_stack_check,
         }));
         Ok(())
+    }
+    unsafe fn from_cache(_artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        Err(CacheError::Unknown(
+            "the singlepass compiler API doesn't support caching yet".to_string(),
+        ))
     }
 }
 
@@ -1400,7 +1416,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         Ok(())
     }
 
-    fn begin_body(&mut self) -> Result<(), CodegenError> {
+    fn begin_body(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
         a.emit_push(Size::S64, Location::GPR(GPR::RBP));
         a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
@@ -4062,7 +4078,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let (targets, default_target) = table.read_table().unwrap();
                 let cond =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let mut table_label = a.get_label();
+                let table_label = a.get_label();
                 let mut table: Vec<DynamicLabel> = vec![];
                 let default_br = a.get_label();
                 Self::emit_relaxed_binop(
@@ -4084,7 +4100,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_add(Size::S64, Location::GPR(GPR::RCX), Location::GPR(GPR::RDX));
                 a.emit_jmp_location(Location::GPR(GPR::RDX));
 
-                for (i, target) in targets.iter().enumerate() {
+                for target in targets.iter() {
                     let label = a.get_label();
                     a.emit_label(label);
                     table.push(label);

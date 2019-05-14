@@ -7,7 +7,7 @@ use wasmer_runtime_core::vm::Ctx;
 /// setjmp
 pub fn __setjmp(ctx: &mut Ctx, _env_addr: u32) -> c_int {
     debug!("emscripten::__setjmp (setjmp)");
-    abort_with_message(ctx, "missing function: _longjmp");
+    abort_with_message(ctx, "missing function: _setjmp");
     unreachable!()
     // unsafe {
     //     // Rather than using the env as the holder of the jump buffer pointer,

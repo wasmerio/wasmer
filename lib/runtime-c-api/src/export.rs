@@ -1,4 +1,5 @@
-//! Wasm exports.
+//! Create, read, destroy export definitions (function, global, memory
+//! and table) on an instance.
 
 use crate::{
     error::{update_last_error, CApiError},

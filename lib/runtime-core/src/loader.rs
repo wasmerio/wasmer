@@ -9,7 +9,7 @@ use crate::{
     types::Value,
 };
 use libc::{
-    c_char, mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE, PROT_READ,
+    mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ,
     PROT_WRITE,
 };
 
@@ -23,11 +23,11 @@ pub trait Loader {
 pub trait Instance {
     type Error: Debug;
     fn call(&mut self, id: usize, args: &[Value]) -> Result<u64, Self::Error>;
-    fn read_memory(&mut self, offset: u32, len: u32) -> Result<Vec<u8>, Self::Error> {
+    fn read_memory(&mut self, _offset: u32, _len: u32) -> Result<Vec<u8>, Self::Error> {
         unimplemented!()
     }
 
-    fn write_memory(&mut self, offset: u32, len: u32, buf: &[u8]) -> Result<(), Self::Error> {
+    fn write_memory(&mut self, _offset: u32, _len: u32, _buf: &[u8]) -> Result<(), Self::Error> {
         unimplemented!()
     }
 }
@@ -38,7 +38,7 @@ impl Loader for LocalLoader {
     type Instance = LocalInstance;
     type Error = String;
 
-    fn load(&self, rm: &dyn RunnableModule, module: &ModuleInfo, ctx: &Ctx) -> Result<Self::Instance, Self::Error> {
+    fn load(&self, rm: &dyn RunnableModule, _module: &ModuleInfo, _ctx: &Ctx) -> Result<Self::Instance, Self::Error> {
         let code = rm.get_code().unwrap();
         let mut code_mem = CodeMemory::new(code.len());
         code_mem[..code.len()].copy_from_slice(code);

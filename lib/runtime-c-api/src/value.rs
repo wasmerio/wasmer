@@ -1,4 +1,4 @@
-//! Wasm values.
+//! Create and map Rust to WebAssembly values.
 
 use libc::{int32_t, int64_t};
 use wasmer_runtime::Value;

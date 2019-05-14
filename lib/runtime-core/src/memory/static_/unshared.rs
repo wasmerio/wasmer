@@ -11,7 +11,7 @@ use crate::{
 /// This is an internal-only api.
 ///
 /// A static memory allocates 6GB of *virtual* memory when created
-/// in order to allow the webassembly module to contain no bounds-checks.
+/// in order to allow the WebAssembly module to contain no bounds-checks.
 ///
 /// Additionally, static memories stay at a single virtual address, so there is no need
 /// to reload its address on each use.
