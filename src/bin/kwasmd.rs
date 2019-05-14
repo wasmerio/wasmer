@@ -5,13 +5,12 @@ use std::thread;
 use structopt::StructOpt;
 use wasmer::*;
 use wasmer_runtime::{
-    error::RuntimeError,
-    Func, Value,
+    Value,
 };
 use wasmer_runtime_core::{
     self,
-    backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
-    loader::{self, Loader, Instance as LoadedInstance, LocalLoader},
+    backend::{CompilerConfig, MemoryBoundCheckMode},
+    loader::{Instance as LoadedInstance},
 };
 use wasmer_singlepass_backend::SinglePassCompiler;
 
@@ -37,6 +36,7 @@ const CMD_RUN_CODE: u32 = 0x901;
 const CMD_READ_MEMORY: u32 = 0x902;
 const CMD_WRITE_MEMORY: u32 = 0x903;
 
+#[cfg(feature = "loader:kwasm")]
 fn handle_client(mut stream: UnixStream) {
     let binary_size = stream.read_u32::<LittleEndian>().unwrap();
     if binary_size > 1048576 * 16 {
@@ -127,6 +127,7 @@ fn handle_client(mut stream: UnixStream) {
     }
 }
 
+#[cfg(feature = "loader:kwasm")]
 fn run_listen(opts: Listen) {
     let listener = UnixListener::bind(&opts.socket).unwrap();
     for stream in listener.incoming() {
@@ -148,6 +149,7 @@ fn run_listen(opts: Listen) {
     }
 }
 
+#[cfg(feature = "loader:kwasm")]
 fn main() {
     let options = CLIOptions::from_args();
     match options {
@@ -155,4 +157,9 @@ fn main() {
             run_listen(listen);
         }
     }
+}
+
+#[cfg(not(feature = "loader:kwasm"))]
+fn main() {
+    panic!("Kwasm loader is not enabled during compilation.");
 }

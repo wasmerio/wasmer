@@ -25,7 +25,7 @@ use wasmer_runtime::{
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
-    loader::{self, Loader, Instance as LoadedInstance, LocalLoader},
+    loader::{Instance as LoadedInstance, LocalLoader},
 };
 #[cfg(feature = "backend:singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
@@ -116,6 +116,7 @@ struct Run {
 #[derive(Debug, Copy, Clone)]
 enum LoaderName {
     Local,
+    #[cfg(feature = "loader:kwasm")]
     Kernel,
 }
 
@@ -123,6 +124,7 @@ impl LoaderName {
     pub fn variants() -> &'static [&'static str] {
         &[
             "local",
+            #[cfg(feature = "loader:kwasm")]
             "kernel",
         ]
     }
@@ -133,6 +135,7 @@ impl FromStr for LoaderName {
     fn from_str(s: &str) -> Result<LoaderName, String> {
         match s.to_lowercase().as_str() {
             "local" => Ok(LoaderName::Local),
+            #[cfg(feature = "loader:kwasm")]
             "kernel" => Ok(LoaderName::Kernel),
             _ => Err(format!("The loader {} doesn't exist", s)),
         }
@@ -293,11 +296,15 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
+    #[cfg(feature = "loader:kwasm")]
     let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
         true
     } else {
         false
     };
+
+    #[cfg(not(feature = "loader:kwasm"))]
+    let is_kernel_loader = false;
 
     let module = if is_kernel_loader {
         webassembly::compile_with_config_with(
@@ -377,6 +384,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let index = instance.resolve_func("_start").unwrap();
         let mut ins: Box<LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(instance.load(LocalLoader).unwrap()),
+            #[cfg(feature = "loader:kwasm")]
             LoaderName::Kernel => Box::new(instance.load(::kwasm_loader::KernelLoader).unwrap()),
         };
         println!("{:?}", ins.call(index, &args));

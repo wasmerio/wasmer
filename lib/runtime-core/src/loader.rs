@@ -8,6 +8,7 @@ use crate::{
     module::ModuleInfo,
     types::Value,
 };
+#[cfg(unix)]
 use libc::{
     mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ,
     PROT_WRITE,
@@ -81,6 +82,18 @@ pub struct CodeMemory {
     size: usize,
 }
 
+#[cfg(not(unix))]
+impl CodeMemory {
+    pub fn new(_size: usize) -> CodeMemory {
+        unimplemented!();
+    }
+
+    pub fn make_executable(&mut self) {
+        unimplemented!();
+    }
+}
+
+#[cfg(unix)]
 impl CodeMemory {
     pub fn new(size: usize) -> CodeMemory {
         fn round_up_to_page_size(size: usize) -> usize {
@@ -113,6 +126,7 @@ impl CodeMemory {
     }
 }
 
+#[cfg(unix)]
 impl Drop for CodeMemory {
     fn drop(&mut self) {
         unsafe { munmap(self.ptr as _, self.size); }
