@@ -94,7 +94,9 @@ impl Cache for FileSystemCache {
         let mmap = unsafe { Mmap::map(&file)? };
 
         let serialized_cache = Artifact::deserialize(&mmap[..])?;
-        unsafe { wasmer_runtime_core::load_cache_with(serialized_cache, super::default_compiler()) }
+        unsafe {
+            wasmer_runtime_core::load_cache_with(serialized_cache, &super::default_compiler())
+        }
     }
 
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), CacheError> {
