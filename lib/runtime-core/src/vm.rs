@@ -113,6 +113,7 @@ unsafe impl Send for Intrinsics {}
 unsafe impl Sync for Intrinsics {}
 
 impl Intrinsics {
+    #[allow(clippy::erasing_op)]
     pub fn offset_memory_grow() -> u8 {
         (0 * ::std::mem::size_of::<usize>()) as u8
     }
