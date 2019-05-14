@@ -192,7 +192,7 @@ wasmer_result_t wasmer_export_func_params_arity(const wasmer_export_func_t *func
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_export_func_returns(const wasmer_export_func_t *func,
                                            wasmer_value_tag *returns,
-                                           int returns_len);
+                                           uint32_t returns_len);
 
 /// Sets the result parameter to the arity of the returns of the wasmer_export_func_t
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
