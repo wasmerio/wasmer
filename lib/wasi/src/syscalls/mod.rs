@@ -788,15 +788,13 @@ pub fn fd_renumber(ctx: &mut Ctx, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_
     debug!("wasi::fd_renumber: from={}, to={}", from, to);
     let state = get_wasi_state(ctx);
     let fd_entry = wasi_try!(state.fs.fd_map.get(&from).ok_or(__WASI_EBADF));
+    let new_fd_entry = Fd {
+        // TODO: verify this is correct
+        rights: fd_entry.rights_inheriting,
+        ..*fd_entry
+    };
 
-    state.fs.fd_map.insert(
-        to,
-        Fd {
-            // TODO: verify this is correct
-            rights: fd_entry.rights_inheriting,
-            ..*fd_entry
-        },
-    );
+    state.fs.fd_map.insert(to, new_fd_entry);
     __WASI_ESUCCESS
 }
 
