@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2.49"
-wasmer-runtime-core = { path = "../runtime-core", version = "0.3.0" }
+wasmer-runtime-core = { path = "../runtime-core" }
