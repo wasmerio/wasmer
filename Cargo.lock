@@ -807,13 +807,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "http-server"
-version = "0.1.0"
-dependencies = [
- "kwasm-net 0.1.0",
-]
-
-[[package]]
 name = "httparse"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1349,10 +1342,6 @@ dependencies = [
  "siphasher 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicase 1.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "pipe"
-version = "0.1.0"
 
 [[package]]
 name = "pkg-config"
@@ -2292,13 +2281,6 @@ dependencies = [
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "try-lock 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "wasi-networking"
-version = "0.1.0"
-dependencies = [
- "kwasm-net 0.1.0",
 ]
 
 [[package]]

@@ -14,6 +14,7 @@ use wasmer_runtime_core::{
 use wasmer_singlepass_backend::SinglePassCompiler;
 
 use std::io::prelude::*;
+#[cfg(feature = "loader:kwasm")]
 use std::os::unix::net::{UnixListener, UnixStream};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
