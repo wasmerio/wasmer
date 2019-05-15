@@ -1,4 +1,4 @@
-//! Errors.
+//! Read runtime errors.
 
 use libc::{c_char, c_int};
 use std::cell::RefCell;
@@ -61,19 +61,19 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
         return -1;
     }
 
-    let last_error = match take_last_error() {
-        Some(err) => err,
+    let error_message = match take_last_error() {
+        Some(err) => err.to_string(),
         None => return 0,
     };
 
-    let error_message = last_error.to_string();
+    let length = length as usize;
 
-    let buffer = slice::from_raw_parts_mut(buffer as *mut u8, length as usize);
-
-    if error_message.len() >= buffer.len() {
-        // buffer to small for err  message
+    if error_message.len() >= length {
+        // buffer is too small to hold the error message
         return -1;
     }
+
+    let buffer = slice::from_raw_parts_mut(buffer as *mut u8, length);
 
     ptr::copy_nonoverlapping(
         error_message.as_ptr(),
@@ -85,7 +85,7 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
     // accidentally read into garbage.
     buffer[error_message.len()] = 0;
 
-    error_message.len() as c_int
+    error_message.len() as c_int + 1
 }
 
 #[derive(Debug)]

@@ -60,7 +60,6 @@ int main()
     assert(returns_sig[0] == WASM_I32);
     free(returns_sig);
 
-
     wasmer_value_t param_one;
     param_one.tag = WASM_I32;
     param_one.value.I32 = 7;
@@ -71,7 +70,7 @@ int main()
     wasmer_value_t result_one;
     wasmer_value_t results[] = {result_one};
 
-    wasmer_result_t call_result = wasmer_export_func_call(func, params, 2, results, 1);
+    wasmer_result_t call_result = wasmer_export_func_call(func, params, params_arity, results, returns_arity);
     printf("Call result:  %d\n", call_result);
     printf("Result: %d\n", results[0].value.I32);
     assert(results[0].value.I32 == 15);

@@ -1,4 +1,4 @@
-//! Wasm module.
+//! Compile, validate, instantiate, serialize, and destroy modules.
 
 use crate::{
     error::{update_last_error, CApiError},
@@ -247,7 +247,7 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
     let serialized_module: &[u8] = &*(serialized_module as *const &[u8]);
 
     match Artifact::deserialize(serialized_module) {
-        Ok(artifact) => match load_cache_with(artifact, default_compiler()) {
+        Ok(artifact) => match load_cache_with(artifact, &default_compiler()) {
             Ok(deserialized_module) => {
                 *module = Box::into_raw(Box::new(deserialized_module)) as _;
                 wasmer_result_t::WASMER_OK

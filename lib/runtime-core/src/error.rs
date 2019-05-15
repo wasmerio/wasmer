@@ -11,7 +11,7 @@ pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
 pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
 /// This is returned when the chosen compiler is unable to
-/// successfully compile the provided webassembly module into
+/// successfully compile the provided WebAssembly module into
 /// a `Module`.
 ///
 /// Comparing two `CompileError`s always evaluates to false.
@@ -114,7 +114,7 @@ impl std::fmt::Display for LinkError {
 impl std::error::Error for LinkError {}
 
 /// This is the error type returned when calling
-/// a webassembly function.
+/// a WebAssembly function.
 ///
 /// The main way to do this is `Instance.call`.
 ///
@@ -270,7 +270,7 @@ impl std::error::Error for CreationError {}
 
 /// The amalgamation of all errors that can occur
 /// during the compilation, instantiation, or execution
-/// of a webassembly module.
+/// of a WebAssembly module.
 ///
 /// Comparing two `Error`s always evaluates to false.
 #[derive(Debug)]

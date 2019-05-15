@@ -1,4 +1,4 @@
-//! Wasm instance.
+//! Instantiate a module, call functions, and read exports.
 
 use crate::{
     error::{update_last_error, CApiError},
@@ -125,9 +125,9 @@ pub unsafe extern "C" fn wasmer_instance_call(
     instance: *mut wasmer_instance_t,
     name: *const c_char,
     params: *const wasmer_value_t,
-    params_len: c_int,
+    params_len: uint32_t,
     results: *mut wasmer_value_t,
-    results_len: c_int,
+    results_len: uint32_t,
 ) -> wasmer_result_t {
     if instance.is_null() {
         update_last_error(CApiError {

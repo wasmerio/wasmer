@@ -1,4 +1,5 @@
-//! Wasm exports.
+//! Create, read, destroy export definitions (function, global, memory
+//! and table) on an instance.
 
 use crate::{
     error::{update_last_error, CApiError},
@@ -221,7 +222,7 @@ pub unsafe extern "C" fn wasmer_export_func_params_arity(
 pub unsafe extern "C" fn wasmer_export_func_params(
     func: *const wasmer_export_func_t,
     params: *mut wasmer_value_tag,
-    params_len: c_int,
+    params_len: uint32_t,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
@@ -251,7 +252,7 @@ pub unsafe extern "C" fn wasmer_export_func_params(
 pub unsafe extern "C" fn wasmer_export_func_returns(
     func: *const wasmer_export_func_t,
     returns: *mut wasmer_value_tag,
-    returns_len: c_int,
+    returns_len: uint32_t,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;

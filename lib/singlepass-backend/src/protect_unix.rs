@@ -1,5 +1,5 @@
 //! Installing signal handlers allows us to handle traps and out-of-bounds memory
-//! accesses that occur when runniing webassembly.
+//! accesses that occur when runniing WebAssembly.
 //!
 //! This code is inspired by: https://github.com/pepyakin/wasmtime/commit/625a2b6c0815b21996e111da51b9664feb174622
 //!

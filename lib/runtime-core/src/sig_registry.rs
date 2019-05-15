@@ -23,10 +23,18 @@ struct GlobalSigRegistry {
     sig_assoc: Map<SigIndex, Arc<FuncSig>>,
 }
 
+/// The `SigRegistry` represents a process-global map of function signatures
+/// to signature indexes and vice versa (the map goes both ways).
+///
+/// This exists for two reasons:
+/// 1. The `call_indirect` wasm instruction can compare two signature indices
+///     to do signature validation very quickly.
+/// 2. To intern function signatures, which may be expensive to create.
 #[derive(Debug)]
 pub struct SigRegistry;
 
 impl SigRegistry {
+    /// Map a `FuncSig` to a global `SigIndex`.
     pub fn lookup_sig_index<Sig>(&self, func_sig: Sig) -> SigIndex
     where
         Sig: Into<Arc<FuncSig>>,
@@ -45,11 +53,15 @@ impl SigRegistry {
         sig_index
     }
 
+    /// Map a global `SigIndex` to an interned `FuncSig`.
     pub fn lookup_signature(&self, sig_index: SigIndex) -> Arc<FuncSig> {
         let global = (*GLOBAL_SIG_REGISTRY).read();
         Arc::clone(&global.sig_assoc[sig_index])
     }
 
+    /// Register a function signature with the global signature registry.
+    ///
+    /// This will return an interned `FuncSig`.
     pub fn lookup_signature_ref(&self, func_sig: &FuncSig) -> Arc<FuncSig> {
         let mut global = (*GLOBAL_SIG_REGISTRY).write();
         let global = &mut *global;

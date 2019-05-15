@@ -6,6 +6,10 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#442](https://github.com/wasmerio/wasmer/pull/442) Misc. WASI FS fixes and implement readdir
+- [#440](https://github.com/wasmerio/wasmer/pull/440) Fix type mismatch between `wasmer_instance_call` and `wasmer_export_func_*_arity` functions in the runtime C API.
+- [#269](https://github.com/wasmerio/wasmer/pull/269) Add better runtime docs
+- [#432](https://github.com/wasmerio/wasmer/pull/432) Fix returned value of `wasmer_last_error_message` in the runtime C API
 - [#429](https://github.com/wasmerio/wasmer/pull/429) Get wasi::path_filestat_get working for some programs; misc. minor WASI FS improvements
 - [#413](https://github.com/wasmerio/wasmer/pull/413) Update LLVM backend to use new parser codegen traits
 

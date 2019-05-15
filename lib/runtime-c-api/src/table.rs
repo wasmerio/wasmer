@@ -1,4 +1,4 @@
-//! Wasm tables.
+//! Create, grow, destroy tables of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
 use libc::uint32_t;
