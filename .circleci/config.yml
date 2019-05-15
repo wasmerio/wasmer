@@ -86,10 +86,6 @@ jobs:
       xcode: "9.0"
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-cargo-cache-darwin-stable-{{ arch }}
       - run:
           name: Install crate dependencies
           command: |
@@ -134,16 +130,6 @@ jobs:
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make integration-tests
-      - save_cache:
-          paths:
-            - ~/.cargo/registry/
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-            - target/release/.fingerprint
-            - target/release/build
-            - target/release/deps
-          key: v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build:
     docker:
