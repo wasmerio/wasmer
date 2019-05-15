@@ -381,15 +381,28 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .args
             .iter()
             .map(|arg| arg.as_str())
-            .map(|x| Value::I32(x.parse().unwrap()))
+            .map(|x| {
+                Value::I32(x.parse().expect(&format!(
+                    "Can't parse the provided argument {:?} as a integer",
+                    x
+                )))
+            })
             .collect();
-        let index = instance.resolve_func("_start").unwrap();
+        let index = instance
+            .resolve_func("_start")
+            .expect("The loader requires a _start function to be present in the module");
         let mut ins: Box<LoadedInstance<Error = String>> = match loader {
-            LoaderName::Local => Box::new(instance.load(LocalLoader).unwrap()),
+            LoaderName::Local => Box::new(
+                instance
+                    .load(LocalLoader)
+                    .expect("Can't use the local loader"),
+            ),
             #[cfg(feature = "loader:kernel")]
-            LoaderName::Kernel => {
-                Box::new(instance.load(::wasmer_kernel_loader::KernelLoader).unwrap())
-            }
+            LoaderName::Kernel => Box::new(
+                instance
+                    .load(::wasmer_kernel_loader::KernelLoader)
+                    .expect("Can't use the kernel loader"),
+            ),
         };
         println!("{:?}", ins.call(index, &args));
         return Ok(());
