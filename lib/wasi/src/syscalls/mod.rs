@@ -1248,18 +1248,12 @@ pub fn path_filestat_get(
                     })
                 } else {
                     debug!("Opening host file {:#?}", &cumulative_path);
-                    let real_open_file = wasi_try!(std::fs::OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .open(&cumulative_path)
-                        .map_err(|_| __WASI_ENOENT));
-
                     state.fs.inodes.insert(InodeVal {
                         stat: __wasi_filestat_t::default(),
                         is_preopened: false, // is this correct?
                         name: last_segment.clone(),
                         kind: Kind::File {
-                            handle: WasiFile::HostFile(real_open_file),
+                            handle: WasiFile::new_host_file(cumulative_path),
                         },
                     })
                 };
@@ -1538,32 +1532,29 @@ pub fn path_open(
                 }
             } else {
                 // file is not a dir
-                let real_opened_file = {
+                {
                     let mut open_options = std::fs::OpenOptions::new();
-                    let open_options = open_options.read(true).write(true);
+                    let open_options = open_options.read(true);
                     let open_options = if o_flags & __WASI_O_CREAT != 0 {
                         debug!(
                             "File {:?} may be created when opened if it does not exist",
                             &file_path
                         );
-                        open_options.create(true)
+                        open_options.write(true).create(true)
                     } else {
                         open_options
                     };
                     let open_options = if o_flags & __WASI_O_TRUNC != 0 {
                         debug!("File {:?} will be truncated when opened", &file_path);
-                        open_options.truncate(true)
+                        open_options.write(true).truncate(true)
                     } else {
                         open_options
                     };
                     debug!("Opening host file {:?}", &file_path);
-                    let real_open_file =
-                        wasi_try!(open_options.open(&file_path).map_err(|_| __WASI_EIO));
-
-                    real_open_file
-                };
+                    wasi_try!(open_options.open(&file_path).map_err(|_| __WASI_EIO));
+                }
                 Kind::File {
-                    handle: WasiFile::HostFile(real_opened_file),
+                    handle: WasiFile::new_host_file(file_path),
                 }
             };
 

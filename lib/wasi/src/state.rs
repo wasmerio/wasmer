@@ -18,31 +18,53 @@ pub const MAX_SYMLINKS: usize = 100;
 
 #[derive(Debug)]
 pub enum WasiFile {
-    HostFile(fs::File),
+    HostFile { path: PathBuf, offset: u64 },
+}
+
+impl WasiFile {
+    pub fn new_host_file(path: PathBuf) -> WasiFile {
+        WasiFile::HostFile { path, offset: 0 }
+    }
 }
 
 impl Write for WasiFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
-            WasiFile::HostFile(hf) => hf.write(buf),
+            WasiFile::HostFile { path, offset } => {
+                let mut file = fs::OpenOptions::new().write(true).open(path)?;
+                file.seek(io::SeekFrom::Start(*offset))?;
+                file.write(buf)
+            }
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
         match self {
-            WasiFile::HostFile(hf) => hf.flush(),
+            WasiFile::HostFile { path, offset } => {
+                let mut file = fs::OpenOptions::new().write(true).open(path)?;
+                file.seek(io::SeekFrom::Start(*offset))?;
+                file.flush()
+            }
         }
     }
 
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         match self {
-            WasiFile::HostFile(hf) => hf.write_all(buf),
+            WasiFile::HostFile { path, offset } => {
+                let mut file = fs::OpenOptions::new().write(true).open(path)?;
+                file.seek(io::SeekFrom::Start(*offset))?;
+                file.write_all(buf)
+            }
         }
     }
 
     fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
         match self {
-            WasiFile::HostFile(hf) => hf.write_fmt(fmt),
+            WasiFile::HostFile { path, offset } => {
+                let mut file = fs::OpenOptions::new().write(true).open(path)?;
+                file.seek(io::SeekFrom::Start(*offset))?;
+                file.write_fmt(fmt)
+            }
         }
     }
 }
@@ -50,25 +72,41 @@ impl Write for WasiFile {
 impl Read for WasiFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
-            WasiFile::HostFile(hf) => hf.read(buf),
+            WasiFile::HostFile { path, offset } => {
+                let mut file = fs::OpenOptions::new().read(true).open(path)?;
+                file.seek(io::SeekFrom::Start(*offset))?;
+                file.read(buf)
+            }
         }
     }
 
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
         match self {
-            WasiFile::HostFile(hf) => hf.read_to_end(buf),
+            WasiFile::HostFile { path, offset } => {
+                let mut file = fs::OpenOptions::new().read(true).open(path)?;
+                file.seek(io::SeekFrom::Start(*offset))?;
+                file.read_to_end(buf)
+            }
         }
     }
 
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
         match self {
-            WasiFile::HostFile(hf) => hf.read_to_string(buf),
+            WasiFile::HostFile { path, offset } => {
+                let mut file = fs::OpenOptions::new().read(true).open(path)?;
+                file.seek(io::SeekFrom::Start(*offset))?;
+                file.read_to_string(buf)
+            }
         }
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
         match self {
-            WasiFile::HostFile(hf) => hf.read_exact(buf),
+            WasiFile::HostFile { path, offset } => {
+                let mut file = fs::OpenOptions::new().read(true).open(path)?;
+                file.seek(io::SeekFrom::Start(*offset))?;
+                file.read_exact(buf)
+            }
         }
     }
 }
@@ -76,7 +114,21 @@ impl Read for WasiFile {
 impl Seek for WasiFile {
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         match self {
-            WasiFile::HostFile(hf) => hf.seek(pos),
+            WasiFile::HostFile { path, offset } => {
+                match pos {
+                    io::SeekFrom::Start(v) => {
+                        *offset = v;
+                    }
+                    io::SeekFrom::Current(v) => {
+                        *offset = ((*offset as i64) + v) as u64;
+                    }
+                    io::SeekFrom::End(v) => {
+                        // TODO: investigate this for an off by 1 error
+                        *offset = (path.metadata()?.len() as i64 - v) as u64;
+                    }
+                };
+                Ok(*offset)
+            }
         }
     }
 }
