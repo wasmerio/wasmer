@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#449](https://github.com/wasmerio/wasmer/pull/449) Fix bugs: opening host files in filestat and opening with write permissions unconditionally in path_open
 - [#442](https://github.com/wasmerio/wasmer/pull/442) Misc. WASI FS fixes and implement readdir
 - [#440](https://github.com/wasmerio/wasmer/pull/440) Fix type mismatch between `wasmer_instance_call` and `wasmer_export_func_*_arity` functions in the runtime C API.
 - [#269](https://github.com/wasmerio/wasmer/pull/269) Add better runtime docs
