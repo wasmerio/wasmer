@@ -67,13 +67,13 @@ test-emscripten-singlepass:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
 
 singlepass-debug-release:
-	cargo +nightly build --features "backend:singlepass debug" --release
+	cargo +nightly build --features backend:singlepass,debug --release
 
 singlepass-release:
-	cargo +nightly build --features "backend:singlepass" --release
+	cargo +nightly build --features backend:singlepass --release
 
 singlepass-build:
-	cargo +nightly build --features "backend:singlepass debug"
+	cargo +nightly build --features backend:singlepass,debug
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
@@ -81,13 +81,13 @@ release:
 	cargo build --release
 
 production-release:
-	cargo build --release --features backend:singlepass,backend:llvm
+	cargo build --release --features backend:singlepass,backend:llvm,loader:kernel
 
 debug-release:
-	cargo build --release --features "debug"
+	cargo build --release --features debug
 
 extra-debug-release:
-	cargo build --release --features "extra-debug"
+	cargo build --release --features extra-debug
 
 publish-release:
 	ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
