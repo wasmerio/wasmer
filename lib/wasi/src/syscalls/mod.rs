@@ -791,6 +791,7 @@ pub fn fd_readdir(
             let entry_path = entry.path();
             let entry_path_str = entry_path.to_string_lossy();
             let namlen = entry_path_str.len();
+            debug!("Returning dirent for {}", entry_path_str);
             let dirent = __wasi_dirent_t {
                 d_next: cur_cookie,
                 d_ino: 0, // TODO: inode
@@ -1151,7 +1152,10 @@ pub fn path_filestat_get(
     if path_vec.is_empty() {
         return __WASI_EINVAL;
     }
-    let mut cumulative_path = std::path::PathBuf::new();
+    let mut cumulative_path = std::path::PathBuf::from(wasi_try!(state
+        .fs
+        .get_base_path_for_directory(root_dir.inode)
+        .ok_or(__WASI_EIO)));
 
     debug!("=> Path vec: {:?}:", &path_vec);
     // find the inode by traversing the path
@@ -1455,7 +1459,6 @@ pub fn path_open(
                         };
                         // TODO: handle __WASI_O_TRUNC on directories
 
-                        dbg!(&cumulative_path);
                         // TODO: refactor and reuse
                         let cur_file_metadata =
                             wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_EINVAL));
@@ -1554,10 +1557,8 @@ pub fn path_open(
                         open_options
                     };
                     debug!("Opening host file {:?}", &file_path);
-                    let real_open_file = wasi_try!(open_options.open(&file_path).map_err(|e| {
-                        dbg!(e);
-                        __WASI_EIO
-                    }));
+                    let real_open_file =
+                        wasi_try!(open_options.open(&file_path).map_err(|_| __WASI_EIO));
 
                     real_open_file
                 };
