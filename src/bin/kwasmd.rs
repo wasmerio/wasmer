@@ -60,7 +60,7 @@ fn handle_client(mut stream: UnixStream) {
     let mut import_object = wasmer_runtime_core::import::ImportObject::new();
     import_object.allow_missing_functions = true; // Import initialization might be left to the loader.
     let instance = module.instantiate(&import_object).unwrap();
-    let mut ins = instance.load(::kwasm_loader::KernelLoader).unwrap();
+    let mut ins = instance.load(::wasmer_kernel_loader::KernelLoader).unwrap();
 
     loop {
         let cmd = stream.read_u32::<LittleEndian>().unwrap();

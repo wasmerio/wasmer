@@ -926,14 +926,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kwasm-loader"
-version = "0.1.0"
-dependencies = [
- "libc 0.2.54 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.4.1",
-]
-
-[[package]]
 name = "kwasm-net"
 version = "0.1.0"
 
@@ -2291,12 +2283,12 @@ dependencies = [
  "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "kwasm-loader 0.1.0",
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.4.1",
  "wasmer-emscripten 0.4.1",
+ "wasmer-kernel-loader 0.1.0",
  "wasmer-llvm-backend 0.4.1",
  "wasmer-middleware-common 0.4.1",
  "wasmer-runtime 0.4.1",
@@ -2345,6 +2337,14 @@ dependencies = [
  "wasmer-llvm-backend 0.4.1",
  "wasmer-runtime-core 0.4.1",
  "wasmer-singlepass-backend 0.4.1",
+]
+
+[[package]]
+name = "wasmer-kernel-loader"
+version = "0.1.0"
+dependencies = [
+ "libc 0.2.54 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-runtime-core 0.4.1",
 ]
 
 [[package]]
