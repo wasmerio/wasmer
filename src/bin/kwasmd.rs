@@ -10,11 +10,11 @@ use wasmer_runtime_core::{
     backend::{CompilerConfig, MemoryBoundCheckMode},
     loader::Instance as LoadedInstance,
 };
-#[cfg(feature = "loader:kwasm")]
+#[cfg(feature = "loader:kernel")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 
 use std::io::prelude::*;
-#[cfg(feature = "loader:kwasm")]
+#[cfg(feature = "loader:kernel")]
 use std::os::unix::net::{UnixListener, UnixStream};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -36,7 +36,7 @@ const CMD_RUN_CODE: u32 = 0x901;
 const CMD_READ_MEMORY: u32 = 0x902;
 const CMD_WRITE_MEMORY: u32 = 0x903;
 
-#[cfg(feature = "loader:kwasm")]
+#[cfg(feature = "loader:kernel")]
 fn handle_client(mut stream: UnixStream) {
     let binary_size = stream.read_u32::<LittleEndian>().unwrap();
     if binary_size > 1048576 * 16 {
@@ -128,7 +128,7 @@ fn handle_client(mut stream: UnixStream) {
     }
 }
 
-#[cfg(feature = "loader:kwasm")]
+#[cfg(feature = "loader:kernel")]
 fn run_listen(opts: Listen) {
     let listener = UnixListener::bind(&opts.socket).unwrap();
     for stream in listener.incoming() {
@@ -150,7 +150,7 @@ fn run_listen(opts: Listen) {
     }
 }
 
-#[cfg(feature = "loader:kwasm")]
+#[cfg(feature = "loader:kernel")]
 fn main() {
     let options = CLIOptions::from_args();
     match options {
@@ -160,7 +160,7 @@ fn main() {
     }
 }
 
-#[cfg(not(feature = "loader:kwasm"))]
+#[cfg(not(feature = "loader:kernel"))]
 fn main() {
     panic!("Kwasm loader is not enabled during compilation.");
 }

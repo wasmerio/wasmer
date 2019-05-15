@@ -116,7 +116,7 @@ struct Run {
 #[derive(Debug, Copy, Clone)]
 enum LoaderName {
     Local,
-    #[cfg(feature = "loader:kwasm")]
+    #[cfg(feature = "loader:kernel")]
     Kernel,
 }
 
@@ -124,7 +124,7 @@ impl LoaderName {
     pub fn variants() -> &'static [&'static str] {
         &[
             "local",
-            #[cfg(feature = "loader:kwasm")]
+            #[cfg(feature = "loader:kernel")]
             "kernel",
         ]
     }
@@ -135,7 +135,7 @@ impl FromStr for LoaderName {
     fn from_str(s: &str) -> Result<LoaderName, String> {
         match s.to_lowercase().as_str() {
             "local" => Ok(LoaderName::Local),
-            #[cfg(feature = "loader:kwasm")]
+            #[cfg(feature = "loader:kernel")]
             "kernel" => Ok(LoaderName::Kernel),
             _ => Err(format!("The loader {} doesn't exist", s)),
         }
@@ -296,14 +296,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
-    #[cfg(feature = "loader:kwasm")]
+    #[cfg(feature = "loader:kernel")]
     let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
         true
     } else {
         false
     };
 
-    #[cfg(not(feature = "loader:kwasm"))]
+    #[cfg(not(feature = "loader:kernel"))]
     let is_kernel_loader = false;
 
     let module = if is_kernel_loader {
@@ -386,7 +386,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let index = instance.resolve_func("_start").unwrap();
         let mut ins: Box<LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(instance.load(LocalLoader).unwrap()),
-            #[cfg(feature = "loader:kwasm")]
+            #[cfg(feature = "loader:kernel")]
             LoaderName::Kernel => {
                 Box::new(instance.load(::wasmer_kernel_loader::KernelLoader).unwrap())
             }
