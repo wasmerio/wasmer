@@ -18,7 +18,7 @@
 
 ## Introduction
 
-[Wasmer](https://wasmer.io/) is a standalone JIT WebAssembly runtime, aiming to be fully compatible with [WASI](https://hacks.mozilla.org/2019/03/standardizing-wasi-a-webassembly-system-interface/) and [Emscripten](https://emscripten.org/).
+[Wasmer](https://wasmer.io/) is a standalone JIT WebAssembly runtime, aiming to be fully compatible with [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
 
 Install Wasmer with:
 
