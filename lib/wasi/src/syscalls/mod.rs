@@ -1500,7 +1500,7 @@ pub fn path_open(
                 let real_opened_file = {
                     let mut open_options = std::fs::OpenOptions::new();
                     let open_options = open_options.read(true);
-                    let open_options = if dbg!(fs_rights_base & __WASI_RIGHT_FD_WRITE) != 0 {
+                    let open_options = if fs_rights_base & __WASI_RIGHT_FD_WRITE != 0 {
                         open_options.write(true)
                     } else {
                         open_options
