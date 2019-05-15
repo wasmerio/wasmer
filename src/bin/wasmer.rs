@@ -387,7 +387,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let mut ins: Box<LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(instance.load(LocalLoader).unwrap()),
             #[cfg(feature = "loader:kwasm")]
-            LoaderName::Kernel => Box::new(instance.load(::wasmer_kernel_loader::KernelLoader).unwrap()),
+            LoaderName::Kernel => {
+                Box::new(instance.load(::wasmer_kernel_loader::KernelLoader).unwrap())
+            }
         };
         println!("{:?}", ins.call(index, &args));
         return Ok(());
