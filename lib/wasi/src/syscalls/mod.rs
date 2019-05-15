@@ -1424,12 +1424,10 @@ pub fn path_open(
     }
 
     let mut cur_dir_inode = working_dir.inode;
-    let mut cumulative_path = std::path::PathBuf::from(
-        state
-            .fs
-            .get_base_path_for_directory(working_dir.inode)
-            .expect("TODO"),
-    );
+    let mut cumulative_path = std::path::PathBuf::from(wasi_try!(state
+        .fs
+        .get_base_path_for_directory(working_dir.inode)
+        .ok_or(__WASI_EIO)));
 
     // traverse path
     if path_vec.len() > 1 {
