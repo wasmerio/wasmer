@@ -3,7 +3,7 @@ pub mod service;
 use service::{ImportInfo, LoadProfile, RunProfile, ServiceContext, TableEntryRequest};
 use wasmer_runtime_core::{
     backend::RunnableModule,
-    loader::{self, Instance, Loader},
+    loader::{Instance, Loader},
     module::ModuleInfo,
     structures::TypedIndex,
     types::{
