@@ -139,8 +139,10 @@ pub enum Kind {
         handle: WasiFile,
     },
     Dir {
-        // TODO: wrap it like WasiFile
+        /// Parent directory
+        parent: Option<Inode>,
         /// The path on the host system where the directory is located
+        // TODO: wrap it like WasiFile
         path: PathBuf,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, Inode>,
@@ -196,6 +198,7 @@ impl WasiFs {
             let cur_dir_metadata = cur_dir.metadata().expect("Could not find directory");
             let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
+                    parent: None,
                     path: cur_dir.clone(),
                     entries: Default::default(),
                 }
@@ -413,6 +416,32 @@ impl WasiFs {
             },
         );
         Ok(idx)
+    }
+
+    pub fn get_base_path_for_directory(&self, directory: Inode) -> Option<String> {
+        let mut path_segments = vec![];
+        let mut cur_inode = directory;
+        loop {
+            path_segments.push(self.inodes[cur_inode].name.clone());
+
+            if let Kind::Dir { parent, .. } = &self.inodes[cur_inode].kind {
+                if let Some(p_inode) = parent {
+                    cur_inode = *p_inode;
+                } else {
+                    break;
+                }
+            } else {
+                return None;
+            }
+        }
+
+        path_segments.reverse();
+        Some(
+            path_segments
+                .iter()
+                .skip(1)
+                .fold(path_segments.first()?.clone(), |a, b| a + "/" + b),
+        )
     }
 }
 
