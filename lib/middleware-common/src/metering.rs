@@ -43,7 +43,8 @@ impl FunctionMiddleware for Metering {
                     | Operator::BrTable { .. }
                     | Operator::BrIf { .. }
                     | Operator::Call { .. }
-                    | Operator::CallIndirect { .. } => {
+                    | Operator::CallIndirect { .. }
+                    | Operator::Return => {
                         sink.push(Event::Internal(InternalEvent::GetInternal(0)));
                         sink.push(Event::WasmOwned(Operator::I64Const {
                             value: self.current_block as i64,
