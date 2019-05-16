@@ -79,7 +79,7 @@ impl LocalBacking {
             dynamic_sigindices,
             local_functions,
 
-            internals: Internals([0; 256]),
+            internals: Internals([0; INTERNALS_SIZE]),
         }
     }
 
