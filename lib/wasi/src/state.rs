@@ -451,3 +451,16 @@ pub struct WasiState<'a> {
     pub args: &'a [Vec<u8>],
     pub envs: &'a [Vec<u8>],
 }
+
+pub fn host_file_type_to_wasi_file_type(file_type: fs::FileType) -> __wasi_filetype_t {
+    // TODO: handle other file types
+    if file_type.is_dir() {
+        __WASI_FILETYPE_DIRECTORY
+    } else if file_type.is_file() {
+        __WASI_FILETYPE_REGULAR_FILE
+    } else if file_type.is_symlink() {
+        __WASI_FILETYPE_SYMBOLIC_LINK
+    } else {
+        __WASI_FILETYPE_UNKNOWN
+    }
+}
