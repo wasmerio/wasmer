@@ -472,6 +472,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let op = match event {
             Event::Wasm(x) => x,
+            Event::WasmOwned(ref x) => x,
             Event::Internal(_x) => {
                 return Ok(());
             }

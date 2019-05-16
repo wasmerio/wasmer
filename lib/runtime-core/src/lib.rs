@@ -49,6 +49,8 @@ pub use self::module::Module;
 pub use self::typed_func::Func;
 use std::sync::Arc;
 
+pub use wasmparser;
+
 use self::cache::{Artifact, Error as CacheError};
 
 pub mod prelude {
