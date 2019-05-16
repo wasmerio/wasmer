@@ -89,7 +89,7 @@ jobs:
       - restore_cache:
           keys:
             - v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-cargo-cache-darwin-stable-{{ arch }}
+            # - v8-cargo-cache-darwin-stable-{{ arch }}
       - run:
           name: Install crate dependencies
           command: |
@@ -372,7 +372,6 @@ jobs:
                     -d build_parameters[CIRCLE_JOB]=bench \
                     https://circleci.com/api/v1.1/project/github/wasmerio/wasmer-bench/tree/master
             fi
-
 workflows:
   version: 2
   main:

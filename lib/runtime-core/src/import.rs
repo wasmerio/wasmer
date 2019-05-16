@@ -47,6 +47,7 @@ impl IsExport for Export {
 pub struct ImportObject {
     map: Rc<RefCell<HashMap<String, Box<dyn LikeNamespace>>>>,
     state_creator: Option<Rc<Fn() -> (*mut c_void, fn(*mut c_void))>>,
+    pub allow_missing_functions: bool,
 }
 
 impl ImportObject {
@@ -55,6 +56,7 @@ impl ImportObject {
         Self {
             map: Rc::new(RefCell::new(HashMap::new())),
             state_creator: None,
+            allow_missing_functions: false,
         }
     }
 
@@ -65,6 +67,7 @@ impl ImportObject {
         Self {
             map: Rc::new(RefCell::new(HashMap::new())),
             state_creator: Some(Rc::new(state_creator)),
+            allow_missing_functions: false,
         }
     }
 
@@ -116,6 +119,7 @@ impl ImportObject {
         Self {
             map: Rc::clone(&self.map),
             state_creator: self.state_creator.clone(),
+            allow_missing_functions: false,
         }
     }
 

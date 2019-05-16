@@ -24,7 +24,8 @@ use wasmer_runtime::{
 };
 use wasmer_runtime_core::{
     self,
-    backend::{Compiler, CompilerConfig},
+    backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
+    loader::{Instance as LoadedInstance, LocalLoader},
 };
 #[cfg(feature = "backend:singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
@@ -96,12 +97,49 @@ struct Run {
     #[structopt(long = "dir", multiple = true, group = "wasi")]
     pre_opened_directories: Vec<String>,
 
+    // Custom code loader
+    #[structopt(
+        long = "loader",
+        raw(possible_values = "LoaderName::variants()", case_insensitive = "true")
+    )]
+    loader: Option<LoaderName>,
+
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
 
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
+enum LoaderName {
+    Local,
+    #[cfg(feature = "loader:kernel")]
+    Kernel,
+}
+
+impl LoaderName {
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            "local",
+            #[cfg(feature = "loader:kernel")]
+            "kernel",
+        ]
+    }
+}
+
+impl FromStr for LoaderName {
+    type Err = String;
+    fn from_str(s: &str) -> Result<LoaderName, String> {
+        match s.to_lowercase().as_str() {
+            "local" => Ok(LoaderName::Local),
+            #[cfg(feature = "loader:kernel")]
+            "kernel" => Ok(LoaderName::Kernel),
+            _ => Err(format!("The loader {} doesn't exist", s)),
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -258,7 +296,38 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
-    let module = if !disable_cache {
+    #[cfg(feature = "loader:kernel")]
+    let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
+        true
+    } else {
+        false
+    };
+
+    #[cfg(not(feature = "loader:kernel"))]
+    let is_kernel_loader = false;
+
+    let module = if is_kernel_loader {
+        webassembly::compile_with_config_with(
+            &wasm_binary[..],
+            CompilerConfig {
+                symbol_map: em_symbol_map,
+                memory_bound_check_mode: MemoryBoundCheckMode::Disable,
+                enforce_stack_check: true,
+            },
+            &*compiler,
+        )
+        .map_err(|e| format!("Can't compile module: {:?}", e))?
+    } else if disable_cache {
+        webassembly::compile_with_config_with(
+            &wasm_binary[..],
+            CompilerConfig {
+                symbol_map: em_symbol_map,
+                ..Default::default()
+            },
+            &*compiler,
+        )
+        .map_err(|e| format!("Can't compile module: {:?}", e))?
+    } else {
         // If we have cache enabled
 
         // We generate a hash for the given binary, so we can use it as key
@@ -287,6 +356,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     &wasm_binary[..],
                     CompilerConfig {
                         symbol_map: em_symbol_map,
+                        ..Default::default()
                     },
                     &*compiler,
                 )
@@ -298,16 +368,45 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             }
         };
         module
-    } else {
-        webassembly::compile_with_config_with(
-            &wasm_binary[..],
-            CompilerConfig {
-                symbol_map: em_symbol_map,
-            },
-            &*compiler,
-        )
-        .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
+
+    if let Some(loader) = options.loader {
+        let mut import_object = wasmer_runtime_core::import::ImportObject::new();
+        import_object.allow_missing_functions = true; // Import initialization might be left to the loader.
+        let instance = module
+            .instantiate(&import_object)
+            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+
+        let args: Vec<Value> = options
+            .args
+            .iter()
+            .map(|arg| arg.as_str())
+            .map(|x| {
+                Value::I32(x.parse().expect(&format!(
+                    "Can't parse the provided argument {:?} as a integer",
+                    x
+                )))
+            })
+            .collect();
+        let index = instance
+            .resolve_func("_start")
+            .expect("The loader requires a _start function to be present in the module");
+        let mut ins: Box<LoadedInstance<Error = String>> = match loader {
+            LoaderName::Local => Box::new(
+                instance
+                    .load(LocalLoader)
+                    .expect("Can't use the local loader"),
+            ),
+            #[cfg(feature = "loader:kernel")]
+            LoaderName::Kernel => Box::new(
+                instance
+                    .load(::wasmer_kernel_loader::KernelLoader)
+                    .expect("Can't use the kernel loader"),
+            ),
+        };
+        println!("{:?}", ins.call(index, &args));
+        return Ok(());
+    }
 
     // TODO: refactor this
     if wasmer_emscripten::is_emscripten_module(&module) {

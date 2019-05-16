@@ -19,6 +19,7 @@ include = [
 ]
 
 [dependencies]
+byteorder = "1.3.1"
 errno = "0.2.4"
 structopt = "0.2.11"
 wabt = "0.7.2"
@@ -32,9 +33,10 @@ wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
+wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 
 [workspace]
-members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi", "lib/middleware-common", "examples/plugin-for-example"]
+members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi", "lib/middleware-common", "lib/kernel-loader", "lib/kernel-net", "examples/plugin-for-example"]
 
 [build-dependencies]
 wabt = "0.7.2"
@@ -43,6 +45,7 @@ rustc_version = "0.2.3"
 
 [features]
 default = ["fast-tests", "wasi"]
+"loader:kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
