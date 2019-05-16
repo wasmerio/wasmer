@@ -23,7 +23,7 @@ use wasmer_runtime_core::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
-    vm::{self, LocalGlobal, LocalTable},
+    vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -1494,8 +1494,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
         let a = self.assembler.as_mut().unwrap();
 
+
         let op = match ev {
             Event::Wasm(x) => x,
+            Event::WasmOwned(ref x) => x,
             Event::Internal(x) => {
                 match x {
                     InternalEvent::Breakpoint(callback) => {
@@ -1505,8 +1507,71 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             .unwrap()
                             .insert(a.get_offset(), callback);
                     }
-                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {}
-                    _ => unimplemented!(),
+                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {},
+                    InternalEvent::GetInternal(idx) => {
+                        let idx = idx as usize;
+                        assert!(idx < INTERNALS_SIZE);
+
+                        let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                        // Load `internals` pointer.
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Memory(
+                                Machine::get_vmctx_reg(),
+                                vm::Ctx::offset_internals() as i32,
+                            ),
+                            Location::GPR(tmp),
+                        );
+
+                        let loc = self.machine.acquire_locations(
+                            a,
+                            &[WpType::I64],
+                            false,
+                        )[0];
+                        self.value_stack.push((loc, LocalOrTemp::Temp));
+
+                        // Move internal into the result location.
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            Location::Memory(tmp, (idx * 8) as i32),
+                            loc,
+                        );
+
+                        self.machine.release_temp_gpr(tmp);
+                    }
+                    InternalEvent::SetInternal(idx) => {
+                        let idx = idx as usize;
+                        assert!(idx < INTERNALS_SIZE);
+
+                        let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                        // Load `internals` pointer.
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Memory(
+                                Machine::get_vmctx_reg(),
+                                vm::Ctx::offset_internals() as i32,
+                            ),
+                            Location::GPR(tmp),
+                        );
+                        let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                        // Move internal into storage.
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            Location::Memory(tmp, (idx * 8) as i32),
+                        );
+                        self.machine.release_temp_gpr(tmp);
+                    }
+                    //_ => unimplemented!(),
                 }
                 return Ok(());
             }
