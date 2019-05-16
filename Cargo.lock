@@ -917,6 +917,10 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "kernel-net"
+version = "0.1.0"
+
+[[package]]
 name = "kernel32-sys"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2342,10 +2346,6 @@ dependencies = [
  "libc 0.2.54 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.4.1",
 ]
-
-[[package]]
-name = "wasmer-kernel-net"
-version = "0.1.0"
 
 [[package]]
 name = "wasmer-llvm-backend"

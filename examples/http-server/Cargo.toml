@@ -9,4 +9,4 @@ edition = "2018"
 [workspace]
 
 [dependencies]
-wasmer-kernel-net = { path = "../../lib/kernel-net" }
+kernel-net = { path = "../../lib/kernel-net" }

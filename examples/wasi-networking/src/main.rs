@@ -1,6 +1,6 @@
 #![feature(wasi_ext)]
 
-use wasmer_kernel_net::{schedule, Epoll, Tcp4Listener, TcpStream};
+use kernel_net::{schedule, Epoll, Tcp4Listener, TcpStream};
 use std::sync::Arc;
 
 fn do_echo(stream: Arc<TcpStream>, buf: Vec<u8>) {
