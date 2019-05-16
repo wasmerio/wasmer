@@ -699,6 +699,8 @@ mod vm_ctx_tests {
 
             dynamic_sigindices: Map::new().into_boxed_map(),
             local_functions: Map::new().into_boxed_map(),
+
+            internals: crate::backing::Internals([0; 256]),
         };
         let mut import_backing = ImportBacking {
             memories: Map::new().into_boxed_map(),
