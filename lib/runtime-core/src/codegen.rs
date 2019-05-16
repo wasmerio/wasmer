@@ -41,7 +41,7 @@ impl fmt::Debug for InternalEvent {
 }
 
 pub struct BkptInfo {
-    pub throw: unsafe extern "C" fn () -> !,
+    pub throw: unsafe extern "C" fn() -> !,
 }
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {

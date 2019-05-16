@@ -1494,7 +1494,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
         let a = self.assembler.as_mut().unwrap();
 
-
         let op = match ev {
             Event::Wasm(x) => x,
             Event::WasmOwned(ref x) => x,

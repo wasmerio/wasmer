@@ -15,10 +15,7 @@ use crate::{
     },
     vm,
 };
-use std::{
-    slice,
-    fmt::Debug,
-};
+use std::{fmt::Debug, slice};
 
 pub const INTERNALS_SIZE: usize = 256;
 

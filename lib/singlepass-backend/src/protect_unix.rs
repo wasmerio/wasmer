@@ -35,9 +35,7 @@ extern "C" fn signal_trap_handler(
                 let bkpt_map = BKPT_MAP.with(|x| x.borrow().last().map(|x| x.clone()));
                 if let Some(bkpt_map) = bkpt_map {
                     if let Some(ref x) = bkpt_map.get(&(ip as usize)) {
-                        (x)(BkptInfo {
-                            throw: throw,
-                        });
+                        (x)(BkptInfo { throw: throw });
                         return;
                     }
                 }

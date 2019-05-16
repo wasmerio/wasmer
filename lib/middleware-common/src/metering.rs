@@ -29,52 +29,58 @@ impl FunctionMiddleware for Metering {
         match op {
             Event::Internal(InternalEvent::FunctionBegin(_)) => {
                 self.current_block = 0;
-            }, 
+            }
             Event::Wasm(&ref op) | Event::WasmOwned(ref op) => {
                 self.current_block += 1;
                 match *op {
                     Operator::Loop { .. }
-                        | Operator::Block { .. }
-                        | Operator::End
-                        | Operator::If { .. }
-                        | Operator::Else
-                        | Operator::Unreachable
-                        | Operator::Br { .. }
-                        | Operator::BrTable { .. }
-                        | Operator::BrIf { .. }
-                        | Operator::Call { .. }
-                        | Operator::CallIndirect { .. }
-                        => {
-                            sink.push(Event::Internal(InternalEvent::GetInternal(0)));
-                            sink.push(Event::WasmOwned(Operator::I64Const { value: self.current_block as i64 }));
-                            sink.push(Event::WasmOwned(Operator::I64Add));
-                            sink.push(Event::Internal(InternalEvent::SetInternal(0)));
-                            self.current_block = 0;
-                    },
+                    | Operator::Block { .. }
+                    | Operator::End
+                    | Operator::If { .. }
+                    | Operator::Else
+                    | Operator::Unreachable
+                    | Operator::Br { .. }
+                    | Operator::BrTable { .. }
+                    | Operator::BrIf { .. }
+                    | Operator::Call { .. }
+                    | Operator::CallIndirect { .. } => {
+                        sink.push(Event::Internal(InternalEvent::GetInternal(0)));
+                        sink.push(Event::WasmOwned(Operator::I64Const {
+                            value: self.current_block as i64,
+                        }));
+                        sink.push(Event::WasmOwned(Operator::I64Add));
+                        sink.push(Event::Internal(InternalEvent::SetInternal(0)));
+                        self.current_block = 0;
+                    }
                     _ => {}
                 }
                 match *op {
-                        Operator::Br { .. }
-                        | Operator::BrTable { .. }
-                        | Operator::BrIf { .. }
-                        | Operator::Call { .. }
-                        | Operator::CallIndirect { .. }
-                        => {
-                            sink.push(Event::Internal(InternalEvent::GetInternal(0)));
-                            sink.push(Event::WasmOwned(Operator::I64Const { value: self.limit as i64 }));
-                            sink.push(Event::WasmOwned(Operator::I64GeU));
-                            sink.push(Event::WasmOwned(Operator::If { ty: WpType::EmptyBlockType }));
-                            sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(move |ctx| {
+                    Operator::Br { .. }
+                    | Operator::BrTable { .. }
+                    | Operator::BrIf { .. }
+                    | Operator::Call { .. }
+                    | Operator::CallIndirect { .. } => {
+                        sink.push(Event::Internal(InternalEvent::GetInternal(0)));
+                        sink.push(Event::WasmOwned(Operator::I64Const {
+                            value: self.limit as i64,
+                        }));
+                        sink.push(Event::WasmOwned(Operator::I64GeU));
+                        sink.push(Event::WasmOwned(Operator::If {
+                            ty: WpType::EmptyBlockType,
+                        }));
+                        sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
+                            move |ctx| {
                                 eprintln!("execution limit reached");
                                 unsafe {
                                     (ctx.throw)();
                                 }
-                            }))));
-                            sink.push(Event::WasmOwned(Operator::End));
-                    },
+                            },
+                        ))));
+                        sink.push(Event::WasmOwned(Operator::End));
+                    }
                     _ => {}
                 }
-            },
+            }
             _ => {}
         }
         sink.push(op);
