@@ -50,6 +50,10 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         perm.set_mode(0o766);
         fs::set_permissions(normal_path, perm).expect("set permissions");
     }
+    let rs_module_name = {
+        let temp = PathBuf::from(&normalized_name);
+        temp.file_name().unwrap().to_string_lossy().to_string()
+    };
 
     let result = Command::new(&normalized_name)
         .output()
@@ -65,15 +69,12 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         .output()
         .expect("Failed to compile program to native code");
 
-    let ignored = if ignores.contains(&normalized_name) {
+    let ignored = if ignores.contains(&rs_module_name) {
         "\n#[ignore]"
     } else {
         ""
     };
-    let rs_module_name = {
-        let temp = PathBuf::from(&normalized_name);
-        temp.file_name().unwrap().to_string_lossy().to_string()
-    };
+
     let contents = format!(
         "#[test]{ignore}
 fn test_{rs_module_name}() {{
@@ -106,7 +107,6 @@ pub fn build() {
     let mut modules: Vec<String> = Vec::new();
 
     let ignores = read_ignore_list();
-
     for entry in glob("wasitests/*.rs").unwrap() {
         match entry {
             Ok(path) => {
@@ -128,7 +128,7 @@ pub fn build() {
     modules.push("".to_string());
 
     let modfile: String = modules.join("\n");
-    let source = fs::read(dbg!(&rust_test_modpath)).unwrap();
+    let source = fs::read(&rust_test_modpath).unwrap();
     // We only modify the mod file if has changed
     if source != modfile.as_bytes() {
         fs::write(&rust_test_modpath, modfile.as_bytes()).unwrap();
