@@ -39,8 +39,6 @@ jobs:
             rustup toolchain install nightly-2019-02-27
             rustup component add rustfmt
             rustup component add clippy --toolchain=nightly-2019-02-27 || cargo +nightly-2019-02-27 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
-            rustup toolchain install nightly
-            rustup target add wasm32-wasi --toolchain nightly
       - run:
           name: Execute lints
           command: |
@@ -67,11 +65,6 @@ jobs:
       - run:
           name: Tests
           command: make test
-      - run:
-          name: WASI Tests
-          command: |
-            make test-wasi-singlepass
-            make test-wasi-clif
       - run:
           name: Emscripten Tests
           command: |
@@ -323,11 +316,15 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            rustup toolchain install nightly
+            rustup target add wasm32-wasi --toolchain nightly
       - run: rustup default nightly-2019-04-11
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make test
           make test-singlepass
+          make test-wasi-singlepass
+          make test-wasi-clif
           make test-emscripten-clif
           make test-emscripten-singlepass
       - save_cache:
