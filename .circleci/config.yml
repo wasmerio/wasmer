@@ -39,6 +39,8 @@ jobs:
             rustup toolchain install nightly-2019-02-27
             rustup component add rustfmt
             rustup component add clippy --toolchain=nightly-2019-02-27 || cargo +nightly-2019-02-27 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+            rustup toolchain install nightly
+            rustup target add wasm32-wasi --toolchain nightly
       - run:
           name: Execute lints
           command: |
