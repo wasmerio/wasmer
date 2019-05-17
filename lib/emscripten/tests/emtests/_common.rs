@@ -6,9 +6,9 @@ macro_rules! assert_emscripten_output {
             generate_emscripten_env,
         };
         use wasmer_runtime_core::{
-            stdio::StdioCapturer,
             backend::Compiler,
         };
+        use wasmer_dev_utils::stdio::StdioCapturer;
 
         #[cfg(feature = "clif")]
         fn get_compiler() -> impl Compiler {

@@ -25,7 +25,7 @@ glob = "0.2.11"
 
 [dev-dependencies]
 wasmer-clif-backend = { path = "../clif-backend", version = "0.4.2" }
-wasmer-runtime-core = { path = "../runtime-core", version = "0.4.2", features = ["regression-test"] }
+wasmer-dev-utils = { path = "../dev-utils", version = "0.4.2"}
 
 [features]
 clif = []

@@ -18,8 +18,6 @@ pub mod cache;
 pub mod codegen;
 pub mod error;
 pub mod export;
-#[cfg(any(test, feature = "regression-test"))]
-pub mod file_descriptor;
 pub mod global;
 pub mod import;
 pub mod instance;
@@ -28,8 +26,6 @@ pub mod memory;
 pub mod module;
 pub mod parse;
 mod sig_registry;
-#[cfg(any(test, feature = "regression-test"))]
-pub mod stdio;
 pub mod structures;
 mod sys;
 pub mod table;
