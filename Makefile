@@ -72,7 +72,7 @@ test-emscripten-singlepass:
 test-wasi-clif:
 	cargo test --manifest-path lib/wasi/Cargo.toml --features "clif" -- $(runargs)
 
-test-singlepass-clif:
+test-wasi-singlepass:
 	cargo test --manifest-path lib/wasi/Cargo.toml --features "singlepass" -- $(runargs)
 
 singlepass-debug-release:

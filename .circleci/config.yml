@@ -68,15 +68,15 @@ jobs:
           name: Tests
           command: make test
       - run:
+          name: WASI Tests
+          command: |
+            make test-wasi-singlepass
+            make test-wasi-clif
+      - run:
           name: Emscripten Tests
           command: |
             make test-emscripten-clif
             make test-emscripten-llvm
-      - run:
-          name: WASI Tests
-          command: |
-            make test-wasi-clif
-            make test-wasi-singlepass
       - run:
           name: Integration Tests
           command: make integration-tests
