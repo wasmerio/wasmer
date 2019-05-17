@@ -23,6 +23,7 @@ rand = "0.6"
 
 [dev-dependencies]
 wabt = "0.7.2"
+wasmer-runtime-core = { path = "../runtime-core", version = "0.4.2", features = ["regression-test"] }
 
 [build-dependencies]
 glob = "0.2.11"

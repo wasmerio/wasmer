@@ -1,8 +1,6 @@
 macro_rules! assert_wasi_output {
     ($file:expr, $name:expr, $args:expr, $expected:expr) => {{
-        // HACK(mark): remove dep on emscripten
-        use wasmer_emscripten::stdio::StdioCapturer;
-        use wasmer_runtime_core::{backend::Compiler, Func};
+        use wasmer_runtime_core::{backend::Compiler, stdio::StdioCapturer, Func};
         use wasmer_wasi::generate_import_object;
 
         #[cfg(feature = "clif")]

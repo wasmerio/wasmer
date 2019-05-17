@@ -2480,7 +2480,6 @@ dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.4.2",
- "wasmer-emscripten 0.4.2",
  "wasmer-runtime-core 0.4.2",
  "wasmer-singlepass-backend 0.4.2",
 ]

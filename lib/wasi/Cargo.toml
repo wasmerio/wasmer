@@ -18,15 +18,14 @@ generational-arena = "0.2.2"
 log = "0.4.6"
 byteorder = "1.3.1"
 # hack to get tests to work
-wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.4.2",optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.4.2", optional = true }
 
 [build-dependencies]
 glob = "0.2.11"
 
 [dev-dependencies]
-# hack to get tests to work
-wasmer-emscripten = { path = "../emscripten", version = "0.4.2"}
 wasmer-clif-backend = { path = "../clif-backend", version = "0.4.2" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.4.2", features = ["regression-test"] }
 
 [features]
 clif = []

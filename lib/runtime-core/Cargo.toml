@@ -50,3 +50,4 @@ rustc_version = "0.2.3"
 
 [features]
 debug = []
+regression-test = []
