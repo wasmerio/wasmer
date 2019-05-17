@@ -97,7 +97,11 @@ struct Run {
     #[structopt(long = "dir", multiple = true, group = "wasi")]
     pre_opened_directories: Vec<String>,
 
-    // Custom code loader
+    /// Map a host directory to a different location for the wasm module
+    #[structopt(long = "map-dir", multiple = true)]
+    mapped_dirs: Vec<String>,
+
+    /// Custom code loader
     #[structopt(
         long = "loader",
         raw(possible_values = "LoaderName::variants()", case_insensitive = "true")
@@ -227,6 +231,28 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     let disable_cache = options.disable_cache;
 
+    let mapped_dirs = {
+        let mut md = vec![];
+        for entry in options.mapped_dirs.iter() {
+            if let &[source, dest] = &entry.split(':').collect::<Vec<&str>>()[..] {
+                let pb = PathBuf::from(&source);
+                if let Ok(pb_metadata) = pb.metadata() {
+                    if !pb_metadata.is_dir() {
+                        return Err(format!("\"{}\" exists, but it is not a directory", &source));
+                    }
+                } else {
+                    return Err(format!("Directory \"{}\" does not exist", &source));
+                }
+                md.push((pb, dest.to_string()));
+                continue;
+            }
+            return Err(format!(
+                "Directory mappings must consist of two paths separate by a colon. Found {}",
+                &entry
+            ));
+        }
+        md
+    };
     let wasm_path = &options.path;
 
     let mut wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
@@ -445,6 +471,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     .map(|(k, v)| format!("{}={}", k, v).into_bytes())
                     .collect(),
                 options.pre_opened_directories.clone(),
+                mapped_dirs,
             );
 
             let instance = module

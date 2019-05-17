@@ -1465,6 +1465,7 @@ pub fn path_open(
     let file_path = cumulative_path;
 
     let out_fd = if let Kind::Dir { entries, .. } = &mut state.fs.inodes[cur_dir_inode].kind {
+        debug!("Hm");
         if let Some(child) = entries.get(file_name).cloned() {
             let child_inode_val = &state.fs.inodes[child];
             // early return based on flags
@@ -1485,10 +1486,11 @@ pub fn path_open(
                 .fs
                 .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
         } else {
-            let file_metadata = wasi_try!(file_path.metadata().map_err(|_| __WASI_ENOENT));
+            debug!("Attempting to load file from host system");
+            let file_metadata = file_path.metadata();
             // if entry does not exist in parent directory, try to lazily
             // load it; possibly creating or truncating it if flags set
-            let kind = if file_metadata.is_dir() {
+            let kind = if file_metadata.is_ok() && file_metadata.unwrap().is_dir() {
                 // special dir logic
                 Kind::Dir {
                     parent: Some(cur_dir_inode),

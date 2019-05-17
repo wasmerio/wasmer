@@ -175,21 +175,20 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
-    pub fn new(preopened_dirs: &[String]) -> Result<Self, String> {
-        /*let repo = RepoOpener::new()
-        .create(true)
-        .open("mem://wasmer-test-fs", "")
-        .map_err(|e| e.to_string())?;*/
+    pub fn new(
+        preopened_dirs: &[String],
+        mapped_dirs: &[(PathBuf, String)],
+    ) -> Result<Self, String> {
         debug!("wasi::fs::inodes");
         let inodes = Arena::new();
         let mut wasi_fs = Self {
-            //repo: repo,
             name_map: HashMap::new(),
             inodes: inodes,
             fd_map: HashMap::new(),
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1000),
         };
+        debug!("wasi::fs::preopen_dirs");
         for dir in preopened_dirs {
             debug!("Attempting to preopen {}", &dir);
             // TODO: think about this
@@ -211,6 +210,36 @@ impl WasiFs {
             // TODO: handle nested pats in `file`
             let inode_val =
                 InodeVal::from_file_metadata(&cur_dir_metadata, dir.clone(), true, kind);
+
+            let inode = wasi_fs.inodes.insert(inode_val);
+            wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
+            wasi_fs
+                .create_fd(default_rights, default_rights, 0, inode)
+                .expect("Could not open fd");
+        }
+        debug!("wasi::fs::mapped_dirs");
+        for (src_dir, dest_dir) in mapped_dirs {
+            debug!("Attempting to open {:?} at {}", src_dir, dest_dir);
+            // TODO: think about this
+            let default_rights = 0x1FFFFFFF; // all rights
+            let cur_dir_metadata = src_dir
+                .metadata()
+                .expect("mapped dir not at previously verified location");
+            let kind = if cur_dir_metadata.is_dir() {
+                Kind::Dir {
+                    parent: None,
+                    path: src_dir.clone(),
+                    entries: Default::default(),
+                }
+            } else {
+                return Err(format!(
+                    "WASI only supports pre-opened directories right now; found \"{:?}\"",
+                    &src_dir,
+                ));
+            };
+            // TODO: handle nested pats in `file`
+            let inode_val =
+                InodeVal::from_file_metadata(&cur_dir_metadata, dest_dir.clone(), true, kind);
 
             let inode = wasi_fs.inodes.insert(inode_val);
             wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
@@ -424,24 +453,18 @@ impl WasiFs {
         loop {
             path_segments.push(self.inodes[cur_inode].name.clone());
 
-            if let Kind::Dir { parent, .. } = &self.inodes[cur_inode].kind {
-                if let Some(p_inode) = parent {
-                    cur_inode = *p_inode;
-                } else {
-                    break;
-                }
-            } else {
-                return None;
+            if let Kind::Dir { path, .. } = &self.inodes[cur_inode].kind {
+                return Some(path.to_string_lossy().to_string());
             }
         }
 
-        path_segments.reverse();
+        /*path_segments.reverse();
         Some(
             path_segments
                 .iter()
                 .skip(1)
                 .fold(path_segments.first()?.clone(), |a, b| a + "/" + b),
-        )
+        )*/
     }
 }
 
