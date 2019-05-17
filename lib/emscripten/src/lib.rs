@@ -24,9 +24,6 @@ use wasmer_runtime_core::{
 
 #[macro_use]
 mod macros;
-//#[cfg(test)]
-mod file_descriptor;
-pub mod stdio;
 
 // EMSCRIPTEN APIS
 mod bitwise;
