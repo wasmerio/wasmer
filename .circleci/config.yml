@@ -71,6 +71,11 @@ jobs:
             make test-emscripten-clif
             make test-emscripten-llvm
       - run:
+          name: WASI Tests
+          command: |
+            make test-wasi-clif
+            make test-wasi-singlepass
+      - run:
           name: Integration Tests
           command: make integration-tests
       - save_cache:
