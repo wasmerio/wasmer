@@ -201,7 +201,7 @@ pub fn read_module<
                 }
 
                 let fcg = mcg
-                    .next_function()
+                    .next_function(&info)
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 middlewares
                     .run(

@@ -1,4 +1,5 @@
-use crate::{module::Converter, module_env::ModuleEnv, relocation::call_names};
+use crate::{module::Converter,
+            module_env::ModuleEnv, relocation::call_names};
 use cranelift_codegen::{
     cursor::FuncCursor,
     ir::{self, InstBuilder},
@@ -68,7 +69,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         &mut self,
         func: &mut ir::Function,
         clif_global_index: cranelift_wasm::GlobalIndex,
-    ) -> cranelift_wasm::GlobalVariable {
+    ) -> cranelift_wasm::WasmResult<cranelift_wasm::GlobalVariable> {
         let global_index: GlobalIndex = Converter(clif_global_index).into();
 
         // Create VMContext value.
@@ -124,11 +125,11 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             }
         };
 
-        cranelift_wasm::GlobalVariable::Memory {
+        Ok(cranelift_wasm::GlobalVariable::Memory {
             gv: local_global_addr,
             offset: (vm::LocalGlobal::offset_data() as i32).into(),
             ty: self.env.get_global(clif_global_index).ty,
-        }
+        })
     }
 
     /// Sets up the necessary preamble definitions in `func` to access the linear memory identified
@@ -139,7 +140,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         &mut self,
         func: &mut ir::Function,
         clif_mem_index: cranelift_wasm::MemoryIndex,
-    ) -> ir::Heap {
+    ) -> cranelift_wasm::WasmResult<ir::Heap> {
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
         // Create VMContext value.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
@@ -217,7 +218,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                     readonly: false,
                 });
 
-                func.create_heap(ir::HeapData {
+                Ok(func.create_heap(ir::HeapData {
                     base: local_memory_base,
                     min_size: (description.minimum.bytes().0 as u64).into(),
                     offset_guard_size: mem_type.guard_size().into(),
@@ -225,9 +226,9 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                         bound_gv: local_memory_bound,
                     },
                     index_type: ir::types::I32,
-                })
+                }))
             }
-            mem_type @ MemoryType::Static | mem_type @ MemoryType::SharedStatic => func
+            mem_type @ MemoryType::Static | mem_type @ MemoryType::SharedStatic => Ok(func
                 .create_heap(ir::HeapData {
                     base: local_memory_base,
                     min_size: (description.minimum.bytes().0 as u64).into(),
@@ -236,7 +237,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                         bound: mem_type.bounds().unwrap().into(),
                     },
                     index_type: ir::types::I32,
-                }),
+                })),
         }
     }
 
@@ -248,7 +249,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         &mut self,
         func: &mut ir::Function,
         clif_table_index: cranelift_wasm::TableIndex,
-    ) -> ir::Table {
+    ) -> cranelift_wasm::WasmResult<ir::Table> {
         let table_index: TableIndex = Converter(clif_table_index).into();
         // Create VMContext value.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
@@ -326,13 +327,13 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             readonly: false,
         });
 
-        func.create_table(ir::TableData {
+        Ok(func.create_table(ir::TableData {
             base_gv: table_base,
             min_size: (description.minimum as u64).into(),
             bound_gv: table_count,
             element_size: (vm::Anyfunc::size() as u64).into(),
             index_type: ir::types::I32,
-        })
+        }))
     }
 
     /// Sets up a signature definition in `func`'s preamble.
@@ -343,9 +344,9 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         &mut self,
         func: &mut ir::Function,
         clif_sig_index: cranelift_wasm::SignatureIndex,
-    ) -> ir::SigRef {
+    ) -> cranelift_wasm::WasmResult<ir::SigRef> {
         // Create a signature reference out of specified signature (with VMContext param added).
-        func.import_signature(self.generate_signature(clif_sig_index))
+        Ok(func.import_signature(self.generate_signature(clif_sig_index)))
     }
 
     /// Sets up an external function definition in the preamble of `func` that can be used to
@@ -356,7 +357,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         &mut self,
         func: &mut ir::Function,
         func_index: cranelift_wasm::FuncIndex,
-    ) -> ir::FuncRef {
+    ) -> cranelift_wasm::WasmResult<ir::FuncRef> {
         // Get signature of function.
         let signature_index = self.env.get_func_type(func_index);
 
@@ -367,12 +368,12 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let name = ir::ExternalName::user(0, func_index.as_u32());
 
         // Create function reference from fuction data.
-        func.import_function(ir::ExtFuncData {
+        Ok(func.import_function(ir::ExtFuncData {
             name,
             signature,
             // Make this colocated so all calls between local functions are relative.
             colocated: true,
-        })
+        }))
     }
 
     /// Generates an indirect call IR with `callee` and `call_args`.

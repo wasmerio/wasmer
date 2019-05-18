@@ -47,7 +47,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
 
     /// Creates a new function and returns the function-scope code generator for it.
-    fn next_function(&mut self) -> Result<&mut FCG, E>;
+    fn next_function(&mut self, module_info: &ModuleInfo) -> Result<&mut FCG, E>;
     fn finalize(self, module_info: &ModuleInfo) -> Result<(RM, Box<dyn CacheGen>), E>;
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
 
