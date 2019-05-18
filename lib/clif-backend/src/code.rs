@@ -1,3 +1,6 @@
+// Parts of the following code are Copyright 2018 Cranelift Developers
+// and subject to the license https://github.com/CraneStation/cranelift/blob/c47ca7bafc8fc48358f1baa72360e61fc1f7a0f2/cranelift-wasm/LICENSE
+
 use crate::{func_env::FuncEnv, module::{Converter, Module}, signal::Caller, get_isa};
 use std::sync::Arc;
 use wasmer_runtime_core::{
