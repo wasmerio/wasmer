@@ -49,12 +49,15 @@ install:
 
 build_script:
    - cargo build --release --verbose
+   # Now we build wapm
+   - git submodule init
+   - git submodule update
+   - cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
 
 test_script:
   - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 
 before_deploy:
-  - cargo build --release --verbose
   - cd ./src/installer
   - iscc wasmer.iss
   - copy /y .\WasmerInstaller.exe ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
