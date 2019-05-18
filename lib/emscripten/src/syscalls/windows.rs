@@ -18,10 +18,9 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
-    let pathname: u32 = varargs.get(ctx);
+    let pathname_addr = varargs.get_str(ctx);
     let flags: i32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
     let path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
     match path_str {
         "/dev/urandom" => {
@@ -43,7 +42,7 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
             let fd = unsafe { open(raw_pointer_to_urandom_file, flags, mode) };
             debug!(
                 "=> pathname: {}, flags: {}, mode: {} = fd: {}",
-                pathname, flags, mode, fd
+                path_str, flags, mode, fd
             );
             fd
         }
@@ -51,7 +50,7 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
             let fd = unsafe { open(pathname_addr, flags, mode) };
             debug!(
                 "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
-                pathname, flags, mode, fd, path_str
+                path_str, flags, mode, fd, path_str
             );
             fd
         }
@@ -95,8 +94,7 @@ pub fn ___syscall39(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int 
     debug!("emscripten::___syscall39 (mkdir) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
-    let pathname: u32 = varargs.get(ctx);
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
+    let pathname_addr = varargs.get_str(ctx);
     unsafe { mkdir(pathname_addr) }
 }
 

@@ -112,3 +112,20 @@ pub fn ___assert_fail(_ctx: &mut Ctx, _a: c_int, _b: c_int, _c: c_int, _d: c_int
     // TODO: Implement like emscripten expects regarding memory/page size
     // TODO raise an error
 }
+
+pub fn _fpathconf(_ctx: &mut Ctx, _fildes: c_int, name: c_int) -> c_int {
+    debug!("emscripten::_fpathconf {} {}", _fildes, name);
+    match name {
+        0 => 32000,
+        1 | 2 | 3 => 255,
+        4 | 5 | 16 | 17 | 18 => 4096,
+        6 | 7 | 20 => 1,
+        8 => 0,
+        9 | 10 | 11 | 12 | 14 | 15 | 19 => -1,
+        13 => 64,
+        _ => {
+            // ___setErrNo(22);
+            -1
+        }
+    }
+}

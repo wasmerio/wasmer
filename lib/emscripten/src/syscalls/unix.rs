@@ -104,19 +104,17 @@ const SO_NOSIGPIPE: c_int = 0;
 /// open
 pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", _which);
-    let pathname: u32 = varargs.get(ctx);
+    let pathname_addr = varargs.get_str(ctx);
     let flags: i32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
     let _path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
     let fd = unsafe { open(pathname_addr, flags, mode) };
     debug!(
-        "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}\nlast os error: {}",
-        pathname,
+        "=> path: {}, flags: {}, mode: {} = fd: {}, last os error: {}",
+        _path_str,
         flags,
         mode,
         fd,
-        _path_str,
         Error::last_os_error(),
     );
     fd
@@ -126,10 +124,8 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
 pub fn ___syscall9(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall9 (link) {}", _which);
 
-    let oldname: c_int = varargs.get(ctx);
-    let newname: c_int = varargs.get(ctx);
-    let oldname_ptr = emscripten_memory_pointer!(ctx.memory(0), oldname) as *const i8;
-    let newname_ptr = emscripten_memory_pointer!(ctx.memory(0), newname) as *const i8;
+    let oldname_ptr = varargs.get_str(ctx);
+    let newname_ptr = varargs.get_str(ctx);
     let result = unsafe { link(oldname_ptr, newname_ptr) };
     debug!(
         "=> oldname: {}, newname: {}, result: {}",
@@ -156,10 +152,8 @@ pub fn ___syscall77(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall83 (symlink) {}", _which);
 
-    let path1_ptr: c_int = varargs.get(ctx);
-    let path2_ptr: c_int = varargs.get(ctx);
-    let path1 = emscripten_memory_pointer!(ctx.memory(0), path1_ptr) as *mut i8;
-    let path2 = emscripten_memory_pointer!(ctx.memory(0), path2_ptr) as *mut i8;
+    let path1 = varargs.get_str(ctx);
+    let path2 = varargs.get_str(ctx);
     let result = unsafe { symlink(path1, path2) };
     debug!(
         "=> path1: {}, path2: {}, result: {}",
@@ -186,10 +180,9 @@ pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 /// lchown
 pub fn ___syscall198(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall198 (lchown) {}", _which);
-    let path: c_int = varargs.get(ctx);
+    let path_ptr = varargs.get_str(ctx);
     let uid: uid_t = varargs.get(ctx);
     let gid: gid_t = varargs.get(ctx);
-    let path_ptr = emscripten_memory_pointer!(ctx.memory(0), path) as *const i8;
     let result = unsafe { lchown(path_ptr, uid, gid) };
     debug!(
         "=> path: {}, uid: {}, gid: {}, result: {}",
@@ -222,11 +215,9 @@ pub fn ___syscall205(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall212 (chown) {}", _which);
 
-    let pathname: u32 = varargs.get(ctx);
+    let pathname_addr = varargs.get_str(ctx);
     let owner: u32 = varargs.get(ctx);
     let group: u32 = varargs.get(ctx);
-
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
 
     unsafe { chown(pathname_addr, owner, group) }
 }
@@ -247,9 +238,8 @@ pub fn ___syscall219(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 /// access
 pub fn ___syscall33(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
-    let path_ptr: c_int = varargs.get(ctx);
+    let path = varargs.get_str(ctx);
     let amode: c_int = varargs.get(ctx);
-    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
     let result = unsafe { access(path, amode) };
     debug!(
         "=> path: {}, amode: {}, result: {}",
@@ -270,9 +260,8 @@ pub fn ___syscall34(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 // mkdir
 pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", _which);
-    let pathname: u32 = varargs.get(ctx);
+    let pathname_addr = varargs.get_str(ctx);
     let mode: u32 = varargs.get(ctx);
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
     unsafe { mkdir(pathname_addr, mode as _) }
 }
 
@@ -771,9 +760,8 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 /// lstat64
 pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) {}", _which);
-    let path_ptr: c_int = varargs.get(ctx);
+    let path = varargs.get_str(ctx);
     let buf_ptr: u32 = varargs.get(ctx);
-    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
     unsafe {
         let mut stat: stat = std::mem::zeroed();
 

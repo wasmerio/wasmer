@@ -547,6 +547,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_sysconf" => func!(crate::env::_sysconf),
         "_getaddrinfo" => func!(crate::env::_getaddrinfo),
         "_times" => func!(crate::env::_times),
+        "_pathconf" => func!(crate::env::_fpathconf),
+        "_fpathconf" => func!(crate::env::_fpathconf),
 
         // Syscalls
         "___syscall1" => func!(crate::syscalls::___syscall1),
@@ -689,6 +691,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_asctime_r" => func!(crate::time::_asctime_r),
         "_localtime" => func!(crate::time::_localtime),
         "_time" => func!(crate::time::_time),
+        "_timegm" => func!(crate::time::_timegm),
         "_strftime" => func!(crate::time::_strftime),
         "_strftime_l" => func!(crate::time::_strftime_l),
         "_localtime_r" => func!(crate::time::_localtime_r),
@@ -707,6 +710,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_llvm_exp2_f32" => func!(crate::math::_llvm_exp2_f32),
         "_llvm_exp2_f64" => func!(crate::math::_llvm_exp2_f64),
         "_llvm_trunc_f64" => func!(crate::math::_llvm_trunc_f64),
+        "_llvm_fma_f64" => func!(crate::math::_llvm_fma_f64),
         "_emscripten_random" => func!(crate::math::_emscripten_random),
 
         // Jump
