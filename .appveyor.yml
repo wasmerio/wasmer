@@ -6,6 +6,7 @@ branches:
   only:
     - staging
     - trying
+    - master
 
 environment:
   matrix:
@@ -70,4 +71,4 @@ deploy:
   provider: GitHub
   on:
     branch: master
-    appveyor_repo_tag: true
+    # appveyor_repo_tag: true
