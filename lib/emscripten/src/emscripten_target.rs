@@ -105,6 +105,18 @@ pub fn _pthread_key_create(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_pthread_key_create");
     0
 }
+pub fn _pthread_rwlock_destroy(_ctx: &mut Ctx, _rwlock: i32) -> i32 {
+    debug!("emscripten::_pthread_rwlock_destroy({})", _rwlock);
+    0
+}
+pub fn _pthread_rwlock_init(_ctx: &mut Ctx, _rwlock: i32, _attr: i32) -> i32 {
+    debug!("emscripten::_pthread_rwlock_init({}, {})", _rwlock, _attr);
+    0
+}
+pub fn _pthread_rwlock_wrlock(_ctx: &mut Ctx, _rwlock: i32) -> i32 {
+    debug!("emscripten::_pthread_rwlock_wrlock({})", _rwlock);
+    0
+}
 pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
     debug!("emscripten::_pthread_create");
     0
