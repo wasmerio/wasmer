@@ -300,7 +300,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(())
     }
 
-    fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
+    fn next_function(
+        &mut self,
+        _module_info: &ModuleInfo,
+    ) -> Result<&mut X64FunctionCode, CodegenError> {
         let (mut assembler, mut function_labels, br_table_data, breakpoints) =
             match self.functions.last_mut() {
                 Some(x) => (
