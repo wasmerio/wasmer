@@ -107,6 +107,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             func_body: func,
             func_translator,
             next_local: 0,
+            clif_signatures: self.clif_signatures.clone(),
         };
         let builder = FunctionBuilder::new(
             &mut func_env.func_body,
@@ -368,6 +369,7 @@ pub struct CraneliftFunctionCodeGenerator {
     builder: Option<FunctionBuilder<'static>>,
     func_translator: FuncTranslator,
     next_local: usize,
+    pub clif_signatures: Map<SigIndex, ir::Signature>,
 }
 
 impl FuncEnvironment for CraneliftFunctionCodeGenerator {
@@ -1034,7 +1036,7 @@ impl CraneliftFunctionCodeGenerator {
         clif_sig_index: cranelift_wasm::SignatureIndex,
     ) -> ir::Signature {
         // Get signature
-        let mut signature = self.env.signatures[Converter(clif_sig_index).into()].clone();
+        let mut signature = self.clif_signatures[Converter(clif_sig_index).into()].clone();
 
         // Add the vmctx parameter type to it
         signature.params.insert(
