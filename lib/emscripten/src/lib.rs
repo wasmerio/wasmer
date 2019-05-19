@@ -822,6 +822,12 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_viid" => func!(crate::emscripten_target::invoke_viid),
         "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
         "invoke_viidddddddd" => func!(crate::emscripten_target::invoke_viidddddddd),
+
+        // ucontext.h
+        "_getcontext" => func!(crate::emscripten_target::_getcontext),
+        "_makecontext" => func!(crate::emscripten_target::_makecontext),
+        "_setcontext" => func!(crate::emscripten_target::_setcontext),
+        "_swapcontext" => func!(crate::emscripten_target::_swapcontext),
     };
 
     for null_func_name in globals.null_func_names.iter() {
