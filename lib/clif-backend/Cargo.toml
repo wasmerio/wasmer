@@ -13,7 +13,7 @@ wasmer-runtime-core = { path = "../runtime-core", version = "0.4.1" }
 # cranelift-codegen = { path = "../../../cranelift/cranelift-codegen" }
 # cranelift-entity = { path = "../../../cranelift/cranelift-entity" }
 # cranelift-frontend = { path = "../../../cranelift/cranelift-frontend" }
-# cranelift-wasm = { git = "https://github.com/wasmerio/cranelift.git", branch = "wasmer" }
+# cranelift-wasm = { path = "../../../cranelift/cranelift-wasm" }
 cranelift-native = { git = "https://github.com/wasmerio/cranelift.git", branch = "wasmer" }
 cranelift-codegen = { git = "https://github.com/wasmerio/cranelift.git", branch = "wasmer" }
 cranelift-entity = { git = "https://github.com/wasmerio/cranelift.git", branch = "wasmer" }
