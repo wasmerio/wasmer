@@ -309,12 +309,12 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
     fn finalize(
         self,
-        _module_info: &ModuleInfo,
+        module_info: &ModuleInfo,
     ) -> Result<(Caller, Box<dyn CacheGen>), CodegenError> {
         let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(self.isa, functions, &self.info)?;
+            FuncResolverBuilder::new(&self.isa, functions, module_info)?;
 
-        let trampolines = Arc::new(Trampolines::new(self.isa, &self.info));
+        let trampolines = Arc::new(Trampolines::new(self.isa, module_info));
 
         let (func_resolver, backend_cache) = func_resolver_builder.finalize(
             &self.info.signatures,
