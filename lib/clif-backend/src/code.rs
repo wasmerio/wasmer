@@ -301,7 +301,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         //        };
 
         // Add function body to list of function bodies.
-        //self.func_bodies.push(func);
+        self.func_bodies.push(func);
 
         self.functions.push(func_env);
         Ok(self.functions.last_mut().unwrap())
@@ -312,12 +312,12 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         module_info: &ModuleInfo,
     ) -> Result<(Caller, Box<dyn CacheGen>), CodegenError> {
         let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(&self.isa, functions, module_info)?;
+            FuncResolverBuilder::new(&*self.isa, self.func_bodies, module_info)?;
 
-        let trampolines = Arc::new(Trampolines::new(self.isa, module_info));
+        let trampolines = Arc::new(Trampolines::new(&*self.isa, module_info));
 
         let (func_resolver, backend_cache) = func_resolver_builder.finalize(
-            &self.info.signatures,
+            &self.signatures.as_ref().unwrap(),
             Arc::clone(&trampolines),
             handler_data.clone(),
         )?;
