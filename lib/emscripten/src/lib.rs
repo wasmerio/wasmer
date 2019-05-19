@@ -780,6 +780,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
         "_gethostbyname_r" => func!(crate::emscripten_target::_gethostbyname_r),
         "_getloadavg" => func!(crate::emscripten_target::_getloadavg),
+        "_getnameinfo" => func!(crate::emscripten_target::_getnameinfo),
         "invoke_dii" => func!(crate::emscripten_target::invoke_dii),
         "invoke_diiii" => func!(crate::emscripten_target::invoke_diiii),
         "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),

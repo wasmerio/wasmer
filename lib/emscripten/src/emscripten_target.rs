@@ -228,6 +228,20 @@ pub fn _getloadavg(_ctx: &mut Ctx, _loadavg: i32, _nelem: i32) -> i32 {
     debug!("emscripten::getloadavg");
     0
 }
+pub fn _getnameinfo(
+    _ctx: &mut Ctx,
+    _addr: i32,
+    _addrlen: i32,
+    _host: i32,
+    _hostlen: i32,
+    _serv: i32,
+    _servlen: i32,
+    _flags: i32
+) -> i32 {
+    debug!("emscripten::_getnameinfo({}, {}, {}, {}, {}, {}, {})",
+    _addr, _addrlen, _host, _hostlen, _serv, _servlen, _flags);
+    0
+}
 
 // Invoke functions
 // They save the stack to allow unwinding
