@@ -15,6 +15,11 @@ pub fn getTempRet0(ctx: &mut Ctx) -> i32 {
     get_emscripten_data(ctx).temp_ret_0
 }
 
+pub fn _alarm(_ctx: &mut Ctx, _seconds: u32) -> i32 {
+    debug!("emscripten::_alarm({})", _seconds);
+    0
+}
+
 pub fn _atexit(_ctx: &mut Ctx, _func: i32) -> i32 {
     debug!("emscripten::_atexit");
     // TODO: implement atexit properly

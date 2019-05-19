@@ -722,6 +722,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_dlsym" => func!(crate::linking::_dlsym),
 
         // wasm32-unknown-emscripten
+        "_alarm" => func!(crate::emscripten_target::_alarm),
         "_atexit" => func!(crate::emscripten_target::_atexit),
         "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
         "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
