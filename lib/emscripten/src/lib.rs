@@ -776,6 +776,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_pthread_rwlock_init" => func!(crate::emscripten_target::_pthread_rwlock_init),
         "_pthread_rwlock_wrlock" => func!(crate::emscripten_target::_pthread_rwlock_wrlock),
         "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
+        "_gai_strerror" => func!(crate::emscripten_target::_gai_strerror),
         "_getdtablesize" => func!(crate::emscripten_target::_getdtablesize),
         "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
         "_gethostbyname_r" => func!(crate::emscripten_target::_gethostbyname_r),

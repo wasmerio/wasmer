@@ -197,6 +197,12 @@ pub fn ___gxx_personality_v0(
     debug!("emscripten::___gxx_personality_v0");
     0
 }
+
+pub fn _gai_strerror(_ctx: &mut Ctx, _ecode: i32) -> i32 {
+    debug!("emscripten::_gai_strerror({})", _ecode);
+    0
+}
+
 #[cfg(target_os = "linux")]
 pub fn _getdtablesize(_ctx: &mut Ctx) -> i32 {
     debug!("emscripten::getdtablesize");
