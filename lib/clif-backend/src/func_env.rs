@@ -1,5 +1,4 @@
-use crate::{module::Converter,
-            module_env::ModuleEnv, relocation::call_names};
+use crate::{module::Converter, module_env::ModuleEnv, relocation::call_names};
 use cranelift_codegen::{
     cursor::FuncCursor,
     ir::{self, InstBuilder},

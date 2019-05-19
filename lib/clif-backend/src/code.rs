@@ -1,32 +1,43 @@
 // Parts of the following code are Copyright 2018 Cranelift Developers
 // and subject to the license https://github.com/CraneStation/cranelift/blob/c47ca7bafc8fc48358f1baa72360e61fc1f7a0f2/cranelift-wasm/LICENSE
 
-use crate::{func_env::FuncEnv, module::{Converter, Module}, signal::Caller, get_isa, relocation::call_names};
+use crate::{
+    cache::{BackendCache, CacheGenerator},
+    func_env::FuncEnv,
+    get_isa, module,
+    module::{Converter, Module},
+    relocation::call_names,
+    resolver::FuncResolverBuilder,
+    signal::Caller,
+    trampoline::Trampolines,
+};
+
+use cranelift_codegen::entity::EntityRef;
+use cranelift_codegen::ir::{self, Ebb, InstBuilder, ValueLabel};
+use cranelift_codegen::timing;
+use cranelift_codegen::{cursor::FuncCursor, isa};
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
+use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
+use cranelift_wasm::{get_vmctx_value_label, translate_operator, TranslationState};
+use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError, WasmResult};
+use std::mem;
 use std::sync::Arc;
+use wasmer_runtime_core::error::CompileError;
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
-    module::{ModuleInfo, ModuleInner},
-    structures::{TypedIndex, Map},
     memory::MemoryType,
+    module::{ModuleInfo, ModuleInner},
+    structures::{Map, TypedIndex},
     types::{
-        FuncSig, FuncIndex,
-        ElementType, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer, LocalFuncIndex,
-        LocalOrImport, MemoryDescriptor, SigIndex, TableDescriptor, Value, MemoryIndex, TableIndex,
+        ElementType, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer,
+        LocalFuncIndex, LocalOrImport, MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor,
+        TableIndex, Value,
     },
     vm,
 };
-use std::mem;
-use cranelift_codegen::{isa, cursor::FuncCursor};
-use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::{self, Ebb, InstBuilder, ValueLabel};
-use cranelift_codegen::timing;
 use wasmparser::Type as WpType;
-use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError, WasmResult};
-use cranelift_wasm::{translate_operator, TranslationState, get_vmctx_value_label};
-use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
-use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 
 pub struct CraneliftModuleCodeGenerator {
     isa: Box<isa::TargetIsa>,
@@ -37,9 +48,7 @@ pub struct CraneliftModuleCodeGenerator {
     func_bodies: Map<LocalFuncIndex, ir::Function>,
 }
 
-pub struct ClifFuncEnv {
-
-}
+pub struct ClifFuncEnv {}
 
 impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     for CraneliftModuleCodeGenerator
@@ -64,224 +73,232 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         Ok(())
     }
 
-    fn next_function(&mut self, module_info: &ModuleInfo) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
-
+    fn next_function(
+        &mut self,
+        module_info: &ModuleInfo,
+    ) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
         // define_function_body(
 
         let mut func_translator = FuncTranslator::new();
 
-//        let func_body = {
+        //        let func_body = {
 
+        //            let mut func_env = FuncEnv::new(self);
 
-//            let mut func_env = FuncEnv::new(self);
+        // TODO should func_index come from self.functions?
+        let func_index = self.func_bodies.next_index();
+        let name = ir::ExternalName::user(0, func_index.index() as u32);
 
-            // TODO should func_index come from self.functions?
-            let func_index = self.func_bodies.next_index();
-            let name = ir::ExternalName::user(0, func_index.index() as u32);
+        let sig = generate_signature(
+            self,
+            self.get_func_type(
+                &module_info,
+                Converter(func_index.convert_up(&module_info)).into(),
+            ),
+        );
 
-            let sig = generate_signature(self,
-                self.get_func_type(&module_info, Converter(func_index.convert_up(&module_info)).into()),
+        let mut func = ir::Function::with_name_signature(name, sig);
+
+        //func_translator.translate(body_bytes, body_offset, &mut func, &mut func_env)?;
+        // This clears the `FunctionBuilderContext`.
+
+        let mut func_env = CraneliftFunctionCodeGenerator {
+            builder: None,
+            func_body: func,
+            func_translator,
+            next_local: 0,
+        };
+        let builder = FunctionBuilder::new(
+            &mut func_env.func_body,
+            &mut func_env.func_translator.func_ctx,
+        );
+        func_env.builder = Some(builder);
+
+        let mut builder = func_env.builder.as_mut().unwrap();
+
+        // TODO srcloc
+        //builder.set_srcloc(cur_srcloc(&reader));
+
+        let entry_block = builder.create_ebb();
+        builder.append_ebb_params_for_function_params(entry_block);
+        builder.switch_to_block(entry_block); // This also creates values for the arguments.
+        builder.seal_block(entry_block);
+        // Make sure the entry block is inserted in the layout before we make any callbacks to
+        // `environ`. The callback functions may need to insert things in the entry block.
+        builder.ensure_inserted_ebb();
+
+        let num_params = declare_wasm_parameters(&mut builder, entry_block);
+
+        // Set up the translation state with a single pushed control block representing the whole
+        // function and its return values.
+        let exit_block = builder.create_ebb();
+        builder.append_ebb_params_for_function_returns(exit_block);
+        func_translator
+            .state
+            .initialize(&builder.func.signature, exit_block);
+
+        #[cfg(feature = "debug")]
+        {
+            use cranelift_codegen::cursor::{Cursor, FuncCursor};
+            use cranelift_codegen::ir::InstBuilder;
+            let entry_ebb = func.layout.entry_block().unwrap();
+            let ebb = func.dfg.make_ebb();
+            func.layout.insert_ebb(ebb, entry_ebb);
+            let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(ebb);
+            let params = pos.func.dfg.ebb_params(entry_ebb).to_vec();
+
+            let new_ebb_params: Vec<_> = params
+                .iter()
+                .map(|&param| {
+                    pos.func
+                        .dfg
+                        .append_ebb_param(ebb, pos.func.dfg.value_type(param))
+                })
+                .collect();
+
+            let start_debug = {
+                let signature = pos.func.import_signature(ir::Signature {
+                    call_conv: self.target_config().default_call_conv,
+                    params: vec![
+                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ir::AbiParam::new(ir::types::I32),
+                    ],
+                    returns: vec![],
+                });
+
+                let name = ir::ExternalName::testcase("strtdbug");
+
+                pos.func.import_function(ir::ExtFuncData {
+                    name,
+                    signature,
+                    colocated: false,
+                })
+            };
+
+            let end_debug = {
+                let signature = pos.func.import_signature(ir::Signature {
+                    call_conv: self.target_config().default_call_conv,
+                    params: vec![ir::AbiParam::special(
+                        ir::types::I64,
+                        ir::ArgumentPurpose::VMContext,
+                    )],
+                    returns: vec![],
+                });
+
+                let name = ir::ExternalName::testcase("enddbug");
+
+                pos.func.import_function(ir::ExtFuncData {
+                    name,
+                    signature,
+                    colocated: false,
+                })
+            };
+
+            let i32_print = {
+                let signature = pos.func.import_signature(ir::Signature {
+                    call_conv: self.target_config().default_call_conv,
+                    params: vec![
+                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ir::AbiParam::new(ir::types::I32),
+                    ],
+                    returns: vec![],
+                });
+
+                let name = ir::ExternalName::testcase("i32print");
+
+                pos.func.import_function(ir::ExtFuncData {
+                    name,
+                    signature,
+                    colocated: false,
+                })
+            };
+
+            let i64_print = {
+                let signature = pos.func.import_signature(ir::Signature {
+                    call_conv: self.target_config().default_call_conv,
+                    params: vec![
+                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ir::AbiParam::new(ir::types::I64),
+                    ],
+                    returns: vec![],
+                });
+
+                let name = ir::ExternalName::testcase("i64print");
+
+                pos.func.import_function(ir::ExtFuncData {
+                    name,
+                    signature,
+                    colocated: false,
+                })
+            };
+
+            let f32_print = {
+                let signature = pos.func.import_signature(ir::Signature {
+                    call_conv: self.target_config().default_call_conv,
+                    params: vec![
+                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ir::AbiParam::new(ir::types::F32),
+                    ],
+                    returns: vec![],
+                });
+
+                let name = ir::ExternalName::testcase("f32print");
+
+                pos.func.import_function(ir::ExtFuncData {
+                    name,
+                    signature,
+                    colocated: false,
+                })
+            };
+
+            let f64_print = {
+                let signature = pos.func.import_signature(ir::Signature {
+                    call_conv: self.target_config().default_call_conv,
+                    params: vec![
+                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ir::AbiParam::new(ir::types::F64),
+                    ],
+                    returns: vec![],
+                });
+
+                let name = ir::ExternalName::testcase("f64print");
+
+                pos.func.import_function(ir::ExtFuncData {
+                    name,
+                    signature,
+                    colocated: false,
+                })
+            };
+
+            let vmctx = pos
+                .func
+                .special_param(ir::ArgumentPurpose::VMContext)
+                .expect("missing vmctx parameter");
+
+            let func_index = pos.ins().iconst(
+                ir::types::I32,
+                func_index.index() as i64 + self.module.info.imported_functions.len() as i64,
             );
 
-            let mut func = ir::Function::with_name_signature(name, sig);
+            pos.ins().call(start_debug, &[vmctx, func_index]);
 
-            //func_translator.translate(body_bytes, body_offset, &mut func, &mut func_env)?;
-            // This clears the `FunctionBuilderContext`.
+            for param in new_ebb_params.iter().cloned() {
+                match pos.func.dfg.value_type(param) {
+                    ir::types::I32 => pos.ins().call(i32_print, &[vmctx, param]),
+                    ir::types::I64 => pos.ins().call(i64_print, &[vmctx, param]),
+                    ir::types::F32 => pos.ins().call(f32_print, &[vmctx, param]),
+                    ir::types::F64 => pos.ins().call(f64_print, &[vmctx, param]),
+                    _ => unimplemented!(),
+                };
+            }
 
-            let mut func_env = CraneliftFunctionCodeGenerator {
-                builder: None,
-                func_body: func,
-                func_translator,
-                next_local: 0,
-    //            translator:
-            };
-            let builder = FunctionBuilder::new(&mut func_env.func_body, &mut func_env.func_translator.func_ctx);
-            func_env.builder = Some(builder);
+            pos.ins().call(end_debug, &[vmctx]);
 
-            let mut builder = func_env.builder.as_mut().unwrap();
+            pos.ins().jump(entry_ebb, new_ebb_params.as_slice());
+        }
 
-            // TODO srcloc
-            //builder.set_srcloc(cur_srcloc(&reader));
-
-            let entry_block = builder.create_ebb();
-            builder.append_ebb_params_for_function_params(entry_block);
-            builder.switch_to_block(entry_block); // This also creates values for the arguments.
-            builder.seal_block(entry_block);
-            // Make sure the entry block is inserted in the layout before we make any callbacks to
-            // `environ`. The callback functions may need to insert things in the entry block.
-            builder.ensure_inserted_ebb();
-
-            let num_params = declare_wasm_parameters(&mut builder, entry_block);
-
-            // Set up the translation state with a single pushed control block representing the whole
-            // function and its return values.
-            let exit_block = builder.create_ebb();
-            builder.append_ebb_params_for_function_returns(exit_block);
-            func_translator.state.initialize(&builder.func.signature, exit_block);
-
-
-            #[cfg(feature = "debug")]
-                {
-                    use cranelift_codegen::cursor::{Cursor, FuncCursor};
-                    use cranelift_codegen::ir::InstBuilder;
-                    let entry_ebb = func.layout.entry_block().unwrap();
-                    let ebb = func.dfg.make_ebb();
-                    func.layout.insert_ebb(ebb, entry_ebb);
-                    let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(ebb);
-                    let params = pos.func.dfg.ebb_params(entry_ebb).to_vec();
-
-                    let new_ebb_params: Vec<_> = params
-                        .iter()
-                        .map(|&param| {
-                            pos.func
-                                .dfg
-                                .append_ebb_param(ebb, pos.func.dfg.value_type(param))
-                        })
-                        .collect();
-
-                    let start_debug = {
-                        let signature = pos.func.import_signature(ir::Signature {
-                            call_conv: self.target_config().default_call_conv,
-                            params: vec![
-                                ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                                ir::AbiParam::new(ir::types::I32),
-                            ],
-                            returns: vec![],
-                        });
-
-                        let name = ir::ExternalName::testcase("strtdbug");
-
-                        pos.func.import_function(ir::ExtFuncData {
-                            name,
-                            signature,
-                            colocated: false,
-                        })
-                    };
-
-                    let end_debug = {
-                        let signature = pos.func.import_signature(ir::Signature {
-                            call_conv: self.target_config().default_call_conv,
-                            params: vec![ir::AbiParam::special(
-                                ir::types::I64,
-                                ir::ArgumentPurpose::VMContext,
-                            )],
-                            returns: vec![],
-                        });
-
-                        let name = ir::ExternalName::testcase("enddbug");
-
-                        pos.func.import_function(ir::ExtFuncData {
-                            name,
-                            signature,
-                            colocated: false,
-                        })
-                    };
-
-                    let i32_print = {
-                        let signature = pos.func.import_signature(ir::Signature {
-                            call_conv: self.target_config().default_call_conv,
-                            params: vec![
-                                ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                                ir::AbiParam::new(ir::types::I32),
-                            ],
-                            returns: vec![],
-                        });
-
-                        let name = ir::ExternalName::testcase("i32print");
-
-                        pos.func.import_function(ir::ExtFuncData {
-                            name,
-                            signature,
-                            colocated: false,
-                        })
-                    };
-
-                    let i64_print = {
-                        let signature = pos.func.import_signature(ir::Signature {
-                            call_conv: self.target_config().default_call_conv,
-                            params: vec![
-                                ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                                ir::AbiParam::new(ir::types::I64),
-                            ],
-                            returns: vec![],
-                        });
-
-                        let name = ir::ExternalName::testcase("i64print");
-
-                        pos.func.import_function(ir::ExtFuncData {
-                            name,
-                            signature,
-                            colocated: false,
-                        })
-                    };
-
-                    let f32_print = {
-                        let signature = pos.func.import_signature(ir::Signature {
-                            call_conv: self.target_config().default_call_conv,
-                            params: vec![
-                                ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                                ir::AbiParam::new(ir::types::F32),
-                            ],
-                            returns: vec![],
-                        });
-
-                        let name = ir::ExternalName::testcase("f32print");
-
-                        pos.func.import_function(ir::ExtFuncData {
-                            name,
-                            signature,
-                            colocated: false,
-                        })
-                    };
-
-                    let f64_print = {
-                        let signature = pos.func.import_signature(ir::Signature {
-                            call_conv: self.target_config().default_call_conv,
-                            params: vec![
-                                ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                                ir::AbiParam::new(ir::types::F64),
-                            ],
-                            returns: vec![],
-                        });
-
-                        let name = ir::ExternalName::testcase("f64print");
-
-                        pos.func.import_function(ir::ExtFuncData {
-                            name,
-                            signature,
-                            colocated: false,
-                        })
-                    };
-
-                    let vmctx = pos
-                        .func
-                        .special_param(ir::ArgumentPurpose::VMContext)
-                        .expect("missing vmctx parameter");
-
-                    let func_index = pos.ins().iconst(
-                        ir::types::I32,
-                        func_index.index() as i64 + self.module.info.imported_functions.len() as i64,
-                    );
-
-                    pos.ins().call(start_debug, &[vmctx, func_index]);
-
-                    for param in new_ebb_params.iter().cloned() {
-                        match pos.func.dfg.value_type(param) {
-                            ir::types::I32 => pos.ins().call(i32_print, &[vmctx, param]),
-                            ir::types::I64 => pos.ins().call(i64_print, &[vmctx, param]),
-                            ir::types::F32 => pos.ins().call(f32_print, &[vmctx, param]),
-                            ir::types::F64 => pos.ins().call(f64_print, &[vmctx, param]),
-                            _ => unimplemented!(),
-                        };
-                    }
-
-                    pos.ins().call(end_debug, &[vmctx]);
-
-                    pos.ins().jump(entry_ebb, new_ebb_params.as_slice());
-                }
-
-//            func
-//        };
+        //            func
+        //        };
 
         // Add function body to list of function bodies.
         //self.func_bodies.push(func);
@@ -294,7 +311,26 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         self,
         _module_info: &ModuleInfo,
     ) -> Result<(Caller, Box<dyn CacheGen>), CodegenError> {
-        unimplemented!()
+        let (func_resolver_builder, handler_data) =
+            FuncResolverBuilder::new(self.isa, functions, &self.info)?;
+
+        let trampolines = Arc::new(Trampolines::new(self.isa, &self.info));
+
+        let (func_resolver, backend_cache) = func_resolver_builder.finalize(
+            &self.info.signatures,
+            Arc::clone(&trampolines),
+            handler_data.clone(),
+        )?;
+
+        let cache_gen = Box::new(CacheGenerator::new(
+            backend_cache,
+            Arc::clone(&func_resolver.memory),
+        ));
+
+        Ok((
+            Caller::new(handler_data, trampolines, func_resolver),
+            cache_gen,
+        ))
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
@@ -314,8 +350,16 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         Ok(())
     }
 
-    unsafe fn from_cache(_cache: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        unimplemented!()
+    unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        module::Module::from_cache(cache)
+    }
+}
+
+impl From<CompileError> for CodegenError {
+    fn from(other: CompileError) -> CodegenError {
+        CodegenError {
+            message: format!("{:?}", other),
+        }
     }
 }
 
@@ -540,52 +584,52 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
 
         let (table_struct_ptr_ptr, description) = match table_index
             .local_or_import(&self.env.module.info)
-            {
-                LocalOrImport::Local(local_table_index) => {
-                    let tables_base = func.create_global_value(ir::GlobalValueData::Load {
-                        base: vmctx,
-                        offset: (vm::Ctx::offset_tables() as i32).into(),
-                        global_type: ptr_type,
-                        readonly: true,
-                    });
+        {
+            LocalOrImport::Local(local_table_index) => {
+                let tables_base = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: (vm::Ctx::offset_tables() as i32).into(),
+                    global_type: ptr_type,
+                    readonly: true,
+                });
 
-                    let table_struct_ptr_offset =
-                        local_table_index.index() * vm::LocalTable::size() as usize;
+                let table_struct_ptr_offset =
+                    local_table_index.index() * vm::LocalTable::size() as usize;
 
-                    let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                        base: tables_base,
-                        offset: (table_struct_ptr_offset as i64).into(),
-                        global_type: ptr_type,
-                    });
+                let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                    base: tables_base,
+                    offset: (table_struct_ptr_offset as i64).into(),
+                    global_type: ptr_type,
+                });
 
-                    (
-                        table_struct_ptr_ptr,
-                        self.env.module.info.tables[local_table_index],
-                    )
-                }
-                LocalOrImport::Import(import_table_index) => {
-                    let tables_base = func.create_global_value(ir::GlobalValueData::Load {
-                        base: vmctx,
-                        offset: (vm::Ctx::offset_imported_tables() as i32).into(),
-                        global_type: ptr_type,
-                        readonly: true,
-                    });
+                (
+                    table_struct_ptr_ptr,
+                    self.env.module.info.tables[local_table_index],
+                )
+            }
+            LocalOrImport::Import(import_table_index) => {
+                let tables_base = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: (vm::Ctx::offset_imported_tables() as i32).into(),
+                    global_type: ptr_type,
+                    readonly: true,
+                });
 
-                    let table_struct_ptr_offset =
-                        import_table_index.index() * vm::LocalTable::size() as usize;
+                let table_struct_ptr_offset =
+                    import_table_index.index() * vm::LocalTable::size() as usize;
 
-                    let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                        base: tables_base,
-                        offset: (table_struct_ptr_offset as i64).into(),
-                        global_type: ptr_type,
-                    });
+                let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                    base: tables_base,
+                    offset: (table_struct_ptr_offset as i64).into(),
+                    global_type: ptr_type,
+                });
 
-                    (
-                        table_struct_ptr_ptr,
-                        self.env.module.info.imported_tables[import_table_index].1,
-                    )
-                }
-            };
+                (
+                    table_struct_ptr_ptr,
+                    self.env.module.info.imported_tables[import_table_index].1,
+                )
+            }
+        };
 
         let table_struct_ptr = func.create_global_value(ir::GlobalValueData::Load {
             base: table_struct_ptr_ptr,
@@ -983,6 +1027,26 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
     }
 }
 
+impl CraneliftFunctionCodeGenerator {
+    /// Creates a signature with VMContext as the last param
+    pub fn generate_signature(
+        &self,
+        clif_sig_index: cranelift_wasm::SignatureIndex,
+    ) -> ir::Signature {
+        // Get signature
+        let mut signature = self.env.signatures[Converter(clif_sig_index).into()].clone();
+
+        // Add the vmctx parameter type to it
+        signature.params.insert(
+            0,
+            ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
+        );
+
+        // Return signature
+        signature
+    }
+}
+
 impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
     fn feed_return(&mut self, _ty: WpType) -> Result<(), CodegenError> {
         Ok(())
@@ -994,7 +1058,12 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
     }
 
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
-        cranelift_wasm::declare_locals(self.builder.as_mut().unwrap(), n as u32, ty, &mut self.next_local);
+        cranelift_wasm::declare_locals(
+            self.builder.as_mut().unwrap(),
+            n as u32,
+            ty,
+            &mut self.next_local,
+        );
         Ok(())
     }
 
@@ -1060,7 +1129,6 @@ impl CraneliftModuleCodeGenerator {
         let sig_index: SigIndex = module_info.func_assoc[Converter(func_index).into()];
         Converter(sig_index).into()
     }
-
 }
 
 impl CraneliftFunctionCodeGenerator {
@@ -1091,7 +1159,6 @@ fn pointer_type(mcg: &CraneliftModuleCodeGenerator) -> ir::Type {
     ir::Type::int(u16::from(mcg.isa.frontend_config().pointer_bits())).unwrap()
 }
 
-
 /// Declare local variables for the signature parameters that correspond to WebAssembly locals.
 ///
 /// Return the number of local variables declared.
@@ -1119,4 +1186,3 @@ fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Ebb) -> u
 
     next_local
 }
-
