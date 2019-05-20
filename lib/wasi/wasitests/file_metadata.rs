@@ -13,5 +13,5 @@ fn main() {
         filetype.is_file(),
         filetype.is_symlink()
     );
-    println!("file info: {} {} {}", md.len(), md.modified(), md.created());
+    println!("file info: {}", md.len());
 }

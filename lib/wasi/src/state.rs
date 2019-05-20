@@ -488,10 +488,10 @@ pub fn get_stat_for_kind(kind: &Kind) -> Option<__wasi_filestat_t> {
                         .as_nanos() as u64,
                     st_ctim: md
                         .created()
-                        .ok()?
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .ok()?
-                        .as_nanos() as u64,
+                        .ok()
+                        .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
+                        .map(|ct| ct.as_nanos() as u64)
+                        .unwrap_or(0),
                     ..__wasi_filestat_t::default()
                 })
             }
@@ -515,10 +515,10 @@ pub fn get_stat_for_kind(kind: &Kind) -> Option<__wasi_filestat_t> {
                     .as_nanos() as u64,
                 st_ctim: md
                     .created()
-                    .ok()?
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .ok()?
-                    .as_nanos() as u64,
+                    .ok()
+                    .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .map(|ct| ct.as_nanos() as u64)
+                    .unwrap_or(0),
                 ..__wasi_filestat_t::default()
             })
         }
