@@ -98,7 +98,7 @@ struct Run {
     pre_opened_directories: Vec<String>,
 
     /// Map a host directory to a different location for the wasm module
-    #[structopt(long = "map-dir", multiple = true)]
+    #[structopt(long = "mapdir", multiple = true)]
     mapped_dirs: Vec<String>,
 
     /// Custom code loader

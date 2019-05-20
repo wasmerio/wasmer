@@ -795,6 +795,7 @@ pub fn fd_readdir(
         for entry in entries.iter().skip(cookie as usize) {
             cur_cookie += 1;
             let entry_path = entry.path();
+            let entry_path = wasi_try!(entry_path.file_stem().ok_or(__WASI_EIO));
             let entry_path_str = entry_path.to_string_lossy();
             let namlen = entry_path_str.len();
             debug!("Returning dirent for {}", entry_path_str);
@@ -1466,7 +1467,6 @@ pub fn path_open(
     let file_path = cumulative_path;
 
     let out_fd = if let Kind::Dir { entries, .. } = &mut state.fs.inodes[cur_dir_inode].kind {
-        debug!("Hm");
         if let Some(child) = entries.get(file_name).cloned() {
             let child_inode_val = &state.fs.inodes[child];
             // early return based on flags

@@ -448,23 +448,10 @@ impl WasiFs {
     }
 
     pub fn get_base_path_for_directory(&self, directory: Inode) -> Option<String> {
-        let mut path_segments = vec![];
-        let mut cur_inode = directory;
-        loop {
-            path_segments.push(self.inodes[cur_inode].name.clone());
-
-            if let Kind::Dir { path, .. } = &self.inodes[cur_inode].kind {
-                return Some(path.to_string_lossy().to_string());
-            }
+        if let Kind::Dir { path, .. } = &self.inodes[directory].kind {
+            return Some(path.to_string_lossy().to_string());
         }
-
-        /*path_segments.reverse();
-        Some(
-            path_segments
-                .iter()
-                .skip(1)
-                .fold(path_segments.first()?.clone(), |a, b| a + "/" + b),
-        )*/
+        None
     }
 }
 
