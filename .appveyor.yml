@@ -56,9 +56,13 @@ build_script:
   # Cache wapm cli target in dir above to prevent breaking git submodule on windows
   - if not exist wapm-cli-target mkdir wapm-cli-target
   - move wapm-cli-target wapm-cli
-  - rename wapm-cli\wapm-cli-target wapm-cli\target
+  - cd wapm-cli
+  - rename wapm-cli-target target
+  - cd ..
   - cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
-  - rename wapm-cli\target wapm-cli\wapm-cli-target
+  - cd wapm-cli
+  - rename target wapm-cli-target
+  - cd ..
   - move wapm-cli\wapm-cli-target wapm-cli-target
 
 test_script:
