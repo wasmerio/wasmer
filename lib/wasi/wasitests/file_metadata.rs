@@ -6,12 +6,12 @@ fn main() {
         fs::File::open("wasitests/file_metadata.rs").expect("could not find src file");
     let md = this_file.metadata().unwrap();
     println!("is dir: {}", md.is_dir());
+    let filetype = md.file_type();
     println!(
-        "file info: {:?} {} {:?} {:?} {:?}",
-        md.file_type(),
-        md.len(),
-        md.modified(),
-        md.created(),
-        md.accessed()
+        "filetype: {} {} {}",
+        filetype.is_dir(),
+        filetype.is_file(),
+        filetype.is_symlink()
     );
+    println!("file info: {} {} {}", md.len(), md.modified(), md.created());
 }

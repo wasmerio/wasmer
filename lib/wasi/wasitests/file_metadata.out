@@ -1,2 +1,3 @@
 is dir: false
-file info: FileType(FileType { mode: 33188 }) 419 Ok(SystemTime { tv_sec: 1558132188, tv_nsec: 545288295 }) Ok(SystemTime { tv_sec: 1558132188, tv_nsec: 545243056 }) Ok(SystemTime { tv_sec: 1558132191, tv_nsec: 359031112 })
+filetype: false true false
+file info: 491

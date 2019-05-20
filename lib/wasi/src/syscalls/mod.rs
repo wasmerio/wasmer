@@ -9,7 +9,8 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
-        host_file_type_to_wasi_file_type, Fd, InodeVal, Kind, WasiFile, WasiState, MAX_SYMLINKS,
+        get_stat_for_kind, host_file_type_to_wasi_file_type, Fd, InodeVal, Kind, WasiFile,
+        WasiState, MAX_SYMLINKS,
     },
     ExitCode,
 };
@@ -1082,7 +1083,7 @@ pub fn path_create_directory(
         entries: Default::default(),
     };
     let new_inode = state.fs.inodes.insert(InodeVal {
-        stat: __wasi_filestat_t::default(),
+        stat: wasi_try!(get_stat_for_kind(&kind).ok_or(__WASI_EIO)),
         is_preopened: false,
         name: path_vec[0].clone(),
         kind,
@@ -1226,10 +1227,7 @@ pub fn path_filestat_get(
                 }
                 let final_path_metadata =
                     wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_EIO));
-                __wasi_filestat_t {
-                    st_filetype: host_file_type_to_wasi_file_type(final_path_metadata.file_type()),
-                    ..Default::default()
-                }
+                wasi_try!(get_stat_for_kind(&state.fs.inodes[inode].kind).ok_or(__WASI_EIO))
             }
         }
         _ => {
@@ -1533,7 +1531,7 @@ pub fn path_open(
 
             // record lazily loaded or newly created fd
             let new_inode = state.fs.inodes.insert(InodeVal {
-                stat: __wasi_filestat_t::default(),
+                stat: wasi_try!(get_stat_for_kind(&kind).ok_or(__WASI_EIO)),
                 is_preopened: false,
                 name: file_name.clone(),
                 kind,

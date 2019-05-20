@@ -464,3 +464,64 @@ pub fn host_file_type_to_wasi_file_type(file_type: fs::FileType) -> __wasi_filet
         __WASI_FILETYPE_UNKNOWN
     }
 }
+
+pub fn get_stat_for_kind(kind: &Kind) -> Option<__wasi_filestat_t> {
+    match kind {
+        Kind::File { handle } => match handle {
+            WasiFile::HostFile(hf) => {
+                let md = hf.metadata().ok()?;
+
+                Some(__wasi_filestat_t {
+                    st_filetype: host_file_type_to_wasi_file_type(md.file_type()),
+                    st_size: md.len(),
+                    st_atim: md
+                        .accessed()
+                        .ok()?
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .ok()?
+                        .as_nanos() as u64,
+                    st_mtim: md
+                        .modified()
+                        .ok()?
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .ok()?
+                        .as_nanos() as u64,
+                    st_ctim: md
+                        .created()
+                        .ok()?
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .ok()?
+                        .as_nanos() as u64,
+                    ..__wasi_filestat_t::default()
+                })
+            }
+        },
+        Kind::Dir { path, .. } => {
+            let md = path.metadata().ok()?;
+            Some(__wasi_filestat_t {
+                st_filetype: host_file_type_to_wasi_file_type(md.file_type()),
+                st_size: md.len(),
+                st_atim: md
+                    .accessed()
+                    .ok()?
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?
+                    .as_nanos() as u64,
+                st_mtim: md
+                    .modified()
+                    .ok()?
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?
+                    .as_nanos() as u64,
+                st_ctim: md
+                    .created()
+                    .ok()?
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?
+                    .as_nanos() as u64,
+                ..__wasi_filestat_t::default()
+            })
+        }
+        _ => None,
+    }
+}
