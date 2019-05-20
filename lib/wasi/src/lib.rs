@@ -30,7 +30,7 @@ pub fn generate_import_object(
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
     preopened_files: Vec<String>,
-    mapped_dirs: Vec<(PathBuf, String)>,
+    mapped_dirs: Vec<(String, PathBuf)>,
 ) -> ImportObject {
     let state_gen = move || {
         fn state_destructor(data: *mut c_void) {

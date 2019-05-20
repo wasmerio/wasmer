@@ -234,16 +234,19 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let mapped_dirs = {
         let mut md = vec![];
         for entry in options.mapped_dirs.iter() {
-            if let &[source, dest] = &entry.split(':').collect::<Vec<&str>>()[..] {
-                let pb = PathBuf::from(&source);
+            if let &[alias, real_dir] = &entry.split(':').collect::<Vec<&str>>()[..] {
+                let pb = PathBuf::from(&real_dir);
                 if let Ok(pb_metadata) = pb.metadata() {
                     if !pb_metadata.is_dir() {
-                        return Err(format!("\"{}\" exists, but it is not a directory", &source));
+                        return Err(format!(
+                            "\"{}\" exists, but it is not a directory",
+                            &real_dir
+                        ));
                     }
                 } else {
-                    return Err(format!("Directory \"{}\" does not exist", &source));
+                    return Err(format!("Directory \"{}\" does not exist", &real_dir));
                 }
-                md.push((pb, dest.to_string()));
+                md.push((alias.to_string(), pb));
                 continue;
             }
             return Err(format!(

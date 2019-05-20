@@ -177,7 +177,7 @@ pub struct WasiFs {
 impl WasiFs {
     pub fn new(
         preopened_dirs: &[String],
-        mapped_dirs: &[(PathBuf, String)],
+        mapped_dirs: &[(String, PathBuf)],
     ) -> Result<Self, String> {
         debug!("wasi::fs::inodes");
         let inodes = Arena::new();
@@ -218,28 +218,28 @@ impl WasiFs {
                 .expect("Could not open fd");
         }
         debug!("wasi::fs::mapped_dirs");
-        for (src_dir, dest_dir) in mapped_dirs {
-            debug!("Attempting to open {:?} at {}", src_dir, dest_dir);
+        for (alias, real_dir) in mapped_dirs {
+            debug!("Attempting to open {:?} at {}", dest_dir, alias);
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
-            let cur_dir_metadata = src_dir
+            let cur_dir_metadata = real_dir
                 .metadata()
                 .expect("mapped dir not at previously verified location");
             let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
                     parent: None,
-                    path: src_dir.clone(),
+                    path: real_dir.clone(),
                     entries: Default::default(),
                 }
             } else {
                 return Err(format!(
                     "WASI only supports pre-opened directories right now; found \"{:?}\"",
-                    &src_dir,
+                    &real_dir,
                 ));
             };
             // TODO: handle nested pats in `file`
             let inode_val =
-                InodeVal::from_file_metadata(&cur_dir_metadata, dest_dir.clone(), true, kind);
+                InodeVal::from_file_metadata(&cur_dir_metadata, alias.clone(), true, kind);
 
             let inode = wasi_fs.inodes.insert(inode_val);
             wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
