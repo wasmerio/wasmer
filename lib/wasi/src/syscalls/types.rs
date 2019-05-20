@@ -24,9 +24,9 @@ pub struct __wasi_ciovec_t {
 unsafe impl ValueType for __wasi_ciovec_t {}
 
 pub type __wasi_clockid_t = u32;
-pub const __WASI_CLOCK_MONOTONIC: u32 = 0;
-pub const __WASI_CLOCK_PROCESS_CPUTIME_ID: u32 = 1;
-pub const __WASI_CLOCK_REALTIME: u32 = 2;
+pub const __WASI_CLOCK_REALTIME: u32 = 0;
+pub const __WASI_CLOCK_MONOTONIC: u32 = 1;
+pub const __WASI_CLOCK_PROCESS_CPUTIME_ID: u32 = 2;
 pub const __WASI_CLOCK_THREAD_CPUTIME_ID: u32 = 3;
 
 pub type __wasi_device_t = u64;

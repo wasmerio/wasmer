@@ -46,7 +46,7 @@ macro_rules! assert_wasi_output {
             .map_err(|e| format!("{:?}", e))
             .expect("start function in wasi module");
 
-        let _result = start.call();
+        start.call().expect("execute the wasm");
 
         let output = capturer.end().unwrap().0;
         let expected_output = include_str!($expected);

@@ -10,6 +10,7 @@ Blocks of changes will separated by version increments.
 
 ## 0.4.2 - 2019-05-16
 
+- [#457](https://github.com/wasmerio/wasmer/pull/457) Implement file metadata for WASI, fix bugs in WASI clock code for Unix platforms
 - [#416](https://github.com/wasmerio/wasmer/pull/416) Remote code loading framework
 - [#449](https://github.com/wasmerio/wasmer/pull/449) Fix bugs: opening host files in filestat and opening with write permissions unconditionally in path_open
 - [#442](https://github.com/wasmerio/wasmer/pull/442) Misc. WASI FS fixes and implement readdir
