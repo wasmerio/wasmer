@@ -188,7 +188,10 @@ pub fn clock_time_get(
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-    debug!("wasi::clock_time_get");
+    debug!(
+        "wasi::clock_time_get clock_id: {}, precision: {}",
+        clock_id, precision
+    );
     let memory = ctx.memory(0);
 
     let out_addr = wasi_try!(time.deref(memory));
