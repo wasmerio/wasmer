@@ -315,6 +315,7 @@ jobs:
             rustup toolchain install nightly
             rustup target add wasm32-wasi --toolchain nightly
       - run: |
+          rustup default nightly
           make test-wasi-singlepass
           make test-wasi-clif
       - run: rustup default nightly-2019-04-11
