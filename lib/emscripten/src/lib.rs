@@ -44,6 +44,7 @@ mod signal;
 mod storage;
 mod syscalls;
 mod time;
+mod ucontext;
 mod utils;
 mod varargs;
 
@@ -823,11 +824,11 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
         "invoke_viidddddddd" => func!(crate::emscripten_target::invoke_viidddddddd),
 
-        // ucontext.h
-        "_getcontext" => func!(crate::emscripten_target::_getcontext),
-        "_makecontext" => func!(crate::emscripten_target::_makecontext),
-        "_setcontext" => func!(crate::emscripten_target::_setcontext),
-        "_swapcontext" => func!(crate::emscripten_target::_swapcontext),
+        // ucontext
+        "_getcontext" => func!(crate::ucontext::_getcontext),
+        "_makecontext" => func!(crate::ucontext::_makecontext),
+        "_setcontext" => func!(crate::ucontext::_setcontext),
+        "_swapcontext" => func!(crate::ucontext::_swapcontext),
     };
 
     for null_func_name in globals.null_func_names.iter() {
