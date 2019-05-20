@@ -314,13 +314,14 @@ jobs:
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             rustup toolchain install nightly
             rustup target add wasm32-wasi --toolchain nightly
+      - run: |
+          make test-wasi-singlepass
+          make test-wasi-clif
       - run: rustup default nightly-2019-04-11
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make test
           make test-singlepass
-          make test-wasi-singlepass
-          make test-wasi-clif
           make test-emscripten-clif
           make test-emscripten-singlepass
       - save_cache:
