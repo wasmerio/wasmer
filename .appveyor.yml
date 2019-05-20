@@ -6,6 +6,7 @@ branches:
   only:
     - staging
     - trying
+    - master
 
 environment:
   matrix:
@@ -17,6 +18,7 @@ environment:
 cache:
   - 'C:\Users\appveyor\.cargo'
   - target
+  - 'wapm-cli\target'
 
 install:
   # # Install LLVM
@@ -47,7 +49,11 @@ install:
 #  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 build_script:
-   - cargo build --release --verbose
+  - cargo build --release --verbose
+  # Now we build wapm
+  - git submodule init
+  - git submodule update
+  - cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
 
 test_script:
   - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
@@ -66,7 +72,7 @@ deploy:
   description: 'WasmerInstaller'
   artifact: /.*\.exe/
   auth_token:
-    secure: CaKtncy7S1PWxzDUQ0p2264pe3HwxzDn5VIyRizDaa72/SVfskNcoMjwwRh0ut22
+    secure: BbreGNDJy20922za7OhJG5TERzfX+dJSBQwttNTJkLvszbqMov6hhAtRb3P45hpf
   provider: GitHub
   on:
     branch: master
