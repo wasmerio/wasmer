@@ -44,6 +44,7 @@ mod signal;
 mod storage;
 mod syscalls;
 mod time;
+mod ucontext;
 mod utils;
 mod varargs;
 
@@ -722,6 +723,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_dlsym" => func!(crate::linking::_dlsym),
 
         // wasm32-unknown-emscripten
+        "_alarm" => func!(crate::emscripten_target::_alarm),
         "_atexit" => func!(crate::emscripten_target::_atexit),
         "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
         "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
@@ -772,11 +774,16 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
         "_pthread_once" => func!(crate::emscripten_target::_pthread_once),
         "_pthread_key_create" => func!(crate::emscripten_target::_pthread_key_create),
+        "_pthread_rwlock_destroy" => func!(crate::emscripten_target::_pthread_rwlock_destroy),
+        "_pthread_rwlock_init" => func!(crate::emscripten_target::_pthread_rwlock_init),
+        "_pthread_rwlock_wrlock" => func!(crate::emscripten_target::_pthread_rwlock_wrlock),
         "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
+        "_gai_strerror" => func!(crate::emscripten_target::_gai_strerror),
         "_getdtablesize" => func!(crate::emscripten_target::_getdtablesize),
         "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
         "_gethostbyname_r" => func!(crate::emscripten_target::_gethostbyname_r),
         "_getloadavg" => func!(crate::emscripten_target::_getloadavg),
+        "_getnameinfo" => func!(crate::emscripten_target::_getnameinfo),
         "invoke_dii" => func!(crate::emscripten_target::invoke_dii),
         "invoke_diiii" => func!(crate::emscripten_target::invoke_diiii),
         "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),
@@ -816,6 +823,12 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_viid" => func!(crate::emscripten_target::invoke_viid),
         "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
         "invoke_viidddddddd" => func!(crate::emscripten_target::invoke_viidddddddd),
+
+        // ucontext
+        "_getcontext" => func!(crate::ucontext::_getcontext),
+        "_makecontext" => func!(crate::ucontext::_makecontext),
+        "_setcontext" => func!(crate::ucontext::_setcontext),
+        "_swapcontext" => func!(crate::ucontext::_swapcontext),
     };
 
     for null_func_name in globals.null_func_names.iter() {
