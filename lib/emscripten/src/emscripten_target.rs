@@ -247,10 +247,12 @@ pub fn _getnameinfo(
     _hostlen: i32,
     _serv: i32,
     _servlen: i32,
-    _flags: i32
+    _flags: i32,
 ) -> i32 {
-    debug!("emscripten::_getnameinfo({}, {}, {}, {}, {}, {}, {})",
-    _addr, _addrlen, _host, _hostlen, _serv, _servlen, _flags);
+    debug!(
+        "emscripten::_getnameinfo({}, {}, {}, {}, {}, {}, {})",
+        _addr, _addrlen, _host, _hostlen, _serv, _servlen, _flags
+    );
     0
 }
 
