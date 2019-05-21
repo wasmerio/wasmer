@@ -39,16 +39,26 @@ impl Token {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum MemoryBoundCheckMode {
+    Default,
+    Enable,
+    Disable,
+}
+
+impl Default for MemoryBoundCheckMode {
+    fn default() -> MemoryBoundCheckMode {
+        MemoryBoundCheckMode::Default
+    }
+}
+
 /// Configuration data for the compiler
+#[derive(Default)]
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
-}
-
-impl Default for CompilerConfig {
-    fn default() -> CompilerConfig {
-        CompilerConfig { symbol_map: None }
-    }
+    pub memory_bound_check_mode: MemoryBoundCheckMode,
+    pub enforce_stack_check: bool,
 }
 
 pub trait Compiler {
@@ -80,6 +90,16 @@ pub trait RunnableModule: Send + Sync {
     fn get_trampoline(&self, info: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm>;
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
+
+    /// Returns the machine code associated with this module.
+    fn get_code(&self) -> Option<&[u8]> {
+        None
+    }
+
+    /// Returns the beginning offsets of all functions, including import trampolines.
+    fn get_offsets(&self) -> Option<Vec<usize>> {
+        None
+    }
 }
 
 pub trait CacheGen: Send + Sync {

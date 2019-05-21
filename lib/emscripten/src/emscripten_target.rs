@@ -15,6 +15,11 @@ pub fn getTempRet0(ctx: &mut Ctx) -> i32 {
     get_emscripten_data(ctx).temp_ret_0
 }
 
+pub fn _alarm(_ctx: &mut Ctx, _seconds: u32) -> i32 {
+    debug!("emscripten::_alarm({})", _seconds);
+    0
+}
+
 pub fn _atexit(_ctx: &mut Ctx, _func: i32) -> i32 {
     debug!("emscripten::_atexit");
     // TODO: implement atexit properly
@@ -105,6 +110,18 @@ pub fn _pthread_key_create(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_pthread_key_create");
     0
 }
+pub fn _pthread_rwlock_destroy(_ctx: &mut Ctx, _rwlock: i32) -> i32 {
+    debug!("emscripten::_pthread_rwlock_destroy({})", _rwlock);
+    0
+}
+pub fn _pthread_rwlock_init(_ctx: &mut Ctx, _rwlock: i32, _attr: i32) -> i32 {
+    debug!("emscripten::_pthread_rwlock_init({}, {})", _rwlock, _attr);
+    0
+}
+pub fn _pthread_rwlock_wrlock(_ctx: &mut Ctx, _rwlock: i32) -> i32 {
+    debug!("emscripten::_pthread_rwlock_wrlock({})", _rwlock);
+    0
+}
 pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
     debug!("emscripten::_pthread_create");
     0
@@ -185,6 +202,12 @@ pub fn ___gxx_personality_v0(
     debug!("emscripten::___gxx_personality_v0");
     0
 }
+
+pub fn _gai_strerror(_ctx: &mut Ctx, _ecode: i32) -> i32 {
+    debug!("emscripten::_gai_strerror({})", _ecode);
+    0
+}
+
 #[cfg(target_os = "linux")]
 pub fn _getdtablesize(_ctx: &mut Ctx) -> i32 {
     debug!("emscripten::getdtablesize");
@@ -214,6 +237,22 @@ pub fn _gethostbyname_r(
 // NOTE: php.js has proper impl; libc has proper impl for linux
 pub fn _getloadavg(_ctx: &mut Ctx, _loadavg: i32, _nelem: i32) -> i32 {
     debug!("emscripten::getloadavg");
+    0
+}
+pub fn _getnameinfo(
+    _ctx: &mut Ctx,
+    _addr: i32,
+    _addrlen: i32,
+    _host: i32,
+    _hostlen: i32,
+    _serv: i32,
+    _servlen: i32,
+    _flags: i32,
+) -> i32 {
+    debug!(
+        "emscripten::_getnameinfo({}, {}, {}, {}, {}, {}, {})",
+        _addr, _addrlen, _host, _hostlen, _serv, _servlen, _flags
+    );
     0
 }
 

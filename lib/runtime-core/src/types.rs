@@ -45,6 +45,15 @@ impl Value {
             Value::F64(_) => Type::F64,
         }
     }
+
+    pub fn to_u64(&self) -> u64 {
+        match *self {
+            Value::I32(x) => x as u32 as u64,
+            Value::I64(x) => x as u64,
+            Value::F32(x) => f32::to_bits(x) as u64,
+            Value::F64(x) => f64::to_bits(x),
+        }
+    }
 }
 
 impl From<i32> for Value {

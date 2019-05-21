@@ -42,21 +42,29 @@ impl fmt::Debug for InternalEvent {
 pub struct BkptInfo {}
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {
+    /// Creates a new module code generator.
     fn new() -> Self;
+
+    /// Returns the backend id associated with this MCG.
     fn backend_id() -> Backend;
-    fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
 
-    /// Creates a new function and returns the function-scope code generator for it.
-    fn next_function(&mut self) -> Result<&mut FCG, E>;
-    fn finalize(self, module_info: &ModuleInfo) -> Result<(RM, Box<dyn CacheGen>), E>;
-    fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
-
-    /// Sets function signatures.
-    fn feed_function_signatures(&mut self, assoc: Map<FuncIndex, SigIndex>) -> Result<(), E>;
-
+    /// Feeds the compiler config.
+    fn feed_compiler_config(&mut self, _config: &CompilerConfig) -> Result<(), E> {
+        Ok(())
+    }
     /// Adds an import function.
     fn feed_import_function(&mut self) -> Result<(), E>;
+    fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
+    /// Sets function signatures.
+    fn feed_function_signatures(&mut self, assoc: Map<FuncIndex, SigIndex>) -> Result<(), E>;
+    /// Checks the precondition for a module.
+    fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
+    /// Creates a new function and returns the function-scope code generator for it.
+    fn next_function(&mut self) -> Result<&mut FCG, E>;
+    /// Finalizes this module.
+    fn finalize(self, module_info: &ModuleInfo) -> Result<(RM, Box<dyn CacheGen>), E>;
 
+    /// Creates a module from cache.
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
 

@@ -285,13 +285,16 @@ fn resolve_memory_ptr(
     ctx: &mut CtxType,
     memarg: &MemoryImmediate,
     ptr_ty: PointerType,
+    value_size: usize,
 ) -> Result<PointerValue, BinaryReaderError> {
     // Ignore alignment hint for the time being.
     let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
+    let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
     let var_offset_i32 = state.pop1()?.into_int_value();
     let var_offset =
         builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
     let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
+    let end_offset = builder.build_int_add(effective_offset, value_size_v, &state.var_name());
     let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics);
 
     let mem_base_int = match memory_cache {
@@ -306,12 +309,20 @@ fn resolve_memory_ptr(
 
             let base_as_int = builder.build_ptr_to_int(base, intrinsics.i64_ty, "base_as_int");
 
-            let base_in_bounds = builder.build_int_compare(
+            let base_in_bounds_1 = builder.build_int_compare(
+                IntPredicate::ULE,
+                end_offset,
+                bounds,
+                "base_in_bounds_1",
+            );
+            let base_in_bounds_2 = builder.build_int_compare(
                 IntPredicate::ULT,
                 effective_offset,
-                bounds,
-                "base_in_bounds",
+                end_offset,
+                "base_in_bounds_2",
             );
+            let base_in_bounds =
+                builder.build_and(base_in_bounds_1, base_in_bounds_2, "base_in_bounds");
 
             let base_in_bounds = builder
                 .build_call(
@@ -2000,6 +2011,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i32_ptr_ty,
+                    4,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
@@ -2014,6 +2026,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i64_ptr_ty,
+                    8,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
@@ -2028,6 +2041,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.f32_ptr_ty,
+                    4,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
@@ -2042,6 +2056,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.f64_ptr_ty,
+                    8,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
@@ -2058,6 +2073,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i32_ptr_ty,
+                    4,
                 )?;
                 builder.build_store(effective_address, value);
             }
@@ -2072,6 +2088,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i64_ptr_ty,
+                    8,
                 )?;
                 builder.build_store(effective_address, value);
             }
@@ -2086,6 +2103,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.f32_ptr_ty,
+                    4,
                 )?;
                 builder.build_store(effective_address, value);
             }
@@ -2100,6 +2118,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.f64_ptr_ty,
+                    8,
                 )?;
                 builder.build_store(effective_address, value);
             }
@@ -2114,6 +2133,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i8_ptr_ty,
+                    1,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2132,6 +2152,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i16_ptr_ty,
+                    2,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2150,6 +2171,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i8_ptr_ty,
+                    1,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2168,6 +2190,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i16_ptr_ty,
+                    2,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2186,6 +2209,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i32_ptr_ty,
+                    4,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2205,6 +2229,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i8_ptr_ty,
+                    1,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2223,6 +2248,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i16_ptr_ty,
+                    2,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2241,6 +2267,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i8_ptr_ty,
+                    1,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2259,6 +2286,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i16_ptr_ty,
+                    2,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2277,6 +2305,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i32_ptr_ty,
+                    4,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
@@ -2297,6 +2326,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i8_ptr_ty,
+                    1,
                 )?;
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
@@ -2313,6 +2343,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i16_ptr_ty,
+                    2,
                 )?;
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
@@ -2329,6 +2360,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut ctx,
                     memarg,
                     intrinsics.i32_ptr_ty,
+                    4,
                 )?;
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());

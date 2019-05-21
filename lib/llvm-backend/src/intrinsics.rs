@@ -16,6 +16,7 @@ use wasmer_runtime_core::{
         GlobalIndex, ImportedFuncIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
+    vm::Ctx,
 };
 
 fn type_to_llvm_ptr(intrinsics: &Intrinsics, ty: Type) -> PointerType {
@@ -158,6 +159,10 @@ impl Intrinsics {
         let imported_func_ty =
             context.struct_type(&[i8_ptr_ty_basic, ctx_ptr_ty.as_basic_type_enum()], false);
         let sigindex_ty = i32_ty;
+        let rt_intrinsics_ty = void_ty;
+        let stack_lower_bound_ty = i8_ty;
+        let memory_base_ty = i8_ty;
+        let memory_bound_ty = void_ty;
         let local_function_ty = i8_ptr_ty;
 
         let anyfunc_ty = context.struct_type(
@@ -199,6 +204,18 @@ impl Intrinsics {
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
                 sigindex_ty
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum(),
+                rt_intrinsics_ty
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum(),
+                stack_lower_bound_ty
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum(),
+                memory_base_ty
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum(),
+                memory_bound_ty
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
                 local_function_ty
@@ -416,6 +433,10 @@ pub struct CtxType<'a> {
     _phantom: PhantomData<&'a FunctionValue>,
 }
 
+fn offset_to_index(offset: u8) -> u32 {
+    (offset as usize / ::std::mem::size_of::<usize>()) as u32
+}
+
 impl<'a> CtxType<'a> {
     pub fn new(
         info: &'a ModuleInfo,
@@ -454,14 +475,22 @@ impl<'a> CtxType<'a> {
             let (memory_array_ptr_ptr, index, memory_type) = match index.local_or_import(info) {
                 LocalOrImport::Local(local_mem_index) => (
                     unsafe {
-                        cache_builder.build_struct_gep(ctx_ptr_value, 0, "memory_array_ptr_ptr")
+                        cache_builder.build_struct_gep(
+                            ctx_ptr_value,
+                            offset_to_index(Ctx::offset_memories()),
+                            "memory_array_ptr_ptr",
+                        )
                     },
                     local_mem_index.index() as u64,
                     info.memories[local_mem_index].memory_type(),
                 ),
                 LocalOrImport::Import(import_mem_index) => (
                     unsafe {
-                        cache_builder.build_struct_gep(ctx_ptr_value, 3, "memory_array_ptr_ptr")
+                        cache_builder.build_struct_gep(
+                            ctx_ptr_value,
+                            offset_to_index(Ctx::offset_imported_memories()),
+                            "memory_array_ptr_ptr",
+                        )
                     },
                     import_mem_index.index() as u64,
                     info.imported_memories[import_mem_index].1.memory_type(),
@@ -527,13 +556,21 @@ impl<'a> CtxType<'a> {
             let (table_array_ptr_ptr, index) = match index.local_or_import(info) {
                 LocalOrImport::Local(local_table_index) => (
                     unsafe {
-                        cache_builder.build_struct_gep(ctx_ptr_value, 1, "table_array_ptr_ptr")
+                        cache_builder.build_struct_gep(
+                            ctx_ptr_value,
+                            offset_to_index(Ctx::offset_tables()),
+                            "table_array_ptr_ptr",
+                        )
                     },
                     local_table_index.index() as u64,
                 ),
                 LocalOrImport::Import(import_table_index) => (
                     unsafe {
-                        cache_builder.build_struct_gep(ctx_ptr_value, 4, "table_array_ptr_ptr")
+                        cache_builder.build_struct_gep(
+                            ctx_ptr_value,
+                            offset_to_index(Ctx::offset_imported_tables()),
+                            "table_array_ptr_ptr",
+                        )
                     },
                     import_table_index.index() as u64,
                 ),
@@ -578,8 +615,13 @@ impl<'a> CtxType<'a> {
         intrinsics: &Intrinsics,
         builder: &Builder,
     ) -> PointerValue {
-        let local_func_array_ptr_ptr =
-            unsafe { builder.build_struct_gep(self.ctx_ptr_value, 8, "local_func_array_ptr_ptr") };
+        let local_func_array_ptr_ptr = unsafe {
+            builder.build_struct_gep(
+                self.ctx_ptr_value,
+                offset_to_index(Ctx::offset_local_functions()),
+                "local_func_array_ptr_ptr",
+            )
+        };
         let local_func_array_ptr = builder
             .build_load(local_func_array_ptr_ptr, "local_func_array_ptr")
             .into_pointer_value();
@@ -609,7 +651,11 @@ impl<'a> CtxType<'a> {
 
         *cached_sigindices.entry(index).or_insert_with(|| {
             let sigindex_array_ptr_ptr = unsafe {
-                cache_builder.build_struct_gep(ctx_ptr_value, 7, "sigindex_array_ptr_ptr")
+                cache_builder.build_struct_gep(
+                    ctx_ptr_value,
+                    offset_to_index(Ctx::offset_signatures()),
+                    "sigindex_array_ptr_ptr",
+                )
             };
             let sigindex_array_ptr = cache_builder
                 .build_load(sigindex_array_ptr_ptr, "sigindex_array_ptr")
@@ -647,7 +693,7 @@ impl<'a> CtxType<'a> {
                             unsafe {
                                 cache_builder.build_struct_gep(
                                     ctx_ptr_value,
-                                    2,
+                                    offset_to_index(Ctx::offset_globals()),
                                     "globals_array_ptr_ptr",
                                 )
                             },
@@ -662,7 +708,7 @@ impl<'a> CtxType<'a> {
                             unsafe {
                                 cache_builder.build_struct_gep(
                                     ctx_ptr_value,
-                                    5,
+                                    offset_to_index(Ctx::offset_imported_globals()),
                                     "globals_array_ptr_ptr",
                                 )
                             },
@@ -718,7 +764,11 @@ impl<'a> CtxType<'a> {
 
         let imported_func_cache = cached_imported_functions.entry(index).or_insert_with(|| {
             let func_array_ptr_ptr = unsafe {
-                cache_builder.build_struct_gep(ctx_ptr_value, 6, "imported_func_array_ptr_ptr")
+                cache_builder.build_struct_gep(
+                    ctx_ptr_value,
+                    offset_to_index(Ctx::offset_imported_funcs()),
+                    "imported_func_array_ptr_ptr",
+                )
             };
             let func_array_ptr = cache_builder
                 .build_load(func_array_ptr_ptr, "func_array_ptr")

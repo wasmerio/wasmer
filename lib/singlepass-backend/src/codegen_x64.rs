@@ -10,7 +10,9 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{sys::Memory, Backend, CacheGen, RunnableModule, Token},
+    backend::{
+        sys::Memory, Backend, CacheGen, CompilerConfig, MemoryBoundCheckMode, RunnableModule, Token,
+    },
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -21,8 +23,7 @@ use wasmer_runtime_core::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
-    vm::{self, LocalGlobal, LocalMemory, LocalTable},
-    vmcalls,
+    vm::{self, LocalGlobal, LocalTable},
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -121,6 +122,8 @@ pub struct X64ModuleCodeGenerator {
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     assembler: Option<Assembler>,
     func_import_count: usize,
+
+    config: Option<Arc<CodegenConfig>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -135,7 +138,6 @@ pub struct X64FunctionCode {
 
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
-    br_table_data: Option<Vec<Vec<usize>>>,
     breakpoints: Option<HashMap<AssemblyOffset, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
     returns: SmallVec<[WpType; 1]>,
     locals: Vec<Location>,
@@ -145,6 +147,8 @@ pub struct X64FunctionCode {
     control_stack: Vec<ControlFrame>,
     machine: Machine,
     unreachable_depth: usize,
+
+    config: Arc<CodegenConfig>,
 }
 
 enum FuncPtrInner {}
@@ -160,8 +164,8 @@ pub struct X64ExecutionContext {
     #[allow(dead_code)]
     functions: Vec<X64FunctionCode>,
     function_pointers: Vec<FuncPtr>,
+    function_offsets: Vec<AssemblyOffset>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
-    _br_table_data: Vec<Vec<usize>>,
     breakpoints: Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
     func_import_count: usize,
 }
@@ -271,11 +275,25 @@ impl RunnableModule for X64ExecutionContext {
         protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
         protect_unix::trigger_trap();
     }
+
+    fn get_code(&self) -> Option<&[u8]> {
+        Some(&self.code)
+    }
+
+    fn get_offsets(&self) -> Option<Vec<usize>> {
+        Some(self.function_offsets.iter().map(|x| x.0).collect())
+    }
 }
 
 #[derive(Debug)]
 pub struct CodegenError {
     pub message: &'static str,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct CodegenConfig {
+    memory_bound_check_mode: MemoryBoundCheckMode,
+    enforce_stack_check: bool,
 }
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
@@ -289,6 +307,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             function_labels: Some(HashMap::new()),
             assembler: Some(Assembler::new().unwrap()),
             func_import_count: 0,
+            config: None,
         }
     }
 
@@ -301,21 +320,18 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     }
 
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
-        let (mut assembler, mut function_labels, br_table_data, breakpoints) =
-            match self.functions.last_mut() {
-                Some(x) => (
-                    x.assembler.take().unwrap(),
-                    x.function_labels.take().unwrap(),
-                    x.br_table_data.take().unwrap(),
-                    x.breakpoints.take().unwrap(),
-                ),
-                None => (
-                    self.assembler.take().unwrap(),
-                    self.function_labels.take().unwrap(),
-                    vec![],
-                    HashMap::new(),
-                ),
-            };
+        let (mut assembler, mut function_labels, breakpoints) = match self.functions.last_mut() {
+            Some(x) => (
+                x.assembler.take().unwrap(),
+                x.function_labels.take().unwrap(),
+                x.breakpoints.take().unwrap(),
+            ),
+            None => (
+                self.assembler.take().unwrap(),
+                self.function_labels.take().unwrap(),
+                HashMap::new(),
+            ),
+        };
         let begin_offset = assembler.offset();
         let begin_label_info = function_labels
             .entry(self.functions.len() + self.func_import_count)
@@ -335,7 +351,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
             assembler: Some(assembler),
             function_labels: Some(function_labels),
-            br_table_data: Some(br_table_data),
             breakpoints: Some(breakpoints),
             returns: smallvec![],
             locals: vec![],
@@ -345,6 +360,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             control_stack: vec![],
             machine: Machine::new(),
             unreachable_depth: 0,
+            config: self.config.as_ref().unwrap().clone(),
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -354,12 +370,8 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         mut self,
         _: &ModuleInfo,
     ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
-        let (assembler, mut br_table_data, breakpoints) = match self.functions.last_mut() {
-            Some(x) => (
-                x.assembler.take().unwrap(),
-                x.br_table_data.take().unwrap(),
-                x.breakpoints.take().unwrap(),
-            ),
+        let (assembler, breakpoints) = match self.functions.last_mut() {
+            Some(x) => (x.assembler.take().unwrap(), x.breakpoints.take().unwrap()),
             None => {
                 return Err(CodegenError {
                     message: "no function",
@@ -368,18 +380,13 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         };
         let output = assembler.finalize().unwrap();
 
-        for table in &mut br_table_data {
-            for entry in table {
-                *entry = output.ptr(AssemblyOffset(*entry)) as usize;
-            }
-        }
-
         let function_labels = if let Some(x) = self.functions.last() {
             x.function_labels.as_ref().unwrap()
         } else {
             self.function_labels.as_ref().unwrap()
         };
         let mut out_labels: Vec<FuncPtr> = vec![];
+        let mut out_offsets: Vec<AssemblyOffset> = vec![];
 
         for i in 0..function_labels.len() {
             let (_, offset) = match function_labels.get(&i) {
@@ -399,6 +406,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 }
             };
             out_labels.push(FuncPtr(output.ptr(*offset) as _));
+            out_offsets.push(*offset);
         }
 
         let breakpoints: Arc<HashMap<_, _>> = Arc::new(
@@ -416,16 +424,15 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 ))
             }
         }
-
         Ok((
             X64ExecutionContext {
                 code: output,
                 functions: self.functions,
                 signatures: self.signatures.as_ref().unwrap().clone(),
-                _br_table_data: br_table_data,
                 breakpoints: breakpoints,
                 func_import_count: self.func_import_count,
                 function_pointers: out_labels,
+                function_offsets: out_offsets,
             },
             Box::new(Placeholder),
         ))
@@ -478,6 +485,13 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(())
     }
 
+    fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
+        self.config = Some(Arc::new(CodegenConfig {
+            memory_bound_check_mode: config.memory_bound_check_mode,
+            enforce_stack_check: config.enforce_stack_check,
+        }));
+        Ok(())
+    }
     unsafe fn from_cache(_artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         Err(CacheError::Unknown(
             "the singlepass compiler API doesn't support caching yet".to_string(),
@@ -1196,6 +1210,7 @@ impl X64FunctionCode {
     /// Emits a memory operation.
     fn emit_memory_op<F: FnOnce(&mut Assembler, &mut Machine, GPR)>(
         module_info: &ModuleInfo,
+        config: &CodegenConfig,
         a: &mut Assembler,
         m: &mut Machine,
         addr: Location,
@@ -1203,41 +1218,6 @@ impl X64FunctionCode {
         value_size: usize,
         cb: F,
     ) {
-        let tmp_addr = m.acquire_temp_gpr().unwrap();
-        let tmp_base = m.acquire_temp_gpr().unwrap();
-        let tmp_bound = m.acquire_temp_gpr().unwrap();
-
-        // Loads both base and bound into temporary registers.
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(
-                Machine::get_vmctx_reg(),
-                match MemoryIndex::new(0).local_or_import(module_info) {
-                    LocalOrImport::Local(_) => vm::Ctx::offset_memories(),
-                    LocalOrImport::Import(_) => vm::Ctx::offset_imported_memories(),
-                } as i32,
-            ),
-            Location::GPR(tmp_base),
-        );
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(tmp_base, 0),
-            Location::GPR(tmp_base),
-        );
-        a.emit_mov(
-            Size::S32,
-            Location::Memory(tmp_base, LocalMemory::offset_bound() as i32),
-            Location::GPR(tmp_bound),
-        );
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(tmp_base, LocalMemory::offset_base() as i32),
-            Location::GPR(tmp_base),
-        );
-
-        // Adds base to bound so `tmp_bound` now holds the end of linear memory.
-        a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
-
         // If the memory is dynamic, we need to do bound checking at runtime.
         let mem_desc = match MemoryIndex::new(0).local_or_import(module_info) {
             LocalOrImport::Local(local_mem_index) => &module_info.memories[local_mem_index],
@@ -1245,12 +1225,40 @@ impl X64FunctionCode {
                 &module_info.imported_memories[import_mem_index].1
             }
         };
-        let need_check = match mem_desc.memory_type() {
-            MemoryType::Dynamic => true,
-            MemoryType::Static | MemoryType::SharedStatic => false,
+        let need_check = match config.memory_bound_check_mode {
+            MemoryBoundCheckMode::Default => match mem_desc.memory_type() {
+                MemoryType::Dynamic => true,
+                MemoryType::Static | MemoryType::SharedStatic => false,
+            },
+            MemoryBoundCheckMode::Enable => true,
+            MemoryBoundCheckMode::Disable => false,
         };
 
+        let tmp_addr = m.acquire_temp_gpr().unwrap();
+        let tmp_base = m.acquire_temp_gpr().unwrap();
+        let tmp_bound = m.acquire_temp_gpr().unwrap();
+
+        // Load base into temporary register.
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(
+                Machine::get_vmctx_reg(),
+                vm::Ctx::offset_memory_base() as i32,
+            ),
+            Location::GPR(tmp_base),
+        );
+
         if need_check {
+            a.emit_mov(
+                Size::S64,
+                Location::Memory(
+                    Machine::get_vmctx_reg(),
+                    vm::Ctx::offset_memory_bound() as i32,
+                ),
+                Location::GPR(tmp_bound),
+            );
+            // Adds base to bound so `tmp_bound` now holds the end of linear memory.
+            a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
             a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
 
             // This branch is used for emitting "faster" code for the special case of (offset + value_size) not exceeding u32 range.
@@ -1413,6 +1421,19 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         let a = self.assembler.as_mut().unwrap();
         a.emit_push(Size::S64, Location::GPR(GPR::RBP));
         a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
+
+        // Stack check.
+        if self.config.enforce_stack_check {
+            a.emit_cmp(
+                Size::S64,
+                Location::Memory(
+                    GPR::RDI, // first parameter is vmctx
+                    vm::Ctx::offset_stack_lower_bound() as i32,
+                ),
+                Location::GPR(GPR::RSP),
+            );
+            a.emit_conditional_trap(Condition::Below);
+        }
 
         self.locals = self
             .machine
@@ -3307,33 +3328,23 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::Nop => {}
             Operator::MemorySize { reserved } => {
                 let memory_index = MemoryIndex::new(reserved as usize);
-                let target: usize = match memory_index.local_or_import(module_info) {
-                    LocalOrImport::Local(local_mem_index) => {
-                        let mem_desc = &module_info.memories[local_mem_index];
-                        match mem_desc.memory_type() {
-                            MemoryType::Dynamic => vmcalls::local_dynamic_memory_size as usize,
-                            MemoryType::Static => vmcalls::local_static_memory_size as usize,
-                            MemoryType::SharedStatic => unimplemented!(),
-                        }
-                    }
-                    LocalOrImport::Import(import_mem_index) => {
-                        let mem_desc = &module_info.imported_memories[import_mem_index].1;
-                        match mem_desc.memory_type() {
-                            MemoryType::Dynamic => vmcalls::imported_dynamic_memory_size as usize,
-                            MemoryType::Static => vmcalls::imported_static_memory_size as usize,
-                            MemoryType::SharedStatic => unimplemented!(),
-                        }
-                    }
-                };
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        vm::Ctx::offset_intrinsics() as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_size() as i32),
+                    Location::GPR(GPR::RAX),
+                );
                 Self::emit_call_sysv(
                     a,
                     &mut self.machine,
                     |a| {
-                        a.emit_mov(
-                            Size::S64,
-                            Location::Imm64(target as u64),
-                            Location::GPR(GPR::RAX),
-                        );
                         a.emit_call_location(Location::GPR(GPR::RAX));
                     },
                     ::std::iter::once(Location::Imm32(memory_index.index() as u32)),
@@ -3344,40 +3355,30 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::MemoryGrow { reserved } => {
                 let memory_index = MemoryIndex::new(reserved as usize);
-                let target: usize = match memory_index.local_or_import(module_info) {
-                    LocalOrImport::Local(local_mem_index) => {
-                        let mem_desc = &module_info.memories[local_mem_index];
-                        match mem_desc.memory_type() {
-                            MemoryType::Dynamic => vmcalls::local_dynamic_memory_grow as usize,
-                            MemoryType::Static => vmcalls::local_static_memory_grow as usize,
-                            MemoryType::SharedStatic => unimplemented!(),
-                        }
-                    }
-                    LocalOrImport::Import(import_mem_index) => {
-                        let mem_desc = &module_info.imported_memories[import_mem_index].1;
-                        match mem_desc.memory_type() {
-                            MemoryType::Dynamic => vmcalls::imported_dynamic_memory_grow as usize,
-                            MemoryType::Static => vmcalls::imported_static_memory_grow as usize,
-                            MemoryType::SharedStatic => unimplemented!(),
-                        }
-                    }
-                };
-
                 let (param_pages, param_pages_lot) = self.value_stack.pop().unwrap();
 
                 if param_pages_lot == LocalOrTemp::Temp {
                     self.machine.release_locations_only_regs(&[param_pages]);
                 }
 
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        vm::Ctx::offset_intrinsics() as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_grow() as i32),
+                    Location::GPR(GPR::RAX),
+                );
+
                 Self::emit_call_sysv(
                     a,
                     &mut self.machine,
                     |a| {
-                        a.emit_mov(
-                            Size::S64,
-                            Location::Imm64(target as u64),
-                            Location::GPR(GPR::RAX),
-                        );
                         a.emit_call_location(Location::GPR(GPR::RAX));
                     },
                     ::std::iter::once(Location::Imm32(memory_index.index() as u32))
@@ -3400,6 +3401,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3425,6 +3427,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3450,6 +3453,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3476,6 +3480,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3502,6 +3507,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3528,6 +3534,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3554,6 +3561,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3579,6 +3587,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3604,6 +3613,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3629,6 +3639,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3654,6 +3665,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3679,6 +3691,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3704,6 +3717,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3730,6 +3744,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3756,6 +3771,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3782,6 +3798,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3808,6 +3825,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3839,6 +3857,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target,
@@ -3865,6 +3884,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3890,6 +3910,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3915,6 +3936,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3940,6 +3962,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -3965,6 +3988,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 Self::emit_memory_op(
                     module_info,
+                    &self.config,
                     a,
                     &mut self.machine,
                     target_addr,
@@ -4061,7 +4085,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let (targets, default_target) = table.read_table().unwrap();
                 let cond =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let mut table = vec![0usize; targets.len()];
+                let table_label = a.get_label();
+                let mut table: Vec<DynamicLabel> = vec![];
                 let default_br = a.get_label();
                 Self::emit_relaxed_binop(
                     a,
@@ -4073,19 +4098,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
                 a.emit_jmp(Condition::AboveEqual, default_br);
 
-                a.emit_mov(
-                    Size::S64,
-                    Location::Imm64(table.as_ptr() as usize as u64),
-                    Location::GPR(GPR::RCX),
-                );
+                a.emit_lea_label(table_label, Location::GPR(GPR::RCX));
                 a.emit_mov(Size::S32, cond, Location::GPR(GPR::RDX));
-                a.emit_shl(Size::S32, Location::Imm8(3), Location::GPR(GPR::RDX));
+                a.emit_imul_imm32_gpr64(5, GPR::RDX);
                 a.emit_add(Size::S64, Location::GPR(GPR::RCX), Location::GPR(GPR::RDX));
-                a.emit_jmp_location(Location::Memory(GPR::RDX, 0));
+                a.emit_jmp_location(Location::GPR(GPR::RDX));
 
-                for (i, target) in targets.iter().enumerate() {
-                    let AssemblyOffset(offset) = a.offset();
-                    table[i] = offset;
+                for target in targets.iter() {
+                    let label = a.get_label();
+                    a.emit_label(label);
+                    table.push(label);
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     if !frame.loop_like && frame.returns.len() > 0 {
@@ -4120,7 +4142,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a.emit_jmp(Condition::None, frame.label);
                 }
 
-                self.br_table_data.as_mut().unwrap().push(table);
+                a.emit_label(table_label);
+                for x in table {
+                    a.emit_jmp(Condition::None, x);
+                }
                 self.unreachable_depth = 1;
             }
             Operator::Drop => {

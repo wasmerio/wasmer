@@ -6,6 +6,13 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#451](https://github.com/wasmerio/wasmer/pull/451) Add `--mapdir=src:dest` flag to rename host directories in the guest context
+- [#457](https://github.com/wasmerio/wasmer/pull/457) Implement file metadata for WASI, fix bugs in WASI clock code for Unix platforms
+
+## 0.4.2 - 2019-05-16
+
+- [#416](https://github.com/wasmerio/wasmer/pull/416) Remote code loading framework
+- [#449](https://github.com/wasmerio/wasmer/pull/449) Fix bugs: opening host files in filestat and opening with write permissions unconditionally in path_open
 - [#442](https://github.com/wasmerio/wasmer/pull/442) Misc. WASI FS fixes and implement readdir
 - [#440](https://github.com/wasmerio/wasmer/pull/440) Fix type mismatch between `wasmer_instance_call` and `wasmer_export_func_*_arity` functions in the runtime C API.
 - [#269](https://github.com/wasmerio/wasmer/pull/269) Add better runtime docs
@@ -13,7 +20,7 @@ Blocks of changes will separated by version increments.
 - [#429](https://github.com/wasmerio/wasmer/pull/429) Get wasi::path_filestat_get working for some programs; misc. minor WASI FS improvements
 - [#413](https://github.com/wasmerio/wasmer/pull/413) Update LLVM backend to use new parser codegen traits
 
-## 0.4.1 - 2018-05-06
+## 0.4.1 - 2019-05-06
 
 - [#426](https://github.com/wasmerio/wasmer/pull/426) Update wapm-cli submodule, bump version to 0.4.1
 - [#422](https://github.com/wasmerio/wasmer/pull/422) Improved Emscripten functions to run optipng and pngquant compiled to wasm
@@ -23,7 +30,7 @@ Blocks of changes will separated by version increments.
 - [#390](https://github.com/wasmerio/wasmer/pull/390) Pin released wapm version and add it as a git submodule
 - [#408](https://github.com/wasmerio/wasmer/pull/408) Add images to windows installer and update installer to add wapm bin directory to path
 
-## 0.4.0 - 2018-04-23
+## 0.4.0 - 2019-04-23
 
 - [#383](https://github.com/wasmerio/wasmer/pull/383) Hook up wasi exit code to wasmer cli.
 - [#382](https://github.com/wasmerio/wasmer/pull/382) Improve error message on `--backend` flag to only suggest currently enabled backends
@@ -41,7 +48,7 @@ Blocks of changes will separated by version increments.
 - [#350](https://github.com/wasmerio/wasmer/pull/350) Enforce that CHANGELOG.md is updated through CI.
 - [#349](https://github.com/wasmerio/wasmer/pull/349) Add [CHANGELOG.md](https://github.com/wasmerio/wasmer/blob/master/CHANGELOG.md).
 
-## 0.3.0 - 2018-04-12
+## 0.3.0 - 2019-04-12
 
 - [#276](https://github.com/wasmerio/wasmer/pull/276) [#288](https://github.com/wasmerio/wasmer/pull/288) [#344](https://github.com/wasmerio/wasmer/pull/344) Use new singlepass backend (with the `--backend=singlepass` when running Wasmer)
 - [#338](https://github.com/wasmerio/wasmer/pull/338) Actually catch traps/panics/etc when using a typed func.
