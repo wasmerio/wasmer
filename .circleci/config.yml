@@ -177,6 +177,10 @@ jobs:
             make test-emscripten-clif
             make test-emscripten-llvm
       - run:
+          name: Debug flag checked
+          command: |
+            cargo check --features "debug"
+      - run:
           name: Release Build
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
@@ -189,10 +193,6 @@ jobs:
             echo "${CIRCLE_TAG}" >> artifacts/git_version
             make build-install
             cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
-      - run:
-          name: Debug flag checked
-          command: |
-            cargo check --features "debug"
       - persist_to_workspace:
           root: .
           paths:

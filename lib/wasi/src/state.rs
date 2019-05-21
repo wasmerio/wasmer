@@ -219,7 +219,7 @@ impl WasiFs {
         }
         debug!("wasi::fs::mapped_dirs");
         for (alias, real_dir) in mapped_dirs {
-            debug!("Attempting to open {:?} at {}", dest_dir, alias);
+            debug!("Attempting to open {:?} at {}", real_dir, alias);
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
             let cur_dir_metadata = real_dir
