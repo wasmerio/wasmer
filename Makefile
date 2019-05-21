@@ -70,10 +70,10 @@ test-emscripten-singlepass:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
 
 test-wasi-clif:
-	cargo test --manifest-path lib/wasi/Cargo.toml --features "clif" -- $(runargs)
+	cargo test --manifest-path lib/wasi/Cargo.toml --features "clif" -- --test-threads=1 $(runargs)
 
 test-wasi-singlepass:
-	cargo test --manifest-path lib/wasi/Cargo.toml --features "singlepass" -- $(runargs)
+	cargo test --manifest-path lib/wasi/Cargo.toml --features "singlepass" -- --test-threads=1 $(runargs)
 
 singlepass-debug-release:
 	cargo +nightly build --features backend:singlepass,debug --release
