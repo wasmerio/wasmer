@@ -2,6 +2,8 @@
 
 #[macro_use]
 extern crate log;
+#[cfg(target = "windows")]
+extern crate winapi;
 
 #[macro_use]
 mod macros;
