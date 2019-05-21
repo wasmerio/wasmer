@@ -8,4 +8,5 @@ mod _common;
 mod create_dir;
 mod file_metadata;
 mod hello;
+mod mapdir;
 mod quine;

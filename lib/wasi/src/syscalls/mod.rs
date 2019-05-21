@@ -795,6 +795,7 @@ pub fn fd_readdir(
         for entry in entries.iter().skip(cookie as usize) {
             cur_cookie += 1;
             let entry_path = entry.path();
+            let entry_path = wasi_try!(entry_path.file_name().ok_or(__WASI_EIO));
             let entry_path_str = entry_path.to_string_lossy();
             let namlen = entry_path_str.len();
             debug!("Returning dirent for {}", entry_path_str);
@@ -1486,10 +1487,11 @@ pub fn path_open(
                 .fs
                 .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
         } else {
-            let file_metadata = wasi_try!(file_path.metadata().map_err(|_| __WASI_ENOENT));
+            debug!("Attempting to load file from host system");
+            let file_metadata = file_path.metadata();
             // if entry does not exist in parent directory, try to lazily
             // load it; possibly creating or truncating it if flags set
-            let kind = if file_metadata.is_dir() {
+            let kind = if file_metadata.is_ok() && file_metadata.unwrap().is_dir() {
                 // special dir logic
                 Kind::Dir {
                     parent: Some(cur_dir_inode),

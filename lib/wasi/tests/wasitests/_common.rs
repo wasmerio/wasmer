@@ -1,5 +1,5 @@
 macro_rules! assert_wasi_output {
-    ($file:expr, $name:expr, $args:expr, $expected:expr) => {{
+    ($file:expr, $name:expr, $mapdir_args:expr, $expected:expr) => {{
         use wasmer_dev_utils::stdio::StdioCapturer;
         use wasmer_runtime_core::{backend::Compiler, Func};
         use wasmer_wasi::generate_import_object;
@@ -32,7 +32,8 @@ macro_rules! assert_wasi_output {
         let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &get_compiler())
             .expect("WASM can't be compiled");
 
-        let import_object = generate_import_object(vec![], vec![], vec![".".to_string()]);
+        let import_object =
+            generate_import_object(vec![], vec![], vec![".".to_string()], $mapdir_args);
 
         let instance = module
             .instantiate(&import_object)
