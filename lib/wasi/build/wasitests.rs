@@ -75,13 +75,35 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         ""
     };
 
+    let src_code = fs::read_to_string(file).expect("read src file");
+    let args = extract_args_from_source_file(&src_code);
+
+    let mapdir_args = if let Some(a) = args {
+        if !a.mapdir.is_empty() {
+            let mut out_str = String::new();
+            out_str.push_str("vec![");
+            for (alias, real_dir) in a.mapdir {
+                out_str.push_str(&format!(
+                    "(\"{}\".to_string(), \"{}\".to_string()),",
+                    alias, real_dir
+                ));
+            }
+            out_str.push_str("]");
+            out_str
+        } else {
+            "vec![]".to_string()
+        }
+    } else {
+        "vec![]".to_string()
+    };
+
     let contents = format!(
         "#[test]{ignore}
 fn test_{rs_module_name}() {{
     assert_wasi_output!(
         \"../../{module_path}\",
         \"{rs_module_name}\",
-        vec![],
+        {mapdir_args},
         \"../../{test_output_path}\"
     );
 }}
@@ -90,6 +112,7 @@ fn test_{rs_module_name}() {{
         module_path = wasm_out_name,
         rs_module_name = rs_module_name,
         test_output_path = format!("{}.out", normalized_name),
+        mapdir_args = mapdir_args,
     );
     let rust_test_filepath = format!(
         concat!(env!("CARGO_MANIFEST_DIR"), "/tests/{}.rs"),
@@ -142,4 +165,43 @@ fn read_ignore_list() -> HashSet<String> {
         .filter_map(Result::ok)
         .map(|v| v.to_lowercase())
         .collect()
+}
+
+struct Args {
+    pub mapdir: Vec<(String, String)>,
+}
+
+/// Pulls args to the program out of a comment at the top of the file starting with "// Args:"
+fn extract_args_from_source_file(source_code: &str) -> Option<Args> {
+    if source_code.starts_with("// Args:") {
+        let mut args = Args { mapdir: vec![] };
+        for arg_line in source_code
+            .lines()
+            .skip(1)
+            .take_while(|line| line.starts_with("// "))
+        {
+            let tokenized = arg_line
+                .split_whitespace()
+                .skip(1)
+                .map(String::from)
+                .collect::<Vec<String>>();
+            match tokenized[1].as_ref() {
+                "mapdir" => {
+                    if let [alias, real_dir] = &tokenized[2].split(':').collect::<Vec<&str>>()[..] {
+                        args.mapdir.push((alias.to_string(), real_dir.to_string()));
+                    } else {
+                        eprintln!(
+                            "Parse error in mapdir {} not parsed correctly",
+                            &tokenized[2]
+                        );
+                    }
+                }
+                e => {
+                    eprintln!("WARN: comment arg: {} is not supported", e);
+                }
+            }
+        }
+        return Some(args);
+    }
+    None
 }
