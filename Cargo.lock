@@ -2492,6 +2492,7 @@ dependencies = [
  "wasmer-dev-utils 0.4.2",
  "wasmer-runtime-core 0.4.2",
  "wasmer-singlepass-backend 0.4.2",
+ "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
