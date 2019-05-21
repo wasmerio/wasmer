@@ -17,6 +17,7 @@ pub fn platform_clock_res_get(
         __WASI_CLOCK_THREAD_CPUTIME_ID => {
             return __WASI_EINVAL;
         }
+        _ => return __WASI_EINVAL,
     };
     resolution.set(resolution_val);
     __WASI_ESUCCESS
@@ -47,6 +48,7 @@ pub fn platform_clock_time_get(
         __WASI_CLOCK_THREAD_CPUTIME_ID => {
             unimplemented!("wasi::platform_clock_time_get(__WASI_CLOCK_THREAD_CPUTIME_ID, ..)")
         }
+        _ => return __WASI_EINVAL,
     };
     time.set(nanos);
     __WASI_ESUCCESS
