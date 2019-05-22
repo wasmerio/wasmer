@@ -2475,7 +2475,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
     fn next_function(
         &mut self,
-        _module_info: &ModuleInfo,
+        _module_info: Arc<ModuleInfo>,
     ) -> Result<&mut LLVMFunctionCodeGenerator, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
         let (context, builder, intrinsics) = match self.functions.last_mut() {

@@ -16,6 +16,7 @@ use crate::{
 };
 use hashbrown::HashMap;
 use std::fmt::Debug;
+use std::sync::Arc;
 use wasmparser::{
     BinaryReaderError, ExternalKind, FuncType, ImportSectionEntryType, Operator, Type as WpType,
     WasmDecoder,
@@ -53,7 +54,7 @@ pub fn read_module<
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
 ) -> Result<ModuleInfo, LoadError> {
-    let mut info = ModuleInfo {
+    let mut info = Arc::new(ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),
         tables: Map::new(),
@@ -80,7 +81,7 @@ pub fn read_module<
         em_symbol_map: compiler_config.symbol_map.clone(),
 
         custom_sections: HashMap::new(),
-    };
+    });
 
     let mut parser = wasmparser::ValidatingParser::new(
         wasm,
@@ -103,10 +104,13 @@ pub fn read_module<
         use wasmparser::ParserState;
         let state = parser.read();
         match *state {
-            ParserState::EndWasm => break Ok(info),
+            ParserState::EndWasm => break Ok(Arc::try_unwrap(info).unwrap()),
             ParserState::Error(err) => Err(LoadError::Parse(err))?,
             ParserState::TypeSectionEntry(ref ty) => {
-                info.signatures.push(func_type_to_func_sig(ty)?);
+                Arc::get_mut(&mut info)
+                    .unwrap()
+                    .signatures
+                    .push(func_type_to_func_sig(ty)?);
             }
             ParserState::ImportSectionEntry { module, field, ty } => {
                 let namespace_index = namespace_builder.as_mut().unwrap().register(module);
@@ -119,8 +123,11 @@ pub fn read_module<
                 match ty {
                     ImportSectionEntryType::Function(sigindex) => {
                         let sigindex = SigIndex::new(sigindex as usize);
-                        info.imported_functions.push(import_name);
-                        info.func_assoc.push(sigindex);
+                        Arc::get_mut(&mut info)
+                            .unwrap()
+                            .imported_functions
+                            .push(import_name);
+                        Arc::get_mut(&mut info).unwrap().func_assoc.push(sigindex);
                         mcg.feed_import_function()
                             .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     }
@@ -132,7 +139,10 @@ pub fn read_module<
                             maximum: table_ty.limits.maximum,
                         };
 
-                        info.imported_tables.push((import_name, table_desc));
+                        Arc::get_mut(&mut info)
+                            .unwrap()
+                            .imported_tables
+                            .push((import_name, table_desc));
                     }
                     ImportSectionEntryType::Memory(memory_ty) => {
                         let mem_desc = MemoryDescriptor {
@@ -140,20 +150,26 @@ pub fn read_module<
                             maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
                             shared: memory_ty.shared,
                         };
-                        info.imported_memories.push((import_name, mem_desc));
+                        Arc::get_mut(&mut info)
+                            .unwrap()
+                            .imported_memories
+                            .push((import_name, mem_desc));
                     }
                     ImportSectionEntryType::Global(global_ty) => {
                         let global_desc = GlobalDescriptor {
                             mutable: global_ty.mutable,
                             ty: wp_type_to_type(global_ty.content_type)?,
                         };
-                        info.imported_globals.push((import_name, global_desc));
+                        Arc::get_mut(&mut info)
+                            .unwrap()
+                            .imported_globals
+                            .push((import_name, global_desc));
                     }
                 }
             }
             ParserState::FunctionSectionEntry(sigindex) => {
                 let sigindex = SigIndex::new(sigindex as usize);
-                info.func_assoc.push(sigindex);
+                Arc::get_mut(&mut info).unwrap().func_assoc.push(sigindex);
             }
             ParserState::TableSectionEntry(table_ty) => {
                 let table_desc = TableDescriptor {
@@ -162,7 +178,7 @@ pub fn read_module<
                     maximum: table_ty.limits.maximum,
                 };
 
-                info.tables.push(table_desc);
+                Arc::get_mut(&mut info).unwrap().tables.push(table_desc);
             }
             ParserState::MemorySectionEntry(memory_ty) => {
                 let mem_desc = MemoryDescriptor {
@@ -171,7 +187,7 @@ pub fn read_module<
                     shared: memory_ty.shared,
                 };
 
-                info.memories.push(mem_desc);
+                Arc::get_mut(&mut info).unwrap().memories.push(mem_desc);
             }
             ParserState::ExportSectionEntry { field, kind, index } => {
                 let export_index = match kind {
@@ -181,17 +197,23 @@ pub fn read_module<
                     ExternalKind::Global => ExportIndex::Global(GlobalIndex::new(index as usize)),
                 };
 
-                info.exports.insert(field.to_string(), export_index);
+                Arc::get_mut(&mut info)
+                    .unwrap()
+                    .exports
+                    .insert(field.to_string(), export_index);
             }
             ParserState::StartSectionEntry(start_index) => {
-                info.start_func = Some(FuncIndex::new(start_index as usize));
+                Arc::get_mut(&mut info).unwrap().start_func =
+                    Some(FuncIndex::new(start_index as usize));
             }
             ParserState::BeginFunctionBody { .. } => {
                 let id = func_count.wrapping_add(1);
                 func_count = id;
                 if func_count == 0 {
-                    info.namespace_table = namespace_builder.take().unwrap().finish();
-                    info.name_table = name_builder.take().unwrap().finish();
+                    Arc::get_mut(&mut info).unwrap().namespace_table =
+                        namespace_builder.take().unwrap().finish();
+                    Arc::get_mut(&mut info).unwrap().name_table =
+                        name_builder.take().unwrap().finish();
                     mcg.feed_signatures(info.signatures.clone())
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     mcg.feed_function_signatures(info.func_assoc.clone())
@@ -201,7 +223,7 @@ pub fn read_module<
                 }
 
                 let fcg = mcg
-                    .next_function(&info)
+                    .next_function(Arc::clone(&info))
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 middlewares
                     .run(
@@ -233,15 +255,15 @@ pub fn read_module<
 
                 loop {
                     let state = parser.read();
-                    match *state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                    match state {
+                        ParserState::Error(err) => return Err(LoadError::Parse(*err)),
                         ParserState::FunctionBodyLocals { ref locals } => {
                             for &(count, ty) in locals.iter() {
                                 fcg.feed_local(ty, count as usize)
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
                         }
-                        ParserState::CodeOperator(ref op) => {
+                        ParserState::CodeOperator(op) => {
                             if !body_begun {
                                 body_begun = true;
                                 fcg.begin_body(&info)
@@ -299,7 +321,10 @@ pub fn read_module<
                     elements: elements.unwrap(),
                 };
 
-                info.elem_initializers.push(table_init);
+                Arc::get_mut(&mut info)
+                    .unwrap()
+                    .elem_initializers
+                    .push(table_init);
             }
             ParserState::BeginActiveDataSectionEntry(memory_index) => {
                 let memory_index = MemoryIndex::new(memory_index as usize);
@@ -330,7 +355,10 @@ pub fn read_module<
                     base: base.unwrap(),
                     data,
                 };
-                info.data_initializers.push(data_init);
+                Arc::get_mut(&mut info)
+                    .unwrap()
+                    .data_initializers
+                    .push(data_init);
             }
             ParserState::BeginGlobalSectionEntry(ty) => {
                 let init = loop {
@@ -351,7 +379,7 @@ pub fn read_module<
 
                 let global_init = GlobalInit { desc, init };
 
-                info.globals.push(global_init);
+                Arc::get_mut(&mut info).unwrap().globals.push(global_init);
             }
 
             _ => {}

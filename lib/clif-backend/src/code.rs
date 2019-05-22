@@ -37,6 +37,7 @@ use wasmer_runtime_core::{
     },
     vm,
 };
+use wasmparser::Operator;
 use wasmparser::Type as WpType;
 
 pub struct CraneliftModuleCodeGenerator {
@@ -75,7 +76,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
     fn next_function(
         &mut self,
-        module_info: &ModuleInfo,
+        module_info: Arc<ModuleInfo>,
     ) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
         // define_function_body(
 
@@ -108,6 +109,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             func_translator,
             next_local: 0,
             clif_signatures: self.clif_signatures.clone(),
+            module_info: Arc::clone(&module_info),
+            target_config: self.isa.frontend_config().clone(),
         };
         let builder = FunctionBuilder::new(
             &mut func_env.func_body,
@@ -370,12 +373,14 @@ pub struct CraneliftFunctionCodeGenerator {
     func_translator: FuncTranslator,
     next_local: usize,
     pub clif_signatures: Map<SigIndex, ir::Signature>,
+    module_info: Arc<ModuleInfo>,
+    target_config: isa::TargetFrontendConfig,
 }
 
 impl FuncEnvironment for CraneliftFunctionCodeGenerator {
     /// Gets configuration information needed for compiling functions
     fn target_config(&self) -> isa::TargetFrontendConfig {
-        self.env.target_config()
+        self.target_config
     }
 
     /// Gets native pointers types.
@@ -405,7 +410,7 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let local_global_addr = match global_index.local_or_import(&self.env.module.info) {
+        let local_global_addr = match global_index.local_or_import(&self.module_info) {
             LocalOrImport::Local(local_global_index) => {
                 let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
@@ -457,7 +462,7 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
         Ok(cranelift_wasm::GlobalVariable::Memory {
             gv: local_global_addr,
             offset: (vm::LocalGlobal::offset_data() as i32).into(),
-            ty: self.env.get_global(clif_global_index).ty,
+            ty: ptr_type,
         })
     }
 
@@ -475,49 +480,49 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let (local_memory_ptr_ptr, description) =
-            match mem_index.local_or_import(&self.env.module.info) {
-                LocalOrImport::Local(local_mem_index) => {
-                    let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-                        base: vmctx,
-                        offset: (vm::Ctx::offset_memories() as i32).into(),
+        let (local_memory_ptr_ptr, description) = match mem_index.local_or_import(&self.module_info)
+        {
+            LocalOrImport::Local(local_mem_index) => {
+                let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: (vm::Ctx::offset_memories() as i32).into(),
+                    global_type: ptr_type,
+                    readonly: true,
+                });
+
+                let local_memory_ptr_offset =
+                    local_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
+
+                (
+                    func.create_global_value(ir::GlobalValueData::IAddImm {
+                        base: memories_base_addr,
+                        offset: (local_memory_ptr_offset as i64).into(),
                         global_type: ptr_type,
-                        readonly: true,
-                    });
+                    }),
+                    self.module_info.memories[local_mem_index],
+                )
+            }
+            LocalOrImport::Import(import_mem_index) => {
+                let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: (vm::Ctx::offset_imported_memories() as i32).into(),
+                    global_type: ptr_type,
+                    readonly: true,
+                });
 
-                    let local_memory_ptr_offset =
-                        local_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
+                let local_memory_ptr_offset =
+                    import_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
 
-                    (
-                        func.create_global_value(ir::GlobalValueData::IAddImm {
-                            base: memories_base_addr,
-                            offset: (local_memory_ptr_offset as i64).into(),
-                            global_type: ptr_type,
-                        }),
-                        self.env.module.info.memories[local_mem_index],
-                    )
-                }
-                LocalOrImport::Import(import_mem_index) => {
-                    let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-                        base: vmctx,
-                        offset: (vm::Ctx::offset_imported_memories() as i32).into(),
+                (
+                    func.create_global_value(ir::GlobalValueData::IAddImm {
+                        base: memories_base_addr,
+                        offset: (local_memory_ptr_offset as i64).into(),
                         global_type: ptr_type,
-                        readonly: true,
-                    });
-
-                    let local_memory_ptr_offset =
-                        import_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
-
-                    (
-                        func.create_global_value(ir::GlobalValueData::IAddImm {
-                            base: memories_base_addr,
-                            offset: (local_memory_ptr_offset as i64).into(),
-                            global_type: ptr_type,
-                        }),
-                        self.env.module.info.imported_memories[import_mem_index].1,
-                    )
-                }
-            };
+                    }),
+                    self.module_info.imported_memories[import_mem_index].1,
+                )
+            }
+        };
 
         let (local_memory_ptr, local_memory_base) = {
             let local_memory_ptr = func.create_global_value(ir::GlobalValueData::Load {
@@ -585,7 +590,7 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
         let ptr_type = self.pointer_type();
 
         let (table_struct_ptr_ptr, description) = match table_index
-            .local_or_import(&self.env.module.info)
+            .local_or_import(&self.module_info)
         {
             LocalOrImport::Local(local_table_index) => {
                 let tables_base = func.create_global_value(ir::GlobalValueData::Load {
@@ -606,7 +611,7 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
 
                 (
                     table_struct_ptr_ptr,
-                    self.env.module.info.tables[local_table_index],
+                    self.module_info.tables[local_table_index],
                 )
             }
             LocalOrImport::Import(import_table_index) => {
@@ -628,7 +633,7 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
 
                 (
                     table_struct_ptr_ptr,
-                    self.env.module.info.imported_tables[import_table_index].1,
+                    self.module_info.imported_tables[import_table_index].1,
                 )
             }
         };
@@ -688,7 +693,7 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
         func_index: cranelift_wasm::FuncIndex,
     ) -> cranelift_wasm::WasmResult<ir::FuncRef> {
         // Get signature of function.
-        let signature_index = self.env.get_func_type(func_index);
+        let signature_index = self.get_func_type(func_index);
 
         // Create a signature reference from specified signature (with VMContext param added).
         let signature = func.import_signature(self.generate_signature(signature_index));
@@ -815,7 +820,7 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
         let callee_index: FuncIndex = Converter(clif_callee_index).into();
         let ptr_type = self.pointer_type();
 
-        match callee_index.local_or_import(&self.env.module.info) {
+        match callee_index.local_or_import(&self.module_info) {
             LocalOrImport::Local(local_function_index) => {
                 // this is an internal function
                 let vmctx = pos
@@ -925,19 +930,19 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (namespace, mem_index, description) =
-            match mem_index.local_or_import(&self.env.module.info) {
-                LocalOrImport::Local(local_mem_index) => (
-                    call_names::LOCAL_NAMESPACE,
-                    local_mem_index.index(),
-                    self.env.module.info.memories[local_mem_index],
-                ),
-                LocalOrImport::Import(import_mem_index) => (
-                    call_names::IMPORT_NAMESPACE,
-                    import_mem_index.index(),
-                    self.env.module.info.imported_memories[import_mem_index].1,
-                ),
-            };
+        let (namespace, mem_index, description) = match mem_index.local_or_import(&self.module_info)
+        {
+            LocalOrImport::Local(local_mem_index) => (
+                call_names::LOCAL_NAMESPACE,
+                local_mem_index.index(),
+                self.module_info.memories[local_mem_index],
+            ),
+            LocalOrImport::Import(import_mem_index) => (
+                call_names::IMPORT_NAMESPACE,
+                import_mem_index.index(),
+                self.module_info.imported_memories[import_mem_index].1,
+            ),
+        };
 
         let name_index = match description.memory_type() {
             MemoryType::Dynamic => call_names::DYNAMIC_MEM_GROW,
@@ -989,19 +994,19 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (namespace, mem_index, description) =
-            match mem_index.local_or_import(&self.env.module.info) {
-                LocalOrImport::Local(local_mem_index) => (
-                    call_names::LOCAL_NAMESPACE,
-                    local_mem_index.index(),
-                    self.env.module.info.memories[local_mem_index],
-                ),
-                LocalOrImport::Import(import_mem_index) => (
-                    call_names::IMPORT_NAMESPACE,
-                    import_mem_index.index(),
-                    self.env.module.info.imported_memories[import_mem_index].1,
-                ),
-            };
+        let (namespace, mem_index, description) = match mem_index.local_or_import(&self.module_info)
+        {
+            LocalOrImport::Local(local_mem_index) => (
+                call_names::LOCAL_NAMESPACE,
+                local_mem_index.index(),
+                self.module_info.memories[local_mem_index],
+            ),
+            LocalOrImport::Import(import_mem_index) => (
+                call_names::IMPORT_NAMESPACE,
+                import_mem_index.index(),
+                self.module_info.imported_memories[import_mem_index].1,
+            ),
+        };
 
         let name_index = match description.memory_type() {
             MemoryType::Dynamic => call_names::DYNAMIC_MEM_SIZE,
@@ -1083,7 +1088,8 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         let builder = self.builder.as_mut().unwrap();
         //let func_environment = FuncEnv::new();
         //let state = TranslationState::new();
-        translate_operator(*op, builder, &mut self.func_translator.state, self);
+        let opp = Operator::Unreachable; // Placeholder
+        translate_operator(opp, builder, &mut self.func_translator.state, self);
         Ok(())
     }
 
@@ -1136,6 +1142,14 @@ impl CraneliftModuleCodeGenerator {
 impl CraneliftFunctionCodeGenerator {
     pub fn return_mode(&self) -> ReturnMode {
         ReturnMode::NormalReturns
+    }
+
+    pub fn get_func_type(
+        &self,
+        func_index: cranelift_wasm::FuncIndex,
+    ) -> cranelift_wasm::SignatureIndex {
+        let sig_index: SigIndex = self.module_info.func_assoc[Converter(func_index).into()];
+        Converter(sig_index).into()
     }
 }
 
