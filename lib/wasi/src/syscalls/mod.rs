@@ -1463,97 +1463,117 @@ pub fn path_open(
         "Looking for file {} in directory {:#?}",
         file_name, cumulative_path
     );
+
     cumulative_path.push(file_name);
     let file_path = cumulative_path;
 
-    let out_fd = if let Kind::Dir { entries, .. } = &mut state.fs.inodes[cur_dir_inode].kind {
-        if let Some(child) = entries.get(file_name).cloned() {
-            let child_inode_val = &state.fs.inodes[child];
-            // early return based on flags
-            if o_flags & __WASI_O_EXCL != 0 {
-                return __WASI_EEXIST;
-            }
-            if o_flags & __WASI_O_DIRECTORY != 0 {
-                match &child_inode_val.kind {
-                    Kind::Dir { .. } => (),
-                    Kind::Symlink { .. } => {
-                        unimplemented!("Symlinks not yet supported in path_open")
-                    }
-                    _ => return __WASI_ENOTDIR,
-                }
-            }
-            // do logic on child
-            wasi_try!(state
-                .fs
-                .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
-        } else {
-            debug!("Attempting to load file from host system");
-            let file_metadata = file_path.metadata();
-            // if entry does not exist in parent directory, try to lazily
-            // load it; possibly creating or truncating it if flags set
-            let kind = if file_metadata.is_ok() && file_metadata.unwrap().is_dir() {
-                // special dir logic
-                Kind::Dir {
-                    parent: Some(cur_dir_inode),
-                    path: file_path.clone(),
-                    entries: Default::default(),
-                }
+    let out_fd = if let Kind::Dir {
+        entries, parent, ..
+    } = &mut state.fs.inodes[cur_dir_inode].kind
+    {
+        // short circuit logic if attempting to get parent
+        if file_name == ".." {
+            if let Some(p) = parent {
+                let parent_inode = *p;
+                wasi_try!(state.fs.create_fd(
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                    parent_inode
+                ))
             } else {
-                // file is not a dir
-                let real_opened_file = {
-                    let mut open_options = std::fs::OpenOptions::new();
-                    let open_options = open_options.read(true);
-                    let open_options = if fs_rights_base & __WASI_RIGHT_FD_WRITE != 0 {
-                        open_options.write(true)
-                    } else {
-                        open_options
-                    };
-                    let open_options = if o_flags & __WASI_O_CREAT != 0 {
-                        debug!(
-                            "File {:?} may be created when opened if it does not exist",
-                            &file_path
-                        );
-                        open_options.create(true)
-                    } else {
-                        open_options
-                    };
-                    let open_options = if o_flags & __WASI_O_TRUNC != 0 {
-                        debug!("File {:?} will be truncated when opened", &file_path);
-                        open_options.truncate(true)
-                    } else {
-                        open_options
-                    };
-                    debug!("Opening host file {:?}", &file_path);
-                    let real_open_file =
-                        wasi_try!(open_options.open(&file_path).map_err(|_| __WASI_EIO));
-
-                    real_open_file
-                };
-                Kind::File {
-                    handle: WasiFile::HostFile(real_opened_file),
-                }
-            };
-
-            // record lazily loaded or newly created fd
-            let new_inode = state.fs.inodes.insert(InodeVal {
-                stat: wasi_try!(get_stat_for_kind(&kind).ok_or(__WASI_EIO)),
-                is_preopened: false,
-                name: file_name.clone(),
-                kind,
-            });
-
-            // reborrow to insert entry
-            if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
-                entries.insert(file_name.clone(), new_inode);
+                return __WASI_EACCES;
             }
-            let new_fd = wasi_try!(state.fs.create_fd(
-                fs_rights_base,
-                fs_rights_inheriting,
-                fs_flags,
-                new_inode,
-            ));
+        } else {
+            if let Some(child) = entries.get(file_name).cloned() {
+                let child_inode_val = &state.fs.inodes[child];
+                // early return based on flags
+                if o_flags & __WASI_O_EXCL != 0 {
+                    return __WASI_EEXIST;
+                }
+                if o_flags & __WASI_O_DIRECTORY != 0 {
+                    match &child_inode_val.kind {
+                        Kind::Dir { .. } => (),
+                        Kind::Symlink { .. } => {
+                            unimplemented!("Symlinks not yet supported in path_open")
+                        }
+                        _ => return __WASI_ENOTDIR,
+                    }
+                }
+                // do logic on child
+                wasi_try!(state
+                    .fs
+                    .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
+            } else {
+                debug!("Attempting to load file from host system");
 
-            new_fd
+                let file_metadata = file_path.metadata();
+                // if entry does not exist in parent directory, try to lazily
+                // load it; possibly creating or truncating it if flags set
+                let kind = if file_metadata.is_ok() && file_metadata.unwrap().is_dir() {
+                    // special dir logic
+                    Kind::Dir {
+                        parent: Some(cur_dir_inode),
+                        path: file_path.clone(),
+                        entries: Default::default(),
+                    }
+                } else {
+                    // file is not a dir
+                    let real_opened_file = {
+                        let mut open_options = std::fs::OpenOptions::new();
+                        let open_options = open_options.read(true);
+                        let open_options = if fs_rights_base & __WASI_RIGHT_FD_WRITE != 0 {
+                            open_options.write(true)
+                        } else {
+                            open_options
+                        };
+                        let open_options = if o_flags & __WASI_O_CREAT != 0 {
+                            debug!(
+                                "File {:?} may be created when opened if it does not exist",
+                                &file_path
+                            );
+                            open_options.create(true)
+                        } else {
+                            open_options
+                        };
+                        let open_options = if o_flags & __WASI_O_TRUNC != 0 {
+                            debug!("File {:?} will be truncated when opened", &file_path);
+                            open_options.truncate(true)
+                        } else {
+                            open_options
+                        };
+                        debug!("Opening host file {:?}", &file_path);
+                        let real_open_file =
+                            wasi_try!(open_options.open(&file_path).map_err(|_| __WASI_EIO));
+
+                        real_open_file
+                    };
+                    Kind::File {
+                        handle: WasiFile::HostFile(real_opened_file),
+                    }
+                };
+
+                // record lazily loaded or newly created fd
+                let new_inode = state.fs.inodes.insert(InodeVal {
+                    stat: wasi_try!(get_stat_for_kind(&kind).ok_or(__WASI_EIO)),
+                    is_preopened: false,
+                    name: file_name.clone(),
+                    kind,
+                });
+
+                // reborrow to insert entry
+                if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
+                    entries.insert(file_name.clone(), new_inode);
+                }
+                let new_fd = wasi_try!(state.fs.create_fd(
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                    new_inode,
+                ));
+
+                new_fd
+            }
         }
     } else {
         // working_dir did not match on Kind::Dir
