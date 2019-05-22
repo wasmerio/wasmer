@@ -7,6 +7,7 @@
 mod _common;
 mod create_dir;
 mod file_metadata;
+mod fs_sandbox_test;
 mod hello;
 mod mapdir;
 mod quine;
