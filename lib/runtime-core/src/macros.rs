@@ -19,6 +19,24 @@ macro_rules! debug {
 }
 
 #[macro_export]
+#[cfg(feature = "trace")]
+macro_rules! trace {
+    ($fmt:expr) => {
+        debug!($fmt)
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        debug!($fmt, $($arg)*);
+    }
+}
+
+#[macro_export]
+#[cfg(not(feature = "trace"))]
+macro_rules! trace {
+    ($fmt:expr) => {};
+    ($fmt:expr, $($arg:tt)*) => {};
+}
+
+#[macro_export]
 macro_rules! func {
     ($func:path) => {{
         $crate::Func::new($func)

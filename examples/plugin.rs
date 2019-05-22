@@ -17,7 +17,7 @@ fn main() {
     ));
 
     // WASI imports
-    let mut base_imports = generate_import_object(vec![], vec![], vec![]);
+    let mut base_imports = generate_import_object(vec![], vec![], vec![], vec![]);
     // env is the default namespace for extern functions
     let custom_imports = imports! {
         "env" => {
