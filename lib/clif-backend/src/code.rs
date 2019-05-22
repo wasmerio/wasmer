@@ -13,7 +13,7 @@ use crate::{
 };
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::{self, Ebb, InstBuilder, ValueLabel};
+use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_codegen::{cursor::FuncCursor, isa};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
@@ -105,17 +105,23 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
         let mut func_env = CraneliftFunctionCodeGenerator {
             builder: None,
-            func_body: func,
             func_translator,
             next_local: 0,
             clif_signatures: self.clif_signatures.clone(),
             module_info: Arc::clone(&module_info),
             target_config: self.isa.frontend_config().clone(),
         };
-        let builder = FunctionBuilder::new(
-            &mut func_env.func_body,
-            &mut func_env.func_translator.func_ctx,
-        );
+
+        // Coercing lifetime to accommodate FunctionBuilder new
+        let func_ref =
+            unsafe { ::std::mem::transmute::<&mut Function, &'static mut Function>(&mut func) };
+        let func_ctx = unsafe {
+            ::std::mem::transmute::<&mut FunctionBuilderContext, &'static mut FunctionBuilderContext>(
+                &mut func_env.func_translator.func_ctx,
+            )
+        };
+
+        let builder = FunctionBuilder::new(func_ref, func_ctx);
         func_env.builder = Some(builder);
 
         let mut builder = func_env.builder.as_mut().unwrap();
@@ -137,7 +143,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         // function and its return values.
         let exit_block = builder.create_ebb();
         builder.append_ebb_params_for_function_returns(exit_block);
-        func_translator
+        func_env
+            .func_translator
             .state
             .initialize(&builder.func.signature, exit_block);
 
@@ -368,7 +375,6 @@ impl From<CompileError> for CodegenError {
 }
 
 pub struct CraneliftFunctionCodeGenerator {
-    func_body: ir::Function,
     builder: Option<FunctionBuilder<'static>>,
     func_translator: FuncTranslator,
     next_local: usize,
@@ -377,7 +383,13 @@ pub struct CraneliftFunctionCodeGenerator {
     target_config: isa::TargetFrontendConfig,
 }
 
-impl FuncEnvironment for CraneliftFunctionCodeGenerator {
+pub struct FunctionEnvironment {
+    module_info: Arc<ModuleInfo>,
+    target_config: isa::TargetFrontendConfig,
+    clif_signatures: Map<SigIndex, ir::Signature>,
+}
+
+impl FuncEnvironment for FunctionEnvironment {
     /// Gets configuration information needed for compiling functions
     fn target_config(&self) -> isa::TargetFrontendConfig {
         self.target_config
@@ -1034,7 +1046,15 @@ impl FuncEnvironment for CraneliftFunctionCodeGenerator {
     }
 }
 
-impl CraneliftFunctionCodeGenerator {
+impl FunctionEnvironment {
+    pub fn get_func_type(
+        &self,
+        func_index: cranelift_wasm::FuncIndex,
+    ) -> cranelift_wasm::SignatureIndex {
+        let sig_index: SigIndex = self.module_info.func_assoc[Converter(func_index).into()];
+        Converter(sig_index).into()
+    }
+
     /// Creates a signature with VMContext as the last param
     pub fn generate_signature(
         &self,
@@ -1088,8 +1108,18 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         let builder = self.builder.as_mut().unwrap();
         //let func_environment = FuncEnv::new();
         //let state = TranslationState::new();
+        let mut function_environment = FunctionEnvironment {
+            module_info: Arc::clone(&self.module_info),
+            target_config: self.target_config.clone(),
+            clif_signatures: self.clif_signatures.clone(),
+        };
         let opp = Operator::Unreachable; // Placeholder
-        translate_operator(opp, builder, &mut self.func_translator.state, self);
+        translate_operator(
+            opp,
+            builder,
+            &mut self.func_translator.state,
+            &mut function_environment,
+        );
         Ok(())
     }
 
@@ -1142,14 +1172,6 @@ impl CraneliftModuleCodeGenerator {
 impl CraneliftFunctionCodeGenerator {
     pub fn return_mode(&self) -> ReturnMode {
         ReturnMode::NormalReturns
-    }
-
-    pub fn get_func_type(
-        &self,
-        func_index: cranelift_wasm::FuncIndex,
-    ) -> cranelift_wasm::SignatureIndex {
-        let sig_index: SigIndex = self.module_info.func_assoc[Converter(func_index).into()];
-        Converter(sig_index).into()
     }
 }
 
