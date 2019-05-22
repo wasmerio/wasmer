@@ -321,12 +321,12 @@ void wasmer_import_descriptors_destroy(wasmer_import_descriptors_t *import_descr
  * Gets import descriptor by index
  */
 wasmer_import_descriptor_t *wasmer_import_descriptors_get(wasmer_import_descriptors_t *import_descriptors,
-                                                          int idx);
+                                                          unsigned int idx);
 
 /**
  * Gets the length of the import descriptors
  */
-int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports);
+unsigned int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports);
 
 /**
  * Frees memory for the given Func
@@ -339,9 +339,9 @@ void wasmer_import_func_destroy(wasmer_import_func_t *func);
  */
 wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
                                              const wasmer_value_tag *params,
-                                             int params_len,
+                                             unsigned int params_len,
                                              const wasmer_value_tag *returns,
-                                             int returns_len);
+                                             unsigned int returns_len);
 
 /**
  * Sets the params buffer to the parameter types of the given wasmer_import_func_t
@@ -351,7 +351,7 @@ wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
  */
 wasmer_result_t wasmer_import_func_params(const wasmer_import_func_t *func,
                                           wasmer_value_tag *params,
-                                          int params_len);
+                                          unsigned int params_len);
 
 /**
  * Sets the result parameter to the arity of the params of the wasmer_import_func_t
@@ -369,7 +369,7 @@ wasmer_result_t wasmer_import_func_params_arity(const wasmer_import_func_t *func
  */
 wasmer_result_t wasmer_import_func_returns(const wasmer_import_func_t *func,
                                            wasmer_value_tag *returns,
-                                           int returns_len);
+                                           unsigned int returns_len);
 
 /**
  * Sets the result parameter to the arity of the returns of the wasmer_import_func_t

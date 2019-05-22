@@ -4,6 +4,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>
+#include <new>
 
 enum class wasmer_import_export_kind : uint32_t {
   WASM_FUNCTION,
@@ -260,10 +261,10 @@ void wasmer_import_descriptors_destroy(wasmer_import_descriptors_t *import_descr
 
 /// Gets import descriptor by index
 wasmer_import_descriptor_t *wasmer_import_descriptors_get(wasmer_import_descriptors_t *import_descriptors,
-                                                          int idx);
+                                                          unsigned int idx);
 
 /// Gets the length of the import descriptors
-int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports);
+unsigned int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports);
 
 /// Frees memory for the given Func
 void wasmer_import_func_destroy(wasmer_import_func_t *func);
@@ -272,9 +273,9 @@ void wasmer_import_func_destroy(wasmer_import_func_t *func);
 /// The caller owns the object and should call `wasmer_import_func_destroy` to free it.
 wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
                                              const wasmer_value_tag *params,
-                                             int params_len,
+                                             unsigned int params_len,
                                              const wasmer_value_tag *returns,
-                                             int returns_len);
+                                             unsigned int returns_len);
 
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -282,7 +283,7 @@ wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_import_func_params(const wasmer_import_func_t *func,
                                           wasmer_value_tag *params,
-                                          int params_len);
+                                          unsigned int params_len);
 
 /// Sets the result parameter to the arity of the params of the wasmer_import_func_t
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -296,7 +297,7 @@ wasmer_result_t wasmer_import_func_params_arity(const wasmer_import_func_t *func
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_import_func_returns(const wasmer_import_func_t *func,
                                            wasmer_value_tag *returns,
-                                           int returns_len);
+                                           unsigned int returns_len);
 
 /// Sets the result parameter to the arity of the returns of the wasmer_import_func_t
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
