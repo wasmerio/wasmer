@@ -12,6 +12,9 @@ spectests:
 emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten
 
+wasitests:
+	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi
+
 # clean:
 #     rm -rf artifacts
 
@@ -45,7 +48,7 @@ do-install:
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend -- $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend --exclude wasmer-wasi -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
@@ -65,6 +68,12 @@ test-emscripten-clif:
 
 test-emscripten-singlepass:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
+
+test-wasi-clif:
+	cargo test --manifest-path lib/wasi/Cargo.toml --features "clif" -- --test-threads=1 $(runargs)
+
+test-wasi-singlepass:
+	cargo test --manifest-path lib/wasi/Cargo.toml --features "singlepass" -- --test-threads=1 $(runargs)
 
 singlepass-debug-release:
 	cargo +nightly build --features backend:singlepass,debug --release
