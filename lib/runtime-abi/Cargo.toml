@@ -17,9 +17,7 @@ wasmparser = "0.29.2"
 zstd = "0.4"
 
 [target.'cfg(unix)'.dependencies.zbox]
-git = "https://github.com/wasmerio/zbox"
-branch = "bundle-libsodium"
-features = ["libsodium-bundled"]
+git = "https://github.com/zboxfs/zbox"
 
 [dev-dependencies]
 tempdir = "0.3"
