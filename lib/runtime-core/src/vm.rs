@@ -6,7 +6,7 @@ use crate::{
     types::{LocalOrImport, MemoryIndex},
     vmcalls,
 };
-use std::{ffi::c_void, mem, ptr};
+use std::{ffi::c_void, mem, ptr, sync::atomic::{AtomicUsize, Ordering}, sync::Once, cell::UnsafeCell};
 
 use hashbrown::HashMap;
 
@@ -94,6 +94,41 @@ pub struct InternalCtx {
     pub memory_bound: usize,
 
     pub internals: *mut [u64; INTERNALS_SIZE], // TODO: Make this dynamic?
+}
+
+static INTERNAL_FIELDS: AtomicUsize = AtomicUsize::new(0);
+
+pub struct InternalField {
+    init: Once,
+    inner: UnsafeCell<usize>,
+}
+
+unsafe impl Send for InternalField {}
+unsafe impl Sync for InternalField {}
+
+impl InternalField {
+    pub const fn allocate() -> InternalField {
+        InternalField {
+            init: Once::new(),
+            inner: UnsafeCell::new(::std::usize::MAX),
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        let inner: *mut usize = self.inner.get();
+        self.init.call_once(|| {
+            let idx = INTERNAL_FIELDS.fetch_add(1, Ordering::SeqCst);
+            if idx >= INTERNALS_SIZE {
+                INTERNAL_FIELDS.fetch_sub(1, Ordering::SeqCst);
+                panic!("at most {} internal fields are supported", INTERNALS_SIZE);
+            } else {
+                unsafe {
+                    *inner = idx;
+                }
+            }
+        });
+        unsafe { *inner }
+    }
 }
 
 #[repr(C)]
