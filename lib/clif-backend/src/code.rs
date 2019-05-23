@@ -1113,9 +1113,8 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             target_config: self.target_config.clone(),
             clif_signatures: self.clif_signatures.clone(),
         };
-        let opp = Operator::Unreachable; // Placeholder
         translate_operator(
-            opp,
+            op,
             builder,
             &mut self.func_translator.state,
             &mut function_environment,
