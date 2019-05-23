@@ -1,8 +1,8 @@
 use wasmer_runtime_core::{
     codegen::{Event, EventSink, FunctionMiddleware, InternalEvent},
     module::ModuleInfo,
-    wasmparser::{Operator, Type as WpType},
     vm::InternalField,
+    wasmparser::{Operator, Type as WpType},
 };
 
 static INTERNAL_FIELD: InternalField = InternalField::allocate();
@@ -48,12 +48,16 @@ impl FunctionMiddleware for Metering {
                     | Operator::Call { .. }
                     | Operator::CallIndirect { .. }
                     | Operator::Return => {
-                        sink.push(Event::Internal(InternalEvent::GetInternal(INTERNAL_FIELD.index() as _)));
+                        sink.push(Event::Internal(InternalEvent::GetInternal(
+                            INTERNAL_FIELD.index() as _,
+                        )));
                         sink.push(Event::WasmOwned(Operator::I64Const {
                             value: self.current_block as i64,
                         }));
                         sink.push(Event::WasmOwned(Operator::I64Add));
-                        sink.push(Event::Internal(InternalEvent::SetInternal(INTERNAL_FIELD.index() as _)));
+                        sink.push(Event::Internal(InternalEvent::SetInternal(
+                            INTERNAL_FIELD.index() as _,
+                        )));
                         self.current_block = 0;
                     }
                     _ => {}
@@ -64,7 +68,9 @@ impl FunctionMiddleware for Metering {
                     | Operator::BrIf { .. }
                     | Operator::Call { .. }
                     | Operator::CallIndirect { .. } => {
-                        sink.push(Event::Internal(InternalEvent::GetInternal(INTERNAL_FIELD.index() as _)));
+                        sink.push(Event::Internal(InternalEvent::GetInternal(
+                            INTERNAL_FIELD.index() as _,
+                        )));
                         sink.push(Event::WasmOwned(Operator::I64Const {
                             value: self.limit as i64,
                         }));

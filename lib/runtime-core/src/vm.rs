@@ -6,7 +6,13 @@ use crate::{
     types::{LocalOrImport, MemoryIndex},
     vmcalls,
 };
-use std::{ffi::c_void, mem, ptr, sync::atomic::{AtomicUsize, Ordering}, sync::Once, cell::UnsafeCell};
+use std::{
+    cell::UnsafeCell,
+    ffi::c_void,
+    mem, ptr,
+    sync::atomic::{AtomicUsize, Ordering},
+    sync::Once,
+};
 
 use hashbrown::HashMap;
 
