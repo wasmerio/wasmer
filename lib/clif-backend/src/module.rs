@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 
+use cranelift_codegen::isa::CallConv;
 use wasmer_runtime_core::{
     backend::{Backend, CompilerConfig},
     error::CompileResult,
@@ -168,6 +169,26 @@ impl From<Converter<ir::Signature>> for FuncSig {
     }
 }
 
+impl From<Converter<&FuncSig>> for ir::Signature {
+    fn from(sig: Converter<&FuncSig>) -> Self {
+        ir::Signature {
+            params: sig
+                .0
+                .params()
+                .iter()
+                .map(|params| Converter(*params).into())
+                .collect::<Vec<_>>(),
+            returns: sig
+                .0
+                .returns()
+                .iter()
+                .map(|returns| Converter(*returns).into())
+                .collect::<Vec<_>>(),
+            call_conv: CallConv::SystemV, // TODO should come from isa
+        }
+    }
+}
+
 impl From<Converter<ir::Type>> for Type {
     fn from(ty: Converter<ir::Type>) -> Self {
         match ty.0 {
@@ -176,6 +197,28 @@ impl From<Converter<ir::Type>> for Type {
             ir::types::F32 => Type::F32,
             ir::types::F64 => Type::F64,
             _ => panic!("unsupported wasm type"),
+        }
+    }
+}
+
+impl From<Converter<Type>> for ir::Type {
+    fn from(ty: Converter<Type>) -> Self {
+        match ty.0 {
+            Type::I32 => ir::types::I32,
+            Type::I64 => ir::types::I64,
+            Type::F32 => ir::types::F32,
+            Type::F64 => ir::types::F64,
+        }
+    }
+}
+
+impl From<Converter<Type>> for ir::AbiParam {
+    fn from(ty: Converter<Type>) -> Self {
+        match ty.0 {
+            Type::I32 => ir::AbiParam::new(ir::types::I32),
+            Type::I64 => ir::AbiParam::new(ir::types::I64),
+            Type::F32 => ir::AbiParam::new(ir::types::F32),
+            Type::F64 => ir::AbiParam::new(ir::types::F64),
         }
     }
 }

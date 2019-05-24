@@ -58,7 +58,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         let isa = get_isa();
         CraneliftModuleCodeGenerator {
             isa,
-            clif_signatures: Map::new(), // TODO FIX
+            clif_signatures: Map::new(),
             functions: vec![],
             function_signatures: None,
             signatures: None,
@@ -346,6 +346,9 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
         self.signatures = Some(Arc::new(signatures));
+        for (_sig_idx, func_sig) in self.signatures.as_ref().unwrap().iter() {
+            self.clif_signatures.push(Converter(func_sig).into());
+        }
         Ok(())
     }
 
