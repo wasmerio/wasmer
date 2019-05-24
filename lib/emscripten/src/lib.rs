@@ -545,7 +545,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_sysconf" => func!(crate::env::_sysconf),
         "_getaddrinfo" => func!(crate::env::_getaddrinfo),
         "_times" => func!(crate::env::_times),
-        "_pathconf" => func!(crate::env::_fpathconf),
+        "_pathconf" => func!(crate::env::_pathconf),
         "_fpathconf" => func!(crate::env::_fpathconf),
 
         // Syscalls
