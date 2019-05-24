@@ -205,22 +205,27 @@ pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     let buf = varargs.get_str(ctx);
     // let buf_addr: i32 = varargs.get(ctx);
     let buf_size: i32 = varargs.get(ctx);
-    
+
     let fd = 3;
     let ret = unsafe { read(fd, buf as _, buf_size as _) as i32 };
-    debug!("=> buf: {}, buf_size: {}, return: {} ", unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() }, buf_size, ret);
+    debug!(
+        "=> buf: {}, buf_size: {}, return: {} ",
+        unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
+        buf_size,
+        ret
+    );
 
     // let ret = unsafe {
     //     readlink(path, buf as _, buf_size as _) as i32
     // };
-    // debug!("=> path: {}, buf: {}, buf_size: {}, return: {} ", 
+    // debug!("=> path: {}, buf: {}, buf_size: {}, return: {} ",
     //     unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
     //     unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
     //     // std::ffi::CStr::from_ptr(buf).to_str().unwrap(),
     //     // buf,
     //     buf_size,
     //     ret);
-    
+
     ret
 }
 
