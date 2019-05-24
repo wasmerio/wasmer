@@ -99,12 +99,8 @@ pub unsafe extern "C" fn wasmer_instantiate(
     let result = wasmer_runtime::instantiate(bytes, &import_object);
     let new_instance = match result {
         Ok(instance) => instance,
-        Err(_error) => {
-            // TODO the trait bound `wasmer_runtime::error::Error: std::error::Error` is not satisfied
-            //update_last_error(error);
-            update_last_error(CApiError {
-                msg: "error instantiating".to_string(),
-            });
+        Err(error) => {
+            update_last_error(error);
             return wasmer_result_t::WASMER_ERROR;
         }
     };
