@@ -205,7 +205,6 @@ pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     let buf = varargs.get_str(ctx);
     // let buf_addr: i32 = varargs.get(ctx);
     let buf_size: i32 = varargs.get(ctx);
-
     let fd = 3;
     let ret = unsafe { read(fd, buf as _, buf_size as _) as i32 };
     debug!(
@@ -214,7 +213,6 @@ pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
         buf_size,
         ret
     );
-
     // let ret = unsafe {
     //     readlink(path, buf as _, buf_size as _) as i32
     // };
@@ -225,7 +223,6 @@ pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     //     // buf,
     //     buf_size,
     //     ret);
-
     ret
 }
 

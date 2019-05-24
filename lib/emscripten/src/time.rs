@@ -17,8 +17,6 @@ type clockid_t = c_int;
 extern "C" {
     #[link_name = "time"]
     pub fn libc_time(s: *const time_t) -> time_t;
-    #[link_name = "timegm"]
-    pub fn libc_timegm(s: *const time_t) -> time_t;
 }
 
 use time;
@@ -301,13 +299,23 @@ pub fn _time(ctx: &mut Ctx, time_p: u32) -> i32 {
 }
 
 /// emscripten: _timegm
-pub fn _timegm(ctx: &mut Ctx, time_ptr: u32) -> i32 {
+#[cfg(not(target_os = "windows"))]
+pub fn _timegm(ctx: &mut Ctx, time_ptr: c_int) -> i32 {
     debug!("emscripten::_timegm {}", time_ptr);
 
     unsafe {
         let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_ptr) as *mut guest_tm;
         libc_timegm(time_p_addr as _) as i32 // TODO review i64
     }
+}
+
+#[cfg(target_os = "windows")]
+pub fn _timegm(ctx: &mut Ctx, time_ptr: c_int) -> i32 {
+    debug!(
+        "emscripten::_timegm - UNIMPLEMENTED IN WINDOWS {}",
+        time_ptr
+    );
+    -1
 }
 
 /// emscripten: _strftime
