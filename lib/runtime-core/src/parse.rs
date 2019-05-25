@@ -53,7 +53,7 @@ pub fn read_module<
     mcg: &mut MCG,
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
-) -> Result<ModuleInfo, LoadError> {
+) -> Result<Arc<ModuleInfo>, LoadError> {
     let mut info = Arc::new(ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),
@@ -104,7 +104,7 @@ pub fn read_module<
         use wasmparser::ParserState;
         let state = parser.read();
         match *state {
-            ParserState::EndWasm => break Ok(Arc::try_unwrap(info).unwrap()),
+            ParserState::EndWasm => break,
             ParserState::Error(err) => Err(LoadError::Parse(err))?,
             ParserState::TypeSectionEntry(ref ty) => {
                 Arc::get_mut(&mut info)
@@ -385,6 +385,7 @@ pub fn read_module<
             _ => {}
         }
     }
+    Ok(info)
 }
 
 pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {

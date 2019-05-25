@@ -12,6 +12,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
 #[derive(Debug)]
@@ -118,6 +119,20 @@ impl<
     }
 }
 
+fn validate(bytes: &[u8]) -> CompileResult<()> {
+    let mut parser = wasmparser::ValidatingParser::new(bytes, None);
+    loop {
+        let state = parser.read();
+        match *state {
+            wasmparser::ParserState::EndWasm => break Ok(()),
+            wasmparser::ParserState::Error(err) => Err(CompileError::ValidationError {
+                msg: err.message.to_string(),
+            })?,
+            _ => {}
+        }
+    }
+}
+
 impl<
         MCG: ModuleCodeGenerator<FCG, RM, E>,
         FCG: FunctionCodeGenerator<E>,
@@ -132,6 +147,11 @@ impl<
         compiler_config: CompilerConfig,
         _: Token,
     ) -> CompileResult<ModuleInner> {
+        let res = validate(wasm);
+        if let Err(e) = res {
+            return Err(e);
+        }
+
         let mut mcg = MCG::new();
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(
@@ -149,7 +169,7 @@ impl<
         Ok(ModuleInner {
             cache_gen,
             runnable_module: Box::new(exec_context),
-            info,
+            info: Arc::try_unwrap(info).unwrap(),
         })
     }
 

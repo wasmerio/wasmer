@@ -13,14 +13,18 @@ use crate::{
 };
 
 use cranelift_codegen::entity::EntityRef;
+use cranelift_codegen::flowgraph::BasicBlock;
 use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder, ValueLabel};
+use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_codegen::timing;
 use cranelift_codegen::{cursor::FuncCursor, isa};
-use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
+use cranelift_entity::packed_option::PackedOption;
+use cranelift_frontend::{Block, FunctionBuilder, FunctionBuilderContext, Position, Variable};
 use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
 use cranelift_wasm::{get_vmctx_value_label, translate_operator, TranslationState};
 use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError, WasmResult};
 use std::mem;
+use std::rc::Rc;
 use std::sync::Arc;
 use wasmer_runtime_core::error::CompileError;
 use wasmer_runtime_core::{
@@ -82,12 +86,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
         let mut func_translator = FuncTranslator::new();
 
-        //        let func_body = {
-
-        //            let mut func_env = FuncEnv::new(self);
-
-        // TODO should func_index come from self.functions?
-        let func_index = self.func_bodies.next_index();
+        let func_index = LocalFuncIndex::new(self.functions.len());
         let name = ir::ExternalName::user(0, func_index.index() as u32);
 
         let sig = generate_signature(
@@ -101,30 +100,25 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         let mut func = ir::Function::with_name_signature(name, sig);
 
         //func_translator.translate(body_bytes, body_offset, &mut func, &mut func_env)?;
-        // This clears the `FunctionBuilderContext`.
 
         let mut func_env = CraneliftFunctionCodeGenerator {
-            builder: None,
+            func,
             func_translator,
             next_local: 0,
             clif_signatures: self.clif_signatures.clone(),
             module_info: Arc::clone(&module_info),
             target_config: self.isa.frontend_config().clone(),
+            position: Position::default(),
         };
 
-        // Coercing lifetime to accommodate FunctionBuilder new
-        let func_ref =
-            unsafe { ::std::mem::transmute::<&mut Function, &'static mut Function>(&mut func) };
-        let func_ctx = unsafe {
-            ::std::mem::transmute::<&mut FunctionBuilderContext, &'static mut FunctionBuilderContext>(
-                &mut func_env.func_translator.func_ctx,
-            )
-        };
+        debug_assert_eq!(func_env.func.dfg.num_ebbs(), 0, "Function must be empty");
+        debug_assert_eq!(func_env.func.dfg.num_insts(), 0, "Function must be empty");
 
-        let builder = FunctionBuilder::new(func_ref, func_ctx);
-        func_env.builder = Some(builder);
-
-        let mut builder = func_env.builder.as_mut().unwrap();
+        let mut builder = FunctionBuilder::new(
+            &mut func_env.func,
+            &mut func_env.func_translator.func_ctx,
+            &mut func_env.position,
+        );
 
         // TODO srcloc
         //builder.set_srcloc(cur_srcloc(&reader));
@@ -308,12 +302,6 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             pos.ins().jump(entry_ebb, new_ebb_params.as_slice());
         }
 
-        //            func
-        //        };
-
-        // Add function body to list of function bodies.
-        self.func_bodies.push(func);
-
         self.functions.push(func_env);
         Ok(self.functions.last_mut().unwrap())
     }
@@ -322,8 +310,13 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         self,
         module_info: &ModuleInfo,
     ) -> Result<(Caller, Box<dyn CacheGen>), CodegenError> {
+        let mut func_bodies: Map<LocalFuncIndex, ir::Function> = Map::new();
+        for f in self.functions.into_iter() {
+            func_bodies.push(f.func);
+        }
+
         let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(&*self.isa, self.func_bodies, module_info)?;
+            FuncResolverBuilder::new(&*self.isa, func_bodies, module_info)?;
 
         let trampolines = Arc::new(Trampolines::new(&*self.isa, module_info));
 
@@ -378,12 +371,13 @@ impl From<CompileError> for CodegenError {
 }
 
 pub struct CraneliftFunctionCodeGenerator {
-    builder: Option<FunctionBuilder<'static>>,
+    func: Function,
     func_translator: FuncTranslator,
     next_local: usize,
     pub clif_signatures: Map<SigIndex, ir::Signature>,
     module_info: Arc<ModuleInfo>,
     target_config: isa::TargetFrontendConfig,
+    position: Position,
 }
 
 pub struct FunctionEnvironment {
@@ -1088,12 +1082,9 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
     }
 
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
-        cranelift_wasm::declare_locals(
-            self.builder.as_mut().unwrap(),
-            n as u32,
-            ty,
-            &mut self.next_local,
-        );
+        let mut next_local = self.next_local;
+        cranelift_wasm::declare_locals(&mut self.builder(), n as u32, ty, &mut next_local);
+        self.next_local = next_local;
         Ok(())
     }
 
@@ -1108,7 +1099,8 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
                 return Ok(());
             }
         };
-        let builder = self.builder.as_mut().unwrap();
+
+        //let builder = self.builder.as_mut().unwrap();
         //let func_environment = FuncEnv::new();
         //let state = TranslationState::new();
         let mut function_environment = FunctionEnvironment {
@@ -1116,19 +1108,30 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             target_config: self.target_config.clone(),
             clif_signatures: self.clif_signatures.clone(),
         };
-        translate_operator(
-            op,
-            builder,
-            &mut self.func_translator.state,
-            &mut function_environment,
+
+        if (self.func_translator.state.control_stack.is_empty()) {
+            return Ok(());
+        }
+
+        let mut builder = FunctionBuilder::new(
+            &mut self.func,
+            &mut self.func_translator.func_ctx,
+            &mut self.position,
         );
+        let state = &mut self.func_translator.state;
+        translate_operator(op, &mut builder, state, &mut function_environment);
         Ok(())
     }
 
     fn finalize(&mut self) -> Result<(), CodegenError> {
         let return_mode = self.return_mode();
+
+        let mut builder = FunctionBuilder::new(
+            &mut self.func,
+            &mut self.func_translator.func_ctx,
+            &mut self.position,
+        );
         let state = &mut self.func_translator.state;
-        let builder = self.builder.as_mut().unwrap();
 
         // The final `End` operator left us in the exit block where we need to manually add a return
         // instruction.
@@ -1149,7 +1152,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         // or the end of the function is unreachable.
         state.stack.clear();
 
-        self.builder.as_mut().unwrap().finalize();
+        self.builder().finalize();
         Ok(())
     }
 }
@@ -1172,6 +1175,14 @@ impl CraneliftModuleCodeGenerator {
 }
 
 impl CraneliftFunctionCodeGenerator {
+    pub fn builder(&mut self) -> FunctionBuilder {
+        FunctionBuilder::new(
+            &mut self.func,
+            &mut self.func_translator.func_ctx,
+            &mut self.position,
+        )
+    }
+
     pub fn return_mode(&self) -> ReturnMode {
         ReturnMode::NormalReturns
     }
