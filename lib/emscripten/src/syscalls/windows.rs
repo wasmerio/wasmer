@@ -251,6 +251,12 @@ pub fn ___syscall196(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+// getdents
+pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall220");
+    -1
+}
+
 /// fchown
 pub fn ___syscall207(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall207 (fchown) {}", _which);

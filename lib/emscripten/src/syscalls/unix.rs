@@ -43,6 +43,7 @@ use libc::{
     pid_t,
     pread,
     pwrite,
+    readdir,
     // readv,
     recvfrom,
     recvmsg,
@@ -108,8 +109,11 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let flags: i32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
     let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
-    let _path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
-    let fd = unsafe { open(pathname_addr, flags, mode) };
+    let real_path = utils::get_cstr_path(ctx, pathname_addr)
+        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
+        .unwrap_or(pathname_addr);
+    let _path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
+    let fd = unsafe { open(real_path, flags, mode) };
     debug!(
         "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}\nlast os error: {}",
         pathname,
@@ -160,11 +164,17 @@ pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let path2_ptr: c_int = varargs.get(ctx);
     let path1 = emscripten_memory_pointer!(ctx.memory(0), path1_ptr) as *mut i8;
     let path2 = emscripten_memory_pointer!(ctx.memory(0), path2_ptr) as *mut i8;
-    let result = unsafe { symlink(path1, path2) };
+    let real_path1 = utils::get_cstr_path(ctx, path1)
+        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
+        .unwrap_or(path1);
+    let real_path2 = utils::get_cstr_path(ctx, path2)
+        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
+        .unwrap_or(path2);
+    let result = unsafe { symlink(real_path1, real_path2) };
     debug!(
         "=> path1: {}, path2: {}, result: {}",
-        unsafe { std::ffi::CStr::from_ptr(path1).to_str().unwrap() },
-        unsafe { std::ffi::CStr::from_ptr(path2).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(real_path1).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(real_path2).to_str().unwrap() },
         result,
     );
     result
@@ -794,6 +804,81 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         utils::copy_stat_into_wasm(ctx, buf_ptr, &stat);
     }
     0
+}
+
+// getdents
+// dirent structure is
+// i64, i64, u16 (280), i8, [i8; 256]
+pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall220");
+    let fd: i32 = varargs.get(ctx);
+    let dirp_addr: i32 = varargs.get(ctx);
+    let count: u32 = varargs.get(ctx);
+
+    //let dir = dbg!(emscripten_memory_pointer!(ctx.memory(0), dbg!(fd)) as *mut libc::DIR);
+    let dirp = emscripten_memory_pointer!(ctx.memory(0), dirp_addr) as *mut u8;
+
+    let mut pos = 0;
+    // need to persist stream across calls?
+
+    let dir: *mut libc::DIR = unsafe { libc::fdopendir(fd) };
+
+    dbg!("Start loop");
+    while pos + 280 <= dbg!(count) as usize {
+        dbg!("Pre readdir");
+        let dirent = unsafe { readdir(dir) };
+        dbg!("post readdir");
+        if dirent.is_null() {
+            break;
+        }
+        dbg!("dirent is not null");
+        unsafe {
+            *(dirp.add(pos) as *mut u64) = dbg!((*dirent).d_ino);
+            #[cfg(not(target_os = "macos"))]
+            {
+                *(dirp.add(pos + 8) as *mut u64) = 280 //dbg!((*dirent).d_off);
+            }
+            #[cfg(target_os = "macos")]
+            {
+                *(dirp.add(pos + 8) as *mut u64) = if pos + 280 > count as usize {
+                    count.into()
+                } else {
+                    dbg!((*dirent).d_seekoff);
+                    pos as u64 + 56 //280
+                }; //;
+            }
+            dbg!((*dirent).d_namlen);
+            *(dirp.add(pos + 16) as *mut u16) = 280; //dbg!((*dirent).d_reclen);
+            *(dirp.add(pos + 18) as *mut u8) = dbg!((*dirent).d_type);
+            let upper_bound = std::cmp::min((*dirent).d_reclen, 255) as usize;
+            let mut i = 0;
+            while i < upper_bound {
+                *(dirp.add(pos + 19 + i) as *mut i8) = (*dirent).d_name[i];
+                //dbg!((*dirent).d_name[i] as u8 as char);
+                //dbg!((*dirent).d_name[i] as u8 as char);
+                i += 1;
+            }
+            *(dirp.add(pos + 19 + i) as *mut i8) = 0 as i8;
+        }
+        dbg!("dirent written to memory");
+        pos += 280;
+        /*unsafe {
+            eprintln!(
+                "{}",
+                std::ffi::CStr::from_bytes_with_nul_unchecked({
+                    let arr = *(dirent as *const u8 as *const [u8; 256]);
+                    &arr.to_vec()
+                        .into_iter()
+                        .map(|b| b as u8)
+                        .collect::<Vec<u8>>()[..20]
+                })
+                .to_str()
+                .unwrap()
+            );
+        }*/
+    }
+
+    dbg!(pos as i32)
 }
 
 /// fallocate

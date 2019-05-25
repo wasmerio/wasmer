@@ -3,8 +3,10 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
 
+use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
+use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
     error::CallResult,
@@ -141,10 +143,14 @@ pub struct EmscriptenData<'a> {
     pub stack_save: Option<Func<'a, (), i32>>,
     pub stack_restore: Option<Func<'a, (i32)>>,
     pub set_threw: Option<Func<'a, (i32, i32)>>,
+    pub mapped_dirs: HashMap<String, PathBuf>,
 }
 
 impl<'a> EmscriptenData<'a> {
-    pub fn new(instance: &'a mut Instance) -> EmscriptenData<'a> {
+    pub fn new(
+        instance: &'a mut Instance,
+        mapped_dirs: HashMap<String, PathBuf>,
+    ) -> EmscriptenData<'a> {
         let malloc = instance.func("_malloc").unwrap();
         let free = instance.func("_free").unwrap();
         let memalign = instance.func("_memalign").ok();
@@ -272,6 +278,7 @@ impl<'a> EmscriptenData<'a> {
             stack_save,
             stack_restore,
             set_threw,
+            mapped_dirs,
         }
     }
 }
@@ -282,8 +289,9 @@ pub fn run_emscripten_instance(
     path: &str,
     args: Vec<&str>,
     entrypoint: Option<String>,
+    mapped_dirs: Vec<(String, PathBuf)>,
 ) -> CallResult<()> {
-    let mut data = EmscriptenData::new(instance);
+    let mut data = EmscriptenData::new(instance, mapped_dirs.into_iter().collect());
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 

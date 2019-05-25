@@ -458,6 +458,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             },
             options.args.iter().map(|arg| arg.as_str()).collect(),
             options.em_entrypoint.clone(),
+            mapped_dirs,
         )
         .map_err(|e| format!("{:?}", e))?;
     } else {
