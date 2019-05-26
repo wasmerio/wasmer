@@ -25,7 +25,7 @@ use cranelift_wasm::{get_vmctx_value_label, translate_operator, TranslationState
 use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError, WasmResult};
 use std::mem;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::error::CompileError;
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, Token},
@@ -80,7 +80,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
     fn next_function(
         &mut self,
-        module_info: Arc<ModuleInfo>,
+        module_info: Arc<RwLock<ModuleInfo>>,
     ) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
         // define_function_body(
 
@@ -92,8 +92,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         let sig = generate_signature(
             self,
             self.get_func_type(
-                &module_info,
-                Converter(func_index.convert_up(&module_info)).into(),
+                &module_info.read().unwrap(),
+                Converter(func_index.convert_up(&module_info.read().unwrap())).into(),
             ),
         );
 
@@ -375,13 +375,13 @@ pub struct CraneliftFunctionCodeGenerator {
     func_translator: FuncTranslator,
     next_local: usize,
     pub clif_signatures: Map<SigIndex, ir::Signature>,
-    module_info: Arc<ModuleInfo>,
+    module_info: Arc<RwLock<ModuleInfo>>,
     target_config: isa::TargetFrontendConfig,
     position: Position,
 }
 
 pub struct FunctionEnvironment {
-    module_info: Arc<ModuleInfo>,
+    module_info: Arc<RwLock<ModuleInfo>>,
     target_config: isa::TargetFrontendConfig,
     clif_signatures: Map<SigIndex, ir::Signature>,
 }
@@ -419,7 +419,9 @@ impl FuncEnvironment for FunctionEnvironment {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let local_global_addr = match global_index.local_or_import(&self.module_info) {
+        let local_global_addr = match global_index
+            .local_or_import(&self.module_info.read().unwrap())
+        {
             LocalOrImport::Local(local_global_index) => {
                 let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
@@ -489,49 +491,49 @@ impl FuncEnvironment for FunctionEnvironment {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let (local_memory_ptr_ptr, description) = match mem_index.local_or_import(&self.module_info)
-        {
-            LocalOrImport::Local(local_mem_index) => {
-                let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: (vm::Ctx::offset_memories() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
-
-                let local_memory_ptr_offset =
-                    local_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
-
-                (
-                    func.create_global_value(ir::GlobalValueData::IAddImm {
-                        base: memories_base_addr,
-                        offset: (local_memory_ptr_offset as i64).into(),
+        let (local_memory_ptr_ptr, description) =
+            match mem_index.local_or_import(&self.module_info.read().unwrap()) {
+                LocalOrImport::Local(local_mem_index) => {
+                    let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                        base: vmctx,
+                        offset: (vm::Ctx::offset_memories() as i32).into(),
                         global_type: ptr_type,
-                    }),
-                    self.module_info.memories[local_mem_index],
-                )
-            }
-            LocalOrImport::Import(import_mem_index) => {
-                let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: (vm::Ctx::offset_imported_memories() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
+                        readonly: true,
+                    });
 
-                let local_memory_ptr_offset =
-                    import_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
+                    let local_memory_ptr_offset =
+                        local_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
 
-                (
-                    func.create_global_value(ir::GlobalValueData::IAddImm {
-                        base: memories_base_addr,
-                        offset: (local_memory_ptr_offset as i64).into(),
+                    (
+                        func.create_global_value(ir::GlobalValueData::IAddImm {
+                            base: memories_base_addr,
+                            offset: (local_memory_ptr_offset as i64).into(),
+                            global_type: ptr_type,
+                        }),
+                        self.module_info.read().unwrap().memories[local_mem_index],
+                    )
+                }
+                LocalOrImport::Import(import_mem_index) => {
+                    let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                        base: vmctx,
+                        offset: (vm::Ctx::offset_imported_memories() as i32).into(),
                         global_type: ptr_type,
-                    }),
-                    self.module_info.imported_memories[import_mem_index].1,
-                )
-            }
-        };
+                        readonly: true,
+                    });
+
+                    let local_memory_ptr_offset =
+                        import_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
+
+                    (
+                        func.create_global_value(ir::GlobalValueData::IAddImm {
+                            base: memories_base_addr,
+                            offset: (local_memory_ptr_offset as i64).into(),
+                            global_type: ptr_type,
+                        }),
+                        self.module_info.read().unwrap().imported_memories[import_mem_index].1,
+                    )
+                }
+            };
 
         let (local_memory_ptr, local_memory_base) = {
             let local_memory_ptr = func.create_global_value(ir::GlobalValueData::Load {
@@ -599,7 +601,7 @@ impl FuncEnvironment for FunctionEnvironment {
         let ptr_type = self.pointer_type();
 
         let (table_struct_ptr_ptr, description) = match table_index
-            .local_or_import(&self.module_info)
+            .local_or_import(&self.module_info.read().unwrap())
         {
             LocalOrImport::Local(local_table_index) => {
                 let tables_base = func.create_global_value(ir::GlobalValueData::Load {
@@ -620,7 +622,7 @@ impl FuncEnvironment for FunctionEnvironment {
 
                 (
                     table_struct_ptr_ptr,
-                    self.module_info.tables[local_table_index],
+                    self.module_info.read().unwrap().tables[local_table_index],
                 )
             }
             LocalOrImport::Import(import_table_index) => {
@@ -642,7 +644,7 @@ impl FuncEnvironment for FunctionEnvironment {
 
                 (
                     table_struct_ptr_ptr,
-                    self.module_info.imported_tables[import_table_index].1,
+                    self.module_info.read().unwrap().imported_tables[import_table_index].1,
                 )
             }
         };
@@ -829,7 +831,7 @@ impl FuncEnvironment for FunctionEnvironment {
         let callee_index: FuncIndex = Converter(clif_callee_index).into();
         let ptr_type = self.pointer_type();
 
-        match callee_index.local_or_import(&self.module_info) {
+        match callee_index.local_or_import(&self.module_info.read().unwrap()) {
             LocalOrImport::Local(local_function_index) => {
                 // this is an internal function
                 let vmctx = pos
@@ -939,19 +941,19 @@ impl FuncEnvironment for FunctionEnvironment {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (namespace, mem_index, description) = match mem_index.local_or_import(&self.module_info)
-        {
-            LocalOrImport::Local(local_mem_index) => (
-                call_names::LOCAL_NAMESPACE,
-                local_mem_index.index(),
-                self.module_info.memories[local_mem_index],
-            ),
-            LocalOrImport::Import(import_mem_index) => (
-                call_names::IMPORT_NAMESPACE,
-                import_mem_index.index(),
-                self.module_info.imported_memories[import_mem_index].1,
-            ),
-        };
+        let (namespace, mem_index, description) =
+            match mem_index.local_or_import(&self.module_info.read().unwrap()) {
+                LocalOrImport::Local(local_mem_index) => (
+                    call_names::LOCAL_NAMESPACE,
+                    local_mem_index.index(),
+                    self.module_info.read().unwrap().memories[local_mem_index],
+                ),
+                LocalOrImport::Import(import_mem_index) => (
+                    call_names::IMPORT_NAMESPACE,
+                    import_mem_index.index(),
+                    self.module_info.read().unwrap().imported_memories[import_mem_index].1,
+                ),
+            };
 
         let name_index = match description.memory_type() {
             MemoryType::Dynamic => call_names::DYNAMIC_MEM_GROW,
@@ -1003,19 +1005,19 @@ impl FuncEnvironment for FunctionEnvironment {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (namespace, mem_index, description) = match mem_index.local_or_import(&self.module_info)
-        {
-            LocalOrImport::Local(local_mem_index) => (
-                call_names::LOCAL_NAMESPACE,
-                local_mem_index.index(),
-                self.module_info.memories[local_mem_index],
-            ),
-            LocalOrImport::Import(import_mem_index) => (
-                call_names::IMPORT_NAMESPACE,
-                import_mem_index.index(),
-                self.module_info.imported_memories[import_mem_index].1,
-            ),
-        };
+        let (namespace, mem_index, description) =
+            match mem_index.local_or_import(&self.module_info.read().unwrap()) {
+                LocalOrImport::Local(local_mem_index) => (
+                    call_names::LOCAL_NAMESPACE,
+                    local_mem_index.index(),
+                    self.module_info.read().unwrap().memories[local_mem_index],
+                ),
+                LocalOrImport::Import(import_mem_index) => (
+                    call_names::IMPORT_NAMESPACE,
+                    import_mem_index.index(),
+                    self.module_info.read().unwrap().imported_memories[import_mem_index].1,
+                ),
+            };
 
         let name_index = match description.memory_type() {
             MemoryType::Dynamic => call_names::DYNAMIC_MEM_SIZE,
@@ -1048,7 +1050,8 @@ impl FunctionEnvironment {
         &self,
         func_index: cranelift_wasm::FuncIndex,
     ) -> cranelift_wasm::SignatureIndex {
-        let sig_index: SigIndex = self.module_info.func_assoc[Converter(func_index).into()];
+        let sig_index: SigIndex =
+            self.module_info.read().unwrap().func_assoc[Converter(func_index).into()];
         Converter(sig_index).into()
     }
 

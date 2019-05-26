@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
@@ -49,7 +49,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
 
     /// Creates a new function and returns the function-scope code generator for it.
-    fn next_function(&mut self, module_info: Arc<ModuleInfo>) -> Result<&mut FCG, E>;
+    fn next_function(&mut self, module_info: Arc<RwLock<ModuleInfo>>) -> Result<&mut FCG, E>;
     fn finalize(self, module_info: &ModuleInfo) -> Result<(RM, Box<dyn CacheGen>), E>;
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
 
@@ -162,14 +162,14 @@ impl<
             &compiler_config,
         )?;
         let (exec_context, cache_gen) =
-            mcg.finalize(&info)
+            mcg.finalize(&info.read().unwrap())
                 .map_err(|x| CompileError::InternalError {
                     msg: format!("{:?}", x),
                 })?;
         Ok(ModuleInner {
             cache_gen,
             runnable_module: Box::new(exec_context),
-            info: Arc::try_unwrap(info).unwrap(),
+            info: Arc::try_unwrap(info).unwrap().into_inner().unwrap(),
         })
     }
 
