@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 
-use cranelift_codegen::isa::CallConv;
 use wasmer_runtime_core::{
     backend::{Backend, CompilerConfig},
     error::CompileResult,
@@ -166,26 +165,6 @@ impl From<Converter<ir::Signature>> for FuncSig {
                 .map(|ret| Converter(ret.value_type).into())
                 .collect::<Vec<_>>(),
         )
-    }
-}
-
-impl From<Converter<&FuncSig>> for ir::Signature {
-    fn from(sig: Converter<&FuncSig>) -> Self {
-        ir::Signature {
-            params: sig
-                .0
-                .params()
-                .iter()
-                .map(|params| Converter(*params).into())
-                .collect::<Vec<_>>(),
-            returns: sig
-                .0
-                .returns()
-                .iter()
-                .map(|returns| Converter(*returns).into())
-                .collect::<Vec<_>>(),
-            call_conv: CallConv::SystemV, // TODO should come from isa
-        }
     }
 }
 

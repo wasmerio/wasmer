@@ -8,6 +8,7 @@ use crate::{
 
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
+use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::{cursor::FuncCursor, isa};
 use cranelift_frontend::{FunctionBuilder, Position, Variable};
 use cranelift_wasm::{self, FuncTranslator};
@@ -322,8 +323,10 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
         self.signatures = Some(Arc::new(signatures));
+        let call_conv = self.isa.frontend_config().default_call_conv;
         for (_sig_idx, func_sig) in self.signatures.as_ref().unwrap().iter() {
-            self.clif_signatures.push(Converter(func_sig).into());
+            self.clif_signatures
+                .push(convert_func_sig(func_sig, call_conv));
         }
         Ok(())
     }
@@ -342,6 +345,22 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         module::Module::from_cache(cache)
+    }
+}
+
+fn convert_func_sig(sig: &FuncSig, call_conv: CallConv) -> ir::Signature {
+    ir::Signature {
+        params: sig
+            .params()
+            .iter()
+            .map(|params| Converter(*params).into())
+            .collect::<Vec<_>>(),
+        returns: sig
+            .returns()
+            .iter()
+            .map(|returns| Converter(*returns).into())
+            .collect::<Vec<_>>(),
+        call_conv,
     }
 }
 
