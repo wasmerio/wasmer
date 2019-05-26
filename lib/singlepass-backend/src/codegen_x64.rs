@@ -8,7 +8,11 @@ use dynasmrt::{
 };
 use smallvec::SmallVec;
 use std::ptr::NonNull;
-use std::{any::Any, collections::HashMap, sync::Arc};
+use std::{
+    any::Any,
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 use wasmer_runtime_core::{
     backend::{sys::Memory, Backend, CacheGen, RunnableModule, Token},
     cache::{Artifact, Error as CacheError},
@@ -302,7 +306,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
     fn next_function(
         &mut self,
-        _module_info: Arc<ModuleInfo>,
+        _module_info: Arc<RwLock<ModuleInfo>>,
     ) -> Result<&mut X64FunctionCode, CodegenError> {
         let (mut assembler, mut function_labels, br_table_data, breakpoints) =
             match self.functions.last_mut() {

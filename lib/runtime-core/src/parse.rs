@@ -54,7 +54,7 @@ pub fn read_module<
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
 ) -> Result<Arc<RwLock<ModuleInfo>>, LoadError> {
-    let mut info = Arc::new(RwLock::new(ModuleInfo {
+    let info = Arc::new(RwLock::new(ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),
         tables: Map::new(),

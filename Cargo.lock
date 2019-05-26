@@ -309,7 +309,7 @@ dependencies = [
 [[package]]
 name = "cranelift-bforest"
 version = "0.30.0"
-source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#50eaeb72cfd02e508d9416b599f0882767ced69f"
+source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#84ec31b0fdfc10db491ef950815ee2961db057cb"
 dependencies = [
  "cranelift-entity 0.30.0 (git+https://github.com/wasmerio/cranelift.git?branch=wasmer)",
 ]
@@ -317,7 +317,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen"
 version = "0.30.0"
-source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#50eaeb72cfd02e508d9416b599f0882767ced69f"
+source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#84ec31b0fdfc10db491ef950815ee2961db057cb"
 dependencies = [
  "cranelift-bforest 0.30.0 (git+https://github.com/wasmerio/cranelift.git?branch=wasmer)",
  "cranelift-codegen-meta 0.30.0 (git+https://github.com/wasmerio/cranelift.git?branch=wasmer)",
@@ -331,7 +331,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-meta"
 version = "0.30.0"
-source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#50eaeb72cfd02e508d9416b599f0882767ced69f"
+source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#84ec31b0fdfc10db491ef950815ee2961db057cb"
 dependencies = [
  "cranelift-entity 0.30.0 (git+https://github.com/wasmerio/cranelift.git?branch=wasmer)",
 ]
@@ -339,12 +339,12 @@ dependencies = [
 [[package]]
 name = "cranelift-entity"
 version = "0.30.0"
-source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#50eaeb72cfd02e508d9416b599f0882767ced69f"
+source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#84ec31b0fdfc10db491ef950815ee2961db057cb"
 
 [[package]]
 name = "cranelift-frontend"
 version = "0.30.0"
-source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#50eaeb72cfd02e508d9416b599f0882767ced69f"
+source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#84ec31b0fdfc10db491ef950815ee2961db057cb"
 dependencies = [
  "cranelift-codegen 0.30.0 (git+https://github.com/wasmerio/cranelift.git?branch=wasmer)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -354,7 +354,7 @@ dependencies = [
 [[package]]
 name = "cranelift-native"
 version = "0.30.0"
-source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#50eaeb72cfd02e508d9416b599f0882767ced69f"
+source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#84ec31b0fdfc10db491ef950815ee2961db057cb"
 dependencies = [
  "cranelift-codegen 0.30.0 (git+https://github.com/wasmerio/cranelift.git?branch=wasmer)",
  "raw-cpuid 6.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -364,7 +364,7 @@ dependencies = [
 [[package]]
 name = "cranelift-wasm"
 version = "0.30.0"
-source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#50eaeb72cfd02e508d9416b599f0882767ced69f"
+source = "git+https://github.com/wasmerio/cranelift.git?branch=wasmer#84ec31b0fdfc10db491ef950815ee2961db057cb"
 dependencies = [
  "cast 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cranelift-codegen 0.30.0 (git+https://github.com/wasmerio/cranelift.git?branch=wasmer)",

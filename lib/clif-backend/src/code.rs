@@ -2,29 +2,18 @@
 // and subject to the license https://github.com/CraneStation/cranelift/blob/c47ca7bafc8fc48358f1baa72360e61fc1f7a0f2/cranelift-wasm/LICENSE
 
 use crate::{
-    cache::{BackendCache, CacheGenerator},
-    func_env::FuncEnv,
-    get_isa, module,
-    module::{Converter, Module},
-    relocation::call_names,
-    resolver::FuncResolverBuilder,
-    signal::Caller,
-    trampoline::Trampolines,
+    cache::CacheGenerator, get_isa, module, module::Converter, relocation::call_names,
+    resolver::FuncResolverBuilder, signal::Caller, trampoline::Trampolines,
 };
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::flowgraph::BasicBlock;
-use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder, ValueLabel};
-use cranelift_codegen::packed_option::ReservedValue;
-use cranelift_codegen::timing;
+use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
 use cranelift_codegen::{cursor::FuncCursor, isa};
-use cranelift_entity::packed_option::PackedOption;
-use cranelift_frontend::{Block, FunctionBuilder, FunctionBuilderContext, Position, Variable};
-use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
-use cranelift_wasm::{get_vmctx_value_label, translate_operator, TranslationState};
-use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError, WasmResult};
+use cranelift_frontend::{FunctionBuilder, Position, Variable};
+use cranelift_wasm::{self, FuncTranslator};
+use cranelift_wasm::{get_vmctx_value_label, translate_operator};
+use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError};
 use std::mem;
-use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::error::CompileError;
 use wasmer_runtime_core::{
@@ -35,13 +24,11 @@ use wasmer_runtime_core::{
     module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     types::{
-        ElementType, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer,
-        LocalFuncIndex, LocalOrImport, MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor,
-        TableIndex, Value,
+        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
+        TableIndex,
     },
     vm,
 };
-use wasmparser::Operator;
 use wasmparser::Type as WpType;
 
 pub struct CraneliftModuleCodeGenerator {
@@ -50,10 +37,7 @@ pub struct CraneliftModuleCodeGenerator {
     pub clif_signatures: Map<SigIndex, ir::Signature>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
     functions: Vec<CraneliftFunctionCodeGenerator>,
-    func_bodies: Map<LocalFuncIndex, ir::Function>,
 }
-
-pub struct ClifFuncEnv {}
 
 impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     for CraneliftModuleCodeGenerator
@@ -66,7 +50,6 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             functions: vec![],
             function_signatures: None,
             signatures: None,
-            func_bodies: Map::new(),
         }
     }
 
@@ -84,7 +67,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     ) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
         // define_function_body(
 
-        let mut func_translator = FuncTranslator::new();
+        let func_translator = FuncTranslator::new();
 
         let func_index = LocalFuncIndex::new(self.functions.len());
         let name = ir::ExternalName::user(0, func_index.index() as u32);
@@ -97,7 +80,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             ),
         );
 
-        let mut func = ir::Function::with_name_signature(name, sig);
+        let func = ir::Function::with_name_signature(name, sig);
 
         //func_translator.translate(body_bytes, body_offset, &mut func, &mut func_env)?;
 
@@ -364,6 +347,14 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
 impl From<CompileError> for CodegenError {
     fn from(other: CompileError) -> CodegenError {
+        CodegenError {
+            message: format!("{:?}", other),
+        }
+    }
+}
+
+impl From<WasmError> for CodegenError {
+    fn from(other: WasmError) -> CodegenError {
         CodegenError {
             message: format!("{:?}", other),
         }
@@ -1086,7 +1077,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
 
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
         let mut next_local = self.next_local;
-        cranelift_wasm::declare_locals(&mut self.builder(), n as u32, ty, &mut next_local);
+        cranelift_wasm::declare_locals(&mut self.builder(), n as u32, ty, &mut next_local)?;
         self.next_local = next_local;
         Ok(())
     }
@@ -1112,7 +1103,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             clif_signatures: self.clif_signatures.clone(),
         };
 
-        if (self.func_translator.state.control_stack.is_empty()) {
+        if self.func_translator.state.control_stack.is_empty() {
             return Ok(());
         }
 
@@ -1122,7 +1113,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             &mut self.position,
         );
         let state = &mut self.func_translator.state;
-        translate_operator(op, &mut builder, state, &mut function_environment);
+        translate_operator(op, &mut builder, state, &mut function_environment)?;
         Ok(())
     }
 
