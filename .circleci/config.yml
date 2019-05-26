@@ -30,7 +30,6 @@ jobs:
       - restore_cache:
           keys:
             - v8-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-lint-{{ arch }}
       - <<: *run_install_dependencies
       - run:
           name: Install lint deps
@@ -60,7 +59,6 @@ jobs:
       - restore_cache:
           keys:
             - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-test-cargo-cache-linux-stable-{{ arch }}
       - <<: *run_install_dependencies
       - run:
           name: Tests
@@ -89,7 +87,6 @@ jobs:
       - restore_cache:
           keys:
             - v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-cargo-cache-darwin-stable-{{ arch }}
       - run:
           name: Install crate dependencies
           command: |
@@ -154,11 +151,10 @@ jobs:
           name: "Pull dependencies"
           command: |
             git submodule init
-            git submodule update --remote
+            git submodule update
       - restore_cache:
           keys:
             - v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-cargo-cache-linux-nightly-{{ arch }}
       - run:
           name: Install dependencies
           command: |
@@ -179,6 +175,10 @@ jobs:
             make test-emscripten-clif
             make test-emscripten-llvm
       - run:
+          name: Debug flag checked
+          command: |
+            cargo check --features "debug"
+      - run:
           name: Release Build
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
@@ -191,10 +191,6 @@ jobs:
             echo "${CIRCLE_TAG}" >> artifacts/git_version
             make build-install
             cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
-      - run:
-          name: Debug flag checked
-          command: |
-            cargo check --features "debug"
       - persist_to_workspace:
           root: .
           paths:
@@ -222,11 +218,10 @@ jobs:
           name: "Pull dependencies"
           command: |
             git submodule init
-            git submodule update --remote
+            git submodule update
       - restore_cache:
           keys:
             - v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-cargo-cache-darwin-nightly-{{ arch }}
       - run:
           name: Install crate dependencies
           command: |
@@ -309,13 +304,18 @@ jobs:
       - restore_cache:
           keys:
             - v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-cargo-cache-linux-nightly-{{ arch }}
       - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            rustup toolchain install nightly
+            rustup target add wasm32-wasi --toolchain nightly
+      - run: |
+          rustup default nightly
+          make test-wasi-singlepass
+          make test-wasi-clif
       - run: rustup default nightly-2019-04-11
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
@@ -372,7 +372,6 @@ jobs:
                     -d build_parameters[CIRCLE_JOB]=bench \
                     https://circleci.com/api/v1.1/project/github/wasmerio/wasmer-bench/tree/master
             fi
-
 workflows:
   version: 2
   main:

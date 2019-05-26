@@ -456,10 +456,17 @@ fn import_functions(
                 });
             }
             None => {
-                link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.to_string(),
-                    name: name.to_string(),
-                });
+                if imports.allow_missing_functions {
+                    functions.push(vm::ImportedFunc {
+                        func: ::std::ptr::null(),
+                        vmctx: ::std::ptr::null_mut(),
+                    });
+                } else {
+                    link_errors.push(LinkError::ImportNotFound {
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
+                    });
+                }
             }
         }
     }

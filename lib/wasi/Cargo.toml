@@ -1,14 +1,15 @@
 [package]
 name = "wasmer-wasi"
-version = "0.4.1"
+version = "0.4.2"
 description = "Wasmer runtime WASI implementation library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
+build = "build/mod.rs"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.4.1" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.4.2" }
 libc = "0.2.50"
 rand = "0.6.5"
 # wasmer-runtime-abi = { path = "../runtime-abi" }
@@ -16,3 +17,19 @@ hashbrown = "0.1.8"
 generational-arena = "0.2.2"
 log = "0.4.6"
 byteorder = "1.3.1"
+# hack to get tests to work
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.4.2", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3"
+
+[build-dependencies]
+glob = "0.2.11"
+
+[dev-dependencies]
+wasmer-clif-backend = { path = "../clif-backend", version = "0.4.2" }
+wasmer-dev-utils = { path = "../dev-utils", version = "0.4.2"}
+
+[features]
+clif = []
+singlepass = ["wasmer-singlepass-backend"]

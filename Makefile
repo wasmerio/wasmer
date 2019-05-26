@@ -12,6 +12,9 @@ spectests:
 emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten
 
+wasitests:
+	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi
+
 # clean:
 #     rm -rf artifacts
 
@@ -45,7 +48,7 @@ do-install:
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend -- $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend --exclude wasmer-wasi -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
@@ -66,14 +69,20 @@ test-emscripten-clif:
 test-emscripten-singlepass:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
 
+test-wasi-clif:
+	cargo test --manifest-path lib/wasi/Cargo.toml --features "clif" -- --test-threads=1 $(runargs)
+
+test-wasi-singlepass:
+	cargo test --manifest-path lib/wasi/Cargo.toml --features "singlepass" -- --test-threads=1 $(runargs)
+
 singlepass-debug-release:
-	cargo +nightly build --features "backend:singlepass debug" --release
+	cargo +nightly build --features backend:singlepass,debug --release
 
 singlepass-release:
-	cargo +nightly build --features "backend:singlepass" --release
+	cargo +nightly build --features backend:singlepass --release
 
 singlepass-build:
-	cargo +nightly build --features "backend:singlepass debug"
+	cargo +nightly build --features backend:singlepass,debug
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
@@ -81,13 +90,13 @@ release:
 	cargo build --release
 
 production-release:
-	cargo build --release --features backend:singlepass,backend:llvm
+	cargo build --release --features backend:singlepass,backend:llvm,loader:kernel
 
 debug-release:
-	cargo build --release --features "debug"
+	cargo build --release --features debug
 
 extra-debug-release:
-	cargo build --release --features "extra-debug"
+	cargo build --release --features extra-debug
 
 publish-release:
 	ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/

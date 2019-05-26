@@ -5,9 +5,11 @@ use crate::{
     export::{Context, Export, ExportIter, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
+    loader::Loader,
     memory::Memory,
     module::{ExportIndex, Module, ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
+    structures::TypedIndex,
     table::Table,
     typed_func::{Func, Wasm, WasmTrapInfo, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Type, Value},
@@ -38,7 +40,7 @@ impl Drop for InstanceInner {
 ///
 /// [`ImportObject`]: struct.ImportObject.html
 pub struct Instance {
-    module: Arc<ModuleInner>,
+    pub module: Arc<ModuleInner>,
     inner: Box<InstanceInner>,
     #[allow(dead_code)]
     import_object: ImportObject,
@@ -127,6 +129,12 @@ impl Instance {
         Ok(instance)
     }
 
+    pub fn load<T: Loader>(&self, loader: T) -> ::std::result::Result<T::Instance, T::Error> {
+        loader.load(&*self.module.runnable_module, &self.module.info, unsafe {
+            &*self.inner.vmctx
+        })
+    }
+
     /// Through generic magic and the awe-inspiring power of traits, we bring you...
     ///
     /// # "Func"
@@ -206,6 +214,26 @@ impl Instance {
                 unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, ctx) };
 
             Ok(typed_func)
+        } else {
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            }
+            .into())
+        }
+    }
+
+    pub fn resolve_func(&self, name: &str) -> ResolveResult<usize> {
+        let export_index =
+            self.module
+                .info
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
+
+        if let ExportIndex::Func(func_index) = export_index {
+            Ok(func_index.index())
         } else {
             Err(ResolveError::ExportWrongType {
                 name: name.to_string(),

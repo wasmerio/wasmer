@@ -54,6 +54,8 @@ pub fn read_module<
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
 ) -> Result<Arc<RwLock<ModuleInfo>>, LoadError> {
+    mcg.feed_compiler_config(compiler_config)
+        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
     let info = Arc::new(RwLock::new(ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),

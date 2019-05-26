@@ -8,7 +8,7 @@ use crate::{
     value::wasmer_value_tag,
     wasmer_byte_array, wasmer_result_t,
 };
-use libc::{c_int, uint32_t};
+use libc::{c_uint, uint32_t};
 use std::{ffi::c_void, ptr, slice, sync::Arc};
 use wasmer_runtime::Module;
 use wasmer_runtime_core::{
@@ -154,11 +154,11 @@ pub extern "C" fn wasmer_import_descriptors_destroy(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_descriptors_len(
     exports: *mut wasmer_import_descriptors_t,
-) -> c_int {
+) -> c_uint {
     if exports.is_null() {
         return 0;
     }
-    (*(exports as *mut NamedImportDescriptors)).0.len() as c_int
+    (*(exports as *mut NamedImportDescriptors)).0.len() as c_uint
 }
 
 /// Gets import descriptor by index
@@ -166,7 +166,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors_len(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_descriptors_get(
     import_descriptors: *mut wasmer_import_descriptors_t,
-    idx: c_int,
+    idx: c_uint,
 ) -> *mut wasmer_import_descriptor_t {
     if import_descriptors.is_null() {
         return ptr::null_mut();
@@ -244,9 +244,9 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
 pub unsafe extern "C" fn wasmer_import_func_new(
     func: extern "C" fn(data: *mut c_void),
     params: *const wasmer_value_tag,
-    params_len: c_int,
+    params_len: c_uint,
     returns: *const wasmer_value_tag,
-    returns_len: c_int,
+    returns_len: c_uint,
 ) -> *mut wasmer_import_func_t {
     let params: &[wasmer_value_tag] = slice::from_raw_parts(params, params_len as usize);
     let params: Vec<Type> = params.iter().cloned().map(|x| x.into()).collect();
@@ -272,7 +272,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 pub unsafe extern "C" fn wasmer_import_func_params(
     func: *const wasmer_import_func_t,
     params: *mut wasmer_value_tag,
-    params_len: c_int,
+    params_len: c_uint,
 ) -> wasmer_result_t {
     let export = &*(func as *const Export);
     if let Export::Function { ref signature, .. } = *export {
@@ -301,7 +301,7 @@ pub unsafe extern "C" fn wasmer_import_func_params(
 pub unsafe extern "C" fn wasmer_import_func_returns(
     func: *const wasmer_import_func_t,
     returns: *mut wasmer_value_tag,
-    returns_len: c_int,
+    returns_len: c_uint,
 ) -> wasmer_result_t {
     let export = &*(func as *const Export);
     if let Export::Function { ref signature, .. } = *export {
