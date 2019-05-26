@@ -410,7 +410,7 @@ impl FuncEnvironment for FunctionEnvironment {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let local_global_addr = match global_index
+        let (local_global_addr, ty) = match global_index
             .local_or_import(&self.module_info.read().unwrap())
         {
             LocalOrImport::Local(local_global_index) => {
@@ -429,12 +429,19 @@ impl FuncEnvironment for FunctionEnvironment {
                     global_type: ptr_type,
                 });
 
-                func.create_global_value(ir::GlobalValueData::Load {
-                    base: local_global_ptr_ptr,
-                    offset: 0.into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                })
+                let ty = self.module_info.read().unwrap().globals[local_global_index]
+                    .desc
+                    .ty;
+
+                (
+                    func.create_global_value(ir::GlobalValueData::Load {
+                        base: local_global_ptr_ptr,
+                        offset: 0.into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    }),
+                    ty,
+                )
             }
             LocalOrImport::Import(import_global_index) => {
                 let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
@@ -452,19 +459,26 @@ impl FuncEnvironment for FunctionEnvironment {
                     global_type: ptr_type,
                 });
 
-                func.create_global_value(ir::GlobalValueData::Load {
-                    base: local_global_ptr_ptr,
-                    offset: 0.into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                })
+                let ty = self.module_info.read().unwrap().imported_globals[import_global_index]
+                    .1
+                    .ty;
+
+                (
+                    func.create_global_value(ir::GlobalValueData::Load {
+                        base: local_global_ptr_ptr,
+                        offset: 0.into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    }),
+                    ty,
+                )
             }
         };
 
         Ok(cranelift_wasm::GlobalVariable::Memory {
             gv: local_global_addr,
             offset: (vm::LocalGlobal::offset_data() as i32).into(),
-            ty: ptr_type,
+            ty: Converter(ty).into(),
         })
     }
 
