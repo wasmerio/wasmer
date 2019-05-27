@@ -115,7 +115,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         // `environ`. The callback functions may need to insert things in the entry block.
         builder.ensure_inserted_ebb();
 
-        let num_params = declare_wasm_parameters(&mut builder, entry_block);
+        declare_wasm_parameters(&mut builder, entry_block);
 
         // Set up the translation state with a single pushed control block representing the whole
         // function and its return values.

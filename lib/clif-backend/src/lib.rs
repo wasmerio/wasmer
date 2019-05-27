@@ -1,4 +1,4 @@
-#![deny(unused_unsafe, unreachable_patterns)]
+#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
 
 mod cache;
 mod code;
