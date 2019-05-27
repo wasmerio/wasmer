@@ -302,7 +302,8 @@ pub fn _time(ctx: &mut Ctx, time_p: u32) -> i32 {
 
 /// emscripten: _timegm
 #[cfg(not(target_os = "windows"))]
-pub fn _timegm(ctx: &mut Ctx, time_ptr: c_int) -> i32 {
+#[allow(clippy::cast_ptr_alignment)]
+pub fn _timegm(ctx: &mut Ctx, time_ptr: u32) -> i32 {
     debug!("emscripten::_timegm {}", time_ptr);
 
     unsafe {
