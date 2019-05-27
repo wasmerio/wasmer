@@ -10,6 +10,8 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
+use libc::c_char;
+
 use crate::{allocate_on_stack, EmscriptenData};
 use std::os::raw::c_int;
 use wasmer_runtime_core::vm::Ctx;
@@ -111,4 +113,42 @@ pub fn ___assert_fail(_ctx: &mut Ctx, _a: c_int, _b: c_int, _c: c_int, _d: c_int
     debug!("emscripten::___assert_fail {} {} {} {}", _a, _b, _c, _d);
     // TODO: Implement like emscripten expects regarding memory/page size
     // TODO raise an error
+}
+
+pub fn _pathconf(ctx: &mut Ctx, path_addr: c_int, name: c_int) -> c_int {
+    debug!(
+        "emscripten::_pathconf {} {} - UNIMPLEMENTED",
+        path_addr, name
+    );
+    let _path = emscripten_memory_pointer!(ctx.memory(0), path_addr) as *const c_char;
+    match name {
+        0 => 32000,
+        1 | 2 | 3 => 255,
+        4 | 5 | 16 | 17 | 18 => 4096,
+        6 | 7 | 20 => 1,
+        8 => 0,
+        9 | 10 | 11 | 12 | 14 | 15 | 19 => -1,
+        13 => 64,
+        _ => {
+            // ___setErrNo(22);
+            -1
+        }
+    }
+}
+
+pub fn _fpathconf(_ctx: &mut Ctx, _fildes: c_int, name: c_int) -> c_int {
+    debug!("emscripten::_fpathconf {} {}", _fildes, name);
+    match name {
+        0 => 32000,
+        1 | 2 | 3 => 255,
+        4 | 5 | 16 | 17 | 18 => 4096,
+        6 | 7 | 20 => 1,
+        8 => 0,
+        9 | 10 | 11 | 12 | 14 | 15 | 19 => -1,
+        13 => 64,
+        _ => {
+            // ___setErrNo(22);
+            -1
+        }
+    }
 }

@@ -4,7 +4,9 @@ use std::mem;
 use std::time::SystemTime;
 
 #[cfg(not(target_os = "windows"))]
-use libc::{clockid_t, time as libc_time};
+use libc::{clockid_t, time as libc_time, timegm as libc_timegm, tm as libc_tm};
+#[cfg(not(target_os = "windows"))]
+use std::ffi::CString;
 
 #[cfg(target_os = "windows")]
 use libc::time_t;
@@ -296,6 +298,57 @@ pub fn _time(ctx: &mut Ctx, time_p: u32) -> i32 {
         let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_p) as *mut i64;
         libc_time(time_p_addr) as i32 // TODO review i64
     }
+}
+
+/// emscripten: _timegm
+#[cfg(not(target_os = "windows"))]
+#[allow(clippy::cast_ptr_alignment)]
+pub fn _timegm(ctx: &mut Ctx, time_ptr: u32) -> i32 {
+    debug!("emscripten::_timegm {}", time_ptr);
+
+    unsafe {
+        let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_ptr) as *mut guest_tm;
+
+        let x: *mut c_char = CString::new("").expect("CString::new failed").into_raw();
+        let mut rust_tm = libc_tm {
+            tm_sec: 0,
+            tm_min: 0,
+            tm_hour: 0,
+            tm_mday: 0,
+            tm_mon: 0,
+            tm_year: 0,
+            tm_wday: 0,
+            tm_yday: 0,
+            tm_isdst: 0,
+            tm_gmtoff: 0,
+            tm_zone: x,
+        };
+
+        let result = libc_timegm(&mut rust_tm) as i32;
+        if result != 0 {
+            (*time_p_addr).tm_sec = rust_tm.tm_sec;
+            (*time_p_addr).tm_min = rust_tm.tm_min;
+            (*time_p_addr).tm_hour = rust_tm.tm_hour;
+            (*time_p_addr).tm_mday = rust_tm.tm_mday;
+            (*time_p_addr).tm_mon = rust_tm.tm_mon;
+            (*time_p_addr).tm_year = rust_tm.tm_year;
+            (*time_p_addr).tm_wday = rust_tm.tm_wday;
+            (*time_p_addr).tm_yday = rust_tm.tm_yday;
+            (*time_p_addr).tm_isdst = rust_tm.tm_isdst;
+            (*time_p_addr).tm_gmtoff = rust_tm.tm_gmtoff as _;
+            (*time_p_addr).tm_zone = 0;
+        }
+        result
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn _timegm(_ctx: &mut Ctx, _time_ptr: c_int) -> i32 {
+    debug!(
+        "emscripten::_timegm - UNIMPLEMENTED IN WINDOWS {}",
+        _time_ptr
+    );
+    -1
 }
 
 /// emscripten: _strftime

@@ -38,6 +38,7 @@ use libc::{
     // writev,
     stat,
     write,
+    // readlink,
 };
 use wasmer_runtime_core::vm::Ctx;
 
@@ -93,9 +94,8 @@ pub fn ___syscall6(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
 // chdir
 pub fn ___syscall12(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall12 (chdir) {}", _which);
-    let path_addr: i32 = varargs.get(ctx);
+    let path_ptr = varargs.get_str(ctx);
     unsafe {
-        let path_ptr = emscripten_memory_pointer!(ctx.memory(0), path_addr) as *const i8;
         let _path = std::ffi::CStr::from_ptr(path_ptr);
         let ret = chdir(path_ptr);
         debug!("=> path: {:?}, ret: {}", _path, ret);
@@ -122,10 +122,8 @@ pub fn ___syscall20(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 // rename
 pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall38 (rename)");
-    let old_path_addr: u32 = varargs.get(ctx);
-    let new_path_addr: u32 = varargs.get(ctx);
-    let old_path = emscripten_memory_pointer!(ctx.memory(0), old_path_addr) as *const i8;
-    let new_path = emscripten_memory_pointer!(ctx.memory(0), new_path_addr) as *const i8;
+    let old_path = varargs.get_str(ctx);
+    let new_path = varargs.get_str(ctx);
     let result = unsafe { rename(old_path, new_path) };
     debug!(
         "=> old_path: {}, new_path: {}, result: {}",
@@ -139,8 +137,7 @@ pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
 // rmdir
 pub fn ___syscall40(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall40 (rmdir)");
-    let pathname: u32 = varargs.get(ctx);
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
+    let pathname_addr = varargs.get_str(ctx);
     unsafe { rmdir(pathname_addr) }
 }
 
@@ -201,9 +198,32 @@ pub fn ___syscall75(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
-pub fn ___syscall85(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall85");
-    -1
+// readlink
+pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall85 (readlink)");
+    let _path = varargs.get_str(ctx);
+    let buf = varargs.get_str(ctx);
+    // let buf_addr: i32 = varargs.get(ctx);
+    let buf_size: i32 = varargs.get(ctx);
+    let fd = 3;
+    let ret = unsafe { read(fd, buf as _, buf_size as _) as i32 };
+    debug!(
+        "=> buf: {}, buf_size: {}, return: {} ",
+        unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
+        buf_size,
+        ret
+    );
+    // let ret = unsafe {
+    //     readlink(path, buf as _, buf_size as _) as i32
+    // };
+    // debug!("=> path: {}, buf: {}, buf_size: {}, return: {} ",
+    //     unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
+    //     unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
+    //     // std::ffi::CStr::from_ptr(buf).to_str().unwrap(),
+    //     // buf,
+    //     buf_size,
+    //     ret);
+    ret
 }
 
 pub fn ___syscall91(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
@@ -397,19 +417,16 @@ pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 // stat64
 pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall195 (stat64) {}", _which);
-    let pathname: u32 = varargs.get(ctx);
+    let pathname_addr = varargs.get_str(ctx);
     let buf: u32 = varargs.get(ctx);
-
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
 
     unsafe {
         let mut _stat: stat = std::mem::zeroed();
         let ret = stat(pathname_addr, &mut _stat);
         debug!(
-            "=> pathname: {}, buf: {}, path: {} = {}\nlast os error: {}",
-            pathname,
-            buf,
+            "=> pathname: {}, buf: {} = {}, last os error: {}",
             std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap(),
+            buf,
             ret,
             Error::last_os_error()
         );
