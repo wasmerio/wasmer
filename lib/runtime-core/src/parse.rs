@@ -115,8 +115,8 @@ pub fn read_module<
                     .push(func_type_to_func_sig(ty)?);
             }
             ParserState::ImportSectionEntry { module, field, ty } => {
-                let namespace_index = namespace_builder.as_mut().expect("116").register(module);
-                let name_index = name_builder.as_mut().expect("117").register(field);
+                let namespace_index = namespace_builder.as_mut().unwrap().register(module);
+                let name_index = name_builder.as_mut().unwrap().register(field);
                 let import_name = ImportName {
                     namespace_index,
                     name_index,
@@ -209,8 +209,8 @@ pub fn read_module<
                 func_count = id;
                 if func_count == 0 {
                     info.write().unwrap().namespace_table =
-                        namespace_builder.take().expect("214").finish();
-                    info.write().unwrap().name_table = name_builder.take().expect("216").finish();
+                        namespace_builder.take().unwrap().finish();
+                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
                     mcg.feed_signatures(info.read().unwrap().signatures.clone())
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
@@ -241,9 +241,9 @@ pub fn read_module<
                             .get(FuncIndex::new(
                                 id as usize + info.read().unwrap().imported_functions.len(),
                             ))
-                            .expect("242"),
+                            .unwrap(),
                     )
-                    .expect("244");
+                    .unwrap();
                 for ret in sig.returns() {
                     fcg.feed_return(type_to_wp_type(*ret))
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
@@ -319,8 +319,8 @@ pub fn read_module<
 
                 let table_init = TableInitializer {
                     table_index,
-                    base: base.expect("320"),
-                    elements: elements.expect("321"),
+                    base: base.unwrap(),
+                    elements: elements.unwrap(),
                 };
 
                 info.write().unwrap().elem_initializers.push(table_init);
@@ -351,7 +351,7 @@ pub fn read_module<
 
                 let data_init = DataInitializer {
                     memory_index,
-                    base: base.expect("355"),
+                    base: base.unwrap(),
                     data,
                 };
                 info.write().unwrap().data_initializers.push(data_init);
