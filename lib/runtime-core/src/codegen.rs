@@ -156,9 +156,8 @@ impl<
         compiler_config: CompilerConfig,
         _: Token,
     ) -> CompileResult<ModuleInner> {
-        let res = validate(wasm);
-        if let Err(e) = res {
-            return Err(e);
+        if requires_pre_validation(MCG::backend_id()) {
+            validate(wasm)?;
         }
 
         let mut mcg = MCG::new();
@@ -188,6 +187,14 @@ impl<
         token: Token,
     ) -> Result<ModuleInner, CacheError> {
         MCG::from_cache(artifact, token)
+    }
+}
+
+fn requires_pre_validation(backend: Backend) -> bool {
+    match backend {
+        Backend::Cranelift => true,
+        Backend::LLVM => false,
+        Backend::Singlepass => false,
     }
 }
 
