@@ -286,6 +286,7 @@ jobs:
       - run:
           name: Dynamic library
           command: |
+            export PATH="$HOME/.cargo/bin:$PATH"
             cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
             cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
       - persist_to_workspace:
