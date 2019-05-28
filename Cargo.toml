@@ -28,7 +28,7 @@ wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
-wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
+# wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
@@ -37,7 +37,24 @@ wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 
 [workspace]
-members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi", "lib/middleware-common", "lib/kernel-loader", "lib/kernel-net", "lib/dev-utils", "examples/plugin-for-example"]
+members = [
+    "lib/clif-backend",
+    "lib/singlepass-backend",
+    "lib/runtime",
+    # "lib/runtime-abi",
+    "lib/runtime-core",
+    "lib/emscripten",
+    "lib/spectests",
+    "lib/win-exception-handler",
+    "lib/runtime-c-api",
+    "lib/llvm-backend",
+    "lib/wasi",
+    "lib/middleware-common",
+    "lib/kernel-loader",
+    "lib/kernel-net",
+    "lib/dev-utils",
+    "examples/plugin-for-example"
+]
 
 [build-dependencies]
 wabt = "0.7.2"
@@ -55,7 +72,7 @@ fast-tests = []
 "backend:llvm" = ["wasmer-llvm-backend"]
 "backend:singlepass" = ["wasmer-singlepass-backend"]
 wasi = ["wasmer-wasi"]
-vfs = ["wasmer-runtime-abi"]
+# vfs = ["wasmer-runtime-abi"]
 
 [[example]]
 name = "plugin"

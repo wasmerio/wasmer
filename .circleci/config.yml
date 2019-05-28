@@ -30,7 +30,6 @@ jobs:
       - restore_cache:
           keys:
             - v8-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v8-lint-{{ arch }}
       - <<: *run_install_dependencies
       - run:
           name: Install lint deps
@@ -88,7 +87,6 @@ jobs:
       - restore_cache:
           keys:
             - v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
-            # - v8-cargo-cache-darwin-stable-{{ arch }}
       - run:
           name: Install crate dependencies
           command: |
