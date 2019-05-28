@@ -1,4 +1,14 @@
+use std::{f32, f64};
 use wasmer_runtime_core::vm::Ctx;
+
+pub fn _llvm_copysign_f32(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
+    // f32::copysign(x, y)
+    f64::copysign(x, y)
+}
+
+pub fn _llvm_copysign_f64(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
+    f64::copysign(x, y)
+}
 
 /// emscripten: _llvm_log10_f64
 pub fn _llvm_log10_f64(_ctx: &mut Ctx, value: f64) -> f64 {
