@@ -191,6 +191,11 @@ jobs:
             echo "${CIRCLE_TAG}" >> artifacts/git_version
             make build-install
             cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
+      - run:
+          name: Dynamic library
+          command: |
+            cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
+            cp target/release/libwasmer_runtime_c_api.so ./artifacts
       - persist_to_workspace:
           root: .
           paths:
@@ -278,6 +283,11 @@ jobs:
             cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
             # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # echo "${VERSION}" >> artifacts/version
+      - run:
+          name: Dynamic library
+          command: |
+            cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
+            cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
       - persist_to_workspace:
           root: .
           paths:
