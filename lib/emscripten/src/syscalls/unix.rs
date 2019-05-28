@@ -814,6 +814,7 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         if dirent.is_null() {
             break;
         }
+        #[allow(clippy::cast_ptr_alignment)]
         unsafe {
             *(dirp.add(pos) as *mut u64) = (*dirent).d_ino;
             *(dirp.add(pos + 8) as *mut u64) = pos as u64 + offset as u64;
