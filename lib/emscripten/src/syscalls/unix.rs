@@ -815,70 +815,33 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let dirp_addr: i32 = varargs.get(ctx);
     let count: u32 = varargs.get(ctx);
 
-    //let dir = dbg!(emscripten_memory_pointer!(ctx.memory(0), dbg!(fd)) as *mut libc::DIR);
     let dirp = emscripten_memory_pointer!(ctx.memory(0), dirp_addr) as *mut u8;
-
-    let mut pos = 0;
     // need to persist stream across calls?
-
     let dir: *mut libc::DIR = unsafe { libc::fdopendir(fd) };
 
-    dbg!("Start loop");
-    while pos + 280 <= dbg!(count) as usize {
-        dbg!("Pre readdir");
+    let mut pos = 0;
+    let offset = 280;
+    while pos + offset <= count as usize {
         let dirent = unsafe { readdir(dir) };
-        dbg!("post readdir");
         if dirent.is_null() {
             break;
         }
-        dbg!("dirent is not null");
         unsafe {
-            *(dirp.add(pos) as *mut u64) = dbg!((*dirent).d_ino);
-            #[cfg(not(target_os = "macos"))]
-            {
-                *(dirp.add(pos + 8) as *mut u64) = 280 //dbg!((*dirent).d_off);
-            }
-            #[cfg(target_os = "macos")]
-            {
-                *(dirp.add(pos + 8) as *mut u64) = if pos + 280 > count as usize {
-                    count.into()
-                } else {
-                    dbg!((*dirent).d_seekoff);
-                    pos as u64 + 56 //280
-                }; //;
-            }
-            dbg!((*dirent).d_namlen);
-            *(dirp.add(pos + 16) as *mut u16) = 280; //dbg!((*dirent).d_reclen);
-            *(dirp.add(pos + 18) as *mut u8) = dbg!((*dirent).d_type);
-            let upper_bound = std::cmp::min((*dirent).d_reclen, 255) as usize;
+            *(dirp.add(pos) as *mut u64) = (*dirent).d_ino;
+            *(dirp.add(pos + 8) as *mut u64) = pos as u64 + offset as u64;
+            *(dirp.add(pos + 16) as *mut u16) = offset as u16;
+            *(dirp.add(pos + 18) as *mut u8) = (*dirent).d_type;
+            let upper_bound = std::cmp::min((*dirent).d_reclen, 254) as usize;
             let mut i = 0;
             while i < upper_bound {
                 *(dirp.add(pos + 19 + i) as *mut i8) = (*dirent).d_name[i];
-                //dbg!((*dirent).d_name[i] as u8 as char);
-                //dbg!((*dirent).d_name[i] as u8 as char);
                 i += 1;
             }
             *(dirp.add(pos + 19 + i) as *mut i8) = 0 as i8;
         }
-        dbg!("dirent written to memory");
-        pos += 280;
-        /*unsafe {
-            eprintln!(
-                "{}",
-                std::ffi::CStr::from_bytes_with_nul_unchecked({
-                    let arr = *(dirent as *const u8 as *const [u8; 256]);
-                    &arr.to_vec()
-                        .into_iter()
-                        .map(|b| b as u8)
-                        .collect::<Vec<u8>>()[..20]
-                })
-                .to_str()
-                .unwrap()
-            );
-        }*/
+        pos += offset;
     }
-
-    dbg!(pos as i32)
+    pos as i32
 }
 
 /// fallocate
