@@ -108,9 +108,12 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let pathname_addr = varargs.get_str(ctx);
     let flags: i32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
-    let real_path = utils::get_cstr_path(ctx, pathname_addr)
-        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
-        .unwrap_or(pathname_addr);
+    let real_path_owned = utils::get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
     let _path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
     let fd = unsafe { open(real_path, flags, mode) };
     debug!(
@@ -158,12 +161,18 @@ pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 
     let path1 = varargs.get_str(ctx);
     let path2 = varargs.get_str(ctx);
-    let real_path1 = utils::get_cstr_path(ctx, path1)
-        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
-        .unwrap_or(path1);
-    let real_path2 = utils::get_cstr_path(ctx, path2)
-        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
-        .unwrap_or(path2);
+    let real_path1_owned = utils::get_cstr_path(ctx, path1);
+    let real_path1 = if let Some(ref rp) = real_path1_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path1
+    };
+    let real_path2_owned = utils::get_cstr_path(ctx, path2);
+    let real_path2 = if let Some(ref rp) = real_path2_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path2
+    };
     let result = unsafe { symlink(real_path1, real_path2) };
     debug!(
         "=> path1: {}, path2: {}, result: {}",
@@ -191,12 +200,18 @@ pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 pub fn ___syscall198(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall198 (lchown) {}", _which);
     let path_ptr = varargs.get_str(ctx);
+    let real_path_owned = utils::get_cstr_path(ctx, path_ptr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path_ptr
+    };
     let uid: uid_t = varargs.get(ctx);
     let gid: gid_t = varargs.get(ctx);
-    let result = unsafe { lchown(path_ptr, uid, gid) };
+    let result = unsafe { lchown(real_path, uid, gid) };
     debug!(
         "=> path: {}, uid: {}, gid: {}, result: {}",
-        unsafe { std::ffi::CStr::from_ptr(path_ptr).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() },
         uid,
         gid,
         result,
@@ -226,10 +241,16 @@ pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("emscripten::___syscall212 (chown) {}", _which);
 
     let pathname_addr = varargs.get_str(ctx);
+    let real_path_owned = utils::get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
     let owner: u32 = varargs.get(ctx);
     let group: u32 = varargs.get(ctx);
 
-    unsafe { chown(pathname_addr, owner, group) }
+    unsafe { chown(real_path, owner, group) }
 }
 
 /// madvise
@@ -249,11 +270,17 @@ pub fn ___syscall219(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 pub fn ___syscall33(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
     let path = varargs.get_str(ctx);
+    let real_path_owned = utils::get_cstr_path(ctx, path);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path
+    };
     let amode: c_int = varargs.get(ctx);
-    let result = unsafe { access(path, amode) };
+    let result = unsafe { access(real_path, amode) };
     debug!(
         "=> path: {}, amode: {}, result: {}",
-        unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() },
         amode,
         result
     );
@@ -271,8 +298,14 @@ pub fn ___syscall34(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", _which);
     let pathname_addr = varargs.get_str(ctx);
+    let real_path_owned = utils::get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
     let mode: u32 = varargs.get(ctx);
-    unsafe { mkdir(pathname_addr, mode as _) }
+    unsafe { mkdir(real_path, mode as _) }
 }
 
 /// dup
@@ -771,6 +804,12 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) {}", _which);
     let path = varargs.get_str(ctx);
+    let real_path_owned = utils::get_cstr_path(ctx, path);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path
+    };
     let buf_ptr: u32 = varargs.get(ctx);
     unsafe {
         let mut stat: stat = std::mem::zeroed();
@@ -781,9 +820,9 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         let stat_ptr = &mut stat as *mut stat;
 
         #[cfg(target_os = "macos")]
-        let ret = lstat64(path, stat_ptr);
+        let ret = lstat64(real_path, stat_ptr);
         #[cfg(not(target_os = "macos"))]
-        let ret = lstat(path, stat_ptr);
+        let ret = lstat(real_path, stat_ptr);
 
         debug!("ret: {}", ret);
         if ret != 0 {

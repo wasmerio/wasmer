@@ -96,9 +96,12 @@ pub fn ___syscall6(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
 pub fn ___syscall12(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall12 (chdir) {}", _which);
     let path_ptr = varargs.get_str(ctx);
-    let real_path = get_cstr_path(ctx, path_ptr)
-        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
-        .unwrap_or(path_ptr);
+    let real_path_owned = get_cstr_path(ctx, path_ptr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path_ptr
+    };
     let ret = unsafe { chdir(real_path) };
     debug!(
         "=> path: {:?}, ret: {}",
@@ -129,12 +132,18 @@ pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall38 (rename)");
     let old_path = varargs.get_str(ctx);
     let new_path = varargs.get_str(ctx);
-    let real_old_path = get_cstr_path(ctx, old_path)
-        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
-        .unwrap_or(old_path);
-    let real_new_path = get_cstr_path(ctx, new_path)
-        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
-        .unwrap_or(new_path);
+    let real_old_path_owned = get_cstr_path(ctx, old_path);
+    let real_old_path = if let Some(ref rp) = real_old_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        old_path
+    };
+    let real_new_path_owned = get_cstr_path(ctx, new_path);
+    let real_new_path = if let Some(ref rp) = real_new_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        new_path
+    };
     let result = unsafe { rename(real_old_path, real_new_path) };
     debug!(
         "=> old_path: {}, new_path: {}, result: {}",
@@ -149,9 +158,12 @@ pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
 pub fn ___syscall40(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall40 (rmdir)");
     let pathname_addr = varargs.get_str(ctx);
-    let real_path = get_cstr_path(ctx, pathname_addr)
-        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
-        .unwrap_or(pathname_addr);
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
     unsafe { rmdir(real_path) }
 }
 
@@ -433,16 +445,19 @@ pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let pathname_addr = varargs.get_str(ctx);
     let buf: u32 = varargs.get(ctx);
 
-    let real_path = get_cstr_path(ctx, pathname_addr)
-        .map(|cstr| cstr.as_c_str() as *const _ as *const i8)
-        .unwrap_or(pathname_addr);
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
 
     unsafe {
         let mut _stat: stat = std::mem::zeroed();
         let ret = stat(real_path, &mut _stat);
         debug!(
             "=> pathname: {}, buf: {} = {}, last os error: {}",
-            std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap(),
+            std::ffi::CStr::from_ptr(real_path).to_str().unwrap(),
             buf,
             ret,
             Error::last_os_error()

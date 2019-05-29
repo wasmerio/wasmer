@@ -208,12 +208,36 @@ pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
 /// This function trys to find an entry in mapdir
 /// translating paths into their correct value
 pub fn get_cstr_path(ctx: &mut Ctx, path: *const i8) -> Option<std::ffi::CString> {
+    use std::collections::VecDeque;
+
     let path_str = unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() }.to_string();
-    if let Some(val) = get_emscripten_data(ctx).mapped_dirs.get(&path_str) {
-        std::ffi::CString::new(val.to_string_lossy().as_bytes()).ok()
-    } else {
-        None
+    let data = get_emscripten_data(ctx);
+    let path = PathBuf::from(path_str);
+    let mut prefix_added = false;
+    let mut components = path.components().collect::<VecDeque<_>>();
+    // TODO(mark): handle absolute/non-canonical/non-relative paths too (this
+    // functionality should be shared among the abis)
+    if components.len() == 1 {
+        components.push_front(std::path::Component::CurDir);
+        prefix_added = true;
     }
+    let mut cumulative_path = PathBuf::new();
+    for c in components.into_iter() {
+        cumulative_path.push(c);
+        if let Some(val) = data
+            .mapped_dirs
+            .get(&cumulative_path.to_string_lossy().to_string())
+        {
+            let rest_of_path = if !prefix_added {
+                path.strip_prefix(cumulative_path).ok()?
+            } else {
+                &path
+            };
+            let rebased_path = val.join(rest_of_path);
+            return std::ffi::CString::new(rebased_path.to_string_lossy().as_bytes()).ok();
+        }
+    }
+    None
 }
 
 /// gets the current directory
