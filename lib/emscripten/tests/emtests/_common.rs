@@ -56,6 +56,7 @@ macro_rules! assert_emscripten_output {
             $name,
             $args,
             None,
+            vec![],
         ).expect("run_emscripten_instance finishes");
 
         let output = capturer.end().unwrap().0;
