@@ -28,7 +28,7 @@ wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
-# wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
+wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
@@ -72,6 +72,7 @@ fast-tests = []
 "backend:llvm" = ["wasmer-llvm-backend"]
 "backend:singlepass" = ["wasmer-singlepass-backend"]
 wasi = ["wasmer-wasi"]
+opengl = ["wasmer-emscripten/opengl"]
 # vfs = ["wasmer-runtime-abi"]
 
 [[example]]

@@ -14,6 +14,8 @@ lazy_static = "1.2.0"
 libc = "0.2.49"
 byteorder = "1"
 time = "0.1.41"
+gl = {version = "0.12", optional = true}
+sdl2 = {version = "0.32", optional = true}
 wasmer-clif-backend = { path = "../clif-backend", version = "0.4.2" }
 wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.4.2", optional = true }
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.4.2", optional = true }
@@ -33,3 +35,4 @@ clif = []
 llvm = ["wasmer-llvm-backend"]
 singlepass = ["wasmer-singlepass-backend"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
+opengl = ["sdl2", "gl"]

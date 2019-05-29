@@ -33,6 +33,8 @@ mod errno;
 mod exception;
 mod exec;
 mod exit;
+#[cfg(feature = "opengl")]
+mod gl;
 mod io;
 mod jmp;
 mod linking;
@@ -141,6 +143,8 @@ pub struct EmscriptenData<'a> {
     pub stack_save: Option<Func<'a, (), i32>>,
     pub stack_restore: Option<Func<'a, (i32)>>,
     pub set_threw: Option<Func<'a, (i32, i32)>>,
+    #[cfg(feature = "opengl")]
+    pub render: Option<gl::window::Render>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -272,6 +276,8 @@ impl<'a> EmscriptenData<'a> {
             stack_save,
             stack_restore,
             set_threw,
+            #[cfg(feature = "opengl")]
+            render: None,
         }
     }
 }
@@ -839,7 +845,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         env_ns.insert(null_func_name.as_str(), Func::new(nullfunc).to_export());
     }
 
-    let import_object: ImportObject = imports! {
+    #[allow(unused_mut)]
+    let mut import_object: ImportObject = imports! {
         "env" => env_ns,
         "global" => {
           "NaN" => Global::new(Value::F64(f64::NAN)),
@@ -856,6 +863,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     };
 
+    #[cfg(feature = "opengl")]
+    import_object.extend(gl::graphics_imports());
     import_object
 }
 
