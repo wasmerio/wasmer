@@ -445,9 +445,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .instantiate(&import_object)
             .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-        if !mapped_dirs.is_empty() {
-            eprintln!("WARN: mapdir is not implemented for emscripten targets");
-        }
         wasmer_emscripten::run_emscripten_instance(
             &module,
             &mut instance,
@@ -458,6 +455,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             },
             options.args.iter().map(|arg| arg.as_str()).collect(),
             options.em_entrypoint.clone(),
+            mapped_dirs,
         )
         .map_err(|e| format!("{:?}", e))?;
     } else {

@@ -10,7 +10,8 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
-use super::utils::copy_stat_into_wasm;
+use crate::utils::{copy_stat_into_wasm, get_cstr_path, get_current_directory};
+
 use super::varargs::VarArgs;
 use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
@@ -95,12 +96,19 @@ pub fn ___syscall6(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
 pub fn ___syscall12(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall12 (chdir) {}", _which);
     let path_ptr = varargs.get_str(ctx);
-    unsafe {
-        let _path = std::ffi::CStr::from_ptr(path_ptr);
-        let ret = chdir(path_ptr);
-        debug!("=> path: {:?}, ret: {}", _path, ret);
+    let real_path_owned = get_cstr_path(ctx, path_ptr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path_ptr
+    };
+    let ret = unsafe { chdir(real_path) };
+    debug!(
+        "=> path: {:?}, ret: {}",
+        unsafe { std::ffi::CStr::from_ptr(real_path) },
         ret
-    }
+    );
+    ret
 }
 
 pub fn ___syscall10(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
@@ -124,11 +132,23 @@ pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall38 (rename)");
     let old_path = varargs.get_str(ctx);
     let new_path = varargs.get_str(ctx);
-    let result = unsafe { rename(old_path, new_path) };
+    let real_old_path_owned = get_cstr_path(ctx, old_path);
+    let real_old_path = if let Some(ref rp) = real_old_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        old_path
+    };
+    let real_new_path_owned = get_cstr_path(ctx, new_path);
+    let real_new_path = if let Some(ref rp) = real_new_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        new_path
+    };
+    let result = unsafe { rename(real_old_path, real_new_path) };
     debug!(
         "=> old_path: {}, new_path: {}, result: {}",
-        unsafe { std::ffi::CStr::from_ptr(old_path).to_str().unwrap() },
-        unsafe { std::ffi::CStr::from_ptr(new_path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(real_old_path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(real_new_path).to_str().unwrap() },
         result
     );
     result
@@ -138,7 +158,13 @@ pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
 pub fn ___syscall40(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall40 (rmdir)");
     let pathname_addr = varargs.get_str(ctx);
-    unsafe { rmdir(pathname_addr) }
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
+    unsafe { rmdir(real_path) }
 }
 
 // pipe
@@ -244,10 +270,9 @@ pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 // getcwd
 pub fn ___syscall183(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall183");
-    use std::env;
     let buf_offset: c_int = varargs.get(ctx);
     let _size: c_int = varargs.get(ctx);
-    let path = env::current_dir();
+    let path = get_current_directory(ctx);
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
     unsafe {
@@ -420,12 +445,19 @@ pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let pathname_addr = varargs.get_str(ctx);
     let buf: u32 = varargs.get(ctx);
 
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
+
     unsafe {
         let mut _stat: stat = std::mem::zeroed();
-        let ret = stat(pathname_addr, &mut _stat);
+        let ret = stat(real_path, &mut _stat);
         debug!(
             "=> pathname: {}, buf: {} = {}, last os error: {}",
-            std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap(),
+            std::ffi::CStr::from_ptr(real_path).to_str().unwrap(),
             buf,
             ret,
             Error::last_os_error()
@@ -457,11 +489,6 @@ pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     0
 }
 
-pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall220");
-    -1
-}
-
 // fcntl64
 pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall221 (fcntl64) {}", _which);
@@ -474,7 +501,7 @@ pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     // |FNONBLOCK - 0x04
     debug!("=> fd: {}, cmd: {}", _fd, cmd);
     match cmd {
-        2 => 0,
+        1 | 2 => 0,
         13 | 14 => 0, // pretend file locking worked
         _ => -1,
     }
