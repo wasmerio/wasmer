@@ -4,6 +4,7 @@ fn test_file_metadata() {
         "../../wasitests/file_metadata.wasm",
         "file_metadata",
         vec![],
+        vec![],
         "../../wasitests/file_metadata.out"
     );
 }
