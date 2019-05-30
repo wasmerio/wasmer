@@ -3,8 +3,10 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
 
+use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
+use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
     error::CallResult,
@@ -141,10 +143,14 @@ pub struct EmscriptenData<'a> {
     pub stack_save: Option<Func<'a, (), i32>>,
     pub stack_restore: Option<Func<'a, (i32)>>,
     pub set_threw: Option<Func<'a, (i32, i32)>>,
+    pub mapped_dirs: HashMap<String, PathBuf>,
 }
 
 impl<'a> EmscriptenData<'a> {
-    pub fn new(instance: &'a mut Instance) -> EmscriptenData<'a> {
+    pub fn new(
+        instance: &'a mut Instance,
+        mapped_dirs: HashMap<String, PathBuf>,
+    ) -> EmscriptenData<'a> {
         let malloc = instance.func("_malloc").unwrap();
         let free = instance.func("_free").unwrap();
         let memalign = instance.func("_memalign").ok();
@@ -272,6 +278,7 @@ impl<'a> EmscriptenData<'a> {
             stack_save,
             stack_restore,
             set_threw,
+            mapped_dirs,
         }
     }
 }
@@ -282,8 +289,9 @@ pub fn run_emscripten_instance(
     path: &str,
     args: Vec<&str>,
     entrypoint: Option<String>,
+    mapped_dirs: Vec<(String, PathBuf)>,
 ) -> CallResult<()> {
-    let mut data = EmscriptenData::new(instance);
+    let mut data = EmscriptenData::new(instance, mapped_dirs.into_iter().collect());
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
@@ -545,6 +553,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_sysconf" => func!(crate::env::_sysconf),
         "_getaddrinfo" => func!(crate::env::_getaddrinfo),
         "_times" => func!(crate::env::_times),
+        "_pathconf" => func!(crate::env::_pathconf),
+        "_fpathconf" => func!(crate::env::_fpathconf),
 
         // Syscalls
         "___syscall1" => func!(crate::syscalls::___syscall1),
@@ -687,6 +697,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_asctime_r" => func!(crate::time::_asctime_r),
         "_localtime" => func!(crate::time::_localtime),
         "_time" => func!(crate::time::_time),
+        "_timegm" => func!(crate::time::_timegm),
         "_strftime" => func!(crate::time::_strftime),
         "_strftime_l" => func!(crate::time::_strftime_l),
         "_localtime_r" => func!(crate::time::_localtime_r),
@@ -705,6 +716,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_llvm_exp2_f32" => func!(crate::math::_llvm_exp2_f32),
         "_llvm_exp2_f64" => func!(crate::math::_llvm_exp2_f64),
         "_llvm_trunc_f64" => func!(crate::math::_llvm_trunc_f64),
+        "_llvm_fma_f64" => func!(crate::math::_llvm_fma_f64),
         "_emscripten_random" => func!(crate::math::_emscripten_random),
 
         // Jump

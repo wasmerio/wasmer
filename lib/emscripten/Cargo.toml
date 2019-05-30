@@ -9,14 +9,15 @@ edition = "2018"
 build = "build/mod.rs"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.4.2" }
+byteorder = "1"
+hashbrown = "0.1"
 lazy_static = "1.2.0"
 libc = "0.2.49"
-byteorder = "1"
 time = "0.1.41"
 wasmer-clif-backend = { path = "../clif-backend", version = "0.4.2" }
-wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.4.2", optional = true }
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.4.2", optional = true }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.4.2" }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.4.2", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 rand = "0.6"
