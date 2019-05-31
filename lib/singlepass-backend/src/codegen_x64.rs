@@ -2708,7 +2708,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S32,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f32_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
 
                 a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -2726,7 +2733,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S32,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f32_int_conv_check(
                     a,
                     &mut self.machine,
@@ -2750,7 +2764,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S32,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f32_int_conv_check(
                     a,
                     &mut self.machine,
@@ -2788,7 +2809,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S32,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f32_int_conv_check(
                     a,
                     &mut self.machine,
@@ -2836,7 +2864,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f64_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
 
                 a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -2890,7 +2925,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f64_int_conv_check(
                     a,
                     &mut self.machine,
@@ -2914,7 +2956,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f64_int_conv_check(
                     a,
                     &mut self.machine,
