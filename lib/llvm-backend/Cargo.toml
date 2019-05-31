@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.4.2" }
 inkwell = { git = "https://github.com/wasmerio/inkwell", branch = "llvm7-0" }
-wasmparser = "0.30.0"
+wasmparser = "0.29.2"
 hashbrown = "0.1.8"
 smallvec = "0.6.8"
 goblin = "0.0.20"

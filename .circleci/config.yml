@@ -284,10 +284,11 @@ jobs:
             # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # echo "${VERSION}" >> artifacts/version
       - run:
-          name: Dynamic library
+          name: Generate dynamic library for the runtime C API
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
+            install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
             cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
       - persist_to_workspace:
           root: .
@@ -362,7 +363,7 @@ jobs:
             # VERSION_TAG=$(git describe --exact-match --tags)
             #if [ "$VERSION" == "$VERSION_TAG" ]; then
             # echo "Versions match, publishing to Github"
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${VERSION} ./artifacts/
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${VERSION} ./artifacts/  || true
             #else
             #    echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
             #    exit 1

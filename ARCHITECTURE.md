@@ -2,7 +2,7 @@
 
 Wasmer uses the following components:
 
-- [Cranelift](https://github.com/cranestation/cranelift): for compiling Wasm binaries to machine code
+- Compiler backends: for compiling Wasm binaries to machine code ([more info here](https://github.com/wasmerio/wasmer/tree/master/lib#backends))
 - [wabt](https://github.com/pepyakin/wabt-rs): for transforming `.wast` files to `.wasm` and running WebAssembly spec tests
 - [wasmparser](https://github.com/yurydelendik/wasmparser.rs): for parsing the `.wasm` files and translating them into WebAssembly modules
 
@@ -67,3 +67,8 @@ Once that's finished, we will have a `Instance` function that will be ready to e
 
 Wasmer's Emscripten integration tries to wrap (and emulate) all the different syscalls that Emscripten needs.
 We provide this integration by filling the `import_object` with the Emscripten functions, while instantiating the WebAssembly Instance.
+
+## WASI
+
+Wasmer's WASI integration implements all the different syscalls that WASI needs.
+We provide this integration by filling the `import_object` with the WASI functions, while instantiating the WebAssembly Instance.

@@ -33,6 +33,7 @@ Wasmer runtime can also be embedded in different languages, so you can use WebAs
 * [**🐘 PHP**](https://github.com/wasmerio/php-ext-wasm)
 * [**🐍 Python**](https://github.com/wasmerio/python-ext-wasm)
 * [**💎 Ruby**](https://github.com/wasmerio/ruby-ext-wasm)
+* [**🐹 Go**](https://github.com/wasmerio/go-ext-wasm)
 
 ### Usage
 

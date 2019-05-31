@@ -16,6 +16,7 @@ use crate::{
 };
 use hashbrown::HashMap;
 use std::fmt::Debug;
+use std::sync::{Arc, RwLock};
 use wasmparser::{
     BinaryReaderError, ExternalKind, FuncType, ImportSectionEntryType, Operator, Type as WpType,
     WasmDecoder,
@@ -52,10 +53,10 @@ pub fn read_module<
     mcg: &mut MCG,
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
-) -> Result<ModuleInfo, LoadError> {
+) -> Result<Arc<RwLock<ModuleInfo>>, LoadError> {
     mcg.feed_compiler_config(compiler_config)
         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-    let mut info = ModuleInfo {
+    let info = Arc::new(RwLock::new(ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),
         tables: Map::new(),
@@ -82,7 +83,7 @@ pub fn read_module<
         em_symbol_map: compiler_config.symbol_map.clone(),
 
         custom_sections: HashMap::new(),
-    };
+    }));
 
     let mut parser = wasmparser::ValidatingParser::new(
         wasm,
@@ -105,10 +106,13 @@ pub fn read_module<
         use wasmparser::ParserState;
         let state = parser.read();
         match *state {
-            ParserState::EndWasm => break Ok(info),
+            ParserState::EndWasm => break,
             ParserState::Error(err) => Err(LoadError::Parse(err))?,
             ParserState::TypeSectionEntry(ref ty) => {
-                info.signatures.push(func_type_to_func_sig(ty)?);
+                info.write()
+                    .unwrap()
+                    .signatures
+                    .push(func_type_to_func_sig(ty)?);
             }
             ParserState::ImportSectionEntry { module, field, ty } => {
                 let namespace_index = namespace_builder.as_mut().unwrap().register(module);
@@ -121,8 +125,8 @@ pub fn read_module<
                 match ty {
                     ImportSectionEntryType::Function(sigindex) => {
                         let sigindex = SigIndex::new(sigindex as usize);
-                        info.imported_functions.push(import_name);
-                        info.func_assoc.push(sigindex);
+                        info.write().unwrap().imported_functions.push(import_name);
+                        info.write().unwrap().func_assoc.push(sigindex);
                         mcg.feed_import_function()
                             .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     }
@@ -134,7 +138,10 @@ pub fn read_module<
                             maximum: table_ty.limits.maximum,
                         };
 
-                        info.imported_tables.push((import_name, table_desc));
+                        info.write()
+                            .unwrap()
+                            .imported_tables
+                            .push((import_name, table_desc));
                     }
                     ImportSectionEntryType::Memory(memory_ty) => {
                         let mem_desc = MemoryDescriptor {
@@ -142,20 +149,26 @@ pub fn read_module<
                             maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
                             shared: memory_ty.shared,
                         };
-                        info.imported_memories.push((import_name, mem_desc));
+                        info.write()
+                            .unwrap()
+                            .imported_memories
+                            .push((import_name, mem_desc));
                     }
                     ImportSectionEntryType::Global(global_ty) => {
                         let global_desc = GlobalDescriptor {
                             mutable: global_ty.mutable,
                             ty: wp_type_to_type(global_ty.content_type)?,
                         };
-                        info.imported_globals.push((import_name, global_desc));
+                        info.write()
+                            .unwrap()
+                            .imported_globals
+                            .push((import_name, global_desc));
                     }
                 }
             }
             ParserState::FunctionSectionEntry(sigindex) => {
                 let sigindex = SigIndex::new(sigindex as usize);
-                info.func_assoc.push(sigindex);
+                info.write().unwrap().func_assoc.push(sigindex);
             }
             ParserState::TableSectionEntry(table_ty) => {
                 let table_desc = TableDescriptor {
@@ -164,7 +177,7 @@ pub fn read_module<
                     maximum: table_ty.limits.maximum,
                 };
 
-                info.tables.push(table_desc);
+                info.write().unwrap().tables.push(table_desc);
             }
             ParserState::MemorySectionEntry(memory_ty) => {
                 let mem_desc = MemoryDescriptor {
@@ -173,7 +186,7 @@ pub fn read_module<
                     shared: memory_ty.shared,
                 };
 
-                info.memories.push(mem_desc);
+                info.write().unwrap().memories.push(mem_desc);
             }
             ParserState::ExportSectionEntry { field, kind, index } => {
                 let export_index = match kind {
@@ -183,42 +196,51 @@ pub fn read_module<
                     ExternalKind::Global => ExportIndex::Global(GlobalIndex::new(index as usize)),
                 };
 
-                info.exports.insert(field.to_string(), export_index);
+                info.write()
+                    .unwrap()
+                    .exports
+                    .insert(field.to_string(), export_index);
             }
             ParserState::StartSectionEntry(start_index) => {
-                info.start_func = Some(FuncIndex::new(start_index as usize));
+                info.write().unwrap().start_func = Some(FuncIndex::new(start_index as usize));
             }
             ParserState::BeginFunctionBody { .. } => {
                 let id = func_count.wrapping_add(1);
                 func_count = id;
                 if func_count == 0 {
-                    info.namespace_table = namespace_builder.take().unwrap().finish();
-                    info.name_table = name_builder.take().unwrap().finish();
-                    mcg.feed_signatures(info.signatures.clone())
+                    info.write().unwrap().namespace_table =
+                        namespace_builder.take().unwrap().finish();
+                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
+                    mcg.feed_signatures(info.read().unwrap().signatures.clone())
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.feed_function_signatures(info.func_assoc.clone())
+                    mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.check_precondition(&info)
+                    mcg.check_precondition(&info.read().unwrap())
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
 
                 let fcg = mcg
-                    .next_function()
+                    .next_function(Arc::clone(&info))
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 middlewares
                     .run(
                         Some(fcg),
                         Event::Internal(InternalEvent::FunctionBegin(id as u32)),
-                        &info,
+                        &info.read().unwrap(),
                     )
                     .map_err(|x| LoadError::Codegen(x))?;
 
-                let sig = info
+                let info_read = info.read().unwrap();
+                let sig = info_read
                     .signatures
                     .get(
                         *info
+                            .read()
+                            .unwrap()
                             .func_assoc
-                            .get(FuncIndex::new(id as usize + info.imported_functions.len()))
+                            .get(FuncIndex::new(
+                                id as usize + info.read().unwrap().imported_functions.len(),
+                            ))
                             .unwrap(),
                     )
                     .unwrap();
@@ -235,22 +257,22 @@ pub fn read_module<
 
                 loop {
                     let state = parser.read();
-                    match *state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                    match state {
+                        ParserState::Error(err) => return Err(LoadError::Parse(*err)),
                         ParserState::FunctionBodyLocals { ref locals } => {
                             for &(count, ty) in locals.iter() {
                                 fcg.feed_local(ty, count as usize)
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
                         }
-                        ParserState::CodeOperator(ref op) => {
+                        ParserState::CodeOperator(op) => {
                             if !body_begun {
                                 body_begun = true;
-                                fcg.begin_body(&info)
+                                fcg.begin_body(&info.read().unwrap())
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
                             middlewares
-                                .run(Some(fcg), Event::Wasm(op), &info)
+                                .run(Some(fcg), Event::Wasm(op), &info.read().unwrap())
                                 .map_err(|x| LoadError::Codegen(x))?;
                         }
                         ParserState::EndFunctionBody => break,
@@ -261,7 +283,7 @@ pub fn read_module<
                     .run(
                         Some(fcg),
                         Event::Internal(InternalEvent::FunctionEnd),
-                        &info,
+                        &info.read().unwrap(),
                     )
                     .map_err(|x| LoadError::Codegen(x))?;
                 fcg.finalize()
@@ -301,7 +323,7 @@ pub fn read_module<
                     elements: elements.unwrap(),
                 };
 
-                info.elem_initializers.push(table_init);
+                info.write().unwrap().elem_initializers.push(table_init);
             }
             ParserState::BeginActiveDataSectionEntry(memory_index) => {
                 let memory_index = MemoryIndex::new(memory_index as usize);
@@ -332,7 +354,7 @@ pub fn read_module<
                     base: base.unwrap(),
                     data,
                 };
-                info.data_initializers.push(data_init);
+                info.write().unwrap().data_initializers.push(data_init);
             }
             ParserState::BeginGlobalSectionEntry(ty) => {
                 let init = loop {
@@ -353,12 +375,13 @@ pub fn read_module<
 
                 let global_init = GlobalInit { desc, init };
 
-                info.globals.push(global_init);
+                info.write().unwrap().globals.push(global_init);
             }
 
             _ => {}
         }
     }
+    Ok(info)
 }
 
 pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
