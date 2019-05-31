@@ -24,6 +24,7 @@ use wasmer_runtime_core::{
         CacheGen, RunnableModule,
     },
     cache::Error as CacheError,
+    codegen::BkptInfo,
     module::ModuleInfo,
     structures::TypedIndex,
     typed_func::{Wasm, WasmTrapInfo},
@@ -190,6 +191,8 @@ fn get_callbacks() -> Callbacks {
 
             fn_name!("vm.exception.trap") => throw_trap as _,
 
+            fn_name!("vm.breakpoint") => vm_breakpoint as _,
+
             _ => ptr::null(),
         }
     }
@@ -207,6 +210,19 @@ fn get_callbacks() -> Callbacks {
         lookup_vm_symbol,
         visit_fde,
     }
+}
+
+unsafe extern "C" fn vm_breakpoint(_ctx: &mut vm::Ctx, breakpoints: *const Vec<Box<Fn(BkptInfo) + Send + Sync + 'static>>, index: u32) -> i32 {
+    unsafe extern "C" fn do_throw() -> ! {
+        let ptr: *mut i32 = ::std::ptr::null_mut();
+        *ptr = 42;
+        ::std::process::abort();
+    }
+    let breakpoints: &Vec<_> = &*breakpoints;
+    breakpoints[index as usize](BkptInfo {
+        throw: do_throw,
+    });
+    0
 }
 
 pub enum Buffer {
@@ -231,10 +247,11 @@ pub struct LLVMBackend {
     module: *mut LLVMModule,
     #[allow(dead_code)]
     buffer: Arc<Buffer>,
+    breakpoints: Box<Vec<Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, _intrinsics: Intrinsics) -> (Self, LLVMCache) {
+    pub fn new(module: Module, _intrinsics: Intrinsics, breakpoints: Box<Vec<Box<Fn(BkptInfo) + Send + Sync + 'static>>>) -> (Self, LLVMCache) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
             asm_printer: true,
@@ -289,12 +306,13 @@ impl LLVMBackend {
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
+                breakpoints,
             },
             LLVMCache { buffer },
         )
     }
 
-    pub unsafe fn from_buffer(memory: Memory) -> Result<(Self, LLVMCache), String> {
+    pub unsafe fn from_buffer(memory: Memory, breakpoints: Box<Vec<Box<Fn(BkptInfo) + Send + Sync + 'static>>>) -> Result<(Self, LLVMCache), String> {
         let callbacks = get_callbacks();
         let mut module: *mut LLVMModule = ptr::null_mut();
 
@@ -318,6 +336,7 @@ impl LLVMBackend {
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
+                breakpoints,
             },
             LLVMCache { buffer },
         ))

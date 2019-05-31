@@ -398,6 +398,7 @@ pub struct LLVMFunctionCodeGenerator {
     num_params: usize,
     ctx: Option<CtxType<'static>>,
     unreachable_depth: usize,
+    breakpoints: Option<Box<Vec<Box<Fn(BkptInfo) + Send + Sync + 'static>>>>,
 }
 
 impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
@@ -470,13 +471,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     }
 
     fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        let op = match event {
-            Event::Wasm(x) => x,
-            Event::WasmOwned(ref x) => x,
-            Event::Internal(_x) => {
+        match event {
+            Event::Internal(InternalEvent::FunctionBegin(_)) | Event::Internal(InternalEvent::FunctionEnd) => {
                 return Ok(());
             }
-        };
+            _ => {}
+        }
 
         let mut state = &mut self.state;
         let builder = self.builder.as_ref().unwrap();
@@ -489,6 +489,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let mut ctx = self.ctx.as_mut().unwrap();
 
         if !state.reachable {
+            let op = match event {
+                Event::Wasm(x) => x,
+                Event::WasmOwned(ref x) => x,
+                Event::Internal(_x) => {
+                    return Ok(());
+                }
+            };
             match *op {
                 Operator::Block { ty: _ } | Operator::Loop { ty: _ } | Operator::If { ty: _ } => {
                     self.unreachable_depth += 1;
@@ -510,6 +517,44 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 }
             }
         }
+
+        let op = match event {
+            Event::Wasm(x) => x,
+            Event::WasmOwned(ref x) => x,
+            Event::Internal(x) => {
+                match x {
+                    InternalEvent::Breakpoint(handler) => {
+                        let mut breakpoints = self.breakpoints.as_mut().unwrap();
+                        breakpoints.push(handler);
+                        let ptr: *mut Vec<_> = &mut **breakpoints;
+                        let ptr_const = intrinsics
+                            .i64_ty
+                            .const_int(ptr as usize as u64, false)
+                            .as_basic_value_enum();
+                        builder.build_call(
+                            intrinsics.breakpoint,
+                            &[ctx.basic(), ptr_const, intrinsics
+                            .i32_ty
+                            .const_int((breakpoints.len() - 1) as u64, false)
+                            .as_basic_value_enum()],
+                            &state.var_name(),
+                        );
+                    },
+                    InternalEvent::GetInternal(index) => {
+                        let ptr = ctx.internal_pointer(index as usize, intrinsics);
+                        let value = builder.build_load(ptr, "internal_value");
+                        state.push1(value);
+                    }
+                    InternalEvent::SetInternal(index) => {
+                        let value = state.pop1()?;
+                        let ptr = ctx.internal_pointer(index as usize, intrinsics);
+                        builder.build_store(ptr, value);
+                    }
+                    _ => {}
+                }
+                return Ok(());
+            }
+        };
 
         match *op {
             /***************************
@@ -2508,16 +2553,18 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
     fn next_function(&mut self) -> Result<&mut LLVMFunctionCodeGenerator, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
-        let (context, builder, intrinsics) = match self.functions.last_mut() {
+        let (context, builder, intrinsics, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.context.take().unwrap(),
                 x.builder.take().unwrap(),
                 x.intrinsics.take().unwrap(),
+                x.breakpoints.take().unwrap(),
             ),
             None => (
                 self.context.take().unwrap(),
                 self.builder.take().unwrap(),
                 self.intrinsics.take().unwrap(),
+                Box::new(Vec::new()),
             ),
         };
 
@@ -2576,6 +2623,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             num_params,
             ctx: None,
             unreachable_depth: 0,
+            breakpoints: Some(breakpoints),
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -2585,16 +2633,18 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         mut self,
         module_info: &ModuleInfo,
     ) -> Result<(LLVMBackend, Box<dyn CacheGen>), CodegenError> {
-        let (context, builder, intrinsics) = match self.functions.last_mut() {
+        let (context, builder, intrinsics, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.context.take().unwrap(),
                 x.builder.take().unwrap(),
                 x.intrinsics.take().unwrap(),
+                x.breakpoints.take().unwrap(),
             ),
             None => (
                 self.context.take().unwrap(),
                 self.builder.take().unwrap(),
                 self.intrinsics.take().unwrap(),
+                Box::new(Vec::new()),
             ),
         };
         self.context = Some(context);
@@ -2625,7 +2675,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         // self.module.print_to_stderr();
 
-        let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics.take().unwrap());
+        let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics.take().unwrap(), breakpoints);
         Ok((backend, Box::new(cache_gen)))
     }
 
@@ -2657,7 +2707,9 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         Ok(())
     }
 
-    unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+    unsafe fn from_cache(_artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        Err(CacheError::Unknown("caching is broken for LLVM backend".into()))
+        /*
         let (info, _, memory) = artifact.consume();
         let (backend, cache_gen) =
             LLVMBackend::from_buffer(memory).map_err(CacheError::DeserializeError)?;
@@ -2667,6 +2719,6 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             cache_gen: Box::new(cache_gen),
 
             info,
-        })
+        })*/
     }
 }
