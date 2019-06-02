@@ -8,7 +8,7 @@ use inkwell::{
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, Token},
     cache::{Artifact, Error as CacheError},
@@ -2505,7 +2505,10 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         Ok(())
     }
 
-    fn next_function(&mut self) -> Result<&mut LLVMFunctionCodeGenerator, CodegenError> {
+    fn next_function(
+        &mut self,
+        _module_info: Arc<RwLock<ModuleInfo>>,
+    ) -> Result<&mut LLVMFunctionCodeGenerator, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
         let (context, builder, intrinsics) = match self.functions.last_mut() {
             Some(x) => (

@@ -1,22 +1,17 @@
 use crate::cache::{BackendCache, CacheGenerator};
-use crate::{resolver::FuncResolverBuilder, signal::Caller, trampoline::Trampolines};
+use crate::{resolver::FuncResolverBuilder, signal::Caller};
 
-use cranelift_codegen::{ir, isa};
+use cranelift_codegen::ir;
 use cranelift_entity::EntityRef;
 use cranelift_wasm;
-use hashbrown::HashMap;
 use std::sync::Arc;
 
 use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 
 use wasmer_runtime_core::{
-    backend::{Backend, CompilerConfig},
-    error::CompileResult,
-    module::{ModuleInfo, ModuleInner, StringTable},
-    structures::{Map, TypedIndex},
-    types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
-    },
+    module::{ModuleInfo, ModuleInner},
+    structures::TypedIndex,
+    types::{FuncIndex, FuncSig, GlobalIndex, MemoryIndex, SigIndex, TableIndex, Type},
 };
 
 /// This contains all of the items in a `ModuleInner` except the `func_resolver`.
@@ -25,69 +20,6 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn new(compiler_config: &CompilerConfig) -> Self {
-        Self {
-            info: ModuleInfo {
-                memories: Map::new(),
-                globals: Map::new(),
-                tables: Map::new(),
-
-                imported_functions: Map::new(),
-                imported_memories: Map::new(),
-                imported_tables: Map::new(),
-                imported_globals: Map::new(),
-
-                exports: HashMap::new(),
-
-                data_initializers: Vec::new(),
-                elem_initializers: Vec::new(),
-
-                start_func: None,
-
-                func_assoc: Map::new(),
-                signatures: Map::new(),
-                backend: Backend::Cranelift,
-
-                namespace_table: StringTable::new(),
-                name_table: StringTable::new(),
-                em_symbol_map: compiler_config.symbol_map.clone(),
-
-                custom_sections: HashMap::new(),
-            },
-        }
-    }
-
-    pub fn compile(
-        self,
-        isa: &isa::TargetIsa,
-        functions: Map<LocalFuncIndex, ir::Function>,
-    ) -> CompileResult<ModuleInner> {
-        let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(isa, functions, &self.info)?;
-
-        let trampolines = Arc::new(Trampolines::new(isa, &self.info));
-
-        let (func_resolver, backend_cache) = func_resolver_builder.finalize(
-            &self.info.signatures,
-            Arc::clone(&trampolines),
-            handler_data.clone(),
-        )?;
-
-        let cache_gen = Box::new(CacheGenerator::new(
-            backend_cache,
-            Arc::clone(&func_resolver.memory),
-        ));
-
-        let runnable_module = Caller::new(handler_data, trampolines, func_resolver);
-
-        Ok(ModuleInner {
-            runnable_module: Box::new(runnable_module),
-            cache_gen,
-
-            info: self.info,
-        })
-    }
-
     pub fn from_cache(cache: Artifact) -> Result<ModuleInner, CacheError> {
         let (info, compiled_code, backend_cache) = BackendCache::from_cache(cache)?;
 
@@ -176,6 +108,28 @@ impl From<Converter<ir::Type>> for Type {
             ir::types::F32 => Type::F32,
             ir::types::F64 => Type::F64,
             _ => panic!("unsupported wasm type"),
+        }
+    }
+}
+
+impl From<Converter<Type>> for ir::Type {
+    fn from(ty: Converter<Type>) -> Self {
+        match ty.0 {
+            Type::I32 => ir::types::I32,
+            Type::I64 => ir::types::I64,
+            Type::F32 => ir::types::F32,
+            Type::F64 => ir::types::F64,
+        }
+    }
+}
+
+impl From<Converter<Type>> for ir::AbiParam {
+    fn from(ty: Converter<Type>) -> Self {
+        match ty.0 {
+            Type::I32 => ir::AbiParam::new(ir::types::I32),
+            Type::I64 => ir::AbiParam::new(ir::types::I64),
+            Type::F32 => ir::AbiParam::new(ir::types::F32),
+            Type::F64 => ir::AbiParam::new(ir::types::F64),
         }
     }
 }

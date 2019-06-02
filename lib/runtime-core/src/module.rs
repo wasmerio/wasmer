@@ -27,7 +27,7 @@ pub struct ModuleInner {
     pub info: ModuleInfo,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleInfo {
     // This are strictly local and the typsystem ensures that.
     pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,

@@ -9,13 +9,14 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.4.2" }
-cranelift-native = "0.30.0"
-cranelift-codegen = "0.30.0"
-cranelift-entity = "0.30.0"
-cranelift-wasm = "0.30.0"
+cranelift-native = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
+cranelift-codegen = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
+cranelift-entity = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
+cranelift-frontend = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
+cranelift-wasm = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
 hashbrown = "0.1"
-target-lexicon = "0.3.0"
-wasmparser = "0.30.0"
+target-lexicon = "0.4.0"
+wasmparser = "0.29.2"
 byteorder = "1"
 nix = "0.13.0"
 libc = "0.2.49"
