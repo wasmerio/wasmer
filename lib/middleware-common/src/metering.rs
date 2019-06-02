@@ -121,7 +121,7 @@ pub fn set_points_used(_instance: &mut Instance, _value: u64) {
     unimplemented!()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "singlepass"))]
 mod tests {
     use super::*;
     use wabt::wat2wasm;
