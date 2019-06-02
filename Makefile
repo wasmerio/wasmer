@@ -55,7 +55,7 @@ test:
 	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
 	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
 	cargo test --manifest-path lib/runtime/Cargo.toml --features llvm
-    cargo test --manifest-path lib/middleware-common/Cargo.toml --features llvm
+	cargo test --manifest-path lib/middleware-common/Cargo.toml --features llvm
 	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
 
