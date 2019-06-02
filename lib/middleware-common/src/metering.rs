@@ -3,6 +3,7 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     vm::InternalField,
     wasmparser::{Operator, Type as WpType},
+    Instance,
 };
 
 static INTERNAL_FIELD: InternalField = InternalField::allocate();
@@ -98,9 +99,19 @@ impl FunctionMiddleware for Metering {
     }
 }
 
+/// Returns the number of points used by a function call for metering
+pub fn get_points_used(_instance: &Instance) -> u64 {
+    unimplemented!()
+}
+
+/// Sets the value of points used
+pub fn set_points_used(_instance: &mut Instance, _value: u64) {
+    unimplemented!()
+}
+
 #[cfg(test)]
 mod tests {
-
+    use super::*;
     use wabt::wat2wasm;
     use wasmer_runtime_core::{
         backend::{Compiler, CompilerConfig},
@@ -204,7 +215,7 @@ mod tests {
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
 
-        instance.context_mut().set_points_used(0u64);
+        set_points_used(&mut instance, 0u64);
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
         let value = add_to.call(3, 4).unwrap();
@@ -213,7 +224,7 @@ mod tests {
         assert_eq!(value, 7);
 
         // verify is uses the correct number of points
-        assert_eq!(instance.context().get_points_used(), 42); // TODO need to update assertion to actual points used.
+        assert_eq!(get_points_used(&instance), 42); // TODO need to update assertion to actual points used.
     }
 
     #[test]
@@ -235,7 +246,7 @@ mod tests {
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
 
-        instance.context_mut().set_points_used(0u64);
+        set_points_used(&mut instance, 0u64);
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
         let result = add_to.call(10_000_000, 4);
@@ -244,8 +255,8 @@ mod tests {
         assert_eq!(result.is_err(), true); // TODO assert that the trap is caused by PointsExausted
 
         // verify is uses the correct number of points
-        assert_eq!(instance.context().get_points_used(), 99); // TODO need to update assertion to actual points used.
-                                                              // TODO should points used be close to limit or at limit when trapping
+        assert_eq!(get_points_used(&instance), 99); // TODO need to update assertion to actual points used.
+                                                    // TODO should points used be close to limit or at limit when trapping
     }
 
 }
