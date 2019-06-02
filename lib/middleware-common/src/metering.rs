@@ -8,6 +8,18 @@ use wasmer_runtime_core::{
 
 static INTERNAL_FIELD: InternalField = InternalField::allocate();
 
+/// Metering is a compiler middleware that calculates the cost of WebAssembly instructions at compile
+/// time and will count the cost of executed instructions at runtime. Within the Metering functionality,
+/// this instruction cost is called `points`.
+///
+/// The Metering struct takes a `limit` parameter which is the maximum number of points which can be
+/// used by an instance during a function call. If this limit is exceeded, the function call will
+/// trap. Each instance has a `points_used` field which can be used to track points used during
+/// a function call and should be set back to zero after a function call.
+///
+/// Each compiler backend with Metering enabled should produce the same cost used at runtime for
+/// the same function calls so we can say that the metering is deterministic.
+///
 pub struct Metering {
     limit: u64,
     current_block: u64,
