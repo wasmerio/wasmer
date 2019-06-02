@@ -557,14 +557,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map(|arg| arg.as_str())
                 .map(|x| Value::I32(x.parse().unwrap()))
                 .collect();
-            println!(
-                "{:?}",
-                instance
-                    .dyn_func("main")
-                    .map_err(|e| format!("{:?}", e))?
-                    .call(&args)
-                    .map_err(|e| format!("{:?}", e))?
-            );
+            instance
+                .dyn_func("main")
+                .map_err(|e| format!("{:?}", e))?
+                .call(&args)
+                .map_err(|e| format!("{:?}", e))?;
         }
     }
 
