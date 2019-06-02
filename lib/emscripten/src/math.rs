@@ -1,5 +1,9 @@
 use wasmer_runtime_core::vm::Ctx;
 
+pub fn fabs(_ctx: &mut Ctx, value: f64) -> f64 {
+    value.abs()
+}
+
 /// emscripten: _llvm_log10_f64
 pub fn _llvm_log10_f64(_ctx: &mut Ctx, value: f64) -> f64 {
     debug!("emscripten::_llvm_log10_f64");
@@ -34,15 +38,20 @@ pub fn _llvm_log2_f32(_ctx: &mut Ctx, _value: f64) -> f64 {
     -1.0
 }
 
-pub fn _llvm_exp2_f32(_ctx: &mut Ctx, value: f32) -> f32 {
-    debug!("emscripten::_llvm_exp2_f32");
-    2f32.powf(value)
-}
+// pub fn _llvm_exp2_f32(_ctx: &mut Ctx, value: f32) -> f32 {
+//     debug!("emscripten::_llvm_exp2_f32");
+//     2f32.powf(value)
+// }
 
 pub fn _llvm_exp2_f64(_ctx: &mut Ctx, value: f64) -> f64 {
     debug!("emscripten::_llvm_exp2_f64");
     2f64.powf(value)
 }
+
+// pub fn _llvm_trunc_f32(_ctx: &mut Ctx, value: f32) -> f32 {
+//     debug!("emscripten::_llvm_trunc_f32");
+//     value.trunc()
+// }
 
 pub fn _llvm_trunc_f64(_ctx: &mut Ctx, value: f64) -> f64 {
     debug!("emscripten::_llvm_trunc_f64");

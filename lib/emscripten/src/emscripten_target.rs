@@ -82,6 +82,10 @@ pub fn _pthread_attr_getstack(
     // HEAP32[stacksize >> 2] = TOTAL_STACK;
     0
 }
+pub fn _pthread_cancel(_ctx: &mut Ctx, _a: i32) -> i32 {
+    debug!("emscripten::_pthread_cancel");
+    0
+}
 pub fn _pthread_cond_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_cond_destroy");
     0

@@ -706,6 +706,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_gmtime" => func!(crate::time::_gmtime),
 
         // Math
+        "_fabs" => func!(crate::math::fabs),
         "f64-rem" => func!(crate::math::f64_rem),
         "_llvm_log10_f64" => func!(crate::math::_llvm_log10_f64),
         "_llvm_log2_f64" => func!(crate::math::_llvm_log2_f64),
@@ -713,8 +714,11 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_llvm_log2_f32" => func!(crate::math::_llvm_log2_f64),
         "_llvm_sin_f64" => func!(crate::math::_llvm_sin_f64),
         "_llvm_cos_f64" => func!(crate::math::_llvm_cos_f64),
-        "_llvm_exp2_f32" => func!(crate::math::_llvm_exp2_f32),
+        // "_llvm_exp2_f32" => func!(crate::math::_llvm_exp2_f32),
+        "_llvm_exp2_f32" => func!(crate::math::_llvm_exp2_f64),
         "_llvm_exp2_f64" => func!(crate::math::_llvm_exp2_f64),
+        // "_llvm_trunc_f32" => func!(crate::math::_llvm_trunc_f32),
+        "_llvm_trunc_f32" => func!(crate::math::_llvm_trunc_f64),
         "_llvm_trunc_f64" => func!(crate::math::_llvm_trunc_f64),
         "_llvm_fma_f64" => func!(crate::math::_llvm_fma_f64),
         "_emscripten_random" => func!(crate::math::_emscripten_random),
@@ -759,6 +763,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___cxa_free_exception" => func!(crate::emscripten_target::___cxa_free_exception),
         "___resumeException" => func!(crate::emscripten_target::___resumeException),
         "_dladdr" => func!(crate::emscripten_target::_dladdr),
+        "_pthread_cancel" => func!(crate::emscripten_target::_pthread_cancel),
         "_pthread_create" => func!(crate::emscripten_target::_pthread_create),
         "_pthread_detach" => func!(crate::emscripten_target::_pthread_detach),
         "_pthread_join" => func!(crate::emscripten_target::_pthread_join),
