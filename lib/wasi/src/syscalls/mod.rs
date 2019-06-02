@@ -195,7 +195,13 @@ pub fn clock_time_get(
     let memory = ctx.memory(0);
 
     let out_addr = wasi_try!(time.deref(memory));
-    platform_clock_time_get(clock_id, precision, out_addr)
+    let result = platform_clock_time_get(clock_id, precision, out_addr);
+    debug!(
+        "time: {} => {}",
+        wasi_try!(time.deref(memory)).get(),
+        result
+    );
+    result
 }
 
 /// ### `environ_get()`
@@ -215,7 +221,7 @@ pub fn environ_get(
     let state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    write_buffer_array(memory, &*state.args, environ, environ_buf)
+    write_buffer_array(memory, &*state.envs, environ, environ_buf)
 }
 
 /// ### `environ_sizes_get()`
@@ -238,8 +244,15 @@ pub fn environ_sizes_get(
 
     let state = get_wasi_state(ctx);
 
-    environ_count.set(state.envs.len() as u32);
-    environ_buf_size.set(state.envs.iter().map(|v| v.len() as u32).sum());
+    let env_var_count = state.envs.len() as u32;
+    let env_buf_size = state.envs.iter().map(|v| v.len() as u32 + 1).sum();
+    environ_count.set(env_var_count);
+    environ_buf_size.set(env_buf_size);
+
+    debug!(
+        "env_var_count: {}, env_buf_size: {}",
+        env_var_count, env_buf_size
+    );
 
     __WASI_ESUCCESS
 }
@@ -1665,7 +1678,7 @@ pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
 /// - `size_t buf_len`
 ///     The number of bytes that will be written
 pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __wasi_errno_t {
-    debug!("wasi::random_get");
+    debug!("wasi::random_get buf_len: {}", buf_len);
     let mut rng = thread_rng();
     let memory = ctx.memory(0);
 

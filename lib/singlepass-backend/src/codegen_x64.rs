@@ -8,7 +8,11 @@ use dynasmrt::{
 };
 use smallvec::SmallVec;
 use std::ptr::NonNull;
-use std::{any::Any, collections::HashMap, sync::Arc};
+use std::{
+    any::Any,
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 use wasmer_runtime_core::{
     backend::{
         sys::Memory, Backend, CacheGen, CompilerConfig, MemoryBoundCheckMode, RunnableModule, Token,
@@ -319,7 +323,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(())
     }
 
-    fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
+    fn next_function(
+        &mut self,
+        _module_info: Arc<RwLock<ModuleInfo>>,
+    ) -> Result<&mut X64FunctionCode, CodegenError> {
         let (mut assembler, mut function_labels, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
@@ -332,6 +339,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 HashMap::new(),
             ),
         };
+
         let begin_offset = assembler.offset();
         let begin_label_info = function_labels
             .entry(self.functions.len() + self.func_import_count)

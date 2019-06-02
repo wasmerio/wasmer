@@ -113,3 +113,54 @@ impl Cache for FileSystemCache {
         Ok(())
     }
 }
+
+#[cfg(all(test, not(feature = "singlepass")))]
+mod tests {
+
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_file_system_cache_run() {
+        use crate::{compile, imports, Func};
+        use wabt::wat2wasm;
+
+        static WAT: &'static str = r#"
+            (module
+              (type $t0 (func (param i32) (result i32)))
+              (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+                get_local $p0
+                i32.const 1
+                i32.add))
+        "#;
+
+        let wasm = wat2wasm(WAT).unwrap();
+
+        let module = compile(&wasm).unwrap();
+
+        let cache_dir = env::temp_dir();
+        println!("test temp_dir {:?}", cache_dir);
+
+        let mut fs_cache = unsafe {
+            FileSystemCache::new(cache_dir)
+                .map_err(|e| format!("Cache error: {:?}", e))
+                .unwrap()
+        };
+        // store module
+        let key = WasmHash::generate(&wasm);
+        fs_cache.store(key, module.clone()).unwrap();
+
+        // load module
+        let cached_module = fs_cache.load(key).unwrap();
+
+        let import_object = imports! {};
+        let instance = cached_module.instantiate(&import_object).unwrap();
+        let add_one: Func<i32, i32> = instance.func("add_one").unwrap();
+
+        let value = add_one.call(42).unwrap();
+
+        // verify it works
+        assert_eq!(value, 43);
+    }
+
+}

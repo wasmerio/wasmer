@@ -1,4 +1,4 @@
-use crate::utils::copy_cstr_into_wasm;
+use crate::utils::{copy_cstr_into_wasm, get_cstr_path};
 use crate::varargs::VarArgs;
 use libc::mkdir;
 use libc::open;
@@ -19,9 +19,15 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     #[cfg(not(feature = "debug"))]
     let _ = which;
     let pathname_addr = varargs.get_str(ctx);
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
     let flags: i32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
-    let path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
+    let path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
     match path_str {
         "/dev/urandom" => {
             // create a fake urandom file for windows, super hacky
@@ -47,7 +53,7 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
             fd
         }
         _ => {
-            let fd = unsafe { open(pathname_addr, flags, mode) };
+            let fd = unsafe { open(real_path, flags, mode) };
             debug!(
                 "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
                 path_str, flags, mode, fd, path_str
@@ -95,7 +101,13 @@ pub fn ___syscall39(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int 
     #[cfg(not(feature = "debug"))]
     let _ = which;
     let pathname_addr = varargs.get_str(ctx);
-    unsafe { mkdir(pathname_addr) }
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
+    unsafe { mkdir(real_path) }
 }
 
 /// dup
@@ -246,6 +258,12 @@ pub fn ___syscall122(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
 /// lstat64
 pub fn ___syscall196(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) - stub");
+    -1
+}
+
+// getdents
+pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall220");
     -1
 }
 

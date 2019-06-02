@@ -6,6 +6,7 @@
 #[macro_use]
 mod _common;
 mod create_dir;
+mod envvar;
 mod file_metadata;
 mod fs_sandbox_test;
 mod hello;

@@ -51,6 +51,7 @@ test:
 	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend --exclude wasmer-wasi -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
+	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
 	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
 	cargo test --manifest-path lib/runtime/Cargo.toml --features llvm
 	cargo build -p wasmer-runtime-c-api
