@@ -56,9 +56,9 @@ jobs:
     <<: *run_with_build_env_vars
     steps:
       - checkout
-#      - restore_cache:
-#          keys:
-#            - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - restore_cache:
+          keys:
+            - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
       - <<: *run_install_dependencies
       - run:
           name: Tests
