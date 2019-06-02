@@ -472,7 +472,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
     fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
         match event {
-            Event::Internal(InternalEvent::FunctionBegin(_)) | Event::Internal(InternalEvent::FunctionEnd) => {
+            Event::Internal(InternalEvent::FunctionBegin(_))
+            | Event::Internal(InternalEvent::FunctionEnd) => {
                 return Ok(());
             }
             _ => {}
@@ -533,13 +534,17 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                             .as_basic_value_enum();
                         builder.build_call(
                             intrinsics.breakpoint,
-                            &[ctx.basic(), ptr_const, intrinsics
-                            .i32_ty
-                            .const_int((breakpoints.len() - 1) as u64, false)
-                            .as_basic_value_enum()],
+                            &[
+                                ctx.basic(),
+                                ptr_const,
+                                intrinsics
+                                    .i32_ty
+                                    .const_int((breakpoints.len() - 1) as u64, false)
+                                    .as_basic_value_enum(),
+                            ],
                             &state.var_name(),
                         );
-                    },
+                    }
                     InternalEvent::GetInternal(index) => {
                         let ptr = ctx.internal_pointer(index as usize, intrinsics);
                         let value = builder.build_load(ptr, "internal_value");
@@ -2678,7 +2683,8 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         // self.module.print_to_stderr();
 
-        let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics.take().unwrap(), breakpoints);
+        let (backend, cache_gen) =
+            LLVMBackend::new(self.module, self.intrinsics.take().unwrap(), breakpoints);
         Ok((backend, Box::new(cache_gen)))
     }
 
@@ -2711,7 +2717,9 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     }
 
     unsafe fn from_cache(_artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        Err(CacheError::Unknown("caching is broken for LLVM backend".into()))
+        Err(CacheError::Unknown(
+            "caching is broken for LLVM backend".into(),
+        ))
         /*
         let (info, _, memory) = artifact.consume();
         let (backend, cache_gen) =

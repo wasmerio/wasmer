@@ -16,9 +16,7 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend:llvm")]
-use wasmer_llvm_backend::{
-    code::LLVMModuleCodeGenerator,
-};
+use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
     error::RuntimeError,
@@ -361,15 +359,16 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
         #[cfg(feature = "backend:llvm")]
         Backend::LLVM => {
-            let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> = StreamingCompiler::new(|| {
-                let mut chain = MiddlewareChain::new();
-                if let Some(limit) = options.instruction_limit {
-                    chain.push(Metering::new(limit));
-                }
-                chain
-            });
+            let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> =
+                StreamingCompiler::new(|| {
+                    let mut chain = MiddlewareChain::new();
+                    if let Some(limit) = options.instruction_limit {
+                        chain.push(Metering::new(limit));
+                    }
+                    chain
+                });
             Box::new(c)
-        },
+        }
         #[cfg(not(feature = "backend:llvm"))]
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
@@ -558,11 +557,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map(|arg| arg.as_str())
                 .map(|x| Value::I32(x.parse().unwrap()))
                 .collect();
-            println!("{:?}", instance
-                .dyn_func("main")
-                .map_err(|e| format!("{:?}", e))?
-                .call(&args)
-                .map_err(|e| format!("{:?}", e))?);
+            println!(
+                "{:?}",
+                instance
+                    .dyn_func("main")
+                    .map_err(|e| format!("{:?}", e))?
+                    .call(&args)
+                    .map_err(|e| format!("{:?}", e))?
+            );
         }
     }
 

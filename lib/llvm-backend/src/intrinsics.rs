@@ -252,7 +252,10 @@ impl Intrinsics {
 
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
 
-        let ret_i32_take_ctx_i64_i32 = i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i64_ty_basic, i32_ty_basic], false);
+        let ret_i32_take_ctx_i64_i32 = i32_ty.fn_type(
+            &[ctx_ptr_ty.as_basic_type_enum(), i64_ty_basic, i32_ty_basic],
+            false,
+        );
 
         Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
@@ -386,11 +389,7 @@ impl Intrinsics {
                 ret_i32_take_ctx_i32,
                 None,
             ),
-            breakpoint: module.add_function(
-                "vm.breakpoint",
-                ret_i32_take_ctx_i64_i32,
-                None,
-            ),
+            breakpoint: module.add_function("vm.breakpoint", ret_i32_take_ctx_i64_i32, None),
             throw_trap: module.add_function(
                 "vm.exception.trap",
                 void_ty.fn_type(&[i32_ty_basic], false),
@@ -706,15 +705,11 @@ impl<'a> CtxType<'a> {
                     "internals_array_ptr_ptr",
                 )
             };
-            let array_ptr = cache_builder.build_load(array_ptr_ptr, "internals_array_ptr").into_pointer_value();
+            let array_ptr = cache_builder
+                .build_load(array_ptr_ptr, "internals_array_ptr")
+                .into_pointer_value();
             let const_index = intrinsics.i32_ty.const_int(index as u64, false);
-            unsafe {
-                cache_builder.build_in_bounds_gep(
-                    array_ptr,
-                    &[const_index],
-                    "element_ptr",
-                )
-            }
+            unsafe { cache_builder.build_in_bounds_gep(array_ptr, &[const_index], "element_ptr") }
         })
     }
 
