@@ -113,26 +113,44 @@ pub fn set_points_used(_instance: &mut Instance, _value: u64) {
 mod tests {
     use super::*;
     use wabt::wat2wasm;
-    use wasmer_runtime_core::{
-        backend::{Compiler, CompilerConfig},
-        compile_with_config, imports, Func,
-    };
+
+    use wasmer_runtime_core::{backend::Compiler, compile_with, imports, Func};
 
     #[cfg(feature = "llvm")]
-    fn get_compiler() -> impl Compiler {
-        use wasmer_llvm_backend::LLVMCompiler;
-        LLVMCompiler::new()
+    fn get_compiler(limit: u64) -> impl Compiler {
+        use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
+        use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
+        let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> =
+            StreamingCompiler::new(move || {
+                let mut chain = MiddlewareChain::new();
+                chain.push(Metering::new(limit));
+                chain
+            });
+        c
     }
 
     #[cfg(feature = "singlepass")]
-    fn get_compiler() -> impl Compiler {
-        use wasmer_singlepass_backend::SinglePassCompiler;
-        SinglePassCompiler::new()
+    fn get_compiler(limit: u64) -> impl Compiler {
+        use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
+        use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
+        let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(move || {
+            let mut chain = MiddlewareChain::new();
+            chain.push(Metering::new(limit));
+            chain
+        });
+        c
     }
 
     #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
-    fn get_compiler() -> impl Compiler {
+    fn get_compiler(_limit: u64) -> impl Compiler {
         panic!("compiler not specified, activate a compiler via features");
+        use wasmer_clif_backend::CraneliftCompiler;
+        CraneliftCompiler::new()
+    }
+
+    #[cfg(feature = "clif")]
+    fn get_compiler(_limit: u64) -> impl Compiler {
+        panic!("cranelift does not implement metering");
         use wasmer_clif_backend::CraneliftCompiler;
         CraneliftCompiler::new()
     }
@@ -202,15 +220,7 @@ mod tests {
 
         let limit = 100u64;
 
-        let module = compile_with_config(
-            &wasm_binary,
-            &get_compiler(),
-            CompilerConfig {
-                points_limit: Some(limit),
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        let module = compile_with(&wasm_binary, &get_compiler(limit)).unwrap();
 
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
@@ -233,15 +243,7 @@ mod tests {
 
         let limit = 100u64;
 
-        let module = compile_with_config(
-            &wasm_binary,
-            &get_compiler(),
-            CompilerConfig {
-                points_limit: Some(limit),
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        let module = compile_with(&wasm_binary, &get_compiler(limit)).unwrap();
 
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
