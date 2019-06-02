@@ -19,7 +19,6 @@ use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_llvm_backend::{
     code::LLVMModuleCodeGenerator,
 };
-use wasmer_middleware_common::metering::Metering;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
     error::RuntimeError,
@@ -105,6 +104,10 @@ struct Run {
     /// Map a host directory to a different location for the wasm module
     #[structopt(long = "mapdir", multiple = true)]
     mapped_dirs: Vec<String>,
+
+    /// Pass custom environment variables
+    #[structopt(long = "env", multiple = true)]
+    env_vars: Vec<String>,
 
     /// Custom code loader
     #[structopt(
@@ -231,6 +234,47 @@ fn get_cache_dir() -> PathBuf {
     }
 }
 
+fn get_mapped_dirs(input: &[String]) -> Result<Vec<(String, PathBuf)>, String> {
+    let mut md = vec![];
+    for entry in input.iter() {
+        if let [alias, real_dir] = entry.split(':').collect::<Vec<&str>>()[..] {
+            let pb = PathBuf::from(&real_dir);
+            if let Ok(pb_metadata) = pb.metadata() {
+                if !pb_metadata.is_dir() {
+                    return Err(format!(
+                        "\"{}\" exists, but it is not a directory",
+                        &real_dir
+                    ));
+                }
+            } else {
+                return Err(format!("Directory \"{}\" does not exist", &real_dir));
+            }
+            md.push((alias.to_string(), pb));
+            continue;
+        }
+        return Err(format!(
+            "Directory mappings must consist of two paths separate by a colon. Found {}",
+            &entry
+        ));
+    }
+    Ok(md)
+}
+
+fn get_env_var_args(input: &[String]) -> Result<Vec<(&str, &str)>, String> {
+    let mut ev = vec![];
+    for entry in input.iter() {
+        if let [env_var, value] = entry.split('=').collect::<Vec<&str>>()[..] {
+            ev.push((env_var, value));
+        } else {
+            return Err(format!(
+                "Env vars must be of the form <var_name>=<value>. Found {}",
+                &entry
+            ));
+        }
+    }
+    Ok(ev)
+}
+
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
     // force disable caching on windows
@@ -239,31 +283,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     let disable_cache = options.disable_cache;
 
-    let mapped_dirs = {
-        let mut md = vec![];
-        for entry in options.mapped_dirs.iter() {
-            if let &[alias, real_dir] = &entry.split(':').collect::<Vec<&str>>()[..] {
-                let pb = PathBuf::from(&real_dir);
-                if let Ok(pb_metadata) = pb.metadata() {
-                    if !pb_metadata.is_dir() {
-                        return Err(format!(
-                            "\"{}\" exists, but it is not a directory",
-                            &real_dir
-                        ));
-                    }
-                } else {
-                    return Err(format!("Directory \"{}\" does not exist", &real_dir));
-                }
-                md.push((alias.to_string(), pb));
-                continue;
-            }
-            return Err(format!(
-                "Directory mappings must consist of two paths separate by a colon. Found {}",
-                &entry
-            ));
-        }
-        md
-    };
+    let mapped_dirs = get_mapped_dirs(&options.mapped_dirs[..])?;
+    let env_vars = get_env_var_args(&options.env_vars[..])?;
     let wasm_path = &options.path;
 
     let mut wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
@@ -290,9 +311,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             let num_str = if let Some(ns) = split.next() {
                 ns
             } else {
-                return Err(format!(
+                return Err(
                     "Can't parse symbol map (expected each entry to be of the form: `0:func_name`)"
-                ));
+                        .to_string(),
+                );
             };
             let num: u32 = num_str.parse::<u32>().map_err(|err| {
                 format!(
@@ -303,9 +325,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             let name_str: String = if let Some(name_str) = split.next() {
                 name_str
             } else {
-                return Err(format!(
+                return Err(
                     "Can't parse symbol map (expected each entry to be of the form: `0:func_name`)"
-                ));
+                        .to_string(),
+                );
             }
             .to_owned();
 
@@ -401,7 +424,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         // cache.load will return the Module if it's able to deserialize it properly, and an error if:
         // * The file is not found
         // * The file exists, but it's corrupted or can't be converted to a module
-        let module = match cache.load(hash) {
+        match cache.load(hash) {
             Ok(module) => {
                 // We are able to load the module from cache
                 module
@@ -421,8 +444,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
                 module
             }
-        };
-        module
+        }
     };
 
     if let Some(loader) = options.loader {
@@ -497,7 +519,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .cloned()
                 .map(|arg| arg.into_bytes())
                 .collect(),
-                env::vars()
+                env_vars
+                    .into_iter()
                     .map(|(k, v)| format!("{}={}", k, v).into_bytes())
                     .collect(),
                 options.pre_opened_directories.clone(),

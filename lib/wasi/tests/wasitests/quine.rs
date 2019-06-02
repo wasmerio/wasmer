@@ -4,6 +4,7 @@ fn test_quine() {
         "../../wasitests/quine.wasm",
         "quine",
         vec![],
+        vec![],
         "../../wasitests/quine.out"
     );
 }

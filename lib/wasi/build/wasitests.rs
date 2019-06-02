@@ -58,6 +58,8 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     let result = Command::new(&normalized_name)
         .output()
         .expect("Failed to execute native program");
+
+    std::fs::remove_file(&normalized_name).expect("could not delete executable");
     let wasm_out_name = format!("{}.wasm", &normalized_name);
 
     Command::new("rustc")
@@ -76,25 +78,31 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     };
 
     let src_code = fs::read_to_string(file).expect("read src file");
-    let args = extract_args_from_source_file(&src_code);
+    let args = extract_args_from_source_file(&src_code).unwrap_or_default();
 
-    let mapdir_args = if let Some(a) = args {
-        if !a.mapdir.is_empty() {
-            let mut out_str = String::new();
-            out_str.push_str("vec![");
-            for (alias, real_dir) in a.mapdir {
-                out_str.push_str(&format!(
-                    "(\"{}\".to_string(), \"{}\".to_string()),",
-                    alias, real_dir
-                ));
-            }
-            out_str.push_str("]");
-            out_str
-        } else {
-            "vec![]".to_string()
+    let mapdir_args = {
+        let mut out_str = String::new();
+        out_str.push_str("vec![");
+        for (alias, real_dir) in args.mapdir {
+            out_str.push_str(&format!(
+                "(\"{}\".to_string(), \"{}\".to_string()),",
+                alias, real_dir
+            ));
         }
-    } else {
-        "vec![]".to_string()
+        out_str.push_str("]");
+        out_str
+    };
+
+    let envvar_args = {
+        let mut out_str = String::new();
+        out_str.push_str("vec![");
+
+        for entry in args.envvars {
+            out_str.push_str(&format!("\"{}={}\".to_string(),", entry.0, entry.1));
+        }
+
+        out_str.push_str("]");
+        out_str
     };
 
     let contents = format!(
@@ -104,6 +112,7 @@ fn test_{rs_module_name}() {{
         \"../../{module_path}\",
         \"{rs_module_name}\",
         {mapdir_args},
+        {envvar_args},
         \"../../{test_output_path}\"
     );
 }}
@@ -113,6 +122,7 @@ fn test_{rs_module_name}() {{
         rs_module_name = rs_module_name,
         test_output_path = format!("{}.out", normalized_name),
         mapdir_args = mapdir_args,
+        envvar_args = envvar_args
     );
     let rust_test_filepath = format!(
         concat!(env!("CARGO_MANIFEST_DIR"), "/tests/{}.rs"),
@@ -167,14 +177,16 @@ fn read_ignore_list() -> HashSet<String> {
         .collect()
 }
 
+#[derive(Debug, Default)]
 struct Args {
     pub mapdir: Vec<(String, String)>,
+    pub envvars: Vec<(String, String)>,
 }
 
 /// Pulls args to the program out of a comment at the top of the file starting with "// Args:"
 fn extract_args_from_source_file(source_code: &str) -> Option<Args> {
     if source_code.starts_with("// Args:") {
-        let mut args = Args { mapdir: vec![] };
+        let mut args = Args::default();
         for arg_line in source_code
             .lines()
             .skip(1)
@@ -194,6 +206,13 @@ fn extract_args_from_source_file(source_code: &str) -> Option<Args> {
                             "Parse error in mapdir {} not parsed correctly",
                             &tokenized[2]
                         );
+                    }
+                }
+                "env" => {
+                    if let [name, val] = &tokenized[2].split('=').collect::<Vec<&str>>()[..] {
+                        args.envvars.push((name.to_string(), val.to_string()));
+                    } else {
+                        eprintln!("Parse error in env {} not parsed correctly", &tokenized[2]);
                     }
                 }
                 e => {

@@ -1,5 +1,5 @@
 macro_rules! assert_wasi_output {
-    ($file:expr, $name:expr, $mapdir_args:expr, $expected:expr) => {{
+    ($file:expr, $name:expr, $mapdir_args:expr, $envvar_args:expr, $expected:expr) => {{
         use wasmer_dev_utils::stdio::StdioCapturer;
         use wasmer_runtime_core::{backend::Compiler, Func};
         use wasmer_wasi::generate_import_object;

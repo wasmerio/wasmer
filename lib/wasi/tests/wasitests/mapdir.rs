@@ -4,6 +4,7 @@ fn test_mapdir() {
         "../../wasitests/mapdir.wasm",
         "mapdir",
         vec![],
+        vec![],
         "../../wasitests/mapdir.out"
     );
 }

@@ -5,6 +5,7 @@ fn test_create_dir() {
         "../../wasitests/create_dir.wasm",
         "create_dir",
         vec![],
+        vec![],
         "../../wasitests/create_dir.out"
     );
 }
