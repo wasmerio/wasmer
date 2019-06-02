@@ -59,6 +59,8 @@ pub struct CompilerConfig {
     pub symbol_map: Option<HashMap<u32, String>>,
     pub memory_bound_check_mode: MemoryBoundCheckMode,
     pub enforce_stack_check: bool,
+    /// Enables metering functionality if set and used as default points limit during compilation
+    pub points_limit: Option<u64>,
 }
 
 pub trait Compiler {

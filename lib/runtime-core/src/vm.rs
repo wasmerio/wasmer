@@ -350,6 +350,16 @@ impl Ctx {
     pub fn dynamic_sigindice_count(&self) -> usize {
         unsafe { (*self.local_backing).dynamic_sigindices.len() }
     }
+
+    /// Returns the number of points used by a function call for metering
+    pub fn get_points_used(&self) -> u64 {
+        unimplemented!()
+    }
+
+    /// Sets the value of points used
+    pub fn set_points_used(&mut self, _value: u64) {
+        unimplemented!()
+    }
 }
 
 #[doc(hidden)]

@@ -9,3 +9,14 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.4.2" }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.4.2", optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.4.2", optional = true }
+
+[dev-dependencies]
+wabt = "0.7.4"
+
+[features]
+clif = []
+llvm = ["wasmer-llvm-backend"]
+singlepass = ["wasmer-singlepass-backend"]
