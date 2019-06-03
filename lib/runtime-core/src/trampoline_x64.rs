@@ -1,9 +1,9 @@
 //! Trampoline generator for carrying context with function pointer.
-//! 
+//!
 //! This makes use of the `mm0` register to pass the context as an implicit "parameter" because `mm0` is
 //! not used to pass parameters and is almost never used by modern compilers. It's still better to call
 //! `get_context()` as early as possible in the callee function though, as a good practice.
-//! 
+//!
 //! Variadic functions are not supported because `rax` is used by the trampoline code.
 
 use crate::loader::CodeMemory;
@@ -60,7 +60,11 @@ impl TrampolineBufferBuilder {
         }
     }
 
-    pub fn add_function(&mut self, target: *const CallTarget, context: *const CallContext) -> usize {
+    pub fn add_function(
+        &mut self,
+        target: *const CallTarget,
+        context: *const CallContext,
+    ) -> usize {
         let idx = self.offsets.len();
         self.offsets.push(self.code.len());
         self.code.extend_from_slice(&[
@@ -108,21 +112,19 @@ mod tests {
             value: i32,
         }
         extern "C" fn do_add(a: i32, b: f32) -> f32 {
-            let ctx = unsafe {
-                &*(get_context() as *const TestContext)
-            };
+            let ctx = unsafe { &*(get_context() as *const TestContext) };
             a as f32 + b + ctx.value as f32
         }
         let mut builder = TrampolineBufferBuilder::new();
-        let ctx = TestContext {
-            value: 3,
-        };
-        let idx = builder.add_function(do_add as usize as *const _, &ctx as *const TestContext as *const _);
+        let ctx = TestContext { value: 3 };
+        let idx = builder.add_function(
+            do_add as usize as *const _,
+            &ctx as *const TestContext as *const _,
+        );
         let buf = builder.build();
         let t = buf.get_trampoline(idx);
-        let ret = unsafe {
-            ::std::mem::transmute::<_, extern "C" fn (i32, f32) -> f32>(t)(1, 2.0) as i32
-        };
+        let ret =
+            unsafe { ::std::mem::transmute::<_, extern "C" fn(i32, f32) -> f32>(t)(1, 2.0) as i32 };
         assert_eq!(ret, 6);
     }
 }
