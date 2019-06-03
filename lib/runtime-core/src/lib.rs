@@ -9,6 +9,9 @@ extern crate field_offset;
 extern crate serde_derive;
 
 #[macro_use]
+extern crate lazy_static;
+
+#[macro_use]
 mod macros;
 #[doc(hidden)]
 pub mod backend;
@@ -35,6 +38,10 @@ pub mod units;
 pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
+#[cfg(all(unix, target_arch = "x86_64"))]
+pub mod trampoline_x64;
+#[cfg(all(unix, target_arch = "x86_64"))]
+pub use trampoline_x64 as trampoline;
 
 use self::error::CompileResult;
 #[doc(inline)]
