@@ -131,6 +131,18 @@ struct wasmer_serialized_module_t {
 
 };
 
+struct wasmer_trampoline_buffer_builder_t {
+
+};
+
+struct wasmer_trampoline_callable_t {
+
+};
+
+struct wasmer_trampoline_buffer_t {
+
+};
+
 extern "C" {
 
 /// Creates a new Module from the given wasm bytes.
@@ -457,6 +469,21 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
 /// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
+
+uintptr_t wasmer_trampoline_buffer_builder_add_function(wasmer_trampoline_buffer_builder_t *b,
+                                                        const wasmer_trampoline_callable_t *f,
+                                                        const void *ctx);
+
+wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *b);
+
+wasmer_trampoline_buffer_builder_t *wasmer_trampoline_buffer_builder_new();
+
+void wasmer_trampoline_buffer_destroy(wasmer_trampoline_buffer_t *b);
+
+const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(const wasmer_trampoline_buffer_t *b,
+                                                                            uintptr_t idx);
+
+void *wasmer_trampoline_get_context();
 
 /// Returns true for valid wasm bytes and false for invalid bytes
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);

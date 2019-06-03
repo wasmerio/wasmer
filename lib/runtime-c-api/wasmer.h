@@ -133,6 +133,18 @@ typedef struct {
 
 } wasmer_serialized_module_t;
 
+typedef struct {
+
+} wasmer_trampoline_buffer_builder_t;
+
+typedef struct {
+
+} wasmer_trampoline_callable_t;
+
+typedef struct {
+
+} wasmer_trampoline_buffer_t;
+
 /**
  * Creates a new Module from the given wasm bytes.
  * Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -583,6 +595,21 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
  * and `wasmer_last_error_message` to get an error message.
  */
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
+
+uintptr_t wasmer_trampoline_buffer_builder_add_function(wasmer_trampoline_buffer_builder_t *b,
+                                                        const wasmer_trampoline_callable_t *f,
+                                                        const void *ctx);
+
+wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *b);
+
+wasmer_trampoline_buffer_builder_t *wasmer_trampoline_buffer_builder_new(void);
+
+void wasmer_trampoline_buffer_destroy(wasmer_trampoline_buffer_t *b);
+
+const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(const wasmer_trampoline_buffer_t *b,
+                                                                            uintptr_t idx);
+
+void *wasmer_trampoline_get_context(void);
 
 /**
  * Returns true for valid wasm bytes and false for invalid bytes
