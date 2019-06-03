@@ -11,12 +11,14 @@ pub struct wasmer_trampoline_buffer_t;
 pub struct wasmer_trampoline_callable_t;
 
 #[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn wasmer_trampoline_buffer_builder_new() -> *mut wasmer_trampoline_buffer_builder_t
 {
     Box::into_raw(Box::new(TrampolineBufferBuilder::new())) as *mut _
 }
 
 #[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_function(
     b: *mut wasmer_trampoline_buffer_builder_t,
     f: *const wasmer_trampoline_callable_t,
@@ -27,6 +29,7 @@ pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_function(
 }
 
 #[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_build(
     b: *mut wasmer_trampoline_buffer_builder_t,
 ) -> *mut wasmer_trampoline_buffer_t {
@@ -35,11 +38,13 @@ pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_build(
 }
 
 #[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_trampoline_buffer_destroy(b: *mut wasmer_trampoline_buffer_t) {
     Box::from_raw(b);
 }
 
 #[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_trampoline_buffer_get_trampoline(
     b: *const wasmer_trampoline_buffer_t,
     idx: usize,
@@ -49,6 +54,7 @@ pub unsafe extern "C" fn wasmer_trampoline_buffer_get_trampoline(
 }
 
 #[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_trampoline_get_context() -> *mut c_void {
     get_context() as *const c_void as *mut c_void
 }
