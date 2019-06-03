@@ -8,6 +8,7 @@ extern crate field_offset;
 #[macro_use]
 extern crate serde_derive;
 
+#[allow(unused_imports)]
 #[macro_use]
 extern crate lazy_static;
 
