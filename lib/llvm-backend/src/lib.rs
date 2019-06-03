@@ -2,7 +2,7 @@
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
 mod backend;
-pub mod code;
+mod code;
 mod intrinsics;
 mod platform;
 mod read_info;

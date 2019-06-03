@@ -113,8 +113,6 @@ pub struct Intrinsics {
     pub memory_size_static_import: FunctionValue,
     pub memory_size_shared_import: FunctionValue,
 
-    pub breakpoint: FunctionValue,
-
     pub throw_trap: FunctionValue,
 
     pub ctx_ptr_ty: PointerType,
@@ -165,7 +163,6 @@ impl Intrinsics {
         let stack_lower_bound_ty = i8_ty;
         let memory_base_ty = i8_ty;
         let memory_bound_ty = void_ty;
-        let internals_ty = i64_ty;
         let local_function_ty = i8_ptr_ty;
 
         let anyfunc_ty = context.struct_type(
@@ -221,9 +218,6 @@ impl Intrinsics {
                 memory_bound_ty
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
-                internals_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
                 local_function_ty
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
@@ -251,11 +245,6 @@ impl Intrinsics {
             i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false);
 
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
-
-        let ret_i32_take_ctx_i64_i32 = i32_ty.fn_type(
-            &[ctx_ptr_ty.as_basic_type_enum(), i64_ty_basic, i32_ty_basic],
-            false,
-        );
 
         Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
@@ -389,7 +378,6 @@ impl Intrinsics {
                 ret_i32_take_ctx_i32,
                 None,
             ),
-            breakpoint: module.add_function("vm.breakpoint", ret_i32_take_ctx_i64_i32, None),
             throw_trap: module.add_function(
                 "vm.exception.trap",
                 void_ty.fn_type(&[i32_ty_basic], false),
@@ -440,7 +428,6 @@ pub struct CtxType<'a> {
     cached_tables: HashMap<TableIndex, TableCache>,
     cached_sigindices: HashMap<SigIndex, IntValue>,
     cached_globals: HashMap<GlobalIndex, GlobalCache>,
-    cached_internals: HashMap<usize, PointerValue>,
     cached_imported_functions: HashMap<ImportedFuncIndex, ImportedFuncCache>,
 
     _phantom: PhantomData<&'a FunctionValue>,
@@ -466,7 +453,6 @@ impl<'a> CtxType<'a> {
             cached_tables: HashMap::new(),
             cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
-            cached_internals: HashMap::new(),
             cached_imported_functions: HashMap::new(),
 
             _phantom: PhantomData,
@@ -687,29 +673,6 @@ impl<'a> CtxType<'a> {
             cache_builder
                 .build_load(sigindex_ptr, "sigindex")
                 .into_int_value()
-        })
-    }
-
-    pub fn internal_pointer(&mut self, index: usize, intrinsics: &Intrinsics) -> PointerValue {
-        let (cached_internals, ctx_ptr_value, _info, cache_builder) = (
-            &mut self.cached_internals,
-            self.ctx_ptr_value,
-            self.info,
-            &self.cache_builder,
-        );
-        *cached_internals.entry(index).or_insert_with(|| {
-            let array_ptr_ptr = unsafe {
-                cache_builder.build_struct_gep(
-                    ctx_ptr_value,
-                    offset_to_index(Ctx::offset_internals()),
-                    "internals_array_ptr_ptr",
-                )
-            };
-            let array_ptr = cache_builder
-                .build_load(array_ptr_ptr, "internals_array_ptr")
-                .into_pointer_value();
-            let const_index = intrinsics.i32_ty.const_int(index as u64, false);
-            unsafe { cache_builder.build_in_bounds_gep(array_ptr, &[const_index], "element_ptr") }
         })
     }
 
