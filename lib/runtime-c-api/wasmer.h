@@ -596,9 +596,14 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
  */
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
-uintptr_t wasmer_trampoline_buffer_builder_add_function(wasmer_trampoline_buffer_builder_t *b,
-                                                        const wasmer_trampoline_callable_t *f,
-                                                        const void *ctx);
+uintptr_t wasmer_trampoline_buffer_builder_add_callinfo_trampoline(wasmer_trampoline_buffer_builder_t *b,
+                                                                   const wasmer_trampoline_callable_t *f,
+                                                                   const void *ctx,
+                                                                   uint32_t num_params);
+
+uintptr_t wasmer_trampoline_buffer_builder_add_context_trampoline(wasmer_trampoline_buffer_builder_t *b,
+                                                                  const wasmer_trampoline_callable_t *f,
+                                                                  const void *ctx);
 
 wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *b);
 

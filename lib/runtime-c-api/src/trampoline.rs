@@ -19,13 +19,25 @@ pub extern "C" fn wasmer_trampoline_buffer_builder_new() -> *mut wasmer_trampoli
 
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
-pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_function(
+pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_context_trampoline(
     b: *mut wasmer_trampoline_buffer_builder_t,
     f: *const wasmer_trampoline_callable_t,
     ctx: *const c_void,
 ) -> usize {
     let b = &mut *(b as *mut TrampolineBufferBuilder);
-    b.add_function(f as *const CallTarget, ctx as *const CallContext)
+    b.add_context_trampoline(f as *const CallTarget, ctx as *const CallContext)
+}
+
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_callinfo_trampoline(
+    b: *mut wasmer_trampoline_buffer_builder_t,
+    f: *const wasmer_trampoline_callable_t,
+    ctx: *const c_void,
+    num_params: u32,
+) -> usize {
+    let b = &mut *(b as *mut TrampolineBufferBuilder);
+    b.add_callinfo_trampoline(::std::mem::transmute(f), ctx as *const CallContext, num_params)
 }
 
 #[no_mangle]
