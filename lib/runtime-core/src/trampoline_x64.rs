@@ -41,10 +41,7 @@ pub struct TrampolineBuffer {
 
 fn value_to_bytes<T: Copy>(ptr: &T) -> &[u8] {
     unsafe {
-        ::std::slice::from_raw_parts(
-            ptr as *const T as *const u8,
-            ::std::mem::size_of::<T>(),
-        )
+        ::std::slice::from_raw_parts(ptr as *const T as *const u8, ::std::mem::size_of::<T>())
     }
 }
 
@@ -86,7 +83,7 @@ impl TrampolineBufferBuilder {
 
     pub fn add_callinfo_trampoline(
         &mut self,
-        target: unsafe extern "C" fn (*const CallContext, *const u64) -> u64,
+        target: unsafe extern "C" fn(*const CallContext, *const u64) -> u64,
         context: *const CallContext,
         num_params: u32,
     ) -> usize {
@@ -98,9 +95,7 @@ impl TrampolineBufferBuilder {
             stack_offset += 8;
         }
 
-        self.code.extend_from_slice(&[
-            0x48, 0x81, 0xec,
-        ]); // sub ?, %rsp
+        self.code.extend_from_slice(&[0x48, 0x81, 0xec]); // sub ?, %rsp
         self.code.extend_from_slice(value_to_bytes(&stack_offset));
         for i in 0..num_params {
             match i {
@@ -122,13 +117,11 @@ impl TrampolineBufferBuilder {
                     self.code.extend_from_slice(&[
                         0x48, 0x8b, 0x84, 0x24, // mov ?(%rsp), %rax
                     ]);
-                    self.code.extend_from_slice(value_to_bytes(&(
-                        (i - 6) * 8u32 + stack_offset + 8 /* ret addr */
-                    )));
+                    self.code.extend_from_slice(value_to_bytes(
+                        &((i - 6) * 8u32 + stack_offset + 8/* ret addr */),
+                    ));
                     // mov %rax, ?(%rsp)
-                    self.code.extend_from_slice(&[
-                        0x48, 0x89, 0x84, 0x24,
-                    ]);
+                    self.code.extend_from_slice(&[0x48, 0x89, 0x84, 0x24]);
                     self.code.extend_from_slice(value_to_bytes(&(i * 8u32)));
                 }
             }
@@ -213,15 +206,15 @@ mod tests {
         }
         let mut builder = TrampolineBufferBuilder::new();
         let ctx = TestContext { value: 100 };
-        let idx = builder.add_callinfo_trampoline(
-            do_add,
-            &ctx as *const TestContext as *const _,
-            8,
-        );
+        let idx =
+            builder.add_callinfo_trampoline(do_add, &ctx as *const TestContext as *const _, 8);
         let buf = builder.build();
         let t = buf.get_trampoline(idx);
-        let ret =
-            unsafe { ::std::mem::transmute::<_, extern "C" fn(i32, i32, i32, i32, i32, i32, i32, i32) -> i32>(t)(1, 2, 3, 4, 5, 6, 7, 8) as i32 };
+        let ret = unsafe {
+            ::std::mem::transmute::<_, extern "C" fn(i32, i32, i32, i32, i32, i32, i32, i32) -> i32>(
+                t,
+            )(1, 2, 3, 4, 5, 6, 7, 8) as i32
+        };
         assert_eq!(ret, 136);
     }
 }
