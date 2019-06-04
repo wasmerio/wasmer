@@ -7,8 +7,12 @@
 //! Variadic functions are not supported because `rax` is used by the trampoline code.
 
 use crate::loader::CodeMemory;
+use std::{mem, slice};
 
 lazy_static! {
+    /// Reads the context pointer from `mm0`.
+    ///
+    /// This function generates code at runtime since `asm!` macro is not yet stable.
     static ref GET_CONTEXT: extern "C" fn () -> *const CallContext = {
         static CODE: &'static [u8] = &[
             0x48, 0x0f, 0x7e, 0xc0, // movq %mm0, %rax
@@ -18,33 +22,39 @@ lazy_static! {
         mem[..CODE.len()].copy_from_slice(CODE);
         mem.make_executable();
         let ptr = mem.as_ptr();
-        ::std::mem::forget(mem);
+        mem::forget(mem);
         unsafe {
-            ::std::mem::transmute(ptr)
+            mem::transmute(ptr)
         }
     };
 }
 
+/// An opaque type for pointers to a callable memory location.
 pub enum CallTarget {}
+
+/// An opaque type for context pointers.
 pub enum CallContext {}
+
+/// An opaque type for generated trampolines' call entries.
 pub enum Trampoline {}
 
+/// Trampoline Buffer Builder.
 pub struct TrampolineBufferBuilder {
     code: Vec<u8>,
     offsets: Vec<usize>,
 }
 
+/// Trampoline Buffer.
 pub struct TrampolineBuffer {
     code: CodeMemory,
     offsets: Vec<usize>,
 }
 
 fn value_to_bytes<T: Copy>(ptr: &T) -> &[u8] {
-    unsafe {
-        ::std::slice::from_raw_parts(ptr as *const T as *const u8, ::std::mem::size_of::<T>())
-    }
+    unsafe { slice::from_raw_parts(ptr as *const T as *const u8, mem::size_of::<T>()) }
 }
 
+/// Calls `GET_CONTEXT` and returns the current context.
 pub fn get_context() -> *const CallContext {
     GET_CONTEXT()
 }
@@ -57,6 +67,13 @@ impl TrampolineBufferBuilder {
         }
     }
 
+    /// Adds a context trampoline.
+    ///
+    /// This generates a transparent trampoline function that forwards any call to `target` with
+    /// unmodified params/returns. When called from the trampoline, `target` will have access to
+    /// the `context` specified here through `get_context()`.
+    ///
+    /// Note that since `rax` is overwritten internally, variadic functions are not supported as `target`.
     pub fn add_context_trampoline(
         &mut self,
         target: *const CallTarget,
@@ -81,6 +98,13 @@ impl TrampolineBufferBuilder {
         idx
     }
 
+    /// Adds a callinfo trampoline.
+    ///
+    /// This generates a trampoline function that collects `num_params` parameters into an array
+    /// and passes the array into `target` as the second argument when called. The first argument
+    /// of `target` is the `context` specified here.
+    ///
+    /// Note that non-integer parameters/variadic functions are not supported.
     pub fn add_callinfo_trampoline(
         &mut self,
         target: unsafe extern "C" fn(*const CallContext, *const u64) -> u64,
@@ -151,6 +175,7 @@ impl TrampolineBufferBuilder {
         idx
     }
 
+    /// Consumes the builder and builds the trampoline buffer.
     pub fn build(self) -> TrampolineBuffer {
         get_context(); // ensure lazy initialization is completed
 
@@ -165,6 +190,7 @@ impl TrampolineBufferBuilder {
 }
 
 impl TrampolineBuffer {
+    /// Returns the trampoline pointer at index `idx`.
     pub fn get_trampoline(&self, idx: usize) -> *const Trampoline {
         &self.code[self.offsets[idx]] as *const u8 as *const Trampoline
     }
@@ -190,8 +216,7 @@ mod tests {
         );
         let buf = builder.build();
         let t = buf.get_trampoline(idx);
-        let ret =
-            unsafe { ::std::mem::transmute::<_, extern "C" fn(i32, f32) -> f32>(t)(1, 2.0) as i32 };
+        let ret = unsafe { mem::transmute::<_, extern "C" fn(i32, f32) -> f32>(t)(1, 2.0) as i32 };
         assert_eq!(ret, 6);
     }
     #[test]
@@ -201,7 +226,7 @@ mod tests {
         }
         unsafe extern "C" fn do_add(ctx: *const CallContext, args: *const u64) -> u64 {
             let ctx = &*(ctx as *const TestContext);
-            let args: &[u64] = ::std::slice::from_raw_parts(args, 8);
+            let args: &[u64] = slice::from_raw_parts(args, 8);
             (args.iter().map(|x| *x as i32).fold(0, |a, b| a + b) + ctx.value) as u64
         }
         let mut builder = TrampolineBufferBuilder::new();
@@ -211,9 +236,9 @@ mod tests {
         let buf = builder.build();
         let t = buf.get_trampoline(idx);
         let ret = unsafe {
-            ::std::mem::transmute::<_, extern "C" fn(i32, i32, i32, i32, i32, i32, i32, i32) -> i32>(
-                t,
-            )(1, 2, 3, 4, 5, 6, 7, 8) as i32
+            mem::transmute::<_, extern "C" fn(i32, i32, i32, i32, i32, i32, i32, i32) -> i32>(t)(
+                1, 2, 3, 4, 5, 6, 7, 8,
+            ) as i32
         };
         assert_eq!(ret, 136);
     }
