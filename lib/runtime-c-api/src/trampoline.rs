@@ -37,7 +37,11 @@ pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_callinfo_trampolin
     num_params: u32,
 ) -> usize {
     let b = &mut *(b as *mut TrampolineBufferBuilder);
-    b.add_callinfo_trampoline(::std::mem::transmute(f), ctx as *const CallContext, num_params)
+    b.add_callinfo_trampoline(
+        ::std::mem::transmute(f),
+        ctx as *const CallContext,
+        num_params,
+    )
 }
 
 #[no_mangle]
