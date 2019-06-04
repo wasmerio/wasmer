@@ -112,13 +112,13 @@ impl FunctionMiddleware for Metering {
 }
 
 /// Returns the number of points used by a function call for metering
-pub fn get_points_used(_instance: &Instance) -> u64 {
-    unimplemented!()
+pub fn get_points_used(instance: &Instance) -> u64 {
+    instance.get_internal(&INTERNAL_FIELD)
 }
 
 /// Sets the value of points used
-pub fn set_points_used(_instance: &mut Instance, _value: u64) {
-    unimplemented!()
+pub fn set_points_used(instance: &mut Instance, value: u64) {
+    instance.set_internal(&INTERNAL_FIELD, value);
 }
 
 #[cfg(all(test, feature = "singlepass"))]
@@ -246,7 +246,7 @@ mod tests {
         assert_eq!(value, 7);
 
         // verify is uses the correct number of points
-        assert_eq!(get_points_used(&instance), 42); // TODO need to update assertion to actual points used.
+        assert_eq!(get_points_used(&instance), 74);
     }
 
     #[test]
@@ -269,8 +269,7 @@ mod tests {
         assert_eq!(result.is_err(), true); // TODO assert that the trap is caused by PointsExausted
 
         // verify is uses the correct number of points
-        assert_eq!(get_points_used(&instance), 99); // TODO need to update assertion to actual points used.
-                                                    // TODO should points used be close to limit or at limit when trapping
+        assert_eq!(get_points_used(&instance), 109); // Used points will be slightly more than `limit` because of the way we do gas checking.
     }
 
 }
