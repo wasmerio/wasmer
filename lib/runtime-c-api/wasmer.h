@@ -596,24 +596,45 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
  */
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
-uintptr_t wasmer_trampoline_buffer_builder_add_callinfo_trampoline(wasmer_trampoline_buffer_builder_t *b,
-                                                                   const wasmer_trampoline_callable_t *f,
+/**
+ * Adds a callinfo trampoline to the builder.
+ */
+uintptr_t wasmer_trampoline_buffer_builder_add_callinfo_trampoline(wasmer_trampoline_buffer_builder_t *builder,
+                                                                   const wasmer_trampoline_callable_t *func,
                                                                    const void *ctx,
                                                                    uint32_t num_params);
 
-uintptr_t wasmer_trampoline_buffer_builder_add_context_trampoline(wasmer_trampoline_buffer_builder_t *b,
-                                                                  const wasmer_trampoline_callable_t *f,
+/**
+ * Adds a context trampoline to the builder.
+ */
+uintptr_t wasmer_trampoline_buffer_builder_add_context_trampoline(wasmer_trampoline_buffer_builder_t *builder,
+                                                                  const wasmer_trampoline_callable_t *func,
                                                                   const void *ctx);
 
-wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *b);
+/**
+ * Finalizes the trampoline builder into an executable buffer.
+ */
+wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *builder);
 
+/**
+ * Creates a new trampoline builder.
+ */
 wasmer_trampoline_buffer_builder_t *wasmer_trampoline_buffer_builder_new(void);
 
-void wasmer_trampoline_buffer_destroy(wasmer_trampoline_buffer_t *b);
+/**
+ * Destroys the trampoline buffer if not null.
+ */
+void wasmer_trampoline_buffer_destroy(wasmer_trampoline_buffer_t *buffer);
 
-const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(const wasmer_trampoline_buffer_t *b,
+/**
+ * Returns the callable pointer for the trampoline with index `idx`.
+ */
+const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(const wasmer_trampoline_buffer_t *buffer,
                                                                             uintptr_t idx);
 
+/**
+ * Returns the context added by `add_context_trampoline`, from within the callee function.
+ */
 void *wasmer_trampoline_get_context(void);
 
 /**
