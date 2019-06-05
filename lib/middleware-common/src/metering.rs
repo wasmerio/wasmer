@@ -34,6 +34,9 @@ impl Metering {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct ExecutionLimitExceededError;
+
 impl FunctionMiddleware for Metering {
     type Error = String;
     fn feed_event<'a, 'b: 'a>(
@@ -93,9 +96,8 @@ impl FunctionMiddleware for Metering {
                         }));
                         sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
                             move |ctx| {
-                                eprintln!("execution limit reached");
                                 unsafe {
-                                    (ctx.throw)();
+                                    (ctx.throw)(Box::new(ExecutionLimitExceededError));
                                 }
                             },
                         ))));
@@ -251,6 +253,7 @@ mod tests {
 
     #[test]
     fn test_traps_after_costly_call() {
+        use wasmer_runtime_core::error::RuntimeError;
         let wasm_binary = wat2wasm(WAT).unwrap();
 
         let limit = 100u64;
@@ -265,8 +268,13 @@ mod tests {
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
         let result = add_to.call(10_000_000, 4);
 
-        // verify it errors
-        assert_eq!(result.is_err(), true); // TODO assert that the trap is caused by PointsExausted
+        let err = result.unwrap_err();
+        match err {
+            RuntimeError::Error { data } => {
+                assert!(data.downcast_ref::<ExecutionLimitExceededError>().is_some());
+            },
+            _ => unreachable!(),
+        }
 
         // verify is uses the correct number of points
         assert_eq!(get_points_used(&instance), 109); // Used points will be slightly more than `limit` because of the way we do gas checking.

@@ -33,6 +33,7 @@ use wasmer_runtime_core::{
 use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
+use wasmer_middleware_common::metering::Metering;
 
 // stub module to make conditional compilation happy
 #[cfg(not(feature = "wasi"))]

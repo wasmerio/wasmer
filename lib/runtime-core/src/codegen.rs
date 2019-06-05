@@ -8,6 +8,7 @@ use crate::{
     types::{FuncIndex, FuncSig, SigIndex},
 };
 use smallvec::SmallVec;
+use std::any::Any;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -43,7 +44,7 @@ impl fmt::Debug for InternalEvent {
 }
 
 pub struct BkptInfo {
-    pub throw: unsafe extern "C" fn() -> !,
+    pub throw: unsafe fn(Box<dyn Any>) -> !,
 }
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {
