@@ -95,10 +95,8 @@ impl FunctionMiddleware for Metering {
                             ty: WpType::EmptyBlockType,
                         }));
                         sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
-                            move |ctx| {
-                                unsafe {
-                                    (ctx.throw)(Box::new(ExecutionLimitExceededError));
-                                }
+                            move |ctx| unsafe {
+                                (ctx.throw)(Box::new(ExecutionLimitExceededError));
                             },
                         ))));
                         sink.push(Event::WasmOwned(Operator::End));
@@ -272,7 +270,7 @@ mod tests {
         match err {
             RuntimeError::Error { data } => {
                 assert!(data.downcast_ref::<ExecutionLimitExceededError>().is_some());
-            },
+            }
             _ => unreachable!(),
         }
 

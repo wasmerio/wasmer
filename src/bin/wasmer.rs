@@ -17,6 +17,7 @@ use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend:llvm")]
 use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
+use wasmer_middleware_common::metering::Metering;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
     error::RuntimeError,
@@ -33,7 +34,6 @@ use wasmer_runtime_core::{
 use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
-use wasmer_middleware_common::metering::Metering;
 
 // stub module to make conditional compilation happy
 #[cfg(not(feature = "wasi"))]
