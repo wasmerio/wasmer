@@ -18,11 +18,14 @@ struct print_str_context {
     int call_count;
 };
 
-void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
+void print_str(struct print_str_context *local_context, uint64_t *args)
 {
-    struct print_str_context *local_context = wasmer_trampoline_get_context();
     local_context->call_count++;
 
+    wasmer_instance_context_t *ctx = (void *) args[0];
+    int32_t ptr = args[1];
+    int32_t len = args[2];
+    
     const wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
     uint32_t mem_len = wasmer_memory_length(memory);
     uint8_t *mem_bytes = wasmer_memory_data(memory);
@@ -49,10 +52,11 @@ int main()
 
     printf("Creating trampoline buffer\n");
     wasmer_trampoline_buffer_builder_t *tbb = wasmer_trampoline_buffer_builder_new();
-    unsigned long print_str_idx = wasmer_trampoline_buffer_builder_add_context_trampoline(
+    unsigned long print_str_idx = wasmer_trampoline_buffer_builder_add_callinfo_trampoline(
         tbb,
         (wasmer_trampoline_callable_t *) print_str,
-        (void *) &local_context
+        (void *) &local_context,
+        3
     );
     wasmer_trampoline_buffer_t *tb = wasmer_trampoline_buffer_builder_build(tbb);
     const wasmer_trampoline_callable_t *print_str_callable = wasmer_trampoline_buffer_get_trampoline(tb, print_str_idx);
