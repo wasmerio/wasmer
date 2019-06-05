@@ -17,7 +17,6 @@ use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend:llvm")]
 use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
-use wasmer_middleware_common::metering::Metering;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
     error::RuntimeError,
@@ -348,6 +347,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         Backend::Singlepass => {
             let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(|| {
                 let mut chain = MiddlewareChain::new();
+                use wasmer_middleware_common::metering::Metering;
                 if let Some(limit) = options.instruction_limit {
                     chain.push(Metering::new(limit));
                 }
@@ -363,6 +363,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> =
                 StreamingCompiler::new(|| {
                     let mut chain = MiddlewareChain::new();
+                    use wasmer_middleware_common::metering::Metering;
                     if let Some(limit) = options.instruction_limit {
                         chain.push(Metering::new(limit));
                     }
