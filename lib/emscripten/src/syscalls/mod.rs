@@ -436,13 +436,13 @@ pub fn ___syscall191(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         _resource
     );
     let rlim_emptr: i32 = varargs.get(ctx);
-    let rlim = emscripten_memory_pointer!(ctx.memory(0), rlim_emptr) as *mut i64;
+    let rlim_ptr = emscripten_memory_pointer!(ctx.memory(0), rlim_emptr) as *mut u8;
+    let rlim = unsafe { slice::from_raw_parts_mut(rlim_ptr, 16) };
 
-    // set all to infinity
-    unsafe {
-        *(rlim.add(0)) = -1;
-        *(rlim.add(1)) = -1;
-    }
+    // set all to RLIM_INIFINTY
+    LittleEndian::write_i64(&mut rlim[..], -1);
+    LittleEndian::write_i64(&mut rlim[8..], -1);
+
     0
 }
 
