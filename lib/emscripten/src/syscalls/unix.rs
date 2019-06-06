@@ -610,15 +610,24 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // recvfrom (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
             let socket = socket_varargs.get(ctx);
             let buf: u32 = socket_varargs.get(ctx);
-            let flags = socket_varargs.get(ctx);
             let len: i32 = socket_varargs.get(ctx);
+            let flags: i32 = socket_varargs.get(ctx);
             let address: u32 = socket_varargs.get(ctx);
             let address_len: u32 = socket_varargs.get(ctx);
             let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             let address_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
-            unsafe { recvfrom(socket, buf_addr, flags, len, address, address_len_addr) as i32 }
+            unsafe {
+                recvfrom(
+                    socket,
+                    buf_addr,
+                    len as usize,
+                    flags,
+                    address,
+                    address_len_addr,
+                ) as i32
+            }
         }
         14 => {
             debug!("socket: setsockopt");
@@ -764,7 +773,10 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let exceptfds: u32 = varargs.get(ctx);
     let _timeout: i32 = varargs.get(ctx);
 
-    assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
+    if nfds > 1024 {
+        // EINVAL
+        return -22;
+    }
     assert!(exceptfds == 0, "`exceptfds` is not supporrted");
 
     let readfds_ptr = emscripten_memory_pointer!(ctx.memory(0), readfds) as _;
