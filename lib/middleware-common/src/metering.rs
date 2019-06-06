@@ -1,7 +1,7 @@
 use wasmer_runtime_core::{
     codegen::{Event, EventSink, FunctionMiddleware, InternalEvent},
     module::ModuleInfo,
-    vm::InternalField,
+    vm::{Ctx, InternalField},
     wasmparser::{Operator, Type as WpType},
     Instance,
 };
@@ -111,14 +111,24 @@ impl FunctionMiddleware for Metering {
     }
 }
 
-/// Returns the number of points used by a function call for metering
+/// Returns the number of points used by an Instance.
 pub fn get_points_used(instance: &Instance) -> u64 {
     instance.get_internal(&INTERNAL_FIELD)
 }
 
-/// Sets the value of points used
+/// Sets the number of points used by an Instance.
 pub fn set_points_used(instance: &mut Instance, value: u64) {
     instance.set_internal(&INTERNAL_FIELD, value);
+}
+
+/// Returns the number of points used in a Ctx.
+pub fn get_points_used_ctx(ctx: &Ctx) -> u64 {
+    ctx.get_internal(&INTERNAL_FIELD)
+}
+
+/// Sets the number of points used in a Ctx.
+pub fn set_points_used_ctx(ctx: &mut Ctx, value: u64) {
+    ctx.set_internal(&INTERNAL_FIELD, value);
 }
 
 #[cfg(all(test, feature = "singlepass"))]

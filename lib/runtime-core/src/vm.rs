@@ -350,6 +350,18 @@ impl Ctx {
     pub fn dynamic_sigindice_count(&self) -> usize {
         unsafe { (*self.local_backing).dynamic_sigindices.len() }
     }
+
+    /// Returns the value of the specified internal field.
+    pub fn get_internal(&self, field: &InternalField) -> u64 {
+        unsafe { (*self.internal.internals)[field.index()] }
+    }
+
+    /// Writes the value to the specified internal field.
+    pub fn set_internal(&mut self, field: &InternalField, value: u64) {
+        unsafe {
+            (*self.internal.internals)[field.index()] = value;
+        }
+    }
 }
 
 #[doc(hidden)]
