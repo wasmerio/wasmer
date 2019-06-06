@@ -95,6 +95,8 @@ pub mod instance;
 pub mod memory;
 pub mod module;
 pub mod table;
+#[cfg(all(unix, target_arch = "x86_64"))]
+pub mod trampoline;
 pub mod value;
 
 #[allow(non_camel_case_types)]
