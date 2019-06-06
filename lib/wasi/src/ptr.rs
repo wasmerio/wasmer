@@ -60,22 +60,23 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         index: u32,
         length: u32,
     ) -> Result<&'a [Cell<T>], __wasi_errno_t> {
-        if (self.offset as usize) + (mem::size_of::<T>() * ((index + length) as usize))
-            >= memory.size().bytes().0
-        {
-            return Err(__WASI_EFAULT);
-        }
-
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
-        let base_idx = (self.offset as usize) / item_size;
+        let slice_full_len = index as usize + length as usize;
+
+        if (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0 {
+            return Err(__WASI_EFAULT);
+        }
+
         unsafe {
-            let cell_ptrs = memory
-                .view::<T>()
-                .get_unchecked(base_idx + (index as usize)..base_idx + ((index + length) as usize))
-                as *const _;
-            Ok(&*cell_ptrs)
+            let cell_ptr = align_pointer(
+                memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
+                mem::align_of::<T>(),
+            ) as *const Cell<T>;
+            let cell_ptrs = &std::slice::from_raw_parts(cell_ptr, slice_full_len)
+                [index as usize..length as usize];
+            Ok(cell_ptrs)
         }
     }
 }

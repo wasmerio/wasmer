@@ -57,22 +57,23 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
-        if (self.offset as usize) + (mem::size_of::<T>() * ((index + length) as usize))
-            >= memory.size().bytes().0
-        {
-            return None;
-        }
-
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
-        let base_idx = (self.offset as usize) / item_size;
+        let slice_full_len = index as usize + length as usize;
+
+        if (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0 {
+            return None;
+        }
+
         unsafe {
-            let cell_ptrs = memory
-                .view::<T>()
-                .get_unchecked(base_idx + (index as usize)..base_idx + ((index + length) as usize))
-                as *const _;
-            Some(&*cell_ptrs)
+            let cell_ptr = align_pointer(
+                memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
+                mem::align_of::<T>(),
+            ) as *const Cell<T>;
+            let cell_ptrs = &std::slice::from_raw_parts(cell_ptr, slice_full_len)
+                [index as usize..length as usize];
+            Some(cell_ptrs)
         }
     }
 }
