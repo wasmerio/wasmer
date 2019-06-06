@@ -1,4 +1,3 @@
-use crate::syscalls::types::{__wasi_errno_t, __WASI_EFAULT};
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 use wasmer_runtime_core::{
     memory::Memory,
@@ -7,6 +6,9 @@ use wasmer_runtime_core::{
 
 pub struct Array;
 pub struct Item;
+
+// TODO: before shipping, refactor this and the wasi code into a common crate
+// and wrap it when used in the context of wasi to return the proper error codes
 
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = Item> {
@@ -24,8 +26,8 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
     }
 
     #[inline]
-    pub fn offset(self) -> u32 {
-        self.offset
+    pub fn offset(self) -> i32 {
+        self.offset as i32
     }
 }
 
@@ -38,32 +40,27 @@ fn align_pointer(ptr: usize, align: usize) -> usize {
 
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Result<&'a Cell<T>, __wasi_errno_t> {
+    pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
         if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
-            return Err(__WASI_EFAULT);
+            return None;
         }
         unsafe {
             let cell_ptr = align_pointer(
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
                 mem::align_of::<T>(),
             ) as *const Cell<T>;
-            Ok(&*cell_ptr)
+            Some(&*cell_ptr)
         }
     }
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
     #[inline]
-    pub fn deref<'a>(
-        self,
-        memory: &'a Memory,
-        index: u32,
-        length: u32,
-    ) -> Result<&'a [Cell<T>], __wasi_errno_t> {
+    pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
         if (self.offset as usize) + (mem::size_of::<T>() * ((index + length) as usize))
             >= memory.size().bytes().0
         {
-            return Err(__WASI_EFAULT);
+            return None;
         }
 
         // gets the size of the item in the array with padding added such that
@@ -75,7 +72,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
                 .view::<T>()
                 .get_unchecked(base_idx + (index as usize)..base_idx + ((index + length) as usize))
                 as *const _;
-            Ok(&*cell_ptrs)
+            Some(&*cell_ptrs)
         }
     }
 }

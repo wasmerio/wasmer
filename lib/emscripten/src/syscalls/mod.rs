@@ -10,6 +10,7 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
+use crate::ptr::{Array, WasmPtr};
 use crate::utils::{copy_stat_into_wasm, get_cstr_path, get_current_directory};
 
 use super::varargs::VarArgs;
@@ -77,7 +78,7 @@ pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall4 (write) {}", _which);
     let fd: i32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
+    let buf: i32 = varargs.get(ctx);
     let count: i32 = varargs.get(ctx);
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
@@ -270,21 +271,18 @@ pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 // getcwd
 pub fn ___syscall183(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall183");
-    let buf_offset: c_int = varargs.get(ctx);
+    let buf_offset: WasmPtr<libc::c_char, Array> = varargs.get(ctx);
     let _size: c_int = varargs.get(ctx);
     let path = get_current_directory(ctx);
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
-    unsafe {
-        let pointer_to_buffer =
-            emscripten_memory_pointer!(ctx.memory(0), buf_offset) as *mut libc::c_char;
-        let slice = slice::from_raw_parts_mut(pointer_to_buffer, len.clone());
-        for (byte, loc) in path_string.bytes().zip(slice.iter_mut()) {
-            *loc = byte as _;
-        }
-        *pointer_to_buffer.add(len.clone()) = 0;
+
+    let buf_writer = buf_offset.deref(ctx.memory(0), 0, len as u32 + 1).unwrap();
+    for (i, byte) in path_string.bytes().enumerate() {
+        buf_writer[i].set(byte as i8);
     }
-    buf_offset
+    buf_writer[len].set(0);
+    buf_offset.offset()
 }
 
 // mmap2
