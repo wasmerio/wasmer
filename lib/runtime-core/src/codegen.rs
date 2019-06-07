@@ -8,6 +8,7 @@ use crate::{
     types::{FuncIndex, FuncSig, SigIndex},
 };
 use smallvec::SmallVec;
+use std::any::Any;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -19,6 +20,7 @@ use wasmparser::{Operator, Type as WpType};
 pub enum Event<'a, 'b> {
     Internal(InternalEvent),
     Wasm(&'b Operator<'a>),
+    WasmOwned(Operator<'a>),
 }
 
 pub enum InternalEvent {
@@ -41,7 +43,9 @@ impl fmt::Debug for InternalEvent {
     }
 }
 
-pub struct BkptInfo {}
+pub struct BkptInfo {
+    pub throw: unsafe fn(Box<dyn Any>) -> !,
+}
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {
     /// Creates a new module code generator.

@@ -48,18 +48,21 @@ do-install:
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend --exclude wasmer-wasi -- $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend --exclude wasmer-wasi --exclude wasmer-middleware-common -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
+	cargo test --manifest-path lib/middleware-common/Cargo.toml --features clif
 	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
 	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
 	cargo test --manifest-path lib/runtime/Cargo.toml --features llvm
+	cargo test --manifest-path lib/middleware-common/Cargo.toml --features llvm
 	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
 
 test-singlepass:
 	cargo test --manifest-path lib/spectests/Cargo.toml --features singlepass
 	cargo test --manifest-path lib/runtime/Cargo.toml --features singlepass
+	cargo test --manifest-path lib/middleware-common/Cargo.toml --features singlepass
 
 test-emscripten-llvm:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
