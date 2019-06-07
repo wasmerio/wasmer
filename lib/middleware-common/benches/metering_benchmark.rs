@@ -179,9 +179,8 @@ fn get_compiler(_limit: u64, metering: bool) -> impl Compiler {
 
 fn gas(ctx: &mut Ctx, gas_amount: u32) {
     use wasmer_middleware_common::metering;
-    // TODO read gas field
-    let used = 100;
-    let new = used + gas_amount;
+    let used = metering::get_points_used_ctx(ctx);
+    metering::set_points_used_ctx(ctx, used + u64::from(gas_amount));
     ()
 }
 
