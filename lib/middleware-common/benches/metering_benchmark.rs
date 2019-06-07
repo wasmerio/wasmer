@@ -196,7 +196,7 @@ fn bench_metering(c: &mut Criterion) {
             let import_object = imports! {};
             let mut instance = module.instantiate(&import_object).unwrap();
             let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
-            b.iter(|| add_to.call(100, 4).unwrap())
+            b.iter(|| black_box(add_to.call(100, 4)))
         })
         .with_function("Gas Metering", |b| {
             let compiler = get_compiler(0, false);
@@ -209,7 +209,7 @@ fn bench_metering(c: &mut Criterion) {
             };
             let mut gas_instance = gas_module.instantiate(&gas_import_object).unwrap();
             let gas_add_to: Func<(i32, i32), i32> = gas_instance.func("add_to").unwrap();
-            b.iter(|| gas_add_to.call(100, 4).unwrap())
+            b.iter(|| black_box(gas_add_to.call(100, 4)))
         })
         .with_function("Built-in Metering", |b| {
             let metering_compiler = get_compiler(std::u64::MAX, true);
@@ -221,7 +221,7 @@ fn bench_metering(c: &mut Criterion) {
                 .unwrap();
             metering::set_points_used(&mut metering_instance, 0u64);
             let metering_add_to: Func<(i32, i32), i32> = metering_instance.func("add_to").unwrap();
-            b.iter(|| metering_add_to.call(100, 4).unwrap())
+            b.iter(|| black_box(metering_add_to.call(100, 4)))
         }),
     );
 }
