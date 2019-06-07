@@ -131,6 +131,18 @@ struct wasmer_serialized_module_t {
 
 };
 
+struct wasmer_trampoline_buffer_builder_t {
+
+};
+
+struct wasmer_trampoline_callable_t {
+
+};
+
+struct wasmer_trampoline_buffer_t {
+
+};
+
 extern "C" {
 
 /// Creates a new Module from the given wasm bytes.
@@ -457,6 +469,33 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
 /// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
+
+/// Adds a callinfo trampoline to the builder.
+uintptr_t wasmer_trampoline_buffer_builder_add_callinfo_trampoline(wasmer_trampoline_buffer_builder_t *builder,
+                                                                   const wasmer_trampoline_callable_t *func,
+                                                                   const void *ctx,
+                                                                   uint32_t num_params);
+
+/// Adds a context trampoline to the builder.
+uintptr_t wasmer_trampoline_buffer_builder_add_context_trampoline(wasmer_trampoline_buffer_builder_t *builder,
+                                                                  const wasmer_trampoline_callable_t *func,
+                                                                  const void *ctx);
+
+/// Finalizes the trampoline builder into an executable buffer.
+wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *builder);
+
+/// Creates a new trampoline builder.
+wasmer_trampoline_buffer_builder_t *wasmer_trampoline_buffer_builder_new();
+
+/// Destroys the trampoline buffer if not null.
+void wasmer_trampoline_buffer_destroy(wasmer_trampoline_buffer_t *buffer);
+
+/// Returns the callable pointer for the trampoline with index `idx`.
+const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(const wasmer_trampoline_buffer_t *buffer,
+                                                                            uintptr_t idx);
+
+/// Returns the context added by `add_context_trampoline`, from within the callee function.
+void *wasmer_trampoline_get_context();
 
 /// Returns true for valid wasm bytes and false for invalid bytes
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
