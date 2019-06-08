@@ -257,6 +257,7 @@ impl Machine {
 
     pub fn release_locations_keep_state<E: Emitter>(&self, assembler: &mut E, locs: &[Location]) {
         let mut delta_stack_offset: usize = 0;
+        let mut stack_offset = self.stack_offset.0;
 
         for loc in locs.iter().rev() {
             match *loc {
@@ -265,9 +266,10 @@ impl Machine {
                         unreachable!();
                     }
                     let offset = (-x) as usize;
-                    if offset != self.stack_offset.0 {
+                    if offset != stack_offset {
                         unreachable!();
                     }
+                    stack_offset -= 8;
                     delta_stack_offset += 8;
                 }
                 _ => {}
@@ -416,4 +418,20 @@ impl Machine {
             _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use dynasmrt::x64::Assembler;
+
+    #[test]
+    fn test_release_locations_keep_state_nopanic() {
+        let mut machine = Machine::new();
+        let mut assembler = Assembler::new().unwrap();
+        let locs = machine.acquire_locations(&mut assembler, &[WpType::I32; 10], false);
+
+        machine.release_locations_keep_state(&mut assembler, &locs);
+    }
+
 }
