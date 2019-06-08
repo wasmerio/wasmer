@@ -15,7 +15,17 @@ use crate::{
     },
     vm,
 };
-use std::slice;
+use std::{fmt::Debug, slice};
+
+pub const INTERNALS_SIZE: usize = 256;
+
+pub(crate) struct Internals(pub(crate) [u64; INTERNALS_SIZE]);
+
+impl Debug for Internals {
+    fn fmt(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(formatter, "Internals({:?})", &self.0[..])
+    }
+}
 
 /// The `LocalBacking` "owns" the memory used by all the local resources of an Instance.
 /// That is, local memories, tables, and globals (as well as some additional
@@ -40,6 +50,8 @@ pub struct LocalBacking {
     /// as well) are subject to change.
     pub(crate) dynamic_sigindices: BoxedMap<SigIndex, vm::SigId>,
     pub(crate) local_functions: BoxedMap<LocalFuncIndex, *const vm::Func>,
+
+    pub(crate) internals: Internals,
 }
 
 impl LocalBacking {
@@ -66,6 +78,8 @@ impl LocalBacking {
 
             dynamic_sigindices,
             local_functions,
+
+            internals: Internals([0; INTERNALS_SIZE]),
         }
     }
 
