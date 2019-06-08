@@ -535,13 +535,25 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 }
 
 pub fn ___syscall168(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall168");
+    debug!("emscripten::___syscall168 - stub");
     -1
 }
 
-pub fn ___syscall191(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall191 - stub");
-    -1
+pub fn ___syscall191(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    let _resource: i32 = varargs.get(ctx);
+    debug!(
+        "emscripten::___syscall191 - mostly stub, resource: {}",
+        _resource
+    );
+    let rlim_emptr: i32 = varargs.get(ctx);
+    let rlim_ptr = emscripten_memory_pointer!(ctx.memory(0), rlim_emptr) as *mut u8;
+    let rlim = unsafe { slice::from_raw_parts_mut(rlim_ptr, 16) };
+
+    // set all to RLIM_INIFINTY
+    LittleEndian::write_i64(&mut rlim[..], -1);
+    LittleEndian::write_i64(&mut rlim[8..], -1);
+
+    0
 }
 
 pub fn ___syscall193(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
@@ -753,19 +765,23 @@ pub fn ___syscall340(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("emscripten::___syscall340 (prlimit64), {}", _which);
     // NOTE: Doesn't really matter. Wasm modules cannot exceed WASM_PAGE_SIZE anyway.
     let _pid: i32 = varargs.get(ctx);
-    let _resource: i32 = varargs.get(ctx);
+    let resource: i32 = varargs.get(ctx);
     let _new_limit: u32 = varargs.get(ctx);
     let old_limit: u32 = varargs.get(ctx);
+
+    let val = match resource {
+        // RLIMIT_NOFILE
+        7 => 1024,
+        _ => -1, // RLIM_INFINITY
+    };
 
     if old_limit != 0 {
         // just report no limits
         let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), old_limit) as *mut u8;
         let buf = unsafe { slice::from_raw_parts_mut(buf_ptr, 16) };
 
-        LittleEndian::write_i32(&mut buf[..], -1); // RLIM_INFINITY
-        LittleEndian::write_i32(&mut buf[4..], -1); // RLIM_INFINITY
-        LittleEndian::write_i32(&mut buf[8..], -1); // RLIM_INFINITY
-        LittleEndian::write_i32(&mut buf[12..], -1); // RLIM_INFINITY
+        LittleEndian::write_i64(&mut buf[..], val);
+        LittleEndian::write_i64(&mut buf[8..], val);
     }
 
     0

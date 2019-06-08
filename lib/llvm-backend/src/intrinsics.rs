@@ -163,6 +163,7 @@ impl Intrinsics {
         let stack_lower_bound_ty = i8_ty;
         let memory_base_ty = i8_ty;
         let memory_bound_ty = void_ty;
+        let internals_ty = i64_ty;
         let local_function_ty = i8_ptr_ty;
 
         let anyfunc_ty = context.struct_type(
@@ -216,6 +217,9 @@ impl Intrinsics {
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
                 memory_bound_ty
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum(),
+                internals_ty
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
                 local_function_ty

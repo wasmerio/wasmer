@@ -475,6 +475,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Event::Internal(_x) => {
                 return Ok(());
             }
+            Event::WasmOwned(ref x) => x,
         };
 
         let mut state = &mut self.state;
