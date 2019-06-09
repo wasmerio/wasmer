@@ -16,21 +16,19 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend:llvm")]
-use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
+use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
     error::RuntimeError,
     Func, Value,
 };
-#[cfg(feature = "backend:singlepass")]
-use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
     loader::{Instance as LoadedInstance, LocalLoader},
 };
 #[cfg(feature = "backend:singlepass")]
-use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
+use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
 
@@ -120,9 +118,6 @@ struct Run {
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
-
-    #[structopt(long = "inst-limit")]
-    instruction_limit: Option<u64>,
 }
 
 #[allow(dead_code)]
@@ -344,33 +339,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     let compiler: Box<dyn Compiler> = match options.backend {
         #[cfg(feature = "backend:singlepass")]
-        Backend::Singlepass => {
-            let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(|| {
-                let mut chain = MiddlewareChain::new();
-                use wasmer_middleware_common::metering::Metering;
-                if let Some(limit) = options.instruction_limit {
-                    chain.push(Metering::new(limit));
-                }
-                chain
-            });
-            Box::new(c)
-        }
+        Backend::Singlepass => Box::new(SinglePassCompiler::new()),
         #[cfg(not(feature = "backend:singlepass"))]
         Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
         #[cfg(feature = "backend:llvm")]
-        Backend::LLVM => {
-            let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> =
-                StreamingCompiler::new(|| {
-                    let mut chain = MiddlewareChain::new();
-                    use wasmer_middleware_common::metering::Metering;
-                    if let Some(limit) = options.instruction_limit {
-                        chain.push(Metering::new(limit));
-                    }
-                    chain
-                });
-            Box::new(c)
-        }
+        Backend::LLVM => Box::new(LLVMCompiler::new()),
         #[cfg(not(feature = "backend:llvm"))]
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
