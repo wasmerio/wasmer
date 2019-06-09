@@ -4,6 +4,7 @@ use crate::{
     typed_func::Wasm,
     types::{LocalFuncIndex, SigIndex},
     vm,
+    state::FunctionStateMap,
 };
 
 use crate::{
@@ -83,6 +84,11 @@ pub trait RunnableModule: Send + Sync {
         info: &ModuleInfo,
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>>;
+
+    fn get_func_statemap(
+        &self,
+        _local_func_index: LocalFuncIndex,
+    ) -> Option<FunctionStateMap> { None }
 
     /// A wasm trampoline contains the necesarry data to dynamically call an exported wasm function.
     /// Given a particular signature index, we are returned a trampoline that is matched with that

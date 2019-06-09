@@ -1,4 +1,5 @@
 #![allow(clippy::forget_copy)] // Used by dynasm.
+#![warn(unused_imports)]
 
 use crate::emitter_x64::*;
 use crate::machine::*;
@@ -28,6 +29,7 @@ use wasmer_runtime_core::{
         TableIndex, Type,
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
+    state::{FunctionStateMap, StateDiff, x64::X64Register, Location as StateLocation},
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -139,6 +141,7 @@ enum LocalOrTemp {
 pub struct X64FunctionCode {
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
+    state_map: FunctionStateMap,
 
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
@@ -356,6 +359,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         let code = X64FunctionCode {
             signatures: self.signatures.as_ref().unwrap().clone(),
             function_signatures: self.function_signatures.as_ref().unwrap().clone(),
+            state_map: FunctionStateMap::default(),
 
             assembler: Some(assembler),
             function_labels: Some(function_labels),

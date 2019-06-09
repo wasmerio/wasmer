@@ -43,6 +43,7 @@ pub mod vm;
 pub mod vmcalls;
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub use trampoline_x64 as trampoline;
+pub mod state;
 
 use self::error::CompileResult;
 #[doc(inline)]
