@@ -1460,7 +1460,12 @@ dependencies = [
 name = "wasmer-middleware-common"
 version = "0.4.2"
 dependencies = [
+ "criterion 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wabt 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-clif-backend 0.4.2",
+ "wasmer-llvm-backend 0.4.2",
  "wasmer-runtime-core 0.4.2",
+ "wasmer-singlepass-backend 0.4.2",
 ]
 
 [[package]]

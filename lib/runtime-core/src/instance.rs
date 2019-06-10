@@ -13,7 +13,7 @@ use crate::{
     table::Table,
     typed_func::{Func, Wasm, WasmTrapInfo, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Type, Value},
-    vm,
+    vm::{self, InternalField},
 };
 use smallvec::{smallvec, SmallVec};
 use std::{mem, ptr::NonNull, sync::Arc};
@@ -371,6 +371,14 @@ impl Instance {
     /// The module used to instantiate this Instance.
     pub fn module(&self) -> Module {
         Module::new(Arc::clone(&self.module))
+    }
+
+    pub fn get_internal(&self, field: &InternalField) -> u64 {
+        self.inner.backing.internals.0[field.index()]
+    }
+
+    pub fn set_internal(&mut self, field: &InternalField, value: u64) {
+        self.inner.backing.internals.0[field.index()] = value;
     }
 }
 

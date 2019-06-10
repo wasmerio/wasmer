@@ -1,4 +1,4 @@
-pub use crate::backing::{ImportBacking, LocalBacking};
+pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
     memory::{Memory, MemoryType},
     module::{ModuleInfo, ModuleInner},
@@ -6,7 +6,13 @@ use crate::{
     types::{LocalOrImport, MemoryIndex},
     vmcalls,
 };
-use std::{ffi::c_void, mem, ptr};
+use std::{
+    cell::UnsafeCell,
+    ffi::c_void,
+    mem, ptr,
+    sync::atomic::{AtomicUsize, Ordering},
+    sync::Once,
+};
 
 use hashbrown::HashMap;
 
@@ -92,6 +98,43 @@ pub struct InternalCtx {
 
     pub memory_base: *mut u8,
     pub memory_bound: usize,
+
+    pub internals: *mut [u64; INTERNALS_SIZE], // TODO: Make this dynamic?
+}
+
+static INTERNAL_FIELDS: AtomicUsize = AtomicUsize::new(0);
+
+pub struct InternalField {
+    init: Once,
+    inner: UnsafeCell<usize>,
+}
+
+unsafe impl Send for InternalField {}
+unsafe impl Sync for InternalField {}
+
+impl InternalField {
+    pub const fn allocate() -> InternalField {
+        InternalField {
+            init: Once::new(),
+            inner: UnsafeCell::new(::std::usize::MAX),
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        let inner: *mut usize = self.inner.get();
+        self.init.call_once(|| {
+            let idx = INTERNAL_FIELDS.fetch_add(1, Ordering::SeqCst);
+            if idx >= INTERNALS_SIZE {
+                INTERNAL_FIELDS.fetch_sub(1, Ordering::SeqCst);
+                panic!("at most {} internal fields are supported", INTERNALS_SIZE);
+            } else {
+                unsafe {
+                    *inner = idx;
+                }
+            }
+        });
+        unsafe { *inner }
+    }
 }
 
 #[repr(C)]
@@ -200,6 +243,8 @@ impl Ctx {
 
                 memory_base: mem_base,
                 memory_bound: mem_bound,
+
+                internals: &mut local_backing.internals.0,
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -249,6 +294,8 @@ impl Ctx {
 
                 memory_base: mem_base,
                 memory_bound: mem_bound,
+
+                internals: &mut local_backing.internals.0,
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -303,6 +350,18 @@ impl Ctx {
     pub fn dynamic_sigindice_count(&self) -> usize {
         unsafe { (*self.local_backing).dynamic_sigindices.len() }
     }
+
+    /// Returns the value of the specified internal field.
+    pub fn get_internal(&self, field: &InternalField) -> u64 {
+        unsafe { (*self.internal.internals)[field.index()] }
+    }
+
+    /// Writes the value to the specified internal field.
+    pub fn set_internal(&mut self, field: &InternalField, value: u64) {
+        unsafe {
+            (*self.internal.internals)[field.index()] = value;
+        }
+    }
 }
 
 #[doc(hidden)]
@@ -356,8 +415,12 @@ impl Ctx {
         11 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_local_functions() -> u8 {
+    pub fn offset_internals() -> u8 {
         12 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn offset_local_functions() -> u8 {
+        13 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -573,6 +636,11 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
+            Ctx::offset_internals() as usize,
+            offset_of!(InternalCtx => internals).get_byte_offset(),
+        );
+
+        assert_eq!(
             Ctx::offset_local_functions() as usize,
             offset_of!(Ctx => local_functions).get_byte_offset(),
         );
@@ -684,6 +752,8 @@ mod vm_ctx_tests {
 
             dynamic_sigindices: Map::new().into_boxed_map(),
             local_functions: Map::new().into_boxed_map(),
+
+            internals: crate::backing::Internals([0; crate::backing::INTERNALS_SIZE]),
         };
         let mut import_backing = ImportBacking {
             memories: Map::new().into_boxed_map(),
