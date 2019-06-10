@@ -72,7 +72,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
                 mem::align_of::<T>(),
             ) as *const Cell<T>;
             let cell_ptrs = &std::slice::from_raw_parts(cell_ptr, slice_full_len)
-                [index as usize..length as usize];
+                [index as usize..slice_full_len as usize];
             Some(cell_ptrs)
         }
     }
