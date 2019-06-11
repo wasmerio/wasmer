@@ -10,7 +10,6 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
-use crate::ptr::{Array, WasmPtr};
 use crate::utils::{copy_stat_into_wasm, get_cstr_path, get_current_directory};
 
 use super::varargs::VarArgs;
@@ -42,7 +41,10 @@ use libc::{
     write,
     // readlink,
 };
-use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime_core::{
+    memory::ptr::{Array, WasmPtr},
+    vm::Ctx,
+};
 
 use super::env;
 use std::cell::Cell;
@@ -282,7 +284,7 @@ pub fn ___syscall183(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 
         buf_writer[i].set(byte as i8);
     }
     buf_writer[len].set(0);
-    buf_offset.offset()
+    buf_offset.offset() as i32
 }
 
 // mmap2

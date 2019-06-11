@@ -42,7 +42,6 @@ mod lock;
 mod math;
 mod memory;
 mod process;
-mod ptr;
 mod signal;
 mod storage;
 mod syscalls;

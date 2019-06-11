@@ -1,14 +1,19 @@
-use std::{cell::Cell, fmt, marker::PhantomData, mem};
-use wasmer_runtime_core::{
+//! A reusable pointer abstraction for getting memory from the guest's memory.
+//!
+//! This abstraction is safe: it ensures the memory is in bounds and that the pointer
+//! is aligned (avoiding undefined behavior).
+//!
+//! Therefore, you should use this abstraction whenever possible to avoid memory
+//! related bugs when implementing an ABI.
+
+use crate::{
     memory::Memory,
     types::{ValueType, WasmExternType},
 };
+use std::{cell::Cell, fmt, marker::PhantomData, mem};
 
 pub struct Array;
 pub struct Item;
-
-// TODO: before shipping, refactor this and the wasi code into a common crate
-// and wrap it when used in the context of wasi to return the proper error codes
 
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = Item> {
@@ -26,8 +31,8 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
     }
 
     #[inline]
-    pub fn offset(self) -> i32 {
-        self.offset as i32
+    pub fn offset(self) -> u32 {
+        self.offset
     }
 }
 
@@ -72,7 +77,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
                 mem::align_of::<T>(),
             ) as *const Cell<T>;
             let cell_ptrs = &std::slice::from_raw_parts(cell_ptr, slice_full_len)
-                [index as usize..slice_full_len as usize];
+                [index as usize..slice_full_len];
             Some(cell_ptrs)
         }
     }
