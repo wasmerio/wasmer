@@ -6,6 +6,11 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#474](https://github.com/wasmerio/wasmer/pull/474) Set the install name of the dylib to `@rpath`
+- [#490](https://github.com/wasmerio/wasmer/pull/490) Add MiddlewareChain and StreamingCompiler to runtime
+- [#487](https://github.com/wasmerio/wasmer/pull/487) Fix stack offset check in singlepass backend 
+- [#450](https://github.com/wasmerio/wasmer/pull/450) Added Metering
+- [#481](https://github.com/wasmerio/wasmer/pull/481) Added context trampoline into runtime
 - [#484](https://github.com/wasmerio/wasmer/pull/484) Fix bugs in emscripten socket syscalls
 - [#476](https://github.com/wasmerio/wasmer/pull/476) Fix bug with wasi::environ_get, fix off by one error in wasi::environ_sizes_get
 - [#470](https://github.com/wasmerio/wasmer/pull/470) Add mapdir support to Emscripten, implement getdents for Unix
