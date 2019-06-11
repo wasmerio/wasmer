@@ -3,6 +3,7 @@ use smallvec::SmallVec;
 use std::collections::HashSet;
 use wasmparser::Type as WpType;
 use wasmer_runtime_core::state::*;
+use wasmer_runtime_core::state::x64::X64Register;
 
 struct MachineStackOffset(usize);
 
@@ -11,7 +12,7 @@ pub struct Machine {
     used_xmms: HashSet<XMM>,
     stack_offset: MachineStackOffset,
     save_area_offset: Option<MachineStackOffset>,
-    state: MachineState,
+    pub state: MachineState,
 }
 
 impl Machine {
@@ -21,6 +22,7 @@ impl Machine {
             used_xmms: HashSet::new(),
             stack_offset: MachineStackOffset(0),
             save_area_offset: None,
+            state: x64::new_machine_state(),
         }
     }
 
@@ -131,13 +133,13 @@ impl Machine {
     pub fn acquire_locations<E: Emitter>(
         &mut self,
         assembler: &mut E,
-        tys: &[WpType],
+        tys: &[(WpType, MachineValue)],
         zeroed: bool,
     ) -> SmallVec<[Location; 1]> {
         let mut ret = smallvec![];
         let mut delta_stack_offset: usize = 0;
 
-        for ty in tys {
+        for (ty, mv) in tys {
             let loc = match *ty {
                 WpType::F32 | WpType::F64 => self.pick_xmm().map(Location::XMM),
                 WpType::I32 | WpType::I64 => self.pick_gpr().map(Location::GPR),
@@ -153,8 +155,12 @@ impl Machine {
             };
             if let Location::GPR(x) = loc {
                 self.used_gprs.insert(x);
+                self.state.register_values[X64Register::GPR(x).to_index().0] = *mv;
             } else if let Location::XMM(x) = loc {
                 self.used_xmms.insert(x);
+                self.state.register_values[X64Register::XMM(x).to_index().0] = *mv;
+            } else {
+                self.state.stack_values.push(*mv);
             }
             ret.push(loc);
         }
@@ -182,9 +188,11 @@ impl Machine {
             match *loc {
                 Location::GPR(ref x) => {
                     assert_eq!(self.used_gprs.remove(x), true);
+                    self.state.register_values[X64Register::GPR(*x).to_index().0] = MachineValue::Undefined;
                 }
                 Location::XMM(ref x) => {
                     assert_eq!(self.used_xmms.remove(x), true);
+                    self.state.register_values[X64Register::XMM(*x).to_index().0] = MachineValue::Undefined;
                 }
                 Location::Memory(GPR::RBP, x) => {
                     if x >= 0 {
@@ -196,6 +204,7 @@ impl Machine {
                     }
                     self.stack_offset.0 -= 8;
                     delta_stack_offset += 8;
+                    self.state.stack_values.pop().unwrap();
                 }
                 _ => {}
             }
@@ -215,9 +224,11 @@ impl Machine {
             match *loc {
                 Location::GPR(ref x) => {
                     assert_eq!(self.used_gprs.remove(x), true);
+                    self.state.register_values[X64Register::GPR(*x).to_index().0] = MachineValue::Undefined;
                 }
                 Location::XMM(ref x) => {
                     assert_eq!(self.used_xmms.remove(x), true);
+                    self.state.register_values[X64Register::XMM(*x).to_index().0] = MachineValue::Undefined;
                 }
                 _ => {}
             }
@@ -243,6 +254,7 @@ impl Machine {
                     }
                     self.stack_offset.0 -= 8;
                     delta_stack_offset += 8;
+                    self.state.stack_values.pop().unwrap();
                 }
                 _ => {}
             }
@@ -327,6 +339,18 @@ impl Machine {
             allocated += 1;
         }
 
+        for (i, loc) in locations.iter().enumerate() {
+            match *loc {
+                Location::GPR(x) => {
+                    self.state.register_values[X64Register::GPR(x).to_index().0] = MachineValue::WasmLocal(i);
+                }
+                Location::Memory(_, _) => {
+                    self.state.stack_values.push(MachineValue::WasmLocal(i));
+                }
+                _ => unreachable!(),
+            }
+        }
+
         // How many machine stack slots did all the locals use?
         let num_mem_slots = locations
             .iter()
@@ -348,15 +372,17 @@ impl Machine {
 
         // Save callee-saved registers.
         for loc in locations.iter() {
-            if let Location::GPR(_) = *loc {
+            if let Location::GPR(x) = *loc {
                 a.emit_push(Size::S64, *loc);
                 self.stack_offset.0 += 8;
+                self.state.stack_values.push(MachineValue::PreserveRegister(X64Register::GPR(x).to_index()));
             }
         }
 
         // Save R15 for vmctx use.
         a.emit_push(Size::S64, Location::GPR(GPR::R15));
         self.stack_offset.0 += 8;
+        self.state.stack_values.push(MachineValue::PreserveRegister(X64Register::GPR(GPR::R15).to_index()));
 
         // Save the offset of static area.
         self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
@@ -431,7 +457,7 @@ mod test {
     fn test_release_locations_keep_state_nopanic() {
         let mut machine = Machine::new();
         let mut assembler = Assembler::new().unwrap();
-        let locs = machine.acquire_locations(&mut assembler, &[WpType::I32; 10], false);
+        let locs = machine.acquire_locations(&mut assembler, &[(WpType::I32, MachineValue::Undefined); 10], false);
 
         machine.release_locations_keep_state(&mut assembler, &locs);
     }

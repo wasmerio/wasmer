@@ -19,6 +19,8 @@ pub struct MachineStateDiff {
 pub enum MachineValue {
     Undefined,
     PreserveRegister(RegisterIndex),
+    CopyStackBPRelative(i32), // relative to Base Pointer, in byte offset
+    ExplicitShadow, // indicates that all values above this are above the shadow region
     WasmStack(usize),
     WasmLocal(usize),
 }
@@ -26,13 +28,15 @@ pub enum MachineValue {
 #[derive(Clone, Debug)]
 pub struct FunctionStateMap {
     pub initial: MachineState,
+    pub shadow_size: usize, // for single-pass backend, 32 bytes on x86-64
     pub diffs: Vec<MachineStateDiff>,
 }
 
 impl FunctionStateMap {
-    pub fn new(initial: MachineState) -> FunctionStateMap {
+    pub fn new(initial: MachineState, shadow_size: usize) -> FunctionStateMap {
         FunctionStateMap {
             initial,
+            shadow_size,
             diffs: vec![],
         }
     }
