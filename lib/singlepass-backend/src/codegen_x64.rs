@@ -29,7 +29,7 @@ use wasmer_runtime_core::{
         TableIndex, Type,
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
-    state::{FunctionStateMap, StateDiff, x64::X64Register, Location as StateLocation},
+    state::{FunctionStateMap,  x64::X64Register, MachineState, MachineValue, MachineStateDiff},
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -141,7 +141,6 @@ enum LocalOrTemp {
 pub struct X64FunctionCode {
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
-    state_map: FunctionStateMap,
 
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,

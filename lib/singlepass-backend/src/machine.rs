@@ -2,6 +2,7 @@ use crate::emitter_x64::*;
 use smallvec::SmallVec;
 use std::collections::HashSet;
 use wasmparser::Type as WpType;
+use wasmer_runtime_core::state::*;
 
 struct MachineStackOffset(usize);
 
@@ -10,6 +11,7 @@ pub struct Machine {
     used_xmms: HashSet<XMM>,
     stack_offset: MachineStackOffset,
     save_area_offset: Option<MachineStackOffset>,
+    state: MachineState,
 }
 
 impl Machine {
