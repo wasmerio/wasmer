@@ -74,6 +74,7 @@ use libc::{
     SO_REUSEADDR,
     TIOCGWINSZ,
 };
+use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
 
 use crate::utils;
@@ -878,6 +879,7 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
                 i += 1;
             }
             *(dirp.add(pos + 19 + i) as *mut i8) = 0 as i8;
+            debug!("  => file {}", CStr::from_ptr((dirp.add(pos + 19) as *const i8)).to_str().unwrap());
         }
         pos += offset;
     }
