@@ -74,6 +74,8 @@ use libc::{
     SO_REUSEADDR,
     TIOCGWINSZ,
 };
+#[allow(unused_imports)]
+use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
 
 use crate::utils;
@@ -849,19 +851,25 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 // dirent structure is
 // i64, i64, u16 (280), i8, [i8; 256]
 pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
-    debug!("emscripten::___syscall220");
+    use super::super::env::get_emscripten_data;
+
     let fd: i32 = varargs.get(ctx);
     let dirp_addr: i32 = varargs.get(ctx);
     let count: u32 = varargs.get(ctx);
+    debug!("emscripten::___syscall220 (getdents) {} {} {}", fd, dirp_addr, count);
 
     let dirp = emscripten_memory_pointer!(ctx.memory(0), dirp_addr) as *mut u8;
+
+    let mut opened_dirs = &mut get_emscripten_data(ctx).opened_dirs;
+
     // need to persist stream across calls?
-    let dir: *mut libc::DIR = unsafe { libc::fdopendir(fd) };
+    // let dir: *mut libc::DIR = unsafe { libc::fdopendir(fd) };
+    let mut dir = &*opened_dirs.entry(fd).or_insert_with(|| unsafe { Box::new(libc::fdopendir(fd)) });
 
     let mut pos = 0;
     let offset = 280;
     while pos + offset <= count as usize {
-        let dirent = unsafe { readdir(dir) };
+        let dirent = unsafe { readdir(**dir) };
         if dirent.is_null() {
             break;
         }
@@ -878,6 +886,7 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
                 i += 1;
             }
             *(dirp.add(pos + 19 + i) as *mut i8) = 0 as i8;
+            debug!("  => file {}", CStr::from_ptr(dirp.add(pos + 19) as *const i8).to_str().unwrap());
         }
         pos += offset;
     }

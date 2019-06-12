@@ -76,6 +76,8 @@ lazy_static! {
 const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
+use ::libc::DIR as libcDIR;
+
 pub struct EmscriptenData<'a> {
     pub malloc: Func<'a, u32, u32>,
     pub free: Func<'a, u32>,
@@ -83,6 +85,7 @@ pub struct EmscriptenData<'a> {
     pub memset: Func<'a, (u32, u32, u32), u32>,
     pub stack_alloc: Func<'a, u32, u32>,
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
+    pub opened_dirs: HashMap<i32, Box<*mut libcDIR>>,
 
     pub dyn_call_i: Option<Func<'a, i32, i32>>,
     pub dyn_call_ii: Option<Func<'a, (i32, i32), i32>>,
@@ -224,6 +227,8 @@ impl<'a> EmscriptenData<'a> {
             memset,
             stack_alloc,
             jumps: Vec::new(),
+            opened_dirs: HashMap::new(),
+
             dyn_call_i,
             dyn_call_ii,
             dyn_call_iii,
