@@ -8,6 +8,8 @@
 
 use crate::loader::CodeMemory;
 use std::{mem, slice};
+use crate::vm::Ctx;
+use std::fmt;
 
 lazy_static! {
     /// Reads the context pointer from `mm0`.
@@ -88,6 +90,31 @@ impl TrampolineBufferBuilder {
         self.code.extend_from_slice(&[
             0x48, 0x0f, 0x6e, 0xc0, // movq %rax, %mm0
         ]);
+        self.code.extend_from_slice(&[
+            0x48, 0xb8, // movabsq ?, %rax
+        ]);
+        self.code.extend_from_slice(value_to_bytes(&target));
+        self.code.extend_from_slice(&[
+            0xff, 0xe0, // jmpq *%rax
+        ]);
+        idx
+    }
+
+    pub fn add_context_rsp_trampoline(
+        &mut self,
+        target: unsafe extern "C" fn (&mut Ctx, *const CallContext, *const u64),
+        context: *const CallContext,
+    ) -> usize {
+        let idx = self.offsets.len();
+        self.offsets.push(self.code.len());
+        self.code.extend_from_slice(&[
+            0x48, 0xbe, // movabsq ?, %rsi
+        ]);
+        self.code.extend_from_slice(value_to_bytes(&context));
+        self.code.extend_from_slice(&[
+            0x48, 0x89, 0xe2, // mov %rsp, %rdx
+        ]);
+
         self.code.extend_from_slice(&[
             0x48, 0xb8, // movabsq ?, %rax
         ]);
@@ -193,6 +220,12 @@ impl TrampolineBuffer {
     /// Returns the trampoline pointer at index `idx`.
     pub fn get_trampoline(&self, idx: usize) -> *const Trampoline {
         &self.code[self.offsets[idx]] as *const u8 as *const Trampoline
+    }
+}
+
+impl fmt::Debug for TrampolineBuffer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TrampolineBuffer {{}}")
     }
 }
 

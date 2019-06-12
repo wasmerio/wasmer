@@ -54,7 +54,7 @@ pub trait Emitter {
     type Offset;
 
     fn get_label(&mut self) -> Self::Label;
-    fn get_offset(&mut self) -> Self::Offset;
+    fn get_offset(&self) -> Self::Offset;
 
     fn emit_u64(&mut self, x: u64);
 
@@ -455,7 +455,7 @@ impl Emitter for Assembler {
         self.new_dynamic_label()
     }
 
-    fn get_offset(&mut self) -> AssemblyOffset {
+    fn get_offset(&self) -> AssemblyOffset {
         self.offset()
     }
 

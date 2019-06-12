@@ -11,8 +11,10 @@ use std::{
     io::{self, Read, Seek, Write},
     path::PathBuf,
     time::SystemTime,
+    rc::Rc,
 };
 use wasmer_runtime_core::debug;
+use wasmer_runtime_core::trampoline::{TrampolineBuffer};
 
 pub const MAX_SYMLINKS: usize = 100;
 
@@ -460,6 +462,7 @@ pub struct WasiState<'a> {
     pub fs: WasiFs,
     pub args: &'a [Vec<u8>],
     pub envs: &'a [Vec<u8>],
+    pub trampolines: Rc<TrampolineBuffer>,
 }
 
 pub fn host_file_type_to_wasi_file_type(file_type: fs::FileType) -> __wasi_filetype_t {

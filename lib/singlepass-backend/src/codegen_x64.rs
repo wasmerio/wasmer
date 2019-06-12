@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{
     any::Any,
-    collections::HashMap,
+    collections::{HashMap, BTreeMap},
     sync::{Arc, RwLock},
 };
 use wasmer_runtime_core::{
@@ -29,7 +29,7 @@ use wasmer_runtime_core::{
         TableIndex, Type,
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
-    state::{FunctionStateMap,  x64::X64Register, MachineState, MachineValue, MachineStateDiff},
+    state::{ModuleStateMap, FunctionStateMap,  x64::X64Register, MachineState, MachineValue, MachineStateDiff, x64::new_machine_state},
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -138,10 +138,24 @@ enum LocalOrTemp {
     Temp,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct InstMetadata {
+    offset: usize,
+    special: Option<(SpecialInst, usize /* state_diff_id */)>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum SpecialInst {
+    Loop, /* header state */
+    Call { mid_offset: usize }, /* inside state */
+}
+
 pub struct X64FunctionCode {
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
-    last_state: MachineState,
+    fsm: FunctionStateMap,
+    inst_metadata: Vec<InstMetadata>,
+    offset: usize,
 
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
@@ -175,6 +189,7 @@ pub struct X64ExecutionContext {
     signatures: Arc<Map<SigIndex, FuncSig>>,
     breakpoints: Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
     func_import_count: usize,
+    msm: ModuleStateMap,
 }
 
 #[derive(Debug)]
@@ -184,6 +199,8 @@ pub struct ControlFrame {
     pub if_else: IfElseState,
     pub returns: SmallVec<[WpType; 1]>,
     pub value_stack_depth: usize,
+    pub state: MachineState,
+    pub state_diff_id: usize,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -202,6 +219,10 @@ impl RunnableModule for X64ExecutionContext {
         self.function_pointers[self.func_import_count..]
             .get(local_func_index.index())
             .and_then(|ptr| NonNull::new(ptr.0 as *mut vm::Func))
+    }
+
+    fn get_module_state_map(&self) -> Option<ModuleStateMap> {
+        Some(self.msm.clone())
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
@@ -360,7 +381,9 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         let code = X64FunctionCode {
             signatures: self.signatures.as_ref().unwrap().clone(),
             function_signatures: self.function_signatures.as_ref().unwrap().clone(),
-            last_state: machine.state.clone(),
+            fsm: FunctionStateMap::new(new_machine_state(), 32),
+            inst_metadata: vec![],
+            offset: begin_offset.0,
 
             assembler: Some(assembler),
             function_labels: Some(function_labels),
@@ -391,6 +414,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 });
             }
         };
+        let total_size = assembler.get_offset().0;
         let output = assembler.finalize().unwrap();
 
         let function_labels = if let Some(x) = self.functions.last() {
@@ -429,6 +453,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 .collect(),
         );
 
+        let local_function_maps: BTreeMap<usize, FunctionStateMap> = self.functions.iter().map(|x| {
+            (x.offset, x.fsm.clone())
+        }).collect();
+
         struct Placeholder;
         impl CacheGen for Placeholder {
             fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
@@ -446,6 +474,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 func_import_count: self.func_import_count,
                 function_pointers: out_labels,
                 function_offsets: out_offsets,
+                msm: ModuleStateMap {
+                    local_functions: local_function_maps,
+                    total_size,
+                },
             },
             Box::new(Placeholder),
         ))
@@ -1060,6 +1092,7 @@ impl X64FunctionCode {
         m: &mut Machine,
         cb: F,
         params: I,
+        state_context: Option<(&mut FunctionStateMap, &mut InstMetadata, &[ControlFrame])>,
     ) {
         // Values pushed in this function are above the shadow region.
         m.state.stack_values.push(MachineValue::ExplicitShadow);
@@ -1070,7 +1103,9 @@ impl X64FunctionCode {
         let used_gprs = m.get_used_gprs();
         for r in used_gprs.iter() {
             a.emit_push(Size::S64, Location::GPR(*r));
-            m.state.stack_values.push(MachineValue::PreserveRegister(X64Register::GPR(*r).to_index()));
+            let content = m.state.register_values[X64Register::GPR(*r).to_index().0];
+            assert!(content != MachineValue::Undefined);
+            m.state.stack_values.push(content);
         }
 
         // Save used XMM registers.
@@ -1093,7 +1128,9 @@ impl X64FunctionCode {
                 );
             }
             for r in used_xmms.iter().rev() {
-                m.state.stack_values.push(MachineValue::PreserveRegister(X64Register::XMM(*r).to_index()));
+                let content = m.state.register_values[X64Register::XMM(*r).to_index().0];
+                assert!(content != MachineValue::Undefined);
+                m.state.stack_values.push(content);
             }
         }
 
@@ -1129,16 +1166,20 @@ impl X64FunctionCode {
                 Location::Memory(_, _) => {
                     match *param {
                         Location::GPR(x) => {
-                            m.state.stack_values.push(MachineValue::PreserveRegister(X64Register::GPR(x).to_index()));
+                            let content = m.state.register_values[X64Register::GPR(x).to_index().0];
+                            //assert!(content != MachineValue::Undefined);
+                            m.state.stack_values.push(content);
                         }
                         Location::XMM(x) => {
-                            m.state.stack_values.push(MachineValue::PreserveRegister(X64Register::XMM(x).to_index()));
+                            let content = m.state.register_values[X64Register::XMM(x).to_index().0];
+                            //assert!(content != MachineValue::Undefined);
+                            m.state.stack_values.push(content);
                         }
                         Location::Memory(reg, offset) => {
                             if reg != GPR::RBP {
                                 unreachable!();
                             }
-                            m.state.stack_values.push(MachineValue::CopyStackBPRelative(offset));
+                            m.state.stack_values.push(MachineValue::CopyStackBPRelative(offset)); // TODO: Read value at this offset
                         }
                         _ => {
                             m.state.stack_values.push(MachineValue::Undefined);
@@ -1202,6 +1243,14 @@ impl X64FunctionCode {
 
         cb(a);
 
+        // Offset needs to be after the 'call' instruction.
+        if let Some((fsm, inst_metadata, control_stack)) = state_context {
+            let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
+            let offset = a.get_offset().0;
+            inst_metadata.special = Some((SpecialInst::Call { mid_offset: offset }, state_diff_id));
+            fsm.call_offsets.insert(offset, state_diff_id);
+        }
+
         // Restore stack.
         if stack_offset > 0 {
             a.emit_add(
@@ -1251,8 +1300,9 @@ impl X64FunctionCode {
         m: &mut Machine,
         label: DynamicLabel,
         params: I,
+        state_context: Option<(&mut FunctionStateMap, &mut InstMetadata, &[ControlFrame])>,
     ) {
-        Self::emit_call_sysv(a, m, |a| a.emit_call_label(label), params)
+        Self::emit_call_sysv(a, m, |a| a.emit_call_label(label), params, state_context)
     }
 
     /// Emits a memory operation.
@@ -1446,6 +1496,15 @@ impl X64FunctionCode {
         m.release_temp_xmm(tmp_x);
         m.release_temp_gpr(tmp);
     }
+
+    pub fn get_state_diff(m: &Machine, fsm: &mut FunctionStateMap, control_stack: &[ControlFrame]) -> usize {
+        let last_frame = control_stack.last().unwrap();
+        let mut diff = m.state.diff(&last_frame.state);
+        diff.last = Some(last_frame.state_diff_id);
+        let id = fsm.diffs.len();
+        fsm.diffs.push(diff);
+        id
+    }
 }
 
 impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
@@ -1487,7 +1546,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             .machine
             .init_locals(a, self.num_locals, self.num_params);
 
-        println!("initial state = {:?}", self.machine.state);
+        let diff = self.machine.state.diff(&new_machine_state());
+        let state_diff_id = self.fsm.diffs.len();
+        self.fsm.diffs.push(diff);
+
+        //println!("initial state = {:?}", self.machine.state);
 
         a.emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
 
@@ -1497,6 +1560,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             if_else: IfElseState::None,
             returns: self.returns.clone(),
             value_stack_depth: 0,
+            state: self.machine.state.clone(),
+            state_diff_id,
         });
         Ok(())
     }
@@ -1624,6 +1689,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
                 return Ok(());
             }
+        };
+
+        let mut inst_metadata = InstMetadata {
+            offset: a.get_offset().0,
+            special: None,
         };
         match *op {
             Operator::GetGlobal { global_index } => {
@@ -3234,7 +3304,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     &mut self.machine,
                     label,
                     params.iter().map(|&(x, _)| x),
+                    Some((&mut self.fsm, &mut inst_metadata, &self.control_stack)),
                 );
+                assert!(inst_metadata.special.is_some());
 
                 self.machine.release_locations_only_stack(a, &released);
 
@@ -3347,7 +3419,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         ));
                     },
                     params.iter().map(|&(x, _)| x),
+                    Some((&mut self.fsm, &mut inst_metadata, &self.control_stack)),
                 );
+                assert!(inst_metadata.special.is_some());
 
                 self.machine.release_locations_only_stack(a, &released);
 
@@ -3373,6 +3447,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         _ => smallvec![ty],
                     },
                     value_stack_depth: self.value_stack.len(),
+                    state: self.machine.state.clone(),
+                    state_diff_id: Self::get_state_diff(&self.machine, &mut self.fsm, &self.control_stack),
                 });
                 Self::emit_relaxed_binop(
                     a,
@@ -3472,10 +3548,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         _ => smallvec![ty],
                     },
                     value_stack_depth: self.value_stack.len(),
+                    state: self.machine.state.clone(),
+                    state_diff_id: Self::get_state_diff(&self.machine, &mut self.fsm, &self.control_stack),
                 });
             }
             Operator::Loop { ty } => {
                 let label = a.get_label();
+                let state_diff_id = Self::get_state_diff(&self.machine, &mut self.fsm, &self.control_stack);
                 self.control_stack.push(ControlFrame {
                     label: label,
                     loop_like: true,
@@ -3485,7 +3564,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         _ => smallvec![ty],
                     },
                     value_stack_depth: self.value_stack.len(),
+                    state: self.machine.state.clone(),
+                    state_diff_id,
                 });
+                inst_metadata.special = Some((SpecialInst::Loop, state_diff_id));
+                self.fsm.loop_offsets.insert(a.get_offset().0, state_diff_id);
                 a.emit_label(label);
             }
             Operator::Nop => {}
@@ -3511,6 +3594,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_call_location(Location::GPR(GPR::RAX));
                     },
                     ::std::iter::once(Location::Imm32(memory_index.index() as u32)),
+                    None,
                 );
                 let ret = self.machine.acquire_locations(a, &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))], false)[0];
                 self.value_stack.push((ret, LocalOrTemp::Temp));
@@ -3546,6 +3630,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                     ::std::iter::once(Location::Imm32(memory_index.index() as u32))
                         .chain(::std::iter::once(param_pages)),
+                    None,
                 );
 
                 if param_pages_lot == LocalOrTemp::Temp {
@@ -4367,9 +4452,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
         }
 
-        let diff = self.machine.state.diff(&self.last_state);
-        println!("Event {:?} caused state difference {:?}", ev, diff);
-        self.last_state = self.machine.state.clone();
+        self.inst_metadata.push(inst_metadata);
 
         Ok(())
     }

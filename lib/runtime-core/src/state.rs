@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+use std::ops::Bound::{Included, Unbounded};
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);
 
@@ -30,6 +33,26 @@ pub struct FunctionStateMap {
     pub initial: MachineState,
     pub shadow_size: usize, // for single-pass backend, 32 bytes on x86-64
     pub diffs: Vec<MachineStateDiff>,
+    pub loop_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
+    pub call_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
+}
+
+#[derive(Clone, Debug)]
+pub struct ModuleStateMap {
+    pub local_functions: BTreeMap<usize, FunctionStateMap>,
+    pub total_size: usize,
+}
+
+impl ModuleStateMap {
+    pub fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
+        if ip < base || ip - base >= self.total_size {
+            None
+        } else {
+            //println!("lookup ip: {} in {:?}", ip - base, self.local_functions);
+            let fsm = self.local_functions.range((Unbounded, Included(&(ip - base)))).last().map(|x| x.1).unwrap();
+            Some((fsm, fsm.call_offsets.get(&(ip - base)).map(|x| fsm.diffs[*x].build_state(fsm)).unwrap()))
+        }
+    }
 }
 
 impl FunctionStateMap {
@@ -38,6 +61,8 @@ impl FunctionStateMap {
             initial,
             shadow_size,
             diffs: vec![],
+            loop_offsets: BTreeMap::new(),
+            call_offsets: BTreeMap::new(),
         }
     }
 }
@@ -96,6 +121,34 @@ pub mod x64 {
         MachineState {
             stack_values: vec![],
             register_values: vec![MachineValue::Undefined; 16 + 8],
+        }
+    }
+
+    pub fn read_stack(msm: &ModuleStateMap, code_base: usize, mut stack: *const u64) {
+        for i in 0.. {
+            unsafe {
+                let ret_addr = *stack;
+                stack = stack.offset(1);
+                let (fsm, state) = match msm.lookup_call_ip(ret_addr as usize, code_base) {
+                    Some(x) => x,
+                    _ => break
+                };
+                let mut found_shadow = false;
+                for v in &state.stack_values {
+                    match *v {
+                        MachineValue::ExplicitShadow => {
+                            stack = stack.offset((fsm.shadow_size / 8) as isize);
+                            found_shadow = true;
+                        }
+                        _ => {
+                            stack = stack.offset(1);
+                        }
+                    }
+                }
+                assert_eq!(found_shadow, true);
+                stack = stack.offset(1); // RBP
+                println!("Frame #{}: {:p} {:?}", i, ret_addr as *const u8, state);
+            }
         }
     }
 
