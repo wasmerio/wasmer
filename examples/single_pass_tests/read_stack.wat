@@ -3,7 +3,7 @@
 	(func $stack_read (import "wasi_unstable" "stack_read") (type $t1))
 
     (func $_start (export "_start")
-        (if (i32.ne (call $fib (i32.const 10)) (i32.const 55))
+        (if (i32.ne (call $fib (i32.const 1)) (i32.const 1))
             (then unreachable)
         )
     )

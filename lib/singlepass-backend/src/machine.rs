@@ -1,9 +1,9 @@
 use crate::emitter_x64::*;
 use smallvec::SmallVec;
 use std::collections::HashSet;
-use wasmparser::Type as WpType;
-use wasmer_runtime_core::state::*;
 use wasmer_runtime_core::state::x64::X64Register;
+use wasmer_runtime_core::state::*;
+use wasmparser::Type as WpType;
 
 struct MachineStackOffset(usize);
 
@@ -188,11 +188,13 @@ impl Machine {
             match *loc {
                 Location::GPR(ref x) => {
                     assert_eq!(self.used_gprs.remove(x), true);
-                    self.state.register_values[X64Register::GPR(*x).to_index().0] = MachineValue::Undefined;
+                    self.state.register_values[X64Register::GPR(*x).to_index().0] =
+                        MachineValue::Undefined;
                 }
                 Location::XMM(ref x) => {
                     assert_eq!(self.used_xmms.remove(x), true);
-                    self.state.register_values[X64Register::XMM(*x).to_index().0] = MachineValue::Undefined;
+                    self.state.register_values[X64Register::XMM(*x).to_index().0] =
+                        MachineValue::Undefined;
                 }
                 Location::Memory(GPR::RBP, x) => {
                     if x >= 0 {
@@ -224,11 +226,13 @@ impl Machine {
             match *loc {
                 Location::GPR(ref x) => {
                     assert_eq!(self.used_gprs.remove(x), true);
-                    self.state.register_values[X64Register::GPR(*x).to_index().0] = MachineValue::Undefined;
+                    self.state.register_values[X64Register::GPR(*x).to_index().0] =
+                        MachineValue::Undefined;
                 }
                 Location::XMM(ref x) => {
                     assert_eq!(self.used_xmms.remove(x), true);
-                    self.state.register_values[X64Register::XMM(*x).to_index().0] = MachineValue::Undefined;
+                    self.state.register_values[X64Register::XMM(*x).to_index().0] =
+                        MachineValue::Undefined;
                 }
                 _ => {}
             }
@@ -342,7 +346,8 @@ impl Machine {
         for (i, loc) in locations.iter().enumerate() {
             match *loc {
                 Location::GPR(x) => {
-                    self.state.register_values[X64Register::GPR(x).to_index().0] = MachineValue::WasmLocal(i);
+                    self.state.register_values[X64Register::GPR(x).to_index().0] =
+                        MachineValue::WasmLocal(i);
                 }
                 Location::Memory(_, _) => {
                     self.state.stack_values.push(MachineValue::WasmLocal(i));
@@ -375,14 +380,18 @@ impl Machine {
             if let Location::GPR(x) = *loc {
                 a.emit_push(Size::S64, *loc);
                 self.stack_offset.0 += 8;
-                self.state.stack_values.push(MachineValue::PreserveRegister(X64Register::GPR(x).to_index()));
+                self.state.stack_values.push(MachineValue::PreserveRegister(
+                    X64Register::GPR(x).to_index(),
+                ));
             }
         }
 
         // Save R15 for vmctx use.
         a.emit_push(Size::S64, Location::GPR(GPR::R15));
         self.stack_offset.0 += 8;
-        self.state.stack_values.push(MachineValue::PreserveRegister(X64Register::GPR(GPR::R15).to_index()));
+        self.state.stack_values.push(MachineValue::PreserveRegister(
+            X64Register::GPR(GPR::R15).to_index(),
+        ));
 
         // Save the offset of static area.
         self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
@@ -457,7 +466,11 @@ mod test {
     fn test_release_locations_keep_state_nopanic() {
         let mut machine = Machine::new();
         let mut assembler = Assembler::new().unwrap();
-        let locs = machine.acquire_locations(&mut assembler, &[(WpType::I32, MachineValue::Undefined); 10], false);
+        let locs = machine.acquire_locations(
+            &mut assembler,
+            &[(WpType::I32, MachineValue::Undefined); 10],
+            false,
+        );
 
         machine.release_locations_keep_state(&mut assembler, &locs);
     }

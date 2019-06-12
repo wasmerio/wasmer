@@ -10,11 +10,11 @@ use std::{
     fs,
     io::{self, Read, Seek, Write},
     path::PathBuf,
-    time::SystemTime,
     rc::Rc,
+    time::SystemTime,
 };
 use wasmer_runtime_core::debug;
-use wasmer_runtime_core::trampoline::{TrampolineBuffer};
+use wasmer_runtime_core::trampoline::TrampolineBuffer;
 
 pub const MAX_SYMLINKS: usize = 100;
 

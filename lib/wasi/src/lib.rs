@@ -20,10 +20,15 @@ use std::path::PathBuf;
 
 pub use self::utils::is_wasi_module;
 
-use wasmer_runtime_core::{func, import::ImportObject, imports, trampoline::{TrampolineBufferBuilder, CallContext}};
-use wasmer_runtime_core::state::{x64::read_stack};
-use wasmer_runtime_core::vm::Ctx;
 use std::rc::Rc;
+use wasmer_runtime_core::state::x64::read_stack;
+use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime_core::{
+    func,
+    import::ImportObject,
+    imports,
+    trampoline::{CallContext, TrampolineBufferBuilder},
+};
 
 /// This is returned in the Box<dyn Any> RuntimeError::Error variant.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
@@ -38,18 +43,20 @@ pub fn generate_import_object(
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> ImportObject {
     unsafe extern "C" fn read_stack(ctx: &mut Ctx, _: *const CallContext, stack: *const u64) {
-        let msm = (*ctx.module).runnable_module.get_module_state_map().unwrap();
+        let msm = (*ctx.module)
+            .runnable_module
+            .get_module_state_map()
+            .unwrap();
         let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
         self::read_stack(&msm, code_base, stack);
     }
 
     let mut builder = TrampolineBufferBuilder::new();
-    let idx = builder.add_context_rsp_trampoline(read_stack, ::std::ptr::null());
+    let idx = builder.add_context_rsp_state_preserving_trampoline(read_stack, ::std::ptr::null());
     let trampolines = builder.build();
 
-    let read_stack_indirect: fn (&mut Ctx) = unsafe {
-        ::std::mem::transmute(trampolines.get_trampoline(idx))
-    };
+    let read_stack_indirect: fn(&mut Ctx) =
+        unsafe { ::std::mem::transmute(trampolines.get_trampoline(idx)) };
 
     let trampolines = Rc::new(trampolines);
 

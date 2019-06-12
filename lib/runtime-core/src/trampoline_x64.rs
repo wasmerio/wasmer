@@ -7,9 +7,9 @@
 //! Variadic functions are not supported because `rax` is used by the trampoline code.
 
 use crate::loader::CodeMemory;
-use std::{mem, slice};
 use crate::vm::Ctx;
 use std::fmt;
+use std::{mem, slice};
 
 lazy_static! {
     /// Reads the context pointer from `mm0`.
@@ -100,13 +100,21 @@ impl TrampolineBufferBuilder {
         idx
     }
 
-    pub fn add_context_rsp_trampoline(
+    pub fn add_context_rsp_state_preserving_trampoline(
         &mut self,
-        target: unsafe extern "C" fn (&mut Ctx, *const CallContext, *const u64),
+        target: unsafe extern "C" fn(&mut Ctx, *const CallContext, *const u64),
         context: *const CallContext,
     ) -> usize {
         let idx = self.offsets.len();
         self.offsets.push(self.code.len());
+
+        self.code.extend_from_slice(&[
+            0x53, // push %rbx
+            0x41, 0x54, // push %r12
+            0x41, 0x55, // push %r13
+            0x41, 0x56, // push %r14
+            0x41, 0x57, // push %r15
+        ]);
         self.code.extend_from_slice(&[
             0x48, 0xbe, // movabsq ?, %rsi
         ]);
@@ -120,7 +128,14 @@ impl TrampolineBufferBuilder {
         ]);
         self.code.extend_from_slice(value_to_bytes(&target));
         self.code.extend_from_slice(&[
-            0xff, 0xe0, // jmpq *%rax
+            0xff, 0xd0, // callq *%rax
+        ]);
+        self.code.extend_from_slice(&[
+            0x48, 0x81, 0xc4, // add ?, %rsp
+        ]);
+        self.code.extend_from_slice(value_to_bytes(&40i32)); // 5 * 8
+        self.code.extend_from_slice(&[
+            0xc3, //retq
         ]);
         idx
     }
