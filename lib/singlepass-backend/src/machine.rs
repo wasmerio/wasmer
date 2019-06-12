@@ -332,7 +332,11 @@ impl Machine {
                     allocated += 1;
                     get_local_location(old_idx)
                 }
-                Location::Memory(_, _) => loc,
+                Location::Memory(_, _) => {
+                    let old_idx = allocated;
+                    allocated += 1;
+                    get_local_location(old_idx)
+                }
                 _ => unreachable!(),
             });
         }
@@ -403,7 +407,17 @@ impl Machine {
                 Location::GPR(_) => {
                     a.emit_mov(Size::S64, loc, locations[i]);
                 }
-                _ => break,
+                Location::Memory(_, _) => match locations[i] {
+                    Location::GPR(_) => {
+                        a.emit_mov(Size::S64, loc, locations[i]);
+                    }
+                    Location::Memory(_, _) => {
+                        a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                        a.emit_mov(Size::S64, Location::GPR(GPR::RAX), locations[i]);
+                    }
+                    _ => unreachable!(),
+                },
+                _ => unreachable!(),
             }
         }
 

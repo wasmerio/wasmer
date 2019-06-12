@@ -193,15 +193,14 @@ pub mod x64 {
         let rbx = *stack.offset(4);
         stack = stack.offset(5);
 
-        let mut next_known_registers: [Option<u64>; 24] = [None; 24];
-        next_known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(r15);
-        next_known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(r14);
-        next_known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(r13);
-        next_known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(r12);
-        next_known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(rbx);
+        let mut known_registers: [Option<u64>; 24] = [None; 24];
+        known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(r15);
+        known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(r14);
+        known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(r13);
+        known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(r12);
+        known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(rbx);
 
         for i in 0.. {
-            let known_registers = ::std::mem::replace(&mut next_known_registers, [None; 24]);
             let mut wasm_stack: DenseArrayMap<u64> = DenseArrayMap::new();
             let mut wasm_locals: DenseArrayMap<u64> = DenseArrayMap::new();
             let ret_addr = *stack;
@@ -210,6 +209,27 @@ pub mod x64 {
                 Some(x) => x,
                 _ => break,
             };
+
+            // This must be before the next loop because that modifies `known_registers`.
+            for (i, v) in state.register_values.iter().enumerate() {
+                match *v {
+                    MachineValue::Undefined => {}
+                    MachineValue::WasmStack(idx) => {
+                        if let Some(v) = known_registers[i] {
+                            wasm_stack.set(idx, v);
+                        }
+                    }
+                    MachineValue::WasmLocal(idx) => {
+                        if let Some(v) = known_registers[i] {
+                            wasm_locals.set(idx, v);
+                        } else {
+                            panic!("Cannot resolve register local {} (register: {})", idx, i);
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
             let mut found_shadow = false;
             for v in state.stack_values.iter().rev() {
                 match *v {
@@ -221,7 +241,7 @@ pub mod x64 {
                         stack = stack.offset(1);
                     }
                     MachineValue::PreserveRegister(idx) => {
-                        next_known_registers[idx.0] = Some(*stack);
+                        known_registers[idx.0] = Some(*stack);
                         stack = stack.offset(1);
                     }
                     MachineValue::CopyStackBPRelative(offset) => {
@@ -237,28 +257,14 @@ pub mod x64 {
                     }
                 }
             }
-            for (i, v) in state.register_values.iter().enumerate() {
-                match *v {
-                    MachineValue::Undefined => {}
-                    MachineValue::WasmStack(idx) => {
-                        if let Some(v) = known_registers[i] {
-                            wasm_stack.set(idx, v);
-                        }
-                    }
-                    MachineValue::WasmLocal(idx) => {
-                        if let Some(v) = known_registers[i] {
-                            wasm_locals.set(idx, v);
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-            }
             assert_eq!(found_shadow, true);
             stack = stack.offset(1); // RBP
 
             let wfs = WasmFunctionState {
                 stack: wasm_stack.elements,
-                locals: wasm_locals.into_vec().unwrap(),
+                locals: wasm_locals
+                    .into_vec()
+                    .expect("some locals do not have known values"),
             };
             println!("Frame #{}: {:p} {:?}", i, ret_addr as *const u8, wfs);
         }
