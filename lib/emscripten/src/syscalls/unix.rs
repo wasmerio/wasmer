@@ -894,7 +894,7 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
             *(dirp.add(pos + 4) as *mut u32) = pos as u32;
             *(dirp.add(pos + 8) as *mut u16) = offset as u16;
             *(dirp.add(pos + 10) as *mut u8) = (*dirent).d_type;
-            let upper_bound = std::cmp::min((*dirent).d_reclen, 256) as usize;
+            let upper_bound = std::cmp::min((*dirent).d_reclen, 255) as usize;
             let mut i = 0;
             while i < upper_bound {
                 *(dirp.add(pos + 11 + i) as *mut i8) = (*dirent).d_name[i];

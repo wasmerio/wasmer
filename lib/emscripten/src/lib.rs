@@ -31,7 +31,6 @@ use ::libc::DIR as libcDIR;
 #[cfg(not(unix))]
 type libcDIR = u8;
 
-
 #[macro_use]
 mod macros;
 
