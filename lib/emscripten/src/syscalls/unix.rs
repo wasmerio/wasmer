@@ -867,7 +867,7 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let mut dir = &*opened_dirs.entry(fd).or_insert_with(|| unsafe { Box::new(libc::fdopendir(fd)) });
 
     let mut pos = 0;
-    let offset = 280;
+    let offset = 256+12;
     while pos + offset <= count as usize {
         let dirent = unsafe { readdir(**dir) };
         if dirent.is_null() {
@@ -875,18 +875,19 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         }
         #[allow(clippy::cast_ptr_alignment)]
         unsafe {
-            *(dirp.add(pos) as *mut u64) = (*dirent).d_ino;
-            *(dirp.add(pos + 8) as *mut u64) = pos as u64 + offset as u64;
-            *(dirp.add(pos + 16) as *mut u16) = offset as u16;
-            *(dirp.add(pos + 18) as *mut u8) = (*dirent).d_type;
-            let upper_bound = std::cmp::min((*dirent).d_reclen, 254) as usize;
+            *(dirp.add(pos) as *mut u32) = (*dirent).d_ino as u32;
+            *(dirp.add(pos + 4) as *mut u32) = pos as u32;
+            *(dirp.add(pos + 8) as *mut u16) = offset as u16;
+            *(dirp.add(pos + 10) as *mut u8) = (*dirent).d_type;
+            let upper_bound = std::cmp::min((*dirent).d_reclen, 256) as usize;
             let mut i = 0;
             while i < upper_bound {
-                *(dirp.add(pos + 19 + i) as *mut i8) = (*dirent).d_name[i];
+                *(dirp.add(pos + 11 + i) as *mut i8) = (*dirent).d_name[i];
                 i += 1;
             }
-            *(dirp.add(pos + 19 + i) as *mut i8) = 0 as i8;
-            debug!("  => file {}", CStr::from_ptr(dirp.add(pos + 19) as *const i8).to_str().unwrap());
+            // We set the termination string char
+            *(dirp.add(pos + 11 + i) as *mut i8) = 0 as i8;
+            debug!("  => file {}", CStr::from_ptr(dirp.add(pos + 11) as *const i8).to_str().unwrap());
         }
         pos += offset;
     }
