@@ -1,11 +1,9 @@
 use wasmer_runtime_core::vm::Ctx;
 
-#[allow(clippy::all)]
 pub fn _llvm_copysign_f32(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
     x.copysign(y)
 }
 
-#[allow(clippy::all)]
 pub fn _llvm_copysign_f64(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
     x.copysign(y)
 }
