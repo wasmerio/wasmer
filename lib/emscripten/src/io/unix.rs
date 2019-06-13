@@ -27,6 +27,7 @@ pub fn chroot(ctx: &mut Ctx, name_ptr: i32) -> i32 {
 }
 
 /// getpwuid
+#[allow(clippy::cast_ptr_alignment)]
 pub fn getpwuid(ctx: &mut Ctx, uid: i32) -> i32 {
     debug!("emscripten::getpwuid {}", uid);
 
@@ -40,13 +41,13 @@ pub fn getpwuid(ctx: &mut Ctx, uid: i32) -> i32 {
         pw_dir: u32,
         pw_shell: u32,
     }
-
+    
     unsafe {
         let passwd = &*_getpwuid(uid as _);
         let passwd_struct_offset = call_malloc(ctx, mem::size_of::<GuestPasswd>() as _);
-
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
+        assert_eq!(passwd_struct_ptr as usize % std::cmp::min(std::mem::size_of::<usize>(), std::mem::align_of::<usize>()), 0);
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx, passwd.pw_name);
         (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx, passwd.pw_passwd);
         (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx, passwd.pw_gecos);
