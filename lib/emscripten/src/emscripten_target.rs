@@ -5,7 +5,7 @@ use crate::env::get_emscripten_data;
 use libc::getdtablesize;
 use wasmer_runtime_core::vm::Ctx;
 
-pub fn asm_const_i(_ctx: &mut Ctx, _val: i32) -> i32{
+pub fn asm_const_i(_ctx: &mut Ctx, _val: i32) -> i32 {
     debug!("emscripten::asm_const_i: {}", _val);
     0
 }

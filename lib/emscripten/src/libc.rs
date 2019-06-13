@@ -1,6 +1,7 @@
 extern crate libc;
 extern crate wasmer_runtime_core;
 
+#[cfg(unix)]
 use std::convert::TryInto;
 
 use wasmer_runtime_core::vm::Ctx;
@@ -49,12 +50,14 @@ pub fn killpg(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     0
 }
 
+#[cfg(unix)]
 pub fn pathconf(ctx: &mut Ctx, path_ptr: i32, name: i32) -> i32 {
     let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
+    unsafe { libc::pathconf(path, name).try_into().unwrap() }
+}
 
-    unsafe {
-        libc::pathconf(path, name).try_into().unwrap()
-    }
+#[cfg(not(unix))]
+pub fn pathconf(ctx: &mut Ctx, path_ptr: i32, name: i32) -> i32 {
 }
 
 pub fn setpwent(_ctx: &mut Ctx) {

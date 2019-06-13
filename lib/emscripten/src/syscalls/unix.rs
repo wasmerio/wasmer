@@ -26,6 +26,7 @@ use libc::{
     getrusage,
     getsockname,
     getsockopt,
+    getuid,
     gid_t,
     in_addr_t,
     in_port_t,
@@ -74,6 +75,7 @@ use libc::{
     SO_REUSEADDR,
     TIOCGWINSZ,
 };
+
 #[allow(unused_imports)]
 use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
@@ -847,6 +849,14 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     0
 }
 
+// getuid
+pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall199 (getuid)");
+    let uid = unsafe { getuid() as _ };
+    debug!("  => {}", uid);
+    uid
+}
+
 // getdents
 // dirent structure is
 // i64, i64, u16 (280), i8, [i8; 256]
@@ -856,7 +866,10 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let fd: i32 = varargs.get(ctx);
     let dirp_addr: i32 = varargs.get(ctx);
     let count: u32 = varargs.get(ctx);
-    debug!("emscripten::___syscall220 (getdents) {} {} {}", fd, dirp_addr, count);
+    debug!(
+        "emscripten::___syscall220 (getdents) {} {} {}",
+        fd, dirp_addr, count
+    );
 
     let dirp = emscripten_memory_pointer!(ctx.memory(0), dirp_addr) as *mut u8;
 
@@ -864,10 +877,12 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 
     // need to persist stream across calls?
     // let dir: *mut libc::DIR = unsafe { libc::fdopendir(fd) };
-    let mut dir = &*opened_dirs.entry(fd).or_insert_with(|| unsafe { Box::new(libc::fdopendir(fd)) });
+    let mut dir = &*opened_dirs
+        .entry(fd)
+        .or_insert_with(|| unsafe { Box::new(libc::fdopendir(fd)) });
 
     let mut pos = 0;
-    let offset = 256+12;
+    let offset = 256 + 12;
     while pos + offset <= count as usize {
         let dirent = unsafe { readdir(**dir) };
         if dirent.is_null() {
@@ -887,7 +902,12 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
             }
             // We set the termination string char
             *(dirp.add(pos + 11 + i) as *mut i8) = 0 as i8;
-            debug!("  => file {}", CStr::from_ptr(dirp.add(pos + 11) as *const i8).to_str().unwrap());
+            debug!(
+                "  => file {}",
+                CStr::from_ptr(dirp.add(pos + 11) as *const i8)
+                    .to_str()
+                    .unwrap()
+            );
         }
         pos += offset;
     }

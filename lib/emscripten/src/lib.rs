@@ -24,6 +24,14 @@ use wasmer_runtime_core::{
     Func, Instance, IsExport, Module,
 };
 
+#[cfg(unix)]
+use ::libc::DIR as libcDIR;
+
+// We use a placeholder for windows
+#[cfg(not(unix))]
+type libcDIR = u8;
+
+
 #[macro_use]
 mod macros;
 
@@ -75,8 +83,6 @@ lazy_static! {
 // Then 'dynamic' memory for sbrk.
 const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
-
-use ::libc::DIR as libcDIR;
 
 pub struct EmscriptenData<'a> {
     pub malloc: Func<'a, u32, u32>,

@@ -27,6 +27,8 @@ use libc::{
     exit,
     fstat,
     getpid,
+    getuid,
+    // readlink,
     // iovec,
     lseek,
     off_t,
@@ -39,8 +41,6 @@ use libc::{
     // writev,
     stat,
     write,
-    getuid,
-    // readlink,
 };
 use wasmer_runtime_core::{
     memory::ptr::{Array, WasmPtr},

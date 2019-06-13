@@ -1,7 +1,7 @@
-use std::mem;
-use libc::{chroot as _chroot, printf as _printf, getpwuid as _getpwuid};
-use super::super::utils::copy_cstr_into_wasm;
 use super::super::env::call_malloc;
+use super::super::utils::copy_cstr_into_wasm;
+use libc::{chroot as _chroot, getpwuid as _getpwuid, printf as _printf};
+use std::mem;
 
 use wasmer_runtime_core::vm::Ctx;
 

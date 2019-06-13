@@ -261,6 +261,12 @@ pub fn ___syscall196(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+// getuid
+pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall199 (getuid)");
+    -1
+}
+
 // getdents
 pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall220");
