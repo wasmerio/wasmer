@@ -1,13 +1,13 @@
-use std::{f32, f64};
 use wasmer_runtime_core::vm::Ctx;
 
+#![allow(clippy::all)]
 pub fn _llvm_copysign_f32(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
-    // f32::copysign(x, y)
-    f64::copysign(x, y)
+    x.copysign(y)
 }
 
+#![allow(clippy::all)]
 pub fn _llvm_copysign_f64(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
-    f64::copysign(x, y)
+    x.copysign(y)
 }
 
 /// emscripten: _llvm_log10_f64

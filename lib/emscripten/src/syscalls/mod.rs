@@ -27,7 +27,6 @@ use libc::{
     exit,
     fstat,
     getpid,
-    getuid,
     // readlink,
     // iovec,
     lseek,
@@ -610,14 +609,6 @@ pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
 
     0
-}
-
-// getuid
-pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall199 (getuid)");
-    let uid = unsafe { getuid() as _ };
-    debug!("  => {}", uid);
-    uid
 }
 
 pub fn ___syscall209(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
