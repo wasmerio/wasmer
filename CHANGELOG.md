@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#471](https://github.com/wasmerio/wasmer/pull/471) Added missing functions to run Python. Improved Emscripten bindings
 - [#474](https://github.com/wasmerio/wasmer/pull/474) Set the install name of the dylib to `@rpath`
 - [#490](https://github.com/wasmerio/wasmer/pull/490) Add MiddlewareChain and StreamingCompiler to runtime
 - [#487](https://github.com/wasmerio/wasmer/pull/487) Fix stack offset check in singlepass backend 
