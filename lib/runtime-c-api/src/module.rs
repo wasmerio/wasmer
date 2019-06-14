@@ -126,14 +126,14 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     }
 
     let module = &*(module as *const Module);
-    let new_instance = if let Ok(res) = module.instantiate(&import_object) {
-        res
-    } else {
-        update_last_error(CApiError {
-            msg: "error instantiating from module".to_string(),
-        });
-        return wasmer_result_t::WASMER_ERROR;
+    let new_instance = match module.instantiate(&import_object) {
+        Ok(instance) => instance,
+        Err(error) => {
+            update_last_error(error);
+            return wasmer_result_t::WASMER_ERROR;
+        }
     };
+
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
 }
