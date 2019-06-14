@@ -348,6 +348,9 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         0,
         Error::last_os_error(),
     );
+    if ret == -1 {
+        return -1
+    }
     0
 }
 
