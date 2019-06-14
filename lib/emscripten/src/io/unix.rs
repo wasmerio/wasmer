@@ -48,8 +48,7 @@ pub fn getpwuid(ctx: &mut Ctx, uid: i32) -> i32 {
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
         assert_eq!(
-            passwd_struct_ptr as usize
-                % std::cmp::min(std::mem::size_of::<usize>(), std::mem::align_of::<usize>()),
+            passwd_struct_ptr as usize % std::mem::align_of::<GuestPasswd>(),
             0
         );
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx, passwd.pw_name);
