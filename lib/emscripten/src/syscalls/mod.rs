@@ -325,7 +325,7 @@ pub fn ___syscall192(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 /// lseek
 pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
-    debug!("emscripten::___syscall140 (lseek) {}", _which);
+    debug!("emscripten::___syscall140 (_llseek) {}", _which);
     let fd: i32 = varargs.get(ctx);
     let _ = varargs.get::<u32>(ctx); // ignore high offset
     let offset_low: u32 = varargs.get(ctx);
