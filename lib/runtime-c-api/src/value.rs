@@ -1,6 +1,5 @@
 //! Create and map Rust to WebAssembly values.
 
-use libc::{int32_t, int64_t};
 use wasmer_runtime::Value;
 use wasmer_runtime_core::types::Type;
 
@@ -18,8 +17,8 @@ pub enum wasmer_value_tag {
 #[derive(Clone, Copy)]
 #[allow(non_snake_case)]
 pub union wasmer_value {
-    pub I32: int32_t,
-    pub I64: int64_t,
+    pub I32: i32,
+    pub I64: i64,
     pub F32: f32,
     pub F64: f64,
 }

@@ -1,7 +1,6 @@
 //! Create, read, write, grow, destroy memory of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
-use libc::{uint32_t, uint8_t};
 use std::cell::Cell;
 use wasmer_runtime::Memory;
 use wasmer_runtime_core::{
@@ -57,10 +56,7 @@ pub unsafe extern "C" fn wasmer_memory_new(
 /// and `wasmer_last_error_message` to get an error message.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_grow(
-    memory: *mut wasmer_memory_t,
-    delta: uint32_t,
-) -> wasmer_result_t {
+pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -> wasmer_result_t {
     let memory = unsafe { &*(memory as *mut Memory) };
     let delta_result = memory.grow(Pages(delta));
     match delta_result {
@@ -75,7 +71,7 @@ pub extern "C" fn wasmer_memory_grow(
 /// Returns the current length in pages of the given memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> uint32_t {
+pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> u32 {
     let memory = unsafe { &*(memory as *const Memory) };
     let Pages(len) = memory.size();
     len
@@ -84,7 +80,7 @@ pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> uint32
 /// Gets the start pointer to the bytes within a Memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_data(mem: *const wasmer_memory_t) -> *mut uint8_t {
+pub extern "C" fn wasmer_memory_data(mem: *const wasmer_memory_t) -> *mut u8 {
     let memory = unsafe { &*(mem as *const Memory) };
     memory.view::<u8>()[..].as_ptr() as *mut Cell<u8> as *mut u8
 }
@@ -92,10 +88,10 @@ pub extern "C" fn wasmer_memory_data(mem: *const wasmer_memory_t) -> *mut uint8_
 /// Gets the size in bytes of a Memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> uint32_t {
+pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> u32 {
     let memory = mem as *mut Memory;
     let Bytes(len) = unsafe { (*memory).size().bytes() };
-    len as uint32_t
+    len as u32
 }
 
 /// Frees memory for the given Memory

@@ -1,7 +1,6 @@
 //! Create, grow, destroy tables of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
-use libc::uint32_t;
 use wasmer_runtime::Table;
 use wasmer_runtime_core::types::{ElementType, TableDescriptor};
 
@@ -53,10 +52,7 @@ pub unsafe extern "C" fn wasmer_table_new(
 /// and `wasmer_last_error_message` to get an error message.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_table_grow(
-    table: *mut wasmer_table_t,
-    delta: uint32_t,
-) -> wasmer_result_t {
+pub extern "C" fn wasmer_table_grow(table: *mut wasmer_table_t, delta: u32) -> wasmer_result_t {
     let table = unsafe { &*(table as *mut Table) };
     let delta_result = table.grow(delta);
     match delta_result {
@@ -71,7 +67,7 @@ pub extern "C" fn wasmer_table_grow(
 /// Returns the current length of the given Table
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
+pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> u32 {
     let table = unsafe { &*(table as *mut Table) };
     table.size()
 }
