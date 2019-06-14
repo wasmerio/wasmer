@@ -116,13 +116,12 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let _path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
     let fd = unsafe { open(real_path, flags, mode) };
     debug!(
-        "=> path: {}, flags: {}, mode: {} = fd: {}, last os error: {}",
-        _path_str,
-        flags,
-        mode,
-        fd,
-        Error::last_os_error(),
+        "=> path: {}, flags: {}, mode: {} = fd: {}",
+        _path_str, flags, mode, fd,
     );
+    if fd == -1 {
+        debug!("=> os error: {}", Error::last_os_error(),);
+    }
     fd
 }
 
@@ -384,12 +383,14 @@ pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
 
 /// ioctl
 pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall54 (ioctl) {}", _which);
     let fd: i32 = varargs.get(ctx);
     let request: u32 = varargs.get(ctx);
     let argp: u32 = varargs.get(ctx);
 
-    debug!("=> fd: {}, op: {}", fd, request);
+    debug!(
+        "emscripten::___syscall54 (ioctl) {}, fd: {}, request: 0x{:X}, argp: {}",
+        _which, fd, request, argp
+    );
 
     let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
 

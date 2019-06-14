@@ -326,11 +326,13 @@ pub fn ___syscall192(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (_llseek) {}", _which);
+
     let fd: i32 = varargs.get(ctx);
     let _ = varargs.get::<u32>(ctx); // ignore high offset
     let offset_low: u32 = varargs.get(ctx);
     let result_ptr_value = varargs.get::<i32>(ctx);
     let whence: i32 = varargs.get(ctx);
+
     let offset = offset_low as off_t;
     let ret = unsafe { lseek(fd, offset, whence) as i32 };
     #[allow(clippy::cast_ptr_alignment)]
@@ -340,15 +342,11 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         *result_ptr = ret;
     }
     debug!(
-        "=> fd: {}, offset: {}, result_ptr: {}, whence: {} = {}\nlast os error: {}",
-        fd,
-        offset,
-        result_ptr_value,
-        whence,
-        0,
-        Error::last_os_error(),
+        "=> fd: {}, offset: {}, result_ptr: {}, whence: {} = {}",
+        fd, offset, result_ptr_value, whence, ret,
     );
     if ret == -1 {
+        debug!("=> os error: {}", Error::last_os_error());
         return -1
     }
     0
