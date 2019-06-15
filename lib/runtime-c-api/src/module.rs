@@ -7,7 +7,7 @@ use crate::{
     instance::wasmer_instance_t,
     wasmer_byte_array, wasmer_result_t,
 };
-use libc::{c_int, uint32_t, uint8_t};
+use libc::c_int;
 use std::{collections::HashMap, slice};
 use wasmer_runtime::{compile, default_compiler, Global, ImportObject, Memory, Module, Table};
 use wasmer_runtime_core::{cache::Artifact, export::Export, import::Namespace, load_cache_with};
@@ -28,8 +28,8 @@ pub struct wasmer_serialized_module_t;
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_compile(
     module: *mut *mut wasmer_module_t,
-    wasm_bytes: *mut uint8_t,
-    wasm_bytes_len: uint32_t,
+    wasm_bytes: *mut u8,
+    wasm_bytes_len: u32,
 ) -> wasmer_result_t {
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
     let result = compile(bytes);
@@ -47,10 +47,7 @@ pub unsafe extern "C" fn wasmer_compile(
 /// Returns true for valid wasm bytes and false for invalid bytes
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_validate(
-    wasm_bytes: *const uint8_t,
-    wasm_bytes_len: uint32_t,
-) -> bool {
+pub unsafe extern "C" fn wasmer_validate(wasm_bytes: *const u8, wasm_bytes_len: u32) -> bool {
     if wasm_bytes.is_null() {
         return false;
     }
@@ -129,14 +126,14 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     }
 
     let module = &*(module as *const Module);
-    let new_instance = if let Ok(res) = module.instantiate(&import_object) {
-        res
-    } else {
-        update_last_error(CApiError {
-            msg: "error instantiating from module".to_string(),
-        });
-        return wasmer_result_t::WASMER_ERROR;
+    let new_instance = match module.instantiate(&import_object) {
+        Ok(instance) => instance,
+        Err(error) => {
+            update_last_error(error);
+            return wasmer_result_t::WASMER_ERROR;
+        }
     };
+
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
 }
@@ -206,8 +203,8 @@ pub unsafe extern "C" fn wasmer_serialized_module_bytes(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_serialized_module_from_bytes(
     serialized_module: *mut *mut wasmer_serialized_module_t,
-    serialized_module_bytes: *const uint8_t,
-    serialized_module_bytes_length: uint32_t,
+    serialized_module_bytes: *const u8,
+    serialized_module_bytes_length: u32,
 ) -> wasmer_result_t {
     if serialized_module.is_null() {
         update_last_error(CApiError {

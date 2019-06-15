@@ -27,6 +27,7 @@ use libc::{
     exit,
     fstat,
     getpid,
+    // readlink,
     // iovec,
     lseek,
     off_t,
@@ -39,7 +40,6 @@ use libc::{
     // writev,
     stat,
     write,
-    // readlink,
 };
 use wasmer_runtime_core::{
     memory::ptr::{Array, WasmPtr},
@@ -119,6 +119,11 @@ pub fn ___syscall10(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+pub fn ___syscall14(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall14");
+    -1
+}
+
 pub fn ___syscall15(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall15");
     -1
@@ -128,6 +133,36 @@ pub fn ___syscall15(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 pub fn ___syscall20(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall20 (getpid)");
     unsafe { getpid() }
+}
+
+pub fn ___syscall21(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall21");
+    -1
+}
+
+pub fn ___syscall25(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall25");
+    -1
+}
+
+pub fn ___syscall29(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall29");
+    -1
+}
+
+pub fn ___syscall32(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall32");
+    -1
+}
+
+pub fn ___syscall33(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall33");
+    -1
+}
+
+pub fn ___syscall36(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall36");
+    -1
 }
 
 // rename
@@ -196,6 +231,21 @@ pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     result
 }
 
+pub fn ___syscall51(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall51");
+    -1
+}
+
+pub fn ___syscall52(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall52");
+    -1
+}
+
+pub fn ___syscall53(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall53");
+    -1
+}
+
 pub fn ___syscall60(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall60");
     -1
@@ -260,6 +310,11 @@ pub fn ___syscall91(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     0
 }
 
+pub fn ___syscall96(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall96");
+    -1
+}
+
 pub fn ___syscall97(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall97");
     -1
@@ -267,6 +322,61 @@ pub fn ___syscall97(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 
 pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall110");
+    -1
+}
+
+pub fn ___syscall121(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall121");
+    -1
+}
+
+pub fn ___syscall125(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall125");
+    -1
+}
+
+pub fn ___syscall132(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall132");
+    -1
+}
+
+pub fn ___syscall133(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall133");
+    -1
+}
+
+pub fn ___syscall144(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall144");
+    -1
+}
+
+pub fn ___syscall147(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall147");
+    -1
+}
+
+pub fn ___syscall150(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall150");
+    -1
+}
+
+pub fn ___syscall151(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall151");
+    -1
+}
+
+pub fn ___syscall152(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall152");
+    -1
+}
+
+pub fn ___syscall153(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall153");
+    -1
+}
+
+pub fn ___syscall163(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall163");
     -1
 }
 
@@ -447,8 +557,8 @@ pub fn ___syscall191(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     0
 }
 
-pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall199 - stub");
+pub fn ___syscall193(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall193");
     -1
 }
 
@@ -502,6 +612,21 @@ pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     0
 }
 
+pub fn ___syscall209(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall209");
+    -1
+}
+
+pub fn ___syscall211(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall211");
+    -1
+}
+
+pub fn ___syscall218(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall218");
+    -1
+}
+
 // fcntl64
 pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall221 (fcntl64) {}", _which);
@@ -525,6 +650,11 @@ pub fn ___syscall268(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+pub fn ___syscall269(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall269");
+    -1
+}
+
 pub fn ___syscall272(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall272");
     -1
@@ -535,8 +665,63 @@ pub fn ___syscall295(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+pub fn ___syscall296(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall296");
+    -1
+}
+
+pub fn ___syscall297(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall297");
+    -1
+}
+
+pub fn ___syscall298(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall298");
+    -1
+}
+
 pub fn ___syscall300(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall300");
+    -1
+}
+
+pub fn ___syscall301(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall301");
+    -1
+}
+
+pub fn ___syscall302(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall302");
+    -1
+}
+
+pub fn ___syscall303(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall303");
+    -1
+}
+
+pub fn ___syscall304(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall304");
+    -1
+}
+
+pub fn ___syscall305(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall305");
+    -1
+}
+
+pub fn ___syscall306(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall306");
+    -1
+}
+
+pub fn ___syscall307(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall307");
+    -1
+}
+
+pub fn ___syscall308(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall308");
     -1
 }
 
@@ -546,8 +731,23 @@ pub fn ___syscall320(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_
     0
 }
 
+pub fn ___syscall331(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall331");
+    -1
+}
+
+pub fn ___syscall333(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall333");
+    -1
+}
+
 pub fn ___syscall334(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall334");
+    -1
+}
+
+pub fn ___syscall337(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall337");
     -1
 }
 
@@ -576,4 +776,9 @@ pub fn ___syscall340(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
 
     0
+}
+
+pub fn ___syscall345(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall345");
+    -1
 }
