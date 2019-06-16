@@ -21,6 +21,12 @@ int main()
     printf("Memory pages length:  %d\n", len);
     assert(len == 10);
 
+    uint32_t offset = 3;
+    uint8_t buffer[] = {10, 20, 30, 40};
+    uint32_t buffer_len = sizeof(buffer) / sizeof(uint8_t);
+    wasmer_memory_data_copy(memory, offset, buffer, buffer_len);
+
+
     wasmer_result_t grow_result = wasmer_memory_grow(memory, 2);
     assert(grow_result == WASMER_OK);
 

@@ -1,6 +1,11 @@
 //! Create, read, write, grow, destroy memory of an instance.
 
-use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
+use crate::{
+    //error::Error, error::RuntimeError,
+    error::update_last_error,
+    wasmer_limits_t,
+    wasmer_result_t,
+};
 use std::cell::Cell;
 use wasmer_runtime::Memory;
 use wasmer_runtime_core::{
@@ -92,6 +97,36 @@ pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> u32 {
     let memory = mem as *mut Memory;
     let Bytes(len) = unsafe { (*memory).size().bytes() };
     len as u32
+}
+
+/// Copies an input buffer into Memory.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_memory_data_copy(
+    mem: *mut wasmer_memory_t,
+    mem_offset: u32,
+    buffer: *const u8,
+    buffer_len: u32,
+) -> wasmer_result_t {
+    let last_mem_offset = wasmer_memory_data_length(mem) - 1;
+    let last_mem_copy_offset = mem_offset + (buffer_len - 1);
+
+    if last_mem_copy_offset > last_mem_offset {
+        // let err = RuntimeError::from("Memory illegal accesss: out of bounds");
+        // update_last_error(Error::(RuntimeError(err));
+
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    let mem_start_ptr: *mut u8 = wasmer_memory_data(mem);
+
+    unsafe {
+        let mem_ptr: *mut u8 = mem_start_ptr.offset(mem_offset as isize);
+
+        std::ptr::copy(buffer, mem_ptr, buffer_len as usize);
+    }
+
+    wasmer_result_t::WASMER_OK
 }
 
 /// Frees memory for the given Memory

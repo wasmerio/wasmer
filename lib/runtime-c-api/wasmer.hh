@@ -385,6 +385,12 @@ int wasmer_last_error_message(char *buffer, int length);
 /// Gets the start pointer to the bytes within a Memory
 uint8_t *wasmer_memory_data(const wasmer_memory_t *mem);
 
+/// Copies an input buffer into Memory.
+wasmer_result_t wasmer_memory_data_copy(wasmer_memory_t *mem,
+                                        uint32_t mem_offset,
+                                        const uint8_t *buffer,
+                                        uint32_t buffer_len);
+
 /// Gets the size in bytes of a Memory
 uint32_t wasmer_memory_data_length(wasmer_memory_t *mem);
 
