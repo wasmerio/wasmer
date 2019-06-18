@@ -139,7 +139,7 @@ impl LocalBacking {
                     if let Value::I32(x) = imports.globals[import_global_index].get() {
                         x as u32
                     } else {
-                        panic!("unsupported global type for initialzer")
+                        panic!("unsupported global type for initializer")
                     }
                 }
             } as usize;
@@ -210,7 +210,7 @@ impl LocalBacking {
                     if let Value::I32(x) = imports.globals[import_global_index].get() {
                         x as u32
                     } else {
-                        panic!("unsupported global type for initialzer")
+                        panic!("unsupported global type for initializer")
                     }
                 }
             } as usize;
