@@ -85,19 +85,8 @@ pub fn read_module<
         custom_sections: HashMap::new(),
     }));
 
-    let mut parser = wasmparser::ValidatingParser::new(
-        wasm,
-        Some(wasmparser::ValidatingParserConfig {
-            operator_config: wasmparser::OperatorValidatorConfig {
-                enable_threads: false,
-                enable_reference_types: false,
-                enable_simd: false,
-                enable_bulk_memory: false,
-                enable_multi_value: false,
-            },
-            mutable_global_imports: false,
-        }),
-    );
+    let mut parser =
+        wasmparser::ValidatingParser::new(wasm, Some(default_validating_parser_config()));
 
     let mut namespace_builder = Some(StringTableBuilder::new());
     let mut name_builder = Some(StringTableBuilder::new());

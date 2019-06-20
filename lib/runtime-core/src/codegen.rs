@@ -137,8 +137,22 @@ impl<
     }
 }
 
+pub fn default_validating_parser_config() -> wasmparser::ValidatingParserConfig {
+    wasmparser::ValidatingParserConfig {
+        operator_config: wasmparser::OperatorValidatorConfig {
+            enable_threads: false,
+            enable_reference_types: false,
+            enable_simd: false,
+            enable_bulk_memory: false,
+            enable_multi_value: false,
+        },
+        mutable_global_imports: false,
+    }
+}
+
 fn validate(bytes: &[u8]) -> CompileResult<()> {
-    let mut parser = wasmparser::ValidatingParser::new(bytes, None);
+    let mut parser =
+        wasmparser::ValidatingParser::new(bytes, Some(default_validating_parser_config()));
     loop {
         let state = parser.read();
         match *state {
