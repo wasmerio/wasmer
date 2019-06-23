@@ -13,8 +13,8 @@ void print_str(const wasmer_instance_context_t *ctx, const wasmer_value_t params
     print_str_called = true;
     const wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
     uint8_t *mem_bytes = wasmer_memory_data(memory);
-    int32_t ptr =  params[0].value.I32
-    int32_t len =  params[1].value.I32
+    int32_t ptr =  params[0].value.I32;
+    int32_t len =  params[1].value.I32;
     printf("%.*s", len, mem_bytes + ptr);
 }
 

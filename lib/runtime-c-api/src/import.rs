@@ -261,6 +261,22 @@ pub unsafe extern "C" fn wasmer_import_func_new(
     Box::into_raw(export) as *mut wasmer_import_func_t
 }
 
+
+/// Creates new func that defines arguments/returns as arrays.
+///
+/// The caller owns the object and should call `wasmer_import_func_destroy` to free it.
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_import_func_variadic_new(
+    _func: extern "C" fn(data: *mut c_void),
+    _params: *const wasmer_value_tag,
+    _params_len: c_uint,
+    _returns: *const wasmer_value_tag,
+    _returns_len: c_uint,
+) -> *mut wasmer_import_func_t {
+    unimplemented!()
+}
+
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t
 ///
 /// Returns `wasmer_result_t::WASMER_OK` upon success.

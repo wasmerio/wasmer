@@ -318,6 +318,14 @@ wasmer_result_t wasmer_import_func_returns(const wasmer_import_func_t *func,
 wasmer_result_t wasmer_import_func_returns_arity(const wasmer_import_func_t *func,
                                                  uint32_t *result);
 
+/// Creates new func that defines arguments/returns as arrays.
+/// The caller owns the object and should call `wasmer_import_func_destroy` to free it.
+wasmer_import_func_t *wasmer_import_func_variadic_new(void (*_func)(void *data),
+                                                      const wasmer_value_tag *_params,
+                                                      unsigned int _params_len,
+                                                      const wasmer_value_tag *_returns,
+                                                      unsigned int _returns_len);
+
 /// Calls an instances exported function by `name` with the provided parameters.
 /// Results are set using the provided `results` pointer.
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
