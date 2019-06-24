@@ -11,7 +11,7 @@ use crate::{
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_byte_array, wasmer_result_t,
 };
-use libc::{c_int, uint32_t};
+use libc::c_int;
 use std::{ptr, slice};
 use wasmer_runtime::{Instance, Memory, Module, Value};
 use wasmer_runtime_core::{export::Export, module::ExportIndex};
@@ -196,12 +196,12 @@ pub unsafe extern "C" fn wasmer_export_kind(
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_export_func_params_arity(
     func: *const wasmer_export_func_t,
-    result: *mut uint32_t,
+    result: *mut u32,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
     if let Export::Function { ref signature, .. } = *export {
-        *result = signature.params().len() as uint32_t;
+        *result = signature.params().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
@@ -222,7 +222,7 @@ pub unsafe extern "C" fn wasmer_export_func_params_arity(
 pub unsafe extern "C" fn wasmer_export_func_params(
     func: *const wasmer_export_func_t,
     params: *mut wasmer_value_tag,
-    params_len: uint32_t,
+    params_len: u32,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
@@ -252,7 +252,7 @@ pub unsafe extern "C" fn wasmer_export_func_params(
 pub unsafe extern "C" fn wasmer_export_func_returns(
     func: *const wasmer_export_func_t,
     returns: *mut wasmer_value_tag,
-    returns_len: uint32_t,
+    returns_len: u32,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
@@ -281,12 +281,12 @@ pub unsafe extern "C" fn wasmer_export_func_returns(
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_export_func_returns_arity(
     func: *const wasmer_export_func_t,
-    result: *mut uint32_t,
+    result: *mut u32,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
     if let Export::Function { ref signature, .. } = *export {
-        *result = signature.returns().len() as uint32_t;
+        *result = signature.returns().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {

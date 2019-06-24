@@ -10,7 +10,7 @@ use crate::{
 };
 use std::{
     cell::{Cell, RefCell},
-    fmt, mem, ptr,
+    fmt, mem,
     rc::Rc,
 };
 
@@ -21,6 +21,7 @@ pub use self::view::{Atomically, MemoryView};
 
 mod atomic;
 mod dynamic;
+pub mod ptr;
 mod static_;
 mod view;
 
@@ -221,9 +222,9 @@ struct UnsharedMemoryInternal {
 impl UnsharedMemory {
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
         let mut local = vm::LocalMemory {
-            base: ptr::null_mut(),
+            base: std::ptr::null_mut(),
             bound: 0,
-            memory: ptr::null_mut(),
+            memory: std::ptr::null_mut(),
         };
 
         let storage = match desc.memory_type() {

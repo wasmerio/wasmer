@@ -24,6 +24,13 @@ use wasmer_runtime_core::{
     Func, Instance, IsExport, Module,
 };
 
+#[cfg(unix)]
+use ::libc::DIR as libcDIR;
+
+// We use a placeholder for windows
+#[cfg(not(unix))]
+type libcDIR = u8;
+
 #[macro_use]
 mod macros;
 
@@ -35,8 +42,10 @@ mod errno;
 mod exception;
 mod exec;
 mod exit;
+mod inet;
 mod io;
 mod jmp;
+mod libc;
 mod linking;
 mod lock;
 mod math;
@@ -47,6 +56,7 @@ mod storage;
 mod syscalls;
 mod time;
 mod ucontext;
+mod unistd;
 mod utils;
 mod varargs;
 
@@ -80,6 +90,7 @@ pub struct EmscriptenData<'a> {
     pub memset: Func<'a, (u32, u32, u32), u32>,
     pub stack_alloc: Func<'a, u32, u32>,
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
+    pub opened_dirs: HashMap<i32, Box<*mut libcDIR>>,
 
     pub dyn_call_i: Option<Func<'a, i32, i32>>,
     pub dyn_call_ii: Option<Func<'a, (i32, i32), i32>>,
@@ -221,6 +232,8 @@ impl<'a> EmscriptenData<'a> {
             memset,
             stack_alloc,
             jumps: Vec::new(),
+            opened_dirs: HashMap::new(),
+
             dyn_call_i,
             dyn_call_ii,
             dyn_call_iii,
@@ -508,12 +521,17 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "STACKTOP" => Global::new(Value::I32(globals.data.stacktop as i32)),
         "STACK_MAX" => Global::new(Value::I32(globals.data.stack_max as i32)),
         "DYNAMICTOP_PTR" => Global::new(Value::I32(globals.data.dynamictop_ptr as i32)),
+        "fb" => Global::new(Value::I32(globals.data.table_base as i32)),
         "tableBase" => Global::new(Value::I32(globals.data.table_base as i32)),
         "__table_base" => Global::new(Value::I32(globals.data.table_base as i32)),
         "ABORT" => Global::new(Value::I32(globals.data.abort as i32)),
+        "gb" => Global::new(Value::I32(globals.data.memory_base as i32)),
         "memoryBase" => Global::new(Value::I32(globals.data.memory_base as i32)),
         "__memory_base" => Global::new(Value::I32(globals.data.memory_base as i32)),
         "tempDoublePtr" => Global::new(Value::I32(globals.data.temp_double_ptr as i32)),
+
+        // inet
+        "_inet_addr" => func!(crate::inet::addr),
 
         // IO
         "printf" => func!(crate::io::printf),
@@ -565,15 +583,24 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall9" => func!(crate::syscalls::___syscall9),
         "___syscall10" => func!(crate::syscalls::___syscall10),
         "___syscall12" => func!(crate::syscalls::___syscall12),
+        "___syscall14" => func!(crate::syscalls::___syscall14),
         "___syscall15" => func!(crate::syscalls::___syscall15),
         "___syscall20" => func!(crate::syscalls::___syscall20),
+        "___syscall21" => func!(crate::syscalls::___syscall21),
+        "___syscall25" => func!(crate::syscalls::___syscall25),
+        "___syscall29" => func!(crate::syscalls::___syscall29),
+        "___syscall32" => func!(crate::syscalls::___syscall32),
         "___syscall33" => func!(crate::syscalls::___syscall33),
         "___syscall34" => func!(crate::syscalls::___syscall34),
+        "___syscall36" => func!(crate::syscalls::___syscall36),
         "___syscall39" => func!(crate::syscalls::___syscall39),
         "___syscall38" => func!(crate::syscalls::___syscall38),
         "___syscall40" => func!(crate::syscalls::___syscall40),
         "___syscall41" => func!(crate::syscalls::___syscall41),
         "___syscall42" => func!(crate::syscalls::___syscall42),
+        "___syscall51" => func!(crate::syscalls::___syscall51),
+        "___syscall52" => func!(crate::syscalls::___syscall52),
+        "___syscall53" => func!(crate::syscalls::___syscall53),
         "___syscall54" => func!(crate::syscalls::___syscall54),
         "___syscall57" => func!(crate::syscalls::___syscall57),
         "___syscall60" => func!(crate::syscalls::___syscall60),
@@ -586,23 +613,36 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall85" => func!(crate::syscalls::___syscall85),
         "___syscall91" => func!(crate::syscalls::___syscall91),
         "___syscall94" => func!(crate::syscalls::___syscall94),
+        "___syscall96" => func!(crate::syscalls::___syscall96),
         "___syscall97" => func!(crate::syscalls::___syscall97),
         "___syscall102" => func!(crate::syscalls::___syscall102),
         "___syscall110" => func!(crate::syscalls::___syscall110),
         "___syscall114" => func!(crate::syscalls::___syscall114),
         "___syscall118" => func!(crate::syscalls::___syscall118),
+        "___syscall121" => func!(crate::syscalls::___syscall121),
         "___syscall122" => func!(crate::syscalls::___syscall122),
+        "___syscall125" => func!(crate::syscalls::___syscall125),
+        "___syscall132" => func!(crate::syscalls::___syscall132),
+        "___syscall133" => func!(crate::syscalls::___syscall133),
         "___syscall140" => func!(crate::syscalls::___syscall140),
         "___syscall142" => func!(crate::syscalls::___syscall142),
+        "___syscall144" => func!(crate::syscalls::___syscall144),
         "___syscall145" => func!(crate::syscalls::___syscall145),
         "___syscall146" => func!(crate::syscalls::___syscall146),
+        "___syscall147" => func!(crate::syscalls::___syscall147),
         "___syscall148" => func!(crate::syscalls::___syscall148),
+        "___syscall150" => func!(crate::syscalls::___syscall150),
+        "___syscall151" => func!(crate::syscalls::___syscall151),
+        "___syscall152" => func!(crate::syscalls::___syscall152),
+        "___syscall153" => func!(crate::syscalls::___syscall153),
+        "___syscall163" => func!(crate::syscalls::___syscall163),
         "___syscall168" => func!(crate::syscalls::___syscall168),
         "___syscall180" => func!(crate::syscalls::___syscall180),
         "___syscall181" => func!(crate::syscalls::___syscall181),
         "___syscall183" => func!(crate::syscalls::___syscall183),
         "___syscall191" => func!(crate::syscalls::___syscall191),
         "___syscall192" => func!(crate::syscalls::___syscall192),
+        "___syscall193" => func!(crate::syscalls::___syscall193),
         "___syscall194" => func!(crate::syscalls::___syscall194),
         "___syscall195" => func!(crate::syscalls::___syscall195),
         "___syscall196" => func!(crate::syscalls::___syscall196),
@@ -614,19 +654,38 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall202" => func!(crate::syscalls::___syscall202),
         "___syscall205" => func!(crate::syscalls::___syscall205),
         "___syscall207" => func!(crate::syscalls::___syscall207),
+        "___syscall209" => func!(crate::syscalls::___syscall209),
+        "___syscall211" => func!(crate::syscalls::___syscall211),
         "___syscall212" => func!(crate::syscalls::___syscall212),
+        "___syscall218" => func!(crate::syscalls::___syscall218),
         "___syscall219" => func!(crate::syscalls::___syscall219),
         "___syscall220" => func!(crate::syscalls::___syscall220),
         "___syscall221" => func!(crate::syscalls::___syscall221),
         "___syscall268" => func!(crate::syscalls::___syscall268),
+        "___syscall269" => func!(crate::syscalls::___syscall269),
         "___syscall272" => func!(crate::syscalls::___syscall272),
         "___syscall295" => func!(crate::syscalls::___syscall295),
+        "___syscall296" => func!(crate::syscalls::___syscall296),
+        "___syscall297" => func!(crate::syscalls::___syscall297),
+        "___syscall298" => func!(crate::syscalls::___syscall298),
         "___syscall300" => func!(crate::syscalls::___syscall300),
+        "___syscall301" => func!(crate::syscalls::___syscall301),
+        "___syscall302" => func!(crate::syscalls::___syscall302),
+        "___syscall303" => func!(crate::syscalls::___syscall303),
+        "___syscall304" => func!(crate::syscalls::___syscall304),
+        "___syscall305" => func!(crate::syscalls::___syscall305),
+        "___syscall306" => func!(crate::syscalls::___syscall306),
+        "___syscall307" => func!(crate::syscalls::___syscall307),
+        "___syscall308" => func!(crate::syscalls::___syscall308),
         "___syscall320" => func!(crate::syscalls::___syscall320),
         "___syscall324" => func!(crate::syscalls::___syscall324),
         "___syscall330" => func!(crate::syscalls::___syscall330),
+        "___syscall331" => func!(crate::syscalls::___syscall331),
+        "___syscall333" => func!(crate::syscalls::___syscall333),
         "___syscall334" => func!(crate::syscalls::___syscall334),
+        "___syscall337" => func!(crate::syscalls::___syscall337),
         "___syscall340" => func!(crate::syscalls::___syscall340),
+        "___syscall345" => func!(crate::syscalls::___syscall345),
 
         // Process
         "abort" => func!(crate::process::em_abort),
@@ -655,9 +714,17 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_setitimer" => func!(crate::process::_setitimer),
         "_usleep" => func!(crate::process::_usleep),
         "_nanosleep" => func!(crate::process::_nanosleep),
+        "_utime" => func!(crate::process::_utime),
         "_utimes" => func!(crate::process::_utimes),
+        "_wait" => func!(crate::process::_wait),
+        "_wait3" => func!(crate::process::_wait3),
+        "_wait4" => func!(crate::process::_wait4),
+        "_waitid" => func!(crate::process::_waitid),
         "_waitpid" => func!(crate::process::_waitpid),
 
+        // Emscripten
+        "_emscripten_asm_const_i" => func!(crate::emscripten_target::asm_const_i),
+        "_emscripten_exit_with_live_runtime" => func!(crate::emscripten_target::exit_with_live_runtime),
 
         // Signal
         "_sigemptyset" => func!(crate::signal::_sigemptyset),
@@ -681,6 +748,10 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
         // Exception
         "___cxa_allocate_exception" => func!(crate::exception::___cxa_allocate_exception),
+        "___cxa_current_primary_exception" => func!(crate::exception::___cxa_current_primary_exception),
+        "___cxa_decrement_exception_refcount" => func!(crate::exception::___cxa_decrement_exception_refcount),
+        "___cxa_increment_exception_refcount" => func!(crate::exception::___cxa_increment_exception_refcount),
+        "___cxa_rethrow_primary_exception" => func!(crate::exception::___cxa_rethrow_primary_exception),
         "___cxa_throw" => func!(crate::exception::___cxa_throw),
         "___cxa_begin_catch" => func!(crate::exception::___cxa_begin_catch),
         "___cxa_end_catch" => func!(crate::exception::___cxa_end_catch),
@@ -689,7 +760,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
         // Time
         "_gettimeofday" => func!(crate::time::_gettimeofday),
+        "_clock_getres" => func!(crate::time::_clock_getres),
         "_clock_gettime" => func!(crate::time::_clock_gettime),
+        "_clock_settime" => func!(crate::time::_clock_settime),
         "___clock_gettime" => func!(crate::time::_clock_gettime),
         "_clock" => func!(crate::time::_clock),
         "_difftime" => func!(crate::time::_difftime),
@@ -707,6 +780,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
         // Math
         "f64-rem" => func!(crate::math::f64_rem),
+        "_llvm_copysign_f32" => func!(crate::math::_llvm_copysign_f32),
+        "_llvm_copysign_f64" => func!(crate::math::_llvm_copysign_f64),
         "_llvm_log10_f64" => func!(crate::math::_llvm_log10_f64),
         "_llvm_log2_f64" => func!(crate::math::_llvm_log2_f64),
         "_llvm_log10_f32" => func!(crate::math::_llvm_log10_f32),
@@ -727,6 +802,22 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
         // Bitwise
         "_llvm_bswap_i64" => func!(crate::bitwise::_llvm_bswap_i64),
+
+        // libc
+        "_execv" => func!(crate::libc::execv),
+        "_endpwent" => func!(crate::libc::endpwent),
+        "_fexecve" => func!(crate::libc::fexecve),
+        "_fpathconf" => func!(crate::libc::fpathconf),
+        "_getitimer" => func!(crate::libc::getitimer),
+        "_getpwent" => func!(crate::libc::getpwent),
+        "_killpg" => func!(crate::libc::killpg),
+        "_pathconf" => func!(crate::libc::pathconf),
+        "_siginterrupt" => func!(crate::signal::_siginterrupt),
+        "_setpwent" => func!(crate::libc::setpwent),
+        "_sigismember" => func!(crate::libc::sigismember),
+        "_sigpending" => func!(crate::libc::sigpending),
+        "___libc_current_sigrtmax" => func!(crate::libc::current_sigrtmax),
+        "___libc_current_sigrtmin" => func!(crate::libc::current_sigrtmin),
 
         // Linking
         "_dlclose" => func!(crate::linking::_dlclose),
@@ -759,40 +850,47 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___cxa_free_exception" => func!(crate::emscripten_target::___cxa_free_exception),
         "___resumeException" => func!(crate::emscripten_target::___resumeException),
         "_dladdr" => func!(crate::emscripten_target::_dladdr),
-        "_pthread_create" => func!(crate::emscripten_target::_pthread_create),
-        "_pthread_detach" => func!(crate::emscripten_target::_pthread_detach),
-        "_pthread_join" => func!(crate::emscripten_target::_pthread_join),
-        "_pthread_attr_init" => func!(crate::emscripten_target::_pthread_attr_init),
         "_pthread_attr_destroy" => func!(crate::emscripten_target::_pthread_attr_destroy),
         "_pthread_attr_getstack" => func!(crate::emscripten_target::_pthread_attr_getstack),
-        "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
+        "_pthread_attr_init" => func!(crate::emscripten_target::_pthread_attr_init),
+        "_pthread_attr_setstacksize" => func!(crate::emscripten_target::_pthread_attr_setstacksize),
+        "_pthread_cleanup_pop" => func!(crate::emscripten_target::_pthread_cleanup_pop),
+        "_pthread_cleanup_push" => func!(crate::emscripten_target::_pthread_cleanup_push),
         "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
+        "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
         "_pthread_cond_signal" => func!(crate::emscripten_target::_pthread_cond_signal),
         "_pthread_cond_timedwait" => func!(crate::emscripten_target::_pthread_cond_timedwait),
         "_pthread_cond_wait" => func!(crate::emscripten_target::_pthread_cond_wait),
         "_pthread_condattr_destroy" => func!(crate::emscripten_target::_pthread_condattr_destroy),
         "_pthread_condattr_init" => func!(crate::emscripten_target::_pthread_condattr_init),
         "_pthread_condattr_setclock" => func!(crate::emscripten_target::_pthread_condattr_setclock),
+        "_pthread_create" => func!(crate::emscripten_target::_pthread_create),
+        "_pthread_detach" => func!(crate::emscripten_target::_pthread_detach),
+        "_pthread_equal" => func!(crate::emscripten_target::_pthread_equal),
+        "_pthread_exit" => func!(crate::emscripten_target::_pthread_exit),
+        "_pthread_getattr_np" => func!(crate::emscripten_target::_pthread_getattr_np),
+        "_pthread_getspecific" => func!(crate::emscripten_target::_pthread_getspecific),
+        "_pthread_join" => func!(crate::emscripten_target::_pthread_join),
+        "_pthread_key_create" => func!(crate::emscripten_target::_pthread_key_create),
         "_pthread_mutex_destroy" => func!(crate::emscripten_target::_pthread_mutex_destroy),
         "_pthread_mutex_init" => func!(crate::emscripten_target::_pthread_mutex_init),
         "_pthread_mutexattr_destroy" => func!(crate::emscripten_target::_pthread_mutexattr_destroy),
         "_pthread_mutexattr_init" => func!(crate::emscripten_target::_pthread_mutexattr_init),
         "_pthread_mutexattr_settype" => func!(crate::emscripten_target::_pthread_mutexattr_settype),
-        "_pthread_rwlock_rdlock" => func!(crate::emscripten_target::_pthread_rwlock_rdlock),
-        "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
-        "_pthread_setcancelstate" => func!(crate::emscripten_target::_pthread_setcancelstate),
-        "_pthread_getspecific" => func!(crate::emscripten_target::_pthread_getspecific),
-        "_pthread_getattr_np" => func!(crate::emscripten_target::_pthread_getattr_np),
-        "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
         "_pthread_once" => func!(crate::emscripten_target::_pthread_once),
-        "_pthread_key_create" => func!(crate::emscripten_target::_pthread_key_create),
         "_pthread_rwlock_destroy" => func!(crate::emscripten_target::_pthread_rwlock_destroy),
         "_pthread_rwlock_init" => func!(crate::emscripten_target::_pthread_rwlock_init),
+        "_pthread_rwlock_rdlock" => func!(crate::emscripten_target::_pthread_rwlock_rdlock),
+        "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
         "_pthread_rwlock_wrlock" => func!(crate::emscripten_target::_pthread_rwlock_wrlock),
+        "_pthread_setcancelstate" => func!(crate::emscripten_target::_pthread_setcancelstate),
+        "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
+        "_pthread_sigmask" => func!(crate::emscripten_target::_pthread_sigmask),
         "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
         "_gai_strerror" => func!(crate::emscripten_target::_gai_strerror),
         "_getdtablesize" => func!(crate::emscripten_target::_getdtablesize),
         "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
+        "_gethostbyname" => func!(crate::emscripten_target::_gethostbyname),
         "_gethostbyname_r" => func!(crate::emscripten_target::_gethostbyname_r),
         "_getloadavg" => func!(crate::emscripten_target::_getloadavg),
         "_getnameinfo" => func!(crate::emscripten_target::_getnameinfo),
@@ -841,6 +939,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_makecontext" => func!(crate::ucontext::_makecontext),
         "_setcontext" => func!(crate::ucontext::_setcontext),
         "_swapcontext" => func!(crate::ucontext::_swapcontext),
+
+        // unistd
+        "_confstr" => func!(crate::unistd::confstr),
     };
 
     for null_func_name in globals.null_func_names.iter() {
