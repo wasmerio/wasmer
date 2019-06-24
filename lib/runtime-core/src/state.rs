@@ -17,7 +17,6 @@ pub struct MachineState {
 
     pub wasm_stack: Vec<WasmAbstractValue>,
     pub wasm_stack_private_depth: usize,
-    
 }
 
 #[derive(Clone, Debug, Default)]
@@ -68,11 +67,7 @@ pub struct WasmFunctionStateDump {
 }
 
 impl ModuleStateMap {
-    fn lookup_call_ip(
-        &self,
-        ip: usize,
-        base: usize,
-    ) -> Option<(&FunctionStateMap, MachineState)> {
+    fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
         if ip < base || ip - base >= self.total_size {
             None
         } else {
@@ -114,7 +109,12 @@ impl ModuleStateMap {
 }
 
 impl FunctionStateMap {
-    pub fn new(initial: MachineState, local_function_id: usize, shadow_size: usize, locals: Vec<WasmAbstractValue>) -> FunctionStateMap {
+    pub fn new(
+        initial: MachineState,
+        local_function_id: usize,
+        shadow_size: usize,
+        locals: Vec<WasmAbstractValue>,
+    ) -> FunctionStateMap {
         FunctionStateMap {
             initial,
             local_function_id,
@@ -216,7 +216,13 @@ pub mod x64 {
     }
 
     #[warn(unused_variables)]
-    pub unsafe fn read_stack(msm: &ModuleStateMap, code_base: usize, mut stack: *const u64, initially_known_registers: [Option<u64>; 24], mut initial_address: Option<u64>) -> Vec<WasmFunctionStateDump> {
+    pub unsafe fn read_stack(
+        msm: &ModuleStateMap,
+        code_base: usize,
+        mut stack: *const u64,
+        initially_known_registers: [Option<u64>; 24],
+        mut initial_address: Option<u64>,
+    ) -> Vec<WasmFunctionStateDump> {
         let mut known_registers: [Option<u64>; 24] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
 
@@ -226,24 +232,30 @@ pub mod x64 {
                 stack = stack.offset(1);
                 x
             });
-            let (fsm, state) = match
-                msm.lookup_call_ip(ret_addr as usize, code_base)
+            let (fsm, state) = match msm
+                .lookup_call_ip(ret_addr as usize, code_base)
                 .or_else(|| msm.lookup_trappable_ip(ret_addr as usize, code_base))
             {
                 Some(x) => x,
                 _ => return results,
             };
 
-            let mut wasm_stack: Vec<Option<u64>> = state.wasm_stack.iter()
+            let mut wasm_stack: Vec<Option<u64>> = state
+                .wasm_stack
+                .iter()
                 .map(|x| match *x {
                     WasmAbstractValue::Const(x) => Some(x),
                     WasmAbstractValue::Runtime => None,
-                }).collect();
-            let mut wasm_locals: Vec<Option<u64>> = fsm.locals.iter()
+                })
+                .collect();
+            let mut wasm_locals: Vec<Option<u64>> = fsm
+                .locals
+                .iter()
                 .map(|x| match *x {
                     WasmAbstractValue::Const(x) => Some(x),
                     WasmAbstractValue::Runtime => None,
-                }).collect();
+                })
+                .collect();
 
             // This must be before the next loop because that modifies `known_registers`.
             for (i, v) in state.register_values.iter().enumerate() {
@@ -304,7 +316,12 @@ pub mod x64 {
             }
             stack = stack.offset(1); // RBP
 
-            wasm_stack.truncate(wasm_stack.len().checked_sub(state.wasm_stack_private_depth).unwrap());
+            wasm_stack.truncate(
+                wasm_stack
+                    .len()
+                    .checked_sub(state.wasm_stack_private_depth)
+                    .unwrap(),
+            );
 
             let wfs = WasmFunctionStateDump {
                 local_function_id: fsm.local_function_id,

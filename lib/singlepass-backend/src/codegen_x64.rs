@@ -540,7 +540,12 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 }
 
 impl X64FunctionCode {
-    fn mark_trappable(a: &mut Assembler, m: &Machine, fsm: &mut FunctionStateMap, control_stack: &mut [ControlFrame]) {
+    fn mark_trappable(
+        a: &mut Assembler,
+        m: &Machine,
+        fsm: &mut FunctionStateMap,
+        control_stack: &mut [ControlFrame],
+    ) {
         let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
         let offset = a.get_offset().0;
         fsm.trappable_offsets.insert(offset, state_diff_id);
@@ -1607,7 +1612,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             .machine
             .init_locals(a, self.num_locals, self.num_params);
 
-        self.fsm = FunctionStateMap::new(new_machine_state(), self.local_function_id, 32, (0..self.locals.len()).map(|_| WasmAbstractValue::Runtime).collect());
+        self.fsm = FunctionStateMap::new(
+            new_machine_state(),
+            self.local_function_id,
+            32,
+            (0..self.locals.len())
+                .map(|_| WasmAbstractValue::Runtime)
+                .collect(),
+        );
 
         let diff = self.machine.state.diff(&new_machine_state());
         let state_diff_id = self.fsm.diffs.len();
@@ -1869,7 +1881,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let local_index = local_index as usize;
                 self.value_stack
                     .push((self.locals[local_index], LocalOrTemp::Local));
-                self.machine.state.wasm_stack.push(WasmAbstractValue::Runtime);
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Runtime);
             }
             Operator::SetLocal { local_index } => {
                 let local_index = local_index as usize;
@@ -1899,11 +1914,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
             }
             Operator::I32Const { value } => {
-                self
-                .value_stack
-                .push((Location::Imm32(value as u32), LocalOrTemp::Temp));
-                self.machine.state.wasm_stack.push(WasmAbstractValue::Const(value as u32 as u64));
-            },
+                self.value_stack
+                    .push((Location::Imm32(value as u32), LocalOrTemp::Temp));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(value as u32 as u64));
+            }
             Operator::I32Add => Self::emit_binop_i32(
                 a,
                 &mut self.machine,
@@ -2184,7 +2201,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let value = value as u64;
                 self.value_stack
                     .push((Location::Imm64(value), LocalOrTemp::Temp));
-                self.machine.state.wasm_stack.push(WasmAbstractValue::Const(value));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(value));
             }
             Operator::I64Add => Self::emit_binop_i64(
                 a,
@@ -2519,11 +2539,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
 
             Operator::F32Const { value } => {
-                self
-                .value_stack
-                .push((Location::Imm32(value.bits()), LocalOrTemp::Temp));
-                self.machine.state.wasm_stack.push(WasmAbstractValue::Const(value.bits() as u64));
-            },
+                self.value_stack
+                    .push((Location::Imm32(value.bits()), LocalOrTemp::Temp));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(value.bits() as u64));
+            }
             Operator::F32Add => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
@@ -2696,11 +2718,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
 
             Operator::F64Const { value } => {
-                self
-                .value_stack
-                .push((Location::Imm64(value.bits()), LocalOrTemp::Temp));
-                self.machine.state.wasm_stack.push(WasmAbstractValue::Const(value.bits()));
-            },
+                self.value_stack
+                    .push((Location::Imm64(value.bits()), LocalOrTemp::Temp));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(value.bits()));
+            }
             Operator::F64Add => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
@@ -4591,7 +4615,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
             }
             Operator::Unreachable => {
-                let state_diff_id = Self::get_state_diff(&self.machine, &mut self.fsm, &mut self.control_stack);
+                let state_diff_id =
+                    Self::get_state_diff(&self.machine, &mut self.fsm, &mut self.control_stack);
                 let offset = a.get_offset().0;
                 self.fsm.trappable_offsets.insert(offset, state_diff_id);
 

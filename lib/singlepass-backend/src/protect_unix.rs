@@ -21,8 +21,8 @@ use std::ptr;
 use std::sync::Arc;
 use std::sync::Once;
 use wasmer_runtime_core::codegen::BkptInfo;
+use wasmer_runtime_core::state::x64::{read_stack, X64Register, GPR};
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
-use wasmer_runtime_core::state::x64::{X64Register, GPR, read_stack};
 use wasmer_runtime_core::vm;
 
 fn join_strings(x: impl Iterator<Item = String>, sep: &str) -> String {
@@ -47,12 +47,19 @@ fn format_optional_u64_sequence(x: &[Option<u64>]) -> String {
     if x.len() == 0 {
         "(empty)".into()
     } else {
-        join_strings(x.iter()
-            .enumerate()
-            .map(|(i, x)| {
-                format!("[{}] = {}", i, x.map(|x| format!("{}", x)).unwrap_or_else(|| "?".to_string()).bold().cyan())
-            })
-        , ", ")
+        join_strings(
+            x.iter().enumerate().map(|(i, x)| {
+                format!(
+                    "[{}] = {}",
+                    i,
+                    x.map(|x| format!("{}", x))
+                        .unwrap_or_else(|| "?".to_string())
+                        .bold()
+                        .cyan()
+                )
+            }),
+            ", ",
+        )
     }
 }
 
@@ -78,7 +85,8 @@ extern "C" fn signal_trap_handler(
         }
 
         // TODO: make this safer
-        let ctx = &*(fault.known_registers[X64Register::GPR(GPR::R15).to_index().0].unwrap() as *mut vm::Ctx);
+        let ctx = &*(fault.known_registers[X64Register::GPR(GPR::R15).to_index().0].unwrap()
+            as *mut vm::Ctx);
         let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
 
         let msm = (*ctx.module)
@@ -86,19 +94,41 @@ extern "C" fn signal_trap_handler(
             .get_module_state_map()
             .unwrap();
         let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
-        let frames = self::read_stack(&msm, code_base, rsp as usize as *const u64, fault.known_registers, Some(fault.ip as usize as u64));
+        let frames = self::read_stack(
+            &msm,
+            code_base,
+            rsp as usize as *const u64,
+            fault.known_registers,
+            Some(fault.ip as usize as u64),
+        );
 
         use colored::*;
-        eprintln!("\n{}\n", "Wasmer encountered an error while running your WebAssembly program.".bold().red());
+        eprintln!(
+            "\n{}\n",
+            "Wasmer encountered an error while running your WebAssembly program."
+                .bold()
+                .red()
+        );
         if frames.len() == 0 {
             eprintln!("{}", "Unknown fault address, cannot read stack.".yellow());
         } else {
             use colored::*;
             eprintln!("{}\n", "Backtrace:".bold());
             for (i, f) in frames.iter().enumerate() {
-                eprintln!("{}", format!("* Frame {} @ Local function {}", i, f.local_function_id).bold());
-                eprintln!("  {} {}", "Locals:".bold().yellow(), format_optional_u64_sequence(&f.locals));
-                eprintln!("  {} {}", "Stack:".bold().yellow(), format_optional_u64_sequence(&f.stack));
+                eprintln!(
+                    "{}",
+                    format!("* Frame {} @ Local function {}", i, f.local_function_id).bold()
+                );
+                eprintln!(
+                    "  {} {}",
+                    "Locals:".bold().yellow(),
+                    format_optional_u64_sequence(&f.locals)
+                );
+                eprintln!(
+                    "  {} {}",
+                    "Stack:".bold().yellow(),
+                    format_optional_u64_sequence(&f.stack)
+                );
                 eprintln!("");
             }
         }
@@ -246,10 +276,7 @@ unsafe fn get_faulting_addr_and_ip(
 }
 
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-unsafe fn get_fault_info(
-    siginfo: *const c_void,
-    ucontext: *const c_void,
-) -> FaultInfo {
+unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
     #[allow(dead_code)]
     #[repr(C)]
     struct ucontext_t {

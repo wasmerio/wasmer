@@ -277,10 +277,7 @@ impl Machine {
         }
     }
 
-    pub fn release_locations_only_osr_state(
-        &mut self,
-        n: usize,
-    ) {
+    pub fn release_locations_only_osr_state(&mut self, n: usize) {
         for _ in 0..n {
             self.state.wasm_stack.pop().unwrap();
         }
