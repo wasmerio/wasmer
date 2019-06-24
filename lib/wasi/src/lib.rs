@@ -42,13 +42,32 @@ pub fn generate_import_object(
     preopened_files: Vec<String>,
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> ImportObject {
-    unsafe extern "C" fn read_stack(ctx: &mut Ctx, _: *const CallContext, stack: *const u64) {
+    unsafe extern "C" fn read_stack(ctx: &mut Ctx, _: *const CallContext, mut stack: *const u64) {
+        use wasmer_runtime_core::state::x64::{X64Register, GPR};
+
         let msm = (*ctx.module)
             .runnable_module
             .get_module_state_map()
             .unwrap();
         let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
-        self::read_stack(&msm, code_base, stack);
+
+        let mut known_registers: [Option<u64>; 24] = [None; 24];
+
+        let r15 = *stack;
+        let r14 = *stack.offset(1);
+        let r13 = *stack.offset(2);
+        let r12 = *stack.offset(3);
+        let rbx = *stack.offset(4);
+        stack = stack.offset(5);
+
+        known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(r15);
+        known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(r14);
+        known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(r13);
+        known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(r12);
+        known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(rbx);
+
+        let stack_dump = self::read_stack(&msm, code_base, stack, known_registers, None);
+        println!("{:?}", stack_dump);
     }
 
     let mut builder = TrampolineBufferBuilder::new();

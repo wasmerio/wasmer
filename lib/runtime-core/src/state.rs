@@ -1,14 +1,23 @@
 use std::collections::BTreeMap;
-use std::fmt::Debug;
 use std::ops::Bound::{Included, Unbounded};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum WasmAbstractValue {
+    Runtime,
+    Const(u64),
+}
+
 #[derive(Clone, Debug)]
 pub struct MachineState {
     pub stack_values: Vec<MachineValue>,
     pub register_values: Vec<MachineValue>,
+
+    pub wasm_stack: Vec<WasmAbstractValue>,
+    pub wasm_stack_private_depth: usize,
+    
 }
 
 #[derive(Clone, Debug, Default)]
@@ -17,6 +26,10 @@ pub struct MachineStateDiff {
     pub stack_push: Vec<MachineValue>,
     pub stack_pop: usize,
     pub reg_diff: Vec<(RegisterIndex, MachineValue)>,
+
+    pub wasm_stack_push: Vec<WasmAbstractValue>,
+    pub wasm_stack_pop: usize,
+    pub wasm_stack_private_depth: usize, // absolute value; not a diff.
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -32,10 +45,13 @@ pub enum MachineValue {
 #[derive(Clone, Debug)]
 pub struct FunctionStateMap {
     pub initial: MachineState,
+    pub local_function_id: usize,
+    pub locals: Vec<WasmAbstractValue>,
     pub shadow_size: usize, // for single-pass backend, 32 bytes on x86-64
     pub diffs: Vec<MachineStateDiff>,
     pub loop_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
     pub call_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
+    pub trappable_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
 }
 
 #[derive(Clone, Debug)]
@@ -45,42 +61,14 @@ pub struct ModuleStateMap {
 }
 
 #[derive(Clone, Debug)]
-pub struct DenseArrayMap<T: Clone + Debug> {
-    pub elements: Vec<Option<T>>,
-}
-
-impl<T: Clone + Debug> DenseArrayMap<T> {
-    pub fn new() -> DenseArrayMap<T> {
-        DenseArrayMap { elements: vec![] }
-    }
-
-    pub fn set(&mut self, idx: usize, elem: T) {
-        while self.elements.len() < idx + 1 {
-            self.elements.push(None);
-        }
-        self.elements[idx] = Some(elem);
-    }
-
-    pub fn into_vec(self) -> Option<Vec<T>> {
-        let mut ret: Vec<T> = Vec::with_capacity(self.elements.len());
-        for elem in self.elements {
-            if elem.is_none() {
-                return None;
-            }
-            ret.push(elem.unwrap());
-        }
-        Some(ret)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct WasmFunctionState {
-    stack: Vec<Option<u64>>,
-    locals: Vec<u64>,
+pub struct WasmFunctionStateDump {
+    pub local_function_id: usize,
+    pub stack: Vec<Option<u64>>,
+    pub locals: Vec<Option<u64>>,
 }
 
 impl ModuleStateMap {
-    pub fn lookup_call_ip(
+    fn lookup_call_ip(
         &self,
         ip: usize,
         base: usize,
@@ -89,31 +77,53 @@ impl ModuleStateMap {
             None
         } else {
             //println!("lookup ip: {} in {:?}", ip - base, self.local_functions);
-            let fsm = self
+            let (_, fsm) = self
                 .local_functions
                 .range((Unbounded, Included(&(ip - base))))
                 .last()
-                .map(|x| x.1)
                 .unwrap();
-            Some((
-                fsm,
-                fsm.call_offsets
-                    .get(&(ip - base))
-                    .map(|x| fsm.diffs[*x].build_state(fsm))
-                    .unwrap(),
-            ))
+
+            match fsm.call_offsets.get(&(ip - base)) {
+                Some(x) => Some((fsm, fsm.diffs[*x].build_state(fsm))),
+                None => None,
+            }
+        }
+    }
+
+    fn lookup_trappable_ip(
+        &self,
+        ip: usize,
+        base: usize,
+    ) -> Option<(&FunctionStateMap, MachineState)> {
+        if ip < base || ip - base >= self.total_size {
+            None
+        } else {
+            //println!("lookup ip: {} in {:?}", ip - base, self.local_functions);
+            let (_, fsm) = self
+                .local_functions
+                .range((Unbounded, Included(&(ip - base))))
+                .last()
+                .unwrap();
+
+            match fsm.trappable_offsets.get(&(ip - base)) {
+                Some(x) => Some((fsm, fsm.diffs[*x].build_state(fsm))),
+                None => None,
+            }
         }
     }
 }
 
 impl FunctionStateMap {
-    pub fn new(initial: MachineState, shadow_size: usize) -> FunctionStateMap {
+    pub fn new(initial: MachineState, local_function_id: usize, shadow_size: usize, locals: Vec<WasmAbstractValue>) -> FunctionStateMap {
         FunctionStateMap {
             initial,
+            local_function_id,
             shadow_size,
+            locals,
             diffs: vec![],
             loop_offsets: BTreeMap::new(),
             call_offsets: BTreeMap::new(),
+            trappable_offsets: BTreeMap::new(),
         }
     }
 }
@@ -137,11 +147,23 @@ impl MachineState {
             .filter(|&(_, (&a, &b))| a != b)
             .map(|(i, (&a, _))| (RegisterIndex(i), a))
             .collect();
+        let first_diff_wasm_stack_depth: usize = self
+            .wasm_stack
+            .iter()
+            .zip(old.wasm_stack.iter())
+            .enumerate()
+            .find(|&(_, (&a, &b))| a != b)
+            .map(|x| x.0)
+            .unwrap_or(old.wasm_stack.len().min(self.wasm_stack.len()));
         MachineStateDiff {
             last: None,
             stack_push: self.stack_values[first_diff_stack_depth..].to_vec(),
             stack_pop: old.stack_values.len() - first_diff_stack_depth,
             reg_diff: reg_diff,
+
+            wasm_stack_push: self.wasm_stack[first_diff_wasm_stack_depth..].to_vec(),
+            wasm_stack_pop: old.wasm_stack.len() - first_diff_wasm_stack_depth,
+            wasm_stack_private_depth: self.wasm_stack_private_depth,
         }
     }
 }
@@ -168,7 +190,14 @@ impl MachineStateDiff {
             for &(index, v) in &x.reg_diff {
                 state.register_values[index.0] = v;
             }
+            for _ in 0..x.wasm_stack_pop {
+                state.wasm_stack.pop().unwrap();
+            }
+            for v in &x.wasm_stack_push {
+                state.wasm_stack.push(*v);
+            }
         }
+        state.wasm_stack_private_depth = self.wasm_stack_private_depth;
         state
     }
 }
@@ -181,34 +210,40 @@ pub mod x64 {
         MachineState {
             stack_values: vec![],
             register_values: vec![MachineValue::Undefined; 16 + 8],
+            wasm_stack: vec![],
+            wasm_stack_private_depth: 0,
         }
     }
 
     #[warn(unused_variables)]
-    pub unsafe fn read_stack(msm: &ModuleStateMap, code_base: usize, mut stack: *const u64) {
-        let r15 = *stack;
-        let r14 = *stack.offset(1);
-        let r13 = *stack.offset(2);
-        let r12 = *stack.offset(3);
-        let rbx = *stack.offset(4);
-        stack = stack.offset(5);
+    pub unsafe fn read_stack(msm: &ModuleStateMap, code_base: usize, mut stack: *const u64, initially_known_registers: [Option<u64>; 24], mut initial_address: Option<u64>) -> Vec<WasmFunctionStateDump> {
+        let mut known_registers: [Option<u64>; 24] = initially_known_registers;
+        let mut results: Vec<WasmFunctionStateDump> = vec![];
 
-        let mut known_registers: [Option<u64>; 24] = [None; 24];
-        known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(r15);
-        known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(r14);
-        known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(r13);
-        known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(r12);
-        known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(rbx);
-
-        for i in 0.. {
-            let mut wasm_stack: DenseArrayMap<u64> = DenseArrayMap::new();
-            let mut wasm_locals: DenseArrayMap<u64> = DenseArrayMap::new();
-            let ret_addr = *stack;
-            stack = stack.offset(1);
-            let (fsm, state) = match msm.lookup_call_ip(ret_addr as usize, code_base) {
+        for _ in 0.. {
+            let ret_addr = initial_address.take().unwrap_or_else(|| {
+                let x = *stack;
+                stack = stack.offset(1);
+                x
+            });
+            let (fsm, state) = match
+                msm.lookup_call_ip(ret_addr as usize, code_base)
+                .or_else(|| msm.lookup_trappable_ip(ret_addr as usize, code_base))
+            {
                 Some(x) => x,
-                _ => break,
+                _ => return results,
             };
+
+            let mut wasm_stack: Vec<Option<u64>> = state.wasm_stack.iter()
+                .map(|x| match *x {
+                    WasmAbstractValue::Const(x) => Some(x),
+                    WasmAbstractValue::Runtime => None,
+                }).collect();
+            let mut wasm_locals: Vec<Option<u64>> = fsm.locals.iter()
+                .map(|x| match *x {
+                    WasmAbstractValue::Const(x) => Some(x),
+                    WasmAbstractValue::Runtime => None,
+                }).collect();
 
             // This must be before the next loop because that modifies `known_registers`.
             for (i, v) in state.register_values.iter().enumerate() {
@@ -216,14 +251,12 @@ pub mod x64 {
                     MachineValue::Undefined => {}
                     MachineValue::WasmStack(idx) => {
                         if let Some(v) = known_registers[i] {
-                            wasm_stack.set(idx, v);
+                            wasm_stack[idx] = Some(v);
                         }
                     }
                     MachineValue::WasmLocal(idx) => {
                         if let Some(v) = known_registers[i] {
-                            wasm_locals.set(idx, v);
-                        } else {
-                            panic!("Cannot resolve register local {} (register: {})", idx, i);
+                            wasm_locals[idx] = Some(v);
                         }
                     }
                     _ => unreachable!(),
@@ -231,11 +264,23 @@ pub mod x64 {
             }
 
             let mut found_shadow = false;
+            for v in state.stack_values.iter() {
+                match *v {
+                    MachineValue::ExplicitShadow => {
+                        found_shadow = true;
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            if !found_shadow {
+                stack = stack.offset((fsm.shadow_size / 8) as isize);
+            }
+
             for v in state.stack_values.iter().rev() {
                 match *v {
                     MachineValue::ExplicitShadow => {
                         stack = stack.offset((fsm.shadow_size / 8) as isize);
-                        found_shadow = true;
                     }
                     MachineValue::Undefined => {
                         stack = stack.offset(1);
@@ -248,26 +293,28 @@ pub mod x64 {
                         stack = stack.offset(1);
                     }
                     MachineValue::WasmStack(idx) => {
-                        wasm_stack.set(idx, *stack);
+                        wasm_stack[idx] = Some(*stack);
                         stack = stack.offset(1);
                     }
                     MachineValue::WasmLocal(idx) => {
-                        wasm_locals.set(idx, *stack);
+                        wasm_locals[idx] = Some(*stack);
                         stack = stack.offset(1);
                     }
                 }
             }
-            assert_eq!(found_shadow, true);
             stack = stack.offset(1); // RBP
 
-            let wfs = WasmFunctionState {
-                stack: wasm_stack.elements,
-                locals: wasm_locals
-                    .into_vec()
-                    .expect("some locals do not have known values"),
+            wasm_stack.truncate(wasm_stack.len().checked_sub(state.wasm_stack_private_depth).unwrap());
+
+            let wfs = WasmFunctionStateDump {
+                local_function_id: fsm.local_function_id,
+                stack: wasm_stack,
+                locals: wasm_locals,
             };
-            println!("Frame #{}: {:p} {:?}", i, ret_addr as *const u8, wfs);
+            results.push(wfs);
         }
+
+        unreachable!();
     }
 
     #[repr(u8)]

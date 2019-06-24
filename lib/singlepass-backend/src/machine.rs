@@ -162,6 +162,7 @@ impl Machine {
             } else {
                 self.state.stack_values.push(*mv);
             }
+            self.state.wasm_stack.push(WasmAbstractValue::Runtime);
             ret.push(loc);
         }
 
@@ -210,6 +211,7 @@ impl Machine {
                 }
                 _ => {}
             }
+            self.state.wasm_stack.pop().unwrap();
         }
 
         if delta_stack_offset != 0 {
@@ -236,6 +238,7 @@ impl Machine {
                 }
                 _ => {}
             }
+            // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
     }
 
@@ -262,6 +265,7 @@ impl Machine {
                 }
                 _ => {}
             }
+            // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
 
         if delta_stack_offset != 0 {
@@ -270,6 +274,15 @@ impl Machine {
                 Location::Imm32(delta_stack_offset as u32),
                 Location::GPR(GPR::RSP),
             );
+        }
+    }
+
+    pub fn release_locations_only_osr_state(
+        &mut self,
+        n: usize,
+    ) {
+        for _ in 0..n {
+            self.state.wasm_stack.pop().unwrap();
         }
     }
 

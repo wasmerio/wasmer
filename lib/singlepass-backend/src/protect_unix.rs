@@ -22,6 +22,39 @@ use std::sync::Arc;
 use std::sync::Once;
 use wasmer_runtime_core::codegen::BkptInfo;
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
+use wasmer_runtime_core::state::x64::{X64Register, GPR, read_stack};
+use wasmer_runtime_core::vm;
+
+fn join_strings(x: impl Iterator<Item = String>, sep: &str) -> String {
+    let mut ret = String::new();
+    let mut first = true;
+
+    for s in x {
+        if first {
+            first = false;
+        } else {
+            ret += sep;
+        }
+        ret += &s;
+    }
+
+    ret
+}
+
+fn format_optional_u64_sequence(x: &[Option<u64>]) -> String {
+    use colored::*;
+
+    if x.len() == 0 {
+        "(empty)".into()
+    } else {
+        join_strings(x.iter()
+            .enumerate()
+            .map(|(i, x)| {
+                format!("[{}] = {}", i, x.map(|x| format!("{}", x)).unwrap_or_else(|| "?".to_string()).bold().cyan())
+            })
+        , ", ")
+    }
+}
 
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
@@ -29,18 +62,45 @@ extern "C" fn signal_trap_handler(
     ucontext: *mut c_void,
 ) {
     unsafe {
+        let fault = get_fault_info(siginfo as _, ucontext);
+
         match Signal::from_c_int(signum) {
             Ok(SIGTRAP) => {
-                let (_, ip) = get_faulting_addr_and_ip(siginfo as _, ucontext);
                 let bkpt_map = BKPT_MAP.with(|x| x.borrow().last().map(|x| x.clone()));
                 if let Some(bkpt_map) = bkpt_map {
-                    if let Some(ref x) = bkpt_map.get(&(ip as usize)) {
+                    if let Some(ref x) = bkpt_map.get(&(fault.ip as usize)) {
                         (x)(BkptInfo { throw: throw });
                         return;
                     }
                 }
             }
             _ => {}
+        }
+
+        // TODO: make this safer
+        let ctx = &*(fault.known_registers[X64Register::GPR(GPR::R15).to_index().0].unwrap() as *mut vm::Ctx);
+        let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
+
+        let msm = (*ctx.module)
+            .runnable_module
+            .get_module_state_map()
+            .unwrap();
+        let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
+        let frames = self::read_stack(&msm, code_base, rsp as usize as *const u64, fault.known_registers, Some(fault.ip as usize as u64));
+
+        use colored::*;
+        eprintln!("\n{}\n", "Wasmer encountered an error while running your WebAssembly program.".bold().red());
+        if frames.len() == 0 {
+            eprintln!("{}", "Unknown fault address, cannot read stack.".yellow());
+        } else {
+            use colored::*;
+            eprintln!("{}\n", "Backtrace:".bold());
+            for (i, f) in frames.iter().enumerate() {
+                eprintln!("{}", format!("* Frame {} @ Local function {}", i, f.local_function_id).bold());
+                eprintln!("  {} {}", "Locals:".bold().yellow(), format_optional_u64_sequence(&f.locals));
+                eprintln!("  {} {}", "Stack:".bold().yellow(), format_optional_u64_sequence(&f.stack));
+                eprintln!("");
+            }
         }
 
         do_unwind(signum, siginfo as _, ucontext);
@@ -70,7 +130,7 @@ pub static SIGHANDLER_INIT: Once = Once::new();
 
 thread_local! {
     pub static SETJMP_BUFFER: UnsafeCell<[c_int; SETJMP_BUFFER_LEN]> = UnsafeCell::new([0; SETJMP_BUFFER_LEN]);
-    pub static CAUGHT_ADDRESSES: Cell<(*const c_void, *const c_void)> = Cell::new((ptr::null(), ptr::null()));
+    pub static CAUGHT_FAULTS: Cell<Option<FaultInfo>> = Cell::new(None);
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
     pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
     pub static BKPT_MAP: RefCell<Vec<Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>>> = RefCell::new(Vec::new());
@@ -148,9 +208,15 @@ pub unsafe fn do_unwind(signum: i32, siginfo: *const c_void, ucontext: *const c_
         ::std::process::abort();
     }
 
-    CAUGHT_ADDRESSES.with(|cell| cell.set(get_faulting_addr_and_ip(siginfo, ucontext)));
+    CAUGHT_FAULTS.with(|cell| cell.set(Some(get_fault_info(siginfo, ucontext))));
 
     longjmp(jmp_buf as *mut ::nix::libc::c_void, signum)
+}
+
+pub struct FaultInfo {
+    faulting_addr: *const c_void,
+    ip: *const c_void,
+    known_registers: [Option<u64>; 24],
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
@@ -180,10 +246,10 @@ unsafe fn get_faulting_addr_and_ip(
 }
 
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-unsafe fn get_faulting_addr_and_ip(
+unsafe fn get_fault_info(
     siginfo: *const c_void,
     ucontext: *const c_void,
-) -> (*const c_void, *const c_void) {
+) -> FaultInfo {
     #[allow(dead_code)]
     #[repr(C)]
     struct ucontext_t {
@@ -237,7 +303,31 @@ unsafe fn get_faulting_addr_and_ip(
     let si_addr = (*siginfo).si_addr;
 
     let ucontext = ucontext as *const ucontext_t;
-    let rip = (*(*ucontext).uc_mcontext).ss.rip;
+    let ss = &(*(*ucontext).uc_mcontext).ss;
 
-    (si_addr, rip as _)
+    let mut known_registers: [Option<u64>; 24] = [None; 24];
+
+    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(ss.r15);
+    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(ss.r14);
+    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(ss.r13);
+    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(ss.r12);
+    known_registers[X64Register::GPR(GPR::R11).to_index().0] = Some(ss.r11);
+    known_registers[X64Register::GPR(GPR::R10).to_index().0] = Some(ss.r10);
+    known_registers[X64Register::GPR(GPR::R9).to_index().0] = Some(ss.r9);
+    known_registers[X64Register::GPR(GPR::R8).to_index().0] = Some(ss.r8);
+    known_registers[X64Register::GPR(GPR::RSI).to_index().0] = Some(ss.rsi);
+    known_registers[X64Register::GPR(GPR::RDI).to_index().0] = Some(ss.rdi);
+    known_registers[X64Register::GPR(GPR::RDX).to_index().0] = Some(ss.rdx);
+    known_registers[X64Register::GPR(GPR::RCX).to_index().0] = Some(ss.rcx);
+    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(ss.rbx);
+    known_registers[X64Register::GPR(GPR::RAX).to_index().0] = Some(ss.rax);
+
+    known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(ss.rbp);
+    known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(ss.rsp);
+
+    FaultInfo {
+        faulting_addr: si_addr,
+        ip: ss.rip as _,
+        known_registers,
+    }
 }
