@@ -112,8 +112,8 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
-    #[structopt(long = "suspend-file")]
-    suspend_file: Option<String>,
+    #[structopt(long = "image-file")]
+    image_file: Option<String>,
 
     #[structopt(long = "resume")]
     resume: bool,
@@ -508,7 +508,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 mapped_dirs,
             );
 
-            if let Some(ref name) = options.suspend_file {
+            if let Some(ref name) = options.image_file {
                 use wasmer_runtime_core::suspend::{patch_import_object, SuspendConfig};
                 patch_import_object(
                     &mut import_object,
@@ -522,7 +522,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            if let Some(ref name) = options.suspend_file {
+            if let Some(ref name) = options.image_file {
                 if options.resume {
                     use wasmer_runtime_core::state::x64::invoke_call_return_on_stack_raw_image;
                     use wasmer_singlepass_backend::protect_unix::call_protected;
