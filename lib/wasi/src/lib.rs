@@ -20,11 +20,7 @@ use std::path::PathBuf;
 
 pub use self::utils::is_wasi_module;
 
-use wasmer_runtime_core::{
-    func,
-    import::ImportObject,
-    imports,
-};
+use wasmer_runtime_core::{func, import::ImportObject, imports};
 
 /// This is returned in the Box<dyn Any> RuntimeError::Error variant.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.

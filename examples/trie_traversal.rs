@@ -53,12 +53,15 @@ fn main() {
         suspend();
     }
 
-    root.for_each_dyn(&|seq, count| {
-        println!("{}: {}", seq, count);
-        unsafe {
-            suspend();
-        }
-    }, &mut "".into());
+    root.for_each_dyn(
+        &|seq, count| {
+            println!("{}: {}", seq, count);
+            unsafe {
+                suspend();
+            }
+        },
+        &mut "".into(),
+    );
 
     println!("[END]");
 }

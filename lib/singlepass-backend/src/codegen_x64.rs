@@ -1612,7 +1612,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             .machine
             .init_locals(a, self.num_locals, self.num_params);
 
-        self.machine.state.register_values[X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
+        self.machine.state.register_values
+            [X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
 
         self.fsm = FunctionStateMap::new(
             new_machine_state(),

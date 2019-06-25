@@ -1,11 +1,11 @@
 use crate::import::{ImportObject, Namespace};
-use crate::trampoline::{TrampolineBufferBuilder, TrampolineBuffer, CallContext};
+use crate::trampoline::{CallContext, TrampolineBuffer, TrampolineBufferBuilder};
 use crate::vm::Ctx;
-use std::ffi::c_void;
-use std::rc::Rc;
 use bincode::serialize;
+use std::ffi::c_void;
 use std::fs::File;
 use std::io::Write;
+use std::rc::Rc;
 
 pub struct SuspendConfig {
     pub image_path: String,
@@ -14,7 +14,7 @@ pub struct SuspendConfig {
 struct ImportContext {
     next: Option<(*mut c_void, fn(*mut c_void))>,
     trampolines: Rc<TrampolineBuffer>,
-    config: Rc<SuspendConfig>
+    config: Rc<SuspendConfig>,
 }
 
 impl ImportContext {
@@ -41,7 +41,10 @@ pub fn patch_import_object(x: &mut ImportObject, config: SuspendConfig) {
     let mut builder = TrampolineBufferBuilder::new();
 
     let config_ptr: &SuspendConfig = &*config;
-    let idx = builder.add_context_rsp_state_preserving_trampoline(suspend, config_ptr as *const SuspendConfig as *const CallContext);
+    let idx = builder.add_context_rsp_state_preserving_trampoline(
+        suspend,
+        config_ptr as *const SuspendConfig as *const CallContext,
+    );
     let trampolines = builder.build();
 
     let suspend_indirect: fn(&mut Ctx) =
@@ -57,8 +60,12 @@ pub fn patch_import_object(x: &mut ImportObject, config: SuspendConfig) {
     x.register("wasmer_suspend", ns);
 }
 
-unsafe extern "C" fn suspend(ctx: &mut Ctx, config_ptr_raw: *const CallContext, mut stack: *const u64) {
-    use crate::state::x64::{X64Register, GPR, read_stack, build_instance_image};
+unsafe extern "C" fn suspend(
+    ctx: &mut Ctx,
+    config_ptr_raw: *const CallContext,
+    mut stack: *const u64,
+) {
+    use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR};
 
     {
         let config = &*(config_ptr_raw as *const SuspendConfig);

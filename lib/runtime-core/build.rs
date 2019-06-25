@@ -1,6 +1,6 @@
 use blake2b_simd::blake2bp;
-use std::{env, fs, io::Write, path::PathBuf};
 use cc::Build;
+use std::{env, fs, io::Write, path::PathBuf};
 
 const WASMER_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 

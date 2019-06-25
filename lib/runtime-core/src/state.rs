@@ -241,9 +241,9 @@ pub mod x64 {
         fn run_on_wasm_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64;
     }
     use super::*;
-    use crate::vm::Ctx;
-    use crate::types::LocalGlobalIndex;
     use crate::structures::TypedIndex;
+    use crate::types::LocalGlobalIndex;
+    use crate::vm::Ctx;
 
     pub fn new_machine_state() -> MachineState {
         MachineState {
@@ -282,13 +282,19 @@ pub mod x64 {
 
         let mut known_registers: [Option<u64>; 24] = [None; 24];
 
-        let local_functions_vec: Vec<&FunctionStateMap> = msm.local_functions.iter().map(|(k, v)| v).collect();
+        let local_functions_vec: Vec<&FunctionStateMap> =
+            msm.local_functions.iter().map(|(k, v)| v).collect();
 
         // Bottom to top
         for f in image.execution_state.frames.iter().rev() {
             let fsm = local_functions_vec[f.local_function_id];
             let call_begin_offset = fsm.wasm_offset_to_target_offset[f.wasm_inst_offset];
-            let (after_call_inst, diff_id) = fsm.call_offsets.range((Included(&call_begin_offset), Unbounded)).next().map(|(k, v)| (*k, *v)).expect("instruction offset not found in call offsets");
+            let (after_call_inst, diff_id) = fsm
+                .call_offsets
+                .range((Included(&call_begin_offset), Unbounded))
+                .next()
+                .map(|(k, v)| (*k, *v))
+                .expect("instruction offset not found in call offsets");
             let diff = &fsm.diffs[diff_id];
             let state = diff.build_state(fsm);
 
@@ -300,7 +306,7 @@ pub mod x64 {
 
             for v in state.stack_values.iter() {
                 match *v {
-                    MachineValue::Undefined => { stack_offset -= 1 },
+                    MachineValue::Undefined => stack_offset -= 1,
                     MachineValue::Vmctx => {
                         stack_offset -= 1;
                         stack[stack_offset] = vmctx as *mut Ctx as usize as u64;
@@ -348,31 +354,27 @@ pub mod x64 {
             assert!(got_explicit_shadow);
             for (i, v) in state.register_values.iter().enumerate() {
                 match *v {
-                    MachineValue::Undefined => {},
+                    MachineValue::Undefined => {}
                     MachineValue::Vmctx => {
                         known_registers[i] = Some(vmctx as *mut Ctx as usize as u64);
                     }
-                    MachineValue::WasmStack(x) => {
-                        match state.wasm_stack[x] {
-                            WasmAbstractValue::Const(x) => {
-                                known_registers[i] = Some(x);
-                            }
-                            WasmAbstractValue::Runtime => {
-                                known_registers[i] = Some(f.stack[x].unwrap());
-                            }
+                    MachineValue::WasmStack(x) => match state.wasm_stack[x] {
+                        WasmAbstractValue::Const(x) => {
+                            known_registers[i] = Some(x);
                         }
-                    }
-                    MachineValue::WasmLocal(x) => {
-                        match fsm.locals[x] {
-                            WasmAbstractValue::Const(x) => {
-                                known_registers[i] = Some(x);
-                            }
-                            WasmAbstractValue::Runtime => {
-                                known_registers[i] = Some(f.locals[x].unwrap());
-                            }
+                        WasmAbstractValue::Runtime => {
+                            known_registers[i] = Some(f.stack[x].unwrap());
                         }
-                    }
-                    _ => unreachable!()
+                    },
+                    MachineValue::WasmLocal(x) => match fsm.locals[x] {
+                        WasmAbstractValue::Const(x) => {
+                            known_registers[i] = Some(x);
+                        }
+                        WasmAbstractValue::Runtime => {
+                            known_registers[i] = Some(f.locals[x].unwrap());
+                        }
+                    },
+                    _ => unreachable!(),
                 }
             }
             assert!((stack.len() - stack_offset) % 2 == 0); // 16-byte alignment
@@ -400,22 +402,35 @@ pub mod x64 {
 
         if let Some(ref memory) = image.memory {
             assert!(vmctx.internal.memory_bound <= memory.len());
-            
+
             if vmctx.internal.memory_bound < memory.len() {
-                let grow: unsafe extern "C" fn (ctx: &mut Ctx, memory_index: usize, delta: usize) = ::std::mem::transmute((*vmctx.internal.intrinsics).memory_grow);
-                grow(vmctx, 0, (memory.len() - vmctx.internal.memory_bound) / 65536);
+                let grow: unsafe extern "C" fn(ctx: &mut Ctx, memory_index: usize, delta: usize) =
+                    ::std::mem::transmute((*vmctx.internal.intrinsics).memory_grow);
+                grow(
+                    vmctx,
+                    0,
+                    (memory.len() - vmctx.internal.memory_bound) / 65536,
+                );
                 assert_eq!(vmctx.internal.memory_bound, memory.len());
             }
 
-            ::std::slice::from_raw_parts_mut(vmctx.internal.memory_base, vmctx.internal.memory_bound).copy_from_slice(memory);
+            ::std::slice::from_raw_parts_mut(
+                vmctx.internal.memory_base,
+                vmctx.internal.memory_bound,
+            )
+            .copy_from_slice(memory);
         }
 
         let globals_len = (*vmctx.module).info.globals.len();
         for i in 0..globals_len {
-            (*(*vmctx.local_backing).globals[LocalGlobalIndex::new(i)].vm_local_global()).data = image.globals[i];
+            (*(*vmctx.local_backing).globals[LocalGlobalIndex::new(i)].vm_local_global()).data =
+                image.globals[i];
         }
 
-        run_on_wasm_stack(stack.as_mut_ptr().offset(stack.len() as isize), stack.as_mut_ptr().offset(stack_offset as isize))
+        run_on_wasm_stack(
+            stack.as_mut_ptr().offset(stack.len() as isize),
+            stack.as_mut_ptr().offset(stack_offset as isize),
+        )
     }
 
     pub fn build_instance_image(
@@ -426,12 +441,24 @@ pub mod x64 {
             let memory = if vmctx.internal.memory_base.is_null() {
                 None
             } else {
-                Some(::std::slice::from_raw_parts(vmctx.internal.memory_base, vmctx.internal.memory_bound).to_vec())
+                Some(
+                    ::std::slice::from_raw_parts(
+                        vmctx.internal.memory_base,
+                        vmctx.internal.memory_bound,
+                    )
+                    .to_vec(),
+                )
             };
 
             // FIXME: Imported globals
             let globals_len = (*vmctx.module).info.globals.len();
-            let globals: Vec<u64> = (0..globals_len).map(|i| (*vmctx.local_backing).globals[LocalGlobalIndex::new(i)].get().to_u64()).collect();
+            let globals: Vec<u64> = (0..globals_len)
+                .map(|i| {
+                    (*vmctx.local_backing).globals[LocalGlobalIndex::new(i)]
+                        .get()
+                        .to_u64()
+                })
+                .collect();
 
             InstanceImage {
                 memory: memory,
@@ -439,7 +466,6 @@ pub mod x64 {
                 execution_state: execution_state,
             }
         }
-        
     }
 
     #[warn(unused_variables)]
@@ -464,9 +490,7 @@ pub mod x64 {
                 .or_else(|| msm.lookup_trappable_ip(ret_addr as usize, code_base))
             {
                 Some(x) => x,
-                _ => return ExecutionStateImage {
-                    frames: results,
-                }
+                _ => return ExecutionStateImage { frames: results },
             };
 
             let mut wasm_stack: Vec<Option<u64>> = state
@@ -495,7 +519,10 @@ pub mod x64 {
                         if let Some(v) = known_registers[i] {
                             wasm_stack[idx] = Some(v);
                         } else {
-                            eprintln!("BUG: Register {} for WebAssembly stack slot {} has unknown value.", i, idx);
+                            eprintln!(
+                                "BUG: Register {} for WebAssembly stack slot {} has unknown value.",
+                                i, idx
+                            );
                         }
                     }
                     MachineValue::WasmLocal(idx) => {
