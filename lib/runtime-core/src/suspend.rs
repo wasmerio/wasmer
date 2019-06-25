@@ -58,7 +58,7 @@ pub fn patch_import_object(x: &mut ImportObject, config: SuspendConfig) {
 }
 
 unsafe extern "C" fn suspend(ctx: &mut Ctx, config_ptr_raw: *const CallContext, mut stack: *const u64) {
-    use crate::state::x64::{X64Register, GPR, read_stack};
+    use crate::state::x64::{X64Register, GPR, read_stack, build_instance_image};
 
     {
         let config = &*(config_ptr_raw as *const SuspendConfig);
@@ -84,12 +84,12 @@ unsafe extern "C" fn suspend(ctx: &mut Ctx, config_ptr_raw: *const CallContext, 
         known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(r12);
         known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(rbx);
 
-        let image = read_stack(&msm, code_base, stack, known_registers, None);
+        let es_image = read_stack(&msm, code_base, stack, known_registers, None);
+        let image = build_instance_image(ctx, es_image);
         let image_bin = serialize(&image).unwrap();
         let mut f = File::create(&config.image_path).unwrap();
         f.write_all(&image_bin).unwrap();
-        println!("{:?}", image);
     }
 
-    panic!("suspended");
+    ::std::process::exit(0);
 }

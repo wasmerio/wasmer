@@ -112,11 +112,11 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
-    #[structopt(long = "suspend-to")]
-    suspend_to: Option<String>,
+    #[structopt(long = "suspend-file")]
+    suspend_file: Option<String>,
 
-    #[structopt(long = "restore-from")]
-    restore_from: Option<String>,
+    #[structopt(long = "resume")]
+    resume: bool,
 
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
@@ -508,7 +508,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 mapped_dirs,
             );
 
-            if let Some(ref name) = options.suspend_to {
+            if let Some(ref name) = options.suspend_file {
                 use wasmer_runtime_core::suspend::{SuspendConfig, patch_import_object};
                 patch_import_object(&mut import_object, SuspendConfig {
                     image_path: name.clone(),
@@ -519,35 +519,39 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            if let Some(ref name) = options.restore_from {
-                use wasmer_singlepass_backend::protect_unix::call_protected;
-                use wasmer_runtime_core::state::x64::invoke_call_return_on_stack_raw_image;
+            if let Some(ref name) = options.suspend_file {
+                if options.resume {
+                    use wasmer_singlepass_backend::protect_unix::call_protected;
+                    use wasmer_runtime_core::state::x64::invoke_call_return_on_stack_raw_image;
 
-                let mut file = File::open(name).expect("cannot open image file");
-                let mut image: Vec<u8> = vec![];
-                file.read_to_end(&mut image).unwrap();
+                    let mut file = File::open(name).expect("cannot open image file");
+                    let mut image: Vec<u8> = vec![];
+                    file.read_to_end(&mut image).unwrap();
 
-                let msm = instance.module.runnable_module.get_module_state_map().unwrap();
-                let code_base = instance.module.runnable_module.get_code().unwrap().as_ptr() as usize;
-                call_protected(|| {
-                    unsafe { invoke_call_return_on_stack_raw_image(&msm, code_base, &image, instance.context_mut()); }
-                }).map_err(|_| "ERROR").unwrap();
-            } else {
-                let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
+                    let msm = instance.module.runnable_module.get_module_state_map().unwrap();
+                    let code_base = instance.module.runnable_module.get_code().unwrap().as_ptr() as usize;
+                    call_protected(|| {
+                        unsafe { invoke_call_return_on_stack_raw_image(&msm, code_base, &image, instance.context_mut()); }
+                    }).map_err(|_| "ERROR").unwrap();
 
-                let result = start.call();
+                    return Ok(())
+                }
+            }
 
-                if let Err(ref err) = result {
-                    match err {
-                        RuntimeError::Trap { msg } => panic!("wasm trap occured: {}", msg),
-                        RuntimeError::Error { data } => {
-                            if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
-                                std::process::exit(error_code.code as i32)
-                            }
+            let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
+
+            let result = start.call();
+
+            if let Err(ref err) = result {
+                match err {
+                    RuntimeError::Trap { msg } => panic!("wasm trap occured: {}", msg),
+                    RuntimeError::Error { data } => {
+                        if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
+                            std::process::exit(error_code.code as i32)
                         }
                     }
-                    panic!("error: {:?}", err)
                 }
+                panic!("error: {:?}", err)
             }
         } else {
             let import_object = wasmer_runtime_core::import::ImportObject::new();

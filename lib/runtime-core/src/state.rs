@@ -74,8 +74,15 @@ pub struct WasmFunctionStateDump {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InstanceImage {
+pub struct ExecutionStateImage {
     pub frames: Vec<WasmFunctionStateDump>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstanceImage {
+    pub memory: Option<Vec<u8>>,
+    pub globals: Vec<u64>,
+    pub execution_state: ExecutionStateImage,
 }
 
 impl ModuleStateMap {
@@ -218,8 +225,8 @@ impl MachineStateDiff {
     }
 }
 
-impl InstanceImage {
-    pub fn from_bytes(input: &[u8]) -> Option<InstanceImage> {
+impl ExecutionStateImage {
+    pub fn from_bytes(input: &[u8]) -> Option<ExecutionStateImage> {
         use bincode::deserialize;
         match deserialize(input) {
             Ok(x) => Some(x),
@@ -235,6 +242,8 @@ pub mod x64 {
     }
     use super::*;
     use crate::vm::Ctx;
+    use crate::types::LocalGlobalIndex;
+    use crate::structures::TypedIndex;
 
     pub fn new_machine_state() -> MachineState {
         MachineState {
@@ -276,7 +285,7 @@ pub mod x64 {
         let local_functions_vec: Vec<&FunctionStateMap> = msm.local_functions.iter().map(|(k, v)| v).collect();
 
         // Bottom to top
-        for f in image.frames.iter().rev() {
+        for f in image.execution_state.frames.iter().rev() {
             let fsm = local_functions_vec[f.local_function_id];
             let call_begin_offset = fsm.wasm_offset_to_target_offset[f.wasm_inst_offset];
             let (after_call_inst, diff_id) = fsm.call_offsets.range((Included(&call_begin_offset), Unbounded)).next().map(|(k, v)| (*k, *v)).expect("instruction offset not found in call offsets");
@@ -389,7 +398,48 @@ pub mod x64 {
         stack_offset -= 1;
         stack[stack_offset] = stack.as_ptr().offset(last_stack_offset as isize) as usize as u64; // rbp
 
+        if let Some(ref memory) = image.memory {
+            assert!(vmctx.internal.memory_bound <= memory.len());
+            
+            if vmctx.internal.memory_bound < memory.len() {
+                let grow: unsafe extern "C" fn (ctx: &mut Ctx, memory_index: usize, delta: usize) = ::std::mem::transmute((*vmctx.internal.intrinsics).memory_grow);
+                grow(vmctx, 0, (memory.len() - vmctx.internal.memory_bound) / 65536);
+                assert_eq!(vmctx.internal.memory_bound, memory.len());
+            }
+
+            ::std::slice::from_raw_parts_mut(vmctx.internal.memory_base, vmctx.internal.memory_bound).copy_from_slice(memory);
+        }
+
+        let globals_len = (*vmctx.module).info.globals.len();
+        for i in 0..globals_len {
+            (*(*vmctx.local_backing).globals[LocalGlobalIndex::new(i)].vm_local_global()).data = image.globals[i];
+        }
+
         run_on_wasm_stack(stack.as_mut_ptr().offset(stack.len() as isize), stack.as_mut_ptr().offset(stack_offset as isize))
+    }
+
+    pub fn build_instance_image(
+        vmctx: &mut Ctx,
+        execution_state: ExecutionStateImage,
+    ) -> InstanceImage {
+        unsafe {
+            let memory = if vmctx.internal.memory_base.is_null() {
+                None
+            } else {
+                Some(::std::slice::from_raw_parts(vmctx.internal.memory_base, vmctx.internal.memory_bound).to_vec())
+            };
+
+            // FIXME: Imported globals
+            let globals_len = (*vmctx.module).info.globals.len();
+            let globals: Vec<u64> = (0..globals_len).map(|i| (*vmctx.local_backing).globals[LocalGlobalIndex::new(i)].get().to_u64()).collect();
+
+            InstanceImage {
+                memory: memory,
+                globals: globals,
+                execution_state: execution_state,
+            }
+        }
+        
     }
 
     #[warn(unused_variables)]
@@ -399,7 +449,7 @@ pub mod x64 {
         mut stack: *const u64,
         initially_known_registers: [Option<u64>; 24],
         mut initial_address: Option<u64>,
-    ) -> InstanceImage {
+    ) -> ExecutionStateImage {
         let mut known_registers: [Option<u64>; 24] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
 
@@ -414,7 +464,7 @@ pub mod x64 {
                 .or_else(|| msm.lookup_trappable_ip(ret_addr as usize, code_base))
             {
                 Some(x) => x,
-                _ => return InstanceImage {
+                _ => return ExecutionStateImage {
                     frames: results,
                 }
             };
@@ -444,6 +494,8 @@ pub mod x64 {
                     MachineValue::WasmStack(idx) => {
                         if let Some(v) = known_registers[i] {
                             wasm_stack[idx] = Some(v);
+                        } else {
+                            eprintln!("BUG: Register {} for WebAssembly stack slot {} has unknown value.", i, idx);
                         }
                     }
                     MachineValue::WasmLocal(idx) => {

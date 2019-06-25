@@ -20,7 +20,6 @@ popq %r12
 popq %r13
 popq %r14
 popq %r15
-int $0x3
 retq
 
 _run_on_wasm_stack.returning:

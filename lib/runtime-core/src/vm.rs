@@ -38,8 +38,8 @@ pub struct Ctx {
 
     /// These are pointers to things that are known to be owned
     /// by the owning `Instance`.
-    local_backing: *mut LocalBacking,
-    import_backing: *mut ImportBacking,
+    pub local_backing: *mut LocalBacking,
+    pub import_backing: *mut ImportBacking,
     pub module: *const ModuleInner,
 
     //// This is intended to be user-supplied, per-instance
