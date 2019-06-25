@@ -20,14 +20,10 @@ use std::path::PathBuf;
 
 pub use self::utils::is_wasi_module;
 
-use std::rc::Rc;
-use wasmer_runtime_core::state::x64::read_stack;
-use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::{
     func,
     import::ImportObject,
     imports,
-    trampoline::{CallContext, TrampolineBufferBuilder},
 };
 
 /// This is returned in the Box<dyn Any> RuntimeError::Error variant.
@@ -42,43 +38,6 @@ pub fn generate_import_object(
     preopened_files: Vec<String>,
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> ImportObject {
-    unsafe extern "C" fn read_stack(ctx: &mut Ctx, _: *const CallContext, mut stack: *const u64) {
-        use wasmer_runtime_core::state::x64::{X64Register, GPR};
-
-        let msm = (*ctx.module)
-            .runnable_module
-            .get_module_state_map()
-            .unwrap();
-        let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
-
-        let mut known_registers: [Option<u64>; 24] = [None; 24];
-
-        let r15 = *stack;
-        let r14 = *stack.offset(1);
-        let r13 = *stack.offset(2);
-        let r12 = *stack.offset(3);
-        let rbx = *stack.offset(4);
-        stack = stack.offset(5);
-
-        known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(r15);
-        known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(r14);
-        known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(r13);
-        known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(r12);
-        known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(rbx);
-
-        let stack_dump = self::read_stack(&msm, code_base, stack, known_registers, None);
-        println!("{:?}", stack_dump);
-    }
-
-    let mut builder = TrampolineBufferBuilder::new();
-    let idx = builder.add_context_rsp_state_preserving_trampoline(read_stack, ::std::ptr::null());
-    let trampolines = builder.build();
-
-    let read_stack_indirect: fn(&mut Ctx) =
-        unsafe { ::std::mem::transmute(trampolines.get_trampoline(idx)) };
-
-    let trampolines = Rc::new(trampolines);
-
     let state_gen = move || {
         fn state_destructor(data: *mut c_void) {
             unsafe {
@@ -90,7 +49,6 @@ pub fn generate_import_object(
             fs: WasiFs::new(&preopened_files, &mapped_dirs).unwrap(),
             args: &args[..],
             envs: &envs[..],
-            trampolines: trampolines.clone(),
         });
 
         (
@@ -102,7 +60,6 @@ pub fn generate_import_object(
         // This generates the wasi state.
         state_gen,
         "wasi_unstable" => {
-            "stack_read" => func!(read_stack_indirect),
             "args_get" => func!(args_get),
             "args_sizes_get" => func!(args_sizes_get),
             "clock_res_get" => func!(clock_res_get),

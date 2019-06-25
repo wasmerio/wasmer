@@ -94,7 +94,7 @@ extern "C" fn signal_trap_handler(
             .get_module_state_map()
             .unwrap();
         let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
-        let frames = self::read_stack(
+        let image = self::read_stack(
             &msm,
             code_base,
             rsp as usize as *const u64,
@@ -109,15 +109,20 @@ extern "C" fn signal_trap_handler(
                 .bold()
                 .red()
         );
-        if frames.len() == 0 {
+        if image.frames.len() == 0 {
             eprintln!("{}", "Unknown fault address, cannot read stack.".yellow());
         } else {
             use colored::*;
             eprintln!("{}\n", "Backtrace:".bold());
-            for (i, f) in frames.iter().enumerate() {
+            for (i, f) in image.frames.iter().enumerate() {
                 eprintln!(
                     "{}",
                     format!("* Frame {} @ Local function {}", i, f.local_function_id).bold()
+                );
+                eprintln!(
+                    "  {} {}",
+                    "Offset:".bold().yellow(),
+                    format!("{}", f.wasm_inst_offset).bold().cyan(),
                 );
                 eprintln!(
                     "  {} {}",

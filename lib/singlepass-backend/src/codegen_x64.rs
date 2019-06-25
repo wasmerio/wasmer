@@ -1612,6 +1612,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             .machine
             .init_locals(a, self.num_locals, self.num_params);
 
+        self.machine.state.register_values[X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
+
         self.fsm = FunctionStateMap::new(
             new_machine_state(),
             self.local_function_id,
@@ -1638,6 +1640,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             state: self.machine.state.clone(),
             state_diff_id,
         });
+
+        assert_eq!(self.machine.state.wasm_inst_offset, ::std::usize::MAX);
+
         Ok(())
     }
 
@@ -1648,6 +1653,17 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
     }
 
     fn feed_event(&mut self, ev: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        let a = self.assembler.as_mut().unwrap();
+
+        match ev {
+            Event::Wasm(_) => {
+                self.machine.state.wasm_inst_offset =
+                    self.machine.state.wasm_inst_offset.wrapping_add(1);
+                self.fsm.wasm_offset_to_target_offset.push(a.get_offset().0);
+            }
+            _ => {}
+        }
+
         //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
 
@@ -1681,8 +1697,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         } else {
             was_unreachable = false;
         }
-
-        let a = self.assembler.as_mut().unwrap();
 
         let op = match ev {
             Event::Wasm(x) => x,

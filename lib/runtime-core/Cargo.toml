@@ -18,6 +18,7 @@ errno = "0.2.4"
 libc = "0.2.49"
 hex = "0.3.2"
 smallvec = "0.6.9"
+bincode = "1.1"
 
 # Dependencies for caching.
 [dependencies.serde]
@@ -47,6 +48,7 @@ field-offset = "0.1.1"
 [build-dependencies]
 blake2b_simd = "0.4.1"
 rustc_version = "0.2.3"
+cc = "1.0"
 
 [features]
 debug = []

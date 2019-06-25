@@ -1,5 +1,6 @@
 use blake2b_simd::blake2bp;
 use std::{env, fs, io::Write, path::PathBuf};
+use cc::Build;
 
 const WASMER_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -28,4 +29,8 @@ fn main() {
     if rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly {
         println!("cargo:rustc-cfg=nightly");
     }
+
+    cc::Build::new()
+        .file("image-loading.s")
+        .compile("image-loading");
 }

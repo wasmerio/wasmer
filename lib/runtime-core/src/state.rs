@@ -17,6 +17,8 @@ pub struct MachineState {
 
     pub wasm_stack: Vec<WasmAbstractValue>,
     pub wasm_stack_private_depth: usize,
+
+    pub wasm_inst_offset: usize,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -29,11 +31,14 @@ pub struct MachineStateDiff {
     pub wasm_stack_push: Vec<WasmAbstractValue>,
     pub wasm_stack_pop: usize,
     pub wasm_stack_private_depth: usize, // absolute value; not a diff.
+
+    pub wasm_inst_offset: usize, // absolute value; not a diff.
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum MachineValue {
     Undefined,
+    Vmctx,
     PreserveRegister(RegisterIndex),
     CopyStackBPRelative(i32), // relative to Base Pointer, in byte offset
     ExplicitShadow,           // indicates that all values above this are above the shadow region
@@ -48,6 +53,7 @@ pub struct FunctionStateMap {
     pub locals: Vec<WasmAbstractValue>,
     pub shadow_size: usize, // for single-pass backend, 32 bytes on x86-64
     pub diffs: Vec<MachineStateDiff>,
+    pub wasm_offset_to_target_offset: Vec<usize>,
     pub loop_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
     pub call_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
     pub trappable_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
@@ -59,11 +65,17 @@ pub struct ModuleStateMap {
     pub total_size: usize,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WasmFunctionStateDump {
     pub local_function_id: usize,
+    pub wasm_inst_offset: usize,
     pub stack: Vec<Option<u64>>,
     pub locals: Vec<Option<u64>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InstanceImage {
+    pub frames: Vec<WasmFunctionStateDump>,
 }
 
 impl ModuleStateMap {
@@ -121,6 +133,7 @@ impl FunctionStateMap {
             shadow_size,
             locals,
             diffs: vec![],
+            wasm_offset_to_target_offset: Vec::new(),
             loop_offsets: BTreeMap::new(),
             call_offsets: BTreeMap::new(),
             trappable_offsets: BTreeMap::new(),
@@ -164,6 +177,8 @@ impl MachineState {
             wasm_stack_push: self.wasm_stack[first_diff_wasm_stack_depth..].to_vec(),
             wasm_stack_pop: old.wasm_stack.len() - first_diff_wasm_stack_depth,
             wasm_stack_private_depth: self.wasm_stack_private_depth,
+
+            wasm_inst_offset: self.wasm_inst_offset,
         }
     }
 }
@@ -198,13 +213,28 @@ impl MachineStateDiff {
             }
         }
         state.wasm_stack_private_depth = self.wasm_stack_private_depth;
+        state.wasm_inst_offset = self.wasm_inst_offset;
         state
+    }
+}
+
+impl InstanceImage {
+    pub fn from_bytes(input: &[u8]) -> Option<InstanceImage> {
+        use bincode::deserialize;
+        match deserialize(input) {
+            Ok(x) => Some(x),
+            Err(_) => None,
+        }
     }
 }
 
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub mod x64 {
+    extern "C" {
+        fn run_on_wasm_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64;
+    }
     use super::*;
+    use crate::vm::Ctx;
 
     pub fn new_machine_state() -> MachineState {
         MachineState {
@@ -212,7 +242,154 @@ pub mod x64 {
             register_values: vec![MachineValue::Undefined; 16 + 8],
             wasm_stack: vec![],
             wasm_stack_private_depth: 0,
+            wasm_inst_offset: ::std::usize::MAX,
         }
+    }
+
+    pub unsafe fn invoke_call_return_on_stack_raw_image(
+        msm: &ModuleStateMap,
+        code_base: usize,
+        image: &[u8],
+        vmctx: &mut Ctx,
+    ) -> u64 {
+        use bincode::deserialize;
+        let image: InstanceImage = deserialize(image).unwrap();
+        invoke_call_return_on_stack(msm, code_base, &image, vmctx)
+    }
+
+    #[warn(unused_variables)]
+    pub unsafe fn invoke_call_return_on_stack(
+        msm: &ModuleStateMap,
+        code_base: usize,
+        image: &InstanceImage,
+        vmctx: &mut Ctx,
+    ) -> u64 {
+        let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
+        let mut stack_offset: usize = stack.len();
+
+        stack_offset -= 3; // placeholder for call return
+
+        let mut last_stack_offset: u64 = 0; // rbp
+
+        let mut known_registers: [Option<u64>; 24] = [None; 24];
+
+        let local_functions_vec: Vec<&FunctionStateMap> = msm.local_functions.iter().map(|(k, v)| v).collect();
+
+        // Bottom to top
+        for f in image.frames.iter().rev() {
+            let fsm = local_functions_vec[f.local_function_id];
+            let call_begin_offset = fsm.wasm_offset_to_target_offset[f.wasm_inst_offset];
+            let (after_call_inst, diff_id) = fsm.call_offsets.range((Included(&call_begin_offset), Unbounded)).next().map(|(k, v)| (*k, *v)).expect("instruction offset not found in call offsets");
+            let diff = &fsm.diffs[diff_id];
+            let state = diff.build_state(fsm);
+
+            stack_offset -= 1;
+            stack[stack_offset] = stack.as_ptr().offset(last_stack_offset as isize) as usize as u64; // push rbp
+            last_stack_offset = stack_offset as _;
+
+            let mut got_explicit_shadow = false;
+
+            for v in state.stack_values.iter() {
+                match *v {
+                    MachineValue::Undefined => { stack_offset -= 1 },
+                    MachineValue::Vmctx => {
+                        stack_offset -= 1;
+                        stack[stack_offset] = vmctx as *mut Ctx as usize as u64;
+                    }
+                    MachineValue::PreserveRegister(index) => {
+                        stack_offset -= 1;
+                        stack[stack_offset] = known_registers[index.0].unwrap_or(0);
+                    }
+                    MachineValue::CopyStackBPRelative(byte_offset) => {
+                        assert!(byte_offset % 8 == 0);
+                        let target_offset = (byte_offset / 8) as isize;
+                        let v = stack[(last_stack_offset as isize + target_offset) as usize];
+                        stack_offset -= 1;
+                        stack[stack_offset] = v;
+                    }
+                    MachineValue::ExplicitShadow => {
+                        assert!(fsm.shadow_size % 8 == 0);
+                        stack_offset -= fsm.shadow_size / 8;
+                        got_explicit_shadow = true;
+                    }
+                    MachineValue::WasmStack(x) => {
+                        stack_offset -= 1;
+                        match state.wasm_stack[x] {
+                            WasmAbstractValue::Const(x) => {
+                                stack[stack_offset] = x;
+                            }
+                            WasmAbstractValue::Runtime => {
+                                stack[stack_offset] = f.stack[x].unwrap();
+                            }
+                        }
+                    }
+                    MachineValue::WasmLocal(x) => {
+                        stack_offset -= 1;
+                        match fsm.locals[x] {
+                            WasmAbstractValue::Const(x) => {
+                                stack[stack_offset] = x;
+                            }
+                            WasmAbstractValue::Runtime => {
+                                stack[stack_offset] = f.locals[x].unwrap();
+                            }
+                        }
+                    }
+                }
+            }
+            assert!(got_explicit_shadow);
+            for (i, v) in state.register_values.iter().enumerate() {
+                match *v {
+                    MachineValue::Undefined => {},
+                    MachineValue::Vmctx => {
+                        known_registers[i] = Some(vmctx as *mut Ctx as usize as u64);
+                    }
+                    MachineValue::WasmStack(x) => {
+                        match state.wasm_stack[x] {
+                            WasmAbstractValue::Const(x) => {
+                                known_registers[i] = Some(x);
+                            }
+                            WasmAbstractValue::Runtime => {
+                                known_registers[i] = Some(f.stack[x].unwrap());
+                            }
+                        }
+                    }
+                    MachineValue::WasmLocal(x) => {
+                        match fsm.locals[x] {
+                            WasmAbstractValue::Const(x) => {
+                                known_registers[i] = Some(x);
+                            }
+                            WasmAbstractValue::Runtime => {
+                                known_registers[i] = Some(f.locals[x].unwrap());
+                            }
+                        }
+                    }
+                    _ => unreachable!()
+                }
+            }
+            assert!((stack.len() - stack_offset) % 2 == 0); // 16-byte alignment
+            stack_offset -= 1;
+            stack[stack_offset] = (code_base + after_call_inst) as u64; // return address
+        }
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::R15).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::R14).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::R13).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::R12).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::RBX).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = stack.as_ptr().offset(last_stack_offset as isize) as usize as u64; // rbp
+
+        run_on_wasm_stack(stack.as_mut_ptr().offset(stack.len() as isize), stack.as_mut_ptr().offset(stack_offset as isize))
     }
 
     #[warn(unused_variables)]
@@ -222,7 +399,7 @@ pub mod x64 {
         mut stack: *const u64,
         initially_known_registers: [Option<u64>; 24],
         mut initial_address: Option<u64>,
-    ) -> Vec<WasmFunctionStateDump> {
+    ) -> InstanceImage {
         let mut known_registers: [Option<u64>; 24] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
 
@@ -237,7 +414,9 @@ pub mod x64 {
                 .or_else(|| msm.lookup_trappable_ip(ret_addr as usize, code_base))
             {
                 Some(x) => x,
-                _ => return results,
+                _ => return InstanceImage {
+                    frames: results,
+                }
             };
 
             let mut wasm_stack: Vec<Option<u64>> = state
@@ -261,6 +440,7 @@ pub mod x64 {
             for (i, v) in state.register_values.iter().enumerate() {
                 match *v {
                     MachineValue::Undefined => {}
+                    MachineValue::Vmctx => {}
                     MachineValue::WasmStack(idx) => {
                         if let Some(v) = known_registers[i] {
                             wasm_stack[idx] = Some(v);
@@ -297,6 +477,9 @@ pub mod x64 {
                     MachineValue::Undefined => {
                         stack = stack.offset(1);
                     }
+                    MachineValue::Vmctx => {
+                        stack = stack.offset(1);
+                    }
                     MachineValue::PreserveRegister(idx) => {
                         known_registers[idx.0] = Some(*stack);
                         stack = stack.offset(1);
@@ -325,6 +508,7 @@ pub mod x64 {
 
             let wfs = WasmFunctionStateDump {
                 local_function_id: fsm.local_function_id,
+                wasm_inst_offset: state.wasm_inst_offset,
                 stack: wasm_stack,
                 locals: wasm_locals,
             };
