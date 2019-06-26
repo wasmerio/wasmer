@@ -1,8 +1,7 @@
 use crate::alternative_stack::begin_unsafe_unwind;
 use crate::import::{ImportObject, Namespace};
-use crate::trampoline::{CallContext, TrampolineBuffer, TrampolineBufferBuilder};
+use crate::trampoline::{CallContext, TrampolineBufferBuilder};
 use crate::vm::Ctx;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
@@ -19,40 +18,39 @@ pub fn get_and_reset_interrupted() -> bool {
     INTERRUPTED.swap(false, Ordering::SeqCst)
 }
 
-struct ImportContext {
-    _trampolines: Rc<TrampolineBuffer>,
-}
-
-impl ImportContext {
-    fn new(trampolines: Rc<TrampolineBuffer>) -> ImportContext {
-        ImportContext {
-            _trampolines: trampolines,
-        }
-    }
-}
-
 pub fn patch_import_object(x: &mut ImportObject) {
-    let mut builder = TrampolineBufferBuilder::new();
+    struct Intrinsics {
+        suspend: fn(&mut Ctx),
+        check_interrupt: fn(&mut Ctx),
+    }
 
-    let idx_suspend =
-        builder.add_context_rsp_state_preserving_trampoline(suspend, ::std::ptr::null());
-    let idx_check_interrupt =
-        builder.add_context_rsp_state_preserving_trampoline(check_interrupt, ::std::ptr::null());
-    let trampolines = builder.build();
+    lazy_static! {
+        static ref INTRINSICS: Intrinsics = {
+            let mut builder = TrampolineBufferBuilder::new();
+            let idx_suspend =
+                builder.add_context_rsp_state_preserving_trampoline(suspend, ::std::ptr::null());
+            let idx_check_interrupt = builder
+                .add_context_rsp_state_preserving_trampoline(check_interrupt, ::std::ptr::null());
+            let trampolines = builder.build();
 
-    let suspend_indirect: fn(&mut Ctx) =
-        unsafe { ::std::mem::transmute(trampolines.get_trampoline(idx_suspend)) };
-    let check_interrupt_indirect: fn(&mut Ctx) =
-        unsafe { ::std::mem::transmute(trampolines.get_trampoline(idx_check_interrupt)) };
-
-    let trampolines = Rc::new(trampolines);
-
-    // FIXME: Memory leak!
-    ::std::mem::forget(ImportContext::new(trampolines.clone()));
+            let ret = Intrinsics {
+                suspend: unsafe { ::std::mem::transmute(trampolines.get_trampoline(idx_suspend)) },
+                check_interrupt: unsafe {
+                    ::std::mem::transmute(trampolines.get_trampoline(idx_check_interrupt))
+                },
+            };
+            ::std::mem::forget(trampolines);
+            ret
+        };
+    }
 
     let mut ns = Namespace::new();
-    ns.insert("suspend", func!(suspend_indirect));
-    ns.insert("check_interrupt", func!(check_interrupt_indirect));
+
+    let suspend_fn = INTRINSICS.suspend;
+    let check_interrupt_fn = INTRINSICS.check_interrupt;
+
+    ns.insert("suspend", func!(suspend_fn));
+    ns.insert("check_interrupt", func!(check_interrupt_fn));
     x.register("wasmer_suspend", ns);
 }
 
@@ -97,9 +95,8 @@ unsafe fn do_suspend(ctx: &mut Ctx, mut stack: *const u64) -> ! {
 
         {
             use colored::*;
-            eprintln!("\n{}", "Suspending instance.".green().bold());
+            eprintln!("{}", "Suspending instance.".green().bold());
         }
-        es_image.print_backtrace_if_needed();
         build_instance_image(ctx, es_image)
     };
 

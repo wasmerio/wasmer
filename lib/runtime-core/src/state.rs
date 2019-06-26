@@ -329,10 +329,11 @@ impl InstanceImage {
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub mod x64 {
     use super::*;
-    use crate::alternative_stack::run_on_alternative_stack;
+    use crate::alternative_stack::{catch_unsafe_unwind, run_on_alternative_stack};
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
+    use std::any::Any;
     use std::ops::Bound::Excluded;
 
     pub fn new_machine_state() -> MachineState {
@@ -345,25 +346,13 @@ pub mod x64 {
         }
     }
 
-    pub unsafe fn invoke_call_return_on_stack_raw_image(
-        msm: &ModuleStateMap,
-        code_base: usize,
-        image_raw: Vec<u8>,
-        vmctx: &mut Ctx,
-    ) -> u64 {
-        use bincode::deserialize;
-        let image: InstanceImage = deserialize(&image_raw).unwrap();
-        drop(image_raw); // free up memory
-        invoke_call_return_on_stack(msm, code_base, image, vmctx)
-    }
-
     #[warn(unused_variables)]
     pub unsafe fn invoke_call_return_on_stack(
         msm: &ModuleStateMap,
         code_base: usize,
         image: InstanceImage,
         vmctx: &mut Ctx,
-    ) -> u64 {
+    ) -> Result<u64, Box<dyn Any>> {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
         let mut stack_offset: usize = stack.len();
 
@@ -523,10 +512,12 @@ pub mod x64 {
 
         drop(image); // free up host memory
 
-        run_on_alternative_stack(
-            stack.as_mut_ptr().offset(stack.len() as isize),
-            stack.as_mut_ptr().offset(stack_offset as isize),
-        )
+        catch_unsafe_unwind(|| {
+            run_on_alternative_stack(
+                stack.as_mut_ptr().offset(stack.len() as isize),
+                stack.as_mut_ptr().offset(stack_offset as isize),
+            )
+        })
     }
 
     pub fn build_instance_image(

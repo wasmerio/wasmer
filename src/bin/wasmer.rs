@@ -542,14 +542,13 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                             let code_base =
                                 instance.module.runnable_module.get_code().unwrap().as_ptr()
                                     as usize;
-                            catch_unsafe_unwind(|| {
-                                invoke_call_return_on_stack(
-                                    &msm,
-                                    code_base,
-                                    image,
-                                    instance.context_mut(),
-                                );
-                            })
+                            invoke_call_return_on_stack(
+                                &msm,
+                                code_base,
+                                image,
+                                instance.context_mut(),
+                            )
+                            .map(|_| ())
                         } else {
                             catch_unsafe_unwind(|| start_raw(instance.context_mut()))
                         };
