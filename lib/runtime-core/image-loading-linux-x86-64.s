@@ -1,3 +1,5 @@
+# NOTE: Keep this consistent with `alternative_stack.rs`.
+
 .globl run_on_alternative_stack
 run_on_alternative_stack:
 # (stack_end, stack_begin)

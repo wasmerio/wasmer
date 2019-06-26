@@ -1,76 +1,77 @@
+use crate::alternative_stack::begin_unsafe_unwind;
 use crate::import::{ImportObject, Namespace};
 use crate::trampoline::{CallContext, TrampolineBuffer, TrampolineBufferBuilder};
 use crate::vm::Ctx;
-use bincode::serialize;
-use std::ffi::c_void;
-use std::fs::File;
-use std::io::Write;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-pub struct SuspendConfig {
-    pub image_path: String,
+static INTERRUPTED: AtomicBool = AtomicBool::new(false);
+
+pub fn set_interrupted(x: bool) {
+    INTERRUPTED.store(x, Ordering::SeqCst);
+}
+
+pub fn get_interrupted() -> bool {
+    INTERRUPTED.load(Ordering::SeqCst)
+}
+
+pub fn get_and_reset_interrupted() -> bool {
+    INTERRUPTED.swap(false, Ordering::SeqCst)
 }
 
 struct ImportContext {
-    next: Option<(*mut c_void, fn(*mut c_void))>,
-    trampolines: Rc<TrampolineBuffer>,
-    config: Rc<SuspendConfig>,
+    _trampolines: Rc<TrampolineBuffer>,
 }
 
 impl ImportContext {
-    fn new(trampolines: Rc<TrampolineBuffer>, config: Rc<SuspendConfig>) -> ImportContext {
+    fn new(trampolines: Rc<TrampolineBuffer>) -> ImportContext {
         ImportContext {
-            trampolines,
-            next: None,
-            config,
+            _trampolines: trampolines,
         }
     }
 }
 
-fn destroy_import_context(x: *mut c_void) {
-    unsafe {
-        let ctx = Box::from_raw(x as *mut ImportContext);
-        if let Some(x) = ctx.next {
-            (x.1)(x.0);
-        }
-    }
-}
-
-pub fn patch_import_object(x: &mut ImportObject, config: SuspendConfig) {
-    let config = Rc::new(config);
+pub fn patch_import_object(x: &mut ImportObject) {
     let mut builder = TrampolineBufferBuilder::new();
 
-    let config_ptr: &SuspendConfig = &*config;
-    let idx = builder.add_context_rsp_state_preserving_trampoline(
-        suspend,
-        config_ptr as *const SuspendConfig as *const CallContext,
-    );
+    let idx_suspend =
+        builder.add_context_rsp_state_preserving_trampoline(suspend, ::std::ptr::null());
+    let idx_check_interrupt =
+        builder.add_context_rsp_state_preserving_trampoline(check_interrupt, ::std::ptr::null());
     let trampolines = builder.build();
 
     let suspend_indirect: fn(&mut Ctx) =
-        unsafe { ::std::mem::transmute(trampolines.get_trampoline(idx)) };
+        unsafe { ::std::mem::transmute(trampolines.get_trampoline(idx_suspend)) };
+    let check_interrupt_indirect: fn(&mut Ctx) =
+        unsafe { ::std::mem::transmute(trampolines.get_trampoline(idx_check_interrupt)) };
 
     let trampolines = Rc::new(trampolines);
 
     // FIXME: Memory leak!
-    ::std::mem::forget(ImportContext::new(trampolines.clone(), config.clone()));
+    ::std::mem::forget(ImportContext::new(trampolines.clone()));
 
     let mut ns = Namespace::new();
     ns.insert("suspend", func!(suspend_indirect));
+    ns.insert("check_interrupt", func!(check_interrupt_indirect));
     x.register("wasmer_suspend", ns);
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-unsafe extern "C" fn suspend(
-    ctx: &mut Ctx,
-    config_ptr_raw: *const CallContext,
-    mut stack: *const u64,
-) {
+unsafe extern "C" fn check_interrupt(ctx: &mut Ctx, _: *const CallContext, stack: *const u64) {
+    if get_and_reset_interrupted() {
+        do_suspend(ctx, stack);
+    }
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+unsafe extern "C" fn suspend(ctx: &mut Ctx, _: *const CallContext, stack: *const u64) {
+    do_suspend(ctx, stack);
+}
+
+unsafe fn do_suspend(ctx: &mut Ctx, mut stack: *const u64) -> ! {
     use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR};
 
-    {
-        let config = &*(config_ptr_raw as *const SuspendConfig);
-
+    let image = {
         let msm = (*ctx.module)
             .runnable_module
             .get_module_state_map()
@@ -99,11 +100,8 @@ unsafe extern "C" fn suspend(
             eprintln!("\n{}", "Suspending instance.".green().bold());
         }
         es_image.print_backtrace_if_needed();
-        let image = build_instance_image(ctx, es_image);
-        let image_bin = serialize(&image).unwrap();
-        let mut f = File::create(&config.image_path).unwrap();
-        f.write_all(&image_bin).unwrap();
-    }
+        build_instance_image(ctx, es_image)
+    };
 
-    ::std::process::exit(0);
+    begin_unsafe_unwind(Box::new(image));
 }

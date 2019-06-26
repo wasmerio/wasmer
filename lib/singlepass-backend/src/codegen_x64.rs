@@ -23,8 +23,8 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
-        x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineStateDiff,
-        MachineValue, ModuleStateMap, WasmAbstractValue,
+        x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineValue,
+        ModuleStateMap, WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::Wasm,

@@ -180,6 +180,10 @@ where
             _phantom: PhantomData,
         }
     }
+
+    pub fn get_vm_func(&self) -> NonNull<vm::Func> {
+        self.f
+    }
 }
 
 impl<'a, Args, Rets> Func<'a, Args, Rets, Host>

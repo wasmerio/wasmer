@@ -226,14 +226,6 @@ impl MachineStateDiff {
 }
 
 impl ExecutionStateImage {
-    pub fn from_bytes(input: &[u8]) -> Option<ExecutionStateImage> {
-        use bincode::deserialize;
-        match deserialize(input) {
-            Ok(x) => Some(x),
-            Err(_) => None,
-        }
-    }
-
     pub fn print_backtrace_if_needed(&self) {
         use std::env;
 
@@ -319,6 +311,21 @@ impl ExecutionStateImage {
     }
 }
 
+impl InstanceImage {
+    pub fn from_bytes(input: &[u8]) -> Option<InstanceImage> {
+        use bincode::deserialize;
+        match deserialize(input) {
+            Ok(x) => Some(x),
+            Err(_) => None,
+        }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        use bincode::serialize;
+        serialize(self).unwrap()
+    }
+}
+
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub mod x64 {
     use super::*;
@@ -341,19 +348,20 @@ pub mod x64 {
     pub unsafe fn invoke_call_return_on_stack_raw_image(
         msm: &ModuleStateMap,
         code_base: usize,
-        image: &[u8],
+        image_raw: Vec<u8>,
         vmctx: &mut Ctx,
     ) -> u64 {
         use bincode::deserialize;
-        let image: InstanceImage = deserialize(image).unwrap();
-        invoke_call_return_on_stack(msm, code_base, &image, vmctx)
+        let image: InstanceImage = deserialize(&image_raw).unwrap();
+        drop(image_raw); // free up memory
+        invoke_call_return_on_stack(msm, code_base, image, vmctx)
     }
 
     #[warn(unused_variables)]
     pub unsafe fn invoke_call_return_on_stack(
         msm: &ModuleStateMap,
         code_base: usize,
-        image: &InstanceImage,
+        image: InstanceImage,
         vmctx: &mut Ctx,
     ) -> u64 {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
@@ -366,7 +374,7 @@ pub mod x64 {
         let mut known_registers: [Option<u64>; 24] = [None; 24];
 
         let local_functions_vec: Vec<&FunctionStateMap> =
-            msm.local_functions.iter().map(|(k, v)| v).collect();
+            msm.local_functions.iter().map(|(_, v)| v).collect();
 
         // Bottom to top
         for f in image.execution_state.frames.iter().rev() {
@@ -513,6 +521,8 @@ pub mod x64 {
                 image.globals[i];
         }
 
+        drop(image); // free up host memory
+
         run_on_alternative_stack(
             stack.as_mut_ptr().offset(stack.len() as isize),
             stack.as_mut_ptr().offset(stack_offset as isize),
@@ -649,7 +659,7 @@ pub mod x64 {
                         known_registers[idx.0] = Some(*stack);
                         stack = stack.offset(1);
                     }
-                    MachineValue::CopyStackBPRelative(offset) => {
+                    MachineValue::CopyStackBPRelative(_) => {
                         stack = stack.offset(1);
                     }
                     MachineValue::WasmStack(idx) => {

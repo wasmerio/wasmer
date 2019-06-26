@@ -19,7 +19,6 @@ use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
-    error::RuntimeError,
     Func, Value,
 };
 use wasmer_runtime_core::{
@@ -112,13 +111,6 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
-    #[cfg(feature = "backend:singlepass")]
-    #[structopt(long = "image-file")]
-    image_file: Option<String>,
-
-    #[structopt(long = "resume")]
-    resume: bool,
-
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
 
@@ -158,7 +150,7 @@ impl FromStr for LoaderName {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 enum Backend {
     Cranelift,
     Singlepass,
@@ -511,14 +503,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
             #[cfg(feature = "backend:singlepass")]
             {
-                if let Some(ref name) = options.image_file {
-                    use wasmer_runtime_core::suspend::{patch_import_object, SuspendConfig};
-                    patch_import_object(
-                        &mut import_object,
-                        SuspendConfig {
-                            image_path: name.clone(),
-                        },
-                    );
+                if options.backend == Backend::Singlepass {
+                    use wasmer_runtime_core::suspend::patch_import_object;
+                    patch_import_object(&mut import_object);
                 }
             }
 
@@ -526,54 +513,81 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
+            let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
+
             #[cfg(feature = "backend:singlepass")]
-            {
-                if let Some(ref name) = options.image_file {
-                    if options.resume {
-                        use wasmer_runtime_core::state::x64::invoke_call_return_on_stack_raw_image;
-                        use wasmer_singlepass_backend::protect_unix::call_protected;
+            unsafe {
+                if options.backend == Backend::Singlepass {
+                    use wasmer_runtime_core::alternative_stack::{
+                        catch_unsafe_unwind, ensure_sighandler,
+                    };
+                    use wasmer_runtime_core::state::{
+                        x64::invoke_call_return_on_stack, InstanceImage,
+                    };
+                    use wasmer_runtime_core::vm::Ctx;
 
-                        let mut file = File::open(name).expect("cannot open image file");
-                        let mut image: Vec<u8> = vec![];
-                        file.read_to_end(&mut image).unwrap();
+                    ensure_sighandler();
 
-                        let msm = instance
-                            .module
-                            .runnable_module
-                            .get_module_state_map()
-                            .unwrap();
-                        let code_base =
-                            instance.module.runnable_module.get_code().unwrap().as_ptr() as usize;
-                        call_protected(|| unsafe {
-                            invoke_call_return_on_stack_raw_image(
-                                &msm,
-                                code_base,
-                                &image,
-                                instance.context_mut(),
-                            );
-                        })
-                        .map_err(|_| "ERROR")
-                        .unwrap();
+                    let start_raw: extern "C" fn(&mut Ctx) =
+                        ::std::mem::transmute(start.get_vm_func());
 
-                        return Ok(());
+                    let mut image: Option<InstanceImage> = None;
+                    loop {
+                        let ret = if let Some(image) = image.take() {
+                            let msm = instance
+                                .module
+                                .runnable_module
+                                .get_module_state_map()
+                                .unwrap();
+                            let code_base =
+                                instance.module.runnable_module.get_code().unwrap().as_ptr()
+                                    as usize;
+                            catch_unsafe_unwind(|| {
+                                invoke_call_return_on_stack(
+                                    &msm,
+                                    code_base,
+                                    image,
+                                    instance.context_mut(),
+                                );
+                            })
+                        } else {
+                            catch_unsafe_unwind(|| start_raw(instance.context_mut()))
+                        };
+                        if let Err(e) = ret {
+                            if let Some(new_image) = e.downcast_ref::<InstanceImage>() {
+                                let op = interactive_shell(InteractiveShellContext {
+                                    image: Some(new_image.clone()),
+                                });
+                                match op {
+                                    ShellExitOperation::ContinueWith(new_image) => {
+                                        image = Some(new_image);
+                                    }
+                                }
+                            } else {
+                                return Err("Error while executing WebAssembly".into());
+                            }
+                        } else {
+                            return Ok(());
+                        }
                     }
                 }
             }
 
-            let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
+            {
+                use wasmer_runtime::error::RuntimeError;
+                let result = start.call();
 
-            let result = start.call();
-
-            if let Err(ref err) = result {
-                match err {
-                    RuntimeError::Trap { msg } => panic!("wasm trap occured: {}", msg),
-                    RuntimeError::Error { data } => {
-                        if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
-                            std::process::exit(error_code.code as i32)
+                if let Err(ref err) = result {
+                    match err {
+                        RuntimeError::Trap { msg } => panic!("wasm trap occured: {}", msg),
+                        RuntimeError::Error { data } => {
+                            if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
+                                std::process::exit(error_code.code as i32)
+                            }
                         }
                     }
+                    panic!("error: {:?}", err)
                 }
-                panic!("error: {:?}", err)
             }
         } else {
             let import_object = wasmer_runtime_core::import::ImportObject::new();
@@ -596,6 +610,89 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(feature = "backend:singlepass")]
+struct InteractiveShellContext {
+    image: Option<wasmer_runtime_core::state::InstanceImage>,
+}
+
+#[cfg(feature = "backend:singlepass")]
+#[derive(Debug)]
+enum ShellExitOperation {
+    ContinueWith(wasmer_runtime_core::state::InstanceImage),
+}
+
+#[cfg(feature = "backend:singlepass")]
+fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
+    use std::io::Write;
+
+    let mut stdout = ::std::io::stdout();
+    let stdin = ::std::io::stdin();
+
+    loop {
+        print!("Wasmer> ");
+        stdout.flush().unwrap();
+        let mut line = String::new();
+        stdin.read_line(&mut line).unwrap();
+        let mut parts = line.split(" ").filter(|x| x.len() > 0).map(|x| x.trim());
+
+        let cmd = parts.next();
+        if cmd.is_none() {
+            println!("Command required");
+            continue;
+        }
+        let cmd = cmd.unwrap();
+
+        match cmd {
+            "snapshot" => {
+                let path = parts.next();
+                if path.is_none() {
+                    println!("Usage: snapshot [out_path]");
+                    continue;
+                }
+                let path = path.unwrap();
+
+                if let Some(ref image) = ctx.image {
+                    let buf = image.to_bytes();
+                    let mut f = match File::create(path) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            println!("Cannot open output file at {}: {:?}", path, e);
+                            continue;
+                        }
+                    };
+                    if let Err(e) = f.write_all(&buf) {
+                        println!("Cannot write to output file at {}: {:?}", path, e);
+                        continue;
+                    }
+                    println!("Done");
+                } else {
+                    println!("Program state not available");
+                }
+            }
+            "continue" | "c" => {
+                if let Some(image) = ctx.image.take() {
+                    return ShellExitOperation::ContinueWith(image);
+                } else {
+                    println!("Program state not available, cannot continue execution");
+                }
+            }
+            "backtrace" | "bt" => {
+                if let Some(ref image) = ctx.image {
+                    println!("{}", image.execution_state.colored_output());
+                } else {
+                    println!("State not available");
+                }
+            }
+            "exit" | "quit" => {
+                exit(0);
+            }
+            _ => {
+                println!("Unknown command: {}", cmd);
+            }
+        }
+    }
 }
 
 fn run(options: Run) {
