@@ -60,6 +60,7 @@ pub fn patch_import_object(x: &mut ImportObject, config: SuspendConfig) {
     x.register("wasmer_suspend", ns);
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 unsafe extern "C" fn suspend(
     ctx: &mut Ctx,
     config_ptr_raw: *const CallContext,
