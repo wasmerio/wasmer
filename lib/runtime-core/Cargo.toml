@@ -19,6 +19,7 @@ libc = "0.2.49"
 hex = "0.3.2"
 smallvec = "0.6.9"
 bincode = "1.1"
+colored = "1.8"
 
 # Dependencies for caching.
 [dependencies.serde]

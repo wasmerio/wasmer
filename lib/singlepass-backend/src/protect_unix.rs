@@ -25,44 +25,6 @@ use wasmer_runtime_core::state::x64::{read_stack, X64Register, GPR};
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
 use wasmer_runtime_core::vm;
 
-fn join_strings(x: impl Iterator<Item = String>, sep: &str) -> String {
-    let mut ret = String::new();
-    let mut first = true;
-
-    for s in x {
-        if first {
-            first = false;
-        } else {
-            ret += sep;
-        }
-        ret += &s;
-    }
-
-    ret
-}
-
-fn format_optional_u64_sequence(x: &[Option<u64>]) -> String {
-    use colored::*;
-
-    if x.len() == 0 {
-        "(empty)".into()
-    } else {
-        join_strings(
-            x.iter().enumerate().map(|(i, x)| {
-                format!(
-                    "[{}] = {}",
-                    i,
-                    x.map(|x| format!("{}", x))
-                        .unwrap_or_else(|| "?".to_string())
-                        .bold()
-                        .cyan()
-                )
-            }),
-            ", ",
-        )
-    }
-}
-
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
     siginfo: *mut siginfo_t,
@@ -104,40 +66,12 @@ extern "C" fn signal_trap_handler(
 
         use colored::*;
         eprintln!(
-            "\n{}\n",
+            "\n{}",
             "Wasmer encountered an error while running your WebAssembly program."
                 .bold()
                 .red()
         );
-        if image.frames.len() == 0 {
-            eprintln!("{}", "Unknown fault address, cannot read stack.".yellow());
-        } else {
-            use colored::*;
-            eprintln!("{}\n", "Backtrace:".bold());
-            for (i, f) in image.frames.iter().enumerate() {
-                eprintln!(
-                    "{}",
-                    format!("* Frame {} @ Local function {}", i, f.local_function_id).bold()
-                );
-                eprintln!(
-                    "  {} {}",
-                    "Offset:".bold().yellow(),
-                    format!("{}", f.wasm_inst_offset).bold().cyan(),
-                );
-                eprintln!(
-                    "  {} {}",
-                    "Locals:".bold().yellow(),
-                    format_optional_u64_sequence(&f.locals)
-                );
-                eprintln!(
-                    "  {} {}",
-                    "Stack:".bold().yellow(),
-                    format_optional_u64_sequence(&f.stack)
-                );
-                eprintln!("");
-            }
-        }
-
+        image.print_backtrace_if_needed();
         do_unwind(signum, siginfo as _, ucontext);
     }
 }

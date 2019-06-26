@@ -92,6 +92,12 @@ unsafe extern "C" fn suspend(
         known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(rbx);
 
         let es_image = read_stack(&msm, code_base, stack, known_registers, None);
+
+        {
+            use colored::*;
+            eprintln!("\n{}", "Suspending instance.".green().bold());
+        }
+        es_image.print_backtrace_if_needed();
         let image = build_instance_image(ctx, es_image);
         let image_bin = serialize(&image).unwrap();
         let mut f = File::create(&config.image_path).unwrap();

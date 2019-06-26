@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::ops::Bound::{Included, Unbounded};
+use std::ops::Bound::{Excluded, Included, Unbounded};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);
@@ -233,6 +233,90 @@ impl ExecutionStateImage {
             Err(_) => None,
         }
     }
+
+    pub fn print_backtrace_if_needed(&self) {
+        use std::env;
+
+        if let Ok(x) = env::var("WASMER_BACKTRACE") {
+            if x == "1" {
+                eprintln!("{}", self.colored_output());
+                return;
+            }
+        }
+
+        eprintln!("Run with `WASMER_BACKTRACE=1` environment variable to display a backtrace.");
+    }
+
+    pub fn colored_output(&self) -> String {
+        use colored::*;
+
+        fn join_strings(x: impl Iterator<Item = String>, sep: &str) -> String {
+            let mut ret = String::new();
+            let mut first = true;
+
+            for s in x {
+                if first {
+                    first = false;
+                } else {
+                    ret += sep;
+                }
+                ret += &s;
+            }
+
+            ret
+        }
+
+        fn format_optional_u64_sequence(x: &[Option<u64>]) -> String {
+            if x.len() == 0 {
+                "(empty)".into()
+            } else {
+                join_strings(
+                    x.iter().enumerate().map(|(i, x)| {
+                        format!(
+                            "[{}] = {}",
+                            i,
+                            x.map(|x| format!("{}", x))
+                                .unwrap_or_else(|| "?".to_string())
+                                .bold()
+                                .cyan()
+                        )
+                    }),
+                    ", ",
+                )
+            }
+        }
+
+        let mut ret = String::new();
+
+        if self.frames.len() == 0 {
+            ret += &"Unknown fault address, cannot read stack.".yellow();
+            ret += "\n";
+        } else {
+            ret += &"Backtrace:".bold();
+            ret += "\n";
+            for (i, f) in self.frames.iter().enumerate() {
+                ret += &format!("* Frame {} @ Local function {}", i, f.local_function_id).bold();
+                ret += "\n";
+                ret += &format!(
+                    "  {} {}\n",
+                    "Offset:".bold().yellow(),
+                    format!("{}", f.wasm_inst_offset).bold().cyan(),
+                );
+                ret += &format!(
+                    "  {} {}\n",
+                    "Locals:".bold().yellow(),
+                    format_optional_u64_sequence(&f.locals)
+                );
+                ret += &format!(
+                    "  {} {}\n\n",
+                    "Stack:".bold().yellow(),
+                    format_optional_u64_sequence(&f.stack)
+                );
+            }
+        }
+
+        ret
+    }
 }
 
 #[cfg(all(unix, target_arch = "x86_64"))]
@@ -289,12 +373,15 @@ pub mod x64 {
         for f in image.execution_state.frames.iter().rev() {
             let fsm = local_functions_vec[f.local_function_id];
             let call_begin_offset = fsm.wasm_offset_to_target_offset[f.wasm_inst_offset];
+
+            // Left bound must be Excluded because it's possible that the previous instruction's (after-)call offset == call_begin_offset.
             let (after_call_inst, diff_id) = fsm
                 .call_offsets
-                .range((Included(&call_begin_offset), Unbounded))
+                .range((Excluded(&call_begin_offset), Unbounded))
                 .next()
                 .map(|(k, v)| (*k, *v))
                 .expect("instruction offset not found in call offsets");
+
             let diff = &fsm.diffs[diff_id];
             let state = diff.build_state(fsm);
 

@@ -4630,11 +4630,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
             }
             Operator::Unreachable => {
-                let state_diff_id =
-                    Self::get_state_diff(&self.machine, &mut self.fsm, &mut self.control_stack);
-                let offset = a.get_offset().0;
-                self.fsm.trappable_offsets.insert(offset, state_diff_id);
-
+                Self::mark_trappable(a, &self.machine, &mut self.fsm, &mut self.control_stack);
                 a.emit_ud2();
                 self.unreachable_depth = 1;
             }
