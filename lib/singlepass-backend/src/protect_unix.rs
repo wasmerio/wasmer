@@ -189,11 +189,11 @@ pub struct FaultInfo {
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-unsafe fn get_faulting_addr_and_ip(
-    siginfo: *const c_void,
-    ucontext: *const c_void,
-) -> (*const c_void, *const c_void) {
-    use libc::{ucontext_t, RIP};
+unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
+    use libc::{
+        ucontext_t, R10, R11, R12, R13, R14, R15, R8, R9, RAX, RBP, RBX, RCX, RDI, RDX, RIP, RSI,
+        RSP,
+    };
 
     #[allow(dead_code)]
     #[repr(C)]
@@ -209,9 +209,35 @@ unsafe fn get_faulting_addr_and_ip(
     let si_addr = (*siginfo).si_addr;
 
     let ucontext = ucontext as *const ucontext_t;
-    let rip = (*ucontext).uc_mcontext.gregs[RIP as usize];
+    let gregs = &(*ucontext).uc_mcontext.gregs;
 
-    (si_addr as _, rip as _)
+    let mut known_registers: [Option<u64>; 24] = [None; 24];
+
+    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[R15 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs[R14 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(gregs[R13 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(gregs[R12 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R11).to_index().0] = Some(gregs[R11 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R10).to_index().0] = Some(gregs[R10 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R9).to_index().0] = Some(gregs[R9 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R8).to_index().0] = Some(gregs[R8 as usize] as _);
+    known_registers[X64Register::GPR(GPR::RSI).to_index().0] = Some(gregs[RSI as usize] as _);
+    known_registers[X64Register::GPR(GPR::RDI).to_index().0] = Some(gregs[RDI as usize] as _);
+    known_registers[X64Register::GPR(GPR::RDX).to_index().0] = Some(gregs[RDX as usize] as _);
+    known_registers[X64Register::GPR(GPR::RCX).to_index().0] = Some(gregs[RCX as usize] as _);
+    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(gregs[RBX as usize] as _);
+    known_registers[X64Register::GPR(GPR::RAX).to_index().0] = Some(gregs[RAX as usize] as _);
+
+    known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[RBP as usize] as _);
+    known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[RSP as usize] as _);
+
+    // TODO: XMM registers
+
+    FaultInfo {
+        faulting_addr: si_addr as usize as _,
+        ip: gregs[RIP as usize] as _,
+        known_registers,
+    }
 }
 
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
@@ -290,6 +316,8 @@ unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> Fau
 
     known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(ss.rbp);
     known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(ss.rsp);
+
+    // TODO: XMM registers
 
     FaultInfo {
         faulting_addr: si_addr,

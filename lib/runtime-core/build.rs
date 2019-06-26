@@ -1,5 +1,4 @@
 use blake2b_simd::blake2bp;
-use cc::Build;
 use std::{env, fs, io::Write, path::PathBuf};
 
 const WASMER_VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -30,7 +29,15 @@ fn main() {
         println!("cargo:rustc-cfg=nightly");
     }
 
-    cc::Build::new()
-        .file("image-loading.s")
-        .compile("image-loading");
+    if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        cc::Build::new()
+            .file("image-loading-linux-x86-64.s")
+            .compile("image-loading");
+    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        cc::Build::new()
+            .file("image-loading-macos-x86-64.s")
+            .compile("image-loading");
+    } else {
+
+    }
 }
