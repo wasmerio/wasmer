@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-singlepass-backend"
-version = "0.5.0"
+version = "0.5.1"
 repository = "https://github.com/wasmerio/wasmer"
 description = "Wasmer runtime single pass compiler backend"
 license = "MIT"
@@ -8,7 +8,7 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.5.0" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.5.1" }
 wasmparser = "0.29.2"
 dynasm = "0.3.2"
 dynasmrt = "0.3.1"
