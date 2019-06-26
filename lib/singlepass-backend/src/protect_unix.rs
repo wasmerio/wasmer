@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::ptr;
 use std::sync::Arc;
 use std::sync::Once;
+use wasmer_runtime_core::alternative_stack::allocate_and_run;
 use wasmer_runtime_core::codegen::BkptInfo;
 use wasmer_runtime_core::state::x64::{read_stack, X64Register, GPR};
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
@@ -46,32 +47,35 @@ extern "C" fn signal_trap_handler(
             _ => {}
         }
 
-        // TODO: make this safer
-        let ctx = &*(fault.known_registers[X64Register::GPR(GPR::R15).to_index().0].unwrap()
-            as *mut vm::Ctx);
-        let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
+        allocate_and_run(65536, || {
+            // TODO: make this safer
+            let ctx = &*(fault.known_registers[X64Register::GPR(GPR::R15).to_index().0].unwrap()
+                as *mut vm::Ctx);
+            let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
 
-        let msm = (*ctx.module)
-            .runnable_module
-            .get_module_state_map()
-            .unwrap();
-        let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
-        let image = self::read_stack(
-            &msm,
-            code_base,
-            rsp as usize as *const u64,
-            fault.known_registers,
-            Some(fault.ip as usize as u64),
-        );
+            let msm = (*ctx.module)
+                .runnable_module
+                .get_module_state_map()
+                .unwrap();
+            let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
+            let image = self::read_stack(
+                &msm,
+                code_base,
+                rsp as usize as *const u64,
+                fault.known_registers,
+                Some(fault.ip as usize as u64),
+            );
 
-        use colored::*;
-        eprintln!(
-            "\n{}",
-            "Wasmer encountered an error while running your WebAssembly program."
-                .bold()
-                .red()
-        );
-        image.print_backtrace_if_needed();
+            use colored::*;
+            eprintln!(
+                "\n{}",
+                "Wasmer encountered an error while running your WebAssembly program."
+                    .bold()
+                    .red()
+            );
+            image.print_backtrace_if_needed();
+        });
+
         do_unwind(signum, siginfo as _, ucontext);
     }
 }
@@ -191,8 +195,8 @@ pub struct FaultInfo {
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
     use libc::{
-        ucontext_t, R10, R11, R12, R13, R14, R15, R8, R9, RAX, RBP, RBX, RCX, RDI, RDX, RIP, RSI,
-        RSP,
+        ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8, REG_R9, REG_RAX,
+        REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX, REG_RIP, REG_RSI, REG_RSP,
     };
 
     #[allow(dead_code)]
@@ -212,30 +216,29 @@ unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> Fau
     let gregs = &(*ucontext).uc_mcontext.gregs;
 
     let mut known_registers: [Option<u64>; 24] = [None; 24];
+    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[REG_R15 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs[REG_R14 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(gregs[REG_R13 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(gregs[REG_R12 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R11).to_index().0] = Some(gregs[REG_R11 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R10).to_index().0] = Some(gregs[REG_R10 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R9).to_index().0] = Some(gregs[REG_R9 as usize] as _);
+    known_registers[X64Register::GPR(GPR::R8).to_index().0] = Some(gregs[REG_R8 as usize] as _);
+    known_registers[X64Register::GPR(GPR::RSI).to_index().0] = Some(gregs[REG_RSI as usize] as _);
+    known_registers[X64Register::GPR(GPR::RDI).to_index().0] = Some(gregs[REG_RDI as usize] as _);
+    known_registers[X64Register::GPR(GPR::RDX).to_index().0] = Some(gregs[REG_RDX as usize] as _);
+    known_registers[X64Register::GPR(GPR::RCX).to_index().0] = Some(gregs[REG_RCX as usize] as _);
+    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(gregs[REG_RBX as usize] as _);
+    known_registers[X64Register::GPR(GPR::RAX).to_index().0] = Some(gregs[REG_RAX as usize] as _);
 
-    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[R15 as usize] as _);
-    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs[R14 as usize] as _);
-    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(gregs[R13 as usize] as _);
-    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(gregs[R12 as usize] as _);
-    known_registers[X64Register::GPR(GPR::R11).to_index().0] = Some(gregs[R11 as usize] as _);
-    known_registers[X64Register::GPR(GPR::R10).to_index().0] = Some(gregs[R10 as usize] as _);
-    known_registers[X64Register::GPR(GPR::R9).to_index().0] = Some(gregs[R9 as usize] as _);
-    known_registers[X64Register::GPR(GPR::R8).to_index().0] = Some(gregs[R8 as usize] as _);
-    known_registers[X64Register::GPR(GPR::RSI).to_index().0] = Some(gregs[RSI as usize] as _);
-    known_registers[X64Register::GPR(GPR::RDI).to_index().0] = Some(gregs[RDI as usize] as _);
-    known_registers[X64Register::GPR(GPR::RDX).to_index().0] = Some(gregs[RDX as usize] as _);
-    known_registers[X64Register::GPR(GPR::RCX).to_index().0] = Some(gregs[RCX as usize] as _);
-    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(gregs[RBX as usize] as _);
-    known_registers[X64Register::GPR(GPR::RAX).to_index().0] = Some(gregs[RAX as usize] as _);
-
-    known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[RBP as usize] as _);
-    known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[RSP as usize] as _);
+    known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[REG_RBP as usize] as _);
+    known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[REG_RSP as usize] as _);
 
     // TODO: XMM registers
 
     FaultInfo {
         faulting_addr: si_addr as usize as _,
-        ip: gregs[RIP as usize] as _,
+        ip: gregs[REG_RIP as usize] as _,
         known_registers,
     }
 }

@@ -321,10 +321,8 @@ impl ExecutionStateImage {
 
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub mod x64 {
-    extern "C" {
-        fn run_on_wasm_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64;
-    }
     use super::*;
+    use crate::alternative_stack::run_on_alternative_stack;
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
@@ -515,7 +513,7 @@ pub mod x64 {
                 image.globals[i];
         }
 
-        run_on_wasm_stack(
+        run_on_alternative_stack(
             stack.as_mut_ptr().offset(stack.len() as isize),
             stack.as_mut_ptr().offset(stack_offset as isize),
         )

@@ -1,5 +1,5 @@
-.globl _run_on_wasm_stack
-_run_on_wasm_stack:
+.globl _run_on_alternative_stack
+_run_on_alternative_stack:
 # (stack_end, stack_begin)
 # We need to ensure 16-byte alignment here.
 pushq %r15
@@ -10,7 +10,7 @@ pushq %rbx
 pushq %rbp
 movq %rsp, -16(%rdi)
 
-leaq _run_on_wasm_stack.returning(%rip), %rax
+leaq _run_on_alternative_stack.returning(%rip), %rax
 movq %rax, -24(%rdi)
 
 movq %rsi, %rsp
@@ -22,7 +22,7 @@ popq %r14
 popq %r15
 retq
 
-_run_on_wasm_stack.returning:
+_run_on_alternative_stack.returning:
 movq (%rsp), %rsp
 popq %rbp
 popq %rbx
