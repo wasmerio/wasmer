@@ -111,6 +111,10 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
+    #[cfg(feature = "backend:singlepass")]
+    #[structopt(long = "resume")]
+    resume: Option<String>,
+
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
 
@@ -531,7 +535,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     let start_raw: extern "C" fn(&mut Ctx) =
                         ::std::mem::transmute(start.get_vm_func());
 
-                    let mut image: Option<InstanceImage> = None;
+                    let mut image: Option<InstanceImage> = if let Some(ref path) = options.resume {
+                        let mut f = File::open(path).unwrap();
+                        let mut out: Vec<u8> = vec![];
+                        f.read_to_end(&mut out).unwrap();
+                        Some(InstanceImage::from_bytes(&out).expect("failed to decode image"))
+                    } else {
+                        None
+                    };
                     loop {
                         let ret = if let Some(image) = image.take() {
                             let msm = instance
