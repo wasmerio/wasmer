@@ -112,6 +112,7 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
+    #[cfg(feature = "backend:singlepass")]
     #[structopt(long = "image-file")]
     image_file: Option<String>,
 
@@ -508,48 +509,54 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 mapped_dirs,
             );
 
-            if let Some(ref name) = options.image_file {
-                use wasmer_runtime_core::suspend::{patch_import_object, SuspendConfig};
-                patch_import_object(
-                    &mut import_object,
-                    SuspendConfig {
-                        image_path: name.clone(),
-                    },
-                );
+            #[cfg(feature = "backend:singlepass")]
+            {
+                if let Some(ref name) = options.image_file {
+                    use wasmer_runtime_core::suspend::{patch_import_object, SuspendConfig};
+                    patch_import_object(
+                        &mut import_object,
+                        SuspendConfig {
+                            image_path: name.clone(),
+                        },
+                    );
+                }
             }
 
             let mut instance = module
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            if let Some(ref name) = options.image_file {
-                if options.resume {
-                    use wasmer_runtime_core::state::x64::invoke_call_return_on_stack_raw_image;
-                    use wasmer_singlepass_backend::protect_unix::call_protected;
+            #[cfg(feature = "backend:singlepass")]
+            {
+                if let Some(ref name) = options.image_file {
+                    if options.resume {
+                        use wasmer_runtime_core::state::x64::invoke_call_return_on_stack_raw_image;
+                        use wasmer_singlepass_backend::protect_unix::call_protected;
 
-                    let mut file = File::open(name).expect("cannot open image file");
-                    let mut image: Vec<u8> = vec![];
-                    file.read_to_end(&mut image).unwrap();
+                        let mut file = File::open(name).expect("cannot open image file");
+                        let mut image: Vec<u8> = vec![];
+                        file.read_to_end(&mut image).unwrap();
 
-                    let msm = instance
-                        .module
-                        .runnable_module
-                        .get_module_state_map()
+                        let msm = instance
+                            .module
+                            .runnable_module
+                            .get_module_state_map()
+                            .unwrap();
+                        let code_base =
+                            instance.module.runnable_module.get_code().unwrap().as_ptr() as usize;
+                        call_protected(|| unsafe {
+                            invoke_call_return_on_stack_raw_image(
+                                &msm,
+                                code_base,
+                                &image,
+                                instance.context_mut(),
+                            );
+                        })
+                        .map_err(|_| "ERROR")
                         .unwrap();
-                    let code_base =
-                        instance.module.runnable_module.get_code().unwrap().as_ptr() as usize;
-                    call_protected(|| unsafe {
-                        invoke_call_return_on_stack_raw_image(
-                            &msm,
-                            code_base,
-                            &image,
-                            instance.context_mut(),
-                        );
-                    })
-                    .map_err(|_| "ERROR")
-                    .unwrap();
 
-                    return Ok(());
+                        return Ok(());
+                    }
                 }
             }
 
