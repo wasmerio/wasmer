@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::ops::Bound::{Excluded, Included, Unbounded};
+use std::ops::Bound::{Included, Unbounded};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);
@@ -328,6 +328,7 @@ pub mod x64 {
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
+    use std::ops::Bound::Excluded;
 
     pub fn new_machine_state() -> MachineState {
         MachineState {
