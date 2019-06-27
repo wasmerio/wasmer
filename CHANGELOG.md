@@ -5,6 +5,7 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#510](https://github.com/wasmerio/wasmer/pull/510) Simplify construction of floating point constants in LLVM backend. Fix LLVM assertion failure due to definition of %ctx.
 
 ## 0.5.1 - 2019-06-24
 - [#508](https://github.com/wasmerio/wasmer/pull/508) Update wapm version, includes bug fixes
