@@ -433,12 +433,11 @@ pub fn ___syscall192(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// lseek
-#[allow(exceeding_bitshifts)]
 pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", _which);
     let fd: i32 = varargs.get(ctx);
-    let _offset_high: i32 = varargs.get(ctx);
+    let _offset_high: i32 = varargs.get(ctx); // We don't use the offset high as emscripten skips it
     let offset_low: i32 = varargs.get(ctx);
     let result_ptr_value: i32 = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
