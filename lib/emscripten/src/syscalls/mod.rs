@@ -50,7 +50,6 @@ use super::env;
 use std::cell::Cell;
 #[allow(unused_imports)]
 use std::io::Error;
-use std::mem;
 use std::slice;
 
 /// exit
@@ -439,20 +438,14 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let fd: i32 = varargs.get(ctx);
     let _offset_high: i32 = varargs.get(ctx); // We don't use the offset high as emscripten skips it
     let offset_low: i32 = varargs.get(ctx);
-    let result_ptr_value: i32 = varargs.get(ctx);
+    let result_ptr_value: WasmPtr<i64> = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     let offset = offset_low as off_t;
     let ret = unsafe { lseek(fd, offset, whence) };
-    #[allow(clippy::cast_ptr_alignment)]
-    let result_ptr_0 = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
-    #[allow(clippy::cast_ptr_alignment)]
-    let result_ptr_1 = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value + 4) as *mut i32;
-    assert_eq!(8, mem::align_of_val(&result_ptr_0));
-    unsafe {
-        // HEAP32[((result)>>2)]=tempI64[0],HEAP32[(((result)+(4))>>2)]=tempI64[1]);
-        *result_ptr_0 = ret as i32;
-        *result_ptr_1 = (ret >> 32) as i32;
-    }
+
+    let result_ptr = result_ptr_value.deref(ctx.memory(0)).unwrap();
+    result_ptr.set(ret);
+
     debug!(
         "=> fd: {}, offset: {}, result: {}, whence: {} = {}\nlast os error: {}",
         fd,
