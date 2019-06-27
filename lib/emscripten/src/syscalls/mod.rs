@@ -446,7 +446,7 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let ret = unsafe { lseek(fd, offset, whence) };
     #[allow(clippy::cast_ptr_alignment)]
     let result_ptr_0 = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
-    let result_ptr_1 = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value+4) as *mut i32;
+    let result_ptr_1 = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value + 4) as *mut i32;
     assert_eq!(8, mem::align_of_val(&result_ptr_0));
     unsafe {
         // HEAP32[((result)>>2)]=tempI64[0],HEAP32[(((result)+(4))>>2)]=tempI64[1]);
