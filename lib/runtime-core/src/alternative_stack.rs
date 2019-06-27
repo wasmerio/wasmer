@@ -300,9 +300,13 @@ pub struct FaultInfo {
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
     use libc::{
-        ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8, REG_R9, REG_RAX,
-        REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX, REG_RIP, REG_RSI, REG_RSP,
+        _libc_xmmreg, ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8,
+        REG_R9, REG_RAX, REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX, REG_RIP, REG_RSI, REG_RSP,
     };
+
+    fn read_xmm(reg: &_libc_xmmreg) -> u64 {
+        (reg.element[0] as u64) | ((reg.element[1] as u64) << 32)
+    }
 
     #[allow(dead_code)]
     #[repr(C)]
@@ -319,6 +323,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
 
     let ucontext = ucontext as *const ucontext_t;
     let gregs = &(*ucontext).uc_mcontext.gregs;
+    let fpregs = &*(*ucontext).uc_mcontext.fpregs;
 
     let mut known_registers: [Option<u64>; 24] = [None; 24];
     known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[REG_R15 as usize] as _);
@@ -339,7 +344,14 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[REG_RBP as usize] as _);
     known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[REG_RSP as usize] as _);
 
-    // TODO: XMM registers
+    known_registers[X64Register::XMM(XMM::XMM0).to_index().0] = Some(read_xmm(&fpregs._xmm[0]));
+    known_registers[X64Register::XMM(XMM::XMM1).to_index().0] = Some(read_xmm(&fpregs._xmm[1]));
+    known_registers[X64Register::XMM(XMM::XMM2).to_index().0] = Some(read_xmm(&fpregs._xmm[2]));
+    known_registers[X64Register::XMM(XMM::XMM3).to_index().0] = Some(read_xmm(&fpregs._xmm[3]));
+    known_registers[X64Register::XMM(XMM::XMM4).to_index().0] = Some(read_xmm(&fpregs._xmm[4]));
+    known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(read_xmm(&fpregs._xmm[5]));
+    known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(read_xmm(&fpregs._xmm[6]));
+    known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
 
     FaultInfo {
         faulting_addr: si_addr as usize as _,
