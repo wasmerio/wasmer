@@ -441,7 +441,7 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let result_ptr_value: WasmPtr<i64> = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     let offset = offset_low as off_t;
-    let ret = unsafe { lseek(fd, offset, whence) };
+    let ret = unsafe { lseek(fd, offset, whence) as i64 };
 
     let result_ptr = result_ptr_value.deref(ctx.memory(0)).unwrap();
     result_ptr.set(ret);
