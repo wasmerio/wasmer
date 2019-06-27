@@ -53,11 +53,18 @@ pub struct FunctionStateMap {
     pub locals: Vec<WasmAbstractValue>,
     pub shadow_size: usize, // for single-pass backend, 32 bytes on x86-64
     pub diffs: Vec<MachineStateDiff>,
-    pub wasm_function_header_target_offset: Option<usize>,
-    pub wasm_offset_to_target_offset: Vec<usize>,
+    pub wasm_function_header_target_offset: Option<SuspendOffset>,
+    pub wasm_offset_to_target_offset: BTreeMap<usize, SuspendOffset>,
     pub loop_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
     pub call_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
     pub trappable_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum SuspendOffset {
+    Loop(usize),
+    Call(usize),
+    Trappable(usize),
 }
 
 #[derive(Clone, Debug)]
@@ -166,7 +173,7 @@ impl FunctionStateMap {
             locals,
             diffs: vec![],
             wasm_function_header_target_offset: None,
-            wasm_offset_to_target_offset: Vec::new(),
+            wasm_offset_to_target_offset: BTreeMap::new(),
             loop_offsets: BTreeMap::new(),
             call_offsets: BTreeMap::new(),
             trappable_offsets: BTreeMap::new(),
@@ -361,7 +368,6 @@ pub mod x64 {
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
     use std::any::Any;
-    use std::ops::Bound::Excluded;
 
     pub fn new_machine_state() -> MachineState {
         MachineState {
@@ -396,31 +402,22 @@ pub mod x64 {
         // Bottom to top
         for f in image.execution_state.frames.iter().rev() {
             let fsm = local_functions_vec[f.local_function_id];
-            let begin_offset = if f.wasm_inst_offset == ::std::usize::MAX {
-                fsm.wasm_function_header_target_offset.unwrap()
+            let suspend_offset = if f.wasm_inst_offset == ::std::usize::MAX {
+                fsm.wasm_function_header_target_offset
             } else {
-                fsm.wasm_offset_to_target_offset[f.wasm_inst_offset]
-            };
+                fsm.wasm_offset_to_target_offset
+                    .get(&f.wasm_inst_offset)
+                    .map(|x| *x)
+            }
+            .expect("instruction is not a critical point");
 
-            let (target_inst_offset, diff_id) = fsm
-                .loop_offsets
-                .get(&begin_offset)
-                .map(|v| (v.activate_offset, v.diff_id))
-                .or_else(|| {
-                    fsm.trappable_offsets
-                        .get(&begin_offset)
-                        .map(|v| (v.activate_offset, v.diff_id))
-                })
-                .or_else(|| {
-                    // Left bound must be Excluded because it's possible that the previous instruction's (after-)call offset == call_begin_offset.
-                    // This might not be the correct offset if begin_offset itself does not correspond to a call(_indirect) instruction,
-                    // but anyway safety isn't broken because diff_id always corresponds to target_inst_offset.
-                    fsm.call_offsets
-                        .range((Excluded(&begin_offset), Unbounded))
-                        .next()
-                        .map(|(_, v)| (v.activate_offset, v.diff_id))
-                })
-                .expect("instruction offset not found in any offset type");
+            let (activate_offset, diff_id) = match suspend_offset {
+                SuspendOffset::Loop(x) => fsm.loop_offsets.get(&x),
+                SuspendOffset::Call(x) => fsm.call_offsets.get(&x),
+                SuspendOffset::Trappable(x) => fsm.trappable_offsets.get(&x),
+            }
+            .map(|x| (x.activate_offset, x.diff_id))
+            .expect("offset cannot be found in table");
 
             let diff = &fsm.diffs[diff_id];
             let state = diff.build_state(fsm);
@@ -511,7 +508,7 @@ pub mod x64 {
             // no need to check 16-byte alignment here because it's possible that we're not at a call entry.
 
             stack_offset -= 1;
-            stack[stack_offset] = (code_base + target_inst_offset) as u64; // return address
+            stack[stack_offset] = (code_base + activate_offset) as u64; // return address
         }
 
         stack_offset -= 1;

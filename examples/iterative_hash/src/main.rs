@@ -1,10 +1,5 @@
 use blake2::{Blake2b, Digest};
 
-#[link(wasm_import_module = "wasmer_suspend")]
-extern "C" {
-    fn check_interrupt();
-}
-
 fn main() {
     let mut data: Vec<u8> = b"test".to_vec();
 
@@ -16,9 +11,6 @@ fn main() {
 
         if i % 1000000 == 0 {
             println!("Round {}: {:?}", i, data);
-        }
-        unsafe {
-            check_interrupt();
         }
     }
 }

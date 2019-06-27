@@ -24,7 +24,7 @@ use wasmer_runtime_core::{
     module::{ModuleInfo, ModuleInner},
     state::{
         x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineValue,
-        ModuleStateMap, OffsetInfo, WasmAbstractValue,
+        ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::Wasm,
@@ -564,6 +564,8 @@ impl X64FunctionCode {
                 diff_id: state_diff_id,
             },
         );
+        fsm.wasm_offset_to_target_offset
+            .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
     }
 
     /// Moves `loc` to a valid location for `div`/`idiv`.
@@ -1331,6 +1333,8 @@ impl X64FunctionCode {
                     diff_id: state_diff_id,
                 },
             );
+            fsm.wasm_offset_to_target_offset
+                .insert(m.state.wasm_inst_offset, SuspendOffset::Call(offset));
         }
 
         // Restore stack.
@@ -1685,7 +1689,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 diff_id: state_diff_id,
             },
         );
-        self.fsm.wasm_function_header_target_offset = Some(a.get_offset().0);
+        self.fsm.wasm_function_header_target_offset = Some(SuspendOffset::Loop(a.get_offset().0));
         a.emit_mov(
             Size::S64,
             Location::Memory(GPR::RAX, 0),
@@ -1707,13 +1711,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         let a = self.assembler.as_mut().unwrap();
 
         match ev {
-            Event::Wasm(_) => {
-                self.machine.state.wasm_inst_offset =
-                    self.machine.state.wasm_inst_offset.wrapping_add(1);
-                self.fsm.wasm_offset_to_target_offset.push(a.get_offset().0);
+            Event::Internal(InternalEvent::FunctionBegin(_))
+            | Event::Internal(InternalEvent::FunctionEnd) => {
+                return Ok(());
             }
             _ => {}
         }
+
+        self.machine.state.wasm_inst_offset = self.machine.state.wasm_inst_offset.wrapping_add(1);
 
         //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
@@ -3944,6 +3949,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         activate_offset,
                         diff_id: state_diff_id,
                     },
+                );
+                self.fsm.wasm_offset_to_target_offset.insert(
+                    self.machine.state.wasm_inst_offset,
+                    SuspendOffset::Loop(a.get_offset().0),
                 );
                 a.emit_mov(
                     Size::S64,

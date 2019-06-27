@@ -696,6 +696,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
             "exit" | "quit" => {
                 exit(0);
             }
+            "" => {}
             _ => {
                 println!("Unknown command: {}", cmd);
             }

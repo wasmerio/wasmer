@@ -198,7 +198,6 @@ extern "C" fn signal_trap_handler(
                     }
                 }
                 Ok(SIGSEGV) | Ok(SIGBUS) => {
-                    println!("SIGSEGV/SIGBUS on addr {:?}", fault.faulting_addr);
                     if fault.faulting_addr as usize == get_wasm_interrupt_signal_mem() as usize {
                         is_suspend_signal = true;
                         clear_wasm_interrupt();
