@@ -433,27 +433,31 @@ pub fn ___syscall192(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// lseek
+#[allow(exceeding_bitshifts)]
 pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", _which);
     let fd: i32 = varargs.get(ctx);
-    let _ = varargs.get::<i32>(ctx); // ignore high offset
+    let _offset_high: i32 = varargs.get(ctx);
     let offset_low: i32 = varargs.get(ctx);
-    let result_ptr_value = varargs.get::<i32>(ctx);
+    let result_ptr_value: i32 = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     let offset = offset_low as off_t;
-    let ret = unsafe { lseek(fd, offset, whence) as i32 };
+    let ret = unsafe { lseek(fd, offset, whence) };
     #[allow(clippy::cast_ptr_alignment)]
-    let result_ptr = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
-    assert_eq!(8, mem::align_of_val(&result_ptr));
+    let result_ptr_0 = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
+    let result_ptr_1 = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value+4) as *mut i32;
+    assert_eq!(8, mem::align_of_val(&result_ptr_0));
     unsafe {
-        *result_ptr = ret;
+        // HEAP32[((result)>>2)]=tempI64[0],HEAP32[(((result)+(4))>>2)]=tempI64[1]);
+        *result_ptr_0 = ret as i32;
+        *result_ptr_1 = (ret >> 32) as i32;
     }
     debug!(
-        "=> fd: {}, offset: {}, result_ptr: {}, whence: {} = {}\nlast os error: {}",
+        "=> fd: {}, offset: {}, result: {}, whence: {} = {}\nlast os error: {}",
         fd,
         offset,
-        result_ptr_value,
+        ret,
         whence,
         0,
         Error::last_os_error(),
