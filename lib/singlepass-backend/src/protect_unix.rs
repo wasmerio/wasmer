@@ -10,18 +10,15 @@
 //! unless you have memory unsafety elsewhere in your code.
 //!
 use std::any::Any;
-use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::cell::Cell;
 use wasmer_runtime_core::alternative_stack::{
     begin_unsafe_unwind, catch_unsafe_unwind, ensure_sighandler,
 };
-use wasmer_runtime_core::codegen::BkptInfo;
+use wasmer_runtime_core::codegen::BkptMap;
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 thread_local! {
     pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
-    pub static BKPT_MAP: RefCell<Vec<Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>>> = RefCell::new(Vec::new());
 }
 
 pub unsafe fn trigger_trap() -> ! {
@@ -33,17 +30,20 @@ pub enum CallProtError {
     Error(Box<dyn Any>),
 }
 
-pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, CallProtError> {
+pub fn call_protected<T>(
+    f: impl FnOnce() -> T,
+    breakpoints: Option<BkptMap>,
+) -> Result<T, CallProtError> {
     ensure_sighandler();
     unsafe {
-        let ret = catch_unsafe_unwind(|| f());
+        let ret = catch_unsafe_unwind(|| f(), breakpoints);
         match ret {
             Ok(x) => Ok(x),
-            Err(_) => {
+            Err(e) => {
                 if let Some(data) = TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
                     Err(CallProtError::Error(data))
                 } else {
-                    Err(CallProtError::Trap(WasmTrapInfo::Unknown))
+                    Err(CallProtError::Error(e))
                 }
             }
         }

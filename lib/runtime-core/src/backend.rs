@@ -9,6 +9,7 @@ use crate::{
 
 use crate::{
     cache::{Artifact, Error as CacheError},
+    codegen::BkptMap,
     module::ModuleInfo,
     sys::Memory,
 };
@@ -86,6 +87,10 @@ pub trait RunnableModule: Send + Sync {
     ) -> Option<NonNull<vm::Func>>;
 
     fn get_module_state_map(&self) -> Option<ModuleStateMap> {
+        None
+    }
+
+    fn get_breakpoints(&self) -> Option<BkptMap> {
         None
     }
 

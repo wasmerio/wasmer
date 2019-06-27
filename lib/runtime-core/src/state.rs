@@ -53,10 +53,17 @@ pub struct FunctionStateMap {
     pub locals: Vec<WasmAbstractValue>,
     pub shadow_size: usize, // for single-pass backend, 32 bytes on x86-64
     pub diffs: Vec<MachineStateDiff>,
+    pub wasm_function_header_target_offset: Option<usize>,
     pub wasm_offset_to_target_offset: Vec<usize>,
-    pub loop_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
-    pub call_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
-    pub trappable_offsets: BTreeMap<usize, usize>, /* offset -> diff_id */
+    pub loop_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
+    pub call_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
+    pub trappable_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
+}
+
+#[derive(Clone, Debug)]
+pub struct OffsetInfo {
+    pub diff_id: usize,
+    pub activate_offset: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -98,7 +105,7 @@ impl ModuleStateMap {
                 .unwrap();
 
             match fsm.call_offsets.get(&(ip - base)) {
-                Some(x) => Some((fsm, fsm.diffs[*x].build_state(fsm))),
+                Some(x) => Some((fsm, fsm.diffs[x.diff_id].build_state(fsm))),
                 None => None,
             }
         }
@@ -120,7 +127,25 @@ impl ModuleStateMap {
                 .unwrap();
 
             match fsm.trappable_offsets.get(&(ip - base)) {
-                Some(x) => Some((fsm, fsm.diffs[*x].build_state(fsm))),
+                Some(x) => Some((fsm, fsm.diffs[x.diff_id].build_state(fsm))),
+                None => None,
+            }
+        }
+    }
+
+    fn lookup_loop_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
+        if ip < base || ip - base >= self.total_size {
+            None
+        } else {
+            //println!("lookup ip: {} in {:?}", ip - base, self.local_functions);
+            let (_, fsm) = self
+                .local_functions
+                .range((Unbounded, Included(&(ip - base))))
+                .last()
+                .unwrap();
+
+            match fsm.loop_offsets.get(&(ip - base)) {
+                Some(x) => Some((fsm, fsm.diffs[x.diff_id].build_state(fsm))),
                 None => None,
             }
         }
@@ -140,6 +165,7 @@ impl FunctionStateMap {
             shadow_size,
             locals,
             diffs: vec![],
+            wasm_function_header_target_offset: None,
             wasm_offset_to_target_offset: Vec::new(),
             loop_offsets: BTreeMap::new(),
             call_offsets: BTreeMap::new(),
@@ -330,6 +356,7 @@ impl InstanceImage {
 pub mod x64 {
     use super::*;
     use crate::alternative_stack::{catch_unsafe_unwind, run_on_alternative_stack};
+    use crate::codegen::BkptMap;
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
@@ -352,6 +379,7 @@ pub mod x64 {
         code_base: usize,
         image: InstanceImage,
         vmctx: &mut Ctx,
+        breakpoints: Option<BkptMap>,
     ) -> Result<u64, Box<dyn Any>> {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
         let mut stack_offset: usize = stack.len();
@@ -368,15 +396,31 @@ pub mod x64 {
         // Bottom to top
         for f in image.execution_state.frames.iter().rev() {
             let fsm = local_functions_vec[f.local_function_id];
-            let call_begin_offset = fsm.wasm_offset_to_target_offset[f.wasm_inst_offset];
+            let begin_offset = if f.wasm_inst_offset == ::std::usize::MAX {
+                fsm.wasm_function_header_target_offset.unwrap()
+            } else {
+                fsm.wasm_offset_to_target_offset[f.wasm_inst_offset]
+            };
 
-            // Left bound must be Excluded because it's possible that the previous instruction's (after-)call offset == call_begin_offset.
-            let (after_call_inst, diff_id) = fsm
-                .call_offsets
-                .range((Excluded(&call_begin_offset), Unbounded))
-                .next()
-                .map(|(k, v)| (*k, *v))
-                .expect("instruction offset not found in call offsets");
+            let (target_inst_offset, diff_id) = fsm
+                .loop_offsets
+                .get(&begin_offset)
+                .map(|v| (v.activate_offset, v.diff_id))
+                .or_else(|| {
+                    fsm.trappable_offsets
+                        .get(&begin_offset)
+                        .map(|v| (v.activate_offset, v.diff_id))
+                })
+                .or_else(|| {
+                    // Left bound must be Excluded because it's possible that the previous instruction's (after-)call offset == call_begin_offset.
+                    // This might not be the correct offset if begin_offset itself does not correspond to a call(_indirect) instruction,
+                    // but anyway safety isn't broken because diff_id always corresponds to target_inst_offset.
+                    fsm.call_offsets
+                        .range((Excluded(&begin_offset), Unbounded))
+                        .next()
+                        .map(|(_, v)| (v.activate_offset, v.diff_id))
+                })
+                .expect("instruction offset not found in any offset type");
 
             let diff = &fsm.diffs[diff_id];
             let state = diff.build_state(fsm);
@@ -434,7 +478,10 @@ pub mod x64 {
                     }
                 }
             }
-            assert!(got_explicit_shadow);
+            if !got_explicit_shadow {
+                assert!(fsm.shadow_size % 8 == 0);
+                stack_offset -= fsm.shadow_size / 8;
+            }
             for (i, v) in state.register_values.iter().enumerate() {
                 match *v {
                     MachineValue::Undefined => {}
@@ -460,9 +507,11 @@ pub mod x64 {
                     _ => unreachable!(),
                 }
             }
-            assert!((stack.len() - stack_offset) % 2 == 0); // 16-byte alignment
+
+            // no need to check 16-byte alignment here because it's possible that we're not at a call entry.
+
             stack_offset -= 1;
-            stack[stack_offset] = (code_base + after_call_inst) as u64; // return address
+            stack[stack_offset] = (code_base + target_inst_offset) as u64; // return address
         }
 
         stack_offset -= 1;
@@ -478,10 +527,69 @@ pub mod x64 {
         stack[stack_offset] = known_registers[X64Register::GPR(GPR::R12).to_index().0].unwrap_or(0);
 
         stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::R11).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::R10).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::R9).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::R8).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::RSI).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::RDI).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::RDX).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::RCX).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
         stack[stack_offset] = known_registers[X64Register::GPR(GPR::RBX).to_index().0].unwrap_or(0);
 
         stack_offset -= 1;
+        stack[stack_offset] = known_registers[X64Register::GPR(GPR::RAX).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
         stack[stack_offset] = stack.as_ptr().offset(last_stack_offset as isize) as usize as u64; // rbp
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM7).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM6).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM5).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM4).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM3).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM2).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM1).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM0).to_index().0].unwrap_or(0);
 
         if let Some(ref memory) = image.memory {
             assert!(vmctx.internal.memory_bound <= memory.len());
@@ -512,12 +620,15 @@ pub mod x64 {
 
         drop(image); // free up host memory
 
-        catch_unsafe_unwind(|| {
-            run_on_alternative_stack(
-                stack.as_mut_ptr().offset(stack.len() as isize),
-                stack.as_mut_ptr().offset(stack_offset as isize),
-            )
-        })
+        catch_unsafe_unwind(
+            || {
+                run_on_alternative_stack(
+                    stack.as_mut_ptr().offset(stack.len() as isize),
+                    stack.as_mut_ptr().offset(stack_offset as isize),
+                )
+            },
+            breakpoints,
+        )
     }
 
     pub fn build_instance_image(
@@ -575,6 +686,7 @@ pub mod x64 {
             let (fsm, state) = match msm
                 .lookup_call_ip(ret_addr as usize, code_base)
                 .or_else(|| msm.lookup_trappable_ip(ret_addr as usize, code_base))
+                .or_else(|| msm.lookup_loop_ip(ret_addr as usize, code_base))
             {
                 Some(x) => x,
                 _ => return ExecutionStateImage { frames: results },

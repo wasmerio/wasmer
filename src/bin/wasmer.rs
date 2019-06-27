@@ -505,14 +505,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 mapped_dirs,
             );
 
-            #[cfg(feature = "backend:singlepass")]
-            {
-                if options.backend == Backend::Singlepass {
-                    use wasmer_runtime_core::suspend::patch_import_object;
-                    patch_import_object(&mut import_object);
-                }
-            }
-
             let mut instance = module
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
@@ -543,6 +535,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     } else {
                         None
                     };
+                    let breakpoints = instance.module.runnable_module.get_breakpoints();
+
                     loop {
                         let ret = if let Some(image) = image.take() {
                             let msm = instance
@@ -558,10 +552,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                                 code_base,
                                 image,
                                 instance.context_mut(),
+                                breakpoints.clone(),
                             )
                             .map(|_| ())
                         } else {
-                            catch_unsafe_unwind(|| start_raw(instance.context_mut()))
+                            catch_unsafe_unwind(
+                                || start_raw(instance.context_mut()),
+                                breakpoints.clone(),
+                            )
                         };
                         if let Err(e) = ret {
                             if let Some(new_image) = e.downcast_ref::<InstanceImage>() {
@@ -709,7 +707,7 @@ fn run(options: Run) {
     match execute_wasm(&options) {
         Ok(()) => {}
         Err(message) => {
-            eprintln!("{:?}", message);
+            eprintln!("execute_wasm: {:?}", message);
             exit(1);
         }
     }

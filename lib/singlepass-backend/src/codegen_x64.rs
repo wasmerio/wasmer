@@ -24,7 +24,7 @@ use wasmer_runtime_core::{
     module::{ModuleInfo, ModuleInner},
     state::{
         x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineValue,
-        ModuleStateMap, WasmAbstractValue,
+        ModuleStateMap, OffsetInfo, WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::Wasm,
@@ -151,7 +151,12 @@ pub struct X64FunctionCode {
 
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
-    breakpoints: Option<HashMap<AssemblyOffset, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
+    breakpoints: Option<
+        HashMap<
+            AssemblyOffset,
+            Box<Fn(BkptInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
+        >,
+    >,
     returns: SmallVec<[WpType; 1]>,
     locals: Vec<Location>,
     num_params: usize,
@@ -179,7 +184,7 @@ pub struct X64ExecutionContext {
     function_pointers: Vec<FuncPtr>,
     function_offsets: Vec<AssemblyOffset>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
-    breakpoints: Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
+    breakpoints: BkptMap,
     func_import_count: usize,
     msm: ModuleStateMap,
 }
@@ -217,6 +222,10 @@ impl RunnableModule for X64ExecutionContext {
         Some(self.msm.clone())
     }
 
+    fn get_breakpoints(&self) -> Option<BkptMap> {
+        Some(self.breakpoints.clone())
+    }
+
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         use std::ffi::c_void;
         use wasmer_runtime_core::typed_func::WasmTrapInfo;
@@ -245,16 +254,17 @@ impl RunnableModule for X64ExecutionContext {
                 num_params_plus_one.unwrap().as_ptr() as usize - 1,
             );
             let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
-            protect_unix::BKPT_MAP
-                .with(|x| x.borrow_mut().push(execution_context.breakpoints.clone()));
-            let ret = match protect_unix::call_protected(|| {
-                CONSTRUCT_STACK_AND_CALL_WASM(
-                    args_reverse.as_ptr(),
-                    args_reverse.as_ptr().offset(args_reverse.len() as isize),
-                    ctx,
-                    func.as_ptr(),
-                )
-            }) {
+            let ret = match protect_unix::call_protected(
+                || {
+                    CONSTRUCT_STACK_AND_CALL_WASM(
+                        args_reverse.as_ptr(),
+                        args_reverse.as_ptr().offset(args_reverse.len() as isize),
+                        ctx,
+                        func.as_ptr(),
+                    )
+                },
+                Some(execution_context.breakpoints.clone()),
+            ) {
                 Ok(x) => {
                     if !rets.is_null() {
                         *rets = x;
@@ -269,7 +279,6 @@ impl RunnableModule for X64ExecutionContext {
                     false
                 }
             };
-            protect_unix::BKPT_MAP.with(|x| x.borrow_mut().pop().unwrap());
             ret
         }
 
@@ -548,7 +557,13 @@ impl X64FunctionCode {
     ) {
         let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
         let offset = a.get_offset().0;
-        fsm.trappable_offsets.insert(offset, state_diff_id);
+        fsm.trappable_offsets.insert(
+            offset,
+            OffsetInfo {
+                activate_offset: offset,
+                diff_id: state_diff_id,
+            },
+        );
     }
 
     /// Moves `loc` to a valid location for `div`/`idiv`.
@@ -1204,7 +1219,9 @@ impl X64FunctionCode {
         }
 
         // Align stack to 16 bytes.
-        if (m.get_stack_offset() + used_gprs.len() * 8 + stack_offset) % 16 != 0 {
+        if (m.get_stack_offset() + used_gprs.len() * 8 + used_xmms.len() * 8 + stack_offset) % 16
+            != 0
+        {
             a.emit_sub(Size::S64, Location::Imm32(8), Location::GPR(GPR::RSP));
             stack_offset += 8;
             m.state.stack_values.push(MachineValue::Undefined);
@@ -1299,13 +1316,21 @@ impl X64FunctionCode {
             Machine::get_param_location(0),
         ); // vmctx
 
+        assert!(m.state.stack_values.len() % 2 == 1); // explicit shadow takes one slot
+
         cb(a);
 
         // Offset needs to be after the 'call' instruction.
         if let Some((fsm, control_stack)) = state_context {
             let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
             let offset = a.get_offset().0;
-            fsm.call_offsets.insert(offset, state_diff_id);
+            fsm.call_offsets.insert(
+                offset,
+                OffsetInfo {
+                    activate_offset: offset,
+                    diff_id: state_diff_id,
+                },
+            );
         }
 
         // Restore stack.
@@ -1641,6 +1666,31 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             state: self.machine.state.clone(),
             state_diff_id,
         });
+
+        // Check interrupt signal without branching
+        let activate_offset = a.get_offset().0;
+
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(
+                Machine::get_vmctx_reg(),
+                vm::Ctx::offset_interrupt_signal_mem() as i32,
+            ),
+            Location::GPR(GPR::RAX),
+        );
+        self.fsm.loop_offsets.insert(
+            a.get_offset().0,
+            OffsetInfo {
+                activate_offset,
+                diff_id: state_diff_id,
+            },
+        );
+        self.fsm.wasm_function_header_target_offset = Some(a.get_offset().0);
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RAX, 0),
+            Location::GPR(GPR::RAX),
+        );
 
         assert_eq!(self.machine.state.wasm_inst_offset, ::std::usize::MAX);
 
@@ -3863,6 +3913,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let label = a.get_label();
                 let state_diff_id =
                     Self::get_state_diff(&self.machine, &mut self.fsm, &mut self.control_stack);
+                let activate_offset = a.get_offset().0;
+
                 self.control_stack.push(ControlFrame {
                     label: label,
                     loop_like: true,
@@ -3875,10 +3927,29 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     state: self.machine.state.clone(),
                     state_diff_id,
                 });
-                self.fsm
-                    .loop_offsets
-                    .insert(a.get_offset().0, state_diff_id);
                 a.emit_label(label);
+
+                // Check interrupt signal without branching
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        vm::Ctx::offset_interrupt_signal_mem() as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+                self.fsm.loop_offsets.insert(
+                    a.get_offset().0,
+                    OffsetInfo {
+                        activate_offset,
+                        diff_id: state_diff_id,
+                    },
+                );
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(GPR::RAX, 0),
+                    Location::GPR(GPR::RAX),
+                );
             }
             Operator::Nop => {}
             Operator::MemorySize { reserved } => {
