@@ -33,7 +33,7 @@ optional = true
 
 [features]
 default = ["default-compiler"]
-default-compiler = ["wasmer-clif-backend"]
+default-compiler = ["singlepass"]
 cache = ["default-compiler"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 llvm = ["wasmer-llvm-backend"]
