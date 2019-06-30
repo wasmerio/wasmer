@@ -858,6 +858,10 @@ pub fn invoke_vijj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32
         panic!("dyn_call_vijj is set to None");
     }
 }
+pub fn invoke_vidd(ctx: &mut Ctx, index: i32, a1: i32, a2: f64, a3: f64) {
+    debug!("emscripten::invoke_viid");
+    invoke_no_return!(ctx, dyn_call_vidd, index, a1, a2, a3);
+}
 pub fn invoke_viid(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: f64) {
     debug!("emscripten::invoke_viid");
     invoke_no_return!(ctx, dyn_call_viid, index, a1, a2, a3);
