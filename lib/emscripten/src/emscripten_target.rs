@@ -634,6 +634,11 @@ pub fn invoke_iij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     invoke!(ctx, dyn_call_iij, index, a1, a2, a3)
 }
 
+pub fn invoke_iji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+    debug!("emscripten::invoke_iji");
+    invoke!(ctx, dyn_call_iji, index, a1, a2, a3)
+}
+
 pub fn invoke_iiji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
     debug!("emscripten::invoke_iiji");
     invoke!(ctx, dyn_call_iiji, index, a1, a2, a3, a4)
@@ -852,6 +857,10 @@ pub fn invoke_vijj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32
     } else {
         panic!("dyn_call_vijj is set to None");
     }
+}
+pub fn invoke_vidd(ctx: &mut Ctx, index: i32, a1: i32, a2: f64, a3: f64) {
+    debug!("emscripten::invoke_viid");
+    invoke_no_return!(ctx, dyn_call_vidd, index, a1, a2, a3);
 }
 pub fn invoke_viid(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: f64) {
     debug!("emscripten::invoke_viid");
