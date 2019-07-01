@@ -1,13 +1,9 @@
 #![allow(non_snake_case)]
 
-use crate::env::{call_malloc_with_cast, get_emscripten_data};
-use libc::c_char;
+use crate::env::get_emscripten_data;
 #[cfg(target_os = "linux")]
 use libc::getdtablesize;
-use wasmer_runtime_core::{
-    memory::ptr::{Array, WasmPtr},
-    vm::Ctx,
-};
+use wasmer_runtime_core::vm::Ctx;
 
 pub fn asm_const_i(_ctx: &mut Ctx, _val: i32) -> i32 {
     debug!("emscripten::asm_const_i: {}", _val);
@@ -235,26 +231,6 @@ pub fn ___gxx_personality_v0(
 ) -> i32 {
     debug!("emscripten::___gxx_personality_v0");
     0
-}
-
-// this may be a memory leak, probably not though because emscripten does the same thing
-pub fn _gai_strerror(ctx: &mut Ctx, ecode: i32) -> i32 {
-    debug!("emscripten::_gai_strerror({})", ecode);
-
-    let cstr = unsafe { std::ffi::CStr::from_ptr(libc::gai_strerror(ecode)) };
-    let bytes = cstr.to_bytes_with_nul();
-    let string_on_guest: WasmPtr<c_char, Array> = call_malloc_with_cast(ctx, bytes.len() as _);
-
-    let writer = unsafe {
-        string_on_guest
-            .deref_mut(ctx.memory(0), 0, bytes.len() as _)
-            .unwrap()
-    };
-    for (i, byte) in bytes.iter().enumerate() {
-        writer[i].set(*byte as i8);
-    }
-
-    string_on_guest.offset() as _
 }
 
 #[cfg(target_os = "linux")]

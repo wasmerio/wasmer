@@ -887,7 +887,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
         "_pthread_sigmask" => func!(crate::emscripten_target::_pthread_sigmask),
         "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
-        "_gai_strerror" => func!(crate::emscripten_target::_gai_strerror),
+        "_gai_strerror" => func!(crate::env::_gai_strerror),
         "_getdtablesize" => func!(crate::emscripten_target::_getdtablesize),
         "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
         "_gethostbyname" => func!(crate::emscripten_target::_gethostbyname),
