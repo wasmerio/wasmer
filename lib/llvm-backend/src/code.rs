@@ -849,22 +849,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::F32Const { value } => {
                 let bits = intrinsics.i32_ty.const_int(value.bits() as u64, false);
-                let space =
-                    builder.build_alloca(intrinsics.f32_ty.as_basic_type_enum(), "const_space");
-                let i32_space =
-                    builder.build_pointer_cast(space, intrinsics.i32_ptr_ty, "i32_space");
-                builder.build_store(i32_space, bits);
-                let f = builder.build_load(space, "f");
+                let f = builder.build_bitcast(bits, intrinsics.f32_ty, "f");
                 state.push1(f);
             }
             Operator::F64Const { value } => {
                 let bits = intrinsics.i64_ty.const_int(value.bits(), false);
-                let space =
-                    builder.build_alloca(intrinsics.f64_ty.as_basic_type_enum(), "const_space");
-                let i64_space =
-                    builder.build_pointer_cast(space, intrinsics.i64_ptr_ty, "i32_space");
-                builder.build_store(i64_space, bits);
-                let f = builder.build_load(space, "f");
+                let f = builder.build_bitcast(bits, intrinsics.f64_ty, "f");
                 state.push1(f);
             }
 

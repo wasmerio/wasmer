@@ -159,10 +159,10 @@ impl Intrinsics {
         let imported_func_ty =
             context.struct_type(&[i8_ptr_ty_basic, ctx_ptr_ty.as_basic_type_enum()], false);
         let sigindex_ty = i32_ty;
-        let rt_intrinsics_ty = void_ty;
+        let rt_intrinsics_ty = i8_ty;
         let stack_lower_bound_ty = i8_ty;
         let memory_base_ty = i8_ty;
-        let memory_bound_ty = void_ty;
+        let memory_bound_ty = i8_ty;
         let internals_ty = i64_ty;
         let local_function_ty = i8_ptr_ty;
 

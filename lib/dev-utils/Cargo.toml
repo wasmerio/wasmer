@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-dev-utils"
-version = "0.5.0"
+version = "0.5.1"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]

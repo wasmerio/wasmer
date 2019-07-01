@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-middleware-common"
-version = "0.5.0"
+version = "0.5.1"
 repository = "https://github.com/wasmerio/wasmer"
 description = "Wasmer runtime common middlewares"
 license = "MIT"
@@ -9,9 +9,9 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core" }
-wasmer-clif-backend = { path = "../clif-backend", version = "0.5.0" }
-wasmer-llvm-backend = { path = "../llvm-backend", version = "0.5.0", optional = true }
-wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.5.0", optional = true }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.5.1" }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.5.1", optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.5.1", optional = true }
 
 [dev-dependencies]
 wabt = "0.7.4"
