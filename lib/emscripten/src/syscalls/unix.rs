@@ -7,7 +7,6 @@ use libc::{
     accept,
     access,
     bind,
-    c_char,
     c_int,
     c_void,
     chown,
@@ -92,7 +91,7 @@ extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
     pub fn madvise(addr: *mut c_void, len: size_t, advice: c_int) -> c_int;
     pub fn fdatasync(fd: c_int) -> c_int;
-    pub fn lstat64(path: *const c_char, buf: *mut c_void) -> c_int;
+    pub fn lstat64(path: *const libc::c_char, buf: *mut c_void) -> c_int;
 }
 
 #[cfg(not(target_os = "macos"))]
