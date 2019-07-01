@@ -1692,8 +1692,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::GetLocal { local_index } => {
                 let local_index = local_index as usize;
-                self.value_stack
-                    .push((self.locals[local_index], LocalOrTemp::Local));
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    self.locals[local_index],
+                    ret,
+                );
+                self.value_stack.push((ret, LocalOrTemp::Temp));
             }
             Operator::SetLocal { local_index } => {
                 let local_index = local_index as usize;
