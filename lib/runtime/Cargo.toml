@@ -42,3 +42,7 @@ singlepass = ["wasmer-singlepass-backend"]
 [[bench]]
 name = "nginx"
 harness = false
+
+[[bench]]
+name = "many_instances"
+harness = false
