@@ -434,6 +434,9 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     }
 }
 
+const SOCK_NON_BLOCK: i32 = 2048;
+const SOCK_CLOEXC: i32 = 0x80000;
+
 // socketcall
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
@@ -467,13 +470,22 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             debug!("socket: socket");
             // socket (domain: c_int, ty: c_int, protocol: c_int) -> c_int
             let domain: i32 = socket_varargs.get(ctx);
-            let ty: i32 = socket_varargs.get(ctx);
+            let ty_and_flags: i32 = socket_varargs.get(ctx);
             let protocol: i32 = socket_varargs.get(ctx);
+            let ty = ty_and_flags & (!SOCK_NON_BLOCK) & (!SOCK_CLOEXC);
             let fd = unsafe { socket(domain, ty, protocol) };
-            // set_cloexec
-            unsafe {
-                ioctl(fd, FIOCLEX);
-            };
+
+            if ty_and_flags & SOCK_CLOEXC != 0 {
+                // set_cloexec
+                unsafe {
+                    ioctl(fd, FIOCLEX);
+                };
+            }
+
+            if ty_and_flags & SOCK_NON_BLOCK != 0 {
+                // do something here
+                unimplemented!("non blocking sockets");
+            }
 
             type T = u32;
             let payload = 1 as *const T as _;
@@ -642,18 +654,18 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // setsockopt (socket: c_int, level: c_int, name: c_int, value: *const c_void, option_len: socklen_t) -> c_int
 
             let socket = socket_varargs.get(ctx);
-            // SOL_SOCKET = 0xffff (BSD, Linux)
-            let level: i32 = SOL_SOCKET;
-            let _: u32 = socket_varargs.get(ctx);
-            // SO_REUSEADDR = 0x4 (BSD, Linux)
-            let name: i32 = SO_REUSEADDR;
-            let _: u32 = socket_varargs.get(ctx);
+            let level: i32 = socket_varargs.get(ctx);
+            // SOL_SOCKET = 0xffff (BSD, OSX)
+            let level = if level == 1 { SOL_SOCKET } else { level };
+            let name: i32 = socket_varargs.get(ctx);
+            // SO_REUSEADDR = 0x4 (BSD, OSX)
+            let name = if name == 2 { SO_REUSEADDR } else { name };
             let value: u32 = socket_varargs.get(ctx);
             let option_len = socket_varargs.get(ctx);
             let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as _; // Endian problem
             let ret = unsafe { setsockopt(socket, level, name, value_addr, option_len) };
 
-            debug!("=> socketfd: {}, level: {} (SOL_SOCKET/0xffff), name: {} (SO_REUSEADDR/4), value_addr: {:?}, option_len: {} = status: {}", socket, level, name, value_addr, option_len, ret);
+            debug!("=> socketfd: {}, level: {}, name: {}, value_addr: {:?}, option_len: {} = status: {}", socket, level, name, value_addr, option_len, ret);
             ret
         }
         15 => {
