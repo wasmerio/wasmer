@@ -80,7 +80,7 @@ use std::ffi::CStr;
 use wasmer_runtime_core::{memory::ptr::WasmPtr, vm::Ctx};
 
 use crate::env::EmSockAddr;
-use crate::utils;
+use crate::utils::{self, get_cstr_path};
 #[allow(unused_imports)]
 use std::io::Error;
 use std::mem;
@@ -185,6 +185,35 @@ pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
         result,
     );
     result
+}
+
+/// readlink
+pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall85 (readlink)");
+    let pathname_addr = varargs.get_str(ctx);
+    let buf = varargs.get_str(ctx);
+    // let buf_addr: i32 = varargs.get(ctx);
+    let buf_size: i32 = varargs.get(ctx);
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
+
+    let ret = unsafe { libc::readlink(real_path, buf as _, buf_size as _) as i32 };
+    if ret == -1 {
+        debug!("readlink failed");
+        return ret;
+    }
+    debug!(
+        "=> path: {}, buf: {}, buf_size: {}, return: {} ",
+        unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
+        buf_size,
+        ret
+    );
+    ret
 }
 
 /// ftruncate64

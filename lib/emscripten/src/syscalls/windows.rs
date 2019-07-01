@@ -128,6 +128,12 @@ pub fn ___syscall83(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     unimplemented!()
 }
 
+/// readlink
+pub fn ___syscall85(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall85 (readlink) {}", _which);
+    -1
+}
+
 /// lchown
 pub fn ___syscall198(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall198 (lchown) {}", _which);
