@@ -9,7 +9,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.5.1" }
-wasmparser = "0.29.2"
+wasmparser = "0.31.0"
 dynasm = "0.3.2"
 dynasmrt = "0.3.1"
 lazy_static = "1.2.0"
