@@ -138,11 +138,11 @@ pub fn _gai_strerror(_ctx: &mut Ctx, _ecode: i32) -> i32 {
 }
 
 pub fn _getaddrinfo(
-    ctx: &mut Ctx,
-    node_ptr: WasmPtr<c_char>,
-    service_str_ptr: WasmPtr<c_char>,
-    hints_ptr: WasmPtr<EmAddrInfo>,
-    res_val_ptr: WasmPtr<WasmPtr<EmAddrInfo>>,
+    _ctx: &mut Ctx,
+    _node_ptr: WasmPtr<c_char>,
+    _service_str_ptr: WasmPtr<c_char>,
+    _hints_ptr: WasmPtr<EmAddrInfo>,
+    _res_val_ptr: WasmPtr<WasmPtr<EmAddrInfo>>,
 ) -> i32 {
     debug!("emscripten::_getaddrinfo -- stub");
     -1

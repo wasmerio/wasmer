@@ -632,14 +632,6 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address_len: u32 = socket_varargs.get(ctx);
             let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
-            dbg!(address);
-            unsafe {
-                dbg!(*(address as *mut u8));
-                dbg!(*(address as *mut u8).add(1));
-                for i in 0..14 {
-                    dbg!(*(address as *mut u8).add(1 + i));
-                }
-            }
             let address_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
             unsafe {

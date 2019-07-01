@@ -195,7 +195,7 @@ pub fn _getaddrinfo(
     });
 
     let hints = hints_ptr.deref(memory).map(|hints_memory| {
-        let hints_guest = dbg!(hints_memory.get());
+        let hints_guest = hints_memory.get();
         unsafe {
             let mut hints_native: addrinfo = std::mem::uninitialized();
             hints_native.ai_flags = hints_guest.ai_flags;
@@ -231,7 +231,7 @@ pub fn _getaddrinfo(
             &mut out_ptr as *mut *mut addrinfo,
         )
     };
-    if dbg!(result) != 0 {
+    if result != 0 {
         return result;
     }
 
@@ -245,7 +245,6 @@ pub fn _getaddrinfo(
             let current_guest_node_ptr: WasmPtr<EmAddrInfo> =
                 call_malloc_with_cast(ctx, std::mem::size_of::<EmAddrInfo>() as _);
             if head_of_list.is_none() {
-                dbg!("Setting head of list");
                 head_of_list = Some(current_guest_node_ptr);
             }
 
@@ -253,7 +252,6 @@ pub fn _getaddrinfo(
             if let Some(prev_guest) = previous_guest_node {
                 let mut pg = prev_guest.deref_mut(ctx.memory(0)).unwrap().get_mut();
                 pg.ai_next = current_guest_node_ptr;
-                dbg!("list connected");
             }
 
             // update values
@@ -274,15 +272,13 @@ pub fn _getaddrinfo(
                 guest_sockaddr_ptr
             };
 
-            dbg!("Socketaddr allocated");
-
             // allocate canon name on guest and copy data over
             let guest_canonname_ptr = {
                 let str_ptr = (*current_host_node).ai_canonname;
                 if !str_ptr.is_null() {
-                    let canonname_cstr = dbg!(std::ffi::CStr::from_ptr(str_ptr));
+                    let canonname_cstr = std::ffi::CStr::from_ptr(str_ptr);
                     let canonname_bytes = canonname_cstr.to_bytes_with_nul();
-                    let str_size = dbg!(canonname_bytes.len());
+                    let str_size = canonname_bytes.len();
                     let guest_canonname: WasmPtr<c_char, Array> =
                         call_malloc_with_cast(ctx, str_size as _);
 
@@ -299,13 +295,10 @@ pub fn _getaddrinfo(
                 }
             };
 
-            dbg!("canonname allocated");
-
             let mut current_guest_node = current_guest_node_ptr
                 .deref_mut(ctx.memory(0))
                 .unwrap()
                 .get_mut();
-            // TODO order these
             current_guest_node.ai_flags = (*current_host_node).ai_flags;
             current_guest_node.ai_family = (*current_host_node).ai_family;
             current_guest_node.ai_socktype = (*current_host_node).ai_socktype;
@@ -315,23 +308,15 @@ pub fn _getaddrinfo(
             current_guest_node.ai_canonname = guest_canonname_ptr;
             current_guest_node.ai_next = WasmPtr::new(0);
 
-            dbg!("Guest node updated");
-
             previous_guest_node = Some(current_guest_node_ptr);
             current_host_node = (*current_host_node).ai_next;
-            dbg!("End of loop bookkeeping finished");
         }
-
-        dbg!("freeing memory");
         // this frees all connected nodes on the linked list
         freeaddrinfo(out_ptr);
         head_of_list.unwrap_or(WasmPtr::new(0))
     };
 
-    res_val_ptr
-        .deref(ctx.memory(0))
-        .unwrap()
-        .set(dbg!(head_of_list));
+    res_val_ptr.deref(ctx.memory(0)).unwrap().set(head_of_list);
 
     0
 }
