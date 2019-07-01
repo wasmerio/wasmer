@@ -255,6 +255,12 @@ pub fn ___syscall122(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     -1
 }
 
+/// poll
+pub fn ___syscall168(_ctx: &mut Ctx, _which: i32, _varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall168(poll) - stub");
+    -1
+}
+
 /// lstat64
 pub fn ___syscall196(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) - stub");
