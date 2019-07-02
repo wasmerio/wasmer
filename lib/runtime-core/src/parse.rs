@@ -93,6 +93,7 @@ pub fn read_module<
                 enable_reference_types: false,
                 enable_simd: false,
                 enable_bulk_memory: false,
+                enable_multi_value: false,
             },
             mutable_global_imports: false,
         }),
