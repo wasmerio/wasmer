@@ -50,6 +50,7 @@ impl Global {
                 Value::I64(x) => x as u64,
                 Value::F32(x) => x.to_bits() as u64,
                 Value::F64(x) => x.to_bits(),
+                Value::V128(_) => unimplemented!(),
             },
         };
 
@@ -79,6 +80,7 @@ impl Global {
                         Value::I64(x) => x as u64,
                         Value::F32(x) => x.to_bits() as u64,
                         Value::F64(x) => x.to_bits(),
+                        Value::V128(_) => unimplemented!(),
                     },
                 };
                 *self.storage.borrow_mut() = local_global;
@@ -99,6 +101,7 @@ impl Global {
             Type::I64 => Value::I64(data as i64),
             Type::F32 => Value::F32(f32::from_bits(data as u32)),
             Type::F64 => Value::F64(f64::from_bits(data)),
+            Type::V128 => unimplemented!(),
         }
     }
 

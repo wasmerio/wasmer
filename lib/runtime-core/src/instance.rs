@@ -551,6 +551,7 @@ fn call_func_with_index(
             Value::I64(i) => *i as u64,
             Value::F32(f) => f.to_bits() as u64,
             Value::F64(f) => f.to_bits(),
+            Value::V128(_) => unimplemented!(),
         })
         .collect();
 
@@ -595,6 +596,7 @@ fn call_func_with_index(
         Type::I64 => Value::I64(raw as i64),
         Type::F32 => Value::F32(f32::from_bits(raw as u32)),
         Type::F64 => Value::F64(f64::from_bits(raw)),
+        Type::V128 => unimplemented!(),
     };
 
     match signature.returns() {
