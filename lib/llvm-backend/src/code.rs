@@ -57,6 +57,7 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
         Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
         Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
         Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
+        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
     }
 }
 
@@ -425,6 +426,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Type::I64 => intrinsics.i64_zero.as_basic_value_enum(),
             Type::F32 => intrinsics.f32_zero.as_basic_value_enum(),
             Type::F64 => intrinsics.f64_zero.as_basic_value_enum(),
+            Type::V128 => intrinsics.i128_zero.as_basic_value_enum(),
         };
 
         let builder = self.builder.as_ref().unwrap();

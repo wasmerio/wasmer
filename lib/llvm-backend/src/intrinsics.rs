@@ -25,6 +25,7 @@ fn type_to_llvm_ptr(intrinsics: &Intrinsics, ty: Type) -> PointerType {
         Type::I64 => intrinsics.i64_ptr_ty,
         Type::F32 => intrinsics.f32_ptr_ty,
         Type::F64 => intrinsics.f64_ptr_ty,
+        Type::V128 => intrinsics.i128_ptr_ty,
     }
 }
 
@@ -74,6 +75,7 @@ pub struct Intrinsics {
     pub i16_ty: IntType,
     pub i32_ty: IntType,
     pub i64_ty: IntType,
+    pub i128_ty: IntType,
     pub f32_ty: FloatType,
     pub f64_ty: FloatType,
 
@@ -81,6 +83,7 @@ pub struct Intrinsics {
     pub i16_ptr_ty: PointerType,
     pub i32_ptr_ty: PointerType,
     pub i64_ptr_ty: PointerType,
+    pub i128_ptr_ty: PointerType,
     pub f32_ptr_ty: PointerType,
     pub f64_ptr_ty: PointerType,
 
@@ -89,6 +92,7 @@ pub struct Intrinsics {
     pub i1_zero: IntValue,
     pub i32_zero: IntValue,
     pub i64_zero: IntValue,
+    pub i128_zero: IntValue,
     pub f32_zero: FloatValue,
     pub f64_zero: FloatValue,
 
@@ -126,6 +130,7 @@ impl Intrinsics {
         let i16_ty = context.i16_type();
         let i32_ty = context.i32_type();
         let i64_ty = context.i64_type();
+        let i128_ty = context.i128_type();
         let f32_ty = context.f32_type();
         let f64_ty = context.f64_type();
 
@@ -133,12 +138,14 @@ impl Intrinsics {
         let i16_ptr_ty = i16_ty.ptr_type(AddressSpace::Generic);
         let i32_ptr_ty = i32_ty.ptr_type(AddressSpace::Generic);
         let i64_ptr_ty = i64_ty.ptr_type(AddressSpace::Generic);
+        let i128_ptr_ty = i128_ty.ptr_type(AddressSpace::Generic);
         let f32_ptr_ty = f32_ty.ptr_type(AddressSpace::Generic);
         let f64_ptr_ty = f64_ty.ptr_type(AddressSpace::Generic);
 
         let i1_zero = i1_ty.const_int(0, false);
         let i32_zero = i32_ty.const_int(0, false);
         let i64_zero = i64_ty.const_int(0, false);
+        let i128_zero = i128_ty.const_int(0, false);
         let f32_zero = f32_ty.const_float(0.0);
         let f64_zero = f64_ty.const_float(0.0);
 
@@ -300,6 +307,7 @@ impl Intrinsics {
             i16_ty,
             i32_ty,
             i64_ty,
+            i128_ty,
             f32_ty,
             f64_ty,
 
@@ -307,6 +315,7 @@ impl Intrinsics {
             i16_ptr_ty,
             i32_ptr_ty,
             i64_ptr_ty,
+            i128_ptr_ty,
             f32_ptr_ty,
             f64_ptr_ty,
 
@@ -315,6 +324,7 @@ impl Intrinsics {
             i1_zero,
             i32_zero,
             i64_zero,
+            i128_zero,
             f32_zero,
             f64_zero,
 

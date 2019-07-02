@@ -72,6 +72,7 @@ fn generate_trampoline(
         Type::I64 => intrinsics.i64_ptr_ty,
         Type::F32 => intrinsics.f32_ptr_ty,
         Type::F64 => intrinsics.f64_ptr_ty,
+        Type::V128 => intrinsics.i128_ptr_ty,
     };
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
