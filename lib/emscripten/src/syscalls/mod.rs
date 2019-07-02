@@ -276,34 +276,6 @@ pub fn ___syscall75(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
-// readlink
-pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
-    debug!("emscripten::___syscall85 (readlink)");
-    let _path = varargs.get_str(ctx);
-    let buf = varargs.get_str(ctx);
-    // let buf_addr: i32 = varargs.get(ctx);
-    let buf_size: i32 = varargs.get(ctx);
-    let fd = 3;
-    let ret = unsafe { read(fd, buf as _, buf_size as _) as i32 };
-    debug!(
-        "=> buf: {}, buf_size: {}, return: {} ",
-        unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
-        buf_size,
-        ret
-    );
-    // let ret = unsafe {
-    //     readlink(path, buf as _, buf_size as _) as i32
-    // };
-    // debug!("=> path: {}, buf: {}, buf_size: {}, return: {} ",
-    //     unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
-    //     unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
-    //     // std::ffi::CStr::from_ptr(buf).to_str().unwrap(),
-    //     // buf,
-    //     buf_size,
-    //     ret);
-    ret
-}
-
 pub fn ___syscall91(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall91 - stub");
     0
@@ -529,11 +501,6 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         // debug!(" => ret: {}", ret);
         ret as _
     }
-}
-
-pub fn ___syscall168(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall168 - stub");
-    -1
 }
 
 pub fn ___syscall191(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
