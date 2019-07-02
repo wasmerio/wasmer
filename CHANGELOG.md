@@ -26,6 +26,8 @@ Blocks of changes will separated by version increments.
 ## 0.5.1 - 2019-06-24
 - [#508](https://github.com/wasmerio/wasmer/pull/508) Update wapm version, includes bug fixes
 
+- [#?](https://github.com/wasmerio/wasmer/pull/?) Add SIMD support to wasmer and implement it in the LLVM backend only.
+
 ## 0.5.0 - 2019-06-17
 
 - [#471](https://github.com/wasmerio/wasmer/pull/471) Added missing functions to run Python. Improved Emscripten bindings
