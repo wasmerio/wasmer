@@ -3,8 +3,11 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
-    values::{BasicValue, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue},
+    types::{BasicType, BasicTypeEnum, FunctionType, PointerType, VectorType},
+    values::{
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
+        VectorValue,
+    },
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
@@ -59,6 +62,128 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
         Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
         Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
     }
+}
+
+// Create a vector where each lane contains the same value.
+fn splat_vector(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    value: BasicValueEnum,
+    vec_ty: VectorType,
+    name: &str,
+) -> VectorValue {
+    // Use insert_element to insert the element into an undef vector, then use
+    // shuffle vector to copy that lane to all lanes.
+    builder.build_shuffle_vector(
+        builder
+            .build_insert_element(vec_ty.get_undef(), value, intrinsics.i32_zero, ""),
+        vec_ty.get_undef(),
+        intrinsics.i32_ty.vec_type(vec_ty.get_size()).const_zero(),
+        name,
+    )
+}
+
+// Convert floating point vector to integer and saturate when out of range.
+// TODO: generalize to non-vectors using FloatMathType, IntMathType, etc. for
+// https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
+fn trunc_sat(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    fvec_ty: VectorType,
+    ivec_ty: VectorType,
+    lower_bound: u64, // Exclusive (lowest representable value)
+    upper_bound: u64, // Exclusive (greatest representable value)
+    value: IntValue,
+    name: &str,
+) -> IntValue {
+    // a) Compare vector with itself to identify NaN lanes.
+    // b) Compare vector with splat of inttofp(upper_bound) to identify
+    //    lanes that need to saturate to max.
+    // c) Compare vector with splat of inttofp(lower_bound) to identify
+    //    lanes that need to saturate to min.
+    // d) Use vector select (not shuffle) to pick from either the
+    //    splat vector or the input vector depending on whether the
+    //    comparison indicates that we have an unrepresentable value.
+    // e) Now that the value is safe, fpto[su]i it.
+
+    let is_signed = lower_bound != 0;
+    let lower_bound = if is_signed {
+        builder.build_signed_int_to_float(
+            ivec_ty
+                .get_element_type()
+                .into_int_type()
+                .const_int(lower_bound, is_signed),
+            fvec_ty.get_element_type().into_float_type(),
+            "",
+        )
+    } else {
+        builder.build_unsigned_int_to_float(
+            ivec_ty
+                .get_element_type()
+                .into_int_type()
+                .const_int(lower_bound, is_signed),
+            fvec_ty.get_element_type().into_float_type(),
+            "",
+        )
+    };
+    let upper_bound = if is_signed {
+        builder.build_signed_int_to_float(
+            ivec_ty
+                .get_element_type()
+                .into_int_type()
+                .const_int(upper_bound, is_signed),
+            fvec_ty.get_element_type().into_float_type(),
+            "",
+        )
+    } else {
+        builder.build_unsigned_int_to_float(
+            ivec_ty
+                .get_element_type()
+                .into_int_type()
+                .const_int(upper_bound, is_signed),
+            fvec_ty.get_element_type().into_float_type(),
+            "",
+        )
+    };
+
+    let value = builder
+        .build_bitcast(value, fvec_ty, "")
+        .into_vector_value();
+    let zero = fvec_ty.const_zero();
+    let lower_bound = splat_vector(
+        builder,
+        intrinsics,
+        lower_bound.as_basic_value_enum(),
+        fvec_ty,
+        "",
+    );
+    let upper_bound = splat_vector(
+        builder,
+        intrinsics,
+        upper_bound.as_basic_value_enum(),
+        fvec_ty,
+        "",
+    );
+    let nan_cmp = builder.build_float_compare(FloatPredicate::UNE, value, value, "");
+    let underflow_cmp = builder.build_float_compare(FloatPredicate::UGT, value, upper_bound, "");
+    let overflow_cmp = builder.build_float_compare(FloatPredicate::ULT, value, lower_bound, "");
+    let value = builder
+        .build_select(nan_cmp, zero, value, "")
+        .into_vector_value();
+    let value = builder
+        .build_select(underflow_cmp, lower_bound, value, "")
+        .into_vector_value();
+    let value = builder
+        .build_select(overflow_cmp, upper_bound, value, "")
+        .into_vector_value();
+    let res = if is_signed {
+        builder.build_float_to_signed_int(value, ivec_ty, name)
+    } else {
+        builder.build_float_to_unsigned_int(value, ivec_ty, name)
+    };
+    builder
+        .build_bitcast(res, intrinsics.i128_ty, "")
+        .into_int_value()
 }
 
 fn trap_if_not_representatable_as_int(
@@ -859,6 +984,90 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let f = builder.build_bitcast(bits, intrinsics.f64_ty, "f");
                 state.push1(f);
             }
+            Operator::V128Const { value } => {
+                let mut hi: [u8; 8] = Default::default();
+                let mut lo: [u8; 8] = Default::default();
+                hi.copy_from_slice(&value.bytes()[0..8]);
+                lo.copy_from_slice(&value.bytes()[8..16]);
+                let packed = [u64::from_le_bytes(hi), u64::from_le_bytes(lo)];
+                let i = intrinsics.i128_ty.const_int_arbitrary_precision(&packed);
+                state.push1(i);
+            }
+
+            Operator::I8x16Splat => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder.build_int_truncate(v, intrinsics.i8_ty, "");
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Splat => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder.build_int_truncate(v, intrinsics.i16_ty, "");
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Splat => {
+                let v = state.pop1()?;
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v,
+                    intrinsics.i32x4_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Splat => {
+                let v = state.pop1()?;
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v,
+                    intrinsics.i64x2_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F32x4Splat => {
+                let v = state.pop1()?;
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v,
+                    intrinsics.f32x4_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Splat => {
+                let v = state.pop1()?;
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v,
+                    intrinsics.f64x2_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
 
             // Operate on locals.
             Operator::GetLocal { local_index } => {
@@ -1142,16 +1351,260 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_add(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Add => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16AddSaturateS => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
+                let res = builder
+                    .build_call(intrinsics.sadd_sat_i8x16, &[v1, v2], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8AddSaturateS => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
+                let res = builder
+                    .build_call(intrinsics.sadd_sat_i16x8, &[v1, v2], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16AddSaturateU => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
+                let res = builder
+                    .build_call(intrinsics.uadd_sat_i8x16, &[v1, v2], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8AddSaturateU => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
+                let res = builder
+                    .build_call(intrinsics.uadd_sat_i16x8, &[v1, v2], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32Sub | Operator::I64Sub => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_int_sub(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16Sub => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Sub => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Sub => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Sub => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16SubSaturateS => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
+                let res = builder
+                    .build_call(intrinsics.ssub_sat_i8x16, &[v1, v2], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8SubSaturateS => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
+                let res = builder
+                    .build_call(intrinsics.ssub_sat_i16x8, &[v1, v2], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16SubSaturateU => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
+                let res = builder
+                    .build_call(intrinsics.usub_sat_i8x16, &[v1, v2], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8SubSaturateU => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
+                let res = builder
+                    .build_call(intrinsics.usub_sat_i16x8, &[v1, v2], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32Mul | Operator::I64Mul => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_int_mul(v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16Mul => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Mul => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Mul => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32DivS | Operator::I64DivS => {
@@ -1190,40 +1643,282 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_unsigned_rem(v1, v2, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32And | Operator::I64And => {
+            Operator::I32And | Operator::I64And | Operator::V128And => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_and(v1, v2, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32Or | Operator::I64Or => {
+            Operator::I32Or | Operator::I64Or | Operator::V128Or => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_or(v1, v2, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32Xor | Operator::I64Xor => {
+            Operator::I32Xor | Operator::I64Xor | Operator::V128Xor => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_xor(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::V128Bitselect => {
+                let (v1, v2, cond) = state.pop3()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i1x128_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i1x128_ty, "")
+                    .into_vector_value();
+                let cond = builder
+                    .build_bitcast(cond, intrinsics.i1x128_ty, "")
+                    .into_vector_value();
+                let res = builder.build_select(cond, v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32Shl | Operator::I64Shl => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                // TODO: missing 'and' of v2?
                 let res = builder.build_left_shift(v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16Shl => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    "",
+                );
+                let res = builder.build_left_shift(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Shl => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    "",
+                );
+                let res = builder.build_left_shift(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Shl => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i32x4_ty,
+                    "",
+                );
+                let res = builder.build_left_shift(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Shl => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i64x2_ty,
+                    "",
+                );
+                let res = builder.build_left_shift(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32ShrS | Operator::I64ShrS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                // TODO: check wasm spec, is this missing v2 mod LaneBits?
                 let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16ShrS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ShrS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4ShrS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i32x4_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2ShrS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i64x2_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32ShrU | Operator::I64ShrU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16ShrU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ShrU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4ShrU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i32x4_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2ShrU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i64x2_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32Rotl => {
@@ -1393,10 +2088,58 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Sub | Operator::F64Sub => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Sub => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Sub => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Mul | Operator::F64Mul => {
@@ -1405,10 +2148,58 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Mul => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Mul => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Div | Operator::F64Div => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_div(v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Div => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_div(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Div => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_div(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Sqrt => {
@@ -1429,6 +2220,28 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(res);
             }
+            Operator::F32x4Sqrt => {
+                let input = state.pop1()?.into_int_value();
+                let float = builder.build_bitcast(input, intrinsics.f32x4_ty, "float");
+                let res = builder
+                    .build_call(intrinsics.sqrt_f32x4, &[float], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let bits = builder.build_bitcast(res, intrinsics.i128_ty, "bits");
+                state.push1(bits);
+            }
+            Operator::F64x2Sqrt => {
+                let input = state.pop1()?.into_int_value();
+                let float = builder.build_bitcast(input, intrinsics.f64x2_ty, "float");
+                let res = builder
+                    .build_call(intrinsics.sqrt_f64x2, &[float], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let bits = builder.build_bitcast(res, intrinsics.i128_ty, "bits");
+                state.push1(bits);
+            }
             Operator::F32Min => {
                 let (v1, v2) = state.pop2()?;
                 let res = builder
@@ -1447,6 +2260,30 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(res);
             }
+            Operator::F32x4Min => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let res = builder
+                    .build_call(intrinsics.minimum_f32x4, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Min => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let res = builder
+                    .build_call(intrinsics.minimum_f64x2, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Max => {
                 let (v1, v2) = state.pop2()?;
                 let res = builder
@@ -1463,6 +2300,30 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .try_as_basic_value()
                     .left()
                     .unwrap();
+                state.push1(res);
+            }
+            Operator::F32x4Max => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let res = builder
+                    .build_call(intrinsics.maximum_f32x4, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Max => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let res = builder
+                    .build_call(intrinsics.maximum_f64x2, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Ceil => {
@@ -1555,6 +2416,46 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(res);
             }
+            Operator::F32x4Abs => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder.build_bitcast(v, intrinsics.f32x4_ty, "");
+                let res = builder
+                    .build_call(intrinsics.fabs_f32x4, &[v], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Abs => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder.build_bitcast(v, intrinsics.f64x2_ty, "");
+                let res = builder
+                    .build_call(intrinsics.fabs_f64x2, &[v], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F32x4Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_neg(v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_neg(v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Neg | Operator::F64Neg => {
                 let input = state.pop1()?.into_float_value();
                 let res = builder.build_float_neg(input, &state.var_name());
@@ -1590,11 +2491,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32Ne | Operator::I64Ne => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::NE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32LtS | Operator::I64LtS => {
@@ -1604,11 +2583,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16LtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32LtU | Operator::I64LtU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::ULT, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16LtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32LeS | Operator::I64LeS => {
@@ -1618,11 +2675,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16LeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32LeU | Operator::I64LeU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::ULE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16LeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32GtS | Operator::I64GtS => {
@@ -1632,11 +2767,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16GtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8GtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4GtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32GtU | Operator::I64GtU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::UGT, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16GtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8GtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4GtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32GeS | Operator::I64GeS => {
@@ -1646,11 +2859,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16GeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8GeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4GeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32GeU | Operator::I64GeU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::UGE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16GeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8GeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4GeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
 
@@ -1666,12 +2957,64 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Ne | Operator::F64Ne => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let cond =
                     builder.build_float_compare(FloatPredicate::UNE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::UNE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::UNE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Lt | Operator::F64Lt => {
@@ -1682,12 +3025,64 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Lt => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Lt => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Le | Operator::F64Le => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let cond =
                     builder.build_float_compare(FloatPredicate::OLE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Le => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Le => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Gt | Operator::F64Gt => {
@@ -1698,12 +3093,64 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Gt => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Gt => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Ge | Operator::F64Ge => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let cond =
                     builder.build_float_compare(FloatPredicate::OGE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Ge => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Ge => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
 
@@ -1724,6 +3171,62 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I64ExtendUI32 => {
                 let v1 = state.pop1()?.into_int_value();
                 let res = builder.build_int_z_extend(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I32x4TruncSF32x4Sat => {
+                let v = state.pop1()?.into_int_value();
+                let res = trunc_sat(
+                    builder,
+                    intrinsics,
+                    intrinsics.f32x4_ty,
+                    intrinsics.i32x4_ty,
+                    std::i32::MIN as u64,
+                    std::i32::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I32x4TruncUF32x4Sat => {
+                let v = state.pop1()?.into_int_value();
+                let res = trunc_sat(
+                    builder,
+                    intrinsics,
+                    intrinsics.f32x4_ty,
+                    intrinsics.i32x4_ty,
+                    std::u32::MIN as u64,
+                    std::u32::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I64x2TruncSF64x2Sat => {
+                let v = state.pop1()?.into_int_value();
+                let res = trunc_sat(
+                    builder,
+                    intrinsics,
+                    intrinsics.f64x2_ty,
+                    intrinsics.i64x2_ty,
+                    std::i64::MIN as u64,
+                    std::i64::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I64x2TruncUF64x2Sat => {
+                let v = state.pop1()?.into_int_value();
+                let res = trunc_sat(
+                    builder,
+                    intrinsics,
+                    intrinsics.f64x2_ty,
+                    intrinsics.i64x2_ty,
+                    std::u64::MIN,
+                    std::u64::MAX,
+                    v,
+                    &state.var_name(),
+                );
                 state.push1(res);
             }
             Operator::I32TruncSF32 => {
@@ -1904,6 +3407,46 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_unsigned_int_to_float(v1, intrinsics.f64_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4ConvertSI32x4 => {
+                let v = state.pop1()?;
+                let v = builder
+                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res =
+                    builder.build_signed_int_to_float(v, intrinsics.f32x4_ty, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F32x4ConvertUI32x4 => {
+                let v = state.pop1()?;
+                let v = builder
+                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res =
+                    builder.build_unsigned_int_to_float(v, intrinsics.f32x4_ty, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2ConvertSI64x2 => {
+                let v = state.pop1()?;
+                let v = builder
+                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res =
+                    builder.build_signed_int_to_float(v, intrinsics.f64x2_ty, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2ConvertUI64x2 => {
+                let v = state.pop1()?;
+                let v = builder
+                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res =
+                    builder.build_unsigned_int_to_float(v, intrinsics.f64x2_ty, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32ReinterpretF32 => {
                 let v = state.pop1()?;
                 let space =
@@ -2054,6 +3597,21 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
+            Operator::V128Load { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i128_ptr_ty,
+                    16,
+                )?;
+                let result = builder.build_load(effective_address, &state.var_name());
+                state.push1(result);
+            }
 
             Operator::I32Store { ref memarg } => {
                 let value = state.pop1()?;
@@ -2112,6 +3670,21 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.f64_ptr_ty,
                     8,
+                )?;
+                builder.build_store(effective_address, value);
+            }
+            Operator::V128Store { ref memarg } => {
+                let value = state.pop1()?;
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i128_ptr_ty,
+                    16,
                 )?;
                 builder.build_store(effective_address, value);
             }
@@ -2358,6 +3931,281 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
                 builder.build_store(effective_address, narrow_value);
+            }
+            Operator::I8x16Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v.get_type().const_zero(), v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v.get_type().const_zero(), v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v.get_type().const_zero(), v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v.get_type().const_zero(), v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::V128Not => {
+                let v = state.pop1()?.into_int_value();
+                let res = builder.build_not(v, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16AnyTrue
+            | Operator::I16x8AnyTrue
+            | Operator::I32x4AnyTrue
+            | Operator::I64x2AnyTrue => {
+                let v = state.pop1()?.into_int_value();
+                let res = builder.build_int_compare(
+                    IntPredicate::NE,
+                    v,
+                    v.get_type().const_zero(),
+                    &state.var_name(),
+                );
+                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16AllTrue
+            | Operator::I16x8AllTrue
+            | Operator::I32x4AllTrue
+            | Operator::I64x2AllTrue => {
+                let vec_ty = match *op {
+                    Operator::I8x16AllTrue => intrinsics.i8x16_ty,
+                    Operator::I16x8AllTrue => intrinsics.i16x8_ty,
+                    Operator::I32x4AllTrue => intrinsics.i32x4_ty,
+                    Operator::I64x2AllTrue => intrinsics.i64x2_ty,
+                    _ => panic!(),
+                };
+                let v = state.pop1()?.into_int_value();
+                let lane_int_ty = context.custom_width_int_type(vec_ty.get_size());
+                let vec = builder.build_bitcast(v, vec_ty, "vec").into_vector_value();
+                let mask =
+                    builder.build_int_compare(IntPredicate::NE, vec, vec_ty.const_zero(), "mask");
+                let cmask = builder
+                    .build_bitcast(mask, lane_int_ty, "cmask")
+                    .into_int_value();
+                let res = builder.build_int_compare(
+                    IntPredicate::EQ,
+                    cmask,
+                    lane_int_ty.const_int(std::u64::MAX, true),
+                    &state.var_name(),
+                );
+                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16ExtractLaneS { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder
+                    .build_extract_element(v, idx, &state.var_name())
+                    .into_int_value();
+                let res = builder.build_int_s_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16ExtractLaneU { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder
+                    .build_extract_element(v, idx, &state.var_name())
+                    .into_int_value();
+                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ExtractLaneS { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder
+                    .build_extract_element(v, idx, &state.var_name())
+                    .into_int_value();
+                let res = builder.build_int_s_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ExtractLaneU { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder
+                    .build_extract_element(v, idx, &state.var_name())
+                    .into_int_value();
+                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4ExtractLane { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_extract_element(v, idx, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64x2ExtractLane { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_extract_element(v, idx, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4ExtractLane { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_extract_element(v, idx, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F64x2ExtractLane { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_extract_element(v, idx, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_int_cast(v2, intrinsics.i8_ty, "");
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_int_cast(v2, intrinsics.i16_ty, "");
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F32x4ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_float_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_float_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::V8x16Shuffle1 => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let mut res = intrinsics.i8x16_ty.get_undef();
+                for i in 0..15 {
+                    let idx = builder
+                        .build_extract_element(v2, intrinsics.i32_ty.const_int(i, false), "")
+                        .into_int_value();
+                    let idx = builder.build_and(idx, intrinsics.i32_ty.const_int(15, false), "");
+                    let elem = builder.build_extract_element(v1, idx, "");
+                    res = builder
+                        .build_insert_element(res, elem, intrinsics.i32_ty.const_int(i, false), "");
+                }
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::V8x16Shuffle2Imm { lanes } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let mask = VectorType::const_vector(
+                    lanes
+                        .into_iter()
+                        .map(|l| intrinsics.i32_ty.const_int((*l).into(), false))
+                        .collect::<Vec<IntValue>>()
+                        .as_slice(),
+                );
+                let res = builder.build_shuffle_vector(v1, v2, mask, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
             }
 
             Operator::MemoryGrow { reserved } => {
