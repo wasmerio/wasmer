@@ -142,7 +142,7 @@ pub fn default_validating_parser_config() -> wasmparser::ValidatingParserConfig 
         operator_config: wasmparser::OperatorValidatorConfig {
             enable_threads: false,
             enable_reference_types: false,
-            enable_simd: false,
+            enable_simd: true,
             enable_bulk_memory: false,
             enable_multi_value: false,
         },
