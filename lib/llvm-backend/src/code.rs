@@ -4198,7 +4198,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .into_vector_value();
                 let mask = VectorType::const_vector(
                     lanes
-                        .into_iter()
+                        .iter()
                         .map(|l| intrinsics.i32_ty.const_int((*l).into(), false))
                         .collect::<Vec<IntValue>>()
                         .as_slice(),
