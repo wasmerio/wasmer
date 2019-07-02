@@ -310,7 +310,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     if !utils::is_wasm_binary(&wasm_binary) {
-        wasm_binary = wabt::wat2wasm(wasm_binary)
+        let mut features = wabt::Features::new();
+        features.enable_simd();
+        wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
