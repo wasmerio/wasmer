@@ -8,7 +8,11 @@ use dynasmrt::{
 };
 use smallvec::SmallVec;
 use std::ptr::NonNull;
-use std::{any::Any, collections::HashMap, sync::Arc};
+use std::{
+    any::Any,
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 use wasmer_runtime_core::{
     backend::{
         sys::Memory, Backend, CacheGen, CompilerConfig, MemoryBoundCheckMode, RunnableModule, Token,
@@ -23,9 +27,9 @@ use wasmer_runtime_core::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
-    vm::{self, LocalGlobal, LocalTable},
+    vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
 };
-use wasmparser::{Operator, Type as WpType};
+use wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 
 lazy_static! {
     /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
@@ -319,7 +323,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(())
     }
 
-    fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
+    fn next_function(
+        &mut self,
+        _module_info: Arc<RwLock<ModuleInfo>>,
+    ) -> Result<&mut X64FunctionCode, CodegenError> {
         let (mut assembler, mut function_labels, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
@@ -332,6 +339,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 HashMap::new(),
             ),
         };
+
         let begin_offset = assembler.offset();
         let begin_label_info = function_labels
             .entry(self.functions.len() + self.func_import_count)
@@ -1496,6 +1504,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
         let op = match ev {
             Event::Wasm(x) => x,
+            Event::WasmOwned(ref x) => x,
             Event::Internal(x) => {
                 match x {
                     InternalEvent::Breakpoint(callback) => {
@@ -1505,8 +1514,71 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             .unwrap()
                             .insert(a.get_offset(), callback);
                     }
-                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {}
-                    _ => unimplemented!(),
+                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {},
+                    InternalEvent::GetInternal(idx) => {
+                        let idx = idx as usize;
+                        assert!(idx < INTERNALS_SIZE);
+
+                        let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                        // Load `internals` pointer.
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Memory(
+                                Machine::get_vmctx_reg(),
+                                vm::Ctx::offset_internals() as i32,
+                            ),
+                            Location::GPR(tmp),
+                        );
+
+                        let loc = self.machine.acquire_locations(
+                            a,
+                            &[WpType::I64],
+                            false,
+                        )[0];
+                        self.value_stack.push((loc, LocalOrTemp::Temp));
+
+                        // Move internal into the result location.
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            Location::Memory(tmp, (idx * 8) as i32),
+                            loc,
+                        );
+
+                        self.machine.release_temp_gpr(tmp);
+                    }
+                    InternalEvent::SetInternal(idx) => {
+                        let idx = idx as usize;
+                        assert!(idx < INTERNALS_SIZE);
+
+                        let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                        // Load `internals` pointer.
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Memory(
+                                Machine::get_vmctx_reg(),
+                                vm::Ctx::offset_internals() as i32,
+                            ),
+                            Location::GPR(tmp),
+                        );
+                        let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                        // Move internal into storage.
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            Location::Memory(tmp, (idx * 8) as i32),
+                        );
+                        self.machine.release_temp_gpr(tmp);
+                    }
+                    //_ => unimplemented!(),
                 }
                 return Ok(());
             }
@@ -1620,8 +1692,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::GetLocal { local_index } => {
                 let local_index = local_index as usize;
-                self.value_stack
-                    .push((self.locals[local_index], LocalOrTemp::Local));
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    self.locals[local_index],
+                    ret,
+                );
+                self.value_stack.push((ret, LocalOrTemp::Temp));
             }
             Operator::SetLocal { local_index } => {
                 let local_index = local_index as usize;
@@ -2636,7 +2716,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S32,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f32_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
 
                 a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -2654,7 +2741,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S32,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f32_int_conv_check(
                     a,
                     &mut self.machine,
@@ -2678,7 +2772,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S32,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f32_int_conv_check(
                     a,
                     &mut self.machine,
@@ -2716,7 +2817,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S32,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f32_int_conv_check(
                     a,
                     &mut self.machine,
@@ -2764,7 +2872,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f64_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
 
                 a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -2818,7 +2933,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f64_int_conv_check(
                     a,
                     &mut self.machine,
@@ -2842,7 +2964,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    loc,
+                    Location::XMM(tmp_in),
+                );
                 Self::emit_f64_int_conv_check(
                     a,
                     &mut self.machine,
@@ -3206,8 +3335,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: false,
                     if_else: IfElseState::If(label_else),
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                 });
@@ -3305,8 +3435,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: false,
                     if_else: IfElseState::None,
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                 });
@@ -3318,8 +3449,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: true,
                     if_else: IfElseState::None,
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                 });

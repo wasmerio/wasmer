@@ -5,13 +5,22 @@ use crate::env::get_emscripten_data;
 use libc::getdtablesize;
 use wasmer_runtime_core::vm::Ctx;
 
+pub fn asm_const_i(_ctx: &mut Ctx, _val: i32) -> i32 {
+    debug!("emscripten::asm_const_i: {}", _val);
+    0
+}
+
+pub fn exit_with_live_runtime(_ctx: &mut Ctx) {
+    debug!("emscripten::exit_with_live_runtime");
+}
+
 pub fn setTempRet0(ctx: &mut Ctx, val: i32) {
-    debug!("emscripten::setTempRet0: {}", val);
+    trace!("emscripten::setTempRet0: {}", val);
     get_emscripten_data(ctx).temp_ret_0 = val;
 }
 
 pub fn getTempRet0(ctx: &mut Ctx) -> i32 {
-    debug!("emscripten::getTempRet0");
+    trace!("emscripten::getTempRet0");
     get_emscripten_data(ctx).temp_ret_0
 }
 
@@ -59,12 +68,8 @@ pub fn _dladdr(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_dladdr");
     0
 }
-pub fn _pthread_attr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_attr_init({})", _a);
-    0
-}
 pub fn _pthread_attr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_attr_destroy");
+    trace!("emscripten::_pthread_attr_destroy");
     0
 }
 pub fn _pthread_attr_getstack(
@@ -82,112 +87,138 @@ pub fn _pthread_attr_getstack(
     // HEAP32[stacksize >> 2] = TOTAL_STACK;
     0
 }
+pub fn _pthread_attr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
+    trace!("emscripten::_pthread_attr_init({})", _a);
+    0
+}
+pub fn _pthread_attr_setstacksize(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    trace!("emscripten::_pthread_attr_setstacksize");
+    0
+}
+pub fn _pthread_cleanup_pop(_ctx: &mut Ctx, _a: i32) -> () {
+    trace!("emscripten::_pthread_cleanup_pop");
+}
+pub fn _pthread_cleanup_push(_ctx: &mut Ctx, _a: i32, _b: i32) -> () {
+    trace!("emscripten::_pthread_cleanup_push");
+}
 pub fn _pthread_cond_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_cond_destroy");
-    0
-}
-pub fn _pthread_cond_timedwait(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32) -> i32 {
-    debug!("emscripten::_pthread_cond_timedwait");
-    0
-}
-pub fn _pthread_getspecific(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_getspecific");
-    0
-}
-pub fn _pthread_getattr_np(_ctx: &mut Ctx, _thread: i32, _attr: i32) -> i32 {
-    debug!("emscripten::_pthread_getattr_np({}, {})", _thread, _attr);
-    0
-}
-pub fn _pthread_setspecific(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_setspecific");
-    0
-}
-pub fn _pthread_once(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_once");
-    0
-}
-pub fn _pthread_key_create(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_key_create");
-    0
-}
-pub fn _pthread_rwlock_destroy(_ctx: &mut Ctx, _rwlock: i32) -> i32 {
-    debug!("emscripten::_pthread_rwlock_destroy({})", _rwlock);
-    0
-}
-pub fn _pthread_rwlock_init(_ctx: &mut Ctx, _rwlock: i32, _attr: i32) -> i32 {
-    debug!("emscripten::_pthread_rwlock_init({}, {})", _rwlock, _attr);
-    0
-}
-pub fn _pthread_rwlock_wrlock(_ctx: &mut Ctx, _rwlock: i32) -> i32 {
-    debug!("emscripten::_pthread_rwlock_wrlock({})", _rwlock);
-    0
-}
-pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
-    debug!("emscripten::_pthread_create");
-    0
-}
-pub fn _pthread_detach(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_detach");
-    0
-}
-pub fn _pthread_join(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_join");
+    trace!("emscripten::_pthread_cond_destroy");
     0
 }
 pub fn _pthread_cond_init(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_cond_init");
+    trace!("emscripten::_pthread_cond_init");
     0
 }
 pub fn _pthread_cond_signal(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_cond_signal");
+    trace!("emscripten::_pthread_cond_signal");
+    0
+}
+pub fn _pthread_cond_timedwait(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32) -> i32 {
+    trace!("emscripten::_pthread_cond_timedwait");
     0
 }
 pub fn _pthread_cond_wait(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_cond_wait");
+    trace!("emscripten::_pthread_cond_wait");
     0
 }
 pub fn _pthread_condattr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_condattr_destroy");
+    trace!("emscripten::_pthread_condattr_destroy");
     0
 }
 pub fn _pthread_condattr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_condattr_init");
+    trace!("emscripten::_pthread_condattr_init");
     0
 }
 pub fn _pthread_condattr_setclock(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_condattr_setclock");
+    trace!("emscripten::_pthread_condattr_setclock");
+    0
+}
+pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
+    trace!("emscripten::_pthread_create");
+    // 11 seems to mean "no"
+    11
+}
+pub fn _pthread_detach(_ctx: &mut Ctx, _a: i32) -> i32 {
+    trace!("emscripten::_pthread_detach");
+    0
+}
+pub fn _pthread_equal(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    trace!("emscripten::_pthread_equal");
+    0
+}
+pub fn _pthread_exit(_ctx: &mut Ctx, _a: i32) -> () {
+    trace!("emscripten::_pthread_exit");
+}
+pub fn _pthread_getattr_np(_ctx: &mut Ctx, _thread: i32, _attr: i32) -> i32 {
+    trace!("emscripten::_pthread_getattr_np({}, {})", _thread, _attr);
+    0
+}
+pub fn _pthread_getspecific(_ctx: &mut Ctx, _a: i32) -> i32 {
+    trace!("emscripten::_pthread_getspecific");
+    0
+}
+pub fn _pthread_join(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    trace!("emscripten::_pthread_join");
+    0
+}
+pub fn _pthread_key_create(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    trace!("emscripten::_pthread_key_create");
     0
 }
 pub fn _pthread_mutex_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_mutex_destroy");
+    trace!("emscripten::_pthread_mutex_destroy");
     0
 }
 pub fn _pthread_mutex_init(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_mutex_init");
+    trace!("emscripten::_pthread_mutex_init");
     0
 }
 pub fn _pthread_mutexattr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_mutexattr_destroy");
+    trace!("emscripten::_pthread_mutexattr_destroy");
     0
 }
 pub fn _pthread_mutexattr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_mutexattr_init");
+    trace!("emscripten::_pthread_mutexattr_init");
     0
 }
 pub fn _pthread_mutexattr_settype(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_mutexattr_settype");
+    trace!("emscripten::_pthread_mutexattr_settype");
+    0
+}
+pub fn _pthread_once(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    trace!("emscripten::_pthread_once");
+    0
+}
+pub fn _pthread_rwlock_destroy(_ctx: &mut Ctx, _rwlock: i32) -> i32 {
+    trace!("emscripten::_pthread_rwlock_destroy({})", _rwlock);
+    0
+}
+pub fn _pthread_rwlock_init(_ctx: &mut Ctx, _rwlock: i32, _attr: i32) -> i32 {
+    trace!("emscripten::_pthread_rwlock_init({}, {})", _rwlock, _attr);
     0
 }
 pub fn _pthread_rwlock_rdlock(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_rwlock_rdlock");
+    trace!("emscripten::_pthread_rwlock_rdlock");
     0
 }
 pub fn _pthread_rwlock_unlock(_ctx: &mut Ctx, _a: i32) -> i32 {
-    debug!("emscripten::_pthread_rwlock_unlock");
+    trace!("emscripten::_pthread_rwlock_unlock");
+    0
+}
+pub fn _pthread_rwlock_wrlock(_ctx: &mut Ctx, _rwlock: i32) -> i32 {
+    trace!("emscripten::_pthread_rwlock_wrlock({})", _rwlock);
     0
 }
 pub fn _pthread_setcancelstate(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
-    debug!("emscripten::_pthread_setcancelstate");
+    trace!("emscripten::_pthread_setcancelstate");
+    0
+}
+pub fn _pthread_setspecific(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    trace!("emscripten::_pthread_setspecific");
+    0
+}
+pub fn _pthread_sigmask(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32) -> i32 {
+    trace!("emscripten::_pthread_sigmask");
     0
 }
 pub fn ___gxx_personality_v0(
@@ -203,11 +234,6 @@ pub fn ___gxx_personality_v0(
     0
 }
 
-pub fn _gai_strerror(_ctx: &mut Ctx, _ecode: i32) -> i32 {
-    debug!("emscripten::_gai_strerror({})", _ecode);
-    0
-}
-
 #[cfg(target_os = "linux")]
 pub fn _getdtablesize(_ctx: &mut Ctx) -> i32 {
     debug!("emscripten::getdtablesize");
@@ -220,6 +246,10 @@ pub fn _getdtablesize(_ctx: &mut Ctx) -> i32 {
 }
 pub fn _gethostbyaddr(_ctx: &mut Ctx, _addr: i32, _addrlen: i32, _atype: i32) -> i32 {
     debug!("emscripten::gethostbyaddr");
+    0
+}
+pub fn _gethostbyname(_ctx: &mut Ctx, _name: i32) -> i32 {
+    debug!("emscripten::gethostbyname_r");
     0
 }
 pub fn _gethostbyname_r(
@@ -600,6 +630,11 @@ pub fn invoke_iij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     invoke!(ctx, dyn_call_iij, index, a1, a2, a3)
 }
 
+pub fn invoke_iji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+    debug!("emscripten::invoke_iji");
+    invoke!(ctx, dyn_call_iji, index, a1, a2, a3)
+}
+
 pub fn invoke_iiji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
     debug!("emscripten::invoke_iiji");
     invoke!(ctx, dyn_call_iiji, index, a1, a2, a3, a4)
@@ -818,6 +853,10 @@ pub fn invoke_vijj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32
     } else {
         panic!("dyn_call_vijj is set to None");
     }
+}
+pub fn invoke_vidd(ctx: &mut Ctx, index: i32, a1: i32, a2: f64, a3: f64) {
+    debug!("emscripten::invoke_viid");
+    invoke_no_return!(ctx, dyn_call_vidd, index, a1, a2, a3);
 }
 pub fn invoke_viid(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: f64) {
     debug!("emscripten::invoke_viid");

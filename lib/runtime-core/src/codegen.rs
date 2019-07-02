@@ -8,15 +8,19 @@ use crate::{
     types::{FuncIndex, FuncSig, SigIndex},
 };
 use smallvec::SmallVec;
+use std::any::Any;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::sync::{Arc, RwLock};
+use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
 #[derive(Debug)]
 pub enum Event<'a, 'b> {
     Internal(InternalEvent),
     Wasm(&'b Operator<'a>),
+    WasmOwned(Operator<'a>),
 }
 
 pub enum InternalEvent {
@@ -39,7 +43,9 @@ impl fmt::Debug for InternalEvent {
     }
 }
 
-pub struct BkptInfo {}
+pub struct BkptInfo {
+    pub throw: unsafe fn(Box<dyn Any>) -> !,
+}
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {
     /// Creates a new module code generator.
@@ -54,13 +60,14 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     }
     /// Adds an import function.
     fn feed_import_function(&mut self) -> Result<(), E>;
+
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
     /// Sets function signatures.
     fn feed_function_signatures(&mut self, assoc: Map<FuncIndex, SigIndex>) -> Result<(), E>;
     /// Checks the precondition for a module.
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
     /// Creates a new function and returns the function-scope code generator for it.
-    fn next_function(&mut self) -> Result<&mut FCG, E>;
+    fn next_function(&mut self, module_info: Arc<RwLock<ModuleInfo>>) -> Result<&mut FCG, E>;
     /// Finalizes this module.
     fn finalize(self, module_info: &ModuleInfo) -> Result<(RM, Box<dyn CacheGen>), E>;
 
@@ -125,6 +132,20 @@ impl<
     }
 }
 
+fn validate(bytes: &[u8]) -> CompileResult<()> {
+    let mut parser = wasmparser::ValidatingParser::new(bytes, None);
+    loop {
+        let state = parser.read();
+        match *state {
+            wasmparser::ParserState::EndWasm => break Ok(()),
+            wasmparser::ParserState::Error(err) => Err(CompileError::ValidationError {
+                msg: err.message.to_string(),
+            })?,
+            _ => {}
+        }
+    }
+}
+
 impl<
         MCG: ModuleCodeGenerator<FCG, RM, E>,
         FCG: FunctionCodeGenerator<E>,
@@ -139,6 +160,10 @@ impl<
         compiler_config: CompilerConfig,
         _: Token,
     ) -> CompileResult<ModuleInner> {
+        if requires_pre_validation(MCG::backend_id()) {
+            validate(wasm)?;
+        }
+
         let mut mcg = MCG::new();
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(
@@ -149,14 +174,14 @@ impl<
             &compiler_config,
         )?;
         let (exec_context, cache_gen) =
-            mcg.finalize(&info)
+            mcg.finalize(&info.read().unwrap())
                 .map_err(|x| CompileError::InternalError {
                     msg: format!("{:?}", x),
                 })?;
         Ok(ModuleInner {
             cache_gen,
             runnable_module: Box::new(exec_context),
-            info,
+            info: Arc::try_unwrap(info).unwrap().into_inner().unwrap(),
         })
     }
 
@@ -166,6 +191,14 @@ impl<
         token: Token,
     ) -> Result<ModuleInner, CacheError> {
         MCG::from_cache(artifact, token)
+    }
+}
+
+fn requires_pre_validation(backend: Backend) -> bool {
+    match backend {
+        Backend::Cranelift => true,
+        Backend::LLVM => false,
+        Backend::Singlepass => false,
     }
 }
 

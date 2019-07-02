@@ -8,6 +8,10 @@ extern crate field_offset;
 #[macro_use]
 extern crate serde_derive;
 
+#[allow(unused_imports)]
+#[macro_use]
+extern crate lazy_static;
+
 #[macro_use]
 mod macros;
 #[doc(hidden)]
@@ -29,12 +33,16 @@ mod sig_registry;
 pub mod structures;
 mod sys;
 pub mod table;
+#[cfg(all(unix, target_arch = "x86_64"))]
+pub mod trampoline_x64;
 pub mod typed_func;
 pub mod types;
 pub mod units;
 pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
+#[cfg(all(unix, target_arch = "x86_64"))]
+pub use trampoline_x64 as trampoline;
 
 use self::error::CompileResult;
 #[doc(inline)]
@@ -48,6 +56,8 @@ pub use self::module::Module;
 #[doc(inline)]
 pub use self::typed_func::Func;
 use std::sync::Arc;
+
+pub use wasmparser;
 
 use self::cache::{Artifact, Error as CacheError};
 

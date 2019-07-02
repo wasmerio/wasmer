@@ -8,7 +8,7 @@ use crate::{
     value::wasmer_value_tag,
     wasmer_byte_array, wasmer_result_t,
 };
-use libc::{c_uint, uint32_t};
+use libc::c_uint;
 use std::{ffi::c_void, ptr, slice, sync::Arc};
 use wasmer_runtime::Module;
 use wasmer_runtime_core::{
@@ -222,11 +222,11 @@ pub unsafe extern "C" fn wasmer_import_descriptor_kind(
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_func_params_arity(
     func: *const wasmer_import_func_t,
-    result: *mut uint32_t,
+    result: *mut u32,
 ) -> wasmer_result_t {
     let export = &*(func as *const Export);
     if let Export::Function { ref signature, .. } = *export {
-        *result = signature.params().len() as uint32_t;
+        *result = signature.params().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
@@ -329,11 +329,11 @@ pub unsafe extern "C" fn wasmer_import_func_returns(
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_func_returns_arity(
     func: *const wasmer_import_func_t,
-    result: *mut uint32_t,
+    result: *mut u32,
 ) -> wasmer_result_t {
     let export = &*(func as *const Export);
     if let Export::Function { ref signature, .. } = *export {
-        *result = signature.returns().len() as uint32_t;
+        *result = signature.returns().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {

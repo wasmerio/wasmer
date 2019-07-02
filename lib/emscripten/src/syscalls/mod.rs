@@ -10,7 +10,8 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
-use super::utils::copy_stat_into_wasm;
+use crate::utils::{copy_stat_into_wasm, get_cstr_path, get_current_directory};
+
 use super::varargs::VarArgs;
 use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
@@ -26,6 +27,7 @@ use libc::{
     exit,
     fstat,
     getpid,
+    // readlink,
     // iovec,
     lseek,
     off_t,
@@ -38,15 +40,16 @@ use libc::{
     // writev,
     stat,
     write,
-    // readlink,
 };
-use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime_core::{
+    memory::ptr::{Array, WasmPtr},
+    vm::Ctx,
+};
 
 use super::env;
 use std::cell::Cell;
 #[allow(unused_imports)]
 use std::io::Error;
-use std::mem;
 use std::slice;
 
 /// exit
@@ -76,7 +79,7 @@ pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall4 (write) {}", _which);
     let fd: i32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
+    let buf: i32 = varargs.get(ctx);
     let count: i32 = varargs.get(ctx);
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
@@ -95,16 +98,28 @@ pub fn ___syscall6(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
 pub fn ___syscall12(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall12 (chdir) {}", _which);
     let path_ptr = varargs.get_str(ctx);
-    unsafe {
-        let _path = std::ffi::CStr::from_ptr(path_ptr);
-        let ret = chdir(path_ptr);
-        debug!("=> path: {:?}, ret: {}", _path, ret);
+    let real_path_owned = get_cstr_path(ctx, path_ptr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path_ptr
+    };
+    let ret = unsafe { chdir(real_path) };
+    debug!(
+        "=> path: {:?}, ret: {}",
+        unsafe { std::ffi::CStr::from_ptr(real_path) },
         ret
-    }
+    );
+    ret
 }
 
 pub fn ___syscall10(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall10");
+    -1
+}
+
+pub fn ___syscall14(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall14");
     -1
 }
 
@@ -119,16 +134,58 @@ pub fn ___syscall20(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     unsafe { getpid() }
 }
 
+pub fn ___syscall21(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall21");
+    -1
+}
+
+pub fn ___syscall25(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall25");
+    -1
+}
+
+pub fn ___syscall29(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall29");
+    -1
+}
+
+pub fn ___syscall32(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall32");
+    -1
+}
+
+pub fn ___syscall33(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall33");
+    -1
+}
+
+pub fn ___syscall36(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall36");
+    -1
+}
+
 // rename
 pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall38 (rename)");
     let old_path = varargs.get_str(ctx);
     let new_path = varargs.get_str(ctx);
-    let result = unsafe { rename(old_path, new_path) };
+    let real_old_path_owned = get_cstr_path(ctx, old_path);
+    let real_old_path = if let Some(ref rp) = real_old_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        old_path
+    };
+    let real_new_path_owned = get_cstr_path(ctx, new_path);
+    let real_new_path = if let Some(ref rp) = real_new_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        new_path
+    };
+    let result = unsafe { rename(real_old_path, real_new_path) };
     debug!(
         "=> old_path: {}, new_path: {}, result: {}",
-        unsafe { std::ffi::CStr::from_ptr(old_path).to_str().unwrap() },
-        unsafe { std::ffi::CStr::from_ptr(new_path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(real_old_path).to_str().unwrap() },
+        unsafe { std::ffi::CStr::from_ptr(real_new_path).to_str().unwrap() },
         result
     );
     result
@@ -138,7 +195,13 @@ pub fn ___syscall38(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
 pub fn ___syscall40(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall40 (rmdir)");
     let pathname_addr = varargs.get_str(ctx);
-    unsafe { rmdir(pathname_addr) }
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
+    unsafe { rmdir(real_path) }
 }
 
 // pipe
@@ -165,6 +228,21 @@ pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     #[cfg(not(target_os = "windows"))]
     let result: c_int = unsafe { libc::pipe(fd_ptr) };
     result
+}
+
+pub fn ___syscall51(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall51");
+    -1
+}
+
+pub fn ___syscall52(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall52");
+    -1
+}
+
+pub fn ___syscall53(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall53");
+    -1
 }
 
 pub fn ___syscall60(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
@@ -198,37 +276,14 @@ pub fn ___syscall75(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
-// readlink
-pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
-    debug!("emscripten::___syscall85 (readlink)");
-    let _path = varargs.get_str(ctx);
-    let buf = varargs.get_str(ctx);
-    // let buf_addr: i32 = varargs.get(ctx);
-    let buf_size: i32 = varargs.get(ctx);
-    let fd = 3;
-    let ret = unsafe { read(fd, buf as _, buf_size as _) as i32 };
-    debug!(
-        "=> buf: {}, buf_size: {}, return: {} ",
-        unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
-        buf_size,
-        ret
-    );
-    // let ret = unsafe {
-    //     readlink(path, buf as _, buf_size as _) as i32
-    // };
-    // debug!("=> path: {}, buf: {}, buf_size: {}, return: {} ",
-    //     unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
-    //     unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
-    //     // std::ffi::CStr::from_ptr(buf).to_str().unwrap(),
-    //     // buf,
-    //     buf_size,
-    //     ret);
-    ret
-}
-
 pub fn ___syscall91(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall91 - stub");
     0
+}
+
+pub fn ___syscall96(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall96");
+    -1
 }
 
 pub fn ___syscall97(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
@@ -241,25 +296,76 @@ pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+pub fn ___syscall121(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall121");
+    -1
+}
+
+pub fn ___syscall125(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall125");
+    -1
+}
+
+pub fn ___syscall132(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall132");
+    -1
+}
+
+pub fn ___syscall133(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall133");
+    -1
+}
+
+pub fn ___syscall144(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall144");
+    -1
+}
+
+pub fn ___syscall147(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall147");
+    -1
+}
+
+pub fn ___syscall150(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall150");
+    -1
+}
+
+pub fn ___syscall151(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall151");
+    -1
+}
+
+pub fn ___syscall152(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall152");
+    -1
+}
+
+pub fn ___syscall153(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall153");
+    -1
+}
+
+pub fn ___syscall163(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall163");
+    -1
+}
+
 // getcwd
 pub fn ___syscall183(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall183");
-    use std::env;
-    let buf_offset: c_int = varargs.get(ctx);
+    let buf_offset: WasmPtr<libc::c_char, Array> = varargs.get(ctx);
     let _size: c_int = varargs.get(ctx);
-    let path = env::current_dir();
+    let path = get_current_directory(ctx);
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
-    unsafe {
-        let pointer_to_buffer =
-            emscripten_memory_pointer!(ctx.memory(0), buf_offset) as *mut libc::c_char;
-        let slice = slice::from_raw_parts_mut(pointer_to_buffer, len.clone());
-        for (byte, loc) in path_string.bytes().zip(slice.iter_mut()) {
-            *loc = byte as _;
-        }
-        *pointer_to_buffer.add(len.clone()) = 0;
+
+    let buf_writer = buf_offset.deref(ctx.memory(0), 0, len as u32 + 1).unwrap();
+    for (i, byte) in path_string.bytes().enumerate() {
+        buf_writer[i].set(byte as i8);
     }
-    buf_offset
+    buf_writer[len].set(0);
+    buf_offset.offset() as i32
 }
 
 // mmap2
@@ -302,23 +408,21 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", _which);
     let fd: i32 = varargs.get(ctx);
-    let _ = varargs.get::<i32>(ctx); // ignore high offset
+    let _offset_high: i32 = varargs.get(ctx); // We don't use the offset high as emscripten skips it
     let offset_low: i32 = varargs.get(ctx);
-    let result_ptr_value = varargs.get::<i32>(ctx);
+    let result_ptr_value: WasmPtr<i64> = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     let offset = offset_low as off_t;
-    let ret = unsafe { lseek(fd, offset, whence) as i32 };
-    #[allow(clippy::cast_ptr_alignment)]
-    let result_ptr = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
-    assert_eq!(8, mem::align_of_val(&result_ptr));
-    unsafe {
-        *result_ptr = ret;
-    }
+    let ret = unsafe { lseek(fd, offset, whence) as i64 };
+
+    let result_ptr = result_ptr_value.deref(ctx.memory(0)).unwrap();
+    result_ptr.set(ret);
+
     debug!(
-        "=> fd: {}, offset: {}, result_ptr: {}, whence: {} = {}\nlast os error: {}",
+        "=> fd: {}, offset: {}, result: {}, whence: {} = {}\nlast os error: {}",
         fd,
         offset,
-        result_ptr_value,
+        ret,
         whence,
         0,
         Error::last_os_error(),
@@ -399,18 +503,25 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     }
 }
 
-pub fn ___syscall168(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall168");
-    -1
+pub fn ___syscall191(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    let _resource: i32 = varargs.get(ctx);
+    debug!(
+        "emscripten::___syscall191 - mostly stub, resource: {}",
+        _resource
+    );
+    let rlim_emptr: i32 = varargs.get(ctx);
+    let rlim_ptr = emscripten_memory_pointer!(ctx.memory(0), rlim_emptr) as *mut u8;
+    let rlim = unsafe { slice::from_raw_parts_mut(rlim_ptr, 16) };
+
+    // set all to RLIM_INIFINTY
+    LittleEndian::write_i64(&mut rlim[..], -1);
+    LittleEndian::write_i64(&mut rlim[8..], -1);
+
+    0
 }
 
-pub fn ___syscall191(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall191 - stub");
-    -1
-}
-
-pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall199 - stub");
+pub fn ___syscall193(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall193");
     -1
 }
 
@@ -420,12 +531,19 @@ pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let pathname_addr = varargs.get_str(ctx);
     let buf: u32 = varargs.get(ctx);
 
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
+
     unsafe {
         let mut _stat: stat = std::mem::zeroed();
-        let ret = stat(pathname_addr, &mut _stat);
+        let ret = stat(real_path, &mut _stat);
         debug!(
             "=> pathname: {}, buf: {} = {}, last os error: {}",
-            std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap(),
+            std::ffi::CStr::from_ptr(real_path).to_str().unwrap(),
             buf,
             ret,
             Error::last_os_error()
@@ -457,8 +575,18 @@ pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     0
 }
 
-pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall220");
+pub fn ___syscall209(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall209");
+    -1
+}
+
+pub fn ___syscall211(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall211");
+    -1
+}
+
+pub fn ___syscall218(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall218");
     -1
 }
 
@@ -474,7 +602,7 @@ pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     // |FNONBLOCK - 0x04
     debug!("=> fd: {}, cmd: {}", _fd, cmd);
     match cmd {
-        2 => 0,
+        1 | 2 => 0,
         13 | 14 => 0, // pretend file locking worked
         _ => -1,
     }
@@ -482,6 +610,11 @@ pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
 pub fn ___syscall268(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall268");
+    -1
+}
+
+pub fn ___syscall269(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall269");
     -1
 }
 
@@ -495,8 +628,63 @@ pub fn ___syscall295(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+pub fn ___syscall296(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall296");
+    -1
+}
+
+pub fn ___syscall297(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall297");
+    -1
+}
+
+pub fn ___syscall298(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall298");
+    -1
+}
+
 pub fn ___syscall300(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall300");
+    -1
+}
+
+pub fn ___syscall301(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall301");
+    -1
+}
+
+pub fn ___syscall302(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall302");
+    -1
+}
+
+pub fn ___syscall303(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall303");
+    -1
+}
+
+pub fn ___syscall304(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall304");
+    -1
+}
+
+pub fn ___syscall305(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall305");
+    -1
+}
+
+pub fn ___syscall306(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall306");
+    -1
+}
+
+pub fn ___syscall307(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall307");
+    -1
+}
+
+pub fn ___syscall308(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall308");
     -1
 }
 
@@ -506,8 +694,23 @@ pub fn ___syscall320(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_
     0
 }
 
+pub fn ___syscall331(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall331");
+    -1
+}
+
+pub fn ___syscall333(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall333");
+    -1
+}
+
 pub fn ___syscall334(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall334");
+    -1
+}
+
+pub fn ___syscall337(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall337");
     -1
 }
 
@@ -516,20 +719,29 @@ pub fn ___syscall340(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("emscripten::___syscall340 (prlimit64), {}", _which);
     // NOTE: Doesn't really matter. Wasm modules cannot exceed WASM_PAGE_SIZE anyway.
     let _pid: i32 = varargs.get(ctx);
-    let _resource: i32 = varargs.get(ctx);
+    let resource: i32 = varargs.get(ctx);
     let _new_limit: u32 = varargs.get(ctx);
     let old_limit: u32 = varargs.get(ctx);
+
+    let val = match resource {
+        // RLIMIT_NOFILE
+        7 => 1024,
+        _ => -1, // RLIM_INFINITY
+    };
 
     if old_limit != 0 {
         // just report no limits
         let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), old_limit) as *mut u8;
         let buf = unsafe { slice::from_raw_parts_mut(buf_ptr, 16) };
 
-        LittleEndian::write_i32(&mut buf[..], -1); // RLIM_INFINITY
-        LittleEndian::write_i32(&mut buf[4..], -1); // RLIM_INFINITY
-        LittleEndian::write_i32(&mut buf[8..], -1); // RLIM_INFINITY
-        LittleEndian::write_i32(&mut buf[12..], -1); // RLIM_INFINITY
+        LittleEndian::write_i64(&mut buf[..], val);
+        LittleEndian::write_i64(&mut buf[8..], val);
     }
 
     0
+}
+
+pub fn ___syscall345(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall345");
+    -1
 }

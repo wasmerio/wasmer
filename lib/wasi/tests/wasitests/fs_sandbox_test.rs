@@ -4,6 +4,7 @@ fn test_fs_sandbox_test() {
         "../../wasitests/fs_sandbox_test.wasm",
         "fs_sandbox_test",
         vec![],
+        vec![],
         "../../wasitests/fs_sandbox_test.out"
     );
 }

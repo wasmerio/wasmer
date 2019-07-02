@@ -1,5 +1,6 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
 use libc::{c_char, c_int};
+// use libc::{c_char, c_int, clock_getres, clock_settime};
 use std::mem;
 use std::time::SystemTime;
 
@@ -69,6 +70,12 @@ pub fn _gettimeofday(ctx: &mut Ctx, tp: c_int, tz: c_int) -> c_int {
     0
 }
 
+pub fn _clock_getres(_ctx: &mut Ctx, _clk_id: i32, _tp: i32) -> i32 {
+    debug!("emscripten::_clock_getres");
+    // clock_getres(clk_id, tp)
+    0
+}
+
 /// emscripten: _clock_gettime
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _clock_gettime(ctx: &mut Ctx, clk_id: clockid_t, tp: c_int) -> c_int {
@@ -100,6 +107,12 @@ pub fn _clock_gettime(ctx: &mut Ctx, clk_id: clockid_t, tp: c_int) -> c_int {
         (*timespec_struct_ptr).tv_sec = timespec.sec as _;
         (*timespec_struct_ptr).tv_nsec = timespec.nsec as _;
     }
+    0
+}
+
+pub fn _clock_settime(_ctx: &mut Ctx, _clk_id: i32, _tp: i32) -> i32 {
+    debug!("emscripten::_clock_settime");
+    // clock_settime(clk_id, tp)
     0
 }
 

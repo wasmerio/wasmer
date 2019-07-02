@@ -35,7 +35,7 @@ extern "C" fn signal_trap_handler(
                 let bkpt_map = BKPT_MAP.with(|x| x.borrow().last().map(|x| x.clone()));
                 if let Some(bkpt_map) = bkpt_map {
                     if let Some(ref x) = bkpt_map.get(&(ip as usize)) {
-                        (x)(BkptInfo {});
+                        (x)(BkptInfo { throw: throw });
                         return;
                     }
                 }
@@ -126,6 +126,15 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, CallProtError> {
             Ok(ret)
         }
     }
+}
+
+pub unsafe fn throw(payload: Box<dyn Any>) -> ! {
+    let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
+    if *jmp_buf == [0; SETJMP_BUFFER_LEN] {
+        ::std::process::abort();
+    }
+    TRAP_EARLY_DATA.with(|cell| cell.replace(Some(payload)));
+    longjmp(jmp_buf as *mut ::nix::libc::c_void, 0xffff);
 }
 
 /// Unwinds to last protected_call.
