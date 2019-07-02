@@ -220,10 +220,10 @@ pub fn _getaddrinfo(
                 .deref(memory)
                 .map(|m| m as *const Cell<c_char> as *const c_char))
             .unwrap_or(std::ptr::null()),
-            (service_str_ptr
+            service_str_ptr
                 .deref(memory)
-                .map(|m| m as *const Cell<c_char> as *const c_char))
-            .unwrap_or(std::ptr::null()),
+                .map(|m| m as *const Cell<c_char> as *const c_char)
+                .unwrap_or(std::ptr::null()),
             hints
                 .as_ref()
                 .map(|h| h as *const addrinfo)

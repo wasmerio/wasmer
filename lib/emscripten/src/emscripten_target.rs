@@ -135,7 +135,8 @@ pub fn _pthread_condattr_setclock(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
 }
 pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
     trace!("emscripten::_pthread_create");
-    0
+    // 11 seems to mean "no"
+    11
 }
 pub fn _pthread_detach(_ctx: &mut Ctx, _a: i32) -> i32 {
     trace!("emscripten::_pthread_detach");
