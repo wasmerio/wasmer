@@ -44,7 +44,7 @@ pub mod vmcalls;
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub use trampoline_x64 as trampoline;
 #[cfg(all(unix, target_arch = "x86_64"))]
-pub mod alternative_stack;
+pub mod fault;
 pub mod state;
 
 use self::error::CompileResult;

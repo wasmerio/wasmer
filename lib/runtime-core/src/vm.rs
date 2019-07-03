@@ -211,7 +211,7 @@ fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
 
 #[cfg(all(unix, target_arch = "x86_64"))]
 fn get_interrupt_signal_mem() -> *mut u8 {
-    unsafe { crate::alternative_stack::get_wasm_interrupt_signal_mem() }
+    unsafe { crate::fault::get_wasm_interrupt_signal_mem() }
 }
 
 #[cfg(not(all(unix, target_arch = "x86_64")))]

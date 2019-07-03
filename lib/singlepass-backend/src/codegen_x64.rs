@@ -1236,6 +1236,9 @@ impl X64FunctionCode {
                     match *param {
                         Location::GPR(x) => {
                             let content = m.state.register_values[X64Register::GPR(x).to_index().0];
+                            // FIXME: There might be some corner cases (release -> emit_call_sysv -> acquire?) that cause this assertion to fail.
+                            // Hopefully nothing would be incorrect at runtime.
+
                             //assert!(content != MachineValue::Undefined);
                             m.state.stack_values.push(content);
                         }
