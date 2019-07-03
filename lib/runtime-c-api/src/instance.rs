@@ -173,6 +173,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
                         tag: wasmer_value_tag::WASM_F64,
                         value: wasmer_value { F64: x },
                     },
+                    _ => panic!("not implemented"),
                 };
                 results[0] = ret;
             }

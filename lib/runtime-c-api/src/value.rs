@@ -76,6 +76,7 @@ impl From<Value> for wasmer_value_t {
                 tag: wasmer_value_tag::WASM_F64,
                 value: wasmer_value { F64: x },
             },
+            _ => panic!("not implemented"),
         }
     }
 }
@@ -113,6 +114,7 @@ impl From<&wasmer_runtime::wasm::Type> for wasmer_value_tag {
             Type::I64 => wasmer_value_tag::WASM_I64,
             Type::F32 => wasmer_value_tag::WASM_F32,
             Type::F64 => wasmer_value_tag::WASM_F64,
+            _ => panic!("not implemented"),
         }
     }
 }
