@@ -360,7 +360,7 @@ impl InstanceImage {
 pub mod x64 {
     use super::*;
     use crate::fault::{catch_unsafe_unwind, run_on_alternative_stack};
-    use crate::codegen::BkptMap;
+    use crate::codegen::BreakpointMap;
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
@@ -382,7 +382,7 @@ pub mod x64 {
         code_base: usize,
         image: InstanceImage,
         vmctx: &mut Ctx,
-        breakpoints: Option<BkptMap>,
+        breakpoints: Option<BreakpointMap>,
     ) -> Result<u64, Box<dyn Any>> {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
         let mut stack_offset: usize = stack.len();

@@ -14,7 +14,7 @@ use std::cell::Cell;
 use wasmer_runtime_core::fault::{
     begin_unsafe_unwind, catch_unsafe_unwind, ensure_sighandler,
 };
-use wasmer_runtime_core::codegen::BkptMap;
+use wasmer_runtime_core::codegen::BreakpointMap;
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 thread_local! {
@@ -32,7 +32,7 @@ pub enum CallProtError {
 
 pub fn call_protected<T>(
     f: impl FnOnce() -> T,
-    breakpoints: Option<BkptMap>,
+    breakpoints: Option<BreakpointMap>,
 ) -> Result<T, CallProtError> {
     ensure_sighandler();
     unsafe {

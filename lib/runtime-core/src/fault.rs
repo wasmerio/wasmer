@@ -8,7 +8,7 @@ mod raw {
     }
 }
 
-use crate::codegen::{BkptInfo, BkptMap};
+use crate::codegen::{BreakpointInfo, BreakpointMap};
 use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR, XMM};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
@@ -34,7 +34,7 @@ type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 
 struct UnwindInfo {
     jmpbuf: SetJmpBuffer, // in
-    breakpoints: Option<BkptMap>,
+    breakpoints: Option<BreakpointMap>,
     payload: Option<Box<Any>>, // out
 }
 
@@ -88,7 +88,7 @@ pub unsafe fn clear_wasm_interrupt() {
 
 pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     f: F,
-    breakpoints: Option<BkptMap>,
+    breakpoints: Option<BreakpointMap>,
 ) -> Result<R, Box<Any>> {
     let unwind = UNWIND.with(|x| x.get());
     let old = (*unwind).take();
@@ -120,7 +120,7 @@ pub unsafe fn begin_unsafe_unwind(e: Box<Any>) -> ! {
     raw::longjmp(&mut inner.jmpbuf as *mut SetJmpBuffer as *mut _, 0xffff);
 }
 
-unsafe fn with_breakpoint_map<R, F: FnOnce(Option<&BkptMap>) -> R>(f: F) -> R {
+unsafe fn with_breakpoint_map<R, F: FnOnce(Option<&BreakpointMap>) -> R>(f: F) -> R {
     let unwind = UNWIND.with(|x| x.get());
     let inner = (*unwind)
         .as_mut()
@@ -183,7 +183,7 @@ extern "C" fn signal_trap_handler(
                     // breakpoint
                     let out: Option<Result<(), Box<dyn Any>>> = with_breakpoint_map(|bkpt_map| {
                         bkpt_map.and_then(|x| x.get(&(fault.ip as usize))).map(|x| {
-                            x(BkptInfo {
+                            x(BreakpointInfo {
                                 fault: Some(&fault),
                             })
                         })

@@ -148,7 +148,7 @@ pub struct X64FunctionCode {
     breakpoints: Option<
         HashMap<
             AssemblyOffset,
-            Box<Fn(BkptInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
+            Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
         >,
     >,
     returns: SmallVec<[WpType; 1]>,
@@ -178,7 +178,7 @@ pub struct X64ExecutionContext {
     function_pointers: Vec<FuncPtr>,
     function_offsets: Vec<AssemblyOffset>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
-    breakpoints: BkptMap,
+    breakpoints: BreakpointMap,
     func_import_count: usize,
     msm: ModuleStateMap,
 }
@@ -216,7 +216,7 @@ impl RunnableModule for X64ExecutionContext {
         Some(self.msm.clone())
     }
 
-    fn get_breakpoints(&self) -> Option<BkptMap> {
+    fn get_breakpoints(&self) -> Option<BreakpointMap> {
         Some(self.breakpoints.clone())
     }
 

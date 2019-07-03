@@ -9,7 +9,7 @@ use crate::{
 
 use crate::{
     cache::{Artifact, Error as CacheError},
-    codegen::BkptMap,
+    codegen::BreakpointMap,
     module::ModuleInfo,
     sys::Memory,
 };
@@ -90,7 +90,7 @@ pub trait RunnableModule: Send + Sync {
         None
     }
 
-    fn get_breakpoints(&self) -> Option<BkptMap> {
+    fn get_breakpoints(&self) -> Option<BreakpointMap> {
         None
     }
 
