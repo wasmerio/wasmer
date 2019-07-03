@@ -17,7 +17,8 @@ use std::sync::{Arc, RwLock};
 use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
-pub type BreakpointHandler = Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
+pub type BreakpointHandler =
+    Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
 pub type BreakpointMap = Arc<HashMap<usize, BreakpointHandler>>;
 
 #[derive(Debug)]

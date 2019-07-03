@@ -359,8 +359,8 @@ impl InstanceImage {
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub mod x64 {
     use super::*;
-    use crate::fault::{catch_unsafe_unwind, run_on_alternative_stack};
     use crate::codegen::BreakpointMap;
+    use crate::fault::{catch_unsafe_unwind, run_on_alternative_stack};
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;

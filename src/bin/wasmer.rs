@@ -514,9 +514,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             #[cfg(feature = "backend:singlepass")]
             unsafe {
                 if options.backend == Backend::Singlepass {
-                    use wasmer_runtime_core::fault::{
-                        catch_unsafe_unwind, ensure_sighandler,
-                    };
+                    use wasmer_runtime_core::fault::{catch_unsafe_unwind, ensure_sighandler};
                     use wasmer_runtime_core::state::{
                         x64::invoke_call_return_on_stack, InstanceImage,
                     };

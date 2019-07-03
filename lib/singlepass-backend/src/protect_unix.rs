@@ -11,10 +11,8 @@
 //!
 use std::any::Any;
 use std::cell::Cell;
-use wasmer_runtime_core::fault::{
-    begin_unsafe_unwind, catch_unsafe_unwind, ensure_sighandler,
-};
 use wasmer_runtime_core::codegen::BreakpointMap;
+use wasmer_runtime_core::fault::{begin_unsafe_unwind, catch_unsafe_unwind, ensure_sighandler};
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 thread_local! {
