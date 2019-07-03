@@ -104,7 +104,6 @@ impl ModuleStateMap {
         if ip < base || ip - base >= self.total_size {
             None
         } else {
-            //println!("lookup ip: {} in {:?}", ip - base, self.local_functions);
             let (_, fsm) = self
                 .local_functions
                 .range((Unbounded, Included(&(ip - base))))
@@ -126,7 +125,6 @@ impl ModuleStateMap {
         if ip < base || ip - base >= self.total_size {
             None
         } else {
-            //println!("lookup ip: {} in {:?}", ip - base, self.local_functions);
             let (_, fsm) = self
                 .local_functions
                 .range((Unbounded, Included(&(ip - base))))
@@ -144,7 +142,6 @@ impl ModuleStateMap {
         if ip < base || ip - base >= self.total_size {
             None
         } else {
-            //println!("lookup ip: {} in {:?}", ip - base, self.local_functions);
             let (_, fsm) = self
                 .local_functions
                 .range((Unbounded, Included(&(ip - base))))

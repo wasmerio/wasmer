@@ -27,6 +27,8 @@ pub(crate) unsafe fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: 
     raw::run_on_alternative_stack(stack_end, stack_begin)
 }
 
+const TRAP_STACK_SIZE: usize = 1048576; // 1MB
+
 const SETJMP_BUFFER_LEN: usize = 27;
 type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 
@@ -173,7 +175,7 @@ extern "C" fn signal_trap_handler(
 
         let mut unwind_result: Box<dyn Any> = Box::new(());
 
-        let should_unwind = allocate_and_run(1048576, || {
+        let should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
             let mut is_suspend_signal = false;
 
             match Signal::from_c_int(signum) {
