@@ -120,13 +120,12 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let _path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
     let fd = unsafe { open(real_path, flags, mode) };
     debug!(
-        "=> path: {}, flags: {}, mode: {} = fd: {}, last os error: {}",
-        _path_str,
-        flags,
-        mode,
-        fd,
-        Error::last_os_error(),
+        "=> path: {}, flags: {}, mode: {} = fd: {}",
+        _path_str, flags, mode, fd,
     );
+    if fd == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
     fd
 }
 
