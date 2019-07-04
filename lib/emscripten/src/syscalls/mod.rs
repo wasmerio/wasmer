@@ -17,21 +17,23 @@ use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
-    // ENOTTY,
     c_int,
     c_void,
     chdir,
-    // fcntl, setsockopt, getppid
+    // setsockopt, getppid
     close,
     dup2,
     exit,
+    fcntl,
     fstat,
+    getpgid,
     getpid,
     // readlink,
     // iovec,
     lseek,
     off_t,
     //    open,
+    pid_t,
     read,
     rename,
     // sockaddr_in,
@@ -40,6 +42,7 @@ use libc::{
     // writev,
     stat,
     write,
+    // ENOTTY,
 };
 use wasmer_runtime_core::{
     memory::ptr::{Array, WasmPtr},
@@ -306,9 +309,17 @@ pub fn ___syscall125(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
-pub fn ___syscall132(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall132");
-    -1
+pub fn ___syscall132(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall132 (getpgid)");
+
+    let pid: pid_t = varargs.get(ctx);
+
+    let ret = unsafe { getpgid(pid) };
+    debug!("=> pid: {} = {}", pid, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
+    ret
 }
 
 pub fn ___syscall133(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
