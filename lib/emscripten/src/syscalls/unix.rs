@@ -918,9 +918,16 @@ pub fn ___syscall148(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 // setpgid
 pub fn ___syscall57(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall57 (setpgid) {}", _which);
+
     let pid: i32 = varargs.get(ctx);
     let pgid: i32 = varargs.get(ctx);
-    unsafe { setpgid(pid, pgid) }
+
+    let ret = unsafe { setpgid(pid, pgid) };
+    debug!("=> pid: {}, pgid: {} = {}", pid, pgid, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
+    ret
 }
 
 /// uname
