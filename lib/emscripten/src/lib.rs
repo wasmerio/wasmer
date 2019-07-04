@@ -124,6 +124,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_viiiiiiiiii:
         Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_iij: Option<Func<'a, (i32, i32, i32, i32), i32>>,
+    pub dyn_call_iji: Option<Func<'a, (i32, i32, i32, i32), i32>>,
     pub dyn_call_iiji: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_j: Option<Func<'a, i32, i32>>,
@@ -146,6 +147,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viid: Option<Func<'a, (i32, i32, i32, f64)>>,
+    pub dyn_call_vidd: Option<Func<'a, (i32, i32, f64, f64)>>,
     pub dyn_call_viidii: Option<Func<'a, (i32, i32, i32, f64, i32, i32)>>,
     pub dyn_call_viidddddddd:
         Option<Func<'a, (i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64)>>,
@@ -197,6 +199,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_viiiiiiiii = instance.func("dynCall_viiiiiiiii").ok();
         let dyn_call_viiiiiiiiii = instance.func("dynCall_viiiiiiiiii").ok();
         let dyn_call_iij = instance.func("dynCall_iij").ok();
+        let dyn_call_iji = instance.func("dynCall_iji").ok();
         let dyn_call_iiji = instance.func("dynCall_iiji").ok();
         let dyn_call_iiijj = instance.func("dynCall_iiijj").ok();
         let dyn_call_j = instance.func("dynCall_j").ok();
@@ -218,6 +221,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
         let dyn_call_vijj = instance.func("dynCall_vijj").ok();
         let dyn_call_viid = instance.func("dynCall_viid").ok();
+        let dyn_call_vidd = instance.func("dynCall_vidd").ok();
         let dyn_call_viidii = instance.func("dynCall_viidii").ok();
         let dyn_call_viidddddddd = instance.func("dynCall_viidddddddd").ok();
 
@@ -263,6 +267,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_viiiiiiiii,
             dyn_call_viiiiiiiiii,
             dyn_call_iij,
+            dyn_call_iji,
             dyn_call_iiji,
             dyn_call_iiijj,
             dyn_call_j,
@@ -284,6 +289,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_vijiii,
             dyn_call_vijj,
             dyn_call_viid,
+            dyn_call_vidd,
             dyn_call_viidii,
             dyn_call_viidddddddd,
             temp_ret_0: 0,
@@ -887,7 +893,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
         "_pthread_sigmask" => func!(crate::emscripten_target::_pthread_sigmask),
         "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
-        "_gai_strerror" => func!(crate::emscripten_target::_gai_strerror),
+        "_gai_strerror" => func!(crate::env::_gai_strerror),
         "_getdtablesize" => func!(crate::emscripten_target::_getdtablesize),
         "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
         "_gethostbyname" => func!(crate::emscripten_target::_gethostbyname),
@@ -912,6 +918,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
         "invoke_viiiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiiii),
         "invoke_iij" => func!(crate::emscripten_target::invoke_iij),
+        "invoke_iji" => func!(crate::emscripten_target::invoke_iji),
         "invoke_iiji" => func!(crate::emscripten_target::invoke_iiji),
         "invoke_iiijj" => func!(crate::emscripten_target::invoke_iiijj),
         "invoke_j" => func!(crate::emscripten_target::invoke_j),
@@ -930,6 +937,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_viji" => func!(crate::emscripten_target::invoke_viji),
         "invoke_vijiii" => func!(crate::emscripten_target::invoke_vijiii),
         "invoke_vijj" => func!(crate::emscripten_target::invoke_vijj),
+        "invoke_vidd" => func!(crate::emscripten_target::invoke_vidd),
         "invoke_viid" => func!(crate::emscripten_target::invoke_viid),
         "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
         "invoke_viidddddddd" => func!(crate::emscripten_target::invoke_viidddddddd),

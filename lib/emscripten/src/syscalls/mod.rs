@@ -50,7 +50,6 @@ use super::env;
 use std::cell::Cell;
 #[allow(unused_imports)]
 use std::io::Error;
-use std::mem;
 use std::slice;
 
 /// exit
@@ -277,34 +276,6 @@ pub fn ___syscall75(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
-// readlink
-pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
-    debug!("emscripten::___syscall85 (readlink)");
-    let _path = varargs.get_str(ctx);
-    let buf = varargs.get_str(ctx);
-    // let buf_addr: i32 = varargs.get(ctx);
-    let buf_size: i32 = varargs.get(ctx);
-    let fd = 3;
-    let ret = unsafe { read(fd, buf as _, buf_size as _) as i32 };
-    debug!(
-        "=> buf: {}, buf_size: {}, return: {} ",
-        unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
-        buf_size,
-        ret
-    );
-    // let ret = unsafe {
-    //     readlink(path, buf as _, buf_size as _) as i32
-    // };
-    // debug!("=> path: {}, buf: {}, buf_size: {}, return: {} ",
-    //     unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
-    //     unsafe { std::ffi::CStr::from_ptr(buf as _).to_str().unwrap() },
-    //     // std::ffi::CStr::from_ptr(buf).to_str().unwrap(),
-    //     // buf,
-    //     buf_size,
-    //     ret);
-    ret
-}
-
 pub fn ___syscall91(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall91 - stub");
     0
@@ -437,23 +408,21 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", _which);
     let fd: i32 = varargs.get(ctx);
-    let _ = varargs.get::<i32>(ctx); // ignore high offset
+    let _offset_high: i32 = varargs.get(ctx); // We don't use the offset high as emscripten skips it
     let offset_low: i32 = varargs.get(ctx);
-    let result_ptr_value = varargs.get::<i32>(ctx);
+    let result_ptr_value: WasmPtr<i64> = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     let offset = offset_low as off_t;
-    let ret = unsafe { lseek(fd, offset, whence) as i32 };
-    #[allow(clippy::cast_ptr_alignment)]
-    let result_ptr = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
-    assert_eq!(8, mem::align_of_val(&result_ptr));
-    unsafe {
-        *result_ptr = ret;
-    }
+    let ret = unsafe { lseek(fd, offset, whence) as i64 };
+
+    let result_ptr = result_ptr_value.deref(ctx.memory(0)).unwrap();
+    result_ptr.set(ret);
+
     debug!(
-        "=> fd: {}, offset: {}, result_ptr: {}, whence: {} = {}\nlast os error: {}",
+        "=> fd: {}, offset: {}, result: {}, whence: {} = {}\nlast os error: {}",
         fd,
         offset,
-        result_ptr_value,
+        ret,
         whence,
         0,
         Error::last_os_error(),
@@ -532,11 +501,6 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         // debug!(" => ret: {}", ret);
         ret as _
     }
-}
-
-pub fn ___syscall168(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall168 - stub");
-    -1
 }
 
 pub fn ___syscall191(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {

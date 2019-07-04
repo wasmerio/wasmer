@@ -46,7 +46,9 @@ fn align_pointer(ptr: usize, align: usize) -> usize {
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
-        if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
+        if self.offset == 0
+            || (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0
+        {
             return None;
         }
         unsafe {
@@ -56,6 +58,20 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
             ) as *const Cell<T>;
             Some(&*cell_ptr)
         }
+    }
+
+    #[inline]
+    pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<&'a mut Cell<T>> {
+        if self.offset == 0
+            || (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0
+        {
+            return None;
+        }
+        let cell_ptr = align_pointer(
+            memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
+            mem::align_of::<T>(),
+        ) as *mut Cell<T>;
+        Some(&mut *cell_ptr)
     }
 }
 
@@ -67,7 +83,9 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
         let slice_full_len = index as usize + length as usize;
 
-        if (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0 {
+        if self.offset == 0
+            || (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0
+        {
             return None;
         }
 
@@ -80,6 +98,33 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
                 [index as usize..slice_full_len];
             Some(cell_ptrs)
         }
+    }
+
+    #[inline]
+    pub unsafe fn deref_mut<'a>(
+        self,
+        memory: &'a Memory,
+        index: u32,
+        length: u32,
+    ) -> Option<&'a mut [Cell<T>]> {
+        // gets the size of the item in the array with padding added such that
+        // for any index, we will always result an aligned memory access
+        let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
+        let slice_full_len = index as usize + length as usize;
+
+        if self.offset == 0
+            || (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0
+        {
+            return None;
+        }
+
+        let cell_ptr = align_pointer(
+            memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
+            mem::align_of::<T>(),
+        ) as *mut Cell<T>;
+        let cell_ptrs = &mut std::slice::from_raw_parts_mut(cell_ptr, slice_full_len)
+            [index as usize..slice_full_len];
+        Some(cell_ptrs)
     }
 }
 

@@ -29,7 +29,7 @@ use wasmer_runtime_core::{
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
 };
-use wasmparser::{Operator, Type as WpType};
+use wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 
 lazy_static! {
     /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
@@ -1692,8 +1692,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::GetLocal { local_index } => {
                 let local_index = local_index as usize;
-                self.value_stack
-                    .push((self.locals[local_index], LocalOrTemp::Local));
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    self.locals[local_index],
+                    ret,
+                );
+                self.value_stack.push((ret, LocalOrTemp::Temp));
             }
             Operator::SetLocal { local_index } => {
                 let local_index = local_index as usize;
@@ -3327,8 +3335,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: false,
                     if_else: IfElseState::If(label_else),
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                 });
@@ -3426,8 +3435,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: false,
                     if_else: IfElseState::None,
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                 });
@@ -3439,8 +3449,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: true,
                     if_else: IfElseState::None,
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                 });
