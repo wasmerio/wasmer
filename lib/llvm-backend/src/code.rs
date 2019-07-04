@@ -24,7 +24,7 @@ use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
 
 use crate::backend::LLVMBackend;
 use crate::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
-use crate::read_info::type_to_type;
+use crate::read_info::{blocktype_to_type, type_to_type};
 use crate::state::{ControlFrame, IfElseState, State};
 use crate::trampolines::generate_trampolines;
 
@@ -525,7 +525,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let end_block = context.append_basic_block(&function, "end");
                 builder.position_at_end(&end_block);
 
-                let phis = if let Ok(wasmer_ty) = type_to_type(ty) {
+                let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
                     let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
                     [llvm_ty]
                         .iter()
@@ -545,7 +545,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 builder.build_unconditional_branch(&loop_body);
 
                 builder.position_at_end(&loop_next);
-                let phis = if let Ok(wasmer_ty) = type_to_type(ty) {
+                let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
                     let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
                     [llvm_ty]
                         .iter()
@@ -680,7 +680,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let end_phis = {
                     builder.position_at_end(&end_block);
 
-                    let phis = if let Ok(wasmer_ty) = type_to_type(ty) {
+                    let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
                         let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
                         [llvm_ty]
                             .iter()
