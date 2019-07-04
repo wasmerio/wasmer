@@ -67,11 +67,12 @@ use libc::{
     EINVAL,
     // sockaddr_in,
     FIOCLEX,
-    FIONBIO,
+    // FIONBIO,
     F_GETFD,
     F_SETFD,
     SOL_SOCKET,
     TIOCGWINSZ,
+    TIOCSPGRP,
 };
 
 #[allow(unused_imports)]
@@ -417,30 +418,21 @@ pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
 /// ioctl
 pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall54 (ioctl) {}", _which);
+
     let fd: i32 = varargs.get(ctx);
     let request: u32 = varargs.get(ctx);
     debug!("=> fd: {}, op: {}", fd, request);
+
     // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
-    // let argp: u32 = varargs.get(ctx);
-    // let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
+    let argp: u32 = varargs.get(ctx);
+    let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
     // let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
     // debug!("=> {}", ret);
     // ret
+
     match request as _ {
-        21537 => {
-            // FIONBIO
-            let argp: u32 = varargs.get(ctx);
-            let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-            let ret = unsafe { ioctl(fd, FIONBIO, argp_ptr) };
-            debug!("ret(FIONBIO): {}", ret);
-            ret
-            // 0
-        }
-        21523 => {
-            // TIOCGWINSZ
-            let argp: u32 = varargs.get(ctx);
-            let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-            let ret = unsafe { ioctl(fd, TIOCGWINSZ, argp_ptr) };
+        TIOCGWINSZ => {
+            let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
             debug!("ret(TIOCGWINSZ): {} (harcoded to 0)", ret);
             // ret
             // TODO: We hardcode the value to have emscripten tests pass, as for some reason
@@ -451,12 +443,14 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
                 ret
             }
         }
-        _ => {
-            debug!(
-                "emscripten::___syscall54 -> non implemented case {}",
-                request
-            );
+        TIOCSPGRP => {
+            debug!("ret(TIOCSPGRP): (noop)");
             0
+        }
+        _ => {
+            let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
+            debug!("ret({}): {}", request, ret);
+            ret
         }
     }
 }
