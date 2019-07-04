@@ -34,7 +34,7 @@ use wasmer_runtime_core::{
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
 };
-use wasmparser::{Operator, Type as WpType};
+use wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 
 lazy_static! {
     /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
@@ -3782,8 +3782,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: false,
                     if_else: IfElseState::If(label_else),
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),
@@ -3888,8 +3889,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: false,
                     if_else: IfElseState::None,
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),
@@ -3912,8 +3914,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loop_like: true,
                     if_else: IfElseState::None,
                     returns: match ty {
-                        WpType::EmptyBlockType => smallvec![],
-                        _ => smallvec![ty],
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),

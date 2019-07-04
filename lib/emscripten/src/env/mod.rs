@@ -13,16 +13,20 @@ pub use self::windows::*;
 use libc::c_char;
 
 use crate::{allocate_on_stack, EmscriptenData};
-use std::os::raw::c_int;
-use wasmer_runtime_core::vm::Ctx;
 
-pub fn _getaddrinfo(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32, _four: i32) -> i32 {
-    debug!("emscripten::_getaddrinfo");
-    -1
-}
+use std::os::raw::c_int;
+use wasmer_runtime_core::{
+    memory::ptr::{Array, WasmPtr},
+    types::ValueType,
+    vm::Ctx,
+};
 
 pub fn call_malloc(ctx: &mut Ctx, size: u32) -> u32 {
     get_emscripten_data(ctx).malloc.call(size).unwrap()
+}
+
+pub fn call_malloc_with_cast<T: Copy, Ty>(ctx: &mut Ctx, size: u32) -> WasmPtr<T, Ty> {
+    WasmPtr::new(get_emscripten_data(ctx).malloc.call(size).unwrap())
 }
 
 pub fn call_memalign(ctx: &mut Ctx, alignment: u32, size: u32) -> u32 {
@@ -152,3 +156,37 @@ pub fn _fpathconf(_ctx: &mut Ctx, _fildes: c_int, name: c_int) -> c_int {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct EmAddrInfo {
+    // int
+    pub ai_flags: i32,
+    // int
+    pub ai_family: i32,
+    // int
+    pub ai_socktype: i32,
+    // int
+    pub ai_protocol: i32,
+    // socklen_t
+    pub ai_addrlen: u32,
+    // struct sockaddr*
+    pub ai_addr: WasmPtr<EmSockAddr>,
+    // char*
+    pub ai_canonname: WasmPtr<c_char, Array>,
+    // struct addrinfo*
+    pub ai_next: WasmPtr<EmAddrInfo>,
+}
+
+unsafe impl ValueType for EmAddrInfo {}
+
+// NOTE: from looking at emscripten JS, this should be a union
+// TODO: review this, highly likely to have bugs
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct EmSockAddr {
+    pub sa_family: i16,
+    pub sa_data: [c_char; 14],
+}
+
+unsafe impl ValueType for EmSockAddr {}
