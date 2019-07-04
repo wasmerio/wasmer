@@ -594,18 +594,19 @@ pub fn ___syscall218(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall221 (fcntl64) {}", _which);
     // fcntl64
-    let _fd: i32 = varargs.get(ctx);
-    let cmd: u32 = varargs.get(ctx);
+    let fd: i32 = varargs.get(ctx);
+    let cmd: i32 = varargs.get(ctx);
+    let arg: i32 = varargs.get(ctx);
     // (FAPPEND   - 0x08
     // |FASYNC    - 0x40
     // |FFSYNC    - 0x80
     // |FNONBLOCK - 0x04
-    debug!("=> fd: {}, cmd: {}", _fd, cmd);
-    match cmd {
-        1 | 2 => 0,
-        13 | 14 => 0, // pretend file locking worked
-        _ => -1,
+    let ret = unsafe { fcntl(fd, cmd, arg) };
+    debug!("=> fd: {}, cmd: {} = {}", fd, cmd, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
     }
+    ret
 }
 
 pub fn ___syscall268(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
