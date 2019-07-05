@@ -46,7 +46,7 @@ impl IsExport for Export {
 /// ```
 pub struct ImportObject {
     map: Rc<RefCell<HashMap<String, Box<dyn LikeNamespace>>>>,
-    state_creator: Option<Rc<Fn() -> (*mut c_void, fn(*mut c_void))>>,
+    pub(crate) state_creator: Option<Rc<Fn() -> (*mut c_void, fn(*mut c_void))>>,
     pub allow_missing_functions: bool,
 }
 

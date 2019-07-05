@@ -9,12 +9,17 @@ use crate::{
 };
 use smallvec::SmallVec;
 use std::any::Any;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
 use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
+
+pub type BreakpointHandler =
+    Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
+pub type BreakpointMap = Arc<HashMap<usize, BreakpointHandler>>;
 
 #[derive(Debug)]
 pub enum Event<'a, 'b> {
@@ -26,7 +31,7 @@ pub enum Event<'a, 'b> {
 pub enum InternalEvent {
     FunctionBegin(u32),
     FunctionEnd,
-    Breakpoint(Box<Fn(BkptInfo) + Send + Sync + 'static>),
+    Breakpoint(BreakpointHandler),
     SetInternal(u32),
     GetInternal(u32),
 }
@@ -43,8 +48,8 @@ impl fmt::Debug for InternalEvent {
     }
 }
 
-pub struct BkptInfo {
-    pub throw: unsafe fn(Box<dyn Any>) -> !,
+pub struct BreakpointInfo<'a> {
+    pub fault: Option<&'a dyn Any>,
 }
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {

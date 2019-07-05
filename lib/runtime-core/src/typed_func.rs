@@ -180,6 +180,10 @@ where
             _phantom: PhantomData,
         }
     }
+
+    pub fn get_vm_func(&self) -> NonNull<vm::Func> {
+        self.f
+    }
 }
 
 impl<'a, Args, Rets> Func<'a, Args, Rets, Host>
@@ -364,30 +368,35 @@ macro_rules! impl_traits {
         impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
             fn to_raw(&self) -> NonNull<vm::Func> {
-                assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
+                if mem::size_of::<Self>() == 0 {
+                    /// This is required for the llvm backend to be able to unwind through this function.
+                    #[cfg_attr(nightly, unwind(allowed))]
+                    extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: <$x as WasmExternType>::Native )* ) -> Rets::CStruct {
+                        let f: FN = unsafe { mem::transmute_copy(&()) };
 
-                /// This is required for the llvm backend to be able to unwind through this function.
-                #[cfg_attr(nightly, unwind(allowed))]
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: <$x as WasmExternType>::Native )* ) -> Rets::CStruct {
-                    let f: FN = unsafe { mem::transmute_copy(&()) };
+                        let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                            f( ctx $( ,WasmExternType::from_native($x) )* ).report()
+                        })) {
+                            Ok(Ok(returns)) => return returns.into_c_struct(),
+                            Ok(Err(err)) => {
+                                let b: Box<_> = err.into();
+                                b as Box<dyn Any>
+                            },
+                            Err(err) => err,
+                        };
 
-                    let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        f( ctx $( ,WasmExternType::from_native($x) )* ).report()
-                    })) {
-                        Ok(Ok(returns)) => return returns.into_c_struct(),
-                        Ok(Err(err)) => {
-                            let b: Box<_> = err.into();
-                            b as Box<dyn Any>
-                        },
-                        Err(err) => err,
-                    };
-
-                    unsafe {
-                        (&*ctx.module).runnable_module.do_early_trap(err)
+                        unsafe {
+                            (&*ctx.module).runnable_module.do_early_trap(err)
+                        }
                     }
-                }
 
-                NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap()
+                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap()
+                } else {
+                    assert_eq!(mem::size_of::<Self>(), mem::size_of::<usize>(), "you cannot use a closure that captures state for `Func`.");
+                    NonNull::new(unsafe {
+                        ::std::mem::transmute_copy::<_, *mut vm::Func>(self)
+                    }).unwrap()
+                }
             }
         }
 
