@@ -486,7 +486,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("{:?}", e))?;
     } else {
         if cfg!(feature = "wasi") && wasmer_wasi::is_wasi_module(&module) {
-            let mut import_object = wasmer_wasi::generate_import_object(
+            let import_object = wasmer_wasi::generate_import_object(
                 if let Some(cn) = &options.command_name {
                     [cn.clone()]
                 } else {
@@ -505,7 +505,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 mapped_dirs,
             );
 
-            let mut instance = module
+            let instance = module
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 

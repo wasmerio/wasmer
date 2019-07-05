@@ -1,23 +1,15 @@
+#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
+
 extern crate byteorder;
 extern crate structopt;
 
-use std::thread;
 use structopt::StructOpt;
-use wasmer::*;
-use wasmer_runtime::Value;
-use wasmer_runtime_core::{
-    self,
-    backend::{CompilerConfig, MemoryBoundCheckMode},
-    loader::Instance as LoadedInstance,
-};
+
 #[cfg(feature = "loader:kernel")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 
-use std::io::prelude::*;
 #[cfg(feature = "loader:kernel")]
 use std::os::unix::net::{UnixListener, UnixStream};
-
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "kwasmd", about = "Kernel-mode WebAssembly service.")]
