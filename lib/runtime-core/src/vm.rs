@@ -38,8 +38,8 @@ pub struct Ctx {
 
     /// These are pointers to things that are known to be owned
     /// by the owning `Instance`.
-    local_backing: *mut LocalBacking,
-    import_backing: *mut ImportBacking,
+    pub local_backing: *mut LocalBacking,
+    pub import_backing: *mut ImportBacking,
     pub module: *const ModuleInner,
 
     //// This is intended to be user-supplied, per-instance
@@ -100,6 +100,8 @@ pub struct InternalCtx {
     pub memory_bound: usize,
 
     pub internals: *mut [u64; INTERNALS_SIZE], // TODO: Make this dynamic?
+
+    pub interrupt_signal_mem: *mut u8,
 }
 
 static INTERNAL_FIELDS: AtomicUsize = AtomicUsize::new(0);
@@ -207,6 +209,17 @@ fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
     }
 }
 
+#[cfg(all(unix, target_arch = "x86_64"))]
+fn get_interrupt_signal_mem() -> *mut u8 {
+    unsafe { crate::fault::get_wasm_interrupt_signal_mem() }
+}
+
+#[cfg(not(all(unix, target_arch = "x86_64")))]
+fn get_interrupt_signal_mem() -> *mut u8 {
+    static mut REGION: u64 = 0;
+    unsafe { &mut REGION as *mut u64 as *mut u8 }
+}
+
 impl Ctx {
     #[doc(hidden)]
     pub unsafe fn new(
@@ -245,6 +258,8 @@ impl Ctx {
                 memory_bound: mem_bound,
 
                 internals: &mut local_backing.internals.0,
+
+                interrupt_signal_mem: get_interrupt_signal_mem(),
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -296,6 +311,8 @@ impl Ctx {
                 memory_bound: mem_bound,
 
                 internals: &mut local_backing.internals.0,
+
+                interrupt_signal_mem: get_interrupt_signal_mem(),
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -419,8 +436,12 @@ impl Ctx {
         12 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_local_functions() -> u8 {
+    pub fn offset_interrupt_signal_mem() -> u8 {
         13 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn offset_local_functions() -> u8 {
+        14 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -638,6 +659,11 @@ mod vm_offset_tests {
         assert_eq!(
             Ctx::offset_internals() as usize,
             offset_of!(InternalCtx => internals).get_byte_offset(),
+        );
+
+        assert_eq!(
+            Ctx::offset_interrupt_signal_mem() as usize,
+            offset_of!(InternalCtx => interrupt_signal_mem).get_byte_offset(),
         );
 
         assert_eq!(

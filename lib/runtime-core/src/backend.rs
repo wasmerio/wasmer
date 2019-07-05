@@ -1,6 +1,7 @@
 use crate::{
     error::CompileResult,
     module::ModuleInner,
+    state::ModuleStateMap,
     typed_func::Wasm,
     types::{LocalFuncIndex, SigIndex},
     vm,
@@ -8,6 +9,7 @@ use crate::{
 
 use crate::{
     cache::{Artifact, Error as CacheError},
+    codegen::BreakpointMap,
     module::ModuleInfo,
     sys::Memory,
 };
@@ -83,6 +85,14 @@ pub trait RunnableModule: Send + Sync {
         info: &ModuleInfo,
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>>;
+
+    fn get_module_state_map(&self) -> Option<ModuleStateMap> {
+        None
+    }
+
+    fn get_breakpoints(&self) -> Option<BreakpointMap> {
+        None
+    }
 
     /// A wasm trampoline contains the necessary data to dynamically call an exported wasm function.
     /// Given a particular signature index, we are returned a trampoline that is matched with that

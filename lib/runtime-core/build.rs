@@ -28,4 +28,16 @@ fn main() {
     if rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly {
         println!("cargo:rustc-cfg=nightly");
     }
+
+    if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        cc::Build::new()
+            .file("image-loading-linux-x86-64.s")
+            .compile("image-loading");
+    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        cc::Build::new()
+            .file("image-loading-macos-x86-64.s")
+            .compile("image-loading");
+    } else {
+
+    }
 }

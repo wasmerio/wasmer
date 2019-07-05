@@ -1,4 +1,5 @@
 #![allow(clippy::forget_copy)] // Used by dynasm.
+#![warn(unused_imports)]
 
 use crate::emitter_x64::*;
 use crate::machine::*;
@@ -10,7 +11,7 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{
     any::Any,
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     sync::{Arc, RwLock},
 };
 use wasmer_runtime_core::{
@@ -21,6 +22,10 @@ use wasmer_runtime_core::{
     codegen::*,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
+    state::{
+        x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineValue,
+        ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
+    },
     structures::{Map, TypedIndex},
     typed_func::Wasm,
     types::{
@@ -130,24 +135,27 @@ pub struct X64ModuleCodeGenerator {
     config: Option<Arc<CodegenConfig>>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-enum LocalOrTemp {
-    Local,
-    Temp,
-}
-
 pub struct X64FunctionCode {
+    local_function_id: usize,
+
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
+    fsm: FunctionStateMap,
+    offset: usize,
 
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
-    breakpoints: Option<HashMap<AssemblyOffset, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
+    breakpoints: Option<
+        HashMap<
+            AssemblyOffset,
+            Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
+        >,
+    >,
     returns: SmallVec<[WpType; 1]>,
     locals: Vec<Location>,
     num_params: usize,
     num_locals: usize,
-    value_stack: Vec<(Location, LocalOrTemp)>,
+    value_stack: Vec<Location>,
     control_stack: Vec<ControlFrame>,
     machine: Machine,
     unreachable_depth: usize,
@@ -170,8 +178,9 @@ pub struct X64ExecutionContext {
     function_pointers: Vec<FuncPtr>,
     function_offsets: Vec<AssemblyOffset>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
-    breakpoints: Arc<HashMap<usize, Box<Fn(BkptInfo) + Send + Sync + 'static>>>,
+    breakpoints: BreakpointMap,
     func_import_count: usize,
+    msm: ModuleStateMap,
 }
 
 #[derive(Debug)]
@@ -181,6 +190,8 @@ pub struct ControlFrame {
     pub if_else: IfElseState,
     pub returns: SmallVec<[WpType; 1]>,
     pub value_stack_depth: usize,
+    pub state: MachineState,
+    pub state_diff_id: usize,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -199,6 +210,14 @@ impl RunnableModule for X64ExecutionContext {
         self.function_pointers[self.func_import_count..]
             .get(local_func_index.index())
             .and_then(|ptr| NonNull::new(ptr.0 as *mut vm::Func))
+    }
+
+    fn get_module_state_map(&self) -> Option<ModuleStateMap> {
+        Some(self.msm.clone())
+    }
+
+    fn get_breakpoints(&self) -> Option<BreakpointMap> {
+        Some(self.breakpoints.clone())
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
@@ -229,16 +248,17 @@ impl RunnableModule for X64ExecutionContext {
                 num_params_plus_one.unwrap().as_ptr() as usize - 1,
             );
             let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
-            protect_unix::BKPT_MAP
-                .with(|x| x.borrow_mut().push(execution_context.breakpoints.clone()));
-            let ret = match protect_unix::call_protected(|| {
-                CONSTRUCT_STACK_AND_CALL_WASM(
-                    args_reverse.as_ptr(),
-                    args_reverse.as_ptr().offset(args_reverse.len() as isize),
-                    ctx,
-                    func.as_ptr(),
-                )
-            }) {
+            let ret = match protect_unix::call_protected(
+                || {
+                    CONSTRUCT_STACK_AND_CALL_WASM(
+                        args_reverse.as_ptr(),
+                        args_reverse.as_ptr().offset(args_reverse.len() as isize),
+                        ctx,
+                        func.as_ptr(),
+                    )
+                },
+                Some(execution_context.breakpoints.clone()),
+            ) {
                 Ok(x) => {
                     if !rets.is_null() {
                         *rets = x;
@@ -253,7 +273,6 @@ impl RunnableModule for X64ExecutionContext {
                     false
                 }
             };
-            protect_unix::BKPT_MAP.with(|x| x.borrow_mut().pop().unwrap());
             ret
         }
 
@@ -347,6 +366,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
         begin_label_info.1 = Some(begin_offset);
         let begin_label = begin_label_info.0;
+        let machine = Machine::new();
 
         dynasm!(
             assembler
@@ -354,8 +374,12 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             //; int 3
         );
         let code = X64FunctionCode {
+            local_function_id: self.functions.len(),
+
             signatures: self.signatures.as_ref().unwrap().clone(),
             function_signatures: self.function_signatures.as_ref().unwrap().clone(),
+            fsm: FunctionStateMap::new(new_machine_state(), self.functions.len(), 32, vec![]), // only a placeholder; this is initialized later in `begin_body`
+            offset: begin_offset.0,
 
             assembler: Some(assembler),
             function_labels: Some(function_labels),
@@ -366,7 +390,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             num_locals: 0,
             value_stack: vec![],
             control_stack: vec![],
-            machine: Machine::new(),
+            machine,
             unreachable_depth: 0,
             config: self.config.as_ref().unwrap().clone(),
         };
@@ -386,6 +410,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 });
             }
         };
+        let total_size = assembler.get_offset().0;
         let output = assembler.finalize().unwrap();
 
         let function_labels = if let Some(x) = self.functions.last() {
@@ -424,6 +449,12 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 .collect(),
         );
 
+        let local_function_maps: BTreeMap<usize, FunctionStateMap> = self
+            .functions
+            .iter()
+            .map(|x| (x.offset, x.fsm.clone()))
+            .collect();
+
         struct Placeholder;
         impl CacheGen for Placeholder {
             fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
@@ -441,6 +472,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 func_import_count: self.func_import_count,
                 function_pointers: out_labels,
                 function_offsets: out_offsets,
+                msm: ModuleStateMap {
+                    local_functions: local_function_maps,
+                    total_size,
+                },
             },
             Box::new(Placeholder),
         ))
@@ -508,23 +543,48 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 }
 
 impl X64FunctionCode {
+    fn mark_trappable(
+        a: &mut Assembler,
+        m: &Machine,
+        fsm: &mut FunctionStateMap,
+        control_stack: &mut [ControlFrame],
+    ) {
+        let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
+        let offset = a.get_offset().0;
+        fsm.trappable_offsets.insert(
+            offset,
+            OffsetInfo {
+                activate_offset: offset,
+                diff_id: state_diff_id,
+            },
+        );
+        fsm.wasm_offset_to_target_offset
+            .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
+    }
+
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
         a: &mut Assembler,
-        _m: &mut Machine,
+        m: &mut Machine,
         op: fn(&mut Assembler, Size, Location),
         sz: Size,
         loc: Location,
+        fsm: &mut FunctionStateMap,
+        control_stack: &mut [ControlFrame],
     ) {
+        m.state.wasm_stack_private_depth += 1;
         match loc {
             Location::Imm64(_) | Location::Imm32(_) => {
                 a.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
+                Self::mark_trappable(a, m, fsm, control_stack);
                 op(a, sz, Location::GPR(GPR::RCX));
             }
             _ => {
+                Self::mark_trappable(a, m, fsm, control_stack);
                 op(a, sz, loc);
             }
         }
+        m.state.wasm_stack_private_depth -= 1;
     }
 
     /// Moves `src` and `dst` to valid locations for `movzx`/`movsx`.
@@ -724,13 +784,17 @@ impl X64FunctionCode {
     fn emit_binop_i32(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, Size, Location, Location),
     ) {
         // Using Red Zone here.
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I32, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
 
         if loc_a != ret {
             let tmp = m.acquire_temp_gpr().unwrap();
@@ -756,20 +820,24 @@ impl X64FunctionCode {
             Self::emit_relaxed_binop(a, m, f, Size::S32, loc_b, ret);
         }
 
-        value_stack.push((ret, LocalOrTemp::Temp));
+        value_stack.push(ret);
     }
 
     /// I64 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i64(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, Size, Location, Location),
     ) {
         // Using Red Zone here.
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::I64], false)[0];
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I64, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
 
         if loc_a != ret {
             let tmp = m.acquire_temp_gpr().unwrap();
@@ -795,21 +863,25 @@ impl X64FunctionCode {
             Self::emit_relaxed_binop(a, m, f, Size::S64, loc_b, ret);
         }
 
-        value_stack.push((ret, LocalOrTemp::Temp));
+        value_stack.push(ret);
     }
 
     /// I32 comparison with `loc_b` from input.
     fn emit_cmpop_i32_dynamic_b(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         c: Condition,
         loc_b: Location,
     ) {
         // Using Red Zone here.
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
 
-        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I32, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
         match ret {
             Location::GPR(x) => {
                 Self::emit_relaxed_binop(a, m, Assembler::emit_cmp, Size::S32, loc_b, loc_a);
@@ -826,14 +898,14 @@ impl X64FunctionCode {
             }
             _ => unreachable!(),
         }
-        value_stack.push((ret, LocalOrTemp::Temp));
+        value_stack.push(ret);
     }
 
     /// I32 comparison with both operands popped from the virtual stack.
     fn emit_cmpop_i32(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         c: Condition,
     ) {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
@@ -844,14 +916,18 @@ impl X64FunctionCode {
     fn emit_cmpop_i64_dynamic_b(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         c: Condition,
         loc_b: Location,
     ) {
         // Using Red Zone here.
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
 
-        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I32, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
         match ret {
             Location::GPR(x) => {
                 Self::emit_relaxed_binop(a, m, Assembler::emit_cmp, Size::S64, loc_b, loc_a);
@@ -868,14 +944,14 @@ impl X64FunctionCode {
             }
             _ => unreachable!(),
         }
-        value_stack.push((ret, LocalOrTemp::Temp));
+        value_stack.push(ret);
     }
 
     /// I64 comparison with both operands popped from the virtual stack.
     fn emit_cmpop_i64(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         c: Condition,
     ) {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
@@ -886,11 +962,15 @@ impl X64FunctionCode {
     fn emit_xcnt_i32(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, Size, Location, Location),
     ) {
         let loc = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I32, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
 
         match loc {
             Location::Imm32(_) => {
@@ -918,18 +998,22 @@ impl X64FunctionCode {
             }
             _ => unreachable!(),
         }
-        value_stack.push((ret, LocalOrTemp::Temp));
+        value_stack.push(ret);
     }
 
     /// I64 `lzcnt`/`tzcnt`/`popcnt` with operand popped from the virtual stack.
     fn emit_xcnt_i64(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, Size, Location, Location),
     ) {
         let loc = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::I64], false)[0];
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I64, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
 
         match loc {
             Location::Imm64(_) | Location::Imm32(_) => {
@@ -957,19 +1041,23 @@ impl X64FunctionCode {
             }
             _ => unreachable!(),
         }
-        value_stack.push((ret, LocalOrTemp::Temp));
+        value_stack.push(ret);
     }
 
     /// I32 shift with both operands popped from the virtual stack.
     fn emit_shift_i32(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, Size, Location, Location),
     ) {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I32, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
 
         a.emit_mov(Size::S32, loc_b, Location::GPR(GPR::RCX));
 
@@ -978,19 +1066,23 @@ impl X64FunctionCode {
         }
 
         f(a, Size::S32, Location::GPR(GPR::RCX), ret);
-        value_stack.push((ret, LocalOrTemp::Temp));
+        value_stack.push(ret);
     }
 
     /// I64 shift with both operands popped from the virtual stack.
     fn emit_shift_i64(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, Size, Location, Location),
     ) {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::I64], false)[0];
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I64, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
 
         a.emit_mov(Size::S64, loc_b, Location::GPR(GPR::RCX));
 
@@ -999,20 +1091,24 @@ impl X64FunctionCode {
         }
 
         f(a, Size::S64, Location::GPR(GPR::RCX), ret);
-        value_stack.push((ret, LocalOrTemp::Temp));
+        value_stack.push(ret);
     }
 
     /// Floating point (AVX) binary operation with both operands popped from the virtual stack.
     fn emit_fp_binop_avx(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
     ) {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::F64], false)[0];
-        value_stack.push((ret, LocalOrTemp::Temp));
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::F64, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
+        value_stack.push(ret);
 
         Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret);
     }
@@ -1021,13 +1117,17 @@ impl X64FunctionCode {
     fn emit_fp_cmpop_avx(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
     ) {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
-        value_stack.push((ret, LocalOrTemp::Temp));
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::I32, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
+        value_stack.push(ret);
 
         Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret);
         a.emit_and(Size::S32, Location::Imm32(1), ret); // FIXME: Why?
@@ -1037,12 +1137,16 @@ impl X64FunctionCode {
     fn emit_fp_unop_avx(
         a: &mut Assembler,
         m: &mut Machine,
-        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
     ) {
         let loc = get_location_released(a, m, value_stack.pop().unwrap());
-        let ret = m.acquire_locations(a, &[WpType::F64], false)[0];
-        value_stack.push((ret, LocalOrTemp::Temp));
+        let ret = m.acquire_locations(
+            a,
+            &[(WpType::F64, MachineValue::WasmStack(value_stack.len()))],
+            false,
+        )[0];
+        value_stack.push(ret);
 
         Self::emit_relaxed_avx(a, m, f, loc, loc, ret);
     }
@@ -1055,13 +1159,20 @@ impl X64FunctionCode {
         m: &mut Machine,
         cb: F,
         params: I,
+        state_context: Option<(&mut FunctionStateMap, &mut [ControlFrame])>,
     ) {
+        // Values pushed in this function are above the shadow region.
+        m.state.stack_values.push(MachineValue::ExplicitShadow);
+
         let params: Vec<_> = params.collect();
 
         // Save used GPRs.
         let used_gprs = m.get_used_gprs();
         for r in used_gprs.iter() {
             a.emit_push(Size::S64, Location::GPR(*r));
+            let content = m.state.register_values[X64Register::GPR(*r).to_index().0];
+            assert!(content != MachineValue::Undefined);
+            m.state.stack_values.push(content);
         }
 
         // Save used XMM registers.
@@ -1083,6 +1194,11 @@ impl X64FunctionCode {
                     Location::Memory(GPR::RCX, (i * 8) as i32),
                 );
             }
+            for r in used_xmms.iter().rev() {
+                let content = m.state.register_values[X64Register::XMM(*r).to_index().0];
+                assert!(content != MachineValue::Undefined);
+                m.state.stack_values.push(content);
+            }
         }
 
         let mut stack_offset: usize = 0;
@@ -1099,9 +1215,12 @@ impl X64FunctionCode {
         }
 
         // Align stack to 16 bytes.
-        if (m.get_stack_offset() + used_gprs.len() * 8 + stack_offset) % 16 != 0 {
+        if (m.get_stack_offset() + used_gprs.len() * 8 + used_xmms.len() * 8 + stack_offset) % 16
+            != 0
+        {
             a.emit_sub(Size::S64, Location::Imm32(8), Location::GPR(GPR::RSP));
             stack_offset += 8;
+            m.state.stack_values.push(MachineValue::Undefined);
         }
 
         let mut call_movs: Vec<(Location, GPR)> = vec![];
@@ -1114,6 +1233,32 @@ impl X64FunctionCode {
                     call_movs.push((*param, x));
                 }
                 Location::Memory(_, _) => {
+                    match *param {
+                        Location::GPR(x) => {
+                            let content = m.state.register_values[X64Register::GPR(x).to_index().0];
+                            // FIXME: There might be some corner cases (release -> emit_call_sysv -> acquire?) that cause this assertion to fail.
+                            // Hopefully nothing would be incorrect at runtime.
+
+                            //assert!(content != MachineValue::Undefined);
+                            m.state.stack_values.push(content);
+                        }
+                        Location::XMM(x) => {
+                            let content = m.state.register_values[X64Register::XMM(x).to_index().0];
+                            //assert!(content != MachineValue::Undefined);
+                            m.state.stack_values.push(content);
+                        }
+                        Location::Memory(reg, offset) => {
+                            if reg != GPR::RBP {
+                                unreachable!();
+                            }
+                            m.state
+                                .stack_values
+                                .push(MachineValue::CopyStackBPRelative(offset)); // TODO: Read value at this offset
+                        }
+                        _ => {
+                            m.state.stack_values.push(MachineValue::Undefined);
+                        }
+                    }
                     match *param {
                         // Dynasm bug: RSP in memory operand does not work
                         Location::Imm64(_) | Location::XMM(_) => {
@@ -1170,7 +1315,24 @@ impl X64FunctionCode {
             Machine::get_param_location(0),
         ); // vmctx
 
+        assert!(m.state.stack_values.len() % 2 == 1); // explicit shadow takes one slot
+
         cb(a);
+
+        // Offset needs to be after the 'call' instruction.
+        if let Some((fsm, control_stack)) = state_context {
+            let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
+            let offset = a.get_offset().0;
+            fsm.call_offsets.insert(
+                offset,
+                OffsetInfo {
+                    activate_offset: offset,
+                    diff_id: state_diff_id,
+                },
+            );
+            fsm.wasm_offset_to_target_offset
+                .insert(m.state.wasm_inst_offset, SuspendOffset::Call(offset));
+        }
 
         // Restore stack.
         if stack_offset > 0 {
@@ -1179,6 +1341,10 @@ impl X64FunctionCode {
                 Location::Imm32(stack_offset as u32),
                 Location::GPR(GPR::RSP),
             );
+            assert!(stack_offset % 8 == 0);
+            for _ in 0..stack_offset / 8 {
+                m.state.stack_values.pop().unwrap();
+            }
         }
 
         // Restore XMMs.
@@ -1197,12 +1363,21 @@ impl X64FunctionCode {
                 Location::Imm32((used_xmms.len() * 8) as u32),
                 Location::GPR(GPR::RSP),
             );
+            for _ in 0..used_xmms.len() {
+                m.state.stack_values.pop().unwrap();
+            }
         }
 
         // Restore GPRs.
         for r in used_gprs.iter().rev() {
             a.emit_pop(Size::S64, Location::GPR(*r));
+            m.state.stack_values.pop().unwrap();
         }
+
+        assert_eq!(
+            m.state.stack_values.pop().unwrap(),
+            MachineValue::ExplicitShadow
+        );
     }
 
     /// Emits a System V call sequence, specialized for labels as the call target.
@@ -1211,8 +1386,9 @@ impl X64FunctionCode {
         m: &mut Machine,
         label: DynamicLabel,
         params: I,
+        state_context: Option<(&mut FunctionStateMap, &mut [ControlFrame])>,
     ) {
-        Self::emit_call_sysv(a, m, |a| a.emit_call_label(label), params)
+        Self::emit_call_sysv(a, m, |a| a.emit_call_label(label), params, state_context)
     }
 
     /// Emits a memory operation.
@@ -1406,6 +1582,21 @@ impl X64FunctionCode {
         m.release_temp_xmm(tmp_x);
         m.release_temp_gpr(tmp);
     }
+
+    pub fn get_state_diff(
+        m: &Machine,
+        fsm: &mut FunctionStateMap,
+        control_stack: &mut [ControlFrame],
+    ) -> usize {
+        let last_frame = control_stack.last_mut().unwrap();
+        let mut diff = m.state.diff(&last_frame.state);
+        diff.last = Some(last_frame.state_diff_id);
+        let id = fsm.diffs.len();
+        last_frame.state = m.state.clone();
+        last_frame.state_diff_id = id;
+        fsm.diffs.push(diff);
+        id
+    }
 }
 
 impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
@@ -1447,6 +1638,24 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             .machine
             .init_locals(a, self.num_locals, self.num_params);
 
+        self.machine.state.register_values
+            [X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
+
+        self.fsm = FunctionStateMap::new(
+            new_machine_state(),
+            self.local_function_id,
+            32,
+            (0..self.locals.len())
+                .map(|_| WasmAbstractValue::Runtime)
+                .collect(),
+        );
+
+        let diff = self.machine.state.diff(&new_machine_state());
+        let state_diff_id = self.fsm.diffs.len();
+        self.fsm.diffs.push(diff);
+
+        //println!("initial state = {:?}", self.machine.state);
+
         a.emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
 
         self.control_stack.push(ControlFrame {
@@ -1455,7 +1664,37 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             if_else: IfElseState::None,
             returns: self.returns.clone(),
             value_stack_depth: 0,
+            state: self.machine.state.clone(),
+            state_diff_id,
         });
+
+        // Check interrupt signal without branching
+        let activate_offset = a.get_offset().0;
+
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(
+                Machine::get_vmctx_reg(),
+                vm::Ctx::offset_interrupt_signal_mem() as i32,
+            ),
+            Location::GPR(GPR::RAX),
+        );
+        self.fsm.loop_offsets.insert(
+            a.get_offset().0,
+            OffsetInfo {
+                activate_offset,
+                diff_id: state_diff_id,
+            },
+        );
+        self.fsm.wasm_function_header_target_offset = Some(SuspendOffset::Loop(a.get_offset().0));
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RAX, 0),
+            Location::GPR(GPR::RAX),
+        );
+
+        assert_eq!(self.machine.state.wasm_inst_offset, ::std::usize::MAX);
+
         Ok(())
     }
 
@@ -1466,6 +1705,18 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
     }
 
     fn feed_event(&mut self, ev: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        let a = self.assembler.as_mut().unwrap();
+
+        match ev {
+            Event::Internal(InternalEvent::FunctionBegin(_))
+            | Event::Internal(InternalEvent::FunctionEnd) => {
+                return Ok(());
+            }
+            _ => {}
+        }
+
+        self.machine.state.wasm_inst_offset = self.machine.state.wasm_inst_offset.wrapping_add(1);
+
         //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
 
@@ -1500,8 +1751,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             was_unreachable = false;
         }
 
-        let a = self.assembler.as_mut().unwrap();
-
         let op = match ev {
             Event::Wasm(x) => x,
             Event::WasmOwned(ref x) => x,
@@ -1533,10 +1782,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                         let loc = self.machine.acquire_locations(
                             a,
-                            &[WpType::I64],
+                            &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
                             false,
                         )[0];
-                        self.value_stack.push((loc, LocalOrTemp::Temp));
+                        self.value_stack.push(loc);
 
                         // Move internal into the result location.
                         Self::emit_relaxed_binop(
@@ -1583,6 +1832,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 return Ok(());
             }
         };
+
         match *op {
             Operator::GetGlobal { global_index } => {
                 let global_index = global_index as usize;
@@ -1606,7 +1856,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         );
                         self.machine.acquire_locations(
                             a,
-                            &[type_to_wp_type(module_info.globals[local_index].desc.ty)],
+                            &[(
+                                type_to_wp_type(module_info.globals[local_index].desc.ty),
+                                MachineValue::WasmStack(self.value_stack.len()),
+                            )],
                             false,
                         )[0]
                     }
@@ -1626,14 +1879,15 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         );
                         self.machine.acquire_locations(
                             a,
-                            &[type_to_wp_type(
-                                module_info.imported_globals[import_index].1.ty,
+                            &[(
+                                type_to_wp_type(module_info.imported_globals[import_index].1.ty),
+                                MachineValue::WasmStack(self.value_stack.len()),
                             )],
                             false,
                         )[0]
                     }
                 };
-                self.value_stack.push((loc, LocalOrTemp::Temp));
+                self.value_stack.push(loc);
 
                 Self::emit_relaxed_binop(
                     a,
@@ -1692,7 +1946,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::GetLocal { local_index } => {
                 let local_index = local_index as usize;
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
                 Self::emit_relaxed_binop(
                     a,
                     &mut self.machine,
@@ -1701,7 +1959,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.locals[local_index],
                     ret,
                 );
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
             }
             Operator::SetLocal { local_index } => {
                 let local_index = local_index as usize;
@@ -1719,7 +1977,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::TeeLocal { local_index } => {
                 let local_index = local_index as usize;
-                let (loc, _) = *self.value_stack.last().unwrap();
+                let loc = *self.value_stack.last().unwrap();
 
                 Self::emit_relaxed_binop(
                     a,
@@ -1730,9 +1988,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.locals[local_index],
                 );
             }
-            Operator::I32Const { value } => self
-                .value_stack
-                .push((Location::Imm32(value as u32), LocalOrTemp::Temp)),
+            Operator::I32Const { value } => {
+                self.value_stack.push(Location::Imm32(value as u32));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(value as u32 as u64));
+            }
             Operator::I32Add => Self::emit_binop_i32(
                 a,
                 &mut self.machine,
@@ -1757,7 +2019,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
                 a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
                 Self::emit_relaxed_xdiv(
@@ -1766,9 +2032,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Assembler::emit_div,
                     Size::S32,
                     loc_b,
+                    &mut self.fsm,
+                    &mut self.control_stack,
                 );
                 a.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
             }
             Operator::I32DivS => {
                 // We assume that RAX and RDX are temporary registers here.
@@ -1776,7 +2044,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
                 a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 a.emit_cdq();
                 Self::emit_relaxed_xdiv(
@@ -1785,9 +2057,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Assembler::emit_idiv,
                     Size::S32,
                     loc_b,
+                    &mut self.fsm,
+                    &mut self.control_stack,
                 );
                 a.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
             }
             Operator::I32RemU => {
                 // We assume that RAX and RDX are temporary registers here.
@@ -1795,7 +2069,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
                 a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
                 Self::emit_relaxed_xdiv(
@@ -1804,9 +2082,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Assembler::emit_div,
                     Size::S32,
                     loc_b,
+                    &mut self.fsm,
+                    &mut self.control_stack,
                 );
                 a.emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
             }
             Operator::I32RemS => {
                 // We assume that RAX and RDX are temporary registers here.
@@ -1814,7 +2094,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
 
                 let normal_path = a.get_label();
                 let end = a.get_label();
@@ -1849,9 +2133,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Assembler::emit_idiv,
                     Size::S32,
                     loc_b,
+                    &mut self.fsm,
+                    &mut self.control_stack,
                 );
                 a.emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
 
                 a.emit_label(end);
             }
@@ -1987,8 +2273,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             ),
             Operator::I64Const { value } => {
                 let value = value as u64;
-                self.value_stack
-                    .push((Location::Imm64(value), LocalOrTemp::Temp));
+                self.value_stack.push(Location::Imm64(value));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(value));
             }
             Operator::I64Add => Self::emit_binop_i64(
                 a,
@@ -2014,7 +2303,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
                 a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 a.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
                 Self::emit_relaxed_xdiv(
@@ -2023,9 +2316,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Assembler::emit_div,
                     Size::S64,
                     loc_b,
+                    &mut self.fsm,
+                    &mut self.control_stack,
                 );
                 a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
             }
             Operator::I64DivS => {
                 // We assume that RAX and RDX are temporary registers here.
@@ -2033,7 +2328,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
                 a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 a.emit_cqo();
                 Self::emit_relaxed_xdiv(
@@ -2042,9 +2341,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Assembler::emit_idiv,
                     Size::S64,
                     loc_b,
+                    &mut self.fsm,
+                    &mut self.control_stack,
                 );
                 a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
             }
             Operator::I64RemU => {
                 // We assume that RAX and RDX are temporary registers here.
@@ -2052,7 +2353,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
                 a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 a.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
                 Self::emit_relaxed_xdiv(
@@ -2061,9 +2366,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Assembler::emit_div,
                     Size::S64,
                     loc_b,
+                    &mut self.fsm,
+                    &mut self.control_stack,
                 );
                 a.emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
             }
             Operator::I64RemS => {
                 // We assume that RAX and RDX are temporary registers here.
@@ -2071,7 +2378,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
 
                 let normal_path = a.get_label();
                 let end = a.get_label();
@@ -2107,9 +2418,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Assembler::emit_idiv,
                     Size::S64,
                     loc_b,
+                    &mut self.fsm,
+                    &mut self.control_stack,
                 );
                 a.emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                self.value_stack.push(ret);
                 a.emit_label(end);
             }
             Operator::I64And => Self::emit_binop_i64(
@@ -2245,8 +2558,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64ExtendUI32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 Self::emit_relaxed_binop(
                     a,
                     &mut self.machine,
@@ -2259,8 +2576,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64ExtendSI32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 Self::emit_relaxed_zx_sx(
                     a,
                     &mut self.machine,
@@ -2274,8 +2595,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32WrapI64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 Self::emit_relaxed_binop(
                     a,
                     &mut self.machine,
@@ -2286,9 +2611,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
             }
 
-            Operator::F32Const { value } => self
-                .value_stack
-                .push((Location::Imm32(value.bits()), LocalOrTemp::Temp)),
+            Operator::F32Const { value } => {
+                self.value_stack.push(Location::Imm32(value.bits()));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(value.bits() as u64));
+            }
             Operator::F32Add => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
@@ -2397,8 +2726,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
@@ -2423,8 +2756,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F32Abs => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
                 a.emit_mov(Size::S32, loc, Location::GPR(tmp));
                 a.emit_and(
@@ -2439,8 +2776,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F32Neg => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
                 a.emit_mov(Size::S32, loc, Location::GPR(tmp));
                 a.emit_btc_gpr_imm8_32(31, tmp);
@@ -2448,9 +2789,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 self.machine.release_temp_gpr(tmp);
             }
 
-            Operator::F64Const { value } => self
-                .value_stack
-                .push((Location::Imm64(value.bits()), LocalOrTemp::Temp)),
+            Operator::F64Const { value } => {
+                self.value_stack.push(Location::Imm64(value.bits()));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(value.bits()));
+            }
             Operator::F64Add => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
@@ -2559,8 +2904,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
@@ -2594,8 +2943,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F64Abs => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
                 let c = self.machine.acquire_temp_gpr().unwrap();
@@ -2616,8 +2969,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F64Neg => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
                 a.emit_mov(Size::S64, loc, Location::GPR(tmp));
                 a.emit_btc_gpr_imm8_64(63, tmp);
@@ -2641,8 +2998,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32ReinterpretF32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 if loc != ret {
                     Self::emit_relaxed_binop(
@@ -2658,8 +3019,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F32ReinterpretI32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 if loc != ret {
                     Self::emit_relaxed_binop(
@@ -2676,8 +3041,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64ReinterpretF64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 if loc != ret {
                     Self::emit_relaxed_binop(
@@ -2693,8 +3062,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F64ReinterpretI64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 if loc != ret {
                     Self::emit_relaxed_binop(
@@ -2711,8 +3084,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32TruncUF32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
@@ -2736,8 +3113,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32TruncSF32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
@@ -2767,8 +3148,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64TruncSF32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
@@ -2812,8 +3197,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 */
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
@@ -2867,8 +3256,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32TruncUF64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
@@ -2892,8 +3285,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32TruncSF64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
@@ -2928,8 +3325,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64TruncSF64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
@@ -2959,8 +3360,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64TruncUF64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
@@ -3014,8 +3419,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F32ConvertSI32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                 let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
@@ -3029,8 +3438,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F32ConvertUI32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                 let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
@@ -3044,8 +3457,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F32ConvertSI64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                 let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
@@ -3059,8 +3476,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F32ConvertUI64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                 let tmp_in = self.machine.acquire_temp_gpr().unwrap();
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
@@ -3091,8 +3512,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F64ConvertSI32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                 let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
@@ -3106,8 +3531,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F64ConvertUI32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                 let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
@@ -3121,8 +3550,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F64ConvertSI64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                 let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
@@ -3136,8 +3569,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F64ConvertUI64 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                 let tmp_in = self.machine.acquire_temp_gpr().unwrap();
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
@@ -3188,25 +3625,30 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     .value_stack
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
-                let released: SmallVec<[Location; 8]> = params
-                    .iter()
-                    .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
-                    .map(|&(x, _)| x)
-                    .collect();
-                self.machine.release_locations_only_regs(&released);
+                self.machine.release_locations_only_regs(&params);
+
+                self.machine.release_locations_only_osr_state(params.len());
 
                 Self::emit_call_sysv_label(
                     a,
                     &mut self.machine,
                     label,
-                    params.iter().map(|&(x, _)| x),
+                    params.iter().map(|x| *x),
+                    Some((&mut self.fsm, &mut self.control_stack)),
                 );
 
-                self.machine.release_locations_only_stack(a, &released);
+                self.machine.release_locations_only_stack(a, &params);
 
                 if return_types.len() > 0 {
-                    let ret = self.machine.acquire_locations(a, &[return_types[0]], false)[0];
-                    self.value_stack.push((ret, LocalOrTemp::Temp));
+                    let ret = self.machine.acquire_locations(
+                        a,
+                        &[(
+                            return_types[0],
+                            MachineValue::WasmStack(self.value_stack.len()),
+                        )],
+                        false,
+                    )[0];
+                    self.value_stack.push(ret);
                     a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
                 }
             }
@@ -3225,12 +3667,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     .value_stack
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
-                let released: SmallVec<[Location; 8]> = params
-                    .iter()
-                    .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
-                    .map(|&(x, _)| x)
-                    .collect();
-                self.machine.release_locations_only_regs(&released);
+                self.machine.release_locations_only_regs(&params);
 
                 let table_base = self.machine.acquire_temp_gpr().unwrap();
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
@@ -3303,6 +3740,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     );
                 }
 
+                self.machine.release_locations_only_osr_state(params.len());
+
                 Self::emit_call_sysv(
                     a,
                     &mut self.machine,
@@ -3312,14 +3751,22 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             (vm::Anyfunc::offset_func() as usize) as i32,
                         ));
                     },
-                    params.iter().map(|&(x, _)| x),
+                    params.iter().map(|x| *x),
+                    Some((&mut self.fsm, &mut self.control_stack)),
                 );
 
-                self.machine.release_locations_only_stack(a, &released);
+                self.machine.release_locations_only_stack(a, &params);
 
                 if return_types.len() > 0 {
-                    let ret = self.machine.acquire_locations(a, &[return_types[0]], false)[0];
-                    self.value_stack.push((ret, LocalOrTemp::Temp));
+                    let ret = self.machine.acquire_locations(
+                        a,
+                        &[(
+                            return_types[0],
+                            MachineValue::WasmStack(self.value_stack.len()),
+                        )],
+                        false,
+                    )[0];
+                    self.value_stack.push(ret);
                     a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
                 }
             }
@@ -3330,7 +3777,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let cond =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
 
-                self.control_stack.push(ControlFrame {
+                let frame = ControlFrame {
                     label: label_end,
                     loop_like: false,
                     if_else: IfElseState::If(label_else),
@@ -3340,7 +3787,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
-                });
+                    state: self.machine.state.clone(),
+                    state_diff_id: Self::get_state_diff(
+                        &self.machine,
+                        &mut self.fsm,
+                        &mut self.control_stack,
+                    ),
+                };
+                self.control_stack.push(frame);
                 Self::emit_relaxed_binop(
                     a,
                     &mut self.machine,
@@ -3355,7 +3809,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let mut frame = self.control_stack.last_mut().unwrap();
 
                 if !was_unreachable && frame.returns.len() > 0 {
-                    let (loc, _) = *self.value_stack.last().unwrap();
+                    let loc = *self.value_stack.last().unwrap();
                     Self::emit_relaxed_binop(
                         a,
                         &mut self.machine,
@@ -3366,13 +3820,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     );
                 }
 
-                let released: Vec<Location> = self
-                    .value_stack
-                    .drain(frame.value_stack_depth..)
-                    .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
-                    .map(|(x, _)| x)
-                    .collect();
-                self.machine.release_locations(a, &released);
+                let released: &[Location] = &self.value_stack[frame.value_stack_depth..];
+                self.machine.release_locations(a, released);
+                self.value_stack.truncate(frame.value_stack_depth);
 
                 match frame.if_else {
                     IfElseState::If(label) => {
@@ -3390,8 +3840,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let v_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 let end_label = a.get_label();
                 let zero_label = a.get_label();
@@ -3430,7 +3884,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_label(end_label);
             }
             Operator::Block { ty } => {
-                self.control_stack.push(ControlFrame {
+                let frame = ControlFrame {
                     label: a.get_label(),
                     loop_like: false,
                     if_else: IfElseState::None,
@@ -3440,10 +3894,21 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
-                });
+                    state: self.machine.state.clone(),
+                    state_diff_id: Self::get_state_diff(
+                        &self.machine,
+                        &mut self.fsm,
+                        &mut self.control_stack,
+                    ),
+                };
+                self.control_stack.push(frame);
             }
             Operator::Loop { ty } => {
                 let label = a.get_label();
+                let state_diff_id =
+                    Self::get_state_diff(&self.machine, &mut self.fsm, &mut self.control_stack);
+                let activate_offset = a.get_offset().0;
+
                 self.control_stack.push(ControlFrame {
                     label: label,
                     loop_like: true,
@@ -3454,8 +3919,36 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         _ => panic!("multi-value returns not yet implemented"),
                     },
                     value_stack_depth: self.value_stack.len(),
+                    state: self.machine.state.clone(),
+                    state_diff_id,
                 });
                 a.emit_label(label);
+
+                // Check interrupt signal without branching
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        vm::Ctx::offset_interrupt_signal_mem() as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+                self.fsm.loop_offsets.insert(
+                    a.get_offset().0,
+                    OffsetInfo {
+                        activate_offset,
+                        diff_id: state_diff_id,
+                    },
+                );
+                self.fsm.wasm_offset_to_target_offset.insert(
+                    self.machine.state.wasm_inst_offset,
+                    SuspendOffset::Loop(a.get_offset().0),
+                );
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(GPR::RAX, 0),
+                    Location::GPR(GPR::RAX),
+                );
             }
             Operator::Nop => {}
             Operator::MemorySize { reserved } => {
@@ -3480,18 +3973,21 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_call_location(Location::GPR(GPR::RAX));
                     },
                     ::std::iter::once(Location::Imm32(memory_index.index() as u32)),
+                    None,
                 );
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
             Operator::MemoryGrow { reserved } => {
                 let memory_index = MemoryIndex::new(reserved as usize);
-                let (param_pages, param_pages_lot) = self.value_stack.pop().unwrap();
+                let param_pages = self.value_stack.pop().unwrap();
 
-                if param_pages_lot == LocalOrTemp::Temp {
-                    self.machine.release_locations_only_regs(&[param_pages]);
-                }
+                self.machine.release_locations_only_regs(&[param_pages]);
 
                 a.emit_mov(
                     Size::S64,
@@ -3507,6 +4003,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Location::GPR(GPR::RAX),
                 );
 
+                self.machine.release_locations_only_osr_state(1);
+
                 Self::emit_call_sysv(
                     a,
                     &mut self.machine,
@@ -3515,21 +4013,28 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                     ::std::iter::once(Location::Imm32(memory_index.index() as u32))
                         .chain(::std::iter::once(param_pages)),
+                    None,
                 );
 
-                if param_pages_lot == LocalOrTemp::Temp {
-                    self.machine.release_locations_only_stack(a, &[param_pages]);
-                }
+                self.machine.release_locations_only_stack(a, &[param_pages]);
 
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
                 a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
             Operator::I32Load { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3554,8 +4059,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F32Load { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3580,8 +4089,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32Load8U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3607,8 +4120,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32Load8S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3634,8 +4151,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32Load16U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3661,8 +4182,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I32Load16S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3792,8 +4317,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64Load { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3818,8 +4347,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::F64Load { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3844,8 +4377,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64Load8U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3871,8 +4408,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64Load8S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3898,8 +4439,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64Load16U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3925,8 +4470,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64Load16S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3952,8 +4501,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64Load32U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -3984,8 +4537,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::I64Load32S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
 
                 Self::emit_memory_op(
                     module_info,
@@ -4139,6 +4696,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
             }
             Operator::Unreachable => {
+                Self::mark_trappable(a, &self.machine, &mut self.fsm, &mut self.control_stack);
                 a.emit_ud2();
                 self.unreachable_depth = 1;
             }
@@ -4146,7 +4704,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let frame = &self.control_stack[0];
                 if frame.returns.len() > 0 {
                     assert_eq!(frame.returns.len(), 1);
-                    let (loc, _) = *self.value_stack.last().unwrap();
+                    let loc = *self.value_stack.last().unwrap();
                     Self::emit_relaxed_binop(
                         a,
                         &mut self.machine,
@@ -4156,12 +4714,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Location::GPR(GPR::RAX),
                     );
                 }
-                let released: Vec<Location> = self.value_stack[frame.value_stack_depth..]
-                    .iter()
-                    .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
-                    .map(|&(x, _)| x)
-                    .collect();
-                self.machine.release_locations_keep_state(a, &released);
+                let released = &self.value_stack[frame.value_stack_depth..];
+                self.machine.release_locations_keep_state(a, released);
                 a.emit_jmp(Condition::None, frame.label);
                 self.unreachable_depth = 1;
             }
@@ -4170,15 +4724,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && frame.returns.len() > 0 {
                     assert_eq!(frame.returns.len(), 1);
-                    let (loc, _) = *self.value_stack.last().unwrap();
+                    let loc = *self.value_stack.last().unwrap();
                     a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                 }
-                let released: Vec<Location> = self.value_stack[frame.value_stack_depth..]
-                    .iter()
-                    .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
-                    .map(|&(x, _)| x)
-                    .collect();
-                self.machine.release_locations_keep_state(a, &released);
+                let released = &self.value_stack[frame.value_stack_depth..];
+                self.machine.release_locations_keep_state(a, released);
                 a.emit_jmp(Condition::None, frame.label);
                 self.unreachable_depth = 1;
             }
@@ -4200,15 +4750,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && frame.returns.len() > 0 {
                     assert_eq!(frame.returns.len(), 1);
-                    let (loc, _) = *self.value_stack.last().unwrap();
+                    let loc = *self.value_stack.last().unwrap();
                     a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                 }
-                let released: Vec<Location> = self.value_stack[frame.value_stack_depth..]
-                    .iter()
-                    .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
-                    .map(|&(x, _)| x)
-                    .collect();
-                self.machine.release_locations_keep_state(a, &released);
+                let released = &self.value_stack[frame.value_stack_depth..];
+                self.machine.release_locations_keep_state(a, released);
                 a.emit_jmp(Condition::None, frame.label);
 
                 a.emit_label(after);
@@ -4244,15 +4790,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     if !frame.loop_like && frame.returns.len() > 0 {
                         assert_eq!(frame.returns.len(), 1);
-                        let (loc, _) = *self.value_stack.last().unwrap();
+                        let loc = *self.value_stack.last().unwrap();
                         a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                     }
-                    let released: Vec<Location> = self.value_stack[frame.value_stack_depth..]
-                        .iter()
-                        .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
-                        .map(|&(x, _)| x)
-                        .collect();
-                    self.machine.release_locations_keep_state(a, &released);
+                    let released = &self.value_stack[frame.value_stack_depth..];
+                    self.machine.release_locations_keep_state(a, released);
                     a.emit_jmp(Condition::None, frame.label);
                 }
                 a.emit_label(default_br);
@@ -4262,15 +4804,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         [self.control_stack.len() - 1 - (default_target as usize)];
                     if !frame.loop_like && frame.returns.len() > 0 {
                         assert_eq!(frame.returns.len(), 1);
-                        let (loc, _) = *self.value_stack.last().unwrap();
+                        let loc = *self.value_stack.last().unwrap();
                         a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                     }
-                    let released: Vec<Location> = self.value_stack[frame.value_stack_depth..]
-                        .iter()
-                        .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
-                        .map(|&(x, _)| x)
-                        .collect();
-                    self.machine.release_locations_keep_state(a, &released);
+                    let released = &self.value_stack[frame.value_stack_depth..];
+                    self.machine.release_locations_keep_state(a, released);
                     a.emit_jmp(Condition::None, frame.label);
                 }
 
@@ -4287,7 +4825,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let frame = self.control_stack.pop().unwrap();
 
                 if !was_unreachable && frame.returns.len() > 0 {
-                    let (loc, _) = *self.value_stack.last().unwrap();
+                    let loc = *self.value_stack.last().unwrap();
                     Self::emit_relaxed_binop(
                         a,
                         &mut self.machine,
@@ -4305,13 +4843,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a.emit_pop(Size::S64, Location::GPR(GPR::RBP));
                     a.emit_ret();
                 } else {
-                    let released: Vec<Location> = self
-                        .value_stack
-                        .drain(frame.value_stack_depth..)
-                        .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
-                        .map(|(x, _)| x)
-                        .collect();
-                    self.machine.release_locations(a, &released);
+                    let released = &self.value_stack[frame.value_stack_depth..];
+                    self.machine.release_locations(a, released);
+                    self.value_stack.truncate(frame.value_stack_depth);
 
                     if !frame.loop_like {
                         a.emit_label(frame.label);
@@ -4323,9 +4857,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                     if frame.returns.len() > 0 {
                         assert_eq!(frame.returns.len(), 1);
-                        let loc = self.machine.acquire_locations(a, &frame.returns, false)[0];
+                        let loc = self.machine.acquire_locations(
+                            a,
+                            &[(
+                                frame.returns[0],
+                                MachineValue::WasmStack(self.value_stack.len()),
+                            )],
+                            false,
+                        )[0];
                         a.emit_mov(Size::S64, Location::GPR(GPR::RAX), loc);
-                        self.value_stack.push((loc, LocalOrTemp::Temp));
+                        self.value_stack.push(loc);
                     }
                 }
             }
@@ -4347,14 +4888,8 @@ fn type_to_wp_type(ty: Type) -> WpType {
     }
 }
 
-fn get_location_released(
-    a: &mut Assembler,
-    m: &mut Machine,
-    (loc, lot): (Location, LocalOrTemp),
-) -> Location {
-    if lot == LocalOrTemp::Temp {
-        m.release_locations(a, &[loc]);
-    }
+fn get_location_released(a: &mut Assembler, m: &mut Machine, loc: Location) -> Location {
+    m.release_locations(a, &[loc]);
     loc
 }
 
@@ -4368,4 +4903,38 @@ fn sort_call_movs(movs: &mut [(Location, GPR)]) {
             }
         }
     }
+
+    /*
+    {
+        use std::collections::{HashMap, HashSet, VecDeque};
+        let mut mov_map: HashMap<GPR, HashSet<GPR>> = HashMap::new();
+        for mov in movs.iter() {
+            if let Location::GPR(src_gpr) = mov.0 {
+                if src_gpr != mov.1 {
+                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
+                }
+            }
+        }
+
+        for (start, _) in mov_map.iter() {
+            let mut q: VecDeque<GPR> = VecDeque::new();
+            let mut black: HashSet<GPR> = HashSet::new();
+
+            q.push_back(*start);
+            black.insert(*start);
+
+            while q.len() > 0 {
+                let reg = q.pop_front().unwrap();
+                let empty_set = HashSet::new();
+                for x in mov_map.get(&reg).unwrap_or(&empty_set).iter() {
+                    if black.contains(x) {
+                        panic!("cycle detected");
+                    }
+                    q.push_back(*x);
+                    black.insert(*x);
+                }
+            }
+        }
+    }
+    */
 }
