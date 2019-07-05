@@ -24,12 +24,17 @@ struct Listen {
     socket: String,
 }
 
+#[cfg(feature = "loader:kernel")]
 const CMD_RUN_CODE: u32 = 0x901;
+#[cfg(feature = "loader:kernel")]
 const CMD_READ_MEMORY: u32 = 0x902;
+#[cfg(feature = "loader:kernel")]
 const CMD_WRITE_MEMORY: u32 = 0x903;
 
 #[cfg(feature = "loader:kernel")]
 fn handle_client(mut stream: UnixStream) {
+    use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+    use std::io::{Read, Write};
     let binary_size = stream.read_u32::<LittleEndian>().unwrap();
     if binary_size > 1048576 * 16 {
         println!("binary too large");
@@ -38,6 +43,11 @@ fn handle_client(mut stream: UnixStream) {
     let mut wasm_binary: Vec<u8> = Vec::with_capacity(binary_size as usize);
     unsafe { wasm_binary.set_len(binary_size as usize) };
     stream.read_exact(&mut wasm_binary).unwrap();
+    use wasmer::webassembly;
+    use wasmer_runtime_core::{
+        backend::{CompilerConfig, MemoryBoundCheckMode},
+        loader::Instance,
+    };
     let module = webassembly::compile_with_config_with(
         &wasm_binary[..],
         CompilerConfig {
@@ -72,6 +82,7 @@ fn handle_client(mut stream: UnixStream) {
                     println!("Too many arguments");
                     return;
                 }
+                use wasmer_runtime::Value;
                 let mut args: Vec<Value> = Vec::with_capacity(arg_count as usize);
                 for _ in 0..arg_count {
                     args.push(Value::I64(stream.read_u64::<LittleEndian>().unwrap() as _));
@@ -123,6 +134,7 @@ fn handle_client(mut stream: UnixStream) {
 #[cfg(feature = "loader:kernel")]
 fn run_listen(opts: Listen) {
     let listener = UnixListener::bind(&opts.socket).unwrap();
+    use std::thread;
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
