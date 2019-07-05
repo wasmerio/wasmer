@@ -157,7 +157,7 @@ where
 // }
 
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
-    inner: Inner,
+    pub inner: Inner,
     f: NonNull<vm::Func>,
     ctx: *mut Ctx,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
@@ -168,7 +168,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub(crate) unsafe fn from_raw_parts(
+    pub unsafe fn from_raw_parts(
         inner: Wasm,
         f: NonNull<vm::Func>,
         ctx: *mut Ctx,

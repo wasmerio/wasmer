@@ -230,8 +230,8 @@ pub mod gl_static {
             "_glCreateVertexArrays" => func!(_glCreateVertexArrays),
             "_emscripten_glCullFace" => func!(_glCullFace),
             "_glCullFace" => func!(_glCullFace),
-            //"_emscripten_glDebugMessageCallback" => func!(_glDebugMessageCallback),
-            //"_glDebugMessageCallback" => func!(_glDebugMessageCallback),
+            "_emscripten_glDebugMessageCallback" => func!(_glDebugMessageCallback),
+            "_glDebugMessageCallback" => func!(_glDebugMessageCallback),
             "_emscripten_glDebugMessageControl" => func!(_glDebugMessageControl),
             "_glDebugMessageControl" => func!(_glDebugMessageControl),
             "_emscripten_glDebugMessageInsert" => func!(_glDebugMessageInsert),
@@ -1414,10 +1414,14 @@ pub mod gl_static {
             pipeline: types::GLuint,
             program: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glActiveShaderProgram");
+
             let _res = unsafe { gl::ActiveShaderProgram(pipeline, program) };
             _res
         }
         pub fn _glActiveTexture(_ctx: &mut Ctx, texture: types::GLenum) -> () {
+            debug!("emscripten::_glActiveTexture");
+
             let _res = unsafe { gl::ActiveTexture(texture) };
             _res
         }
@@ -1426,6 +1430,11 @@ pub mod gl_static {
             program: types::GLuint,
             shader: types::GLuint,
         ) -> () {
+            debug!(
+                "emscripten::_glAttachShader: program: {}, shader: {}",
+                program, shader
+            );
+
             let _res = unsafe { gl::AttachShader(program, shader) };
             _res
         }
@@ -1434,10 +1443,14 @@ pub mod gl_static {
             id: types::GLuint,
             mode: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBeginConditionalRender");
+
             let _res = unsafe { gl::BeginConditionalRender(id, mode) };
             _res
         }
         pub fn _glBeginQuery(_ctx: &mut Ctx, target: types::GLenum, id: types::GLuint) -> () {
+            debug!("emscripten::_glBeginQuery");
+
             let _res = unsafe { gl::BeginQuery(target, id) };
             _res
         }
@@ -1447,10 +1460,14 @@ pub mod gl_static {
             index: types::GLuint,
             id: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glBeginQueryIndexed");
+
             let _res = unsafe { gl::BeginQueryIndexed(target, index, id) };
             _res
         }
         pub fn _glBeginTransformFeedback(_ctx: &mut Ctx, primitiveMode: types::GLenum) -> () {
+            debug!("emscripten::_glBeginTransformFeedback");
+
             let _res = unsafe { gl::BeginTransformFeedback(primitiveMode) };
             _res
         }
@@ -1460,12 +1477,16 @@ pub mod gl_static {
             index: types::GLuint,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glBindAttribLocation");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::BindAttribLocation(program, index, name) };
             _res
         }
         pub fn _glBindBuffer(_ctx: &mut Ctx, target: types::GLenum, buffer: types::GLuint) -> () {
+            debug!("emscripten::_glBindBuffer");
+
             let _res = unsafe { gl::BindBuffer(target, buffer) };
             _res
         }
@@ -1475,6 +1496,8 @@ pub mod gl_static {
             index: types::GLuint,
             buffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glBindBufferBase");
+
             let _res = unsafe { gl::BindBufferBase(target, index, buffer) };
             _res
         }
@@ -1486,6 +1509,8 @@ pub mod gl_static {
             offset: u32,
             size: u32,
         ) -> () {
+            debug!("emscripten::_glBindBufferRange");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let _res = unsafe { gl::BindBufferRange(target, index, buffer, offset, size) };
@@ -1498,6 +1523,8 @@ pub mod gl_static {
             count: types::GLsizei,
             buffers: u32,
         ) -> () {
+            debug!("emscripten::_glBindBuffersBase");
+
             let buffers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), buffers) as *const types::GLuint;
             let _res = unsafe { gl::BindBuffersBase(target, first, count, buffers) };
@@ -1512,6 +1539,8 @@ pub mod gl_static {
             offsets: u32,
             sizes: u32,
         ) -> () {
+            debug!("emscripten::_glBindBuffersRange");
+
             let buffers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), buffers) as *const types::GLuint;
             let offsets: *const types::GLintptr =
@@ -1528,6 +1557,8 @@ pub mod gl_static {
             color: types::GLuint,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glBindFragDataLocation");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::BindFragDataLocation(program, color, name) };
@@ -1540,6 +1571,8 @@ pub mod gl_static {
             index: types::GLuint,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glBindFragDataLocationIndexed");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res =
@@ -1551,6 +1584,8 @@ pub mod gl_static {
             target: types::GLenum,
             framebuffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glBindFramebuffer");
+
             let _res = unsafe { gl::BindFramebuffer(target, framebuffer) };
             _res
         }
@@ -1564,6 +1599,8 @@ pub mod gl_static {
             access: types::GLenum,
             format: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBindImageTexture");
+
             let _res = unsafe {
                 gl::BindImageTexture(unit, texture, level, layered, layer, access, format)
             };
@@ -1575,12 +1612,16 @@ pub mod gl_static {
             count: types::GLsizei,
             textures: u32,
         ) -> () {
+            debug!("emscripten::_glBindImageTextures");
+
             let textures: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), textures) as *const types::GLuint;
             let _res = unsafe { gl::BindImageTextures(first, count, textures) };
             _res
         }
         pub fn _glBindProgramPipeline(_ctx: &mut Ctx, pipeline: types::GLuint) -> () {
+            debug!("emscripten::_glBindProgramPipeline");
+
             let _res = unsafe { gl::BindProgramPipeline(pipeline) };
             _res
         }
@@ -1589,10 +1630,14 @@ pub mod gl_static {
             target: types::GLenum,
             renderbuffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glBindRenderbuffer");
+
             let _res = unsafe { gl::BindRenderbuffer(target, renderbuffer) };
             _res
         }
         pub fn _glBindSampler(_ctx: &mut Ctx, unit: types::GLuint, sampler: types::GLuint) -> () {
+            debug!("emscripten::_glBindSampler");
+
             let _res = unsafe { gl::BindSampler(unit, sampler) };
             _res
         }
@@ -1602,12 +1647,16 @@ pub mod gl_static {
             count: types::GLsizei,
             samplers: u32,
         ) -> () {
+            debug!("emscripten::_glBindSamplers");
+
             let samplers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), samplers) as *const types::GLuint;
             let _res = unsafe { gl::BindSamplers(first, count, samplers) };
             _res
         }
         pub fn _glBindTexture(_ctx: &mut Ctx, target: types::GLenum, texture: types::GLuint) -> () {
+            debug!("emscripten::_glBindTexture");
+
             let _res = unsafe { gl::BindTexture(target, texture) };
             _res
         }
@@ -1616,6 +1665,8 @@ pub mod gl_static {
             unit: types::GLuint,
             texture: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glBindTextureUnit");
+
             let _res = unsafe { gl::BindTextureUnit(unit, texture) };
             _res
         }
@@ -1625,6 +1676,8 @@ pub mod gl_static {
             count: types::GLsizei,
             textures: u32,
         ) -> () {
+            debug!("emscripten::_glBindTextures");
+
             let textures: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), textures) as *const types::GLuint;
             let _res = unsafe { gl::BindTextures(first, count, textures) };
@@ -1635,10 +1688,14 @@ pub mod gl_static {
             target: types::GLenum,
             id: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glBindTransformFeedback");
+
             let _res = unsafe { gl::BindTransformFeedback(target, id) };
             _res
         }
         pub fn _glBindVertexArray(_ctx: &mut Ctx, array: types::GLuint) -> () {
+            debug!("emscripten::_glBindVertexArray");
+
             let _res = unsafe { gl::BindVertexArray(array) };
             _res
         }
@@ -1649,6 +1706,8 @@ pub mod gl_static {
             offset: u32,
             stride: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glBindVertexBuffer");
+
             let offset: types::GLintptr = offset as types::GLintptr;
 
             let _res = unsafe { gl::BindVertexBuffer(bindingindex, buffer, offset, stride) };
@@ -1662,6 +1721,8 @@ pub mod gl_static {
             offsets: u32,
             strides: u32,
         ) -> () {
+            debug!("emscripten::_glBindVertexBuffers");
+
             let buffers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), buffers) as *const types::GLuint;
             let offsets: *const types::GLintptr =
@@ -1672,6 +1733,7 @@ pub mod gl_static {
             _res
         }
         pub fn _glBlendColor(_ctx: &mut Ctx, red: f64, green: f64, blue: f64, alpha: f64) -> () {
+            debug!("emscripten::_glBlendColor");
             let red: types::GLfloat = red as types::GLfloat;
             let green: types::GLfloat = green as types::GLfloat;
             let blue: types::GLfloat = blue as types::GLfloat;
@@ -1680,6 +1742,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glBlendEquation(_ctx: &mut Ctx, mode: types::GLenum) -> () {
+            debug!("emscripten::_glBlendEquation");
+
             let _res = unsafe { gl::BlendEquation(mode) };
             _res
         }
@@ -1688,6 +1752,8 @@ pub mod gl_static {
             modeRGB: types::GLenum,
             modeAlpha: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBlendEquationSeparate");
+
             let _res = unsafe { gl::BlendEquationSeparate(modeRGB, modeAlpha) };
             _res
         }
@@ -1697,14 +1763,20 @@ pub mod gl_static {
             modeRGB: types::GLenum,
             modeAlpha: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBlendEquationSeparatei");
+
             let _res = unsafe { gl::BlendEquationSeparatei(buf, modeRGB, modeAlpha) };
             _res
         }
         pub fn _glBlendEquationi(_ctx: &mut Ctx, buf: types::GLuint, mode: types::GLenum) -> () {
+            debug!("emscripten::_glBlendEquationi");
+
             let _res = unsafe { gl::BlendEquationi(buf, mode) };
             _res
         }
         pub fn _glBlendFunc(_ctx: &mut Ctx, sfactor: types::GLenum, dfactor: types::GLenum) -> () {
+            debug!("emscripten::_glBlendFunc");
+
             let _res = unsafe { gl::BlendFunc(sfactor, dfactor) };
             _res
         }
@@ -1715,6 +1787,8 @@ pub mod gl_static {
             sfactorAlpha: types::GLenum,
             dfactorAlpha: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBlendFuncSeparate");
+
             let _res = unsafe {
                 gl::BlendFuncSeparate(sfactorRGB, dfactorRGB, sfactorAlpha, dfactorAlpha)
             };
@@ -1728,6 +1802,8 @@ pub mod gl_static {
             srcAlpha: types::GLenum,
             dstAlpha: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBlendFuncSeparatei");
+
             let _res = unsafe { gl::BlendFuncSeparatei(buf, srcRGB, dstRGB, srcAlpha, dstAlpha) };
             _res
         }
@@ -1737,6 +1813,8 @@ pub mod gl_static {
             src: types::GLenum,
             dst: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBlendFunci");
+
             let _res = unsafe { gl::BlendFunci(buf, src, dst) };
             _res
         }
@@ -1753,6 +1831,8 @@ pub mod gl_static {
             mask: types::GLbitfield,
             filter: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBlitFramebuffer");
+
             let _res = unsafe {
                 gl::BlitFramebuffer(
                     srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter,
@@ -1775,6 +1855,8 @@ pub mod gl_static {
             mask: types::GLbitfield,
             filter: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBlitNamedFramebuffer");
+
             let _res = unsafe {
                 gl::BlitNamedFramebuffer(
                     readFramebuffer,
@@ -1800,6 +1882,8 @@ pub mod gl_static {
             data: u32,
             usage: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glBufferData");
+
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
@@ -1815,6 +1899,8 @@ pub mod gl_static {
             data: u32,
             flags: types::GLbitfield,
         ) -> () {
+            debug!("emscripten::_glBufferStorage");
+
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
@@ -1830,6 +1916,8 @@ pub mod gl_static {
             size: u32,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glBufferSubData");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let data: *const __gl_imports::raw::c_void =
@@ -1839,6 +1927,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glCheckFramebufferStatus(_ctx: &mut Ctx, target: types::GLenum) -> types::GLenum {
+            debug!("emscripten::_glCheckFramebufferStatus");
+
             let _res = unsafe { gl::CheckFramebufferStatus(target) };
             _res
         }
@@ -1847,14 +1937,20 @@ pub mod gl_static {
             framebuffer: types::GLuint,
             target: types::GLenum,
         ) -> types::GLenum {
+            debug!("emscripten::_glCheckNamedFramebufferStatus");
+
             let _res = unsafe { gl::CheckNamedFramebufferStatus(framebuffer, target) };
             _res
         }
         pub fn _glClampColor(_ctx: &mut Ctx, target: types::GLenum, clamp: types::GLenum) -> () {
+            debug!("emscripten::_glClampColor");
+
             let _res = unsafe { gl::ClampColor(target, clamp) };
             _res
         }
         pub fn _glClear(_ctx: &mut Ctx, mask: types::GLbitfield) -> () {
+            debug!("emscripten::_glClear");
+
             let _res = unsafe { gl::Clear(mask) };
             _res
         }
@@ -1866,6 +1962,8 @@ pub mod gl_static {
             type_: types::GLenum,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glClearBufferData");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -1882,6 +1980,8 @@ pub mod gl_static {
             type_: types::GLenum,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glClearBufferSubData");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
 
@@ -1900,6 +2000,8 @@ pub mod gl_static {
             depth: f64,
             stencil: types::GLint,
         ) -> () {
+            debug!("emscripten::_glClearBufferfi");
+
             let depth: types::GLfloat = depth as types::GLfloat;
 
             let _res = unsafe { gl::ClearBufferfi(buffer, drawbuffer, depth, stencil) };
@@ -1911,6 +2013,8 @@ pub mod gl_static {
             drawbuffer: types::GLint,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glClearBufferfv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::ClearBufferfv(buffer, drawbuffer, value) };
@@ -1922,6 +2026,8 @@ pub mod gl_static {
             drawbuffer: types::GLint,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glClearBufferiv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::ClearBufferiv(buffer, drawbuffer, value) };
@@ -1933,12 +2039,15 @@ pub mod gl_static {
             drawbuffer: types::GLint,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glClearBufferuiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::ClearBufferuiv(buffer, drawbuffer, value) };
             _res
         }
         pub fn _glClearColor(_ctx: &mut Ctx, red: f64, green: f64, blue: f64, alpha: f64) -> () {
+            debug!("emscripten::_glClearColor");
             let red: types::GLfloat = red as types::GLfloat;
             let green: types::GLfloat = green as types::GLfloat;
             let blue: types::GLfloat = blue as types::GLfloat;
@@ -1947,10 +2056,13 @@ pub mod gl_static {
             _res
         }
         pub fn _glClearDepth(_ctx: &mut Ctx, depth: types::GLdouble) -> () {
+            debug!("emscripten::_glClearDepth");
+
             let _res = unsafe { gl::ClearDepth(depth) };
             _res
         }
         pub fn _glClearDepthf(_ctx: &mut Ctx, d: f64) -> () {
+            debug!("emscripten::_glClearDepthf");
             let d: types::GLfloat = d as types::GLfloat;
             let _res = unsafe { gl::ClearDepthf(d) };
             _res
@@ -1963,6 +2075,8 @@ pub mod gl_static {
             type_: types::GLenum,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glClearNamedBufferData");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -1980,6 +2094,8 @@ pub mod gl_static {
             type_: types::GLenum,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glClearNamedBufferSubData");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
 
@@ -2007,6 +2123,8 @@ pub mod gl_static {
             depth: f64,
             stencil: types::GLint,
         ) -> () {
+            debug!("emscripten::_glClearNamedFramebufferfi");
+
             let depth: types::GLfloat = depth as types::GLfloat;
 
             let _res = unsafe {
@@ -2021,6 +2139,8 @@ pub mod gl_static {
             drawbuffer: types::GLint,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glClearNamedFramebufferfv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res =
@@ -2034,6 +2154,8 @@ pub mod gl_static {
             drawbuffer: types::GLint,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glClearNamedFramebufferiv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res =
@@ -2047,6 +2169,8 @@ pub mod gl_static {
             drawbuffer: types::GLint,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glClearNamedFramebufferuiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res =
@@ -2054,6 +2178,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glClearStencil(_ctx: &mut Ctx, s: types::GLint) -> () {
+            debug!("emscripten::_glClearStencil");
+
             let _res = unsafe { gl::ClearStencil(s) };
             _res
         }
@@ -2065,6 +2191,8 @@ pub mod gl_static {
             type_: types::GLenum,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glClearTexImage");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2085,6 +2213,8 @@ pub mod gl_static {
             type_: types::GLenum,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glClearTexSubImage");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2102,6 +2232,7 @@ pub mod gl_static {
             flags: types::GLbitfield,
             timeout: types::GLuint64,
         ) -> types::GLenum {
+            debug!("emscripten::_glClientWaitSync");
             let sync: types::GLsync =
                 emscripten_memory_pointer!(_ctx.memory(0), sync) as types::GLsync;
 
@@ -2109,6 +2240,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glClipControl(_ctx: &mut Ctx, origin: types::GLenum, depth: types::GLenum) -> () {
+            debug!("emscripten::_glClipControl");
+
             let _res = unsafe { gl::ClipControl(origin, depth) };
             _res
         }
@@ -2119,6 +2252,8 @@ pub mod gl_static {
             blue: types::GLboolean,
             alpha: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glColorMask");
+
             let _res = unsafe { gl::ColorMask(red, green, blue, alpha) };
             _res
         }
@@ -2130,30 +2265,42 @@ pub mod gl_static {
             b: types::GLboolean,
             a: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glColorMaski");
+
             let _res = unsafe { gl::ColorMaski(index, r, g, b, a) };
             _res
         }
         pub fn _glColorP3ui(_ctx: &mut Ctx, type_: types::GLenum, color: types::GLuint) -> () {
+            debug!("emscripten::_glColorP3ui");
+
             let _res = unsafe { gl::ColorP3ui(type_, color) };
             _res
         }
         pub fn _glColorP3uiv(_ctx: &mut Ctx, type_: types::GLenum, color: u32) -> () {
+            debug!("emscripten::_glColorP3uiv");
+
             let color: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), color) as *const types::GLuint;
             let _res = unsafe { gl::ColorP3uiv(type_, color) };
             _res
         }
         pub fn _glColorP4ui(_ctx: &mut Ctx, type_: types::GLenum, color: types::GLuint) -> () {
+            debug!("emscripten::_glColorP4ui");
+
             let _res = unsafe { gl::ColorP4ui(type_, color) };
             _res
         }
         pub fn _glColorP4uiv(_ctx: &mut Ctx, type_: types::GLenum, color: u32) -> () {
+            debug!("emscripten::_glColorP4uiv");
+
             let color: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), color) as *const types::GLuint;
             let _res = unsafe { gl::ColorP4uiv(type_, color) };
             _res
         }
         pub fn _glCompileShader(_ctx: &mut Ctx, shader: types::GLuint) -> () {
+            debug!("emscripten::_glCompileShader: shader: {}", shader);
+
             let _res = unsafe { gl::CompileShader(shader) };
             _res
         }
@@ -2167,6 +2314,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTexImage1D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2194,6 +2343,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTexImage2D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2223,6 +2374,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTexImage3D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2251,6 +2404,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTexSubImage1D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2271,6 +2426,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTexSubImage2D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2295,6 +2452,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTexSubImage3D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2316,6 +2475,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTextureSubImage1D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2338,6 +2499,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTextureSubImage2D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2362,6 +2525,8 @@ pub mod gl_static {
             imageSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glCompressedTextureSubImage3D");
+
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
                     as *const __gl_imports::raw::c_void;
@@ -2381,6 +2546,8 @@ pub mod gl_static {
             writeOffset: u32,
             size: u32,
         ) -> () {
+            debug!("emscripten::_glCopyBufferSubData");
+
             let readOffset: types::GLintptr = readOffset as types::GLintptr;
             let writeOffset: types::GLintptr = writeOffset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
@@ -2407,6 +2574,8 @@ pub mod gl_static {
             srcHeight: types::GLsizei,
             srcDepth: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glCopyImageSubData");
+
             let _res = unsafe {
                 gl::CopyImageSubData(
                     srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel,
@@ -2423,6 +2592,8 @@ pub mod gl_static {
             writeOffset: u32,
             size: u32,
         ) -> () {
+            debug!("emscripten::_glCopyNamedBufferSubData");
+
             let readOffset: types::GLintptr = readOffset as types::GLintptr;
             let writeOffset: types::GLintptr = writeOffset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
@@ -2441,6 +2612,8 @@ pub mod gl_static {
             width: types::GLsizei,
             border: types::GLint,
         ) -> () {
+            debug!("emscripten::_glCopyTexImage1D");
+
             let _res =
                 unsafe { gl::CopyTexImage1D(target, level, internalformat, x, y, width, border) };
             _res
@@ -2456,6 +2629,8 @@ pub mod gl_static {
             height: types::GLsizei,
             border: types::GLint,
         ) -> () {
+            debug!("emscripten::_glCopyTexImage2D");
+
             let _res = unsafe {
                 gl::CopyTexImage2D(target, level, internalformat, x, y, width, height, border)
             };
@@ -2470,6 +2645,8 @@ pub mod gl_static {
             y: types::GLint,
             width: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glCopyTexSubImage1D");
+
             let _res = unsafe { gl::CopyTexSubImage1D(target, level, xoffset, x, y, width) };
             _res
         }
@@ -2484,6 +2661,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glCopyTexSubImage2D");
+
             let _res = unsafe {
                 gl::CopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height)
             };
@@ -2501,6 +2680,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glCopyTexSubImage3D");
+
             let _res = unsafe {
                 gl::CopyTexSubImage3D(
                     target, level, xoffset, yoffset, zoffset, x, y, width, height,
@@ -2517,6 +2698,8 @@ pub mod gl_static {
             y: types::GLint,
             width: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glCopyTextureSubImage1D");
+
             let _res = unsafe { gl::CopyTextureSubImage1D(texture, level, xoffset, x, y, width) };
             _res
         }
@@ -2531,6 +2714,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glCopyTextureSubImage2D");
+
             let _res = unsafe {
                 gl::CopyTextureSubImage2D(texture, level, xoffset, yoffset, x, y, width, height)
             };
@@ -2548,6 +2733,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glCopyTextureSubImage3D");
+
             let _res = unsafe {
                 gl::CopyTextureSubImage3D(
                     texture, level, xoffset, yoffset, zoffset, x, y, width, height,
@@ -2556,22 +2743,31 @@ pub mod gl_static {
             _res
         }
         pub fn _glCreateBuffers(_ctx: &mut Ctx, n: types::GLsizei, buffers: u32) -> () {
+            debug!("emscripten::_glCreateBuffers");
+
             let buffers: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), buffers) as *mut types::GLuint;
             let _res = unsafe { gl::CreateBuffers(n, buffers) };
             _res
         }
         pub fn _glCreateFramebuffers(_ctx: &mut Ctx, n: types::GLsizei, framebuffers: u32) -> () {
+            debug!("emscripten::_glCreateFramebuffers");
+
             let framebuffers: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), framebuffers) as *mut types::GLuint;
             let _res = unsafe { gl::CreateFramebuffers(n, framebuffers) };
             _res
         }
         pub fn _glCreateProgram(_ctx: &mut Ctx) -> types::GLuint {
+            debug!("emscripten::_glCreateProgram");
+
             let _res = unsafe { gl::CreateProgram() };
+            debug!("=> {}", _res);
             _res
         }
         pub fn _glCreateProgramPipelines(_ctx: &mut Ctx, n: types::GLsizei, pipelines: u32) -> () {
+            debug!("emscripten::_glCreateProgramPipelines");
+
             let pipelines: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), pipelines) as *mut types::GLuint;
             let _res = unsafe { gl::CreateProgramPipelines(n, pipelines) };
@@ -2583,24 +2779,32 @@ pub mod gl_static {
             n: types::GLsizei,
             ids: u32,
         ) -> () {
+            debug!("emscripten::_glCreateQueries");
+
             let ids: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), ids) as *mut types::GLuint;
             let _res = unsafe { gl::CreateQueries(target, n, ids) };
             _res
         }
         pub fn _glCreateRenderbuffers(_ctx: &mut Ctx, n: types::GLsizei, renderbuffers: u32) -> () {
+            debug!("emscripten::_glCreateRenderbuffers");
+
             let renderbuffers: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), renderbuffers) as *mut types::GLuint;
             let _res = unsafe { gl::CreateRenderbuffers(n, renderbuffers) };
             _res
         }
         pub fn _glCreateSamplers(_ctx: &mut Ctx, n: types::GLsizei, samplers: u32) -> () {
+            debug!("emscripten::_glCreateSamplers");
+
             let samplers: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), samplers) as *mut types::GLuint;
             let _res = unsafe { gl::CreateSamplers(n, samplers) };
             _res
         }
         pub fn _glCreateShader(_ctx: &mut Ctx, type_: types::GLenum) -> types::GLuint {
+            debug!("emscripten::_glCreateShader");
+
             let _res = unsafe { gl::CreateShader(type_) };
             _res
         }
@@ -2610,6 +2814,8 @@ pub mod gl_static {
             count: types::GLsizei,
             strings: u32,
         ) -> types::GLuint {
+            debug!("emscripten::_glCreateShaderProgramv");
+
             let strings: *const *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), strings) as *const *const types::GLchar;
             let _res = unsafe { gl::CreateShaderProgramv(type_, count, strings) };
@@ -2621,37 +2827,47 @@ pub mod gl_static {
             n: types::GLsizei,
             textures: u32,
         ) -> () {
+            debug!("emscripten::_glCreateTextures");
+
             let textures: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), textures) as *mut types::GLuint;
             let _res = unsafe { gl::CreateTextures(target, n, textures) };
             _res
         }
         pub fn _glCreateTransformFeedbacks(_ctx: &mut Ctx, n: types::GLsizei, ids: u32) -> () {
+            debug!("emscripten::_glCreateTransformFeedbacks");
+
             let ids: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), ids) as *mut types::GLuint;
             let _res = unsafe { gl::CreateTransformFeedbacks(n, ids) };
             _res
         }
         pub fn _glCreateVertexArrays(_ctx: &mut Ctx, n: types::GLsizei, arrays: u32) -> () {
+            debug!("emscripten::_glCreateVertexArrays");
+
             let arrays: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), arrays) as *mut types::GLuint;
             let _res = unsafe { gl::CreateVertexArrays(n, arrays) };
             _res
         }
         pub fn _glCullFace(_ctx: &mut Ctx, mode: types::GLenum) -> () {
+            debug!("emscripten::_glCullFace");
+
             let _res = unsafe { gl::CullFace(mode) };
             _res
         }
         pub fn _glDebugMessageCallback(
             _ctx: &mut Ctx,
-            callback: types::GLDEBUGPROC,
+            callback: u32, //types::GLDEBUGPROC,
             userParam: u32,
         ) -> () {
-            let userParam: *const __gl_imports::raw::c_void =
+            debug!("emscripten::_glDebugMessageCallback");
+
+            /*let userParam: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), userParam)
                     as *const __gl_imports::raw::c_void;
             let _res = unsafe { gl::DebugMessageCallback(callback, userParam) };
-            _res
+            _res*/
         }
         pub fn _glDebugMessageControl(
             _ctx: &mut Ctx,
@@ -2662,6 +2878,8 @@ pub mod gl_static {
             ids: u32,
             enabled: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glDebugMessageControl");
+
             let ids: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), ids) as *const types::GLuint;
 
@@ -2678,88 +2896,119 @@ pub mod gl_static {
             length: types::GLsizei,
             buf: u32,
         ) -> () {
+            debug!("emscripten::_glDebugMessageInsert");
+
             let buf: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), buf) as *const types::GLchar;
             let _res = unsafe { gl::DebugMessageInsert(source, type_, id, severity, length, buf) };
             _res
         }
         pub fn _glDeleteBuffers(_ctx: &mut Ctx, n: types::GLsizei, buffers: u32) -> () {
+            debug!("emscripten::_glDeleteBuffers");
+
             let buffers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), buffers) as *const types::GLuint;
             let _res = unsafe { gl::DeleteBuffers(n, buffers) };
             _res
         }
         pub fn _glDeleteFramebuffers(_ctx: &mut Ctx, n: types::GLsizei, framebuffers: u32) -> () {
+            debug!("emscripten::_glDeleteFramebuffers");
+
             let framebuffers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), framebuffers) as *const types::GLuint;
             let _res = unsafe { gl::DeleteFramebuffers(n, framebuffers) };
             _res
         }
         pub fn _glDeleteProgram(_ctx: &mut Ctx, program: types::GLuint) -> () {
+            debug!("emscripten::_glDeleteProgram");
+
             let _res = unsafe { gl::DeleteProgram(program) };
             _res
         }
         pub fn _glDeleteProgramPipelines(_ctx: &mut Ctx, n: types::GLsizei, pipelines: u32) -> () {
+            debug!("emscripten::_glDeleteProgramPipelines");
+
             let pipelines: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), pipelines) as *const types::GLuint;
             let _res = unsafe { gl::DeleteProgramPipelines(n, pipelines) };
             _res
         }
         pub fn _glDeleteQueries(_ctx: &mut Ctx, n: types::GLsizei, ids: u32) -> () {
+            debug!("emscripten::_glDeleteQueries");
+
             let ids: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), ids) as *const types::GLuint;
             let _res = unsafe { gl::DeleteQueries(n, ids) };
             _res
         }
         pub fn _glDeleteRenderbuffers(_ctx: &mut Ctx, n: types::GLsizei, renderbuffers: u32) -> () {
+            debug!("emscripten::_glDeleteRenderbuffers");
+
             let renderbuffers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), renderbuffers) as *const types::GLuint;
             let _res = unsafe { gl::DeleteRenderbuffers(n, renderbuffers) };
             _res
         }
         pub fn _glDeleteSamplers(_ctx: &mut Ctx, count: types::GLsizei, samplers: u32) -> () {
+            debug!("emscripten::_glDeleteSamplers");
+
             let samplers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), samplers) as *const types::GLuint;
             let _res = unsafe { gl::DeleteSamplers(count, samplers) };
             _res
         }
         pub fn _glDeleteShader(_ctx: &mut Ctx, shader: types::GLuint) -> () {
+            debug!("emscripten::_glDeleteShader");
+
             let _res = unsafe { gl::DeleteShader(shader) };
             _res
         }
         pub fn _glDeleteSync(_ctx: &mut Ctx, sync: u32) -> () {
+            debug!("emscripten::_glDeleteSync");
             let sync: types::GLsync =
                 emscripten_memory_pointer!(_ctx.memory(0), sync) as types::GLsync;
             let _res = unsafe { gl::DeleteSync(sync) };
             _res
         }
         pub fn _glDeleteTextures(_ctx: &mut Ctx, n: types::GLsizei, textures: u32) -> () {
+            debug!("emscripten::_glDeleteTextures");
+
             let textures: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), textures) as *const types::GLuint;
             let _res = unsafe { gl::DeleteTextures(n, textures) };
             _res
         }
         pub fn _glDeleteTransformFeedbacks(_ctx: &mut Ctx, n: types::GLsizei, ids: u32) -> () {
+            debug!("emscripten::_glDeleteTransformFeedbacks");
+
             let ids: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), ids) as *const types::GLuint;
             let _res = unsafe { gl::DeleteTransformFeedbacks(n, ids) };
             _res
         }
         pub fn _glDeleteVertexArrays(_ctx: &mut Ctx, n: types::GLsizei, arrays: u32) -> () {
+            debug!("emscripten::_glDeleteVertexArrays");
+
             let arrays: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), arrays) as *const types::GLuint;
             let _res = unsafe { gl::DeleteVertexArrays(n, arrays) };
             _res
         }
         pub fn _glDepthFunc(_ctx: &mut Ctx, func: types::GLenum) -> () {
+            debug!("emscripten::_glDepthFunc");
+
             let _res = unsafe { gl::DepthFunc(func) };
             _res
         }
         pub fn _glDepthMask(_ctx: &mut Ctx, flag: types::GLboolean) -> () {
+            debug!("emscripten::_glDepthMask");
+
             let _res = unsafe { gl::DepthMask(flag) };
             _res
         }
         pub fn _glDepthRange(_ctx: &mut Ctx, n: types::GLdouble, f: types::GLdouble) -> () {
+            debug!("emscripten::_glDepthRange");
+
             let _res = unsafe { gl::DepthRange(n, f) };
             _res
         }
@@ -2769,6 +3018,8 @@ pub mod gl_static {
             count: types::GLsizei,
             v: u32,
         ) -> () {
+            debug!("emscripten::_glDepthRangeArrayv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::DepthRangeArrayv(first, count, v) };
@@ -2780,10 +3031,13 @@ pub mod gl_static {
             n: types::GLdouble,
             f: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glDepthRangeIndexed");
+
             let _res = unsafe { gl::DepthRangeIndexed(index, n, f) };
             _res
         }
         pub fn _glDepthRangef(_ctx: &mut Ctx, n: f64, f: f64) -> () {
+            debug!("emscripten::_glDepthRangef");
             let n: types::GLfloat = n as types::GLfloat;
             let f: types::GLfloat = f as types::GLfloat;
             let _res = unsafe { gl::DepthRangef(n, f) };
@@ -2794,10 +3048,14 @@ pub mod gl_static {
             program: types::GLuint,
             shader: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glDetachShader");
+
             let _res = unsafe { gl::DetachShader(program, shader) };
             _res
         }
         pub fn _glDisable(_ctx: &mut Ctx, cap: types::GLenum) -> () {
+            debug!("emscripten::_glDisable");
+
             let _res = unsafe { gl::Disable(cap) };
             _res
         }
@@ -2806,14 +3064,20 @@ pub mod gl_static {
             vaobj: types::GLuint,
             index: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glDisableVertexArrayAttrib");
+
             let _res = unsafe { gl::DisableVertexArrayAttrib(vaobj, index) };
             _res
         }
         pub fn _glDisableVertexAttribArray(_ctx: &mut Ctx, index: types::GLuint) -> () {
+            debug!("emscripten::_glDisableVertexAttribArray");
+
             let _res = unsafe { gl::DisableVertexAttribArray(index) };
             _res
         }
         pub fn _glDisablei(_ctx: &mut Ctx, target: types::GLenum, index: types::GLuint) -> () {
+            debug!("emscripten::_glDisablei");
+
             let _res = unsafe { gl::Disablei(target, index) };
             _res
         }
@@ -2823,10 +3087,13 @@ pub mod gl_static {
             num_groups_y: types::GLuint,
             num_groups_z: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glDispatchCompute");
+
             let _res = unsafe { gl::DispatchCompute(num_groups_x, num_groups_y, num_groups_z) };
             _res
         }
         pub fn _glDispatchComputeIndirect(_ctx: &mut Ctx, indirect: u32) -> () {
+            debug!("emscripten::_glDispatchComputeIndirect");
             let indirect: types::GLintptr = indirect as types::GLintptr;
             let _res = unsafe { gl::DispatchComputeIndirect(indirect) };
             _res
@@ -2837,10 +3104,14 @@ pub mod gl_static {
             first: types::GLint,
             count: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glDrawArrays");
+
             let _res = unsafe { gl::DrawArrays(mode, first, count) };
             _res
         }
         pub fn _glDrawArraysIndirect(_ctx: &mut Ctx, mode: types::GLenum, indirect: u32) -> () {
+            debug!("emscripten::_glDrawArraysIndirect");
+
             let indirect: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indirect)
                     as *const __gl_imports::raw::c_void;
@@ -2854,6 +3125,8 @@ pub mod gl_static {
             count: types::GLsizei,
             instancecount: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glDrawArraysInstanced");
+
             let _res = unsafe { gl::DrawArraysInstanced(mode, first, count, instancecount) };
             _res
         }
@@ -2865,16 +3138,22 @@ pub mod gl_static {
             instancecount: types::GLsizei,
             baseinstance: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glDrawArraysInstancedBaseInstance");
+
             let _res = unsafe {
                 gl::DrawArraysInstancedBaseInstance(mode, first, count, instancecount, baseinstance)
             };
             _res
         }
         pub fn _glDrawBuffer(_ctx: &mut Ctx, buf: types::GLenum) -> () {
+            debug!("emscripten::_glDrawBuffer");
+
             let _res = unsafe { gl::DrawBuffer(buf) };
             _res
         }
         pub fn _glDrawBuffers(_ctx: &mut Ctx, n: types::GLsizei, bufs: u32) -> () {
+            debug!("emscripten::_glDrawBuffers");
+
             let bufs: *const types::GLenum =
                 emscripten_memory_pointer!(_ctx.memory(0), bufs) as *const types::GLenum;
             let _res = unsafe { gl::DrawBuffers(n, bufs) };
@@ -2887,6 +3166,8 @@ pub mod gl_static {
             type_: types::GLenum,
             indices: u32,
         ) -> () {
+            debug!("emscripten::_glDrawElements");
+
             let indices: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indices)
                     as *const __gl_imports::raw::c_void;
@@ -2901,6 +3182,8 @@ pub mod gl_static {
             indices: u32,
             basevertex: types::GLint,
         ) -> () {
+            debug!("emscripten::_glDrawElementsBaseVertex");
+
             let indices: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indices)
                     as *const __gl_imports::raw::c_void;
@@ -2915,6 +3198,8 @@ pub mod gl_static {
             type_: types::GLenum,
             indirect: u32,
         ) -> () {
+            debug!("emscripten::_glDrawElementsIndirect");
+
             let indirect: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indirect)
                     as *const __gl_imports::raw::c_void;
@@ -2929,6 +3214,8 @@ pub mod gl_static {
             indices: u32,
             instancecount: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glDrawElementsInstanced");
+
             let indices: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indices)
                     as *const __gl_imports::raw::c_void;
@@ -2946,6 +3233,8 @@ pub mod gl_static {
             instancecount: types::GLsizei,
             baseinstance: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glDrawElementsInstancedBaseInstance");
+
             let indices: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indices)
                     as *const __gl_imports::raw::c_void;
@@ -2971,6 +3260,8 @@ pub mod gl_static {
             instancecount: types::GLsizei,
             basevertex: types::GLint,
         ) -> () {
+            debug!("emscripten::_glDrawElementsInstancedBaseVertex");
+
             let indices: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indices)
                     as *const __gl_imports::raw::c_void;
@@ -2997,6 +3288,8 @@ pub mod gl_static {
             basevertex: types::GLint,
             baseinstance: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glDrawElementsInstancedBaseVertexBaseInstance");
+
             let indices: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indices)
                     as *const __gl_imports::raw::c_void;
@@ -3023,6 +3316,8 @@ pub mod gl_static {
             type_: types::GLenum,
             indices: u32,
         ) -> () {
+            debug!("emscripten::_glDrawRangeElements");
+
             let indices: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indices)
                     as *const __gl_imports::raw::c_void;
@@ -3039,6 +3334,8 @@ pub mod gl_static {
             indices: u32,
             basevertex: types::GLint,
         ) -> () {
+            debug!("emscripten::_glDrawRangeElementsBaseVertex");
+
             let indices: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indices)
                     as *const __gl_imports::raw::c_void;
@@ -3053,6 +3350,8 @@ pub mod gl_static {
             mode: types::GLenum,
             id: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glDrawTransformFeedback");
+
             let _res = unsafe { gl::DrawTransformFeedback(mode, id) };
             _res
         }
@@ -3062,6 +3361,8 @@ pub mod gl_static {
             id: types::GLuint,
             instancecount: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glDrawTransformFeedbackInstanced");
+
             let _res = unsafe { gl::DrawTransformFeedbackInstanced(mode, id, instancecount) };
             _res
         }
@@ -3071,6 +3372,8 @@ pub mod gl_static {
             id: types::GLuint,
             stream: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glDrawTransformFeedbackStream");
+
             let _res = unsafe { gl::DrawTransformFeedbackStream(mode, id, stream) };
             _res
         }
@@ -3081,12 +3384,16 @@ pub mod gl_static {
             stream: types::GLuint,
             instancecount: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glDrawTransformFeedbackStreamInstanced");
+
             let _res = unsafe {
                 gl::DrawTransformFeedbackStreamInstanced(mode, id, stream, instancecount)
             };
             _res
         }
         pub fn _glEnable(_ctx: &mut Ctx, cap: types::GLenum) -> () {
+            debug!("emscripten::_glEnable");
+
             let _res = unsafe { gl::Enable(cap) };
             _res
         }
@@ -3095,22 +3402,32 @@ pub mod gl_static {
             vaobj: types::GLuint,
             index: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glEnableVertexArrayAttrib");
+
             let _res = unsafe { gl::EnableVertexArrayAttrib(vaobj, index) };
             _res
         }
         pub fn _glEnableVertexAttribArray(_ctx: &mut Ctx, index: types::GLuint) -> () {
+            debug!("emscripten::_glEnableVertexAttribArray");
+
             let _res = unsafe { gl::EnableVertexAttribArray(index) };
             _res
         }
         pub fn _glEnablei(_ctx: &mut Ctx, target: types::GLenum, index: types::GLuint) -> () {
+            debug!("emscripten::_glEnablei");
+
             let _res = unsafe { gl::Enablei(target, index) };
             _res
         }
         pub fn _glEndConditionalRender(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glEndConditionalRender");
+
             let _res = unsafe { gl::EndConditionalRender() };
             _res
         }
         pub fn _glEndQuery(_ctx: &mut Ctx, target: types::GLenum) -> () {
+            debug!("emscripten::_glEndQuery");
+
             let _res = unsafe { gl::EndQuery(target) };
             _res
         }
@@ -3119,10 +3436,14 @@ pub mod gl_static {
             target: types::GLenum,
             index: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glEndQueryIndexed");
+
             let _res = unsafe { gl::EndQueryIndexed(target, index) };
             _res
         }
         pub fn _glEndTransformFeedback(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glEndTransformFeedback");
+
             let _res = unsafe { gl::EndTransformFeedback() };
             _res
         }
@@ -3131,14 +3452,20 @@ pub mod gl_static {
             condition: types::GLenum,
             flags: types::GLbitfield,
         ) -> u32 {
+            debug!("emscripten::_glFenceSync");
+
             let _res = unsafe { gl::FenceSync(condition, flags) };
             0
         }
         pub fn _glFinish(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glFinish");
+
             let _res = unsafe { gl::Finish() };
             _res
         }
         pub fn _glFlush(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glFlush");
+
             let _res = unsafe { gl::Flush() };
             _res
         }
@@ -3148,6 +3475,8 @@ pub mod gl_static {
             offset: u32,
             length: u32,
         ) -> () {
+            debug!("emscripten::_glFlushMappedBufferRange");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let length: types::GLsizeiptr = length as types::GLsizeiptr;
             let _res = unsafe { gl::FlushMappedBufferRange(target, offset, length) };
@@ -3159,6 +3488,8 @@ pub mod gl_static {
             offset: u32,
             length: u32,
         ) -> () {
+            debug!("emscripten::_glFlushMappedNamedBufferRange");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let length: types::GLsizeiptr = length as types::GLsizeiptr;
             let _res = unsafe { gl::FlushMappedNamedBufferRange(buffer, offset, length) };
@@ -3170,6 +3501,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: types::GLint,
         ) -> () {
+            debug!("emscripten::_glFramebufferParameteri");
+
             let _res = unsafe { gl::FramebufferParameteri(target, pname, param) };
             _res
         }
@@ -3180,6 +3513,8 @@ pub mod gl_static {
             renderbuffertarget: types::GLenum,
             renderbuffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glFramebufferRenderbuffer");
+
             let _res = unsafe {
                 gl::FramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer)
             };
@@ -3192,6 +3527,8 @@ pub mod gl_static {
             texture: types::GLuint,
             level: types::GLint,
         ) -> () {
+            debug!("emscripten::_glFramebufferTexture");
+
             let _res = unsafe { gl::FramebufferTexture(target, attachment, texture, level) };
             _res
         }
@@ -3203,6 +3540,8 @@ pub mod gl_static {
             texture: types::GLuint,
             level: types::GLint,
         ) -> () {
+            debug!("emscripten::_glFramebufferTexture1D");
+
             let _res =
                 unsafe { gl::FramebufferTexture1D(target, attachment, textarget, texture, level) };
             _res
@@ -3215,6 +3554,8 @@ pub mod gl_static {
             texture: types::GLuint,
             level: types::GLint,
         ) -> () {
+            debug!("emscripten::_glFramebufferTexture2D");
+
             let _res =
                 unsafe { gl::FramebufferTexture2D(target, attachment, textarget, texture, level) };
             _res
@@ -3228,6 +3569,8 @@ pub mod gl_static {
             level: types::GLint,
             zoffset: types::GLint,
         ) -> () {
+            debug!("emscripten::_glFramebufferTexture3D");
+
             let _res = unsafe {
                 gl::FramebufferTexture3D(target, attachment, textarget, texture, level, zoffset)
             };
@@ -3241,73 +3584,99 @@ pub mod gl_static {
             level: types::GLint,
             layer: types::GLint,
         ) -> () {
+            debug!("emscripten::_glFramebufferTextureLayer");
+
             let _res =
                 unsafe { gl::FramebufferTextureLayer(target, attachment, texture, level, layer) };
             _res
         }
         pub fn _glFrontFace(_ctx: &mut Ctx, mode: types::GLenum) -> () {
+            debug!("emscripten::_glFrontFace");
+
             let _res = unsafe { gl::FrontFace(mode) };
             _res
         }
         pub fn _glGenBuffers(_ctx: &mut Ctx, n: types::GLsizei, buffers: u32) -> () {
+            debug!("emscripten::_glGenBuffers");
+
             let buffers: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), buffers) as *mut types::GLuint;
             let _res = unsafe { gl::GenBuffers(n, buffers) };
             _res
         }
         pub fn _glGenFramebuffers(_ctx: &mut Ctx, n: types::GLsizei, framebuffers: u32) -> () {
+            debug!("emscripten::_glGenFramebuffers");
+
             let framebuffers: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), framebuffers) as *mut types::GLuint;
             let _res = unsafe { gl::GenFramebuffers(n, framebuffers) };
             _res
         }
         pub fn _glGenProgramPipelines(_ctx: &mut Ctx, n: types::GLsizei, pipelines: u32) -> () {
+            debug!("emscripten::_glGenProgramPipelines");
+
             let pipelines: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), pipelines) as *mut types::GLuint;
             let _res = unsafe { gl::GenProgramPipelines(n, pipelines) };
             _res
         }
         pub fn _glGenQueries(_ctx: &mut Ctx, n: types::GLsizei, ids: u32) -> () {
+            debug!("emscripten::_glGenQueries");
+
             let ids: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), ids) as *mut types::GLuint;
             let _res = unsafe { gl::GenQueries(n, ids) };
             _res
         }
         pub fn _glGenRenderbuffers(_ctx: &mut Ctx, n: types::GLsizei, renderbuffers: u32) -> () {
+            debug!("emscripten::_glGenRenderbuffers");
+
             let renderbuffers: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), renderbuffers) as *mut types::GLuint;
             let _res = unsafe { gl::GenRenderbuffers(n, renderbuffers) };
             _res
         }
         pub fn _glGenSamplers(_ctx: &mut Ctx, count: types::GLsizei, samplers: u32) -> () {
+            debug!("emscripten::_glGenSamplers");
+
             let samplers: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), samplers) as *mut types::GLuint;
             let _res = unsafe { gl::GenSamplers(count, samplers) };
             _res
         }
         pub fn _glGenTextures(_ctx: &mut Ctx, n: types::GLsizei, textures: u32) -> () {
+            debug!("emscripten::_glGenTextures");
+
             let textures: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), textures) as *mut types::GLuint;
             let _res = unsafe { gl::GenTextures(n, textures) };
             _res
         }
         pub fn _glGenTransformFeedbacks(_ctx: &mut Ctx, n: types::GLsizei, ids: u32) -> () {
+            debug!("emscripten::_glGenTransformFeedbacks");
+
             let ids: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), ids) as *mut types::GLuint;
             let _res = unsafe { gl::GenTransformFeedbacks(n, ids) };
             _res
         }
         pub fn _glGenVertexArrays(_ctx: &mut Ctx, n: types::GLsizei, arrays: u32) -> () {
+            debug!("emscripten::_glGenVertexArrays");
+
             let arrays: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), arrays) as *mut types::GLuint;
             let _res = unsafe { gl::GenVertexArrays(n, arrays) };
             _res
         }
         pub fn _glGenerateMipmap(_ctx: &mut Ctx, target: types::GLenum) -> () {
+            debug!("emscripten::_glGenerateMipmap");
+
             let _res = unsafe { gl::GenerateMipmap(target) };
             _res
         }
         pub fn _glGenerateTextureMipmap(_ctx: &mut Ctx, texture: types::GLuint) -> () {
+            debug!("emscripten::_glGenerateTextureMipmap");
+
             let _res = unsafe { gl::GenerateTextureMipmap(texture) };
             _res
         }
@@ -3318,6 +3687,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveAtomicCounterBufferiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res =
@@ -3334,6 +3705,8 @@ pub mod gl_static {
             type_: u32,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveAttrib");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let size: *mut types::GLint =
@@ -3355,6 +3728,8 @@ pub mod gl_static {
             length: u32,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveSubroutineName");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let name: *mut types::GLchar =
@@ -3373,6 +3748,8 @@ pub mod gl_static {
             length: u32,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveSubroutineUniformName");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let name: *mut types::GLchar =
@@ -3392,6 +3769,8 @@ pub mod gl_static {
             pname: types::GLenum,
             values: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveSubroutineUniformiv");
+
             let values: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), values) as *mut types::GLint;
             let _res = unsafe {
@@ -3409,6 +3788,8 @@ pub mod gl_static {
             type_: u32,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveUniform");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let size: *mut types::GLint =
@@ -3429,6 +3810,8 @@ pub mod gl_static {
             length: u32,
             uniformBlockName: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveUniformBlockName");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let uniformBlockName: *mut types::GLchar =
@@ -3451,6 +3834,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveUniformBlockiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res =
@@ -3465,6 +3850,8 @@ pub mod gl_static {
             length: u32,
             uniformName: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveUniformName");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let uniformName: *mut types::GLchar =
@@ -3482,6 +3869,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetActiveUniformsiv");
+
             let uniformIndices: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), uniformIndices) as *const types::GLuint;
 
@@ -3499,6 +3888,8 @@ pub mod gl_static {
             count: u32,
             shaders: u32,
         ) -> () {
+            debug!("emscripten::_glGetAttachedShaders");
+
             let count: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), count) as *mut types::GLsizei;
             let shaders: *mut types::GLuint =
@@ -3511,6 +3902,8 @@ pub mod gl_static {
             program: types::GLuint,
             name: u32,
         ) -> types::GLint {
+            debug!("emscripten::_glGetAttribLocation");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::GetAttribLocation(program, name) };
@@ -3522,12 +3915,16 @@ pub mod gl_static {
             index: types::GLuint,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glGetBooleani_v");
+
             let data: *mut types::GLboolean =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLboolean;
             let _res = unsafe { gl::GetBooleani_v(target, index, data) };
             _res
         }
         pub fn _glGetBooleanv(_ctx: &mut Ctx, pname: types::GLenum, data: u32) -> () {
+            debug!("emscripten::_glGetBooleanv");
+
             let data: *mut types::GLboolean =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLboolean;
             let _res = unsafe { gl::GetBooleanv(pname, data) };
@@ -3539,6 +3936,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetBufferParameteri64v");
+
             let params: *mut types::GLint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint64;
             let _res = unsafe { gl::GetBufferParameteri64v(target, pname, params) };
@@ -3550,6 +3949,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetBufferParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetBufferParameteriv(target, pname, params) };
@@ -3561,6 +3962,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetBufferPointerv");
+
             let params: *const *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), params)
                     as *const *mut __gl_imports::raw::c_void;
@@ -3574,6 +3977,8 @@ pub mod gl_static {
             size: u32,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glGetBufferSubData");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let data: *mut __gl_imports::raw::c_void =
@@ -3587,6 +3992,8 @@ pub mod gl_static {
             level: types::GLint,
             img: u32,
         ) -> () {
+            debug!("emscripten::_glGetCompressedTexImage");
+
             let img: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), img) as *mut __gl_imports::raw::c_void;
             let _res = unsafe { gl::GetCompressedTexImage(target, level, img) };
@@ -3599,6 +4006,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glGetCompressedTextureImage");
+
             let pixels: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *mut __gl_imports::raw::c_void;
@@ -3618,6 +4027,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glGetCompressedTextureSubImage");
+
             let pixels: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *mut __gl_imports::raw::c_void;
@@ -3640,6 +4051,8 @@ pub mod gl_static {
             lengths: u32,
             messageLog: u32,
         ) -> types::GLuint {
+            debug!("emscripten::_glGetDebugMessageLog");
+
             let sources: *mut types::GLenum =
                 emscripten_memory_pointer!(_ctx.memory(0), sources) as *mut types::GLenum;
             let types: *mut types::GLenum =
@@ -3665,18 +4078,24 @@ pub mod gl_static {
             index: types::GLuint,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glGetDoublei_v");
+
             let data: *mut types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLdouble;
             let _res = unsafe { gl::GetDoublei_v(target, index, data) };
             _res
         }
         pub fn _glGetDoublev(_ctx: &mut Ctx, pname: types::GLenum, data: u32) -> () {
+            debug!("emscripten::_glGetDoublev");
+
             let data: *mut types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLdouble;
             let _res = unsafe { gl::GetDoublev(pname, data) };
             _res
         }
         pub fn _glGetError(_ctx: &mut Ctx) -> types::GLenum {
+            debug!("emscripten::_glGetError");
+
             let _res = unsafe { gl::GetError() };
             _res
         }
@@ -3686,12 +4105,16 @@ pub mod gl_static {
             index: types::GLuint,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glGetFloati_v");
+
             let data: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLfloat;
             let _res = unsafe { gl::GetFloati_v(target, index, data) };
             _res
         }
         pub fn _glGetFloatv(_ctx: &mut Ctx, pname: types::GLenum, data: u32) -> () {
+            debug!("emscripten::_glGetFloatv");
+
             let data: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLfloat;
             let _res = unsafe { gl::GetFloatv(pname, data) };
@@ -3702,6 +4125,8 @@ pub mod gl_static {
             program: types::GLuint,
             name: u32,
         ) -> types::GLint {
+            debug!("emscripten::_glGetFragDataIndex");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::GetFragDataIndex(program, name) };
@@ -3712,6 +4137,8 @@ pub mod gl_static {
             program: types::GLuint,
             name: u32,
         ) -> types::GLint {
+            debug!("emscripten::_glGetFragDataLocation");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::GetFragDataLocation(program, name) };
@@ -3724,6 +4151,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetFramebufferAttachmentParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe {
@@ -3737,12 +4166,16 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetFramebufferParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetFramebufferParameteriv(target, pname, params) };
             _res
         }
         pub fn _glGetGraphicsResetStatus(_ctx: &mut Ctx) -> types::GLenum {
+            debug!("emscripten::_glGetGraphicsResetStatus");
+
             let _res = unsafe { gl::GetGraphicsResetStatus() };
             _res
         }
@@ -3752,12 +4185,16 @@ pub mod gl_static {
             index: types::GLuint,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glGetInteger64i_v");
+
             let data: *mut types::GLint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLint64;
             let _res = unsafe { gl::GetInteger64i_v(target, index, data) };
             _res
         }
         pub fn _glGetInteger64v(_ctx: &mut Ctx, pname: types::GLenum, data: u32) -> () {
+            debug!("emscripten::_glGetInteger64v");
+
             let data: *mut types::GLint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLint64;
             let _res = unsafe { gl::GetInteger64v(pname, data) };
@@ -3769,12 +4206,16 @@ pub mod gl_static {
             index: types::GLuint,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glGetIntegeri_v");
+
             let data: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLint;
             let _res = unsafe { gl::GetIntegeri_v(target, index, data) };
             _res
         }
         pub fn _glGetIntegerv(_ctx: &mut Ctx, pname: types::GLenum, data: u32) -> () {
+            debug!("emscripten::_glGetIntegerv");
+
             let data: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut types::GLint;
             let _res = unsafe { gl::GetIntegerv(pname, data) };
@@ -3788,6 +4229,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetInternalformati64v");
+
             let params: *mut types::GLint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint64;
             let _res = unsafe {
@@ -3803,6 +4246,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetInternalformativ");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res =
@@ -3815,6 +4260,8 @@ pub mod gl_static {
             index: types::GLuint,
             val: u32,
         ) -> () {
+            debug!("emscripten::_glGetMultisamplefv");
+
             let val: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), val) as *mut types::GLfloat;
             let _res = unsafe { gl::GetMultisamplefv(pname, index, val) };
@@ -3826,6 +4273,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetNamedBufferParameteri64v");
+
             let params: *mut types::GLint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint64;
             let _res = unsafe { gl::GetNamedBufferParameteri64v(buffer, pname, params) };
@@ -3837,6 +4286,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetNamedBufferParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetNamedBufferParameteriv(buffer, pname, params) };
@@ -3848,6 +4299,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetNamedBufferPointerv");
+
             let params: *const *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), params)
                     as *const *mut __gl_imports::raw::c_void;
@@ -3861,6 +4314,8 @@ pub mod gl_static {
             size: u32,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glGetNamedBufferSubData");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let data: *mut __gl_imports::raw::c_void =
@@ -3875,6 +4330,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetNamedFramebufferAttachmentParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe {
@@ -3888,6 +4345,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glGetNamedFramebufferParameteriv");
+
             let param: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *mut types::GLint;
             let _res = unsafe { gl::GetNamedFramebufferParameteriv(framebuffer, pname, param) };
@@ -3899,6 +4358,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetNamedRenderbufferParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetNamedRenderbufferParameteriv(renderbuffer, pname, params) };
@@ -3912,6 +4373,8 @@ pub mod gl_static {
             length: u32,
             label: u32,
         ) -> () {
+            debug!("emscripten::_glGetObjectLabel");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let label: *mut types::GLchar =
@@ -3926,6 +4389,7 @@ pub mod gl_static {
             length: u32,
             label: u32,
         ) -> () {
+            debug!("emscripten::_glGetObjectPtrLabel");
             let ptr: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), ptr) as *const __gl_imports::raw::c_void;
 
@@ -3937,6 +4401,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glGetPointerv(_ctx: &mut Ctx, pname: types::GLenum, params: u32) -> () {
+            debug!("emscripten::_glGetPointerv");
+
             let params: *const *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), params)
                     as *const *mut __gl_imports::raw::c_void;
@@ -3951,6 +4417,8 @@ pub mod gl_static {
             binaryFormat: u32,
             binary: u32,
         ) -> () {
+            debug!("emscripten::_glGetProgramBinary");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let binaryFormat: *mut types::GLenum =
@@ -3969,11 +4437,17 @@ pub mod gl_static {
             length: u32,
             infoLog: u32,
         ) -> () {
+            debug!("emscripten::_glGetProgramInfoLog");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let infoLog: *mut types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), infoLog) as *mut types::GLchar;
             let _res = unsafe { gl::GetProgramInfoLog(program, bufSize, length, infoLog) };
+
+            debug!("=> len: {}, infoLog: {:?}", unsafe { *length }, unsafe {
+                std::ffi::CStr::from_ptr(infoLog as *const i8)
+            });
             _res
         }
         pub fn _glGetProgramInterfaceiv(
@@ -3983,6 +4457,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetProgramInterfaceiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res =
@@ -3996,6 +4472,8 @@ pub mod gl_static {
             length: u32,
             infoLog: u32,
         ) -> () {
+            debug!("emscripten::_glGetProgramPipelineInfoLog");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let infoLog: *mut types::GLchar =
@@ -4009,6 +4487,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetProgramPipelineiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetProgramPipelineiv(pipeline, pname, params) };
@@ -4020,6 +4500,8 @@ pub mod gl_static {
             programInterface: types::GLenum,
             name: u32,
         ) -> types::GLuint {
+            debug!("emscripten::_glGetProgramResourceIndex");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::GetProgramResourceIndex(program, programInterface, name) };
@@ -4031,6 +4513,8 @@ pub mod gl_static {
             programInterface: types::GLenum,
             name: u32,
         ) -> types::GLint {
+            debug!("emscripten::_glGetProgramResourceLocation");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::GetProgramResourceLocation(program, programInterface, name) };
@@ -4042,6 +4526,8 @@ pub mod gl_static {
             programInterface: types::GLenum,
             name: u32,
         ) -> types::GLint {
+            debug!("emscripten::_glGetProgramResourceLocationIndex");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res =
@@ -4057,6 +4543,8 @@ pub mod gl_static {
             length: u32,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glGetProgramResourceName");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let name: *mut types::GLchar =
@@ -4077,6 +4565,8 @@ pub mod gl_static {
             length: u32,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetProgramResourceiv");
+
             let props: *const types::GLenum =
                 emscripten_memory_pointer!(_ctx.memory(0), props) as *const types::GLenum;
 
@@ -4105,6 +4595,8 @@ pub mod gl_static {
             pname: types::GLenum,
             values: u32,
         ) -> () {
+            debug!("emscripten::_glGetProgramStageiv");
+
             let values: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), values) as *mut types::GLint;
             let _res = unsafe { gl::GetProgramStageiv(program, shadertype, pname, values) };
@@ -4116,9 +4608,17 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!(
+                "emscripten::_glGetProgramiv: program: {}, pname: {} ({})",
+                program,
+                program_pname_to_string(pname).unwrap_or("unknown"),
+                pname
+            );
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetProgramiv(program, pname, params) };
+            debug!("=> {}", unsafe { *params });
             _res
         }
         pub fn _glGetQueryBufferObjecti64v(
@@ -4128,6 +4628,8 @@ pub mod gl_static {
             pname: types::GLenum,
             offset: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryBufferObjecti64v");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let _res = unsafe { gl::GetQueryBufferObjecti64v(id, buffer, pname, offset) };
             _res
@@ -4139,6 +4641,8 @@ pub mod gl_static {
             pname: types::GLenum,
             offset: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryBufferObjectiv");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let _res = unsafe { gl::GetQueryBufferObjectiv(id, buffer, pname, offset) };
             _res
@@ -4150,6 +4654,8 @@ pub mod gl_static {
             pname: types::GLenum,
             offset: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryBufferObjectui64v");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let _res = unsafe { gl::GetQueryBufferObjectui64v(id, buffer, pname, offset) };
             _res
@@ -4161,6 +4667,8 @@ pub mod gl_static {
             pname: types::GLenum,
             offset: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryBufferObjectuiv");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let _res = unsafe { gl::GetQueryBufferObjectuiv(id, buffer, pname, offset) };
             _res
@@ -4172,6 +4680,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryIndexediv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetQueryIndexediv(target, index, pname, params) };
@@ -4183,6 +4693,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryObjecti64v");
+
             let params: *mut types::GLint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint64;
             let _res = unsafe { gl::GetQueryObjecti64v(id, pname, params) };
@@ -4194,6 +4706,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryObjectiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetQueryObjectiv(id, pname, params) };
@@ -4205,6 +4719,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryObjectui64v");
+
             let params: *mut types::GLuint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint64;
             let _res = unsafe { gl::GetQueryObjectui64v(id, pname, params) };
@@ -4216,6 +4732,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryObjectuiv");
+
             let params: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint;
             let _res = unsafe { gl::GetQueryObjectuiv(id, pname, params) };
@@ -4227,6 +4745,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetQueryiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetQueryiv(target, pname, params) };
@@ -4238,6 +4758,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetRenderbufferParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetRenderbufferParameteriv(target, pname, params) };
@@ -4249,6 +4771,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetSamplerParameterIiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetSamplerParameterIiv(sampler, pname, params) };
@@ -4260,6 +4784,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetSamplerParameterIuiv");
+
             let params: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint;
             let _res = unsafe { gl::GetSamplerParameterIuiv(sampler, pname, params) };
@@ -4271,6 +4797,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetSamplerParameterfv");
+
             let params: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLfloat;
             let _res = unsafe { gl::GetSamplerParameterfv(sampler, pname, params) };
@@ -4282,6 +4810,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetSamplerParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetSamplerParameteriv(sampler, pname, params) };
@@ -4294,6 +4824,8 @@ pub mod gl_static {
             length: u32,
             infoLog: u32,
         ) -> () {
+            debug!("emscripten::_glGetShaderInfoLog");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let infoLog: *mut types::GLchar =
@@ -4308,6 +4840,8 @@ pub mod gl_static {
             range: u32,
             precision: u32,
         ) -> () {
+            debug!("emscripten::_glGetShaderPrecisionFormat");
+
             let range: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), range) as *mut types::GLint;
             let precision: *mut types::GLint =
@@ -4324,12 +4858,39 @@ pub mod gl_static {
             length: u32,
             source: u32,
         ) -> () {
+            debug!("emscripten::_glGetShaderSource");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let source: *mut types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), source) as *mut types::GLchar;
             let _res = unsafe { gl::GetShaderSource(shader, bufSize, length, source) };
+            unsafe { dbg!(std::ffi::CStr::from_ptr(source as *mut i8)) };
             _res
+        }
+        fn program_pname_to_string(pname: types::GLenum) -> Option<&'static str> {
+            Some(match pname {
+                gl::DELETE_STATUS => "DELETE STATUS",
+                gl::LINK_STATUS => "LINK STATUS",
+                gl::VALIDATE_STATUS => "VALIDATE STATUS",
+                gl::INFO_LOG_LENGTH => "INFO LOG LENGTH",
+                gl::ATTACHED_SHADERS => "ATTACHED SHADERS",
+                gl::ACTIVE_ATTRIBUTES => "ACTIVE ATTRIBUTES",
+                gl::ACTIVE_ATTRIBUTE_MAX_LENGTH => "ACTIVE ATTRIBUTE MAX LENGTH",
+                gl::ACTIVE_UNIFORMS => "ACTIVE UNIFORMS",
+                gl::ACTIVE_UNIFORM_MAX_LENGTH => "ACTIVE UNIFORM MAX LENGTH",
+                _ => None?,
+            })
+        }
+        fn shader_pname_to_string(pname: types::GLenum) -> Option<&'static str> {
+            Some(match pname {
+                gl::SHADER_TYPE => "SHADER TYPE",
+                gl::DELETE_STATUS => "DELETE STATUS",
+                gl::COMPILE_STATUS => "COMPILE STATUS",
+                gl::INFO_LOG_LENGTH => "INFO LOG LENGTH",
+                gl::SHADER_SOURCE_LENGTH => "SHADER SOURCE LENGTH",
+                _ => None?,
+            })
         }
         pub fn _glGetShaderiv(
             _ctx: &mut Ctx,
@@ -4337,16 +4898,28 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!(
+                "emscripten::_glGetShaderiv: shader: {}, pname: {} ({})",
+                shader,
+                shader_pname_to_string(pname).unwrap_or("unknown"),
+                pname
+            );
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetShaderiv(shader, pname, params) };
+            debug!("=> {}", unsafe { *params });
             _res
         }
         pub fn _glGetString(_ctx: &mut Ctx, name: types::GLenum) -> u32 {
+            debug!("emscripten::_glGetString");
+
             let _res = unsafe { gl::GetString(name) };
             0
         }
         pub fn _glGetStringi(_ctx: &mut Ctx, name: types::GLenum, index: types::GLuint) -> u32 {
+            debug!("emscripten::_glGetStringi");
+
             let _res = unsafe { gl::GetStringi(name, index) };
             0
         }
@@ -4356,6 +4929,8 @@ pub mod gl_static {
             shadertype: types::GLenum,
             name: u32,
         ) -> types::GLuint {
+            debug!("emscripten::_glGetSubroutineIndex");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::GetSubroutineIndex(program, shadertype, name) };
@@ -4367,6 +4942,8 @@ pub mod gl_static {
             shadertype: types::GLenum,
             name: u32,
         ) -> types::GLint {
+            debug!("emscripten::_glGetSubroutineUniformLocation");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::GetSubroutineUniformLocation(program, shadertype, name) };
@@ -4380,6 +4957,7 @@ pub mod gl_static {
             length: u32,
             values: u32,
         ) -> () {
+            debug!("emscripten::_glGetSynciv");
             let sync: types::GLsync =
                 emscripten_memory_pointer!(_ctx.memory(0), sync) as types::GLsync;
 
@@ -4398,6 +4976,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glGetTexImage");
+
             let pixels: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *mut __gl_imports::raw::c_void;
@@ -4411,6 +4991,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTexLevelParameterfv");
+
             let params: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLfloat;
             let _res = unsafe { gl::GetTexLevelParameterfv(target, level, pname, params) };
@@ -4423,6 +5005,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTexLevelParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetTexLevelParameteriv(target, level, pname, params) };
@@ -4434,6 +5018,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTexParameterIiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetTexParameterIiv(target, pname, params) };
@@ -4445,6 +5031,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTexParameterIuiv");
+
             let params: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint;
             let _res = unsafe { gl::GetTexParameterIuiv(target, pname, params) };
@@ -4456,6 +5044,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTexParameterfv");
+
             let params: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLfloat;
             let _res = unsafe { gl::GetTexParameterfv(target, pname, params) };
@@ -4467,6 +5057,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTexParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetTexParameteriv(target, pname, params) };
@@ -4481,6 +5073,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glGetTextureImage");
+
             let pixels: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *mut __gl_imports::raw::c_void;
@@ -4495,6 +5089,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTextureLevelParameterfv");
+
             let params: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLfloat;
             let _res = unsafe { gl::GetTextureLevelParameterfv(texture, level, pname, params) };
@@ -4507,6 +5103,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTextureLevelParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetTextureLevelParameteriv(texture, level, pname, params) };
@@ -4518,6 +5116,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTextureParameterIiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetTextureParameterIiv(texture, pname, params) };
@@ -4529,6 +5129,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTextureParameterIuiv");
+
             let params: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint;
             let _res = unsafe { gl::GetTextureParameterIuiv(texture, pname, params) };
@@ -4540,6 +5142,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTextureParameterfv");
+
             let params: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLfloat;
             let _res = unsafe { gl::GetTextureParameterfv(texture, pname, params) };
@@ -4551,6 +5155,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetTextureParameteriv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetTextureParameteriv(texture, pname, params) };
@@ -4571,6 +5177,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glGetTextureSubImage");
+
             let pixels: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *mut __gl_imports::raw::c_void;
@@ -4592,6 +5200,8 @@ pub mod gl_static {
             type_: u32,
             name: u32,
         ) -> () {
+            debug!("emscripten::_glGetTransformFeedbackVarying");
+
             let length: *mut types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *mut types::GLsizei;
             let size: *mut types::GLsizei =
@@ -4612,6 +5222,8 @@ pub mod gl_static {
             index: types::GLuint,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glGetTransformFeedbacki64_v");
+
             let param: *mut types::GLint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *mut types::GLint64;
             let _res = unsafe { gl::GetTransformFeedbacki64_v(xfb, pname, index, param) };
@@ -4624,6 +5236,8 @@ pub mod gl_static {
             index: types::GLuint,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glGetTransformFeedbacki_v");
+
             let param: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *mut types::GLint;
             let _res = unsafe { gl::GetTransformFeedbacki_v(xfb, pname, index, param) };
@@ -4635,6 +5249,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glGetTransformFeedbackiv");
+
             let param: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *mut types::GLint;
             let _res = unsafe { gl::GetTransformFeedbackiv(xfb, pname, param) };
@@ -4645,6 +5261,8 @@ pub mod gl_static {
             program: types::GLuint,
             uniformBlockName: u32,
         ) -> types::GLuint {
+            debug!("emscripten::_glGetUniformBlockIndex");
+
             let uniformBlockName: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), uniformBlockName)
                     as *const types::GLchar;
@@ -4658,6 +5276,8 @@ pub mod gl_static {
             uniformNames: u32,
             uniformIndices: u32,
         ) -> () {
+            debug!("emscripten::_glGetUniformIndices");
+
             let uniformNames: *const *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), uniformNames)
                     as *const *const types::GLchar;
@@ -4673,6 +5293,8 @@ pub mod gl_static {
             program: types::GLuint,
             name: u32,
         ) -> types::GLint {
+            debug!("emscripten::_glGetUniformLocation");
+
             let name: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), name) as *const types::GLchar;
             let _res = unsafe { gl::GetUniformLocation(program, name) };
@@ -4684,6 +5306,8 @@ pub mod gl_static {
             location: types::GLint,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetUniformSubroutineuiv");
+
             let params: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint;
             let _res = unsafe { gl::GetUniformSubroutineuiv(shadertype, location, params) };
@@ -4695,6 +5319,8 @@ pub mod gl_static {
             location: types::GLint,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetUniformdv");
+
             let params: *mut types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLdouble;
             let _res = unsafe { gl::GetUniformdv(program, location, params) };
@@ -4706,6 +5332,8 @@ pub mod gl_static {
             location: types::GLint,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetUniformfv");
+
             let params: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLfloat;
             let _res = unsafe { gl::GetUniformfv(program, location, params) };
@@ -4717,6 +5345,8 @@ pub mod gl_static {
             location: types::GLint,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetUniformiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetUniformiv(program, location, params) };
@@ -4728,6 +5358,8 @@ pub mod gl_static {
             location: types::GLint,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetUniformuiv");
+
             let params: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint;
             let _res = unsafe { gl::GetUniformuiv(program, location, params) };
@@ -4740,6 +5372,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexArrayIndexed64iv");
+
             let param: *mut types::GLint64 =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *mut types::GLint64;
             let _res = unsafe { gl::GetVertexArrayIndexed64iv(vaobj, index, pname, param) };
@@ -4752,6 +5386,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexArrayIndexediv");
+
             let param: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *mut types::GLint;
             let _res = unsafe { gl::GetVertexArrayIndexediv(vaobj, index, pname, param) };
@@ -4763,6 +5399,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexArrayiv");
+
             let param: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *mut types::GLint;
             let _res = unsafe { gl::GetVertexArrayiv(vaobj, pname, param) };
@@ -4774,6 +5412,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexAttribIiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetVertexAttribIiv(index, pname, params) };
@@ -4785,6 +5425,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexAttribIuiv");
+
             let params: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint;
             let _res = unsafe { gl::GetVertexAttribIuiv(index, pname, params) };
@@ -4796,6 +5438,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexAttribLdv");
+
             let params: *mut types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLdouble;
             let _res = unsafe { gl::GetVertexAttribLdv(index, pname, params) };
@@ -4807,6 +5451,8 @@ pub mod gl_static {
             pname: types::GLenum,
             pointer: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexAttribPointerv");
+
             let pointer: *const *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pointer)
                     as *const *mut __gl_imports::raw::c_void;
@@ -4819,6 +5465,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexAttribdv");
+
             let params: *mut types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLdouble;
             let _res = unsafe { gl::GetVertexAttribdv(index, pname, params) };
@@ -4830,6 +5478,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexAttribfv");
+
             let params: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLfloat;
             let _res = unsafe { gl::GetVertexAttribfv(index, pname, params) };
@@ -4841,6 +5491,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetVertexAttribiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetVertexAttribiv(index, pname, params) };
@@ -4854,6 +5506,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             table: u32,
         ) -> () {
+            debug!("emscripten::_glGetnColorTable");
+
             let table: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), table) as *mut __gl_imports::raw::c_void;
             let _res = unsafe { gl::GetnColorTable(target, format, type_, bufSize, table) };
@@ -4866,6 +5520,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glGetnCompressedTexImage");
+
             let pixels: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *mut __gl_imports::raw::c_void;
@@ -4880,6 +5536,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             image: u32,
         ) -> () {
+            debug!("emscripten::_glGetnConvolutionFilter");
+
             let image: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), image) as *mut __gl_imports::raw::c_void;
             let _res = unsafe { gl::GetnConvolutionFilter(target, format, type_, bufSize, image) };
@@ -4894,6 +5552,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             values: u32,
         ) -> () {
+            debug!("emscripten::_glGetnHistogram");
+
             let values: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), values)
                     as *mut __gl_imports::raw::c_void;
@@ -4907,6 +5567,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             v: u32,
         ) -> () {
+            debug!("emscripten::_glGetnMapdv");
+
             let v: *mut types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *mut types::GLdouble;
             let _res = unsafe { gl::GetnMapdv(target, query, bufSize, v) };
@@ -4919,6 +5581,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             v: u32,
         ) -> () {
+            debug!("emscripten::_glGetnMapfv");
+
             let v: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *mut types::GLfloat;
             let _res = unsafe { gl::GetnMapfv(target, query, bufSize, v) };
@@ -4931,6 +5595,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             v: u32,
         ) -> () {
+            debug!("emscripten::_glGetnMapiv");
+
             let v: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *mut types::GLint;
             let _res = unsafe { gl::GetnMapiv(target, query, bufSize, v) };
@@ -4945,6 +5611,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             values: u32,
         ) -> () {
+            debug!("emscripten::_glGetnMinmax");
+
             let values: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), values)
                     as *mut __gl_imports::raw::c_void;
@@ -4957,6 +5625,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             values: u32,
         ) -> () {
+            debug!("emscripten::_glGetnPixelMapfv");
+
             let values: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), values) as *mut types::GLfloat;
             let _res = unsafe { gl::GetnPixelMapfv(map, bufSize, values) };
@@ -4968,6 +5638,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             values: u32,
         ) -> () {
+            debug!("emscripten::_glGetnPixelMapuiv");
+
             let values: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), values) as *mut types::GLuint;
             let _res = unsafe { gl::GetnPixelMapuiv(map, bufSize, values) };
@@ -4979,12 +5651,16 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             values: u32,
         ) -> () {
+            debug!("emscripten::_glGetnPixelMapusv");
+
             let values: *mut types::GLushort =
                 emscripten_memory_pointer!(_ctx.memory(0), values) as *mut types::GLushort;
             let _res = unsafe { gl::GetnPixelMapusv(map, bufSize, values) };
             _res
         }
         pub fn _glGetnPolygonStipple(_ctx: &mut Ctx, bufSize: types::GLsizei, pattern: u32) -> () {
+            debug!("emscripten::_glGetnPolygonStipple");
+
             let pattern: *mut types::GLubyte =
                 emscripten_memory_pointer!(_ctx.memory(0), pattern) as *mut types::GLubyte;
             let _res = unsafe { gl::GetnPolygonStipple(bufSize, pattern) };
@@ -5001,6 +5677,8 @@ pub mod gl_static {
             column: u32,
             span: u32,
         ) -> () {
+            debug!("emscripten::_glGetnSeparableFilter");
+
             let row: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), row) as *mut __gl_imports::raw::c_void;
 
@@ -5032,6 +5710,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glGetnTexImage");
+
             let pixels: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *mut __gl_imports::raw::c_void;
@@ -5045,6 +5725,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetnUniformdv");
+
             let params: *mut types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLdouble;
             let _res = unsafe { gl::GetnUniformdv(program, location, bufSize, params) };
@@ -5057,6 +5739,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetnUniformfv");
+
             let params: *mut types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLfloat;
             let _res = unsafe { gl::GetnUniformfv(program, location, bufSize, params) };
@@ -5069,6 +5753,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetnUniformiv");
+
             let params: *mut types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLint;
             let _res = unsafe { gl::GetnUniformiv(program, location, bufSize, params) };
@@ -5081,16 +5767,22 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glGetnUniformuiv");
+
             let params: *mut types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *mut types::GLuint;
             let _res = unsafe { gl::GetnUniformuiv(program, location, bufSize, params) };
             _res
         }
         pub fn _glHint(_ctx: &mut Ctx, target: types::GLenum, mode: types::GLenum) -> () {
+            debug!("emscripten::_glHint");
+
             let _res = unsafe { gl::Hint(target, mode) };
             _res
         }
         pub fn _glInvalidateBufferData(_ctx: &mut Ctx, buffer: types::GLuint) -> () {
+            debug!("emscripten::_glInvalidateBufferData");
+
             let _res = unsafe { gl::InvalidateBufferData(buffer) };
             _res
         }
@@ -5100,6 +5792,8 @@ pub mod gl_static {
             offset: u32,
             length: u32,
         ) -> () {
+            debug!("emscripten::_glInvalidateBufferSubData");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let length: types::GLsizeiptr = length as types::GLsizeiptr;
             let _res = unsafe { gl::InvalidateBufferSubData(buffer, offset, length) };
@@ -5111,6 +5805,8 @@ pub mod gl_static {
             numAttachments: types::GLsizei,
             attachments: u32,
         ) -> () {
+            debug!("emscripten::_glInvalidateFramebuffer");
+
             let attachments: *const types::GLenum =
                 emscripten_memory_pointer!(_ctx.memory(0), attachments) as *const types::GLenum;
             let _res = unsafe { gl::InvalidateFramebuffer(target, numAttachments, attachments) };
@@ -5122,6 +5818,8 @@ pub mod gl_static {
             numAttachments: types::GLsizei,
             attachments: u32,
         ) -> () {
+            debug!("emscripten::_glInvalidateNamedFramebufferData");
+
             let attachments: *const types::GLenum =
                 emscripten_memory_pointer!(_ctx.memory(0), attachments) as *const types::GLenum;
             let _res = unsafe {
@@ -5139,6 +5837,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glInvalidateNamedFramebufferSubData");
+
             let attachments: *const types::GLenum =
                 emscripten_memory_pointer!(_ctx.memory(0), attachments) as *const types::GLenum;
 
@@ -5165,6 +5865,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glInvalidateSubFramebuffer");
+
             let attachments: *const types::GLenum =
                 emscripten_memory_pointer!(_ctx.memory(0), attachments) as *const types::GLenum;
 
@@ -5186,6 +5888,8 @@ pub mod gl_static {
             texture: types::GLuint,
             level: types::GLint,
         ) -> () {
+            debug!("emscripten::_glInvalidateTexImage");
+
             let _res = unsafe { gl::InvalidateTexImage(texture, level) };
             _res
         }
@@ -5200,6 +5904,8 @@ pub mod gl_static {
             height: types::GLsizei,
             depth: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glInvalidateTexSubImage");
+
             let _res = unsafe {
                 gl::InvalidateTexSubImage(
                     texture, level, xoffset, yoffset, zoffset, width, height, depth,
@@ -5208,10 +5914,14 @@ pub mod gl_static {
             _res
         }
         pub fn _glIsBuffer(_ctx: &mut Ctx, buffer: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsBuffer");
+
             let _res = unsafe { gl::IsBuffer(buffer) };
             _res
         }
         pub fn _glIsEnabled(_ctx: &mut Ctx, cap: types::GLenum) -> types::GLboolean {
+            debug!("emscripten::_glIsEnabled");
+
             let _res = unsafe { gl::IsEnabled(cap) };
             _res
         }
@@ -5220,69 +5930,99 @@ pub mod gl_static {
             target: types::GLenum,
             index: types::GLuint,
         ) -> types::GLboolean {
+            debug!("emscripten::_glIsEnabledi");
+
             let _res = unsafe { gl::IsEnabledi(target, index) };
             _res
         }
         pub fn _glIsFramebuffer(_ctx: &mut Ctx, framebuffer: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsFramebuffer");
+
             let _res = unsafe { gl::IsFramebuffer(framebuffer) };
             _res
         }
         pub fn _glIsProgram(_ctx: &mut Ctx, program: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsProgram");
+
             let _res = unsafe { gl::IsProgram(program) };
             _res
         }
         pub fn _glIsProgramPipeline(_ctx: &mut Ctx, pipeline: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsProgramPipeline");
+
             let _res = unsafe { gl::IsProgramPipeline(pipeline) };
             _res
         }
         pub fn _glIsQuery(_ctx: &mut Ctx, id: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsQuery");
+
             let _res = unsafe { gl::IsQuery(id) };
             _res
         }
         pub fn _glIsRenderbuffer(_ctx: &mut Ctx, renderbuffer: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsRenderbuffer");
+
             let _res = unsafe { gl::IsRenderbuffer(renderbuffer) };
             _res
         }
         pub fn _glIsSampler(_ctx: &mut Ctx, sampler: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsSampler");
+
             let _res = unsafe { gl::IsSampler(sampler) };
             _res
         }
         pub fn _glIsShader(_ctx: &mut Ctx, shader: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsShader");
+
             let _res = unsafe { gl::IsShader(shader) };
             _res
         }
         pub fn _glIsSync(_ctx: &mut Ctx, sync: u32) -> types::GLboolean {
+            debug!("emscripten::_glIsSync");
             let sync: types::GLsync =
                 emscripten_memory_pointer!(_ctx.memory(0), sync) as types::GLsync;
             let _res = unsafe { gl::IsSync(sync) };
             _res
         }
         pub fn _glIsTexture(_ctx: &mut Ctx, texture: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsTexture");
+
             let _res = unsafe { gl::IsTexture(texture) };
             _res
         }
         pub fn _glIsTransformFeedback(_ctx: &mut Ctx, id: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsTransformFeedback");
+
             let _res = unsafe { gl::IsTransformFeedback(id) };
             _res
         }
         pub fn _glIsVertexArray(_ctx: &mut Ctx, array: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glIsVertexArray");
+
             let _res = unsafe { gl::IsVertexArray(array) };
             _res
         }
         pub fn _glLineWidth(_ctx: &mut Ctx, width: f64) -> () {
+            debug!("emscripten::_glLineWidth");
             let width: types::GLfloat = width as types::GLfloat;
             let _res = unsafe { gl::LineWidth(width) };
             _res
         }
         pub fn _glLinkProgram(_ctx: &mut Ctx, program: types::GLuint) -> () {
+            debug!("emscripten::_glLinkProgram: program: {}", program);
+
             let _res = unsafe { gl::LinkProgram(program) };
             _res
         }
         pub fn _glLogicOp(_ctx: &mut Ctx, opcode: types::GLenum) -> () {
+            debug!("emscripten::_glLogicOp");
+
             let _res = unsafe { gl::LogicOp(opcode) };
             _res
         }
         pub fn _glMapBuffer(_ctx: &mut Ctx, target: types::GLenum, access: types::GLenum) -> u32 {
+            debug!("emscripten::_glMapBuffer");
+
             let _res = unsafe { gl::MapBuffer(target, access) };
             0
         }
@@ -5293,6 +6033,8 @@ pub mod gl_static {
             length: u32,
             access: types::GLbitfield,
         ) -> u32 {
+            debug!("emscripten::_glMapBufferRange");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let length: types::GLsizeiptr = length as types::GLsizeiptr;
 
@@ -5304,6 +6046,8 @@ pub mod gl_static {
             buffer: types::GLuint,
             access: types::GLenum,
         ) -> u32 {
+            debug!("emscripten::_glMapNamedBuffer");
+
             let _res = unsafe { gl::MapNamedBuffer(buffer, access) };
             0
         }
@@ -5314,6 +6058,8 @@ pub mod gl_static {
             length: u32,
             access: types::GLbitfield,
         ) -> u32 {
+            debug!("emscripten::_glMapNamedBufferRange");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let length: types::GLsizeiptr = length as types::GLsizeiptr;
 
@@ -5321,14 +6067,19 @@ pub mod gl_static {
             0
         }
         pub fn _glMemoryBarrier(_ctx: &mut Ctx, barriers: types::GLbitfield) -> () {
+            debug!("emscripten::_glMemoryBarrier");
+
             let _res = unsafe { gl::MemoryBarrier(barriers) };
             _res
         }
         pub fn _glMemoryBarrierByRegion(_ctx: &mut Ctx, barriers: types::GLbitfield) -> () {
+            debug!("emscripten::_glMemoryBarrierByRegion");
+
             let _res = unsafe { gl::MemoryBarrierByRegion(barriers) };
             _res
         }
         pub fn _glMinSampleShading(_ctx: &mut Ctx, value: f64) -> () {
+            debug!("emscripten::_glMinSampleShading");
             let value: types::GLfloat = value as types::GLfloat;
             let _res = unsafe { gl::MinSampleShading(value) };
             _res
@@ -5340,6 +6091,8 @@ pub mod gl_static {
             count: u32,
             drawcount: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glMultiDrawArrays");
+
             let first: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), first) as *const types::GLint;
             let count: *const types::GLsizei =
@@ -5355,6 +6108,8 @@ pub mod gl_static {
             drawcount: types::GLsizei,
             stride: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glMultiDrawArraysIndirect");
+
             let indirect: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indirect)
                     as *const __gl_imports::raw::c_void;
@@ -5370,6 +6125,8 @@ pub mod gl_static {
             indices: u32,
             drawcount: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glMultiDrawElements");
+
             let count: *const types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), count) as *const types::GLsizei;
 
@@ -5389,6 +6146,8 @@ pub mod gl_static {
             drawcount: types::GLsizei,
             basevertex: u32,
         ) -> () {
+            debug!("emscripten::_glMultiDrawElementsBaseVertex");
+
             let count: *const types::GLsizei =
                 emscripten_memory_pointer!(_ctx.memory(0), count) as *const types::GLsizei;
 
@@ -5411,6 +6170,8 @@ pub mod gl_static {
             drawcount: types::GLsizei,
             stride: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glMultiDrawElementsIndirect");
+
             let indirect: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), indirect)
                     as *const __gl_imports::raw::c_void;
@@ -5425,6 +6186,8 @@ pub mod gl_static {
             type_: types::GLenum,
             coords: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glMultiTexCoordP1ui");
+
             let _res = unsafe { gl::MultiTexCoordP1ui(texture, type_, coords) };
             _res
         }
@@ -5434,6 +6197,8 @@ pub mod gl_static {
             type_: types::GLenum,
             coords: u32,
         ) -> () {
+            debug!("emscripten::_glMultiTexCoordP1uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::MultiTexCoordP1uiv(texture, type_, coords) };
@@ -5445,6 +6210,8 @@ pub mod gl_static {
             type_: types::GLenum,
             coords: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glMultiTexCoordP2ui");
+
             let _res = unsafe { gl::MultiTexCoordP2ui(texture, type_, coords) };
             _res
         }
@@ -5454,6 +6221,8 @@ pub mod gl_static {
             type_: types::GLenum,
             coords: u32,
         ) -> () {
+            debug!("emscripten::_glMultiTexCoordP2uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::MultiTexCoordP2uiv(texture, type_, coords) };
@@ -5465,6 +6234,8 @@ pub mod gl_static {
             type_: types::GLenum,
             coords: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glMultiTexCoordP3ui");
+
             let _res = unsafe { gl::MultiTexCoordP3ui(texture, type_, coords) };
             _res
         }
@@ -5474,6 +6245,8 @@ pub mod gl_static {
             type_: types::GLenum,
             coords: u32,
         ) -> () {
+            debug!("emscripten::_glMultiTexCoordP3uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::MultiTexCoordP3uiv(texture, type_, coords) };
@@ -5485,6 +6258,8 @@ pub mod gl_static {
             type_: types::GLenum,
             coords: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glMultiTexCoordP4ui");
+
             let _res = unsafe { gl::MultiTexCoordP4ui(texture, type_, coords) };
             _res
         }
@@ -5494,6 +6269,8 @@ pub mod gl_static {
             type_: types::GLenum,
             coords: u32,
         ) -> () {
+            debug!("emscripten::_glMultiTexCoordP4uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::MultiTexCoordP4uiv(texture, type_, coords) };
@@ -5506,6 +6283,8 @@ pub mod gl_static {
             data: u32,
             usage: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glNamedBufferData");
+
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
@@ -5521,6 +6300,8 @@ pub mod gl_static {
             data: u32,
             flags: types::GLbitfield,
         ) -> () {
+            debug!("emscripten::_glNamedBufferStorage");
+
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let data: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data)
@@ -5536,6 +6317,8 @@ pub mod gl_static {
             size: u32,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glNamedBufferSubData");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let data: *const __gl_imports::raw::c_void =
@@ -5549,6 +6332,8 @@ pub mod gl_static {
             framebuffer: types::GLuint,
             buf: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glNamedFramebufferDrawBuffer");
+
             let _res = unsafe { gl::NamedFramebufferDrawBuffer(framebuffer, buf) };
             _res
         }
@@ -5558,6 +6343,8 @@ pub mod gl_static {
             n: types::GLsizei,
             bufs: u32,
         ) -> () {
+            debug!("emscripten::_glNamedFramebufferDrawBuffers");
+
             let bufs: *const types::GLenum =
                 emscripten_memory_pointer!(_ctx.memory(0), bufs) as *const types::GLenum;
             let _res = unsafe { gl::NamedFramebufferDrawBuffers(framebuffer, n, bufs) };
@@ -5569,6 +6356,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: types::GLint,
         ) -> () {
+            debug!("emscripten::_glNamedFramebufferParameteri");
+
             let _res = unsafe { gl::NamedFramebufferParameteri(framebuffer, pname, param) };
             _res
         }
@@ -5577,6 +6366,8 @@ pub mod gl_static {
             framebuffer: types::GLuint,
             src: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glNamedFramebufferReadBuffer");
+
             let _res = unsafe { gl::NamedFramebufferReadBuffer(framebuffer, src) };
             _res
         }
@@ -5587,6 +6378,8 @@ pub mod gl_static {
             renderbuffertarget: types::GLenum,
             renderbuffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glNamedFramebufferRenderbuffer");
+
             let _res = unsafe {
                 gl::NamedFramebufferRenderbuffer(
                     framebuffer,
@@ -5604,6 +6397,8 @@ pub mod gl_static {
             texture: types::GLuint,
             level: types::GLint,
         ) -> () {
+            debug!("emscripten::_glNamedFramebufferTexture");
+
             let _res =
                 unsafe { gl::NamedFramebufferTexture(framebuffer, attachment, texture, level) };
             _res
@@ -5616,6 +6411,8 @@ pub mod gl_static {
             level: types::GLint,
             layer: types::GLint,
         ) -> () {
+            debug!("emscripten::_glNamedFramebufferTextureLayer");
+
             let _res = unsafe {
                 gl::NamedFramebufferTextureLayer(framebuffer, attachment, texture, level, layer)
             };
@@ -5628,6 +6425,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glNamedRenderbufferStorage");
+
             let _res = unsafe {
                 gl::NamedRenderbufferStorage(renderbuffer, internalformat, width, height)
             };
@@ -5641,6 +6440,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glNamedRenderbufferStorageMultisample");
+
             let _res = unsafe {
                 gl::NamedRenderbufferStorageMultisample(
                     renderbuffer,
@@ -5653,10 +6454,14 @@ pub mod gl_static {
             _res
         }
         pub fn _glNormalP3ui(_ctx: &mut Ctx, type_: types::GLenum, coords: types::GLuint) -> () {
+            debug!("emscripten::_glNormalP3ui");
+
             let _res = unsafe { gl::NormalP3ui(type_, coords) };
             _res
         }
         pub fn _glNormalP3uiv(_ctx: &mut Ctx, type_: types::GLenum, coords: u32) -> () {
+            debug!("emscripten::_glNormalP3uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::NormalP3uiv(type_, coords) };
@@ -5669,6 +6474,8 @@ pub mod gl_static {
             length: types::GLsizei,
             label: u32,
         ) -> () {
+            debug!("emscripten::_glObjectLabel");
+
             let label: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), label) as *const types::GLchar;
             let _res = unsafe { gl::ObjectLabel(identifier, name, length, label) };
@@ -5680,6 +6487,7 @@ pub mod gl_static {
             length: types::GLsizei,
             label: u32,
         ) -> () {
+            debug!("emscripten::_glObjectPtrLabel");
             let ptr: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), ptr) as *const __gl_imports::raw::c_void;
 
@@ -5689,69 +6497,95 @@ pub mod gl_static {
             _res
         }
         pub fn _glPatchParameterfv(_ctx: &mut Ctx, pname: types::GLenum, values: u32) -> () {
+            debug!("emscripten::_glPatchParameterfv");
+
             let values: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), values) as *const types::GLfloat;
             let _res = unsafe { gl::PatchParameterfv(pname, values) };
             _res
         }
         pub fn _glPatchParameteri(_ctx: &mut Ctx, pname: types::GLenum, value: types::GLint) -> () {
+            debug!("emscripten::_glPatchParameteri");
+
             let _res = unsafe { gl::PatchParameteri(pname, value) };
             _res
         }
         pub fn _glPauseTransformFeedback(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glPauseTransformFeedback");
+
             let _res = unsafe { gl::PauseTransformFeedback() };
             _res
         }
         pub fn _glPixelStoref(_ctx: &mut Ctx, pname: types::GLenum, param: f64) -> () {
+            debug!("emscripten::_glPixelStoref");
+
             let param: types::GLfloat = param as types::GLfloat;
             let _res = unsafe { gl::PixelStoref(pname, param) };
             _res
         }
         pub fn _glPixelStorei(_ctx: &mut Ctx, pname: types::GLenum, param: types::GLint) -> () {
+            debug!("emscripten::_glPixelStorei");
+
             let _res = unsafe { gl::PixelStorei(pname, param) };
             _res
         }
         pub fn _glPointParameterf(_ctx: &mut Ctx, pname: types::GLenum, param: f64) -> () {
+            debug!("emscripten::_glPointParameterf");
+
             let param: types::GLfloat = param as types::GLfloat;
             let _res = unsafe { gl::PointParameterf(pname, param) };
             _res
         }
         pub fn _glPointParameterfv(_ctx: &mut Ctx, pname: types::GLenum, params: u32) -> () {
+            debug!("emscripten::_glPointParameterfv");
+
             let params: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *const types::GLfloat;
             let _res = unsafe { gl::PointParameterfv(pname, params) };
             _res
         }
         pub fn _glPointParameteri(_ctx: &mut Ctx, pname: types::GLenum, param: types::GLint) -> () {
+            debug!("emscripten::_glPointParameteri");
+
             let _res = unsafe { gl::PointParameteri(pname, param) };
             _res
         }
         pub fn _glPointParameteriv(_ctx: &mut Ctx, pname: types::GLenum, params: u32) -> () {
+            debug!("emscripten::_glPointParameteriv");
+
             let params: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *const types::GLint;
             let _res = unsafe { gl::PointParameteriv(pname, params) };
             _res
         }
         pub fn _glPointSize(_ctx: &mut Ctx, size: f64) -> () {
+            debug!("emscripten::_glPointSize");
             let size: types::GLfloat = size as types::GLfloat;
             let _res = unsafe { gl::PointSize(size) };
             _res
         }
         pub fn _glPolygonMode(_ctx: &mut Ctx, face: types::GLenum, mode: types::GLenum) -> () {
+            debug!("emscripten::_glPolygonMode");
+
             let _res = unsafe { gl::PolygonMode(face, mode) };
             _res
         }
         pub fn _glPolygonOffset(_ctx: &mut Ctx, factor: f64, units: f64) -> () {
+            debug!("emscripten::_glPolygonOffset");
             let factor: types::GLfloat = factor as types::GLfloat;
             let units: types::GLfloat = units as types::GLfloat;
             let _res = unsafe { gl::PolygonOffset(factor, units) };
             _res
         }
         pub fn _glPopDebugGroup(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glPopDebugGroup");
+
             let _res = unsafe { gl::PopDebugGroup() };
             _res
         }
         pub fn _glPrimitiveRestartIndex(_ctx: &mut Ctx, index: types::GLuint) -> () {
+            debug!("emscripten::_glPrimitiveRestartIndex");
+
             let _res = unsafe { gl::PrimitiveRestartIndex(index) };
             _res
         }
@@ -5762,6 +6596,8 @@ pub mod gl_static {
             binary: u32,
             length: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glProgramBinary");
+
             let binary: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), binary)
                     as *const __gl_imports::raw::c_void;
@@ -5775,6 +6611,8 @@ pub mod gl_static {
             pname: types::GLenum,
             value: types::GLint,
         ) -> () {
+            debug!("emscripten::_glProgramParameteri");
+
             let _res = unsafe { gl::ProgramParameteri(program, pname, value) };
             _res
         }
@@ -5784,6 +6622,8 @@ pub mod gl_static {
             location: types::GLint,
             v0: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glProgramUniform1d");
+
             let _res = unsafe { gl::ProgramUniform1d(program, location, v0) };
             _res
         }
@@ -5794,6 +6634,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform1dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::ProgramUniform1dv(program, location, count, value) };
@@ -5805,6 +6647,8 @@ pub mod gl_static {
             location: types::GLint,
             v0: f64,
         ) -> () {
+            debug!("emscripten::_glProgramUniform1f");
+
             let v0: types::GLfloat = v0 as types::GLfloat;
             let _res = unsafe { gl::ProgramUniform1f(program, location, v0) };
             _res
@@ -5816,6 +6660,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform1fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::ProgramUniform1fv(program, location, count, value) };
@@ -5827,6 +6673,8 @@ pub mod gl_static {
             location: types::GLint,
             v0: types::GLint,
         ) -> () {
+            debug!("emscripten::_glProgramUniform1i");
+
             let _res = unsafe { gl::ProgramUniform1i(program, location, v0) };
             _res
         }
@@ -5837,6 +6685,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform1iv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::ProgramUniform1iv(program, location, count, value) };
@@ -5848,6 +6698,8 @@ pub mod gl_static {
             location: types::GLint,
             v0: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glProgramUniform1ui");
+
             let _res = unsafe { gl::ProgramUniform1ui(program, location, v0) };
             _res
         }
@@ -5858,6 +6710,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform1uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::ProgramUniform1uiv(program, location, count, value) };
@@ -5870,6 +6724,8 @@ pub mod gl_static {
             v0: types::GLdouble,
             v1: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glProgramUniform2d");
+
             let _res = unsafe { gl::ProgramUniform2d(program, location, v0, v1) };
             _res
         }
@@ -5880,6 +6736,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform2dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::ProgramUniform2dv(program, location, count, value) };
@@ -5892,6 +6750,8 @@ pub mod gl_static {
             v0: f64,
             v1: f64,
         ) -> () {
+            debug!("emscripten::_glProgramUniform2f");
+
             let v0: types::GLfloat = v0 as types::GLfloat;
             let v1: types::GLfloat = v1 as types::GLfloat;
             let _res = unsafe { gl::ProgramUniform2f(program, location, v0, v1) };
@@ -5904,6 +6764,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform2fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::ProgramUniform2fv(program, location, count, value) };
@@ -5916,6 +6778,8 @@ pub mod gl_static {
             v0: types::GLint,
             v1: types::GLint,
         ) -> () {
+            debug!("emscripten::_glProgramUniform2i");
+
             let _res = unsafe { gl::ProgramUniform2i(program, location, v0, v1) };
             _res
         }
@@ -5926,6 +6790,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform2iv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::ProgramUniform2iv(program, location, count, value) };
@@ -5938,6 +6804,8 @@ pub mod gl_static {
             v0: types::GLuint,
             v1: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glProgramUniform2ui");
+
             let _res = unsafe { gl::ProgramUniform2ui(program, location, v0, v1) };
             _res
         }
@@ -5948,6 +6816,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform2uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::ProgramUniform2uiv(program, location, count, value) };
@@ -5961,6 +6831,8 @@ pub mod gl_static {
             v1: types::GLdouble,
             v2: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glProgramUniform3d");
+
             let _res = unsafe { gl::ProgramUniform3d(program, location, v0, v1, v2) };
             _res
         }
@@ -5971,6 +6843,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform3dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::ProgramUniform3dv(program, location, count, value) };
@@ -5984,6 +6858,8 @@ pub mod gl_static {
             v1: f64,
             v2: f64,
         ) -> () {
+            debug!("emscripten::_glProgramUniform3f");
+
             let v0: types::GLfloat = v0 as types::GLfloat;
             let v1: types::GLfloat = v1 as types::GLfloat;
             let v2: types::GLfloat = v2 as types::GLfloat;
@@ -5997,6 +6873,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform3fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::ProgramUniform3fv(program, location, count, value) };
@@ -6010,6 +6888,8 @@ pub mod gl_static {
             v1: types::GLint,
             v2: types::GLint,
         ) -> () {
+            debug!("emscripten::_glProgramUniform3i");
+
             let _res = unsafe { gl::ProgramUniform3i(program, location, v0, v1, v2) };
             _res
         }
@@ -6020,6 +6900,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform3iv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::ProgramUniform3iv(program, location, count, value) };
@@ -6033,6 +6915,8 @@ pub mod gl_static {
             v1: types::GLuint,
             v2: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glProgramUniform3ui");
+
             let _res = unsafe { gl::ProgramUniform3ui(program, location, v0, v1, v2) };
             _res
         }
@@ -6043,6 +6927,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform3uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::ProgramUniform3uiv(program, location, count, value) };
@@ -6057,6 +6943,8 @@ pub mod gl_static {
             v2: types::GLdouble,
             v3: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glProgramUniform4d");
+
             let _res = unsafe { gl::ProgramUniform4d(program, location, v0, v1, v2, v3) };
             _res
         }
@@ -6067,6 +6955,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform4dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::ProgramUniform4dv(program, location, count, value) };
@@ -6081,6 +6971,8 @@ pub mod gl_static {
             v2: f64,
             v3: f64,
         ) -> () {
+            debug!("emscripten::_glProgramUniform4f");
+
             let v0: types::GLfloat = v0 as types::GLfloat;
             let v1: types::GLfloat = v1 as types::GLfloat;
             let v2: types::GLfloat = v2 as types::GLfloat;
@@ -6095,6 +6987,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform4fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::ProgramUniform4fv(program, location, count, value) };
@@ -6109,6 +7003,8 @@ pub mod gl_static {
             v2: types::GLint,
             v3: types::GLint,
         ) -> () {
+            debug!("emscripten::_glProgramUniform4i");
+
             let _res = unsafe { gl::ProgramUniform4i(program, location, v0, v1, v2, v3) };
             _res
         }
@@ -6119,6 +7015,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform4iv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::ProgramUniform4iv(program, location, count, value) };
@@ -6133,6 +7031,8 @@ pub mod gl_static {
             v2: types::GLuint,
             v3: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glProgramUniform4ui");
+
             let _res = unsafe { gl::ProgramUniform4ui(program, location, v0, v1, v2, v3) };
             _res
         }
@@ -6143,6 +7043,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniform4uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::ProgramUniform4uiv(program, location, count, value) };
@@ -6156,6 +7058,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix2dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res =
@@ -6170,6 +7074,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix2fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res =
@@ -6184,6 +7090,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix2x3dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe {
@@ -6199,6 +7107,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix2x3fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe {
@@ -6214,6 +7124,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix2x4dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe {
@@ -6229,6 +7141,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix2x4fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe {
@@ -6244,6 +7158,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix3dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res =
@@ -6258,6 +7174,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix3fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res =
@@ -6272,6 +7190,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix3x2dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe {
@@ -6287,6 +7207,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix3x2fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe {
@@ -6302,6 +7224,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix3x4dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe {
@@ -6317,6 +7241,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix3x4fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe {
@@ -6332,6 +7258,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix4dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res =
@@ -6346,6 +7274,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix4fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res =
@@ -6360,6 +7290,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix4x2dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe {
@@ -6375,6 +7307,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix4x2fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe {
@@ -6390,6 +7324,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix4x3dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe {
@@ -6405,6 +7341,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glProgramUniformMatrix4x3fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe {
@@ -6413,6 +7351,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glProvokingVertex(_ctx: &mut Ctx, mode: types::GLenum) -> () {
+            debug!("emscripten::_glProvokingVertex");
+
             let _res = unsafe { gl::ProvokingVertex(mode) };
             _res
         }
@@ -6423,16 +7363,22 @@ pub mod gl_static {
             length: types::GLsizei,
             message: u32,
         ) -> () {
+            debug!("emscripten::_glPushDebugGroup");
+
             let message: *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), message) as *const types::GLchar;
             let _res = unsafe { gl::PushDebugGroup(source, id, length, message) };
             _res
         }
         pub fn _glQueryCounter(_ctx: &mut Ctx, id: types::GLuint, target: types::GLenum) -> () {
+            debug!("emscripten::_glQueryCounter");
+
             let _res = unsafe { gl::QueryCounter(id, target) };
             _res
         }
         pub fn _glReadBuffer(_ctx: &mut Ctx, src: types::GLenum) -> () {
+            debug!("emscripten::_glReadBuffer");
+
             let _res = unsafe { gl::ReadBuffer(src) };
             _res
         }
@@ -6446,6 +7392,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glReadPixels");
+
             let pixels: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *mut __gl_imports::raw::c_void;
@@ -6463,6 +7411,8 @@ pub mod gl_static {
             bufSize: types::GLsizei,
             data: u32,
         ) -> () {
+            debug!("emscripten::_glReadnPixels");
+
             let data: *mut __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), data) as *mut __gl_imports::raw::c_void;
             let _res =
@@ -6470,6 +7420,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glReleaseShaderCompiler(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glReleaseShaderCompiler");
+
             let _res = unsafe { gl::ReleaseShaderCompiler() };
             _res
         }
@@ -6480,6 +7432,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glRenderbufferStorage");
+
             let _res = unsafe { gl::RenderbufferStorage(target, internalformat, width, height) };
             _res
         }
@@ -6491,16 +7445,21 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glRenderbufferStorageMultisample");
+
             let _res = unsafe {
                 gl::RenderbufferStorageMultisample(target, samples, internalformat, width, height)
             };
             _res
         }
         pub fn _glResumeTransformFeedback(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glResumeTransformFeedback");
+
             let _res = unsafe { gl::ResumeTransformFeedback() };
             _res
         }
         pub fn _glSampleCoverage(_ctx: &mut Ctx, value: f64, invert: types::GLboolean) -> () {
+            debug!("emscripten::_glSampleCoverage");
             let value: types::GLfloat = value as types::GLfloat;
 
             let _res = unsafe { gl::SampleCoverage(value, invert) };
@@ -6511,6 +7470,8 @@ pub mod gl_static {
             maskNumber: types::GLuint,
             mask: types::GLbitfield,
         ) -> () {
+            debug!("emscripten::_glSampleMaski");
+
             let _res = unsafe { gl::SampleMaski(maskNumber, mask) };
             _res
         }
@@ -6520,6 +7481,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glSamplerParameterIiv");
+
             let param: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *const types::GLint;
             let _res = unsafe { gl::SamplerParameterIiv(sampler, pname, param) };
@@ -6531,6 +7494,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glSamplerParameterIuiv");
+
             let param: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *const types::GLuint;
             let _res = unsafe { gl::SamplerParameterIuiv(sampler, pname, param) };
@@ -6542,6 +7507,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: f64,
         ) -> () {
+            debug!("emscripten::_glSamplerParameterf");
+
             let param: types::GLfloat = param as types::GLfloat;
             let _res = unsafe { gl::SamplerParameterf(sampler, pname, param) };
             _res
@@ -6552,6 +7519,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glSamplerParameterfv");
+
             let param: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *const types::GLfloat;
             let _res = unsafe { gl::SamplerParameterfv(sampler, pname, param) };
@@ -6563,6 +7532,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: types::GLint,
         ) -> () {
+            debug!("emscripten::_glSamplerParameteri");
+
             let _res = unsafe { gl::SamplerParameteri(sampler, pname, param) };
             _res
         }
@@ -6572,6 +7543,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glSamplerParameteriv");
+
             let param: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *const types::GLint;
             let _res = unsafe { gl::SamplerParameteriv(sampler, pname, param) };
@@ -6584,6 +7557,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glScissor");
+
             let _res = unsafe { gl::Scissor(x, y, width, height) };
             _res
         }
@@ -6593,6 +7568,8 @@ pub mod gl_static {
             count: types::GLsizei,
             v: u32,
         ) -> () {
+            debug!("emscripten::_glScissorArrayv");
+
             let v: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLint;
             let _res = unsafe { gl::ScissorArrayv(first, count, v) };
@@ -6606,10 +7583,14 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glScissorIndexed");
+
             let _res = unsafe { gl::ScissorIndexed(index, left, bottom, width, height) };
             _res
         }
         pub fn _glScissorIndexedv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glScissorIndexedv");
+
             let v: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLint;
             let _res = unsafe { gl::ScissorIndexedv(index, v) };
@@ -6620,10 +7601,14 @@ pub mod gl_static {
             type_: types::GLenum,
             color: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glSecondaryColorP3ui");
+
             let _res = unsafe { gl::SecondaryColorP3ui(type_, color) };
             _res
         }
         pub fn _glSecondaryColorP3uiv(_ctx: &mut Ctx, type_: types::GLenum, color: u32) -> () {
+            debug!("emscripten::_glSecondaryColorP3uiv");
+
             let color: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), color) as *const types::GLuint;
             let _res = unsafe { gl::SecondaryColorP3uiv(type_, color) };
@@ -6637,6 +7622,8 @@ pub mod gl_static {
             binary: u32,
             length: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glShaderBinary");
+
             let shaders: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), shaders) as *const types::GLuint;
 
@@ -6654,11 +7641,24 @@ pub mod gl_static {
             string: u32,
             length: u32,
         ) -> () {
+            debug!("emscripten::_glShaderSource");
+
             let string: *const *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), string) as *const *const types::GLchar;
             let length: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), length) as *const types::GLint;
-            let _res = unsafe { gl::ShaderSource(shader, count, string, length) };
+
+            let mut shader_src = vec![];
+            for i in 0..count {
+                let ptr = emscripten_memory_pointer!(
+                    _ctx.memory(0),
+                    (unsafe { (*string.add(i as usize)) } as u32)
+                ) as *const i8;
+                shader_src.push(ptr);
+                debug!("Shader: {:?}", unsafe { std::ffi::CStr::from_ptr(ptr) });
+            }
+
+            let _res = unsafe { gl::ShaderSource(shader, count, shader_src.as_ptr(), length) };
             _res
         }
         pub fn _glShaderStorageBlockBinding(
@@ -6667,6 +7667,8 @@ pub mod gl_static {
             storageBlockIndex: types::GLuint,
             storageBlockBinding: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glShaderStorageBlockBinding");
+
             let _res = unsafe {
                 gl::ShaderStorageBlockBinding(program, storageBlockIndex, storageBlockBinding)
             };
@@ -6678,6 +7680,8 @@ pub mod gl_static {
             ref_: types::GLint,
             mask: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glStencilFunc");
+
             let _res = unsafe { gl::StencilFunc(func, ref_, mask) };
             _res
         }
@@ -6688,10 +7692,14 @@ pub mod gl_static {
             ref_: types::GLint,
             mask: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glStencilFuncSeparate");
+
             let _res = unsafe { gl::StencilFuncSeparate(face, func, ref_, mask) };
             _res
         }
         pub fn _glStencilMask(_ctx: &mut Ctx, mask: types::GLuint) -> () {
+            debug!("emscripten::_glStencilMask");
+
             let _res = unsafe { gl::StencilMask(mask) };
             _res
         }
@@ -6700,6 +7708,8 @@ pub mod gl_static {
             face: types::GLenum,
             mask: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glStencilMaskSeparate");
+
             let _res = unsafe { gl::StencilMaskSeparate(face, mask) };
             _res
         }
@@ -6709,6 +7719,8 @@ pub mod gl_static {
             zfail: types::GLenum,
             zpass: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glStencilOp");
+
             let _res = unsafe { gl::StencilOp(fail, zfail, zpass) };
             _res
         }
@@ -6719,6 +7731,8 @@ pub mod gl_static {
             dpfail: types::GLenum,
             dppass: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glStencilOpSeparate");
+
             let _res = unsafe { gl::StencilOpSeparate(face, sfail, dpfail, dppass) };
             _res
         }
@@ -6728,6 +7742,8 @@ pub mod gl_static {
             internalformat: types::GLenum,
             buffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glTexBuffer");
+
             let _res = unsafe { gl::TexBuffer(target, internalformat, buffer) };
             _res
         }
@@ -6739,46 +7755,64 @@ pub mod gl_static {
             offset: u32,
             size: u32,
         ) -> () {
+            debug!("emscripten::_glTexBufferRange");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let _res = unsafe { gl::TexBufferRange(target, internalformat, buffer, offset, size) };
             _res
         }
         pub fn _glTexCoordP1ui(_ctx: &mut Ctx, type_: types::GLenum, coords: types::GLuint) -> () {
+            debug!("emscripten::_glTexCoordP1ui");
+
             let _res = unsafe { gl::TexCoordP1ui(type_, coords) };
             _res
         }
         pub fn _glTexCoordP1uiv(_ctx: &mut Ctx, type_: types::GLenum, coords: u32) -> () {
+            debug!("emscripten::_glTexCoordP1uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::TexCoordP1uiv(type_, coords) };
             _res
         }
         pub fn _glTexCoordP2ui(_ctx: &mut Ctx, type_: types::GLenum, coords: types::GLuint) -> () {
+            debug!("emscripten::_glTexCoordP2ui");
+
             let _res = unsafe { gl::TexCoordP2ui(type_, coords) };
             _res
         }
         pub fn _glTexCoordP2uiv(_ctx: &mut Ctx, type_: types::GLenum, coords: u32) -> () {
+            debug!("emscripten::_glTexCoordP2uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::TexCoordP2uiv(type_, coords) };
             _res
         }
         pub fn _glTexCoordP3ui(_ctx: &mut Ctx, type_: types::GLenum, coords: types::GLuint) -> () {
+            debug!("emscripten::_glTexCoordP3ui");
+
             let _res = unsafe { gl::TexCoordP3ui(type_, coords) };
             _res
         }
         pub fn _glTexCoordP3uiv(_ctx: &mut Ctx, type_: types::GLenum, coords: u32) -> () {
+            debug!("emscripten::_glTexCoordP3uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::TexCoordP3uiv(type_, coords) };
             _res
         }
         pub fn _glTexCoordP4ui(_ctx: &mut Ctx, type_: types::GLenum, coords: types::GLuint) -> () {
+            debug!("emscripten::_glTexCoordP4ui");
+
             let _res = unsafe { gl::TexCoordP4ui(type_, coords) };
             _res
         }
         pub fn _glTexCoordP4uiv(_ctx: &mut Ctx, type_: types::GLenum, coords: u32) -> () {
+            debug!("emscripten::_glTexCoordP4uiv");
+
             let coords: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), coords) as *const types::GLuint;
             let _res = unsafe { gl::TexCoordP4uiv(type_, coords) };
@@ -6795,6 +7829,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTexImage1D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -6824,6 +7860,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTexImage2D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -6851,6 +7889,8 @@ pub mod gl_static {
             height: types::GLsizei,
             fixedsamplelocations: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glTexImage2DMultisample");
+
             let _res = unsafe {
                 gl::TexImage2DMultisample(
                     target,
@@ -6876,6 +7916,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTexImage3D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -6905,6 +7947,8 @@ pub mod gl_static {
             depth: types::GLsizei,
             fixedsamplelocations: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glTexImage3DMultisample");
+
             let _res = unsafe {
                 gl::TexImage3DMultisample(
                     target,
@@ -6924,6 +7968,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glTexParameterIiv");
+
             let params: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *const types::GLint;
             let _res = unsafe { gl::TexParameterIiv(target, pname, params) };
@@ -6935,6 +7981,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glTexParameterIuiv");
+
             let params: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *const types::GLuint;
             let _res = unsafe { gl::TexParameterIuiv(target, pname, params) };
@@ -6946,6 +7994,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: f64,
         ) -> () {
+            debug!("emscripten::_glTexParameterf");
+
             let param: types::GLfloat = param as types::GLfloat;
             let _res = unsafe { gl::TexParameterf(target, pname, param) };
             _res
@@ -6956,6 +8006,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glTexParameterfv");
+
             let params: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *const types::GLfloat;
             let _res = unsafe { gl::TexParameterfv(target, pname, params) };
@@ -6967,6 +8019,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: types::GLint,
         ) -> () {
+            debug!("emscripten::_glTexParameteri");
+
             let _res = unsafe { gl::TexParameteri(target, pname, param) };
             _res
         }
@@ -6976,6 +8030,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glTexParameteriv");
+
             let params: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *const types::GLint;
             let _res = unsafe { gl::TexParameteriv(target, pname, params) };
@@ -6988,6 +8044,8 @@ pub mod gl_static {
             internalformat: types::GLenum,
             width: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glTexStorage1D");
+
             let _res = unsafe { gl::TexStorage1D(target, levels, internalformat, width) };
             _res
         }
@@ -6999,6 +8057,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glTexStorage2D");
+
             let _res = unsafe { gl::TexStorage2D(target, levels, internalformat, width, height) };
             _res
         }
@@ -7011,6 +8071,8 @@ pub mod gl_static {
             height: types::GLsizei,
             fixedsamplelocations: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glTexStorage2DMultisample");
+
             let _res = unsafe {
                 gl::TexStorage2DMultisample(
                     target,
@@ -7032,6 +8094,8 @@ pub mod gl_static {
             height: types::GLsizei,
             depth: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glTexStorage3D");
+
             let _res =
                 unsafe { gl::TexStorage3D(target, levels, internalformat, width, height, depth) };
             _res
@@ -7046,6 +8110,8 @@ pub mod gl_static {
             depth: types::GLsizei,
             fixedsamplelocations: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glTexStorage3DMultisample");
+
             let _res = unsafe {
                 gl::TexStorage3DMultisample(
                     target,
@@ -7069,6 +8135,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTexSubImage1D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -7088,6 +8156,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTexSubImage2D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -7112,6 +8182,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTexSubImage3D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -7124,6 +8196,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glTextureBarrier(_ctx: &mut Ctx) -> () {
+            debug!("emscripten::_glTextureBarrier");
+
             let _res = unsafe { gl::TextureBarrier() };
             _res
         }
@@ -7133,6 +8207,8 @@ pub mod gl_static {
             internalformat: types::GLenum,
             buffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glTextureBuffer");
+
             let _res = unsafe { gl::TextureBuffer(texture, internalformat, buffer) };
             _res
         }
@@ -7144,6 +8220,8 @@ pub mod gl_static {
             offset: u32,
             size: u32,
         ) -> () {
+            debug!("emscripten::_glTextureBufferRange");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let _res =
@@ -7156,6 +8234,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glTextureParameterIiv");
+
             let params: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *const types::GLint;
             let _res = unsafe { gl::TextureParameterIiv(texture, pname, params) };
@@ -7167,6 +8247,8 @@ pub mod gl_static {
             pname: types::GLenum,
             params: u32,
         ) -> () {
+            debug!("emscripten::_glTextureParameterIuiv");
+
             let params: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), params) as *const types::GLuint;
             let _res = unsafe { gl::TextureParameterIuiv(texture, pname, params) };
@@ -7178,6 +8260,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: f64,
         ) -> () {
+            debug!("emscripten::_glTextureParameterf");
+
             let param: types::GLfloat = param as types::GLfloat;
             let _res = unsafe { gl::TextureParameterf(texture, pname, param) };
             _res
@@ -7188,6 +8272,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glTextureParameterfv");
+
             let param: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *const types::GLfloat;
             let _res = unsafe { gl::TextureParameterfv(texture, pname, param) };
@@ -7199,6 +8285,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: types::GLint,
         ) -> () {
+            debug!("emscripten::_glTextureParameteri");
+
             let _res = unsafe { gl::TextureParameteri(texture, pname, param) };
             _res
         }
@@ -7208,6 +8296,8 @@ pub mod gl_static {
             pname: types::GLenum,
             param: u32,
         ) -> () {
+            debug!("emscripten::_glTextureParameteriv");
+
             let param: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), param) as *const types::GLint;
             let _res = unsafe { gl::TextureParameteriv(texture, pname, param) };
@@ -7220,6 +8310,8 @@ pub mod gl_static {
             internalformat: types::GLenum,
             width: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glTextureStorage1D");
+
             let _res = unsafe { gl::TextureStorage1D(texture, levels, internalformat, width) };
             _res
         }
@@ -7231,6 +8323,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glTextureStorage2D");
+
             let _res =
                 unsafe { gl::TextureStorage2D(texture, levels, internalformat, width, height) };
             _res
@@ -7244,6 +8338,8 @@ pub mod gl_static {
             height: types::GLsizei,
             fixedsamplelocations: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glTextureStorage2DMultisample");
+
             let _res = unsafe {
                 gl::TextureStorage2DMultisample(
                     texture,
@@ -7265,6 +8361,8 @@ pub mod gl_static {
             height: types::GLsizei,
             depth: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glTextureStorage3D");
+
             let _res = unsafe {
                 gl::TextureStorage3D(texture, levels, internalformat, width, height, depth)
             };
@@ -7280,6 +8378,8 @@ pub mod gl_static {
             depth: types::GLsizei,
             fixedsamplelocations: types::GLboolean,
         ) -> () {
+            debug!("emscripten::_glTextureStorage3DMultisample");
+
             let _res = unsafe {
                 gl::TextureStorage3DMultisample(
                     texture,
@@ -7303,6 +8403,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTextureSubImage1D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -7323,6 +8425,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTextureSubImage2D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -7347,6 +8451,8 @@ pub mod gl_static {
             type_: types::GLenum,
             pixels: u32,
         ) -> () {
+            debug!("emscripten::_glTextureSubImage3D");
+
             let pixels: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pixels)
                     as *const __gl_imports::raw::c_void;
@@ -7369,6 +8475,8 @@ pub mod gl_static {
             minlayer: types::GLuint,
             numlayers: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glTextureView");
+
             let _res = unsafe {
                 gl::TextureView(
                     texture,
@@ -7389,6 +8497,8 @@ pub mod gl_static {
             index: types::GLuint,
             buffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glTransformFeedbackBufferBase");
+
             let _res = unsafe { gl::TransformFeedbackBufferBase(xfb, index, buffer) };
             _res
         }
@@ -7400,6 +8510,8 @@ pub mod gl_static {
             offset: u32,
             size: u32,
         ) -> () {
+            debug!("emscripten::_glTransformFeedbackBufferRange");
+
             let offset: types::GLintptr = offset as types::GLintptr;
             let size: types::GLsizeiptr = size as types::GLsizeiptr;
             let _res =
@@ -7413,6 +8525,8 @@ pub mod gl_static {
             varyings: u32,
             bufferMode: types::GLenum,
         ) -> () {
+            debug!("emscripten::_glTransformFeedbackVaryings");
+
             let varyings: *const *const types::GLchar =
                 emscripten_memory_pointer!(_ctx.memory(0), varyings) as *const *const types::GLchar;
 
@@ -7421,6 +8535,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glUniform1d(_ctx: &mut Ctx, location: types::GLint, x: types::GLdouble) -> () {
+            debug!("emscripten::_glUniform1d");
+
             let _res = unsafe { gl::Uniform1d(location, x) };
             _res
         }
@@ -7430,12 +8546,16 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform1dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::Uniform1dv(location, count, value) };
             _res
         }
         pub fn _glUniform1f(_ctx: &mut Ctx, location: types::GLint, v0: f64) -> () {
+            debug!("emscripten::_glUniform1f");
+
             let v0: types::GLfloat = v0 as types::GLfloat;
             let _res = unsafe { gl::Uniform1f(location, v0) };
             _res
@@ -7446,12 +8566,16 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform1fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::Uniform1fv(location, count, value) };
             _res
         }
         pub fn _glUniform1i(_ctx: &mut Ctx, location: types::GLint, v0: types::GLint) -> () {
+            debug!("emscripten::_glUniform1i");
+
             let _res = unsafe { gl::Uniform1i(location, v0) };
             _res
         }
@@ -7461,12 +8585,16 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform1iv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::Uniform1iv(location, count, value) };
             _res
         }
         pub fn _glUniform1ui(_ctx: &mut Ctx, location: types::GLint, v0: types::GLuint) -> () {
+            debug!("emscripten::_glUniform1ui");
+
             let _res = unsafe { gl::Uniform1ui(location, v0) };
             _res
         }
@@ -7476,6 +8604,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform1uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::Uniform1uiv(location, count, value) };
@@ -7487,6 +8617,8 @@ pub mod gl_static {
             x: types::GLdouble,
             y: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glUniform2d");
+
             let _res = unsafe { gl::Uniform2d(location, x, y) };
             _res
         }
@@ -7496,12 +8628,16 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform2dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::Uniform2dv(location, count, value) };
             _res
         }
         pub fn _glUniform2f(_ctx: &mut Ctx, location: types::GLint, v0: f64, v1: f64) -> () {
+            debug!("emscripten::_glUniform2f");
+
             let v0: types::GLfloat = v0 as types::GLfloat;
             let v1: types::GLfloat = v1 as types::GLfloat;
             let _res = unsafe { gl::Uniform2f(location, v0, v1) };
@@ -7513,6 +8649,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform2fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::Uniform2fv(location, count, value) };
@@ -7524,6 +8662,8 @@ pub mod gl_static {
             v0: types::GLint,
             v1: types::GLint,
         ) -> () {
+            debug!("emscripten::_glUniform2i");
+
             let _res = unsafe { gl::Uniform2i(location, v0, v1) };
             _res
         }
@@ -7533,6 +8673,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform2iv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::Uniform2iv(location, count, value) };
@@ -7544,6 +8686,8 @@ pub mod gl_static {
             v0: types::GLuint,
             v1: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glUniform2ui");
+
             let _res = unsafe { gl::Uniform2ui(location, v0, v1) };
             _res
         }
@@ -7553,6 +8697,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform2uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::Uniform2uiv(location, count, value) };
@@ -7565,6 +8711,8 @@ pub mod gl_static {
             y: types::GLdouble,
             z: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glUniform3d");
+
             let _res = unsafe { gl::Uniform3d(location, x, y, z) };
             _res
         }
@@ -7574,6 +8722,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform3dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::Uniform3dv(location, count, value) };
@@ -7586,6 +8736,8 @@ pub mod gl_static {
             v1: f64,
             v2: f64,
         ) -> () {
+            debug!("emscripten::_glUniform3f");
+
             let v0: types::GLfloat = v0 as types::GLfloat;
             let v1: types::GLfloat = v1 as types::GLfloat;
             let v2: types::GLfloat = v2 as types::GLfloat;
@@ -7598,6 +8750,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform3fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::Uniform3fv(location, count, value) };
@@ -7610,6 +8764,8 @@ pub mod gl_static {
             v1: types::GLint,
             v2: types::GLint,
         ) -> () {
+            debug!("emscripten::_glUniform3i");
+
             let _res = unsafe { gl::Uniform3i(location, v0, v1, v2) };
             _res
         }
@@ -7619,6 +8775,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform3iv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::Uniform3iv(location, count, value) };
@@ -7631,6 +8789,8 @@ pub mod gl_static {
             v1: types::GLuint,
             v2: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glUniform3ui");
+
             let _res = unsafe { gl::Uniform3ui(location, v0, v1, v2) };
             _res
         }
@@ -7640,6 +8800,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform3uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::Uniform3uiv(location, count, value) };
@@ -7653,6 +8815,8 @@ pub mod gl_static {
             z: types::GLdouble,
             w: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glUniform4d");
+
             let _res = unsafe { gl::Uniform4d(location, x, y, z, w) };
             _res
         }
@@ -7662,6 +8826,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform4dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::Uniform4dv(location, count, value) };
@@ -7675,6 +8841,8 @@ pub mod gl_static {
             v2: f64,
             v3: f64,
         ) -> () {
+            debug!("emscripten::_glUniform4f");
+
             let v0: types::GLfloat = v0 as types::GLfloat;
             let v1: types::GLfloat = v1 as types::GLfloat;
             let v2: types::GLfloat = v2 as types::GLfloat;
@@ -7688,6 +8856,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform4fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::Uniform4fv(location, count, value) };
@@ -7701,6 +8871,8 @@ pub mod gl_static {
             v2: types::GLint,
             v3: types::GLint,
         ) -> () {
+            debug!("emscripten::_glUniform4i");
+
             let _res = unsafe { gl::Uniform4i(location, v0, v1, v2, v3) };
             _res
         }
@@ -7710,6 +8882,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform4iv");
+
             let value: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLint;
             let _res = unsafe { gl::Uniform4iv(location, count, value) };
@@ -7723,6 +8897,8 @@ pub mod gl_static {
             v2: types::GLuint,
             v3: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glUniform4ui");
+
             let _res = unsafe { gl::Uniform4ui(location, v0, v1, v2, v3) };
             _res
         }
@@ -7732,6 +8908,8 @@ pub mod gl_static {
             count: types::GLsizei,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniform4uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::Uniform4uiv(location, count, value) };
@@ -7743,6 +8921,8 @@ pub mod gl_static {
             uniformBlockIndex: types::GLuint,
             uniformBlockBinding: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glUniformBlockBinding");
+
             let _res =
                 unsafe { gl::UniformBlockBinding(program, uniformBlockIndex, uniformBlockBinding) };
             _res
@@ -7754,6 +8934,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix2dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix2dv(location, count, transpose, value) };
@@ -7766,6 +8948,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix2fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix2fv(location, count, transpose, value) };
@@ -7778,6 +8962,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix2x3dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix2x3dv(location, count, transpose, value) };
@@ -7790,6 +8976,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix2x3fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix2x3fv(location, count, transpose, value) };
@@ -7802,6 +8990,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix2x4dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix2x4dv(location, count, transpose, value) };
@@ -7814,6 +9004,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix2x4fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix2x4fv(location, count, transpose, value) };
@@ -7826,6 +9018,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix3dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix3dv(location, count, transpose, value) };
@@ -7838,6 +9032,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix3fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix3fv(location, count, transpose, value) };
@@ -7850,6 +9046,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix3x2dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix3x2dv(location, count, transpose, value) };
@@ -7862,6 +9060,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix3x2fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix3x2fv(location, count, transpose, value) };
@@ -7874,6 +9074,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix3x4dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix3x4dv(location, count, transpose, value) };
@@ -7886,6 +9088,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix3x4fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix3x4fv(location, count, transpose, value) };
@@ -7898,6 +9102,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix4dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix4dv(location, count, transpose, value) };
@@ -7910,6 +9116,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix4fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix4fv(location, count, transpose, value) };
@@ -7922,6 +9130,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix4x2dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix4x2dv(location, count, transpose, value) };
@@ -7934,6 +9144,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix4x2fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix4x2fv(location, count, transpose, value) };
@@ -7946,6 +9158,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix4x3dv");
+
             let value: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLdouble;
             let _res = unsafe { gl::UniformMatrix4x3dv(location, count, transpose, value) };
@@ -7958,6 +9172,8 @@ pub mod gl_static {
             transpose: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glUniformMatrix4x3fv");
+
             let value: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLfloat;
             let _res = unsafe { gl::UniformMatrix4x3fv(location, count, transpose, value) };
@@ -7969,20 +9185,28 @@ pub mod gl_static {
             count: types::GLsizei,
             indices: u32,
         ) -> () {
+            debug!("emscripten::_glUniformSubroutinesuiv");
+
             let indices: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), indices) as *const types::GLuint;
             let _res = unsafe { gl::UniformSubroutinesuiv(shadertype, count, indices) };
             _res
         }
         pub fn _glUnmapBuffer(_ctx: &mut Ctx, target: types::GLenum) -> types::GLboolean {
+            debug!("emscripten::_glUnmapBuffer");
+
             let _res = unsafe { gl::UnmapBuffer(target) };
             _res
         }
         pub fn _glUnmapNamedBuffer(_ctx: &mut Ctx, buffer: types::GLuint) -> types::GLboolean {
+            debug!("emscripten::_glUnmapNamedBuffer");
+
             let _res = unsafe { gl::UnmapNamedBuffer(buffer) };
             _res
         }
         pub fn _glUseProgram(_ctx: &mut Ctx, program: types::GLuint) -> () {
+            debug!("emscripten::_glUseProgram");
+
             let _res = unsafe { gl::UseProgram(program) };
             _res
         }
@@ -7992,14 +9216,20 @@ pub mod gl_static {
             stages: types::GLbitfield,
             program: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glUseProgramStages");
+
             let _res = unsafe { gl::UseProgramStages(pipeline, stages, program) };
             _res
         }
         pub fn _glValidateProgram(_ctx: &mut Ctx, program: types::GLuint) -> () {
+            debug!("emscripten::_glValidateProgram");
+
             let _res = unsafe { gl::ValidateProgram(program) };
             _res
         }
         pub fn _glValidateProgramPipeline(_ctx: &mut Ctx, pipeline: types::GLuint) -> () {
+            debug!("emscripten::_glValidateProgramPipeline");
+
             let _res = unsafe { gl::ValidateProgramPipeline(pipeline) };
             _res
         }
@@ -8009,6 +9239,8 @@ pub mod gl_static {
             attribindex: types::GLuint,
             bindingindex: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexArrayAttribBinding");
+
             let _res = unsafe { gl::VertexArrayAttribBinding(vaobj, attribindex, bindingindex) };
             _res
         }
@@ -8021,6 +9253,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             relativeoffset: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexArrayAttribFormat");
+
             let _res = unsafe {
                 gl::VertexArrayAttribFormat(
                     vaobj,
@@ -8041,6 +9275,8 @@ pub mod gl_static {
             type_: types::GLenum,
             relativeoffset: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexArrayAttribIFormat");
+
             let _res = unsafe {
                 gl::VertexArrayAttribIFormat(vaobj, attribindex, size, type_, relativeoffset)
             };
@@ -8054,6 +9290,8 @@ pub mod gl_static {
             type_: types::GLenum,
             relativeoffset: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexArrayAttribLFormat");
+
             let _res = unsafe {
                 gl::VertexArrayAttribLFormat(vaobj, attribindex, size, type_, relativeoffset)
             };
@@ -8065,6 +9303,8 @@ pub mod gl_static {
             bindingindex: types::GLuint,
             divisor: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexArrayBindingDivisor");
+
             let _res = unsafe { gl::VertexArrayBindingDivisor(vaobj, bindingindex, divisor) };
             _res
         }
@@ -8073,6 +9313,8 @@ pub mod gl_static {
             vaobj: types::GLuint,
             buffer: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexArrayElementBuffer");
+
             let _res = unsafe { gl::VertexArrayElementBuffer(vaobj, buffer) };
             _res
         }
@@ -8084,6 +9326,8 @@ pub mod gl_static {
             offset: u32,
             stride: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glVertexArrayVertexBuffer");
+
             let offset: types::GLintptr = offset as types::GLintptr;
 
             let _res =
@@ -8099,6 +9343,8 @@ pub mod gl_static {
             offsets: u32,
             strides: u32,
         ) -> () {
+            debug!("emscripten::_glVertexArrayVertexBuffers");
+
             let buffers: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), buffers) as *const types::GLuint;
             let offsets: *const types::GLintptr =
@@ -8111,31 +9357,43 @@ pub mod gl_static {
             _res
         }
         pub fn _glVertexAttrib1d(_ctx: &mut Ctx, index: types::GLuint, x: types::GLdouble) -> () {
+            debug!("emscripten::_glVertexAttrib1d");
+
             let _res = unsafe { gl::VertexAttrib1d(index, x) };
             _res
         }
         pub fn _glVertexAttrib1dv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib1dv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::VertexAttrib1dv(index, v) };
             _res
         }
         pub fn _glVertexAttrib1f(_ctx: &mut Ctx, index: types::GLuint, x: f64) -> () {
+            debug!("emscripten::_glVertexAttrib1f");
+
             let x: types::GLfloat = x as types::GLfloat;
             let _res = unsafe { gl::VertexAttrib1f(index, x) };
             _res
         }
         pub fn _glVertexAttrib1fv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib1fv");
+
             let v: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLfloat;
             let _res = unsafe { gl::VertexAttrib1fv(index, v) };
             _res
         }
         pub fn _glVertexAttrib1s(_ctx: &mut Ctx, index: types::GLuint, x: types::GLshort) -> () {
+            debug!("emscripten::_glVertexAttrib1s");
+
             let _res = unsafe { gl::VertexAttrib1s(index, x) };
             _res
         }
         pub fn _glVertexAttrib1sv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib1sv");
+
             let v: *const types::GLshort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLshort;
             let _res = unsafe { gl::VertexAttrib1sv(index, v) };
@@ -8147,22 +9405,30 @@ pub mod gl_static {
             x: types::GLdouble,
             y: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib2d");
+
             let _res = unsafe { gl::VertexAttrib2d(index, x, y) };
             _res
         }
         pub fn _glVertexAttrib2dv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib2dv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::VertexAttrib2dv(index, v) };
             _res
         }
         pub fn _glVertexAttrib2f(_ctx: &mut Ctx, index: types::GLuint, x: f64, y: f64) -> () {
+            debug!("emscripten::_glVertexAttrib2f");
+
             let x: types::GLfloat = x as types::GLfloat;
             let y: types::GLfloat = y as types::GLfloat;
             let _res = unsafe { gl::VertexAttrib2f(index, x, y) };
             _res
         }
         pub fn _glVertexAttrib2fv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib2fv");
+
             let v: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLfloat;
             let _res = unsafe { gl::VertexAttrib2fv(index, v) };
@@ -8174,10 +9440,14 @@ pub mod gl_static {
             x: types::GLshort,
             y: types::GLshort,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib2s");
+
             let _res = unsafe { gl::VertexAttrib2s(index, x, y) };
             _res
         }
         pub fn _glVertexAttrib2sv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib2sv");
+
             let v: *const types::GLshort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLshort;
             let _res = unsafe { gl::VertexAttrib2sv(index, v) };
@@ -8190,10 +9460,14 @@ pub mod gl_static {
             y: types::GLdouble,
             z: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib3d");
+
             let _res = unsafe { gl::VertexAttrib3d(index, x, y, z) };
             _res
         }
         pub fn _glVertexAttrib3dv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib3dv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::VertexAttrib3dv(index, v) };
@@ -8206,6 +9480,8 @@ pub mod gl_static {
             y: f64,
             z: f64,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib3f");
+
             let x: types::GLfloat = x as types::GLfloat;
             let y: types::GLfloat = y as types::GLfloat;
             let z: types::GLfloat = z as types::GLfloat;
@@ -8213,6 +9489,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glVertexAttrib3fv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib3fv");
+
             let v: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLfloat;
             let _res = unsafe { gl::VertexAttrib3fv(index, v) };
@@ -8225,28 +9503,38 @@ pub mod gl_static {
             y: types::GLshort,
             z: types::GLshort,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib3s");
+
             let _res = unsafe { gl::VertexAttrib3s(index, x, y, z) };
             _res
         }
         pub fn _glVertexAttrib3sv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib3sv");
+
             let v: *const types::GLshort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLshort;
             let _res = unsafe { gl::VertexAttrib3sv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4Nbv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4Nbv");
+
             let v: *const types::GLbyte =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLbyte;
             let _res = unsafe { gl::VertexAttrib4Nbv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4Niv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4Niv");
+
             let v: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLint;
             let _res = unsafe { gl::VertexAttrib4Niv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4Nsv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4Nsv");
+
             let v: *const types::GLshort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLshort;
             let _res = unsafe { gl::VertexAttrib4Nsv(index, v) };
@@ -8260,28 +9548,38 @@ pub mod gl_static {
             z: types::GLubyte,
             w: types::GLubyte,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib4Nub");
+
             let _res = unsafe { gl::VertexAttrib4Nub(index, x, y, z, w) };
             _res
         }
         pub fn _glVertexAttrib4Nubv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4Nubv");
+
             let v: *const types::GLubyte =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLubyte;
             let _res = unsafe { gl::VertexAttrib4Nubv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4Nuiv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4Nuiv");
+
             let v: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttrib4Nuiv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4Nusv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4Nusv");
+
             let v: *const types::GLushort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLushort;
             let _res = unsafe { gl::VertexAttrib4Nusv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4bv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4bv");
+
             let v: *const types::GLbyte =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLbyte;
             let _res = unsafe { gl::VertexAttrib4bv(index, v) };
@@ -8295,10 +9593,14 @@ pub mod gl_static {
             z: types::GLdouble,
             w: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib4d");
+
             let _res = unsafe { gl::VertexAttrib4d(index, x, y, z, w) };
             _res
         }
         pub fn _glVertexAttrib4dv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4dv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::VertexAttrib4dv(index, v) };
@@ -8312,6 +9614,8 @@ pub mod gl_static {
             z: f64,
             w: f64,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib4f");
+
             let x: types::GLfloat = x as types::GLfloat;
             let y: types::GLfloat = y as types::GLfloat;
             let z: types::GLfloat = z as types::GLfloat;
@@ -8320,12 +9624,16 @@ pub mod gl_static {
             _res
         }
         pub fn _glVertexAttrib4fv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4fv");
+
             let v: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLfloat;
             let _res = unsafe { gl::VertexAttrib4fv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4iv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4iv");
+
             let v: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLint;
             let _res = unsafe { gl::VertexAttrib4iv(index, v) };
@@ -8339,28 +9647,38 @@ pub mod gl_static {
             z: types::GLshort,
             w: types::GLshort,
         ) -> () {
+            debug!("emscripten::_glVertexAttrib4s");
+
             let _res = unsafe { gl::VertexAttrib4s(index, x, y, z, w) };
             _res
         }
         pub fn _glVertexAttrib4sv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4sv");
+
             let v: *const types::GLshort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLshort;
             let _res = unsafe { gl::VertexAttrib4sv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4ubv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4ubv");
+
             let v: *const types::GLubyte =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLubyte;
             let _res = unsafe { gl::VertexAttrib4ubv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4uiv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4uiv");
+
             let v: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttrib4uiv(index, v) };
             _res
         }
         pub fn _glVertexAttrib4usv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttrib4usv");
+
             let v: *const types::GLushort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLushort;
             let _res = unsafe { gl::VertexAttrib4usv(index, v) };
@@ -8371,6 +9689,8 @@ pub mod gl_static {
             attribindex: types::GLuint,
             bindingindex: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribBinding");
+
             let _res = unsafe { gl::VertexAttribBinding(attribindex, bindingindex) };
             _res
         }
@@ -8379,6 +9699,8 @@ pub mod gl_static {
             index: types::GLuint,
             divisor: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribDivisor");
+
             let _res = unsafe { gl::VertexAttribDivisor(index, divisor) };
             _res
         }
@@ -8390,26 +9712,36 @@ pub mod gl_static {
             normalized: types::GLboolean,
             relativeoffset: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribFormat");
+
             let _res = unsafe {
                 gl::VertexAttribFormat(attribindex, size, type_, normalized, relativeoffset)
             };
             _res
         }
         pub fn _glVertexAttribI1i(_ctx: &mut Ctx, index: types::GLuint, x: types::GLint) -> () {
+            debug!("emscripten::_glVertexAttribI1i");
+
             let _res = unsafe { gl::VertexAttribI1i(index, x) };
             _res
         }
         pub fn _glVertexAttribI1iv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI1iv");
+
             let v: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLint;
             let _res = unsafe { gl::VertexAttribI1iv(index, v) };
             _res
         }
         pub fn _glVertexAttribI1ui(_ctx: &mut Ctx, index: types::GLuint, x: types::GLuint) -> () {
+            debug!("emscripten::_glVertexAttribI1ui");
+
             let _res = unsafe { gl::VertexAttribI1ui(index, x) };
             _res
         }
         pub fn _glVertexAttribI1uiv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI1uiv");
+
             let v: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttribI1uiv(index, v) };
@@ -8421,10 +9753,14 @@ pub mod gl_static {
             x: types::GLint,
             y: types::GLint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribI2i");
+
             let _res = unsafe { gl::VertexAttribI2i(index, x, y) };
             _res
         }
         pub fn _glVertexAttribI2iv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI2iv");
+
             let v: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLint;
             let _res = unsafe { gl::VertexAttribI2iv(index, v) };
@@ -8436,10 +9772,14 @@ pub mod gl_static {
             x: types::GLuint,
             y: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribI2ui");
+
             let _res = unsafe { gl::VertexAttribI2ui(index, x, y) };
             _res
         }
         pub fn _glVertexAttribI2uiv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI2uiv");
+
             let v: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttribI2uiv(index, v) };
@@ -8452,10 +9792,14 @@ pub mod gl_static {
             y: types::GLint,
             z: types::GLint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribI3i");
+
             let _res = unsafe { gl::VertexAttribI3i(index, x, y, z) };
             _res
         }
         pub fn _glVertexAttribI3iv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI3iv");
+
             let v: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLint;
             let _res = unsafe { gl::VertexAttribI3iv(index, v) };
@@ -8468,16 +9812,22 @@ pub mod gl_static {
             y: types::GLuint,
             z: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribI3ui");
+
             let _res = unsafe { gl::VertexAttribI3ui(index, x, y, z) };
             _res
         }
         pub fn _glVertexAttribI3uiv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI3uiv");
+
             let v: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttribI3uiv(index, v) };
             _res
         }
         pub fn _glVertexAttribI4bv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI4bv");
+
             let v: *const types::GLbyte =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLbyte;
             let _res = unsafe { gl::VertexAttribI4bv(index, v) };
@@ -8491,22 +9841,30 @@ pub mod gl_static {
             z: types::GLint,
             w: types::GLint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribI4i");
+
             let _res = unsafe { gl::VertexAttribI4i(index, x, y, z, w) };
             _res
         }
         pub fn _glVertexAttribI4iv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI4iv");
+
             let v: *const types::GLint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLint;
             let _res = unsafe { gl::VertexAttribI4iv(index, v) };
             _res
         }
         pub fn _glVertexAttribI4sv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI4sv");
+
             let v: *const types::GLshort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLshort;
             let _res = unsafe { gl::VertexAttribI4sv(index, v) };
             _res
         }
         pub fn _glVertexAttribI4ubv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI4ubv");
+
             let v: *const types::GLubyte =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLubyte;
             let _res = unsafe { gl::VertexAttribI4ubv(index, v) };
@@ -8520,16 +9878,22 @@ pub mod gl_static {
             z: types::GLuint,
             w: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribI4ui");
+
             let _res = unsafe { gl::VertexAttribI4ui(index, x, y, z, w) };
             _res
         }
         pub fn _glVertexAttribI4uiv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI4uiv");
+
             let v: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttribI4uiv(index, v) };
             _res
         }
         pub fn _glVertexAttribI4usv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribI4usv");
+
             let v: *const types::GLushort =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLushort;
             let _res = unsafe { gl::VertexAttribI4usv(index, v) };
@@ -8542,6 +9906,8 @@ pub mod gl_static {
             type_: types::GLenum,
             relativeoffset: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribIFormat");
+
             let _res = unsafe { gl::VertexAttribIFormat(attribindex, size, type_, relativeoffset) };
             _res
         }
@@ -8553,6 +9919,8 @@ pub mod gl_static {
             stride: types::GLsizei,
             pointer: u32,
         ) -> () {
+            debug!("emscripten::_glVertexAttribIPointer");
+
             let pointer: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pointer)
                     as *const __gl_imports::raw::c_void;
@@ -8560,10 +9928,14 @@ pub mod gl_static {
             _res
         }
         pub fn _glVertexAttribL1d(_ctx: &mut Ctx, index: types::GLuint, x: types::GLdouble) -> () {
+            debug!("emscripten::_glVertexAttribL1d");
+
             let _res = unsafe { gl::VertexAttribL1d(index, x) };
             _res
         }
         pub fn _glVertexAttribL1dv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribL1dv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::VertexAttribL1dv(index, v) };
@@ -8575,10 +9947,14 @@ pub mod gl_static {
             x: types::GLdouble,
             y: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glVertexAttribL2d");
+
             let _res = unsafe { gl::VertexAttribL2d(index, x, y) };
             _res
         }
         pub fn _glVertexAttribL2dv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribL2dv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::VertexAttribL2dv(index, v) };
@@ -8591,10 +9967,14 @@ pub mod gl_static {
             y: types::GLdouble,
             z: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glVertexAttribL3d");
+
             let _res = unsafe { gl::VertexAttribL3d(index, x, y, z) };
             _res
         }
         pub fn _glVertexAttribL3dv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribL3dv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::VertexAttribL3dv(index, v) };
@@ -8608,10 +9988,14 @@ pub mod gl_static {
             z: types::GLdouble,
             w: types::GLdouble,
         ) -> () {
+            debug!("emscripten::_glVertexAttribL4d");
+
             let _res = unsafe { gl::VertexAttribL4d(index, x, y, z, w) };
             _res
         }
         pub fn _glVertexAttribL4dv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glVertexAttribL4dv");
+
             let v: *const types::GLdouble =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLdouble;
             let _res = unsafe { gl::VertexAttribL4dv(index, v) };
@@ -8624,6 +10008,8 @@ pub mod gl_static {
             type_: types::GLenum,
             relativeoffset: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribLFormat");
+
             let _res = unsafe { gl::VertexAttribLFormat(attribindex, size, type_, relativeoffset) };
             _res
         }
@@ -8635,6 +10021,8 @@ pub mod gl_static {
             stride: types::GLsizei,
             pointer: u32,
         ) -> () {
+            debug!("emscripten::_glVertexAttribLPointer");
+
             let pointer: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pointer)
                     as *const __gl_imports::raw::c_void;
@@ -8648,6 +10036,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             value: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribP1ui");
+
             let _res = unsafe { gl::VertexAttribP1ui(index, type_, normalized, value) };
             _res
         }
@@ -8658,6 +10048,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glVertexAttribP1uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttribP1uiv(index, type_, normalized, value) };
@@ -8670,6 +10062,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             value: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribP2ui");
+
             let _res = unsafe { gl::VertexAttribP2ui(index, type_, normalized, value) };
             _res
         }
@@ -8680,6 +10074,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glVertexAttribP2uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttribP2uiv(index, type_, normalized, value) };
@@ -8692,6 +10088,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             value: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribP3ui");
+
             let _res = unsafe { gl::VertexAttribP3ui(index, type_, normalized, value) };
             _res
         }
@@ -8702,6 +10100,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glVertexAttribP3uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttribP3uiv(index, type_, normalized, value) };
@@ -8714,6 +10114,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             value: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexAttribP4ui");
+
             let _res = unsafe { gl::VertexAttribP4ui(index, type_, normalized, value) };
             _res
         }
@@ -8724,6 +10126,8 @@ pub mod gl_static {
             normalized: types::GLboolean,
             value: u32,
         ) -> () {
+            debug!("emscripten::_glVertexAttribP4uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::VertexAttribP4uiv(index, type_, normalized, value) };
@@ -8738,6 +10142,8 @@ pub mod gl_static {
             stride: types::GLsizei,
             pointer: u32,
         ) -> () {
+            debug!("emscripten::_glVertexAttribPointer");
+
             let pointer: *const __gl_imports::raw::c_void =
                 emscripten_memory_pointer!(_ctx.memory(0), pointer)
                     as *const __gl_imports::raw::c_void;
@@ -8750,34 +10156,48 @@ pub mod gl_static {
             bindingindex: types::GLuint,
             divisor: types::GLuint,
         ) -> () {
+            debug!("emscripten::_glVertexBindingDivisor");
+
             let _res = unsafe { gl::VertexBindingDivisor(bindingindex, divisor) };
             _res
         }
         pub fn _glVertexP2ui(_ctx: &mut Ctx, type_: types::GLenum, value: types::GLuint) -> () {
+            debug!("emscripten::_glVertexP2ui");
+
             let _res = unsafe { gl::VertexP2ui(type_, value) };
             _res
         }
         pub fn _glVertexP2uiv(_ctx: &mut Ctx, type_: types::GLenum, value: u32) -> () {
+            debug!("emscripten::_glVertexP2uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::VertexP2uiv(type_, value) };
             _res
         }
         pub fn _glVertexP3ui(_ctx: &mut Ctx, type_: types::GLenum, value: types::GLuint) -> () {
+            debug!("emscripten::_glVertexP3ui");
+
             let _res = unsafe { gl::VertexP3ui(type_, value) };
             _res
         }
         pub fn _glVertexP3uiv(_ctx: &mut Ctx, type_: types::GLenum, value: u32) -> () {
+            debug!("emscripten::_glVertexP3uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::VertexP3uiv(type_, value) };
             _res
         }
         pub fn _glVertexP4ui(_ctx: &mut Ctx, type_: types::GLenum, value: types::GLuint) -> () {
+            debug!("emscripten::_glVertexP4ui");
+
             let _res = unsafe { gl::VertexP4ui(type_, value) };
             _res
         }
         pub fn _glVertexP4uiv(_ctx: &mut Ctx, type_: types::GLenum, value: u32) -> () {
+            debug!("emscripten::_glVertexP4uiv");
+
             let value: *const types::GLuint =
                 emscripten_memory_pointer!(_ctx.memory(0), value) as *const types::GLuint;
             let _res = unsafe { gl::VertexP4uiv(type_, value) };
@@ -8790,6 +10210,8 @@ pub mod gl_static {
             width: types::GLsizei,
             height: types::GLsizei,
         ) -> () {
+            debug!("emscripten::_glViewport");
+
             let _res = unsafe { gl::Viewport(x, y, width, height) };
             _res
         }
@@ -8799,6 +10221,8 @@ pub mod gl_static {
             count: types::GLsizei,
             v: u32,
         ) -> () {
+            debug!("emscripten::_glViewportArrayv");
+
             let v: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLfloat;
             let _res = unsafe { gl::ViewportArrayv(first, count, v) };
@@ -8812,6 +10236,8 @@ pub mod gl_static {
             w: f64,
             h: f64,
         ) -> () {
+            debug!("emscripten::_glViewportIndexedf");
+
             let x: types::GLfloat = x as types::GLfloat;
             let y: types::GLfloat = y as types::GLfloat;
             let w: types::GLfloat = w as types::GLfloat;
@@ -8820,6 +10246,8 @@ pub mod gl_static {
             _res
         }
         pub fn _glViewportIndexedfv(_ctx: &mut Ctx, index: types::GLuint, v: u32) -> () {
+            debug!("emscripten::_glViewportIndexedfv");
+
             let v: *const types::GLfloat =
                 emscripten_memory_pointer!(_ctx.memory(0), v) as *const types::GLfloat;
             let _res = unsafe { gl::ViewportIndexedfv(index, v) };
@@ -8831,6 +10259,7 @@ pub mod gl_static {
             flags: types::GLbitfield,
             timeout: types::GLuint64,
         ) -> () {
+            debug!("emscripten::_glWaitSync");
             let sync: types::GLsync =
                 emscripten_memory_pointer!(_ctx.memory(0), sync) as types::GLsync;
 

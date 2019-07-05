@@ -160,6 +160,8 @@ pub struct EmscriptenData<'a> {
     pub set_threw: Option<Func<'a, (i32, i32)>>,
     #[cfg(feature = "opengl")]
     pub render: Option<gl::window::Render>,
+    #[cfg(feature = "opengl")]
+    pub take_nothing_give_nothing: Func<'a, (), ()>,
     pub mapped_dirs: HashMap<String, PathBuf>,
 }
 
@@ -233,6 +235,9 @@ impl<'a> EmscriptenData<'a> {
         let stack_restore = instance.func("stackRestore").ok();
         let set_threw = instance.func("_setThrew").ok();
 
+        #[cfg(feature = "opengl")]
+        let take_nothing_give_nothing = instance.func("take_nothing_give_nothing").unwrap();
+
         EmscriptenData {
             malloc,
             free,
@@ -303,6 +308,8 @@ impl<'a> EmscriptenData<'a> {
             set_threw,
             #[cfg(feature = "opengl")]
             render: None,
+            #[cfg(feature = "opengl")]
+            take_nothing_give_nothing,
             mapped_dirs,
         }
     }
