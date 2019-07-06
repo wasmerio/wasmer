@@ -64,10 +64,6 @@ build_script:
   - cd ..
   - xcopy wapm-cli\target wapm-cli-target\ /i /y
   - cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
-  - cd ./src/installer
-  - iscc wasmer.iss
-  - copy /y .\WasmerInstaller.exe ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
-  - appveyor PushArtifact ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
 
 test_script:
   - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
