@@ -35,8 +35,8 @@ jobs:
           name: Install lint deps
           command: |
             git config --global --unset url."ssh://git@github.com".insteadOf || true
-            rustup toolchain install nightly-2019-05-20
-            rustup default nightly-2019-05-20
+            rustup toolchain install nightly-2019-06-10
+            rustup default nightly-2019-06-10
             rustup component add rustfmt
             rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
@@ -69,7 +69,7 @@ jobs:
             make test-rest
       - run:
           name: Release
-          command: make fast-release
+          command: make release-fast
       - run:
           name: Integration Tests
           command: make integration-tests
@@ -91,7 +91,7 @@ jobs:
           keys:
             - v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
       - <<: *run_install_dependencies
-      - run: rustup default nightly-2019-05-20
+      - run: rustup default nightly-2019-06-10
       - run:
           name: Tests
           command: make test
@@ -101,7 +101,7 @@ jobs:
             cargo check --features "debug" --release
       - run:
           name: Release
-          command: make fast-release
+          command: make release-fast
       - run:
           name: Integration Tests
           command: make integration-tests
@@ -134,7 +134,7 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-05-20
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-06-10
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       - run:
@@ -151,7 +151,7 @@ jobs:
           name: Release
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
-            make fast-release
+            make release-fast
       - run:
           name: Integration Tests
           command: |
@@ -186,7 +186,7 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - run: rustup default nightly-2019-05-20
+      - run: rustup default nightly-2019-06-10
       - run:
           name: Tests
           command: |
@@ -251,7 +251,7 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-05-20
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-06-10
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       - run:
