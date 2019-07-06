@@ -196,6 +196,7 @@ Each integration can be tested separately:
 * Emscripten: `make emtests`
 * WASI: `make wasi`
 * Middleware: `make middleware`
+* C API: `make capi`
 
 
 ## Benchmarking

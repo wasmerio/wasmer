@@ -77,8 +77,13 @@ llvm: spectests-llvm emtests-llvm middleware-llvm wasitests-llvm
 
 
 # All tests
-test-rest:
-	cargo test --release --all --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend
+capi:
+	cargo build --release
+	cargo build -p wasmer-runtime-c-api --release
+	cargo test -p wasmer-runtime-c-api --release
+
+test-rest: capi
+	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend
 
 circleci-clean:
 	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
@@ -104,7 +109,7 @@ build:
 	cargo build --release --features debug
 
 install:
-	cargo install --release --path .
+	cargo install --path .
 
 release:
 	cargo build --release --features backend:singlepass,backend:llvm,loader:kernel
