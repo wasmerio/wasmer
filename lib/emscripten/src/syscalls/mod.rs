@@ -231,6 +231,9 @@ pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let result: c_int = unsafe { libc::pipe(fd_ptr, 2048, 0) };
     #[cfg(not(target_os = "windows"))]
     let result: c_int = unsafe { libc::pipe(fd_ptr) };
+    if result == -1 {
+        debug!("=> os error: {}", Error::last_os_error())
+    };
     result
 }
 
@@ -505,7 +508,14 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
             let iov_len = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = write(fd, iov_base, iov_len);
+            debug!(
+                "=> iov_base: {}, iov_len: {}, curr = {}",
+                (*guest_iov_addr).iov_base,
+                iov_len,
+                curr
+            );
             if curr < 0 {
+                debug!("=> os error: {}", Error::last_os_error());
                 return -1;
             }
             ret += curr;
@@ -554,13 +564,13 @@ pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         let mut _stat: stat = std::mem::zeroed();
         let ret = stat(real_path, &mut _stat);
         debug!(
-            "=> pathname: {}, buf: {} = {}, last os error: {}",
+            "=> pathname: {}, buf: {} = {}",
             std::ffi::CStr::from_ptr(real_path).to_str().unwrap(),
             buf,
-            ret,
-            Error::last_os_error()
+            ret
         );
         if ret != 0 {
+            debug!("=> os error: {}", Error::last_os_error());
             return ret;
         }
         copy_stat_into_wasm(ctx, buf, &_stat);
@@ -571,19 +581,20 @@ pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 // fstat64
 pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall197 (fstat64) {}", _which);
+
     let fd: c_int = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
 
     unsafe {
         let mut stat = std::mem::zeroed();
         let ret = fstat(fd, &mut stat);
-        debug!("ret: {}", ret);
+        debug!("=> fd: {}, buf: {} = {}", fd, buf, ret);
         if ret != 0 {
+            debug!("=> os error: {}", Error::last_os_error());
             return ret;
         }
         copy_stat_into_wasm(ctx, buf, &stat);
     }
-
     0
 }
 
