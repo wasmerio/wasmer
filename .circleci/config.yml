@@ -62,8 +62,11 @@ jobs:
             - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
       - <<: *run_install_dependencies
       - run:
-          name: Tests
-          command: make test
+          name: Test everything (except singlepass)
+          command: |
+            make cranelift
+            make llvm
+            make test-rest
       - run:
           name: Release
           command: make fast-release
@@ -73,9 +76,9 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
           key: v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test:
@@ -105,9 +108,9 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
           key: v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-macos:
