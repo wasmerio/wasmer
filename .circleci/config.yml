@@ -369,12 +369,6 @@ workflows:
             branches:
               only:
                 - master
-      - test-rust-nightly:
-          filters:
-            branches:
-              only:
-                - trying
-                - staging
       - test-stable:
           filters:
             branches:
