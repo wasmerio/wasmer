@@ -19,6 +19,8 @@ use libc::{
     fcntl,
     // ENOTTY,
     fsync,
+    getegid,
+    geteuid,
     getgid,
     getgroups,
     getpeername,
@@ -347,28 +349,28 @@ pub fn ___syscall41(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     unsafe { dup(fd) }
 }
 
-/// getgid
+/// getgid32
 pub fn ___syscall200(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall200 (getgid)");
+    debug!("emscripten::___syscall200 (getgid32)");
     unsafe { getgid() as i32 }
 }
 
-// getgid
+// geteuid32
 pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall201 (getgid)");
+    debug!("emscripten::___syscall201 (geteuid32)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
-        getgid() as i32
+        geteuid() as i32
     }
 }
 
-// getgid32
+// getegid32
 pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     // gid_t
-    debug!("emscripten::___syscall202 (getgid32)");
+    debug!("emscripten::___syscall202 (getegid32)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
-        getgid() as _
+        getegid() as _
     }
 }
 

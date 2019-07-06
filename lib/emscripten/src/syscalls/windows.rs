@@ -140,23 +140,26 @@ pub fn ___syscall198(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int 
     unimplemented!()
 }
 
-/// getgid
+/// getgid32
 pub fn ___syscall200(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall200 (getgid)");
-    unimplemented!()
+    debug!("emscripten::___syscall200 (getgid32)");
+
+    getgid()
 }
 
-// getgid
+// geteuid32
 pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall201 (getgid)");
-    -1
+    debug!("emscripten::___syscall201 (geteuid32)");
+
+    geteuid()
 }
 
-// getgid32
+// getegid32
 pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     // gid_t
-    debug!("emscripten::___syscall202 (getgid32)");
-    -1
+    debug!("emscripten::___syscall202 (getegid32)");
+
+    getegid()
 }
 
 /// getgroups
