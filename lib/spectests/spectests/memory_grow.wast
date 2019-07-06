@@ -296,7 +296,8 @@
 (assert_return (invoke "as-storeN-address"))
 (assert_return (invoke "as-storeN-value"))
 
-(assert_return (invoke "as-unary-operand") (i32.const 31))
+;; SKIP_UNARY_OPERATION
+;; (assert_return (invoke "as-unary-operand") (i32.const 31))
 
 (assert_return (invoke "as-binary-left") (i32.const 11))
 (assert_return (invoke "as-binary-right") (i32.const 9))

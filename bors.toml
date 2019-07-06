@@ -2,7 +2,7 @@ status = [
     "ci/circleci: lint",
     "ci/circleci: test",
     "ci/circleci: test-macos",
-    "ci/circleci: test-rust-nightly",
+    "ci/circleci: test-stable",
     "continuous-integration/appveyor/branch"
 ]
 required_approvals = 1

@@ -505,7 +505,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 mapped_dirs,
             );
 
-            let instance = module
+            #[allow(unused_mut)] // mut used in feature
+            let mut instance = module
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
