@@ -153,6 +153,12 @@ nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmer
 
 Wasmer is built with [Cargo](https://crates.io/), the Rust package manager.
 
+Set Rust Nightly:
+```
+rustup default nightly
+```
+
+And install Wasmer
 ```sh
 # checkout code
 git clone https://github.com/wasmerio/wasmer.git
@@ -170,6 +176,7 @@ Thanks to [spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/specte
 You can run all the tests with:
 
 ```sh
+rustup default nightly
 make test
 ```
 

@@ -36,12 +36,13 @@ jobs:
           command: |
             git config --global --unset url."ssh://git@github.com".insteadOf || true
             rustup toolchain install nightly-2019-05-20
-            rustup component add rustfmt --toolchain=nightly-2019-05-20
-            rustup component add clippy --toolchain=nightly-2019-05-20 || cargo +nightly-2019-05-20 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+            rustup default nightly-2019-05-20
+            rustup component add rustfmt
+            rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
           name: Execute lints
           command: |
-            cargo +nightly-2019-05-20 fmt --all -- --check
+            cargo fmt --all -- --check
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -50,7 +51,7 @@ jobs:
             - target/debug/deps
           key: v8-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
 
-  test:
+  test-stable:
     docker:
       - image: circleci/rust:latest
     <<: *run_with_build_env_vars
@@ -60,16 +61,15 @@ jobs:
           keys:
             - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
       - <<: *run_install_dependencies
-      - run: rustup default nightly-2019-05-20
       - run:
           name: Tests
           command: make test
       - run:
-          name: Integration Tests
-          command: make integration-tests
-      - run:
           name: Release
           command: make fast-release
+      - run:
+          name: Integration Tests
+          command: make integration-tests
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -78,6 +78,38 @@ jobs:
             - target/debug/deps
           key: v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
 
+  test:
+    docker:
+      - image: circleci/rust:latest
+    <<: *run_with_build_env_vars
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - <<: *run_install_dependencies
+      - run: rustup default nightly-2019-05-20
+      - run:
+          name: Tests
+          command: make test
+      - run:
+          name: Debug flag checked
+          command: |
+            cargo check --features "debug" --release
+      - run:
+          name: Release
+          command: make fast-release
+      - run:
+          name: Integration Tests
+          command: make integration-tests
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
+
   test-macos:
     macos:
       xcode: "9.0"
@@ -85,7 +117,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Install crate dependencies
           command: |
@@ -101,7 +133,7 @@ jobs:
           command: |
             curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-05-20
             export PATH="$HOME/.cargo/bin:$PATH"
-            cargo +nightly --version
+            cargo --version
       - run:
           name: Tests
           command: |
@@ -113,24 +145,24 @@ jobs:
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
       - run:
+          name: Release
+          command: |
+            export PATH="$HOME/.cargo/bin:$PATH"
+            make fast-release
+      - run:
           name: Integration Tests
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make integration-tests
-      - run:
-          name: Release
-          command: |
-            export PATH="$HOME/.cargo/bin:$PATH"
-            make fast-release
       - save_cache:
           paths:
             - ~/.cargo/registry/
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build:
     docker:
@@ -153,10 +185,6 @@ jobs:
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       - run: rustup default nightly-2019-05-20
       - run:
-          name: Debug flag checked
-          command: |
-            cargo +nightly check --features "debug" --release
-      - run:
           name: Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
@@ -166,7 +194,7 @@ jobs:
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make release
-            cargo +nightly build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
+            cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # GIT_VERSION=$(git describe --exact-match --tags)
@@ -177,7 +205,7 @@ jobs:
       - run:
           name: Dynamic library
           command: |
-            cargo +nightly build --release --manifest-path lib/runtime-c-api/Cargo.toml
+            cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
             cp target/release/libwasmer_runtime_c_api.so ./artifacts
       - persist_to_workspace:
           root: .
@@ -222,7 +250,7 @@ jobs:
           command: |
             curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-05-20
             export PATH="$HOME/.cargo/bin:$PATH"
-            cargo +nightly --version
+            cargo --version
       - run:
           name: Tests
           command: |
@@ -241,7 +269,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make release
-            cargo +nightly build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
+            cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
             make build-install
             cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
@@ -251,7 +279,7 @@ jobs:
           name: Generate dynamic library for the runtime C API
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
-            cargo +nightly build --release --manifest-path lib/runtime-c-api/Cargo.toml
+            cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
             install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
             cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
       - persist_to_workspace:
@@ -339,6 +367,12 @@ workflows:
               only:
                 - master
       - test-rust-nightly:
+          filters:
+            branches:
+              only:
+                - trying
+                - staging
+      - test-stable:
           filters:
             branches:
               only:
