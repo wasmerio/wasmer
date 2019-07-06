@@ -1600,16 +1600,17 @@ pub fn path_open(
 
 pub fn path_readlink(
     ctx: &mut Ctx,
-    fd: __wasi_fd_t,
+    dir_fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
-    buf: WasmPtr<u8>,
+    buf: WasmPtr<u8, Array>,
     buf_len: u32,
-    bufused: WasmPtr<u32>,
+    buf_used: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::path_readlink");
     unimplemented!("wasi::path_readlink")
 }
+
 pub fn path_remove_directory(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
