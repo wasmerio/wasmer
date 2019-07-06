@@ -36,7 +36,7 @@ jobs:
           command: |
             git config --global --unset url."ssh://git@github.com".insteadOf || true
             rustup toolchain install nightly-2019-05-20
-            rustup component add rustfmt
+            rustup component add rustfmt --toolchain=nightly-2019-05-20
             rustup component add clippy --toolchain=nightly-2019-05-20 || cargo +nightly-2019-05-20 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
           name: Execute lints
