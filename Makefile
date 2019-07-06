@@ -92,7 +92,7 @@ test: spectests emtests middleware wasitests circleci-clean test-rest
 
 
 # Integration tests
-integration-tests: release
+integration-tests: release-fast
 	echo "Running Integration Tests"
 	./integration_tests/lua/test.sh
 	./integration_tests/nginx/test.sh
