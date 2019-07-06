@@ -8,6 +8,7 @@ use libc::{
     access,
     bind,
     c_int,
+    c_ulong,
     c_void,
     chown,
     // fcntl, setsockopt, getppid
@@ -76,6 +77,23 @@ use libc::{
     TIOCGWINSZ,
     TIOCSPGRP,
 };
+
+// `libc` constants as provided by `emscripten`. Maybe move to own file?
+const WASM_FIOCLEX: u32 = 0x5451;
+const WASM_TIOCSPGRP: u32 = 0x5410;
+const WASM_TIOCGWINSZ: u32 = 0x5413;
+
+// Based on @syrusakbary sugerence at
+// https://github.com/wasmerio/wasmer/pull/532#discussion_r300837800
+fn translate_ioctl(wasm_ioctl: u32) -> c_ulong {
+    match wasm_ioctl {
+        WASM_FIOCLEX => FIOCLEX,
+        WASM_TIOCGWINSZ => TIOCGWINSZ,
+        WASM_TIOCSPGRP => TIOCSPGRP,
+
+        otherwise => otherwise as c_ulong,
+    }
+}
 
 #[allow(unused_imports)]
 use std::ffi::CStr;
@@ -428,13 +446,13 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
     let argp: u32 = varargs.get(ctx);
     let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-    // let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
+    // let ret = unsafe { ioctl(fd, translate_ioctl(request) as _, argp_ptr) };
     // debug!("=> {}", ret);
     // ret
 
     match request as _ {
         TIOCGWINSZ => {
-            let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
+            let ret = unsafe { ioctl(fd, translate_ioctl(request) as _, argp_ptr) };
             debug!("ret(TIOCGWINSZ): {} (harcoded to 0)", ret);
             // ret
             // TODO: We hardcode the value to have emscripten tests pass, as for some reason
@@ -450,7 +468,7 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
             0
         }
         _ => {
-            let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
+            let ret = unsafe { ioctl(fd, translate_ioctl(request) as _, argp_ptr) };
             debug!("ret({}): {}", request, ret);
             ret
         }
@@ -495,7 +513,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             if ty_and_flags & SOCK_CLOEXC != 0 {
                 // set_cloexec
                 unsafe {
-                    ioctl(fd, FIOCLEX);
+                    ioctl(fd, translate_ioctl(WASM_FIOCLEX));
                 };
             }
 
@@ -602,7 +620,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // why is this here?
             // set_cloexec
             unsafe {
-                ioctl(fd, FIOCLEX);
+                ioctl(fd, translate_ioctl(WASM_FIOCLEX));
             };
 
             debug!(
