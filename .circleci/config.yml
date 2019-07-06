@@ -41,7 +41,7 @@ jobs:
       - run:
           name: Execute lints
           command: |
-            make lint
+            cargo +nightly-2019-05-20 fmt --all -- --check
       - save_cache:
           paths:
             - /usr/local/cargo/registry
