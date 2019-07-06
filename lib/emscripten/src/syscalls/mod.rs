@@ -496,8 +496,8 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 
     debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
     let mut ret = 0;
-    unsafe {
-        for i in 0..iovcnt {
+    for i in 0..iovcnt {
+        unsafe {
             let guest_iov_addr =
                 emscripten_memory_pointer!(ctx.memory(0), (iov + i * 8)) as *mut GuestIovec;
             let iov_base = emscripten_memory_pointer!(ctx.memory(0), (*guest_iov_addr).iov_base)
@@ -510,9 +510,9 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
             }
             ret += curr;
         }
-        // debug!(" => ret: {}", ret);
-        ret as _
     }
+    debug!(" => ret: {}", ret);
+    ret as _
 }
 
 pub fn ___syscall191(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
