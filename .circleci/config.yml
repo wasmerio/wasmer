@@ -60,17 +60,16 @@ jobs:
           keys:
             - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
       - <<: *run_install_dependencies
+      - run: rustup default nightly-2019-05-20
       - run:
           name: Tests
           command: make test
       - run:
-          name: Emscripten Tests
-          command: |
-            make test-emscripten-clif
-            make test-emscripten-llvm
-      - run:
           name: Integration Tests
           command: make integration-tests
+      - run:
+          name: Release
+          command: make fast-release
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -100,9 +99,9 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl -sSf https://sh.rustup.rs | sh -s -- -y
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-05-20
             export PATH="$HOME/.cargo/bin:$PATH"
-            cargo --version
+            cargo +nightly --version
       - run:
           name: Tests
           command: |
@@ -114,29 +113,20 @@ jobs:
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
       - run:
-          name: Emscripten Tests
-          command: |
-            export PATH="$HOME/.cargo/bin:$PATH"
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            # We increase the ulimit for fixing cargo unclosed files in mac
-            ulimit -n 8000
-            sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
-            make test-emscripten-clif
-            make test-emscripten-llvm
-      - run:
           name: Integration Tests
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make integration-tests
+      - run:
+          name: Release
+          command: |
+            export PATH="$HOME/.cargo/bin:$PATH"
+            make fast-release
       - save_cache:
           paths:
             - ~/.cargo/registry/
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
@@ -161,29 +151,22 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      # Use rust nightly (for singlepass, for now)
-      - run: rustup default nightly-2019-04-11
+      - run: rustup default nightly-2019-05-20
+      - run:
+          name: Debug flag checked
+          command: |
+            cargo +nightly check --features "debug" --release
       - run:
           name: Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make test
       - run:
-          name: Emscripten Tests
-          command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make test-emscripten-clif
-            make test-emscripten-llvm
-      - run:
-          name: Debug flag checked
-          command: |
-            cargo check --features "debug"
-      - run:
           name: Release Build
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make production-release
-            cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
+            make release
+            cargo +nightly build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # GIT_VERSION=$(git describe --exact-match --tags)
@@ -194,7 +177,7 @@ jobs:
       - run:
           name: Dynamic library
           command: |
-            cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
+            cargo +nightly build --release --manifest-path lib/runtime-c-api/Cargo.toml
             cp target/release/libwasmer_runtime_c_api.so ./artifacts
       - persist_to_workspace:
           root: .
@@ -203,9 +186,6 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
@@ -240,15 +220,9 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-05-20
             export PATH="$HOME/.cargo/bin:$PATH"
-            cargo --version
-      # Use rust nightly (for singlepass, for now)
-      # - run:
-      #     name: Install Rust nightly
-      #     command: |
-      #       export PATH="$HOME/.rustup/bin:$PATH"
-      #       rustup default nightly-2019-04-11
+            cargo +nightly --version
       - run:
           name: Tests
           command: |
@@ -258,26 +232,16 @@ jobs:
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
+
             make test
-      - run:
-          name: Emscripten Tests
-          command: |
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            export PATH="$HOME/.cargo/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            # We increase the ulimit for fixing cargo unclosed files in mac
-            ulimit -n 8000
-            sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
-            make test-emscripten-clif
-            make test-emscripten-singlepass
       - run:
           name: Release Build
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            make production-release
-            cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
+            make release
+            cargo +nightly build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
             make build-install
             cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
@@ -287,7 +251,7 @@ jobs:
           name: Generate dynamic library for the runtime C API
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
-            cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
+            cargo +nightly build --release --manifest-path lib/runtime-c-api/Cargo.toml
             install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
             cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
       - persist_to_workspace:
@@ -297,9 +261,6 @@ jobs:
       - save_cache:
           paths:
             - ~/.cargo/registry/
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
@@ -307,41 +268,6 @@ jobs:
             - wapm-cli/target/release/build
             - wapm-cli/target/release/deps
           key: v8-cargo-cache-darwin-nightly-{ arch }}-{{ checksum "Cargo.lock" }}
-
-  test-rust-nightly:
-    docker:
-      - image: circleci/rust:latest
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Install dependencies
-          command: |
-            sudo apt-get install -y cmake
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            rustup toolchain install nightly
-            rustup target add wasm32-wasi --toolchain nightly
-      - run: |
-          rustup default nightly
-          make test-wasi-singlepass
-          make test-wasi-clif
-      - run: rustup default nightly-2019-04-11
-      - run: |
-          export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-          make test
-          make test-singlepass
-          make test-emscripten-clif
-          make test-emscripten-singlepass
-      - save_cache:
-          paths:
-            - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-          key: v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
 
   publish-github-release:
     docker:
