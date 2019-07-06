@@ -12,7 +12,8 @@ macro_rules! assert_wasi_output {
 
         #[cfg(feature = "llvm")]
         fn get_compiler() -> impl Compiler {
-            compile_error!("LLVM compiler not supported right now");
+            use wasmer_llvm_backend::LLVMCompiler;
+            LLVMCompiler::new()
         }
 
         #[cfg(feature = "singlepass")]
