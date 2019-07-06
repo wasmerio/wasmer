@@ -17,7 +17,7 @@ add_executable(test-validate test-validate.c)
 
 find_library(
         WASMER_LIB NAMES libwasmer_runtime_c_api.dylib libwasmer_runtime_c_api.so libwasmer_runtime_c_api.dll
-        PATHS ${CMAKE_SOURCE_DIR}/../../../target/debug/
+        PATHS ${CMAKE_SOURCE_DIR}/../../../target/release/
 )
 
 if(NOT WASMER_LIB)

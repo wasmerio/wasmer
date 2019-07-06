@@ -153,6 +153,12 @@ nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmer
 
 Wasmer is built with [Cargo](https://crates.io/), the Rust package manager.
 
+Set Rust Nightly:
+```
+rustup default nightly
+```
+
+And install Wasmer
 ```sh
 # checkout code
 git clone https://github.com/wasmerio/wasmer.git
@@ -160,38 +166,45 @@ cd wasmer
 
 # install tools
 # make sure that `python` is accessible.
-cargo install --path .
+make install
 ```
 
 ## Testing
 
 Thanks to [spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests) we can ensure 100% compatibility with the WebAssembly spec test suite.
 
-Tests can be run with:
+You can run all the tests with:
 
 ```sh
+rustup default nightly
 make test
 ```
 
-If you need to regenerate the Rust tests from the spec tests
-you can run:
+### Testing backends
 
-```sh
-make spectests
-```
+Each backend can be tested separately:
 
-You can also run integration tests with:
+* Singlepass: `make singlepass`
+* Cranelift: `make cranelift`
+* LLVM: `make llvm`
 
-```sh
-make integration-tests
-```
+### Testing integrations
+
+Each integration can be tested separately:
+
+* Spec tests: `make spectests`
+* Emscripten: `make emtests`
+* WASI: `make wasi`
+* Middleware: `make middleware`
+* C API: `make capi`
+
 
 ## Benchmarking
 
 Benchmarks can be run with:
 
 ```sh
-cargo bench --all
+make bench
 ```
 
 ## Roadmap
