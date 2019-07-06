@@ -35,8 +35,8 @@ jobs:
           name: Install lint deps
           command: |
             git config --global --unset url."ssh://git@github.com".insteadOf || true
-            rustup toolchain install nightly-2019-06-10
-            rustup default nightly-2019-06-10
+            # rustup toolchain install nightly-2019-06-10
+            # rustup default nightly-2019-06-10
             rustup component add rustfmt
             rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
