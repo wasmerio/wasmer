@@ -35,13 +35,14 @@ jobs:
           name: Install lint deps
           command: |
             git config --global --unset url."ssh://git@github.com".insteadOf || true
-            rustup toolchain install nightly-2019-05-20
+            # rustup toolchain install nightly-2019-06-10
+            # rustup default nightly-2019-06-10
             rustup component add rustfmt
-            rustup component add clippy --toolchain=nightly-2019-05-20 || cargo +nightly-2019-05-20 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+            rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
           name: Execute lints
           command: |
-            make lint
+            cargo fmt --all -- --check
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -50,7 +51,7 @@ jobs:
             - target/debug/deps
           key: v8-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
 
-  test:
+  test-stable:
     docker:
       - image: circleci/rust:latest
     <<: *run_with_build_env_vars
@@ -61,23 +62,56 @@ jobs:
             - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
       - <<: *run_install_dependencies
       - run:
-          name: Tests
-          command: make test
-      - run:
-          name: Emscripten Tests
+          name: Test everything (except singlepass)
           command: |
-            make test-emscripten-clif
-            make test-emscripten-llvm
+            make cranelift
+            make llvm
+            make test-rest
+      - run:
+          name: Release
+          command: make release-fast
       - run:
           name: Integration Tests
           command: make integration-tests
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
           key: v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+
+  test:
+    docker:
+      - image: circleci/rust:latest
+    <<: *run_with_build_env_vars
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - <<: *run_install_dependencies
+      - run: rustup default nightly-2019-06-10
+      - run:
+          name: Tests
+          command: make test
+      - run:
+          name: Debug flag checked
+          command: |
+            cargo check --features "debug" --release
+      - run:
+          name: Release
+          command: make release-fast
+      - run:
+          name: Integration Tests
+          command: make integration-tests
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
+          key: v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-macos:
     macos:
@@ -86,7 +120,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Install crate dependencies
           command: |
@@ -100,7 +134,7 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl -sSf https://sh.rustup.rs | sh -s -- -y
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-06-10
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       - run:
@@ -114,16 +148,10 @@ jobs:
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
       - run:
-          name: Emscripten Tests
+          name: Release
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            # We increase the ulimit for fixing cargo unclosed files in mac
-            ulimit -n 8000
-            sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
-            make test-emscripten-clif
-            make test-emscripten-llvm
+            make release-fast
       - run:
           name: Integration Tests
           command: |
@@ -134,13 +162,10 @@ jobs:
       - save_cache:
           paths:
             - ~/.cargo/registry/
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build:
     docker:
@@ -161,28 +186,17 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      # Use rust nightly (for singlepass, for now)
-      - run: rustup default nightly-2019-04-11
+      - run: rustup default nightly-2019-06-10
       - run:
           name: Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make test
       - run:
-          name: Emscripten Tests
-          command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make test-emscripten-clif
-            make test-emscripten-llvm
-      - run:
-          name: Debug flag checked
-          command: |
-            cargo check --features "debug"
-      - run:
           name: Release Build
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make production-release
+            make release
             cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
@@ -203,9 +217,6 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
@@ -240,15 +251,9 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-06-10
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
-      # Use rust nightly (for singlepass, for now)
-      # - run:
-      #     name: Install Rust nightly
-      #     command: |
-      #       export PATH="$HOME/.rustup/bin:$PATH"
-      #       rustup default nightly-2019-04-11
       - run:
           name: Tests
           command: |
@@ -258,25 +263,15 @@ jobs:
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
+
             make test
-      - run:
-          name: Emscripten Tests
-          command: |
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            export PATH="$HOME/.cargo/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            # We increase the ulimit for fixing cargo unclosed files in mac
-            ulimit -n 8000
-            sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
-            make test-emscripten-clif
-            make test-emscripten-singlepass
       - run:
           name: Release Build
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            make production-release
+            make release
             cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
             make build-install
@@ -297,9 +292,6 @@ jobs:
       - save_cache:
           paths:
             - ~/.cargo/registry/
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
@@ -307,41 +299,6 @@ jobs:
             - wapm-cli/target/release/build
             - wapm-cli/target/release/deps
           key: v8-cargo-cache-darwin-nightly-{ arch }}-{{ checksum "Cargo.lock" }}
-
-  test-rust-nightly:
-    docker:
-      - image: circleci/rust:latest
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Install dependencies
-          command: |
-            sudo apt-get install -y cmake
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            rustup toolchain install nightly
-            rustup target add wasm32-wasi --toolchain nightly
-      - run: |
-          rustup default nightly
-          make test-wasi-singlepass
-          make test-wasi-clif
-      - run: rustup default nightly-2019-04-11
-      - run: |
-          export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-          make test
-          make test-singlepass
-          make test-emscripten-clif
-          make test-emscripten-singlepass
-      - save_cache:
-          paths:
-            - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-          key: v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
 
   publish-github-release:
     docker:
@@ -412,7 +369,7 @@ workflows:
             branches:
               only:
                 - master
-      - test-rust-nightly:
+      - test-stable:
           filters:
             branches:
               only:

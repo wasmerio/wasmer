@@ -1621,6 +1621,7 @@ dependencies = [
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.5.4",
  "wasmer-dev-utils 0.5.4",
+ "wasmer-llvm-backend 0.5.4",
  "wasmer-runtime-core 0.5.4",
  "wasmer-singlepass-backend 0.5.4",
  "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
