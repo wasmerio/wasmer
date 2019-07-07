@@ -167,7 +167,10 @@ impl<'a> EmscriptenData<'a> {
     ) -> EmscriptenData<'a> {
         let malloc = instance.func("_malloc").or(instance.func("malloc")).ok();
         let free = instance.func("_free").or(instance.func("free")).ok();
-        let memalign = instance.func("_memalign").or(instance.func("memalign")).ok();
+        let memalign = instance
+            .func("_memalign")
+            .or(instance.func("memalign"))
+            .ok();
         let memset = instance.func("_memset").or(instance.func("memset")).ok();
         let stack_alloc = instance.func("stackAlloc").ok();
 
@@ -228,7 +231,10 @@ impl<'a> EmscriptenData<'a> {
 
         let stack_save = instance.func("stackSave").ok();
         let stack_restore = instance.func("stackRestore").ok();
-        let set_threw = instance.func("_setThrew").or(instance.func("setThrew")).ok();
+        let set_threw = instance
+            .func("_setThrew")
+            .or(instance.func("setThrew"))
+            .ok();
 
         EmscriptenData {
             malloc,
@@ -334,15 +340,11 @@ pub fn run_emscripten_instance(
         instance.call(&ep, &[Value::I32(arg as i32)])?;
     } else {
         let (func_name, main_func) = match instance.dyn_func("_main") {
-            Ok(func) => {
-                Ok(("_main", func))
+            Ok(func) => Ok(("_main", func)),
+            Err(_e) => match instance.dyn_func("main") {
+                Ok(func) => Ok(("main", func)),
+                Err(e) => Err(e),
             },
-            Err(_e) => {
-                match instance.dyn_func("main") {
-                    Ok(func) => Ok(("main", func)),
-                    Err(e) => Err(e)
-                }
-            }
         }?;
         let num_params = main_func.signature().params().len();
         let _result = match num_params {
@@ -350,7 +352,10 @@ pub fn run_emscripten_instance(
                 let mut new_args = vec![path];
                 new_args.extend(args);
                 let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
-                instance.call(func_name, &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
+                instance.call(
+                    func_name,
+                    &[Value::I32(argc as i32), Value::I32(argv as i32)],
+                )?;
             }
             0 => {
                 instance.call(func_name, &[])?;

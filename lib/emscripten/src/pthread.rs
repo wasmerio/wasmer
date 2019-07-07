@@ -13,7 +13,9 @@ pub fn _pthread_attr_getstack(
 ) -> i32 {
     trace!(
         "emscripten::_pthread_attr_getstack({}, {}, {})",
-        _stackaddr, _stacksize, _other
+        _stackaddr,
+        _stacksize,
+        _other
     );
     // TODO: Translate from Emscripten
     // HEAP32[stackaddr >> 2] = STACK_BASE;

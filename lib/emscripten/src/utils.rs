@@ -24,7 +24,9 @@ pub fn is_emscripten_module(module: &Module) -> bool {
             .namespace_table
             .get(import_name.namespace_index);
         let field = module.info().name_table.get(import_name.name_index);
-        if (field == "_emscripten_memcpy_big" || field=="emscripten_memcpy_big") && namespace == "env" {
+        if (field == "_emscripten_memcpy_big" || field == "emscripten_memcpy_big")
+            && namespace == "env"
+        {
             return true;
         }
     }
