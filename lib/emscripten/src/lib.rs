@@ -804,6 +804,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_strftime_l" => func!(crate::time::_strftime_l),
         "_localtime_r" => func!(crate::time::_localtime_r),
         "_gmtime_r" => func!(crate::time::_gmtime_r),
+        "_ctime" => func!(crate::time::_ctime),
+        "_ctime_r" => func!(crate::time::_ctime_r),
         "_mktime" => func!(crate::time::_mktime),
         "_gmtime" => func!(crate::time::_gmtime),
 
@@ -981,7 +983,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     for (k, v) in env_ns.get_exports() {
         if k.starts_with("_") {
             let k = &k[1..];
-            env_ns.insert(k, v.to_export());
+            if !env_ns.contains_key(k) {
+                env_ns.insert(k, v.to_export());
+            }
         }
     }
 
