@@ -84,11 +84,11 @@ const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
 pub struct EmscriptenData<'a> {
-    pub malloc: Func<'a, u32, u32>,
-    pub free: Func<'a, u32>,
+    pub malloc: Option<Func<'a, u32, u32>>,
+    pub free: Option<Func<'a, u32>>,
     pub memalign: Option<Func<'a, (u32, u32), u32>>,
-    pub memset: Func<'a, (u32, u32, u32), u32>,
-    pub stack_alloc: Func<'a, u32, u32>,
+    pub memset: Option<Func<'a, (u32, u32, u32), u32>>,
+    pub stack_alloc: Option<Func<'a, u32, u32>>,
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
     pub opened_dirs: HashMap<i32, Box<*mut libcDIR>>,
 
@@ -164,11 +164,11 @@ impl<'a> EmscriptenData<'a> {
         instance: &'a mut Instance,
         mapped_dirs: HashMap<String, PathBuf>,
     ) -> EmscriptenData<'a> {
-        let malloc = instance.func("_malloc").unwrap();
-        let free = instance.func("_free").unwrap();
-        let memalign = instance.func("_memalign").ok();
-        let memset = instance.func("_memset").unwrap();
-        let stack_alloc = instance.func("stackAlloc").unwrap();
+        let malloc = instance.func("_malloc").or(instance.func("malloc")).ok();
+        let free = instance.func("_free").or(instance.func("free")).ok();
+        let memalign = instance.func("_memalign").or(instance.func("memalign")).ok();
+        let memset = instance.func("_memset").or(instance.func("memset")).ok();
+        let stack_alloc = instance.func("stackAlloc").ok();
 
         let dyn_call_i = instance.func("dynCall_i").ok();
         let dyn_call_ii = instance.func("dynCall_ii").ok();
@@ -227,7 +227,7 @@ impl<'a> EmscriptenData<'a> {
 
         let stack_save = instance.func("stackSave").ok();
         let stack_restore = instance.func("stackRestore").ok();
-        let set_threw = instance.func("_setThrew").ok();
+        let set_threw = instance.func("_setThrew").or(instance.func("setThrew")).ok();
 
         EmscriptenData {
             malloc,
@@ -332,17 +332,27 @@ pub fn run_emscripten_instance(
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         instance.call(&ep, &[Value::I32(arg as i32)])?;
     } else {
-        let main_func = instance.dyn_func("_main")?;
+        let (func_name, main_func) = match instance.dyn_func("_main") {
+            Ok(func) => {
+                Ok(("_main", func))
+            },
+            Err(_e) => {
+                match instance.dyn_func("main") {
+                    Ok(func) => Ok(("main", func)),
+                    Err(e) => Err(e)
+                }
+            }
+        }?;
         let num_params = main_func.signature().params().len();
         let _result = match num_params {
             2 => {
                 let mut new_args = vec![path];
                 new_args.extend(args);
                 let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
-                instance.call("_main", &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
+                instance.call(func_name, &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
             }
             0 => {
-                instance.call("_main", &[])?;
+                instance.call(func_name, &[])?;
             }
             _ => panic!(
                 "The emscripten main function has received an incorrect number of params {}",
@@ -951,6 +961,15 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         // unistd
         "_confstr" => func!(crate::unistd::confstr),
     };
+
+    // Compatibility with newer versions of Emscripten
+    use crate::wasmer_runtime_core::import::LikeNamespace;
+    for (k, v) in env_ns.get_exports() {
+        if k.starts_with("_") {
+            let k = &k[1..];
+            env_ns.insert(k, v.to_export());
+        }
+    }
 
     for null_func_name in globals.null_func_names.iter() {
         env_ns.insert(null_func_name.as_str(), Func::new(nullfunc).to_export());
