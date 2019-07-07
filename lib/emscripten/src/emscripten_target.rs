@@ -161,6 +161,10 @@ pub fn _pthread_join(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     trace!("emscripten::_pthread_join");
     0
 }
+pub fn _pthread_self(_ctx: &mut Ctx) -> i32 {
+    trace!("emscripten::_pthread_self");
+    0
+}
 pub fn _pthread_key_create(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     trace!("emscripten::_pthread_key_create");
     0

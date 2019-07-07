@@ -884,6 +884,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_pthread_detach" => func!(crate::emscripten_target::_pthread_detach),
         "_pthread_equal" => func!(crate::emscripten_target::_pthread_equal),
         "_pthread_exit" => func!(crate::emscripten_target::_pthread_exit),
+        "_pthread_self" => func!(crate::emscripten_target::_pthread_self),
         "_pthread_getattr_np" => func!(crate::emscripten_target::_pthread_getattr_np),
         "_pthread_getspecific" => func!(crate::emscripten_target::_pthread_getspecific),
         "_pthread_join" => func!(crate::emscripten_target::_pthread_join),
