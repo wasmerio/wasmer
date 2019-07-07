@@ -53,6 +53,7 @@ macro_rules! assert_emscripten_output {
         wasmer_emscripten::run_emscripten_instance(
             &module,
             &mut instance,
+            &mut emscripten_globals,
             $name,
             $args,
             None,

@@ -1,3 +1,4 @@
+use super::env::get_emscripten_data;
 use super::process::abort_with_message;
 use libc::{c_int, c_void, memcpy, size_t};
 use wasmer_runtime_core::{
@@ -63,6 +64,57 @@ pub fn _emscripten_resize_heap(ctx: &mut Ctx, requested_size: u32) -> u32 {
     } else {
         0
     }
+}
+
+// function _sbrk(increment) {
+//  increment = increment | 0;
+//  var oldDynamicTop = 0;
+//  var newDynamicTop = 0;
+//  var totalMemory = 0;
+//  totalMemory = _emscripten_get_heap_size() | 0;
+//  oldDynamicTop = HEAP32[DYNAMICTOP_PTR >> 2] | 0;
+//  newDynamicTop = oldDynamicTop + increment | 0;
+//  if ((increment | 0) > 0 & (newDynamicTop | 0) < (oldDynamicTop | 0) | (newDynamicTop | 0) < 0) {
+//   abortOnCannotGrowMemory(newDynamicTop | 0) | 0;
+//   ___setErrNo(12);
+//   return -1;
+//  }
+//  if ((newDynamicTop | 0) > (totalMemory | 0)) {
+//   if (_emscripten_resize_heap(newDynamicTop | 0) | 0) {} else {
+//    ___setErrNo(12);
+//    return -1;
+//   }
+//  }
+//  HEAP32[DYNAMICTOP_PTR >> 2] = newDynamicTop | 0;
+//  return oldDynamicTop | 0;
+// }
+
+/// emscripten: sbrk
+pub fn sbrk(ctx: &mut Ctx, increment: i32) -> i32 {
+    debug!("emscripten::sbrk");
+    // let old_dynamic_top = 0;
+    // let new_dynamic_top = 0;
+    let mut globals = get_emscripten_data(ctx).globals;
+    let dynamictop_ptr = (globals.dynamictop_ptr) as usize;
+    let old_dynamic_top = ctx.memory(0).view::<u32>()[dynamictop_ptr].get() as i32;
+    let new_dynamic_top: i32 = old_dynamic_top + increment;
+    let total_memory = _emscripten_get_heap_size(ctx) as i32;
+    debug!(
+        " => PTR {}, old: {}, new: {}, increment: {}, total: {}",
+        dynamictop_ptr, old_dynamic_top, new_dynamic_top, increment, total_memory
+    );
+    if increment > 0 && new_dynamic_top < old_dynamic_top || new_dynamic_top < 0 {
+        abort_on_cannot_grow_memory_old(ctx);
+        return -1;
+    }
+    if new_dynamic_top > total_memory {
+        let resized = _emscripten_resize_heap(ctx, new_dynamic_top as u32);
+        if resized == 0 {
+            return -1;
+        }
+    }
+    ctx.memory(0).view::<u32>()[dynamictop_ptr].set(new_dynamic_top as u32);
+    return old_dynamic_top as _;
 }
 
 /// emscripten: getTotalMemory

@@ -85,6 +85,8 @@ const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
 pub struct EmscriptenData<'a> {
+    pub globals: &'a EmscriptenGlobalsData,
+
     pub malloc: Option<Func<'a, u32, u32>>,
     pub free: Option<Func<'a, u32>>,
     pub memalign: Option<Func<'a, (u32, u32), u32>>,
@@ -163,6 +165,7 @@ pub struct EmscriptenData<'a> {
 impl<'a> EmscriptenData<'a> {
     pub fn new(
         instance: &'a mut Instance,
+        globals: &'a EmscriptenGlobalsData,
         mapped_dirs: HashMap<String, PathBuf>,
     ) -> EmscriptenData<'a> {
         let malloc = instance.func("_malloc").or(instance.func("malloc")).ok();
@@ -237,6 +240,8 @@ impl<'a> EmscriptenData<'a> {
             .ok();
 
         EmscriptenData {
+            globals,
+
             malloc,
             free,
             memalign,
@@ -312,12 +317,13 @@ impl<'a> EmscriptenData<'a> {
 pub fn run_emscripten_instance(
     _module: &Module,
     instance: &mut Instance,
+    globals: &mut EmscriptenGlobals,
     path: &str,
     args: Vec<&str>,
     entrypoint: Option<String>,
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> CallResult<()> {
-    let mut data = EmscriptenData::new(instance, mapped_dirs.into_iter().collect());
+    let mut data = EmscriptenData::new(instance, &globals.data, mapped_dirs.into_iter().collect());
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
@@ -766,6 +772,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "alignfault" => func!(crate::memory::alignfault),
         "ftfault" => func!(crate::memory::ftfault),
         "getTotalMemory" => func!(crate::memory::get_total_memory),
+        "_sbrk" => func!(crate::memory::sbrk),
         "___map_file" => func!(crate::memory::___map_file),
 
         // Exception

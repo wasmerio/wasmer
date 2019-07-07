@@ -105,8 +105,8 @@ lint:
 
 precommit: lint test
 
-build:
-	cargo build --release --features debug
+debug:
+	cargo build --release --features debug,trace
 
 install:
 	cargo install --path .
