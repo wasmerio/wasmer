@@ -36,9 +36,9 @@ pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
     (table.minimum, table.maximum)
 }
 
-pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
+pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>, bool) {
     let (_, memory) = &module.info().imported_memories[ImportedMemoryIndex::new(0)];
-    (memory.minimum, memory.maximum)
+    (memory.minimum, memory.maximum, memory.shared)
 }
 
 /// Reads values written by `-s EMIT_EMSCRIPTEN_METADATA=1`
