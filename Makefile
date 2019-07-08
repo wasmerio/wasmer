@@ -106,7 +106,7 @@ lint:
 precommit: lint test
 
 debug:
-	cargo build --release --features debug,trace
+	cargo build --release --features backend:singlepass,debug,trace
 
 install:
 	cargo install --path .
@@ -118,7 +118,7 @@ release:
 release-fast:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
-	cargo build --release
+	cargo build --release --features backend:singlepass
 
 bench:
 	cargo bench --all
