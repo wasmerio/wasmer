@@ -118,7 +118,13 @@ release:
 release-fast:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
+	cargo build --release
+
+release-singlepass:
 	cargo build --release --features backend:singlepass
+
+release-llvm:
+	cargo build --release --features backend:llvm
 
 bench:
 	cargo bench --all
