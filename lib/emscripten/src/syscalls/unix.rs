@@ -457,22 +457,29 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 
     // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
     match request {
-        WASM_FIOCLEX | WASM_FIONBIO | WASM_TIOCGWINSZ | WASM_TIOCSPGRP | WASM_TCGETS | WASM_TCSETSW => {
+        WASM_FIOCLEX | WASM_FIONBIO | WASM_TIOCGWINSZ | WASM_TIOCSPGRP | WASM_TCGETS
+        | WASM_TCSETSW => {
             let argp: u32 = varargs.get(ctx);
             let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
             let translated_request = translate_ioctl(request);
             let ret = unsafe { ioctl(fd, translated_request, argp_ptr) };
-            debug!(" => request: {}, translated: {}, return: {}", request, translated_request, ret);
+            debug!(
+                " => request: {}, translated: {}, return: {}",
+                request, translated_request, ret
+            );
 
             // TODO: We hardcode the value to have emscripten tests pass, as for some reason
             // when the capturer is active, ioctl returns -1 instead of 0
             if request == WASM_TIOCGWINSZ && ret == -1 {
-                return 0
+                return 0;
             }
             ret
         }
         _ => {
-            debug!(" => not implemented case {} (noop, hardcoded to 0)", request);
+            debug!(
+                " => not implemented case {} (noop, hardcoded to 0)",
+                request
+            );
             0
         }
     }
