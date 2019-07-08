@@ -37,12 +37,25 @@ impl From<io::Error> for Error {
 pub struct WasmHash([u8; 32], [u8; 32]);
 
 impl WasmHash {
-    /// Hash a wasm module.
+    /// Hash a wasm module for the default compiler backend.
+    ///
+    /// See also: `WasmHash::generate_for_backend`.
     ///
     /// # Note:
     /// This does no verification that the supplied data
     /// is, in fact, a wasm module.
-    pub fn generate(wasm: &[u8], backend: Backend) -> Self {
+    pub fn generate(wasm: &[u8]) -> Self {
+        WasmHash::generate_for_backend(wasm, Backend::default())
+    }
+
+    /// Hash a wasm module for a specific compiler backend.
+    /// This allows multiple cache entries containing the same compiled
+    /// module with different compiler backends.
+    ///
+    /// # Note:
+    /// This function also does no verification that the supplied data
+    /// is a wasm module
+    pub fn generate_for_backend(wasm: &[u8], backend: Backend) -> Self {
         let mut first_part = [0u8; 32];
         let mut second_part = [0u8; 32];
 

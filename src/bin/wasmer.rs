@@ -352,7 +352,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
         // We generate a hash for the given binary, so we can use it as key
         // for the Filesystem cache
-        let hash = WasmHash::generate(&wasm_binary, options.backend);
+        let hash = WasmHash::generate_for_backend(&wasm_binary, options.backend);
 
         let wasmer_cache_dir = get_cache_dir();
 

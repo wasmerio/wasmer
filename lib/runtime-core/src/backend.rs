@@ -51,6 +51,12 @@ impl Backend {
     }
 }
 
+impl Default for Backend {
+    fn default() -> Self {
+        Backend::Cranelift
+    }
+}
+
 impl std::str::FromStr for Backend {
     type Err = String;
     fn from_str(s: &str) -> Result<Backend, String> {
