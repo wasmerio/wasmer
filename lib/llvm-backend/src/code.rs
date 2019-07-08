@@ -2603,7 +2603,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             self.intrinsics.as_ref().unwrap(),
         );
 
-        let pass_manager = PassManager::create_for_module();
+        let pass_manager = PassManager::create(());
         if cfg!(test) {
             pass_manager.add_verifier_pass();
         }
@@ -2614,7 +2614,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         pass_manager.add_merged_load_store_motion_pass();
         pass_manager.add_new_gvn_pass();
         pass_manager.add_aggressive_dce_pass();
-        pass_manager.run_on_module(&self.module);
+        pass_manager.run_on(&self.module);
 
         // self.module.print_to_stderr();
 
