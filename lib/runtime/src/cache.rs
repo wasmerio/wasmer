@@ -29,7 +29,7 @@ pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash, WASMER_VERSION_H
 ///     // corrupted or tampered with.
 ///     let mut fs_cache = unsafe { FileSystemCache::new("some/directory/goes/here")? };
 ///     // Compute a key for a given WebAssembly binary
-///     let key = WasmHash::generate(&[], Backend::Cranelift);
+///     let key = WasmHash::generate_for_backend(&[], Backend::Cranelift);
 ///     // Store a module into the cache given a key
 ///     fs_cache.store(key, module.clone())?;
 ///     Ok(module)
@@ -120,7 +120,6 @@ mod tests {
 
     use super::*;
     use std::env;
-    use wasmer_runtime_core::backend::Backend;
 
     #[test]
     fn test_file_system_cache_run() {
@@ -149,7 +148,7 @@ mod tests {
                 .unwrap()
         };
         // store module
-        let key = WasmHash::generate(&wasm, Backend::Cranelift);
+        let key = WasmHash::generate(&wasm);
         fs_cache.store(key, module.clone()).unwrap();
 
         // load module
