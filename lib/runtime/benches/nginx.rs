@@ -6,6 +6,7 @@ use wasmer_runtime::{
     cache::{Cache, FileSystemCache, WasmHash},
     compile, validate,
 };
+use wasmer_runtime_core::backend::Backend;
 
 static NGINX_WASM: &'static [u8] = include_bytes!("../../../examples/nginx/nginx.wasm");
 
@@ -18,7 +19,9 @@ fn load_module(hash: WasmHash, cache: &impl Cache) {
 }
 
 fn hashing_benchmark(c: &mut Criterion) {
-    c.bench_function("nginx HASH", |b| b.iter(|| WasmHash::generate(NGINX_WASM)));
+    c.bench_function("nginx HASH", |b| {
+        b.iter(|| WasmHash::generate(NGINX_WASM, Backend::Cranelift))
+    });
 }
 
 fn validate_benchmark(c: &mut Criterion) {
@@ -36,7 +39,7 @@ fn load_benchmark(c: &mut Criterion) {
             FileSystemCache::new(tempdir.path()).expect("unable to create file system cache")
         };
         let module = compile(NGINX_WASM).unwrap();
-        let wasm_hash = WasmHash::generate(NGINX_WASM);
+        let wasm_hash = WasmHash::generate(NGINX_WASM, Backend::Cranelift);
         cache
             .store(wasm_hash, module)
             .expect("unable to store into cache");
