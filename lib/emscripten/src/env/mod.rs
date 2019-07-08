@@ -31,9 +31,7 @@ pub fn call_malloc(ctx: &mut Ctx, size: u32) -> u32 {
 }
 
 pub fn call_malloc_with_cast<T: Copy, Ty>(ctx: &mut Ctx, size: u32) -> WasmPtr<T, Ty> {
-    WasmPtr::new(
-        call_malloc(ctx, size),
-    )
+    WasmPtr::new(call_malloc(ctx, size))
 }
 
 pub fn call_memalign(ctx: &mut Ctx, alignment: u32, size: u32) -> u32 {
