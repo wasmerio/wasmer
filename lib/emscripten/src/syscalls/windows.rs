@@ -291,6 +291,12 @@ pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
+// fcntl64
+pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall221 (fcntl64) {}", _which);
+    -1
+}
+
 /// fchown
 pub fn ___syscall207(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall207 (fchown) {}", _which);
