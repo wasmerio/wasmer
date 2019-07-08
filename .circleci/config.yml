@@ -298,7 +298,7 @@ jobs:
             - wapm-cli/target/release/.fingerprint
             - wapm-cli/target/release/build
             - wapm-cli/target/release/deps
-          key: v8-cargo-cache-darwin-nightly-{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   publish-github-release:
     docker:

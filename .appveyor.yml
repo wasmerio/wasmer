@@ -61,9 +61,8 @@ build_script:
   - cd ..
   - cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
   - cd wapm-cli
-  - rename target wapm-cli-target
   - cd ..
-  - move wapm-cli\wapm-cli-target wapm-cli-target
+  - xcopy wapm-cli\target wapm-cli-target\ /i /y
   - cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
 
 test_script:
