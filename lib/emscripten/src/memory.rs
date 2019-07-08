@@ -66,29 +66,6 @@ pub fn _emscripten_resize_heap(ctx: &mut Ctx, requested_size: u32) -> u32 {
     }
 }
 
-// function _sbrk(increment) {
-//  increment = increment | 0;
-//  var oldDynamicTop = 0;
-//  var newDynamicTop = 0;
-//  var totalMemory = 0;
-//  totalMemory = _emscripten_get_heap_size() | 0;
-//  oldDynamicTop = HEAP32[DYNAMICTOP_PTR >> 2] | 0;
-//  newDynamicTop = oldDynamicTop + increment | 0;
-//  if ((increment | 0) > 0 & (newDynamicTop | 0) < (oldDynamicTop | 0) | (newDynamicTop | 0) < 0) {
-//   abortOnCannotGrowMemory(newDynamicTop | 0) | 0;
-//   ___setErrNo(12);
-//   return -1;
-//  }
-//  if ((newDynamicTop | 0) > (totalMemory | 0)) {
-//   if (_emscripten_resize_heap(newDynamicTop | 0) | 0) {} else {
-//    ___setErrNo(12);
-//    return -1;
-//   }
-//  }
-//  HEAP32[DYNAMICTOP_PTR >> 2] = newDynamicTop | 0;
-//  return oldDynamicTop | 0;
-// }
-
 /// emscripten: sbrk
 pub fn sbrk(ctx: &mut Ctx, increment: i32) -> i32 {
     debug!("emscripten::sbrk");
