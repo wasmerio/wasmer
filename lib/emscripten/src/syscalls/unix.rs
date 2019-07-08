@@ -81,6 +81,7 @@ use libc::{
     // TCSETSW,
 };
 
+// They are not exposed in in Rust libc in macOS
 const TCGETS: u64 = 0x5401;
 const TCSETSW: u64 = 0x5403;
 
