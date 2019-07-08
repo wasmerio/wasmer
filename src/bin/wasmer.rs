@@ -24,6 +24,7 @@ use wasmer_runtime::{
 use wasmer_runtime_core::{
     self,
     backend::{Backend, Compiler, CompilerConfig, MemoryBoundCheckMode},
+    debug,
     loader::{Instance as LoadedInstance, LocalLoader},
 };
 #[cfg(feature = "backend:singlepass")]
@@ -115,8 +116,17 @@ struct Run {
     #[structopt(long = "resume")]
     resume: Option<String>,
 
+    /// The command name is a string that will override the first argument passed
+    /// to the wasm program. This is used in wapm to provide nicer output in
+    /// help commands and error messages of the running wasm program
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
+
+    /// A prehashed string, used to speed up start times by avoiding hashing the
+    /// wasm module. If the specified hash is not found, Wasmer will hash the module
+    /// as if no `cache-key` argument was passed.
+    #[structopt(long = "cache-key", hidden = true)]
+    cache_key: Option<String>,
 
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
@@ -350,10 +360,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     } else {
         // If we have cache enabled
 
-        // We generate a hash for the given binary, so we can use it as key
-        // for the Filesystem cache
-        let hash = WasmHash::generate_for_backend(&wasm_binary, options.backend);
-
         let wasmer_cache_dir = get_cache_dir();
 
         // We create a new cache instance.
@@ -362,31 +368,47 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let mut cache = unsafe {
             FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
         };
-
-        // cache.load will return the Module if it's able to deserialize it properly, and an error if:
-        // * The file is not found
-        // * The file exists, but it's corrupted or can't be converted to a module
-        match cache.load(hash) {
-            Ok(module) => {
-                // We are able to load the module from cache
-                module
+        let load_cache_key = || -> Result<_, String> {
+            if let Some(ref prehashed_cache_key) = options.cache_key {
+                if let Ok(module) = WasmHash::decode(prehashed_cache_key)
+                    .and_then(|prehashed_key| cache.load(prehashed_key))
+                {
+                    debug!("using prehashed key: {}", prehashed_cache_key);
+                    return Ok(module);
+                }
             }
-            Err(_) => {
-                let module = webassembly::compile_with_config_with(
-                    &wasm_binary[..],
-                    CompilerConfig {
-                        symbol_map: em_symbol_map,
-                        ..Default::default()
-                    },
-                    &*compiler,
-                )
-                .map_err(|e| format!("Can't compile module: {:?}", e))?;
-                // We try to save the module into a cache file
-                cache.store(hash, module.clone()).unwrap_or_default();
 
-                module
+            // We generate a hash for the given binary, so we can use it as key
+            // for the Filesystem cache
+            let hash = WasmHash::generate_for_backend(&wasm_binary, options.backend);
+
+            // cache.load will return the Module if it's able to deserialize it properly, and an error if:
+            // * The file is not found
+            // * The file exists, but it's corrupted or can't be converted to a module
+            match cache.load(hash) {
+                Ok(module) => {
+                    // We are able to load the module from cache
+                    Ok(module)
+                }
+                Err(_) => {
+                    let module = webassembly::compile_with_config_with(
+                        &wasm_binary[..],
+                        CompilerConfig {
+                            symbol_map: em_symbol_map,
+                            ..Default::default()
+                        },
+                        &*compiler,
+                    )
+                    .map_err(|e| format!("Can't compile module: {:?}", e))?;
+                    // We try to save the module into a cache file
+                    cache.store(hash, module.clone()).unwrap_or_default();
+
+                    Ok(module)
+                }
             }
-        }
+        };
+
+        load_cache_key()?
     };
 
     if let Some(loader) = options.loader {

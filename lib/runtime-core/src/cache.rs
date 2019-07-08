@@ -77,6 +77,30 @@ impl WasmHash {
         hex::encode(&self.into_array() as &[u8])
     }
 
+    /// Create hash from hexadecimal representation
+    pub fn decode(hex_str: &str) -> Result<Self, Error> {
+        let bytes = hex::decode(hex_str).map_err(|e| {
+            Error::DeserializeError(format!(
+                "Could not decode prehashed key as hexadecimal: {}",
+                e
+            ))
+        })?;
+        if bytes.len() != 64 {
+            return Err(Error::DeserializeError(
+                "Prehashed keys must deserialze into exactly 64 bytes".to_string(),
+            ));
+        }
+        use std::convert::TryInto;
+        Ok(WasmHash(
+            bytes[0..32].try_into().map_err(|e| {
+                Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
+            })?,
+            bytes[32..64].try_into().map_err(|e| {
+                Error::DeserializeError(format!("Could not get last 32 bytes: {}", e))
+            })?,
+        ))
+    }
+
     pub(crate) fn into_array(self) -> [u8; 64] {
         let mut total = [0u8; 64];
         total[0..32].copy_from_slice(&self.0);
