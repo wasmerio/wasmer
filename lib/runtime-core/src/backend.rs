@@ -29,6 +29,62 @@ pub enum Backend {
     LLVM,
 }
 
+impl Backend {
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            "cranelift",
+            #[cfg(feature = "backend:singlepass")]
+            "singlepass",
+            #[cfg(feature = "backend:llvm")]
+            "llvm",
+        ]
+    }
+
+    /// stable string representation of the backend
+    /// can be used as part of a cache key, for example
+    pub fn to_string(&self) -> &'static str {
+        match self {
+            Backend::Cranelift => "cranelift",
+            Backend::Singlepass => "singlepass",
+            Backend::LLVM => "llvm",
+        }
+    }
+}
+
+impl Default for Backend {
+    fn default() -> Self {
+        Backend::Cranelift
+    }
+}
+
+impl std::str::FromStr for Backend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Backend, String> {
+        match s.to_lowercase().as_str() {
+            "singlepass" => Ok(Backend::Singlepass),
+            "cranelift" => Ok(Backend::Cranelift),
+            "llvm" => Ok(Backend::LLVM),
+            _ => Err(format!("The backend {} doesn't exist", s)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod backend_test {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn str_repr_matches() {
+        // if this test breaks, think hard about why it's breaking
+        // can we avoid having these be different?
+
+        for &backend in &[Backend::Cranelift, Backend::LLVM, Backend::Singlepass] {
+            assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
+        }
+    }
+}
+
 /// This type cannot be constructed from
 /// outside the runtime crate.
 pub struct Token {
