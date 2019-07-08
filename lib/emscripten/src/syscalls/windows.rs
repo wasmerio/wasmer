@@ -134,6 +134,12 @@ pub fn ___syscall85(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     -1
 }
 
+/// getpgid
+pub fn ___syscall132(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall132 (getpgid)");
+    -1
+}
+
 /// lchown
 pub fn ___syscall198(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall198 (lchown) {}", _which);
@@ -285,6 +291,12 @@ pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 // getdents
 pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall220");
+    -1
+}
+
+// fcntl64
+pub fn ___syscall221(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall221 (fcntl64) {}", _which);
     -1
 }
 

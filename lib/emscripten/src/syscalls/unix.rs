@@ -25,6 +25,7 @@ use libc::{
     getgid,
     getgroups,
     getpeername,
+    getpgid,
     getrusage,
     getsockname,
     getsockopt,
@@ -76,22 +77,36 @@ use libc::{
     SOL_SOCKET,
     TIOCGWINSZ,
     TIOCSPGRP,
+    // TCGETS,
+    // TCSETSW,
 };
 
+// They are not exposed in in Rust libc in macOS
+const TCGETS: u64 = 0x5401;
+const TCSETSW: u64 = 0x5403;
+
 // `libc` constants as provided by `emscripten`. Maybe move to own file?
+const WASM_FIONBIO: u32 = 0x5421;
 const WASM_FIOCLEX: u32 = 0x5451;
 const WASM_TIOCSPGRP: u32 = 0x5410;
 const WASM_TIOCGWINSZ: u32 = 0x5413;
+const WASM_TCGETS: u32 = 0x5401;
+const WASM_TCSETSW: u32 = 0x5403;
 
 // Based on @syrusakbary sugerence at
 // https://github.com/wasmerio/wasmer/pull/532#discussion_r300837800
 fn translate_ioctl(wasm_ioctl: u32) -> c_ulong {
     match wasm_ioctl {
         WASM_FIOCLEX => FIOCLEX,
+        WASM_FIONBIO => FIONBIO,
         WASM_TIOCGWINSZ => TIOCGWINSZ,
         WASM_TIOCSPGRP => TIOCSPGRP,
+        WASM_TCGETS => TCGETS,
+        WASM_TCSETSW => TCSETSW,
 
-        otherwise => otherwise as c_ulong,
+        _otherwise => {
+            unimplemented!("The ioctl {} is not yet implemented", wasm_ioctl);
+        }
     }
 }
 
@@ -444,33 +459,27 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     debug!("=> fd: {}, op: {}", fd, request);
 
     // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
-    let argp: u32 = varargs.get(ctx);
-    let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-    // let ret = unsafe { ioctl(fd, translate_ioctl(request) as _, argp_ptr) };
-    // debug!("=> {}", ret);
-    // ret
+    match request {
+        WASM_FIOCLEX | WASM_FIONBIO | WASM_TIOCGWINSZ | WASM_TIOCSPGRP | WASM_TCGETS
+        | WASM_TCSETSW => {
+            let argp: u32 = varargs.get(ctx);
+            let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
+            let translated_request = translate_ioctl(request);
+            let ret = unsafe { ioctl(fd, translated_request, argp_ptr) };
+            debug!(
+                " => request: {}, translated: {}, return: {}",
+                request, translated_request, ret
+            );
 
-    match request as _ {
-        TIOCGWINSZ => {
-            let ret = unsafe { ioctl(fd, translate_ioctl(request) as _, argp_ptr) };
-            debug!("ret(TIOCGWINSZ): {} (harcoded to 0)", ret);
-            // ret
             // TODO: We hardcode the value to have emscripten tests pass, as for some reason
             // when the capturer is active, ioctl returns -1 instead of 0
-            if ret == -1 {
-                0
-            } else {
-                ret
+            if request == WASM_TIOCGWINSZ && ret == -1 {
+                return 0;
             }
-        }
-        TIOCSPGRP => {
-            debug!("ret(TIOCSPGRP): (noop)");
-            0
+            ret
         }
         _ => {
-            let ret = unsafe { ioctl(fd, translate_ioctl(request) as _, argp_ptr) };
-            debug!("ret({}): {}", request, ret);
-            ret
+            unimplemented!("not implemented case {}", request);
         }
     }
 }
@@ -794,6 +803,20 @@ fn translate_socket_name_flag(name: i32) -> i32 {
     }
 }
 
+/// getpgid
+pub fn ___syscall132(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall132 (getpgid)");
+
+    let pid: pid_t = varargs.get(ctx);
+
+    let ret = unsafe { getpgid(pid) };
+    debug!("=> pid: {} = {}", pid, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
+    ret
+}
+
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct EmPollFd {
@@ -1049,6 +1072,24 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         pos += offset;
     }
     pos as i32
+}
+
+// fcntl64
+pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall221 (fcntl64) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let cmd: i32 = varargs.get(ctx);
+    let arg: i32 = varargs.get(ctx);
+    // (FAPPEND   - 0x08
+    // |FASYNC    - 0x40
+    // |FFSYNC    - 0x80
+    // |FNONBLOCK - 0x04
+    let ret = unsafe { fcntl(fd, cmd, arg) };
+    debug!("=> fd: {}, cmd: {} = {}", fd, cmd, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
+    ret
 }
 
 /// fallocate

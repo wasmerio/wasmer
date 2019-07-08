@@ -32,7 +32,6 @@ use libc::{
     // iovec,
     loff_t,
     lseek,
-    off_t,
     //    open,
     pid_t,
     read,
@@ -427,8 +426,8 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let offset_low: u32 = varargs.get(ctx);
     let result_ptr_value: WasmPtr<loff_t> = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
-    let offset = offset_low as off_t;
-    let ret = unsafe { lseek(fd, offset, whence) as i64 };
+    let offset = offset_low;
+    let ret = unsafe { lseek(fd, offset as _, whence) as i64 };
 
     let result_ptr = result_ptr_value.deref(ctx.memory(0)).unwrap();
     result_ptr.set(ret);

@@ -189,6 +189,13 @@ impl Namespace {
     {
         self.map.insert(name.into(), Box::new(export))
     }
+
+    pub fn contains_key<S>(&mut self, key: S) -> bool
+    where
+        S: Into<String>,
+    {
+        self.map.contains_key(&key.into())
+    }
 }
 
 impl LikeNamespace for Namespace {
