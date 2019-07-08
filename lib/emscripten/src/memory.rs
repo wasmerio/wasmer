@@ -1,3 +1,4 @@
+use super::env::get_emscripten_data;
 use super::process::abort_with_message;
 use libc::{c_int, c_void, memcpy, size_t};
 use wasmer_runtime_core::{
@@ -63,6 +64,34 @@ pub fn _emscripten_resize_heap(ctx: &mut Ctx, requested_size: u32) -> u32 {
     } else {
         0
     }
+}
+
+/// emscripten: sbrk
+pub fn sbrk(ctx: &mut Ctx, increment: i32) -> i32 {
+    debug!("emscripten::sbrk");
+    // let old_dynamic_top = 0;
+    // let new_dynamic_top = 0;
+    let mut globals = get_emscripten_data(ctx).globals;
+    let dynamictop_ptr = (globals.dynamictop_ptr) as usize;
+    let old_dynamic_top = ctx.memory(0).view::<u32>()[dynamictop_ptr].get() as i32;
+    let new_dynamic_top: i32 = old_dynamic_top + increment;
+    let total_memory = _emscripten_get_heap_size(ctx) as i32;
+    debug!(
+        " => PTR {}, old: {}, new: {}, increment: {}, total: {}",
+        dynamictop_ptr, old_dynamic_top, new_dynamic_top, increment, total_memory
+    );
+    if increment > 0 && new_dynamic_top < old_dynamic_top || new_dynamic_top < 0 {
+        abort_on_cannot_grow_memory_old(ctx);
+        return -1;
+    }
+    if new_dynamic_top > total_memory {
+        let resized = _emscripten_resize_heap(ctx, new_dynamic_top as u32);
+        if resized == 0 {
+            return -1;
+        }
+    }
+    ctx.memory(0).view::<u32>()[dynamictop_ptr].set(new_dynamic_top as u32);
+    return old_dynamic_top as _;
 }
 
 /// emscripten: getTotalMemory

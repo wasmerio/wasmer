@@ -474,6 +474,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         wasmer_emscripten::run_emscripten_instance(
             &module,
             &mut instance,
+            &mut emscripten_globals,
             if let Some(cn) = &options.command_name {
                 cn
             } else {

@@ -8,6 +8,7 @@ use libc::{
     access,
     bind,
     c_int,
+    c_ulong,
     c_void,
     chown,
     // fcntl, setsockopt, getppid
@@ -19,9 +20,12 @@ use libc::{
     fcntl,
     // ENOTTY,
     fsync,
+    getegid,
+    geteuid,
     getgid,
     getgroups,
     getpeername,
+    getpgid,
     getrusage,
     getsockname,
     getsockopt,
@@ -72,7 +76,38 @@ use libc::{
     F_SETFD,
     SOL_SOCKET,
     TIOCGWINSZ,
+    TIOCSPGRP,
+    // TCGETS,
+    // TCSETSW,
 };
+
+// They are not exposed in in Rust libc in macOS
+const TCGETS: u64 = 0x5401;
+const TCSETSW: u64 = 0x5403;
+
+// `libc` constants as provided by `emscripten`. Maybe move to own file?
+const WASM_FIONBIO: u32 = 0x5421;
+const WASM_FIOCLEX: u32 = 0x5451;
+const WASM_TIOCSPGRP: u32 = 0x5410;
+const WASM_TIOCGWINSZ: u32 = 0x5413;
+const WASM_TCGETS: u32 = 0x5401;
+const WASM_TCSETSW: u32 = 0x5403;
+
+// Based on @syrusakbary sugerence at
+// https://github.com/wasmerio/wasmer/pull/532#discussion_r300837800
+fn translate_ioctl(wasm_ioctl: u32) -> c_ulong {
+    match wasm_ioctl {
+        WASM_FIOCLEX => FIOCLEX,
+        WASM_TIOCGWINSZ => TIOCGWINSZ,
+        WASM_TIOCSPGRP => TIOCSPGRP,
+        WASM_FIONBIO => FIONBIO,
+        WASM_TCGETS => TCGETS,
+        WASM_TCSETSW => TCSETSW,
+        _otherwise => {
+            unimplemented!("The ioctl {} is not yet implemented", wasm_ioctl);
+        }
+    }
+}
 
 #[allow(unused_imports)]
 use std::ffi::CStr;
@@ -120,13 +155,12 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let _path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
     let fd = unsafe { open(real_path, flags, mode) };
     debug!(
-        "=> path: {}, flags: {}, mode: {} = fd: {}, last os error: {}",
-        _path_str,
-        flags,
-        mode,
-        fd,
-        Error::last_os_error(),
+        "=> path: {}, flags: {}, mode: {} = fd: {}",
+        _path_str, flags, mode, fd,
     );
+    if fd == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
     fd
 }
 
@@ -347,28 +381,28 @@ pub fn ___syscall41(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     unsafe { dup(fd) }
 }
 
-/// getgid
+/// getgid32
 pub fn ___syscall200(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall200 (getgid)");
+    debug!("emscripten::___syscall200 (getgid32)");
     unsafe { getgid() as i32 }
 }
 
-// getgid
+// geteuid32
 pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall201 (getgid)");
+    debug!("emscripten::___syscall201 (geteuid32)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
-        getgid() as i32
+        geteuid() as i32
     }
 }
 
-// getgid32
+// getegid32
 pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     // gid_t
-    debug!("emscripten::___syscall202 (getgid32)");
+    debug!("emscripten::___syscall202 (getegid32)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
-        getgid() as _
+        getegid() as _
     }
 }
 
@@ -418,43 +452,34 @@ pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
 /// ioctl
 pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall54 (ioctl) {}", _which);
+
     let fd: i32 = varargs.get(ctx);
     let request: u32 = varargs.get(ctx);
     debug!("=> fd: {}, op: {}", fd, request);
+
     // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
-    // let argp: u32 = varargs.get(ctx);
-    // let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-    // let ret = unsafe { ioctl(fd, request as _, argp_ptr) };
-    // debug!("=> {}", ret);
-    // ret
-    match request as _ {
-        21537 => {
-            // FIONBIO
+    match request {
+        WASM_FIOCLEX | WASM_FIONBIO | WASM_TIOCGWINSZ | WASM_TIOCSPGRP | WASM_TCGETS
+        | WASM_TCSETSW => {
             let argp: u32 = varargs.get(ctx);
             let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-            let ret = unsafe { ioctl(fd, FIONBIO, argp_ptr) };
-            debug!("ret(FIONBIO): {}", ret);
-            ret
-            // 0
-        }
-        21523 => {
-            // TIOCGWINSZ
-            let argp: u32 = varargs.get(ctx);
-            let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-            let ret = unsafe { ioctl(fd, TIOCGWINSZ, argp_ptr) };
-            debug!("ret(TIOCGWINSZ): {} (harcoded to 0)", ret);
-            // ret
+            let translated_request = translate_ioctl(request);
+            let ret = unsafe { ioctl(fd, translated_request, argp_ptr) };
+            debug!(
+                " => request: {}, translated: {}, return: {}",
+                request, translated_request, ret
+            );
+
             // TODO: We hardcode the value to have emscripten tests pass, as for some reason
             // when the capturer is active, ioctl returns -1 instead of 0
-            if ret == -1 {
-                0
-            } else {
-                ret
+            if request == WASM_TIOCGWINSZ && ret == -1 {
+                return 0;
             }
+            ret
         }
         _ => {
             debug!(
-                "emscripten::___syscall54 -> non implemented case {}",
+                " => not implemented case {} (noop, hardcoded to 0)",
                 request
             );
             0
@@ -500,7 +525,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             if ty_and_flags & SOCK_CLOEXC != 0 {
                 // set_cloexec
                 unsafe {
-                    ioctl(fd, FIOCLEX);
+                    ioctl(fd, translate_ioctl(WASM_FIOCLEX));
                 };
             }
 
@@ -607,7 +632,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // why is this here?
             // set_cloexec
             unsafe {
-                ioctl(fd, FIOCLEX);
+                ioctl(fd, translate_ioctl(WASM_FIOCLEX));
             };
 
             debug!(
@@ -781,6 +806,20 @@ fn translate_socket_name_flag(name: i32) -> i32 {
     }
 }
 
+/// getpgid
+pub fn ___syscall132(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall132 (getpgid)");
+
+    let pid: pid_t = varargs.get(ctx);
+
+    let ret = unsafe { getpgid(pid) };
+    debug!("=> pid: {} = {}", pid, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
+    ret
+}
+
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct EmPollFd {
@@ -918,9 +957,16 @@ pub fn ___syscall148(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 // setpgid
 pub fn ___syscall57(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall57 (setpgid) {}", _which);
+
     let pid: i32 = varargs.get(ctx);
     let pgid: i32 = varargs.get(ctx);
-    unsafe { setpgid(pid, pgid) }
+
+    let ret = unsafe { setpgid(pid, pgid) };
+    debug!("=> pid: {}, pgid: {} = {}", pid, pgid, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
+    ret
 }
 
 /// uname
@@ -1029,6 +1075,24 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         pos += offset;
     }
     pos as i32
+}
+
+// fcntl64
+pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall221 (fcntl64) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let cmd: i32 = varargs.get(ctx);
+    let arg: i32 = varargs.get(ctx);
+    // (FAPPEND   - 0x08
+    // |FASYNC    - 0x40
+    // |FFSYNC    - 0x80
+    // |FNONBLOCK - 0x04
+    let ret = unsafe { fcntl(fd, cmd, arg) };
+    debug!("=> fd: {}, cmd: {} = {}", fd, cmd, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
+    ret
 }
 
 /// fallocate

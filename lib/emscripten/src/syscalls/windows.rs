@@ -134,29 +134,35 @@ pub fn ___syscall85(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     -1
 }
 
+/// getpgid
+pub fn ___syscall132(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall132 (getpgid)");
+    -1
+}
+
 /// lchown
 pub fn ___syscall198(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall198 (lchown) {}", _which);
     unimplemented!()
 }
 
-/// getgid
+/// getgid32
 pub fn ___syscall200(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall200 (getgid)");
-    unimplemented!()
+    debug!("emscripten::___syscall200 (getgid32)");
+    unimplemented!();
 }
 
-// getgid
+// geteuid32
 pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall201 (getgid)");
-    -1
+    debug!("emscripten::___syscall201 (geteuid32)");
+    unimplemented!();
 }
 
-// getgid32
+// getegid32
 pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     // gid_t
-    debug!("emscripten::___syscall202 (getgid32)");
-    -1
+    debug!("emscripten::___syscall202 (getegid32)");
+    unimplemented!();
 }
 
 /// getgroups
@@ -282,6 +288,12 @@ pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 // getdents
 pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall220");
+    -1
+}
+
+// fcntl64
+pub fn ___syscall221(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall221 (fcntl64) {}", _which);
     -1
 }
 

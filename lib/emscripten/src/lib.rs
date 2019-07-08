@@ -51,6 +51,7 @@ mod lock;
 mod math;
 mod memory;
 mod process;
+mod pthread;
 mod signal;
 mod storage;
 mod syscalls;
@@ -84,11 +85,13 @@ const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
 pub struct EmscriptenData<'a> {
-    pub malloc: Func<'a, u32, u32>,
-    pub free: Func<'a, u32>,
+    pub globals: &'a EmscriptenGlobalsData,
+
+    pub malloc: Option<Func<'a, u32, u32>>,
+    pub free: Option<Func<'a, u32>>,
     pub memalign: Option<Func<'a, (u32, u32), u32>>,
-    pub memset: Func<'a, (u32, u32, u32), u32>,
-    pub stack_alloc: Func<'a, u32, u32>,
+    pub memset: Option<Func<'a, (u32, u32, u32), u32>>,
+    pub stack_alloc: Option<Func<'a, u32, u32>>,
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
     pub opened_dirs: HashMap<i32, Box<*mut libcDIR>>,
 
@@ -162,13 +165,17 @@ pub struct EmscriptenData<'a> {
 impl<'a> EmscriptenData<'a> {
     pub fn new(
         instance: &'a mut Instance,
+        globals: &'a EmscriptenGlobalsData,
         mapped_dirs: HashMap<String, PathBuf>,
     ) -> EmscriptenData<'a> {
-        let malloc = instance.func("_malloc").unwrap();
-        let free = instance.func("_free").unwrap();
-        let memalign = instance.func("_memalign").ok();
-        let memset = instance.func("_memset").unwrap();
-        let stack_alloc = instance.func("stackAlloc").unwrap();
+        let malloc = instance.func("_malloc").or(instance.func("malloc")).ok();
+        let free = instance.func("_free").or(instance.func("free")).ok();
+        let memalign = instance
+            .func("_memalign")
+            .or(instance.func("memalign"))
+            .ok();
+        let memset = instance.func("_memset").or(instance.func("memset")).ok();
+        let stack_alloc = instance.func("stackAlloc").ok();
 
         let dyn_call_i = instance.func("dynCall_i").ok();
         let dyn_call_ii = instance.func("dynCall_ii").ok();
@@ -227,9 +234,14 @@ impl<'a> EmscriptenData<'a> {
 
         let stack_save = instance.func("stackSave").ok();
         let stack_restore = instance.func("stackRestore").ok();
-        let set_threw = instance.func("_setThrew").ok();
+        let set_threw = instance
+            .func("_setThrew")
+            .or(instance.func("setThrew"))
+            .ok();
 
         EmscriptenData {
+            globals,
+
             malloc,
             free,
             memalign,
@@ -305,12 +317,13 @@ impl<'a> EmscriptenData<'a> {
 pub fn run_emscripten_instance(
     _module: &Module,
     instance: &mut Instance,
+    globals: &mut EmscriptenGlobals,
     path: &str,
     args: Vec<&str>,
     entrypoint: Option<String>,
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> CallResult<()> {
-    let mut data = EmscriptenData::new(instance, mapped_dirs.into_iter().collect());
+    let mut data = EmscriptenData::new(instance, &globals.data, mapped_dirs.into_iter().collect());
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
@@ -332,17 +345,26 @@ pub fn run_emscripten_instance(
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         instance.call(&ep, &[Value::I32(arg as i32)])?;
     } else {
-        let main_func = instance.dyn_func("_main")?;
+        let (func_name, main_func) = match instance.dyn_func("_main") {
+            Ok(func) => Ok(("_main", func)),
+            Err(_e) => match instance.dyn_func("main") {
+                Ok(func) => Ok(("main", func)),
+                Err(e) => Err(e),
+            },
+        }?;
         let num_params = main_func.signature().params().len();
         let _result = match num_params {
             2 => {
                 let mut new_args = vec![path];
                 new_args.extend(args);
                 let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
-                instance.call("_main", &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
+                instance.call(
+                    func_name,
+                    &[Value::I32(argc as i32), Value::I32(argv as i32)],
+                )?;
             }
             0 => {
-                instance.call("_main", &[])?;
+                instance.call(func_name, &[])?;
             }
             _ => panic!(
                 "The emscripten main function has received an incorrect number of params {}",
@@ -430,13 +452,13 @@ impl EmscriptenGlobals {
         }
 
         let (table_min, table_max) = get_emscripten_table_size(&module);
-        let (memory_min, memory_max) = get_emscripten_memory_size(&module);
+        let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module);
 
         // Memory initialization
         let memory_type = MemoryDescriptor {
             minimum: memory_min,
             maximum: memory_max,
-            shared: false,
+            shared: shared,
         };
         let memory = Memory::new(memory_type).unwrap();
 
@@ -750,6 +772,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "alignfault" => func!(crate::memory::alignfault),
         "ftfault" => func!(crate::memory::ftfault),
         "getTotalMemory" => func!(crate::memory::get_total_memory),
+        "_sbrk" => func!(crate::memory::sbrk),
         "___map_file" => func!(crate::memory::___map_file),
 
         // Exception
@@ -781,6 +804,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_strftime_l" => func!(crate::time::_strftime_l),
         "_localtime_r" => func!(crate::time::_localtime_r),
         "_gmtime_r" => func!(crate::time::_gmtime_r),
+        "_ctime" => func!(crate::time::_ctime),
+        "_ctime_r" => func!(crate::time::_ctime_r),
         "_mktime" => func!(crate::time::_mktime),
         "_gmtime" => func!(crate::time::_gmtime),
 
@@ -856,42 +881,43 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___cxa_free_exception" => func!(crate::emscripten_target::___cxa_free_exception),
         "___resumeException" => func!(crate::emscripten_target::___resumeException),
         "_dladdr" => func!(crate::emscripten_target::_dladdr),
-        "_pthread_attr_destroy" => func!(crate::emscripten_target::_pthread_attr_destroy),
-        "_pthread_attr_getstack" => func!(crate::emscripten_target::_pthread_attr_getstack),
-        "_pthread_attr_init" => func!(crate::emscripten_target::_pthread_attr_init),
-        "_pthread_attr_setstacksize" => func!(crate::emscripten_target::_pthread_attr_setstacksize),
-        "_pthread_cleanup_pop" => func!(crate::emscripten_target::_pthread_cleanup_pop),
-        "_pthread_cleanup_push" => func!(crate::emscripten_target::_pthread_cleanup_push),
-        "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
-        "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
-        "_pthread_cond_signal" => func!(crate::emscripten_target::_pthread_cond_signal),
-        "_pthread_cond_timedwait" => func!(crate::emscripten_target::_pthread_cond_timedwait),
-        "_pthread_cond_wait" => func!(crate::emscripten_target::_pthread_cond_wait),
-        "_pthread_condattr_destroy" => func!(crate::emscripten_target::_pthread_condattr_destroy),
-        "_pthread_condattr_init" => func!(crate::emscripten_target::_pthread_condattr_init),
-        "_pthread_condattr_setclock" => func!(crate::emscripten_target::_pthread_condattr_setclock),
-        "_pthread_create" => func!(crate::emscripten_target::_pthread_create),
-        "_pthread_detach" => func!(crate::emscripten_target::_pthread_detach),
-        "_pthread_equal" => func!(crate::emscripten_target::_pthread_equal),
-        "_pthread_exit" => func!(crate::emscripten_target::_pthread_exit),
-        "_pthread_getattr_np" => func!(crate::emscripten_target::_pthread_getattr_np),
-        "_pthread_getspecific" => func!(crate::emscripten_target::_pthread_getspecific),
-        "_pthread_join" => func!(crate::emscripten_target::_pthread_join),
-        "_pthread_key_create" => func!(crate::emscripten_target::_pthread_key_create),
-        "_pthread_mutex_destroy" => func!(crate::emscripten_target::_pthread_mutex_destroy),
-        "_pthread_mutex_init" => func!(crate::emscripten_target::_pthread_mutex_init),
-        "_pthread_mutexattr_destroy" => func!(crate::emscripten_target::_pthread_mutexattr_destroy),
-        "_pthread_mutexattr_init" => func!(crate::emscripten_target::_pthread_mutexattr_init),
-        "_pthread_mutexattr_settype" => func!(crate::emscripten_target::_pthread_mutexattr_settype),
-        "_pthread_once" => func!(crate::emscripten_target::_pthread_once),
-        "_pthread_rwlock_destroy" => func!(crate::emscripten_target::_pthread_rwlock_destroy),
-        "_pthread_rwlock_init" => func!(crate::emscripten_target::_pthread_rwlock_init),
-        "_pthread_rwlock_rdlock" => func!(crate::emscripten_target::_pthread_rwlock_rdlock),
-        "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
-        "_pthread_rwlock_wrlock" => func!(crate::emscripten_target::_pthread_rwlock_wrlock),
-        "_pthread_setcancelstate" => func!(crate::emscripten_target::_pthread_setcancelstate),
-        "_pthread_setspecific" => func!(crate::emscripten_target::_pthread_setspecific),
-        "_pthread_sigmask" => func!(crate::emscripten_target::_pthread_sigmask),
+        "_pthread_attr_destroy" => func!(crate::pthread::_pthread_attr_destroy),
+        "_pthread_attr_getstack" => func!(crate::pthread::_pthread_attr_getstack),
+        "_pthread_attr_init" => func!(crate::pthread::_pthread_attr_init),
+        "_pthread_attr_setstacksize" => func!(crate::pthread::_pthread_attr_setstacksize),
+        "_pthread_cleanup_pop" => func!(crate::pthread::_pthread_cleanup_pop),
+        "_pthread_cleanup_push" => func!(crate::pthread::_pthread_cleanup_push),
+        "_pthread_cond_destroy" => func!(crate::pthread::_pthread_cond_destroy),
+        "_pthread_cond_init" => func!(crate::pthread::_pthread_cond_init),
+        "_pthread_cond_signal" => func!(crate::pthread::_pthread_cond_signal),
+        "_pthread_cond_timedwait" => func!(crate::pthread::_pthread_cond_timedwait),
+        "_pthread_cond_wait" => func!(crate::pthread::_pthread_cond_wait),
+        "_pthread_condattr_destroy" => func!(crate::pthread::_pthread_condattr_destroy),
+        "_pthread_condattr_init" => func!(crate::pthread::_pthread_condattr_init),
+        "_pthread_condattr_setclock" => func!(crate::pthread::_pthread_condattr_setclock),
+        "_pthread_create" => func!(crate::pthread::_pthread_create),
+        "_pthread_detach" => func!(crate::pthread::_pthread_detach),
+        "_pthread_equal" => func!(crate::pthread::_pthread_equal),
+        "_pthread_exit" => func!(crate::pthread::_pthread_exit),
+        "_pthread_self" => func!(crate::pthread::_pthread_self),
+        "_pthread_getattr_np" => func!(crate::pthread::_pthread_getattr_np),
+        "_pthread_getspecific" => func!(crate::pthread::_pthread_getspecific),
+        "_pthread_join" => func!(crate::pthread::_pthread_join),
+        "_pthread_key_create" => func!(crate::pthread::_pthread_key_create),
+        "_pthread_mutex_destroy" => func!(crate::pthread::_pthread_mutex_destroy),
+        "_pthread_mutex_init" => func!(crate::pthread::_pthread_mutex_init),
+        "_pthread_mutexattr_destroy" => func!(crate::pthread::_pthread_mutexattr_destroy),
+        "_pthread_mutexattr_init" => func!(crate::pthread::_pthread_mutexattr_init),
+        "_pthread_mutexattr_settype" => func!(crate::pthread::_pthread_mutexattr_settype),
+        "_pthread_once" => func!(crate::pthread::_pthread_once),
+        "_pthread_rwlock_destroy" => func!(crate::pthread::_pthread_rwlock_destroy),
+        "_pthread_rwlock_init" => func!(crate::pthread::_pthread_rwlock_init),
+        "_pthread_rwlock_rdlock" => func!(crate::pthread::_pthread_rwlock_rdlock),
+        "_pthread_rwlock_unlock" => func!(crate::pthread::_pthread_rwlock_unlock),
+        "_pthread_rwlock_wrlock" => func!(crate::pthread::_pthread_rwlock_wrlock),
+        "_pthread_setcancelstate" => func!(crate::pthread::_pthread_setcancelstate),
+        "_pthread_setspecific" => func!(crate::pthread::_pthread_setspecific),
+        "_pthread_sigmask" => func!(crate::pthread::_pthread_sigmask),
         "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
         "_gai_strerror" => func!(crate::env::_gai_strerror),
         "_getdtablesize" => func!(crate::emscripten_target::_getdtablesize),
@@ -951,6 +977,17 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         // unistd
         "_confstr" => func!(crate::unistd::confstr),
     };
+
+    // Compatibility with newer versions of Emscripten
+    use crate::wasmer_runtime_core::import::LikeNamespace;
+    for (k, v) in env_ns.get_exports() {
+        if k.starts_with("_") {
+            let k = &k[1..];
+            if !env_ns.contains_key(k) {
+                env_ns.insert(k, v.to_export());
+            }
+        }
+    }
 
     for null_func_name in globals.null_func_names.iter() {
         env_ns.insert(null_func_name.as_str(), Func::new(nullfunc).to_export());
