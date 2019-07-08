@@ -23,7 +23,7 @@ use wasmer_runtime::{
 };
 use wasmer_runtime_core::{
     self,
-    backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
+    backend::{Backend, Compiler, CompilerConfig, MemoryBoundCheckMode},
     loader::{Instance as LoadedInstance, LocalLoader},
 };
 #[cfg(feature = "backend:singlepass")]
@@ -149,42 +149,6 @@ impl FromStr for LoaderName {
             #[cfg(feature = "loader:kernel")]
             "kernel" => Ok(LoaderName::Kernel),
             _ => Err(format!("The loader {} doesn't exist", s)),
-        }
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Eq, PartialEq)]
-enum Backend {
-    Cranelift,
-    Singlepass,
-    LLVM,
-}
-
-impl Backend {
-    pub fn variants() -> &'static [&'static str] {
-        &[
-            "cranelift",
-            #[cfg(feature = "backend:singlepass")]
-            "singlepass",
-            #[cfg(feature = "backend:llvm")]
-            "llvm",
-        ]
-    }
-}
-
-impl FromStr for Backend {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Backend, String> {
-        match s.to_lowercase().as_str() {
-            "singlepass" => Ok(Backend::Singlepass),
-            "cranelift" => Ok(Backend::Cranelift),
-            "llvm" => Ok(Backend::LLVM),
-            // "llvm" => Err(
-            //     "The LLVM backend option is not enabled by default due to binary size constraints"
-            //         .to_string(),
-            // ),
-            _ => Err(format!("The backend {} doesn't exist", s)),
         }
     }
 }
@@ -388,7 +352,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
         // We generate a hash for the given binary, so we can use it as key
         // for the Filesystem cache
-        let hash = WasmHash::generate(&wasm_binary);
+        let hash = WasmHash::generate(&wasm_binary, options.backend);
 
         let wasmer_cache_dir = get_cache_dir();
 

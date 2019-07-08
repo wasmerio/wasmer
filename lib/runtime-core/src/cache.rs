@@ -1,4 +1,5 @@
 use crate::{
+    backend::Backend,
     module::{Module, ModuleInfo},
     sys::Memory,
 };
@@ -41,12 +42,13 @@ impl WasmHash {
     /// # Note:
     /// This does no verification that the supplied data
     /// is, in fact, a wasm module.
-    pub fn generate(wasm: &[u8]) -> Self {
+    pub fn generate(wasm: &[u8], backend: Backend) -> Self {
         let mut first_part = [0u8; 32];
         let mut second_part = [0u8; 32];
 
         let mut state = blake2bp::State::new();
         state.update(wasm);
+        state.update(backend.to_string().as_bytes());
 
         let hasher = state.finalize();
         let generic_array = hasher.as_bytes();
