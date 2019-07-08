@@ -25,6 +25,7 @@ use libc::{
     getgid,
     getgroups,
     getpeername,
+    getpgid,
     getrusage,
     getsockname,
     getsockopt,
@@ -802,6 +803,20 @@ fn translate_socket_name_flag(name: i32) -> i32 {
         30 => libc::SO_ACCEPTCONN,
         otherwise => otherwise,
     }
+}
+
+/// getpgid
+pub fn ___syscall132(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall132 (getpgid)");
+
+    let pid: pid_t = varargs.get(ctx);
+
+    let ret = unsafe { getpgid(pid) };
+    debug!("=> pid: {} = {}", pid, ret);
+    if ret == -1 {
+        debug!("=> last os error: {}", Error::last_os_error(),);
+    }
+    ret
 }
 
 #[derive(Debug, Copy, Clone)]

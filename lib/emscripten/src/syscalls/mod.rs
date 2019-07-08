@@ -26,13 +26,11 @@ use libc::{
     exit,
     fcntl,
     fstat,
-    getpgid,
     getpid,
     // readlink,
     // iovec,
     lseek,
     //    open,
-    pid_t,
     read,
     rename,
     // sockaddr_in,
@@ -311,19 +309,6 @@ pub fn ___syscall125(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
-pub fn ___syscall132(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall132 (getpgid)");
-
-    let pid: pid_t = varargs.get(ctx);
-
-    let ret = unsafe { getpgid(pid) };
-    debug!("=> pid: {} = {}", pid, ret);
-    if ret == -1 {
-        debug!("=> last os error: {}", Error::last_os_error(),);
-    }
-    ret
-}
-
 pub fn ___syscall133(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall133");
     -1
@@ -425,8 +410,8 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let offset_low: u32 = varargs.get(ctx);
     let result_ptr_value: WasmPtr<i64> = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
-    let offset = offset_low as i64;
-    let ret = unsafe { lseek(fd, offset, whence) as i64 };
+    let offset = offset_low;
+    let ret = unsafe { lseek(fd, offset as _, whence) as i64 };
 
     let result_ptr = result_ptr_value.deref(ctx.memory(0)).unwrap();
     result_ptr.set(ret);
