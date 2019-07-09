@@ -49,10 +49,8 @@ install:
 #  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 build_script:
+  - git submodule update --init
   - cargo build --release --verbose
-  # Now we build wapm
-  - git submodule init
-  - git submodule update
   # Cache wapm cli target in dir above to prevent breaking git submodule on windows
   - if not exist wapm-cli-target mkdir wapm-cli-target
   - move wapm-cli-target wapm-cli
