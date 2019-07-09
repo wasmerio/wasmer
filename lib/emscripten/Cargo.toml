@@ -17,3 +17,6 @@ wasmer-runtime-core = { path = "../runtime-core", version = "0.5.4" }
 
 [target.'cfg(windows)'.dependencies]
 rand = "0.6"
+
+[features]
+debug = ["wasmer-runtime-core/debug"]
