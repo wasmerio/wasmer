@@ -37,31 +37,17 @@ impl From<io::Error> for Error {
 pub struct WasmHash([u8; 32], [u8; 32]);
 
 impl WasmHash {
-    /// Hash a wasm module for the default compiler backend.
-    ///
-    /// See also: `WasmHash::generate_for_backend`.
+    /// Hash a wasm module.
     ///
     /// # Note:
     /// This does no verification that the supplied data
     /// is, in fact, a wasm module.
     pub fn generate(wasm: &[u8]) -> Self {
-        WasmHash::generate_for_backend(wasm, Backend::default())
-    }
-
-    /// Hash a wasm module for a specific compiler backend.
-    /// This allows multiple cache entries containing the same compiled
-    /// module with different compiler backends.
-    ///
-    /// # Note:
-    /// This function also does no verification that the supplied data
-    /// is a wasm module
-    pub fn generate_for_backend(wasm: &[u8], backend: Backend) -> Self {
         let mut first_part = [0u8; 32];
         let mut second_part = [0u8; 32];
 
         let mut state = blake2bp::State::new();
         state.update(wasm);
-        state.update(backend.to_string().as_bytes());
 
         let hasher = state.finalize();
         let generic_array = hasher.as_bytes();
@@ -75,6 +61,30 @@ impl WasmHash {
     /// stored hash.
     pub fn encode(self) -> String {
         hex::encode(&self.into_array() as &[u8])
+    }
+
+    /// Create hash from hexadecimal representation
+    pub fn decode(hex_str: &str) -> Result<Self, Error> {
+        let bytes = hex::decode(hex_str).map_err(|e| {
+            Error::DeserializeError(format!(
+                "Could not decode prehashed key as hexadecimal: {}",
+                e
+            ))
+        })?;
+        if bytes.len() != 64 {
+            return Err(Error::DeserializeError(
+                "Prehashed keys must deserialze into exactly 64 bytes".to_string(),
+            ));
+        }
+        use std::convert::TryInto;
+        Ok(WasmHash(
+            bytes[0..32].try_into().map_err(|e| {
+                Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
+            })?,
+            bytes[32..64].try_into().map_err(|e| {
+                Error::DeserializeError(format!("Could not get last 32 bytes: {}", e))
+            })?,
+        ))
     }
 
     pub(crate) fn into_array(self) -> [u8; 64] {
@@ -219,7 +229,11 @@ pub trait Cache {
     type LoadError: fmt::Debug;
     type StoreError: fmt::Debug;
 
+    /// loads a module using the default `Backend`
     fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
+    /// loads a cached module using a specific `Backend`
+    fn load_with_backend(&self, key: WasmHash, backend: Backend)
+        -> Result<Module, Self::LoadError>;
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
 

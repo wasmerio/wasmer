@@ -5,8 +5,10 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#537](https://github.com/wasmerio/wasmer/pull/537) Add hidden flag (`--cache-key`) to use prehashed key into the compiled wasm cache and change compiler backend-specific caching to use directories
+- [#536](https://github.com/wasmerio/wasmer/pull/536) ~Update cache to use compiler backend name in cache key~
+
 ## 0.5.4
-- [#536](https://github.com/wasmerio/wasmer/pull/536) Update cache to use compiler backend name in cache key
 - [#529](https://github.com/wasmerio/wasmer/pull/529) Updates the Wasm Interface library, which is used by wapm, with bug fixes and error message improvements
 
 ## 0.5.3
