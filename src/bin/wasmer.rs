@@ -370,8 +370,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         };
         let load_cache_key = || -> Result<_, String> {
             if let Some(ref prehashed_cache_key) = options.cache_key {
-                if let Ok(module) = WasmHash::decode(prehashed_cache_key)
-                    .and_then(|prehashed_key| cache.load(prehashed_key))
+                if let Ok(module) =
+                    WasmHash::decode(prehashed_cache_key).and_then(|prehashed_key| {
+                        cache.load_with_backend(prehashed_key, options.backend)
+                    })
                 {
                     debug!("using prehashed key: {}", prehashed_cache_key);
                     return Ok(module);
@@ -380,12 +382,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
             // We generate a hash for the given binary, so we can use it as key
             // for the Filesystem cache
-            let hash = WasmHash::generate_for_backend(&wasm_binary, options.backend);
+            let hash = WasmHash::generate(&wasm_binary);
 
             // cache.load will return the Module if it's able to deserialize it properly, and an error if:
             // * The file is not found
             // * The file exists, but it's corrupted or can't be converted to a module
-            match cache.load(hash) {
+            match cache.load_with_backend(hash, options.backend) {
                 Ok(module) => {
                     // We are able to load the module from cache
                     Ok(module)

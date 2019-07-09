@@ -54,3 +54,6 @@ cc = "1.0"
 [features]
 debug = []
 trace = ["debug"]
+# backend flags used in conditional compilation of Backend::variants
+"backend:singlepass" = []
+"backend:llvm" = []
