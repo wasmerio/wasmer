@@ -36,7 +36,10 @@ emtests-cranelift:
 emtests-llvm:
 	cargo test --manifest-path lib/emscripten-tests/Cargo.toml --release --features llvm -- --test-threads=1
 
-emtests: emtests-singlepass emtests-cranelift emtests-llvm
+emtests-unit:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --release
+
+emtests: emtests-unit emtests-singlepass emtests-cranelift emtests-llvm
 
 
 # Middleware tests
@@ -62,7 +65,10 @@ wasitests-cranelift:
 wasitests-llvm:
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features llvm -- --test-threads=1
 
-wasitests: wasitests-singlepass wasitests-cranelift wasitests-llvm
+wasitests-unit:
+	cargo test --manifest-path lib/wasi/Cargo.toml --release
+
+wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llvm
 
 
 # Backends
