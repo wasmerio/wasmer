@@ -36,6 +36,7 @@ wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
+wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
 
 [workspace]
 members = [
@@ -55,6 +56,7 @@ members = [
     "lib/kernel-net",
     "lib/dev-utils",
     "lib/wasi-tests",
+    "lib/emscripten-tests",
     "examples/plugin-for-example"
 ]
 

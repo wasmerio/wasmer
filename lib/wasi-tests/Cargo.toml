@@ -8,8 +8,6 @@ edition = "2018"
 publish = false
 build = "build/mod.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.5.4" }
 wasmer-wasi = { path = "../wasi", version = "0.5.4" }
