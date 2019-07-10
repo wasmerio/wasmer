@@ -33,9 +33,9 @@ impl Backend {
     pub fn variants() -> &'static [&'static str] {
         &[
             "cranelift",
-            #[cfg(feature = "backend:singlepass")]
+            #[cfg(feature = "backend-singlepass")]
             "singlepass",
-            #[cfg(feature = "backend:llvm")]
+            #[cfg(feature = "backend-llvm")]
             "llvm",
         ]
     }

@@ -112,13 +112,13 @@ lint:
 precommit: lint test
 
 debug:
-	cargo build --release --features backend:singlepass,debug,trace
+	cargo build --release --features backend-singlepass,debug,trace
 
 install:
 	cargo install --path .
 
 release:
-	cargo build --release --features backend:singlepass,backend:llvm,loader:kernel
+	cargo build --release --features backend-singlepass,backend-llvm,loader:kernel
 
 # Only one backend (cranelift)
 release-fast:
@@ -127,10 +127,10 @@ release-fast:
 	cargo build --release
 
 release-singlepass:
-	cargo build --release --features backend:singlepass
+	cargo build --release --features backend-singlepass
 
 release-llvm:
-	cargo build --release --features backend:llvm
+	cargo build --release --features backend-llvm
 
 bench:
 	cargo bench --all
