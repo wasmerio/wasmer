@@ -1,7 +1,3 @@
 [submodule "wapm-cli"]
 	path = wapm-cli
 	url = https://github.com/wasmerio/wapm-cli.git
-[submodule "lib/clif-backend/cranelift"]
-	path = lib/clif-backend/cranelift
-	url = https://github.com/wasmerio/cranelift
-	branch = wasmer
