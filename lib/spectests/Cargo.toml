@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-spectests"
-version = "0.5.4"
+version = "0.5.5"
 description = "Wasmer spectests library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -9,10 +9,10 @@ edition = "2018"
 build = "build/mod.rs"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.5.4" }
-wasmer-clif-backend = { path = "../clif-backend", version = "0.5.4" }
-wasmer-llvm-backend = { path = "../llvm-backend", version = "0.5.4", optional = true }
-wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.5.4", optional = true }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.5.5" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.5.5" }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.5.5", optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.5.5", optional = true }
 
 [build-dependencies]
 wabt = "0.7.2"
