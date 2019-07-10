@@ -87,7 +87,9 @@ fn trap_if_not_representatable_as_int(
     };
 
     let (exponent, invalid_exponent) = {
-        let float_bits = builder.build_bitcast(value, int_ty, "float_bits").into_int_value();
+        let float_bits = builder
+            .build_bitcast(value, int_ty, "float_bits")
+            .into_int_value();
         let (shift_amount, exponent_mask, invalid_exponent) = match float_size {
             FloatSize::Bits32 => (23, 0b01111111100000000000000000000000, 0b11111111),
             FloatSize::Bits64 => (
