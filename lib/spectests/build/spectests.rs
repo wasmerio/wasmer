@@ -72,11 +72,13 @@ const TESTS: &[&str] = &[
     "spectests/typecheck.wast",
     "spectests/types.wast",
     "spectests/unwind.wast",
+    #[cfg(feature = "llvm")]
+    "spectests/simd.wast",
 ];
 
 static COMMON: &'static str = r##"
 use std::{{f32, f64}};
-use wabt::wat2wasm;
+use wabt::{{wat2wasm_with_features, Error as WabtError}};
 use wasmer_runtime_core::import::ImportObject;
 use wasmer_runtime_core::types::Value;
 use wasmer_runtime_core::{{Instance, module::Module}};
@@ -94,6 +96,14 @@ static IMPORT_MODULE: &str = r#"
   (memory $memory (export "memory") 1 2)
   (global $global_i32 (export "global_i32") i32 (i32.const 666)))
 "#;
+
+fn wat2wasm<S: AsRef<[u8]>>(
+    source: S,
+) -> Result<Vec<u8>, WabtError> {
+    let mut features = wabt::Features::new();
+    features.enable_simd();
+    wabt::wat2wasm_with_features(source, features)
+}
 
 #[cfg(feature = "clif")]
 fn get_compiler() -> impl Compiler {
@@ -291,7 +301,8 @@ impl WastTestGenerator {
     fn new(path: &PathBuf) -> Self {
         let filename = path.file_name().unwrap().to_str().unwrap();
         let source = fs::read(&path).unwrap();
-        let script: ScriptParser = ScriptParser::from_source_and_name(&source, filename).unwrap();
+        let script: ScriptParser = ScriptParser::from_source_and_name(&source, filename)
+            .expect(&format!("Failed to parse script {}", &filename));
         let buffer = String::new();
         WastTestGenerator {
             last_module: 0,
