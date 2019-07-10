@@ -75,8 +75,7 @@ fn splat_vector(
     // Use insert_element to insert the element into an undef vector, then use
     // shuffle vector to copy that lane to all lanes.
     builder.build_shuffle_vector(
-        builder
-            .build_insert_element(vec_ty.get_undef(), value, intrinsics.i32_zero, ""),
+        builder.build_insert_element(vec_ty.get_undef(), value, intrinsics.i32_zero, ""),
         vec_ty.get_undef(),
         intrinsics.i32_ty.vec_type(vec_ty.get_size()).const_zero(),
         name,
@@ -4182,8 +4181,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         .into_int_value();
                     let idx = builder.build_and(idx, intrinsics.i32_ty.const_int(15, false), "");
                     let elem = builder.build_extract_element(v1, idx, "");
-                    res = builder
-                        .build_insert_element(res, elem, intrinsics.i32_ty.const_int(i, false), "");
+                    res = builder.build_insert_element(
+                        res,
+                        elem,
+                        intrinsics.i32_ty.const_int(i, false),
+                        "",
+                    );
                 }
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, &state.var_name());
                 state.push1(res);
