@@ -15,10 +15,10 @@ wasmer-llvm-backend = { path = "../llvm-backend", version = "0.5.4", optional = 
 wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.5.4", optional = true }
 
 [build-dependencies]
-wabt = "0.7.2"
+wabt = "0.8.0"
 
 [dev-dependencies]
-wabt = "0.7.2"
+wabt = "0.8.0"
 
 [features]
 default = ["fast-tests"]

@@ -25,7 +25,7 @@ optional = true
 [dev-dependencies]
 tempfile = "3.0.7"
 criterion = "0.2"
-wabt = "0.7.4"
+wabt = "0.8.0"
 
 [target.'cfg(not(windows))'.dependencies.wasmer-llvm-backend]
 path = "../llvm-backend"
