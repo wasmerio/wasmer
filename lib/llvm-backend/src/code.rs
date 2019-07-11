@@ -78,22 +78,18 @@ fn trap_if_not_representatable_as_int(
     let continue_block = context.append_basic_block(function, "conversion_success_block");
 
     let float_ty = value.get_type();
-    let (int_ty, float_ptr_ty, float_size) = if float_ty == intrinsics.f32_ty {
-        (intrinsics.i32_ty, intrinsics.f32_ptr_ty, FloatSize::Bits32)
+    let (int_ty, float_size) = if float_ty == intrinsics.f32_ty {
+        (intrinsics.i32_ty, FloatSize::Bits32)
     } else if float_ty == intrinsics.f64_ty {
-        (intrinsics.i64_ty, intrinsics.f64_ptr_ty, FloatSize::Bits64)
+        (intrinsics.i64_ty, FloatSize::Bits64)
     } else {
         unreachable!()
     };
 
     let (exponent, invalid_exponent) = {
-        let float_bits = {
-            let space = builder.build_alloca(int_ty, "space");
-            let float_ptr = builder.build_pointer_cast(space, float_ptr_ty, "float_ptr");
-            builder.build_store(float_ptr, value);
-            builder.build_load(space, "float_bits").into_int_value()
-        };
-
+        let float_bits = builder
+            .build_bitcast(value, int_ty, "float_bits")
+            .into_int_value();
         let (shift_amount, exponent_mask, invalid_exponent) = match float_size {
             FloatSize::Bits32 => (23, 0b01111111100000000000000000000000, 0b11111111),
             FloatSize::Bits64 => (
@@ -1904,43 +1900,23 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I32ReinterpretF32 => {
                 let v = state.pop1()?;
-                let space =
-                    builder.build_alloca(intrinsics.i32_ty.as_basic_type_enum(), &state.var_name());
-                let f32_space =
-                    builder.build_pointer_cast(space, intrinsics.f32_ptr_ty, &state.var_name());
-                builder.build_store(f32_space, v);
-                let int = builder.build_load(space, &state.var_name());
-                state.push1(int);
+                let ret = builder.build_bitcast(v, intrinsics.i32_ty, &state.var_name());
+                state.push1(ret);
             }
             Operator::I64ReinterpretF64 => {
                 let v = state.pop1()?;
-                let space =
-                    builder.build_alloca(intrinsics.i64_ty.as_basic_type_enum(), &state.var_name());
-                let f64_space =
-                    builder.build_pointer_cast(space, intrinsics.f64_ptr_ty, &state.var_name());
-                builder.build_store(f64_space, v);
-                let int = builder.build_load(space, &state.var_name());
-                state.push1(int);
+                let ret = builder.build_bitcast(v, intrinsics.i64_ty, &state.var_name());
+                state.push1(ret);
             }
             Operator::F32ReinterpretI32 => {
                 let v = state.pop1()?;
-                let space =
-                    builder.build_alloca(intrinsics.f32_ty.as_basic_type_enum(), &state.var_name());
-                let i32_space =
-                    builder.build_pointer_cast(space, intrinsics.i32_ptr_ty, &state.var_name());
-                builder.build_store(i32_space, v);
-                let f = builder.build_load(space, &state.var_name());
-                state.push1(f);
+                let ret = builder.build_bitcast(v, intrinsics.f32_ty, &state.var_name());
+                state.push1(ret);
             }
             Operator::F64ReinterpretI64 => {
                 let v = state.pop1()?;
-                let space =
-                    builder.build_alloca(intrinsics.f64_ty.as_basic_type_enum(), &state.var_name());
-                let i64_space =
-                    builder.build_pointer_cast(space, intrinsics.i64_ptr_ty, &state.var_name());
-                builder.build_store(i64_space, v);
-                let f = builder.build_load(space, &state.var_name());
-                state.push1(f);
+                let ret = builder.build_bitcast(v, intrinsics.f64_ty, &state.var_name());
+                state.push1(ret);
             }
 
             /***************************

@@ -15,7 +15,7 @@ use structopt::StructOpt;
 
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
-#[cfg(feature = "backend:llvm")]
+#[cfg(feature = "backend-llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
@@ -27,7 +27,7 @@ use wasmer_runtime_core::{
     debug,
     loader::{Instance as LoadedInstance, LocalLoader},
 };
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
@@ -112,7 +112,7 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
-    #[cfg(feature = "backend:singlepass")]
+    #[cfg(feature = "backend-singlepass")]
     #[structopt(long = "resume")]
     resume: Option<String>,
 
@@ -315,14 +315,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     let compiler: Box<dyn Compiler> = match options.backend {
-        #[cfg(feature = "backend:singlepass")]
+        #[cfg(feature = "backend-singlepass")]
         Backend::Singlepass => Box::new(SinglePassCompiler::new()),
-        #[cfg(not(feature = "backend:singlepass"))]
+        #[cfg(not(feature = "backend-singlepass"))]
         Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        #[cfg(feature = "backend:llvm")]
+        #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
-        #[cfg(not(feature = "backend:llvm"))]
+        #[cfg(not(feature = "backend-llvm"))]
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
@@ -501,7 +501,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
-            #[cfg(feature = "backend:singlepass")]
+            #[cfg(feature = "backend-singlepass")]
             unsafe {
                 if options.backend == Backend::Singlepass {
                     use wasmer_runtime_core::fault::{catch_unsafe_unwind, ensure_sighandler};
@@ -608,18 +608,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 struct InteractiveShellContext {
     image: Option<wasmer_runtime_core::state::InstanceImage>,
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 #[derive(Debug)]
 enum ShellExitOperation {
     ContinueWith(wasmer_runtime_core::state::InstanceImage),
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     use std::io::Write;
 
