@@ -365,12 +365,12 @@ wasmer_download() {
 
   # determine install directory if required
   if [ -z "$INSTALL_DIRECTORY" ]; then
-      # If WASMER_DIR is present
       if [ -z "$WASMER_DIR" ]; then
-          INSTALL_DIRECTORY=WASMER_DIR
-      else
-          # findWasmerBinDirectory INSTALL_DIRECTORY
+          # If WASMER_DIR is not present
           INSTALL_DIRECTORY="$HOME/.wasmer"
+      else
+          # If WASMER_DIR is present
+          INSTALL_DIRECTORY=WASMER_DIR
       fi
   fi
 
