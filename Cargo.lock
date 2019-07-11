@@ -1432,7 +1432,7 @@ dependencies = [
  "wasmer-clif-fork-frontend 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-fork-wasm 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.5.5",
- "wasmer-win-exception-handler 0.5.4",
+ "wasmer-win-exception-handler 0.5.5",
  "wasmparser 0.32.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
