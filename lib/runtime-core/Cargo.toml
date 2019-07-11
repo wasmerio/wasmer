@@ -8,7 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-nix = "0.12.0"
+nix = "0.14.0"
 page_size = "0.4.1"
 wasmparser = "0.32.1"
 parking_lot = "0.7.1"
