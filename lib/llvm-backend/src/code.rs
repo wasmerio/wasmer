@@ -60,102 +60,37 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
     }
 }
 
-fn trap_if_not_representatable_as_int(
+fn trap_if_not_representable_as_int(
     builder: &Builder,
     intrinsics: &Intrinsics,
     context: &Context,
     function: &FunctionValue,
-    lower_bounds: f64,
+    lower_bound: f64,
     upper_bound: f64,
     value: FloatValue,
 ) {
-    enum FloatSize {
-        Bits32,
-        Bits64,
-    }
+    let float_ty = value.get_type();
+
+    let lower_bound = float_ty.const_float(lower_bound);
+    let upper_bound = float_ty.const_float(upper_bound);
+
+    // The 'U' in the float predicate is short for "unordered" which means that
+    // the comparison will compare true if either operand is a NaN. Thus, NaNs
+    // are out of bounds.
+    let above_upper_bound_cmp =
+        builder.build_float_compare(FloatPredicate::UGT, value, upper_bound, "above_upper_bound");
+    let below_lower_bound_cmp =
+        builder.build_float_compare(FloatPredicate::ULT, value, lower_bound, "below_lower_bound");
+    let out_of_bounds = builder.build_or(
+        above_upper_bound_cmp,
+        below_lower_bound_cmp,
+        "out_of_bounds",
+    );
 
     let failure_block = context.append_basic_block(function, "conversion_failure_block");
     let continue_block = context.append_basic_block(function, "conversion_success_block");
 
-    let float_ty = value.get_type();
-    let (int_ty, float_size) = if float_ty == intrinsics.f32_ty {
-        (intrinsics.i32_ty, FloatSize::Bits32)
-    } else if float_ty == intrinsics.f64_ty {
-        (intrinsics.i64_ty, FloatSize::Bits64)
-    } else {
-        unreachable!()
-    };
-
-    let (exponent, invalid_exponent) = {
-        let float_bits = builder
-            .build_bitcast(value, int_ty, "float_bits")
-            .into_int_value();
-        let (shift_amount, exponent_mask, invalid_exponent) = match float_size {
-            FloatSize::Bits32 => (23, 0b01111111100000000000000000000000, 0b11111111),
-            FloatSize::Bits64 => (
-                52,
-                0b0111111111110000000000000000000000000000000000000000000000000000,
-                0b11111111111,
-            ),
-        };
-
-        builder.build_and(
-            float_bits,
-            int_ty.const_int(exponent_mask, false),
-            "masked_bits",
-        );
-
-        (
-            builder.build_right_shift(
-                float_bits,
-                int_ty.const_int(shift_amount, false),
-                false,
-                "exponent",
-            ),
-            invalid_exponent,
-        )
-    };
-
-    let is_invalid_float = builder.build_or(
-        builder.build_int_compare(
-            IntPredicate::EQ,
-            exponent,
-            int_ty.const_int(invalid_exponent, false),
-            "is_not_normal",
-        ),
-        builder.build_or(
-            builder.build_float_compare(
-                FloatPredicate::ULT,
-                value,
-                float_ty.const_float(lower_bounds),
-                "less_than_lower_bounds",
-            ),
-            builder.build_float_compare(
-                FloatPredicate::UGT,
-                value,
-                float_ty.const_float(upper_bound),
-                "greater_than_upper_bounds",
-            ),
-            "float_not_in_bounds",
-        ),
-        "is_invalid_float",
-    );
-
-    let is_invalid_float = builder
-        .build_call(
-            intrinsics.expect_i1,
-            &[
-                is_invalid_float.as_basic_value_enum(),
-                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
-            ],
-            "is_invalid_float_expect",
-        )
-        .try_as_basic_value()
-        .left()
-        .unwrap()
-        .into_int_value();
-
-    builder.build_conditional_branch(is_invalid_float, &failure_block, &continue_block);
+    builder.build_conditional_branch(out_of_bounds, &failure_block, &continue_block);
     builder.position_at_end(&failure_block);
     builder.build_call(
         intrinsics.throw_trap,
@@ -1722,7 +1657,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I32TruncSF32 => {
                 let v1 = state.pop1()?.into_float_value();
-                trap_if_not_representatable_as_int(
+                trap_if_not_representable_as_int(
                     builder,
                     intrinsics,
                     context,
@@ -1737,7 +1672,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I32TruncSF64 => {
                 let v1 = state.pop1()?.into_float_value();
-                trap_if_not_representatable_as_int(
+                trap_if_not_representable_as_int(
                     builder,
                     intrinsics,
                     context,
@@ -1758,7 +1693,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I64TruncSF32 => {
                 let v1 = state.pop1()?.into_float_value();
-                trap_if_not_representatable_as_int(
+                trap_if_not_representable_as_int(
                     builder,
                     intrinsics,
                     context,
@@ -1773,7 +1708,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I64TruncSF64 => {
                 let v1 = state.pop1()?.into_float_value();
-                trap_if_not_representatable_as_int(
+                trap_if_not_representable_as_int(
                     builder,
                     intrinsics,
                     context,
@@ -1794,7 +1729,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I32TruncUF32 => {
                 let v1 = state.pop1()?.into_float_value();
-                trap_if_not_representatable_as_int(
+                trap_if_not_representable_as_int(
                     builder,
                     intrinsics,
                     context,
@@ -1809,7 +1744,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I32TruncUF64 => {
                 let v1 = state.pop1()?.into_float_value();
-                trap_if_not_representatable_as_int(
+                trap_if_not_representable_as_int(
                     builder,
                     intrinsics,
                     context,
@@ -1830,7 +1765,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I64TruncUF32 => {
                 let v1 = state.pop1()?.into_float_value();
-                trap_if_not_representatable_as_int(
+                trap_if_not_representable_as_int(
                     builder,
                     intrinsics,
                     context,
@@ -1845,7 +1780,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I64TruncUF64 => {
                 let v1 = state.pop1()?.into_float_value();
-                trap_if_not_representatable_as_int(
+                trap_if_not_representable_as_int(
                     builder,
                     intrinsics,
                     context,
