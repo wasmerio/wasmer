@@ -2583,13 +2583,19 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         if cfg!(test) {
             pass_manager.add_verifier_pass();
         }
-        pass_manager.add_function_inlining_pass();
-        pass_manager.add_promote_memory_to_register_pass();
+        pass_manager.add_lower_expect_intrinsic_pass();
+        pass_manager.add_scalar_repl_aggregates_pass();
+        pass_manager.add_instruction_combining_pass();
         pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_aggressive_inst_combiner_pass();
-        pass_manager.add_merged_load_store_motion_pass();
-        pass_manager.add_new_gvn_pass();
-        pass_manager.add_aggressive_dce_pass();
+        pass_manager.add_gvn_pass();
+        pass_manager.add_jump_threading_pass();
+        pass_manager.add_correlated_value_propagation_pass();
+        pass_manager.add_sccp_pass();
+        pass_manager.add_instruction_combining_pass();
+        pass_manager.add_reassociate_pass();
+        pass_manager.add_cfg_simplification_pass();
+        pass_manager.add_bit_tracking_dce_pass();
+        pass_manager.add_slp_vectorize_pass();
         pass_manager.run_on_module(&self.module);
 
         // self.module.print_to_stderr();
