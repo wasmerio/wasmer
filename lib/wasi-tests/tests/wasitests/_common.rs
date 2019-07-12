@@ -54,9 +54,10 @@ macro_rules! assert_wasi_output {
         let expected_output = include_str!($expected);
 
         assert!(
-            assert_cond,
+            output.contains(expected_output),
             "Output: `{}` does not contain expected output: `{}`",
-            output, expected_output
+            output,
+            expected_output
         );
     }};
 }
