@@ -111,7 +111,13 @@ impl ModuleStateMap {
                 .unwrap();
 
             match fsm.call_offsets.get(&(ip - base)) {
-                Some(x) => Some((fsm, fsm.diffs[x.diff_id].build_state(fsm))),
+                Some(x) => {
+                    if x.diff_id < fsm.diffs.len() {
+                        Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
+                    } else {
+                        None
+                    }
+                }
                 None => None,
             }
         }
@@ -132,7 +138,13 @@ impl ModuleStateMap {
                 .unwrap();
 
             match fsm.trappable_offsets.get(&(ip - base)) {
-                Some(x) => Some((fsm, fsm.diffs[x.diff_id].build_state(fsm))),
+                Some(x) => {
+                    if x.diff_id < fsm.diffs.len() {
+                        Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
+                    } else {
+                        None
+                    }
+                }
                 None => None,
             }
         }
@@ -149,7 +161,13 @@ impl ModuleStateMap {
                 .unwrap();
 
             match fsm.loop_offsets.get(&(ip - base)) {
-                Some(x) => Some((fsm, fsm.diffs[x.diff_id].build_state(fsm))),
+                Some(x) => {
+                    if x.diff_id < fsm.diffs.len() {
+                        Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
+                    } else {
+                        None
+                    }
+                }
                 None => None,
             }
         }
