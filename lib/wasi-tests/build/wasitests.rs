@@ -32,7 +32,6 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     };
 
     Command::new("rustc")
-        .arg("+nightly")
         .arg(file)
         .arg("-o")
         .arg(&normalized_name)
