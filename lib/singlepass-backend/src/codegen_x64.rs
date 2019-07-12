@@ -2417,7 +2417,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc_b,
                 );
                 a.emit_jmp(Condition::NotEqual, normal_path);
-                a.emit_mov(Size::S64, Location::Imm64(0), ret);
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    Location::Imm64(0),
+                    ret,
+                );
                 a.emit_jmp(Condition::None, end);
 
                 a.emit_label(normal_path);
@@ -4531,9 +4538,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, m, addr| {
                         match ret {
                             Location::GPR(_) => {}
-                            _ => {
-                                a.emit_mov(Size::S64, Location::Imm64(0), ret);
+                            Location::Memory(base, offset) => {
+                                a.emit_mov(
+                                    Size::S32,
+                                    Location::Imm32(0),
+                                    Location::Memory(base, offset + 4),
+                                ); // clear upper bits
                             }
+                            _ => unreachable!(),
                         }
                         Self::emit_relaxed_binop(
                             a,
