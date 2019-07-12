@@ -317,6 +317,7 @@ pub struct CodegenError {
 struct CodegenConfig {
     memory_bound_check_mode: MemoryBoundCheckMode,
     enforce_stack_check: bool,
+    track_state: bool,
 }
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
@@ -366,7 +367,8 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
         begin_label_info.1 = Some(begin_offset);
         let begin_label = begin_label_info.0;
-        let machine = Machine::new();
+        let mut machine = Machine::new();
+        machine.track_state = self.config.as_ref().unwrap().track_state;
 
         dynasm!(
             assembler
@@ -532,6 +534,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         self.config = Some(Arc::new(CodegenConfig {
             memory_bound_check_mode: config.memory_bound_check_mode,
             enforce_stack_check: config.enforce_stack_check,
+            track_state: config.track_state,
         }));
         Ok(())
     }
@@ -1594,6 +1597,9 @@ impl X64FunctionCode {
         fsm: &mut FunctionStateMap,
         control_stack: &mut [ControlFrame],
     ) -> usize {
+        if !m.track_state {
+            return ::std::usize::MAX;
+        }
         let last_frame = control_stack.last_mut().unwrap();
         let mut diff = m.state.diff(&last_frame.state);
         diff.last = Some(last_frame.state_diff_id);
