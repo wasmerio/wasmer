@@ -641,6 +641,13 @@ impl X64FunctionCode {
             BothToGPR,
         }
         let mode = match (src, dst) {
+            (Location::GPR(_), Location::GPR(_))
+                if (op as *const u8 == Assembler::emit_imul as *const u8) =>
+            {
+                RelaxMode::Direct
+            }
+            _ if (op as *const u8 == Assembler::emit_imul as *const u8) => RelaxMode::BothToGPR,
+
             (Location::Memory(_, _), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
             (Location::Imm64(_), Location::Imm64(_)) | (Location::Imm64(_), Location::Imm32(_)) => {
                 RelaxMode::BothToGPR
@@ -653,7 +660,6 @@ impl X64FunctionCode {
                 RelaxMode::SrcToGPR
             }
             (_, Location::XMM(_)) => RelaxMode::SrcToGPR,
-            _ if (op as *const u8 == Assembler::emit_imul as *const u8) => RelaxMode::BothToGPR, // TODO: optimize this
             _ => RelaxMode::Direct,
         };
 
