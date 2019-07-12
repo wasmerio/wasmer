@@ -1608,7 +1608,29 @@ pub fn path_readlink(
     buf_used: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::path_readlink");
-    unimplemented!("wasi::path_readlink")
+    let state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
+    let base_dir = wasi_try!(state.fs.fd_map.get(&dir_fd).ok_or(__WASI_EBADF));
+    let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let result = wasi_try!(std::fs::read_link(path_str).ok().ok_or(__WASI_EIO));
+    let result_path_as_str = result.to_string_lossy();
+    let bytes = result_path_as_str.bytes();
+    if bytes.len() < buf_len as usize {
+        return __WASI_EOVERFLOW;
+    }
+
+    let out = wasi_try!(buf.deref(memory, 0, buf_len));
+    let mut bytes_written = 0;
+    for b in bytes {
+        out[bytes_written].set(b);
+        bytes_written += 1;
+    }
+
+    let bytes_out = wasi_try!(buf_used.deref(memory));
+    bytes_out.set(bytes_written as u32);
+
+    __WASI_ESUCCESS
 }
 
 pub fn path_remove_directory(
