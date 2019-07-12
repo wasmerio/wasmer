@@ -370,7 +370,7 @@ wasmer_download() {
           INSTALL_DIRECTORY="$HOME/.wasmer"
       else
           # If WASMER_DIR is present
-          INSTALL_DIRECTORY=WASMER_DIR
+          INSTALL_DIRECTORY="${WASMER_DIR}"
       fi
   fi
 
