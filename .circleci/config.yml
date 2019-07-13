@@ -170,6 +170,7 @@ jobs:
       - run:
           name: Check
           command: |
+            export PATH="$HOME/.cargo/bin:$PATH"
             make check
       - run:
           name: Release
