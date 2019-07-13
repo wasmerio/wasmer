@@ -112,6 +112,10 @@ jobs:
           command: |
             cargo check --features "debug" --release
       - run:
+          name: Check
+          command: |
+            make check
+      - run:
           name: Release
           command: make release-fast
       - run:
@@ -163,6 +167,11 @@ jobs:
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
+      - run:
+          name: Check
+          command: |
+            export PATH="$HOME/.cargo/bin:$PATH"
+            make check
       - run:
           name: Release
           command: |
