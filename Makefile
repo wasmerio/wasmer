@@ -117,6 +117,9 @@ debug:
 install:
 	cargo install --path .
 
+check:
+	cargo check --release --features backend-singlepass,backend-llvm,loader:kernel
+
 release:
 	cargo build --release --features backend-singlepass,backend-llvm,loader:kernel
 
