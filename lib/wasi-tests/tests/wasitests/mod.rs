@@ -9,6 +9,7 @@ mod create_dir;
 mod envvar;
 mod file_metadata;
 mod fs_sandbox_test;
+mod fseek;
 mod hello;
 mod mapdir;
 mod quine;
