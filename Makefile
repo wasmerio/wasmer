@@ -117,8 +117,11 @@ debug:
 install:
 	cargo install --path .
 
+check:
+	cargo check --release --features backend-singlepass,backend-llvm,loader-kernel
+
 release:
-	cargo build --release --features backend-singlepass,backend-llvm,loader:kernel
+	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
 
 # Only one backend (cranelift)
 release-fast:
