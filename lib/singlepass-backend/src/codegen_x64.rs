@@ -1775,7 +1775,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             .unwrap()
                             .insert(a.get_offset(), callback);
                     }
-                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {},
+                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {}
                     InternalEvent::GetInternal(idx) => {
                         let idx = idx as usize;
                         assert!(idx < INTERNALS_SIZE);
@@ -1826,7 +1826,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             ),
                             Location::GPR(tmp),
                         );
-                        let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                        let loc = get_location_released(
+                            a,
+                            &mut self.machine,
+                            self.value_stack.pop().unwrap(),
+                        );
 
                         // Move internal into storage.
                         Self::emit_relaxed_binop(
@@ -1838,8 +1842,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(tmp, (idx * 8) as i32),
                         );
                         self.machine.release_temp_gpr(tmp);
-                    }
-                    //_ => unimplemented!(),
+                    } //_ => unimplemented!(),
                 }
                 return Ok(());
             }
