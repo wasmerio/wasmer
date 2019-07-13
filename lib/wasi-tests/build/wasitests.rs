@@ -84,7 +84,7 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         out_str.push_str("vec![");
         for (alias, real_dir) in args.mapdir {
             out_str.push_str(&format!(
-                "(\"{}\".to_string(), \"{}\".to_string()),",
+                "(\"{}\".to_string(), ::std::path::PathBuf::from(\"{}\")),",
                 alias, real_dir
             ));
         }
