@@ -67,7 +67,7 @@ rustc_version = "0.2.3"
 
 [features]
 default = ["fast-tests", "wasi"]
-"loader:kernel" = ["wasmer-kernel-loader"]
+"loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
