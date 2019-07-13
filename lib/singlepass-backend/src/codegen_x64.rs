@@ -317,6 +317,7 @@ pub struct CodegenError {
 struct CodegenConfig {
     memory_bound_check_mode: MemoryBoundCheckMode,
     enforce_stack_check: bool,
+    track_state: bool,
 }
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
@@ -366,7 +367,8 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
         begin_label_info.1 = Some(begin_offset);
         let begin_label = begin_label_info.0;
-        let machine = Machine::new();
+        let mut machine = Machine::new();
+        machine.track_state = self.config.as_ref().unwrap().track_state;
 
         dynasm!(
             assembler
@@ -532,6 +534,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         self.config = Some(Arc::new(CodegenConfig {
             memory_bound_check_mode: config.memory_bound_check_mode,
             enforce_stack_check: config.enforce_stack_check,
+            track_state: config.track_state,
         }));
         Ok(())
     }
@@ -1594,6 +1597,9 @@ impl X64FunctionCode {
         fsm: &mut FunctionStateMap,
         control_stack: &mut [ControlFrame],
     ) -> usize {
+        if !m.track_state {
+            return ::std::usize::MAX;
+        }
         let last_frame = control_stack.last_mut().unwrap();
         let mut diff = m.state.diff(&last_frame.state);
         diff.last = Some(last_frame.state_diff_id);
@@ -2411,7 +2417,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc_b,
                 );
                 a.emit_jmp(Condition::NotEqual, normal_path);
-                a.emit_mov(Size::S64, Location::Imm64(0), ret);
+                Self::emit_relaxed_binop(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_mov,
+                    Size::S64,
+                    Location::Imm64(0),
+                    ret,
+                );
                 a.emit_jmp(Condition::None, end);
 
                 a.emit_label(normal_path);
@@ -4525,9 +4538,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, m, addr| {
                         match ret {
                             Location::GPR(_) => {}
-                            _ => {
-                                a.emit_mov(Size::S64, Location::Imm64(0), ret);
+                            Location::Memory(base, offset) => {
+                                a.emit_mov(
+                                    Size::S32,
+                                    Location::Imm32(0),
+                                    Location::Memory(base, offset + 4),
+                                ); // clear upper bits
                             }
+                            _ => unreachable!(),
                         }
                         Self::emit_relaxed_binop(
                             a,

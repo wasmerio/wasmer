@@ -117,6 +117,7 @@ pub struct CompilerConfig {
     pub symbol_map: Option<HashMap<u32, String>>,
     pub memory_bound_check_mode: MemoryBoundCheckMode,
     pub enforce_stack_check: bool,
+    pub track_state: bool,
 }
 
 pub trait Compiler {
