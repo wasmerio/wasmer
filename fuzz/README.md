@@ -1,0 +1,38 @@
+This directory contains the fuzz tests for wasmer. To fuzz, we use the `cargo-fuzz` package.
+
+## Installation
+
+You may need to install the `cargo-fuzz` package to get the `cargo fuzz` subcommand. Use
+
+```sh
+$ cargo install cargo-fuzz
+```
+
+`cargo-fuzz` is documented in the [Rust Fuzz Book](https://rust-fuzz.github.io/book/cargo-fuzz.html).
+
+## Running a fuzzer
+
+Once `cargo-fuzz` is installed, you can run the `simple_instantiate` fuzzer with
+```sh
+cargo fuzz run simple_instantiate
+```
+
+You should see output that looks something like this:
+
+```
+INFO: Seed: 3276026494
+INFO:        8 files found in wasmer/fuzz/corpus/simple_instantiate
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
+INFO: seed corpus: files: 8 min: 1b max: 1b total: 8b rss: 133Mb
+#9      INITED ft: 3 corp: 3/3b lim: 4 exec/s: 0 rss: 142Mb
+#23     NEW    ft: 4 corp: 4/5b lim: 4 exec/s: 0 rss: 142Mb L: 2/2 MS: 4 ChangeByte-InsertByte-ShuffleBytes-ChangeBit-
+#25     NEW    ft: 5 corp: 5/6b lim: 4 exec/s: 0 rss: 142Mb L: 1/2 MS: 2 ChangeBinInt-ChangeBit-
+#27     NEW    ft: 6 corp: 6/9b lim: 4 exec/s: 0 rss: 142Mb L: 3/3 MS: 2 InsertByte-ChangeByte-
+#190    REDUCE ft: 6 corp: 6/7b lim: 4 exec/s: 0 rss: 142Mb L: 1/2 MS: 3 ChangeBit-EraseBytes-CrossOver-
+#205    REDUCE ft: 7 corp: 7/11b lim: 4 exec/s: 0 rss: 142Mb L: 4/4 MS: 5 ShuffleBytes-CrossOver-InsertByte-ChangeBinInt-CrossOver-
+```
+It will continue to generate random inputs forever, until it finds a bug or is terminated. The testcases for bugs it finds go into `fuzz/artifacts/simple_instantiate` and you can rerun the fuzzer on a single input by passing it on the command line `cargo fuzz run simple_instantiate my_testcase.wasm`.
+
+## Trophy case
+
+- [x] https://github.com/wasmerio/wasmer/issues/558
