@@ -1,0 +1,21 @@
+
+[package]
+name = "wasmer-fuzz"
+version = "0.0.1"
+authors = ["Automatically generated"]
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+wasmer-runtime = { path = "../lib/runtime" }
+libfuzzer-sys = { git = "https://github.com/rust-fuzz/libfuzzer-sys.git" }
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "simple_instantiate"
+path = "fuzz_targets/simple_instantiate.rs"
