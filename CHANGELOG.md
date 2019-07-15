@@ -5,7 +5,25 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
-- [#513](https://github.com/wasmerio/wasmer/pull/510) Fix emscripten lseek implementation.
+- [#554](https://github.com/wasmerio/wasmer/pull/554) Finish implementation of `wasi::fd_seek`, fix bug in filestat
+
+## 0.5.5
+- [#541](https://github.com/wasmerio/wasmer/pull/541) Fix dependency graph by making separate test crates; ABI implementations should not depend on compilers. Add Cranelift fork as git submodule of clif-backend
+- [#537](https://github.com/wasmerio/wasmer/pull/537) Add hidden flag (`--cache-key`) to use prehashed key into the compiled wasm cache and change compiler backend-specific caching to use directories
+- [#536](https://github.com/wasmerio/wasmer/pull/536) ~Update cache to use compiler backend name in cache key~
+
+## 0.5.4
+- [#529](https://github.com/wasmerio/wasmer/pull/529) Updates the Wasm Interface library, which is used by wapm, with bug fixes and error message improvements
+
+## 0.5.3
+- [#523](https://github.com/wasmerio/wasmer/pull/523) Update wapm version to fix bug related to signed packages in the global namespace and locally-stored public keys
+
+## 0.5.2 - 2019-07-02
+- [#521](https://github.com/wasmerio/wasmer/pull/521) Update Wapm-cli, bump version numbers
+- [#518](https://github.com/wasmerio/wasmer/pull/518) Update Cranelift and WasmParser
+- [#514](https://github.com/wasmerio/wasmer/pull/514) [#519](https://github.com/wasmerio/wasmer/pull/519) Improved Emscripten network related calls, added a null check to `WasmPtr`
+- [#515](https://github.com/wasmerio/wasmer/pull/515) Improved Emscripten dyncalls
+- [#513](https://github.com/wasmerio/wasmer/pull/513) Fix emscripten lseek implementation.
 - [#510](https://github.com/wasmerio/wasmer/pull/510) Simplify construction of floating point constants in LLVM backend. Fix LLVM assertion failure due to definition of %ctx.
 
 ## 0.5.1 - 2019-06-24

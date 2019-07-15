@@ -2,7 +2,7 @@ use wasmer_runtime_core::{
     codegen::{Event, EventSink, FunctionMiddleware, InternalEvent},
     module::ModuleInfo,
     vm::{Ctx, InternalField},
-    wasmparser::{Operator, Type as WpType},
+    wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType},
     Instance,
 };
 
@@ -92,13 +92,11 @@ impl FunctionMiddleware for Metering {
                         }));
                         sink.push(Event::WasmOwned(Operator::I64GeU));
                         sink.push(Event::WasmOwned(Operator::If {
-                            ty: WpType::EmptyBlockType,
+                            ty: WpTypeOrFuncType::Type(WpType::EmptyBlockType),
                         }));
-                        sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
-                            move |ctx| unsafe {
-                                (ctx.throw)(Box::new(ExecutionLimitExceededError));
-                            },
-                        ))));
+                        sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(|_| {
+                            Err(Box::new(ExecutionLimitExceededError))
+                        }))));
                         sink.push(Event::WasmOwned(Operator::End));
                     }
                     _ => {}

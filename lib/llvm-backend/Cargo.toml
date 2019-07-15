@@ -1,18 +1,18 @@
 [package]
 name = "wasmer-llvm-backend"
-version = "0.5.1"
+version = "0.5.5"
 authors = ["Lachlan Sneff <lachlan.sneff@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.5.1" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.5.5" }
 inkwell = { git = "https://github.com/wasmerio/inkwell", branch = "llvm7-0" }
-wasmparser = "0.29.2"
+wasmparser = "0.32.1"
 hashbrown = "0.1.8"
 smallvec = "0.6.8"
 goblin = "0.0.20"
 libc = "0.2.49"
-nix = "0.13.0"
+nix = "0.14.0"
 capstone = { version = "0.5.0", optional = true }
 
 [build-dependencies]

@@ -93,6 +93,7 @@ pub fn read_module<
                 enable_reference_types: false,
                 enable_simd: false,
                 enable_bulk_memory: false,
+                enable_multi_value: false,
             },
             mutable_global_imports: false,
         }),
@@ -222,13 +223,6 @@ pub fn read_module<
                 let fcg = mcg
                     .next_function(Arc::clone(&info))
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                middlewares
-                    .run(
-                        Some(fcg),
-                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
-                        &info.read().unwrap(),
-                    )
-                    .map_err(|x| LoadError::Codegen(x))?;
 
                 let info_read = info.read().unwrap();
                 let sig = info_read
@@ -270,6 +264,13 @@ pub fn read_module<
                                 body_begun = true;
                                 fcg.begin_body(&info.read().unwrap())
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                                middlewares
+                                    .run(
+                                        Some(fcg),
+                                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
+                                        &info.read().unwrap(),
+                                    )
+                                    .map_err(|x| LoadError::Codegen(x))?;
                             }
                             middlewares
                                 .run(Some(fcg), Event::Wasm(op), &info.read().unwrap())

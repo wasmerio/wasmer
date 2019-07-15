@@ -24,7 +24,9 @@ pub fn is_emscripten_module(module: &Module) -> bool {
             .namespace_table
             .get(import_name.namespace_index);
         let field = module.info().name_table.get(import_name.name_index);
-        if field == "_emscripten_memcpy_big" && namespace == "env" {
+        if (field == "_emscripten_memcpy_big" || field == "emscripten_memcpy_big")
+            && namespace == "env"
+        {
             return true;
         }
     }
@@ -36,9 +38,9 @@ pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
     (table.minimum, table.maximum)
 }
 
-pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
+pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>, bool) {
     let (_, memory) = &module.info().imported_memories[ImportedMemoryIndex::new(0)];
-    (memory.minimum, memory.maximum)
+    (memory.minimum, memory.maximum, memory.shared)
 }
 
 /// Reads values written by `-s EMIT_EMSCRIPTEN_METADATA=1`
@@ -110,6 +112,8 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
 pub unsafe fn allocate_on_stack<'a, T: Copy>(ctx: &'a mut Ctx, count: u32) -> (u32, &'a mut [T]) {
     let offset = get_emscripten_data(ctx)
         .stack_alloc
+        .as_ref()
+        .unwrap()
         .call(count * (size_of::<T>() as u32))
         .unwrap();
     let addr = emscripten_memory_pointer!(ctx.memory(0), offset) as *mut T;
@@ -258,58 +262,4 @@ pub fn get_current_directory(ctx: &mut Ctx) -> Option<PathBuf> {
             }
         })
         .ok()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_emscripten_module;
-    use std::sync::Arc;
-    use wabt::wat2wasm;
-    use wasmer_runtime_core::backend::Compiler;
-    use wasmer_runtime_core::compile_with;
-
-    #[cfg(feature = "clif")]
-    fn get_compiler() -> impl Compiler {
-        use wasmer_clif_backend::CraneliftCompiler;
-        CraneliftCompiler::new()
-    }
-
-    #[cfg(feature = "llvm")]
-    fn get_compiler() -> impl Compiler {
-        use wasmer_llvm_backend::LLVMCompiler;
-        LLVMCompiler::new()
-    }
-
-    #[cfg(feature = "singlepass")]
-    fn get_compiler() -> impl Compiler {
-        use wasmer_singlepass_backend::SinglePassCompiler;
-        SinglePassCompiler::new()
-    }
-
-    #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
-    fn get_compiler() -> impl Compiler {
-        panic!("compiler not specified, activate a compiler via features");
-        use wasmer_clif_backend::CraneliftCompiler;
-        CraneliftCompiler::new()
-    }
-
-    #[test]
-    fn should_detect_emscripten_files() {
-        const WAST_BYTES: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
-        let wasm_binary = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert to wasm");
-        let module =
-            compile_with(&wasm_binary[..], &get_compiler()).expect("WASM can't be compiled");
-        let module = Arc::new(module);
-        assert!(is_emscripten_module(&module));
-    }
-
-    #[test]
-    fn should_detect_non_emscripten_files() {
-        const WAST_BYTES: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
-        let wasm_binary = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert to wasm");
-        let module =
-            compile_with(&wasm_binary[..], &get_compiler()).expect("WASM can't be compiled");
-        let module = Arc::new(module);
-        assert!(!is_emscripten_module(&module));
-    }
 }

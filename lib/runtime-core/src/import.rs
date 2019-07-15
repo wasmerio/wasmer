@@ -46,7 +46,7 @@ impl IsExport for Export {
 /// ```
 pub struct ImportObject {
     map: Rc<RefCell<HashMap<String, Box<dyn LikeNamespace>>>>,
-    state_creator: Option<Rc<Fn() -> (*mut c_void, fn(*mut c_void))>>,
+    pub(crate) state_creator: Option<Rc<Fn() -> (*mut c_void, fn(*mut c_void))>>,
     pub allow_missing_functions: bool,
 }
 
@@ -188,6 +188,13 @@ impl Namespace {
         E: IsExport + 'static,
     {
         self.map.insert(name.into(), Box::new(export))
+    }
+
+    pub fn contains_key<S>(&mut self, key: S) -> bool
+    where
+        S: Into<String>,
+    {
+        self.map.contains_key(&key.into())
     }
 }
 

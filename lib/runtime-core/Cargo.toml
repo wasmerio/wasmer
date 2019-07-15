@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.5.1"
+version = "0.5.5"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -8,9 +8,9 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-nix = "0.12.0"
+nix = "0.14.0"
 page_size = "0.4.1"
-wasmparser = "0.29.2"
+wasmparser = "0.32.1"
 parking_lot = "0.7.1"
 lazy_static = "1.2.0"
 indexmap = "1.0.2"
@@ -18,6 +18,8 @@ errno = "0.2.4"
 libc = "0.2.49"
 hex = "0.3.2"
 smallvec = "0.6.9"
+bincode = "1.1"
+colored = "1.8"
 
 # Dependencies for caching.
 [dependencies.serde]
@@ -47,7 +49,11 @@ field-offset = "0.1.1"
 [build-dependencies]
 blake2b_simd = "0.4.1"
 rustc_version = "0.2.3"
+cc = "1.0"
 
 [features]
 debug = []
 trace = ["debug"]
+# backend flags used in conditional compilation of Backend::variants
+"backend-singlepass" = []
+"backend-llvm" = []

@@ -1,0 +1,29 @@
+[package]
+name = "wasmer-wasi-tests"
+version = "0.5.5"
+description = "Tests for our WASI implementation"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+publish = false
+build = "build/mod.rs"
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.5.5" }
+wasmer-wasi = { path = "../wasi", version = "0.5.5" }
+# hack to get tests to work
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.5.5", optional = true }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.5.5", optional = true }
+
+
+[build-dependencies]
+glob = "0.2.11"
+
+[dev-dependencies]
+wasmer-clif-backend = { path = "../clif-backend", version = "0.5.5" }
+wasmer-dev-utils = { path = "../dev-utils", version = "0.5.5"}
+
+[features]
+clif = []
+singlepass = ["wasmer-singlepass-backend"]
+llvm = ["wasmer-llvm-backend"]

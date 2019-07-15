@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-clif-backend"
-version = "0.5.1"
+version = "0.5.5"
 description = "Wasmer runtime Cranelift compiler backend"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -8,17 +8,17 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.5.1" }
-cranelift-native = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
-cranelift-codegen = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
-cranelift-entity = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
-cranelift-frontend = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
-cranelift-wasm = { git = "https://github.com/wasmerio/cranelift.git", rev = "84ec31b0fdfc10db491ef950815ee2961db057cb" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.5.5" }
+cranelift-native = { version = "0.31" }
+cranelift-codegen = { version = "0.31" }
+cranelift-entity = { version = "0.31" }
+cranelift-frontend = { package = "wasmer-clif-fork-frontend", version = "0.31" }
+cranelift-wasm = { package = "wasmer-clif-fork-wasm", version = "0.31" }
 hashbrown = "0.1"
 target-lexicon = "0.4.0"
-wasmparser = "0.29.2"
+wasmparser = "0.32.1"
 byteorder = "1"
-nix = "0.13.0"
+nix = "0.14.0"
 libc = "0.2.49"
 rayon = "1.0"
 
@@ -34,7 +34,7 @@ version = "0.0.7"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["errhandlingapi", "minwindef", "minwinbase", "winnt"] }
-wasmer-win-exception-handler = { path = "../win-exception-handler", version = "0.5.1" }
+wasmer-win-exception-handler = { path = "../win-exception-handler", version = "0.5.5" }
 
 [features]
 debug = ["wasmer-runtime-core/debug"]

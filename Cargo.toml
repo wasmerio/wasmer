@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.5.1"
+version = "0.5.5"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -35,6 +35,8 @@ wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
+wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
+wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
 
 [workspace]
 members = [
@@ -53,6 +55,8 @@ members = [
     "lib/kernel-loader",
     "lib/kernel-net",
     "lib/dev-utils",
+    "lib/wasi-tests",
+    "lib/emscripten-tests",
     "examples/plugin-for-example"
 ]
 
@@ -63,14 +67,14 @@ rustc_version = "0.2.3"
 
 [features]
 default = ["fast-tests", "wasi"]
-"loader:kernel" = ["wasmer-kernel-loader"]
+"loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
-"backend:llvm" = ["wasmer-llvm-backend"]
-"backend:singlepass" = ["wasmer-singlepass-backend"]
+"backend-llvm" = ["wasmer-llvm-backend", "wasmer-runtime-core/backend-llvm"]
+"backend-singlepass" = ["wasmer-singlepass-backend", "wasmer-runtime-core/backend-singlepass"]
 wasi = ["wasmer-wasi"]
 # vfs = ["wasmer-runtime-abi"]
 
