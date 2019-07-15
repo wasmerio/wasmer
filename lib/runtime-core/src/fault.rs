@@ -304,7 +304,7 @@ pub struct FaultInfo {
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
     use libc::{
-        _libc_fpstate, _libc_xmmreg, mcontext_t, ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13,
+        _libc_fpstate, _libc_xmmreg, sigset_t, ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13,
         REG_R14, REG_R15, REG_R8, REG_R9, REG_RAX, REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX,
         REG_RIP, REG_RSI, REG_RSP,
     };
@@ -331,7 +331,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
 
     // WSL bug: (*ucontext).uc_mcontext.fpregs is always null.
     let fpregs: &_libc_fpstate =
-        &*(((&(*ucontext).uc_mcontext) as *const mcontext_t).offset(1) as *const _libc_fpstate);
+        &*(((&(*ucontext).uc_sigmask) as *const sigset_t).offset(1) as *const _libc_fpstate);
     if !(*ucontext).uc_mcontext.fpregs.is_null() {
         assert_eq!(
             (*ucontext).uc_mcontext.fpregs as *const _,
