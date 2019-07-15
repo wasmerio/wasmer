@@ -8,7 +8,7 @@ generate-emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release
 
 generate-wasitests:
-	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release
+	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv
 
 generate: generate-spectests generate-emtests generate-wasitests
 
