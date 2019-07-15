@@ -27,6 +27,10 @@ jobs:
     <<: *run_with_build_env_vars
     steps:
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule update --init
       - restore_cache:
           keys:
             - v8-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -57,6 +61,10 @@ jobs:
     <<: *run_with_build_env_vars
     steps:
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule update --init
       - restore_cache:
           keys:
             - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -87,6 +95,10 @@ jobs:
     <<: *run_with_build_env_vars
     steps:
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule update --init
       - restore_cache:
           keys:
             - v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -99,6 +111,10 @@ jobs:
           name: Debug flag checked
           command: |
             cargo check --features "debug" --release
+      - run:
+          name: Check
+          command: |
+            make check
       - run:
           name: Release
           command: make release-fast
@@ -118,6 +134,10 @@ jobs:
       xcode: "9.0"
     steps:
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule update --init
       - restore_cache:
           keys:
             - v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -148,6 +168,11 @@ jobs:
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
       - run:
+          name: Check
+          command: |
+            export PATH="$HOME/.cargo/bin:$PATH"
+            make check
+      - run:
           name: Release
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
@@ -172,6 +197,10 @@ jobs:
       - image: circleci/rust:latest
     steps:
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule update --init
       - run:
           name: "Pull dependencies"
           command: |
@@ -298,7 +327,7 @@ jobs:
             - wapm-cli/target/release/.fingerprint
             - wapm-cli/target/release/build
             - wapm-cli/target/release/deps
-          key: v8-cargo-cache-darwin-nightly-{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   publish-github-release:
     docker:

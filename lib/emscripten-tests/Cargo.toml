@@ -1,0 +1,28 @@
+[package]
+name = "wasmer-emscripten-tests"
+version = "0.5.5"
+description = "Tests for our Emscripten implementation"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+publish = false
+build = "build/mod.rs"
+
+[dependencies]
+wasmer-emscripten = { path = "../emscripten", version = "0.5.5" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.5.5" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.5.5" }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.5.5", optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.5.5", optional = true }
+
+[dev-dependencies]
+wabt = "0.7.2"
+wasmer-dev-utils = { path = "../dev-utils", version = "0.5.5"}
+
+[build-dependencies]
+glob = "0.2.11"
+
+[features]
+clif = []
+llvm = ["wasmer-llvm-backend"]
+singlepass = ["wasmer-singlepass-backend"]

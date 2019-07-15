@@ -1,4 +1,5 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
+use crate::allocate_on_stack;
 use libc::{c_char, c_int};
 // use libc::{c_char, c_int, clock_getres, clock_settime};
 use std::mem;
@@ -311,6 +312,23 @@ pub fn _time(ctx: &mut Ctx, time_p: u32) -> i32 {
         let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_p) as *mut i64;
         libc_time(time_p_addr) as i32 // TODO review i64
     }
+}
+
+pub fn _ctime_r(ctx: &mut Ctx, time_p: u32, buf: u32) -> u32 {
+    debug!("emscripten::_ctime_r {} {}", time_p, buf);
+
+    // var stack = stackSave();
+    let (result_offset, _result_slice): (u32, &mut [u8]) = unsafe { allocate_on_stack(ctx, 44) };
+    let time = _localtime_r(ctx, time_p, result_offset) as u32;
+    let rv = _asctime_r(ctx, time, buf);
+    // stackRestore(stack);
+    rv
+}
+
+pub fn _ctime(ctx: &mut Ctx, time_p: u32) -> u32 {
+    debug!("emscripten::_ctime {}", time_p);
+    let tm_current = 2414544;
+    _ctime_r(ctx, time_p, tm_current)
 }
 
 /// emscripten: _timegm

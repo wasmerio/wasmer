@@ -7,7 +7,10 @@ use std::{
 };
 
 use wasmer_runtime_core::cache::Error as CacheError;
-pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash, WASMER_VERSION_HASH};
+pub use wasmer_runtime_core::{
+    backend::Backend,
+    cache::{Artifact, Cache, WasmHash, WASMER_VERSION_HASH},
+};
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
@@ -87,8 +90,13 @@ impl Cache for FileSystemCache {
     type StoreError = CacheError;
 
     fn load(&self, key: WasmHash) -> Result<Module, CacheError> {
+        self.load_with_backend(key, Backend::default())
+    }
+
+    fn load_with_backend(&self, key: WasmHash, backend: Backend) -> Result<Module, CacheError> {
         let filename = key.encode();
         let mut new_path_buf = self.path.clone();
+        new_path_buf.push(backend.to_string());
         new_path_buf.push(filename);
         let file = File::open(new_path_buf)?;
         let mmap = unsafe { Mmap::map(&file)? };
@@ -101,12 +109,15 @@ impl Cache for FileSystemCache {
 
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), CacheError> {
         let filename = key.encode();
+        let backend_str = module.info().backend.to_string();
         let mut new_path_buf = self.path.clone();
-        new_path_buf.push(filename);
+        new_path_buf.push(backend_str);
 
         let serialized_cache = module.cache()?;
         let buffer = serialized_cache.serialize()?;
 
+        std::fs::create_dir_all(&new_path_buf)?;
+        new_path_buf.push(filename);
         let mut file = File::create(new_path_buf)?;
         file.write_all(&buffer)?;
 

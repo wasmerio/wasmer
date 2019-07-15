@@ -50,7 +50,6 @@ install:
 
 build_script:
   - cargo build --release --verbose
-  # Now we build wapm
   - git submodule init
   - git submodule update
   # Cache wapm cli target in dir above to prevent breaking git submodule on windows
@@ -61,9 +60,8 @@ build_script:
   - cd ..
   - cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
   - cd wapm-cli
-  - rename target wapm-cli-target
   - cd ..
-  - move wapm-cli\wapm-cli-target wapm-cli-target
+  - xcopy wapm-cli\target wapm-cli-target\ /i /y
   - cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
 
 test_script:

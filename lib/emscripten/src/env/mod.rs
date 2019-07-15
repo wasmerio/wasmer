@@ -22,11 +22,16 @@ use wasmer_runtime_core::{
 };
 
 pub fn call_malloc(ctx: &mut Ctx, size: u32) -> u32 {
-    get_emscripten_data(ctx).malloc.call(size).unwrap()
+    get_emscripten_data(ctx)
+        .malloc
+        .as_ref()
+        .unwrap()
+        .call(size)
+        .unwrap()
 }
 
 pub fn call_malloc_with_cast<T: Copy, Ty>(ctx: &mut Ctx, size: u32) -> WasmPtr<T, Ty> {
-    WasmPtr::new(get_emscripten_data(ctx).malloc.call(size).unwrap())
+    WasmPtr::new(call_malloc(ctx, size))
 }
 
 pub fn call_memalign(ctx: &mut Ctx, alignment: u32, size: u32) -> u32 {
@@ -40,6 +45,8 @@ pub fn call_memalign(ctx: &mut Ctx, alignment: u32, size: u32) -> u32 {
 pub fn call_memset(ctx: &mut Ctx, pointer: u32, value: u32, size: u32) -> u32 {
     get_emscripten_data(ctx)
         .memset
+        .as_ref()
+        .unwrap()
         .call(pointer, value, size)
         .unwrap()
 }

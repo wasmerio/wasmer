@@ -15,7 +15,7 @@ use structopt::StructOpt;
 
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
-#[cfg(feature = "backend:llvm")]
+#[cfg(feature = "backend-llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
@@ -23,10 +23,11 @@ use wasmer_runtime::{
 };
 use wasmer_runtime_core::{
     self,
-    backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
+    backend::{Backend, Compiler, CompilerConfig, MemoryBoundCheckMode},
+    debug,
     loader::{Instance as LoadedInstance, LocalLoader},
 };
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
@@ -111,12 +112,27 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
-    #[cfg(feature = "backend:singlepass")]
+    /// Path to previously saved instance image to resume.
+    #[cfg(feature = "backend-singlepass")]
     #[structopt(long = "resume")]
     resume: Option<String>,
 
+    /// Whether or not state tracking should be disabled during compilation.
+    /// State tracking is necessary for tier switching and backtracing.
+    #[structopt(long = "no-track-state")]
+    no_track_state: bool,
+
+    /// The command name is a string that will override the first argument passed
+    /// to the wasm program. This is used in wapm to provide nicer output in
+    /// help commands and error messages of the running wasm program
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
+
+    /// A prehashed string, used to speed up start times by avoiding hashing the
+    /// wasm module. If the specified hash is not found, Wasmer will hash the module
+    /// as if no `cache-key` argument was passed.
+    #[structopt(long = "cache-key", hidden = true)]
+    cache_key: Option<String>,
 
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
@@ -127,7 +143,7 @@ struct Run {
 #[derive(Debug, Copy, Clone)]
 enum LoaderName {
     Local,
-    #[cfg(feature = "loader:kernel")]
+    #[cfg(feature = "loader-kernel")]
     Kernel,
 }
 
@@ -135,7 +151,7 @@ impl LoaderName {
     pub fn variants() -> &'static [&'static str] {
         &[
             "local",
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             "kernel",
         ]
     }
@@ -146,45 +162,9 @@ impl FromStr for LoaderName {
     fn from_str(s: &str) -> Result<LoaderName, String> {
         match s.to_lowercase().as_str() {
             "local" => Ok(LoaderName::Local),
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             "kernel" => Ok(LoaderName::Kernel),
             _ => Err(format!("The loader {} doesn't exist", s)),
-        }
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Eq, PartialEq)]
-enum Backend {
-    Cranelift,
-    Singlepass,
-    LLVM,
-}
-
-impl Backend {
-    pub fn variants() -> &'static [&'static str] {
-        &[
-            "cranelift",
-            #[cfg(feature = "backend:singlepass")]
-            "singlepass",
-            #[cfg(feature = "backend:llvm")]
-            "llvm",
-        ]
-    }
-}
-
-impl FromStr for Backend {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Backend, String> {
-        match s.to_lowercase().as_str() {
-            "singlepass" => Ok(Backend::Singlepass),
-            "cranelift" => Ok(Backend::Cranelift),
-            "llvm" => Ok(Backend::LLVM),
-            // "llvm" => Err(
-            //     "The LLVM backend option is not enabled by default due to binary size constraints"
-            //         .to_string(),
-            // ),
-            _ => Err(format!("The backend {} doesn't exist", s)),
         }
     }
 }
@@ -341,25 +321,27 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     let compiler: Box<dyn Compiler> = match options.backend {
-        #[cfg(feature = "backend:singlepass")]
+        #[cfg(feature = "backend-singlepass")]
         Backend::Singlepass => Box::new(SinglePassCompiler::new()),
-        #[cfg(not(feature = "backend:singlepass"))]
+        #[cfg(not(feature = "backend-singlepass"))]
         Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        #[cfg(feature = "backend:llvm")]
+        #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
-        #[cfg(not(feature = "backend:llvm"))]
+        #[cfg(not(feature = "backend-llvm"))]
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
-    #[cfg(feature = "loader:kernel")]
+    let track_state = !options.no_track_state;
+
+    #[cfg(feature = "loader-kernel")]
     let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
         true
     } else {
         false
     };
 
-    #[cfg(not(feature = "loader:kernel"))]
+    #[cfg(not(feature = "loader-kernel"))]
     let is_kernel_loader = false;
 
     let module = if is_kernel_loader {
@@ -369,6 +351,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 symbol_map: em_symbol_map,
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
+                track_state,
             },
             &*compiler,
         )
@@ -378,6 +361,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             &wasm_binary[..],
             CompilerConfig {
                 symbol_map: em_symbol_map,
+                track_state,
                 ..Default::default()
             },
             &*compiler,
@@ -385,10 +369,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     } else {
         // If we have cache enabled
-
-        // We generate a hash for the given binary, so we can use it as key
-        // for the Filesystem cache
-        let hash = WasmHash::generate(&wasm_binary);
 
         let wasmer_cache_dir = get_cache_dir();
 
@@ -398,31 +378,50 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let mut cache = unsafe {
             FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
         };
-
-        // cache.load will return the Module if it's able to deserialize it properly, and an error if:
-        // * The file is not found
-        // * The file exists, but it's corrupted or can't be converted to a module
-        match cache.load(hash) {
-            Ok(module) => {
-                // We are able to load the module from cache
-                module
+        let load_cache_key = || -> Result<_, String> {
+            if let Some(ref prehashed_cache_key) = options.cache_key {
+                if let Ok(module) =
+                    WasmHash::decode(prehashed_cache_key).and_then(|prehashed_key| {
+                        cache.load_with_backend(prehashed_key, options.backend)
+                    })
+                {
+                    debug!("using prehashed key: {}", prehashed_cache_key);
+                    return Ok(module);
+                }
             }
-            Err(_) => {
-                let module = webassembly::compile_with_config_with(
-                    &wasm_binary[..],
-                    CompilerConfig {
-                        symbol_map: em_symbol_map,
-                        ..Default::default()
-                    },
-                    &*compiler,
-                )
-                .map_err(|e| format!("Can't compile module: {:?}", e))?;
-                // We try to save the module into a cache file
-                cache.store(hash, module.clone()).unwrap_or_default();
 
-                module
+            // We generate a hash for the given binary, so we can use it as key
+            // for the Filesystem cache
+            let hash = WasmHash::generate(&wasm_binary);
+
+            // cache.load will return the Module if it's able to deserialize it properly, and an error if:
+            // * The file is not found
+            // * The file exists, but it's corrupted or can't be converted to a module
+            match cache.load_with_backend(hash, options.backend) {
+                Ok(module) => {
+                    // We are able to load the module from cache
+                    Ok(module)
+                }
+                Err(_) => {
+                    let module = webassembly::compile_with_config_with(
+                        &wasm_binary[..],
+                        CompilerConfig {
+                            symbol_map: em_symbol_map,
+                            track_state,
+                            ..Default::default()
+                        },
+                        &*compiler,
+                    )
+                    .map_err(|e| format!("Can't compile module: {:?}", e))?;
+                    // We try to save the module into a cache file
+                    cache.store(hash, module.clone()).unwrap_or_default();
+
+                    Ok(module)
+                }
             }
-        }
+        };
+
+        load_cache_key()?
     };
 
     if let Some(loader) = options.loader {
@@ -452,7 +451,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     .load(LocalLoader)
                     .expect("Can't use the local loader"),
             ),
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
@@ -474,6 +473,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         wasmer_emscripten::run_emscripten_instance(
             &module,
             &mut instance,
+            &mut emscripten_globals,
             if let Some(cn) = &options.command_name {
                 cn
             } else {
@@ -512,7 +512,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
-            #[cfg(feature = "backend:singlepass")]
+            #[cfg(feature = "backend-singlepass")]
             unsafe {
                 if options.backend == Backend::Singlepass {
                     use wasmer_runtime_core::fault::{catch_unsafe_unwind, ensure_sighandler};
@@ -619,18 +619,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 struct InteractiveShellContext {
     image: Option<wasmer_runtime_core::state::InstanceImage>,
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 #[derive(Debug)]
 enum ShellExitOperation {
     ContinueWith(wasmer_runtime_core::state::InstanceImage),
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     use std::io::Write;
 

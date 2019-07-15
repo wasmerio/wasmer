@@ -1,4 +1,5 @@
 use crate::{
+    backend::Backend,
     module::{Module, ModuleInfo},
     sys::Memory,
 };
@@ -60,6 +61,30 @@ impl WasmHash {
     /// stored hash.
     pub fn encode(self) -> String {
         hex::encode(&self.into_array() as &[u8])
+    }
+
+    /// Create hash from hexadecimal representation
+    pub fn decode(hex_str: &str) -> Result<Self, Error> {
+        let bytes = hex::decode(hex_str).map_err(|e| {
+            Error::DeserializeError(format!(
+                "Could not decode prehashed key as hexadecimal: {}",
+                e
+            ))
+        })?;
+        if bytes.len() != 64 {
+            return Err(Error::DeserializeError(
+                "Prehashed keys must deserialze into exactly 64 bytes".to_string(),
+            ));
+        }
+        use std::convert::TryInto;
+        Ok(WasmHash(
+            bytes[0..32].try_into().map_err(|e| {
+                Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
+            })?,
+            bytes[32..64].try_into().map_err(|e| {
+                Error::DeserializeError(format!("Could not get last 32 bytes: {}", e))
+            })?,
+        ))
     }
 
     pub(crate) fn into_array(self) -> [u8; 64] {
@@ -204,7 +229,11 @@ pub trait Cache {
     type LoadError: fmt::Debug;
     type StoreError: fmt::Debug;
 
+    /// loads a module using the default `Backend`
     fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
+    /// loads a cached module using a specific `Backend`
+    fn load_with_backend(&self, key: WasmHash, backend: Backend)
+        -> Result<Module, Self::LoadError>;
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
 

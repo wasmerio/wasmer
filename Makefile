@@ -5,10 +5,10 @@ generate-spectests:
 	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core --release
 
 generate-emtests:
-	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten --release
+	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release
 
 generate-wasitests:
-	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi --release
+	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release
 
 generate: generate-spectests generate-emtests generate-wasitests
 
@@ -28,15 +28,18 @@ spectests: spectests-singlepass spectests-cranelift spectests-llvm
 
 # Emscripten tests
 emtests-singlepass:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --release --features singlepass -- --test-threads=1
+	cargo test --manifest-path lib/emscripten-tests/Cargo.toml --release --features singlepass -- --test-threads=1
 
 emtests-cranelift:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --release --features clif -- --test-threads=1
+	cargo test --manifest-path lib/emscripten-tests/Cargo.toml --release --features clif -- --test-threads=1
 
 emtests-llvm:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --release --features llvm -- --test-threads=1
+	cargo test --manifest-path lib/emscripten-tests/Cargo.toml --release --features llvm -- --test-threads=1
 
-emtests: emtests-singlepass emtests-cranelift emtests-llvm
+emtests-unit:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --release
+
+emtests: emtests-unit emtests-singlepass emtests-cranelift emtests-llvm
 
 
 # Middleware tests
@@ -54,15 +57,18 @@ middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
 # Wasitests
 wasitests-singlepass:
-	cargo test --manifest-path lib/wasi/Cargo.toml --release --features singlepass -- --test-threads=1
+	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features singlepass -- --test-threads=1
 
 wasitests-cranelift:
-	cargo test --manifest-path lib/wasi/Cargo.toml --release --features clif -- --test-threads=1
+	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1
 
 wasitests-llvm:
-	cargo test --manifest-path lib/wasi/Cargo.toml --release --features llvm -- --test-threads=1
+	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features llvm -- --test-threads=1
 
-wasitests: wasitests-singlepass wasitests-cranelift wasitests-llvm
+wasitests-unit:
+	cargo test --manifest-path lib/wasi/Cargo.toml --release
+
+wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llvm
 
 
 # Backends
@@ -83,7 +89,7 @@ capi:
 	cargo test -p wasmer-runtime-c-api --release
 
 test-rest: capi
-	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend
+	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-wasi-tests --exclude wasmer-emscripten-tests
 
 circleci-clean:
 	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
@@ -105,20 +111,29 @@ lint:
 
 precommit: lint test
 
-build:
-	cargo build --release --features debug
+debug:
+	cargo build --release --features backend-singlepass,debug,trace
 
 install:
 	cargo install --path .
 
+check:
+	cargo check --release --features backend-singlepass,backend-llvm,loader-kernel
+
 release:
-	cargo build --release --features backend:singlepass,backend:llvm,loader:kernel
+	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
 
 # Only one backend (cranelift)
 release-fast:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
+
+release-singlepass:
+	cargo build --release --features backend-singlepass
+
+release-llvm:
+	cargo build --release --features backend-llvm
 
 bench:
 	cargo bench --all
@@ -141,4 +156,4 @@ publish-release:
 # cargo install cargo-deps
 # must install graphviz for `dot`
 dep-graph:
-	cargo deps --optional-deps --filter wasmer-wasi wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
+	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
