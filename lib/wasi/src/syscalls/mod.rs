@@ -1626,6 +1626,7 @@ pub fn path_readlink(
         out[bytes_written].set(b);
         bytes_written += 1;
     }
+    // should we null terminate this?
 
     let bytes_out = wasi_try!(buf_used.deref(memory));
     bytes_out.set(bytes_written as u32);
@@ -1639,9 +1640,18 @@ pub fn path_remove_directory(
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
+    // TODO check if fd is a dir, ensure it's within sandbox, etc.
     debug!("wasi::path_remove_directory");
-    unimplemented!("wasi::path_remove_directory")
+    let state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
+    let base_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let _result = wasi_try!(std::fs::remove_dir(path_str).ok().ok_or(__WASI_EIO));
+
+    __WASI_ESUCCESS
 }
+
 pub fn path_rename(
     ctx: &mut Ctx,
     old_fd: __wasi_fd_t,
@@ -1665,15 +1675,25 @@ pub fn path_symlink(
     debug!("wasi::path_symlink");
     unimplemented!("wasi::path_symlink")
 }
+
 pub fn path_unlink_file(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
+    // TODO check if fd is a dir, ensure it's within sandbox, etc.
     debug!("wasi::path_unlink_file");
-    unimplemented!("wasi::path_unlink_file")
+    let state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
+    let base_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let _result = wasi_try!(std::fs::remove_file(path_str).ok().ok_or(__WASI_EIO));
+
+    __WASI_ESUCCESS
 }
+
 pub fn poll_oneoff(
     ctx: &mut Ctx,
     in_: WasmPtr<__wasi_subscription_t, Array>,
