@@ -12,3 +12,4 @@ mod fs_sandbox_test;
 mod hello;
 mod mapdir;
 mod quine;
+mod readlink;
