@@ -5,10 +5,10 @@ extern crate structopt;
 
 use structopt::StructOpt;
 
-#[cfg(feature = "loader:kernel")]
+#[cfg(feature = "loader-kernel")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 
-#[cfg(feature = "loader:kernel")]
+#[cfg(feature = "loader-kernel")]
 use std::os::unix::net::{UnixListener, UnixStream};
 
 #[derive(Debug, StructOpt)]
@@ -24,14 +24,14 @@ struct Listen {
     socket: String,
 }
 
-#[cfg(feature = "loader:kernel")]
+#[cfg(feature = "loader-kernel")]
 const CMD_RUN_CODE: u32 = 0x901;
-#[cfg(feature = "loader:kernel")]
+#[cfg(feature = "loader-kernel")]
 const CMD_READ_MEMORY: u32 = 0x902;
-#[cfg(feature = "loader:kernel")]
+#[cfg(feature = "loader-kernel")]
 const CMD_WRITE_MEMORY: u32 = 0x903;
 
-#[cfg(feature = "loader:kernel")]
+#[cfg(feature = "loader-kernel")]
 fn handle_client(mut stream: UnixStream) {
     use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
     use std::io::{Read, Write};
@@ -54,6 +54,7 @@ fn handle_client(mut stream: UnixStream) {
             symbol_map: None,
             memory_bound_check_mode: MemoryBoundCheckMode::Disable,
             enforce_stack_check: true,
+            track_state: false,
         },
         &SinglePassCompiler::new(),
     )
@@ -131,7 +132,7 @@ fn handle_client(mut stream: UnixStream) {
     }
 }
 
-#[cfg(feature = "loader:kernel")]
+#[cfg(feature = "loader-kernel")]
 fn run_listen(opts: Listen) {
     let listener = UnixListener::bind(&opts.socket).unwrap();
     use std::thread;
@@ -154,7 +155,7 @@ fn run_listen(opts: Listen) {
     }
 }
 
-#[cfg(feature = "loader:kernel")]
+#[cfg(feature = "loader-kernel")]
 fn main() {
     let options = CLIOptions::from_args();
     match options {
@@ -164,7 +165,7 @@ fn main() {
     }
 }
 
-#[cfg(not(feature = "loader:kernel"))]
+#[cfg(not(feature = "loader-kernel"))]
 fn main() {
     panic!("Kwasm loader is not enabled during compilation.");
 }

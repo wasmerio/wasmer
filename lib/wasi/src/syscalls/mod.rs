@@ -911,7 +911,28 @@ pub fn fd_seek(
     // TODO: handle case if fd is a dir?
     match whence {
         __WASI_WHENCE_CUR => fd_entry.offset = (fd_entry.offset as i64 + offset) as u64,
-        __WASI_WHENCE_END => unimplemented!("__WASI__WHENCE_END in wasi::fd_seek"),
+        __WASI_WHENCE_END => {
+            use std::io::SeekFrom;
+            match state.fs.inodes[fd_entry.inode].kind {
+                Kind::File { ref mut handle } => {
+                    let end = wasi_try!(handle.seek(SeekFrom::End(0)).ok().ok_or(__WASI_EIO));
+                    // TODO: handle case if fd_entry.offset uses 64 bits of a u64
+                    fd_entry.offset = (end as i64 + offset) as u64;
+                }
+                Kind::Symlink { .. } => {
+                    unimplemented!("wasi::fd_seek not implemented for symlinks")
+                }
+                Kind::Dir { .. } => {
+                    // TODO: check this
+                    return __WASI_EINVAL;
+                }
+                Kind::Buffer { .. } => {
+                    // seeking buffers probably makes sense
+                    // TODO: implement this
+                    return __WASI_EINVAL;
+                }
+            }
+        }
         __WASI_WHENCE_SET => fd_entry.offset = offset as u64,
         _ => return __WASI_EINVAL,
     }

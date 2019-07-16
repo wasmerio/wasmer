@@ -5,6 +5,11 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#563](https://github.com/wasmerio/wasmer/pull/563) Improve wasi testing infrastructure
+  - fixes arg parsing from comments & fixes the mapdir test to have the native code doing the same thing as the WASI code
+  - makes wasitests-generate output stdout/stderr by default & adds function to print stdout and stderr for a command if it fails
+  - compiles wasm with size optimizations & strips generated wasm with wasm-strip
+- [#554](https://github.com/wasmerio/wasmer/pull/554) Finish implementation of `wasi::fd_seek`, fix bug in filestat
 
 ## 0.5.5
 - [#541](https://github.com/wasmerio/wasmer/pull/541) Fix dependency graph by making separate test crates; ABI implementations should not depend on compilers. Add Cranelift fork as git submodule of clif-backend

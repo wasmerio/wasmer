@@ -112,9 +112,15 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
+    /// Path to previously saved instance image to resume.
     #[cfg(feature = "backend-singlepass")]
     #[structopt(long = "resume")]
     resume: Option<String>,
+
+    /// Whether or not state tracking should be disabled during compilation.
+    /// State tracking is necessary for tier switching and backtracing.
+    #[structopt(long = "no-track-state")]
+    no_track_state: bool,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
@@ -137,7 +143,7 @@ struct Run {
 #[derive(Debug, Copy, Clone)]
 enum LoaderName {
     Local,
-    #[cfg(feature = "loader:kernel")]
+    #[cfg(feature = "loader-kernel")]
     Kernel,
 }
 
@@ -145,7 +151,7 @@ impl LoaderName {
     pub fn variants() -> &'static [&'static str] {
         &[
             "local",
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             "kernel",
         ]
     }
@@ -156,7 +162,7 @@ impl FromStr for LoaderName {
     fn from_str(s: &str) -> Result<LoaderName, String> {
         match s.to_lowercase().as_str() {
             "local" => Ok(LoaderName::Local),
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             "kernel" => Ok(LoaderName::Kernel),
             _ => Err(format!("The loader {} doesn't exist", s)),
         }
@@ -326,14 +332,16 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
-    #[cfg(feature = "loader:kernel")]
+    let track_state = !options.no_track_state;
+
+    #[cfg(feature = "loader-kernel")]
     let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
         true
     } else {
         false
     };
 
-    #[cfg(not(feature = "loader:kernel"))]
+    #[cfg(not(feature = "loader-kernel"))]
     let is_kernel_loader = false;
 
     let module = if is_kernel_loader {
@@ -343,6 +351,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 symbol_map: em_symbol_map,
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
+                track_state,
             },
             &*compiler,
         )
@@ -352,6 +361,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             &wasm_binary[..],
             CompilerConfig {
                 symbol_map: em_symbol_map,
+                track_state,
                 ..Default::default()
             },
             &*compiler,
@@ -397,6 +407,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         &wasm_binary[..],
                         CompilerConfig {
                             symbol_map: em_symbol_map,
+                            track_state,
                             ..Default::default()
                         },
                         &*compiler,
@@ -440,7 +451,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     .load(LocalLoader)
                     .expect("Can't use the local loader"),
             ),
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
