@@ -9,7 +9,7 @@ use std::{
     cell::Cell,
     fs,
     io::{self, Read, Seek, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::SystemTime,
 };
 use wasmer_runtime_core::debug;
@@ -81,6 +81,7 @@ impl Seek for WasiFile {
     }
 }
 
+/// A file that Wasi knows about that may or may not be open
 #[derive(Debug)]
 pub struct InodeVal {
     pub stat: __wasi_filestat_t,
@@ -136,7 +137,10 @@ impl InodeVal {
 #[derive(Debug)]
 pub enum Kind {
     File {
-        handle: WasiFile,
+        /// the open file, if it's open
+        handle: Option<WasiFile>,
+        /// the path to the file
+        path: PathBuf,
     },
     Dir {
         /// Parent directory
@@ -148,7 +152,9 @@ pub enum Kind {
         entries: HashMap<String, Inode>,
     },
     Symlink {
-        forwarded: Inode,
+        forwarded: Option<Inode>,
+        /// This is required because, at the very least, symlinks can be deleted and we'll need to check that
+        path: PathBuf,
     },
     Buffer {
         buffer: Vec<u8>,
@@ -311,6 +317,7 @@ impl WasiFs {
         })
     }
 
+    /*
     #[allow(dead_code)]
     fn filestat_inode(
         &self,
@@ -318,8 +325,13 @@ impl WasiFs {
         flags: __wasi_lookupflags_t,
     ) -> Result<__wasi_filestat_t, __wasi_errno_t> {
         let inode_val = &self.inodes[inode];
-        if let (true, Kind::Symlink { mut forwarded }) =
-            (flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0, &inode_val.kind)
+        if let (
+            true,
+            Kind::Symlink {
+                mut forwarded,
+                path,
+            },
+        ) = (flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0, &inode_val.kind)
         {
             // Time to follow the symlink.
             let mut counter = 0;
@@ -354,6 +366,118 @@ impl WasiFs {
         let inode = self.get_inode(path).ok_or(__WASI_EINVAL)?;
 
         self.filestat_inode(inode, flags)
+    }
+    */
+
+    /// gets a host file from a base directory and a path
+    /// this function ensures the fs remains sandboxed
+    pub fn get_inode_at_path(
+        &mut self,
+        base: __wasi_fd_t,
+        path: &str,
+    ) -> Result<Inode, __wasi_errno_t> {
+        let base_dir = self.get_fd(base)?;
+        let path: &Path = Path::new(path);
+
+        let mut symlinks_followed = 0;
+        let mut cur_inode = base_dir.inode;
+        // TODO: rights checks
+        'path_iter: for component in path.components() {
+            // for each component traverse file structure
+            // loading inodes as necessary
+            'symlink_resolution: loop {
+                match &mut self.inodes[cur_inode].kind {
+                    Kind::Buffer { .. } => unimplemented!("state::get_inode_at_path for buffers"),
+                    Kind::Dir {
+                        ref mut entries,
+                        ref path,
+                        ref parent,
+                        ..
+                    } => {
+                        if component.as_os_str().to_string_lossy() == ".." {
+                            if let Some(p) = parent {
+                                cur_inode = *p;
+                                continue 'path_iter;
+                            } else {
+                                // TODO: be smart here with multiple preopened directories
+                                return Err(__WASI_EACCES);
+                            }
+                        }
+                        if let Some(entry) =
+                            entries.get(component.as_os_str().to_string_lossy().as_ref())
+                        {
+                            cur_inode = *entry;
+                        } else {
+                            let file = {
+                                let mut cd = path.clone();
+                                cd.push(component);
+                                cd
+                            };
+                            // TODO: verify this returns successfully when given a non-symlink
+                            let metadata = file.symlink_metadata().ok().ok_or(__WASI_EEXIST)?;
+                            let file_type = metadata.file_type();
+
+                            let kind = if file_type.is_dir() {
+                                // load DIR
+                                Kind::Dir {
+                                    parent: Some(cur_inode),
+                                    path: file.clone(),
+                                    entries: Default::default(),
+                                }
+                            } else if file_type.is_file() {
+                                // load file
+                                Kind::File {
+                                    handle: None,
+                                    path: file.clone(),
+                                }
+                            } else if file_type.is_symlink() {
+                                // use a stack and load symlinks?
+                                // load symlink
+                                Kind::Symlink {
+                                    forwarded: None,
+                                    path: file.clone(),
+                                }
+                            } else {
+                                unimplemented!("state::get_inode_at_path unknown file type: not file, directory, or symlink");
+                            };
+
+                            let new_inode = self.inodes.insert(InodeVal {
+                                stat: get_stat_for_kind(&kind).ok_or(__WASI_EIO)?,
+                                is_preopened: false,
+                                name: file.to_string_lossy().to_string(),
+                                kind,
+                            });
+                            *self.inode_counter.get_mut() += 1;
+
+                            cur_inode = new_inode;
+                        }
+                    }
+                    Kind::File { .. } => {
+                        return Err(__WASI_ENOTDIR);
+                    }
+                    Kind::Symlink { forwarded, path } => {
+                        if symlinks_followed > MAX_SYMLINKS {
+                            return Err(__WASI_EMLINK);
+                        }
+                        if let Some(fwd) = forwarded {
+                            cur_inode = *fwd;
+                        } else {
+                            // load the symlink
+                            let _link = path.read_link().ok().ok_or(__WASI_EIO)?;
+                        }
+                        symlinks_followed += 1;
+                        continue 'symlink_resolution;
+                    }
+                }
+                break 'symlink_resolution;
+            }
+        }
+
+        Ok(cur_inode)
+    }
+
+    pub fn get_fd(&self, fd: __wasi_fd_t) -> Result<&Fd, __wasi_errno_t> {
+        self.fd_map.get(&fd).ok_or(__WASI_EBADF)
     }
 
     pub fn filestat_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_filestat_t, __wasi_errno_t> {
@@ -414,11 +538,15 @@ impl WasiFs {
                 let inode = &mut self.inodes[fd.inode];
 
                 match &mut inode.kind {
-                    Kind::File { handle } => handle.flush().map_err(|_| __WASI_EIO)?,
+                    Kind::File {
+                        handle: Some(handle),
+                        ..
+                    } => handle.flush().map_err(|_| __WASI_EIO)?,
                     // TODO: verify this behavior
                     Kind::Dir { .. } => return Err(__WASI_EISDIR),
                     Kind::Symlink { .. } => unimplemented!(),
                     Kind::Buffer { .. } => (),
+                    _ => return Err(__WASI_EIO),
                 }
             }
         }
@@ -477,35 +605,36 @@ pub fn host_file_type_to_wasi_file_type(file_type: fs::FileType) -> __wasi_filet
 
 pub fn get_stat_for_kind(kind: &Kind) -> Option<__wasi_filestat_t> {
     match kind {
-        Kind::File { handle } => match handle {
-            WasiFile::HostFile(hf) => {
-                let md = hf.metadata().ok()?;
+        Kind::File { handle, path } => {
+            let md = match handle {
+                Some(WasiFile::HostFile(hf)) => hf.metadata().ok()?,
+                None => path.metadata().ok()?,
+            };
 
-                Some(__wasi_filestat_t {
-                    st_filetype: host_file_type_to_wasi_file_type(md.file_type()),
-                    st_size: md.len(),
-                    st_atim: md
-                        .accessed()
-                        .ok()?
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .ok()?
-                        .as_nanos() as u64,
-                    st_mtim: md
-                        .modified()
-                        .ok()?
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .ok()?
-                        .as_nanos() as u64,
-                    st_ctim: md
-                        .created()
-                        .ok()
-                        .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
-                        .map(|ct| ct.as_nanos() as u64)
-                        .unwrap_or(0),
-                    ..__wasi_filestat_t::default()
-                })
-            }
-        },
+            Some(__wasi_filestat_t {
+                st_filetype: host_file_type_to_wasi_file_type(md.file_type()),
+                st_size: md.len(),
+                st_atim: md
+                    .accessed()
+                    .ok()?
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?
+                    .as_nanos() as u64,
+                st_mtim: md
+                    .modified()
+                    .ok()?
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?
+                    .as_nanos() as u64,
+                st_ctim: md
+                    .created()
+                    .ok()
+                    .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .map(|ct| ct.as_nanos() as u64)
+                    .unwrap_or(0),
+                ..__wasi_filestat_t::default()
+            })
+        }
         Kind::Dir { path, .. } => {
             let md = path.metadata().ok()?;
             Some(__wasi_filestat_t {

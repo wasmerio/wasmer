@@ -648,9 +648,13 @@ pub fn fd_pwrite(
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
             let bytes_written = match &mut inode.kind {
-                Kind::File { handle } => {
-                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
-                    wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                Kind::File { handle, .. } => {
+                    if let Some(handle) = handle {
+                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                    } else {
+                        return __WASI_EINVAL;
+                    }
                 }
                 Kind::Dir { .. } => {
                     // TODO: verify
@@ -736,9 +740,13 @@ pub fn fd_read(
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
             let bytes_read = match &mut inode.kind {
-                Kind::File { handle } => {
-                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
-                    wasi_try!(read_bytes(handle, memory, iovs_arr_cell))
+                Kind::File { handle, .. } => {
+                    if let Some(handle) = handle {
+                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        wasi_try!(read_bytes(handle, memory, iovs_arr_cell))
+                    } else {
+                        return __WASI_EINVAL;
+                    }
                 }
                 Kind::Dir { .. } => {
                     // TODO: verify
@@ -1011,10 +1019,13 @@ pub fn fd_write(
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
             let bytes_written = match &mut inode.kind {
-                Kind::File { handle } => {
-                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
-
-                    wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                Kind::File { handle, .. } => {
+                    if let Some(handle) = handle {
+                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                    } else {
+                        return __WASI_EINVAL;
+                    }
                 }
                 Kind::Dir { .. } => {
                     // TODO: verify
@@ -1152,105 +1163,11 @@ pub fn path_filestat_get(
     })
     .map_err(|_| __WASI_EINVAL));
     debug!("=> path: {}", &path_string);
-    let path = std::path::PathBuf::from(path_string);
-    let path_vec = path
-        .components()
-        .map(|comp| comp.as_os_str().to_string_lossy().to_string())
-        .collect::<Vec<String>>();
+
+    let file_inode = wasi_try!(state.fs.get_inode_at_path(fd, path_string));
+    let stat = wasi_try!(get_stat_for_kind(&state.fs.inodes[file_inode].kind).ok_or(__WASI_EIO));
+
     let buf_cell = wasi_try!(buf.deref(memory));
-
-    if path_vec.is_empty() {
-        return __WASI_EINVAL;
-    }
-    let mut cumulative_path = std::path::PathBuf::from(wasi_try!(state
-        .fs
-        .get_base_path_for_directory(root_dir.inode)
-        .ok_or(__WASI_EIO)));
-
-    debug!("=> Path vec: {:?}:", &path_vec);
-    // find the inode by traversing the path
-    let mut inode = root_dir.inode;
-    'outer: for segment in &path_vec[..(path_vec.len() - 1)] {
-        // loop to traverse symlinks
-        // TODO: proper cycle detection
-        let mut sym_count = 0;
-        loop {
-            match &state.fs.inodes[inode].kind {
-                Kind::Dir { entries, .. } => {
-                    cumulative_path.push(&segment);
-                    if let Some(entry) = entries.get(segment) {
-                        debug!("Entry {:?} found", &segment);
-                        inode = entry.clone();
-                    } else {
-                        // lazily load
-                        debug!("Lazily loading entry {:?}", &segment);
-                        let path_metadata =
-                            wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_ENOENT));
-                        if !path_metadata.is_dir() {
-                            // TODO: should this just return invalid arg?
-                            return __WASI_ENOTDIR;
-                        }
-                        let kind = Kind::Dir {
-                            parent: Some(inode),
-                            path: std::path::PathBuf::from(&segment),
-                            entries: Default::default(),
-                        };
-                        let inode_val = InodeVal::from_file_metadata(
-                            &path_metadata,
-                            segment.clone(),
-                            false,
-                            kind,
-                        );
-                        let new_inode = state.fs.inodes.insert(inode_val);
-                        let inode_idx = state.fs.inode_counter.get();
-                        state.fs.inode_counter.replace(inode_idx + 1);
-                        if let Kind::Dir { entries, .. } = &mut state.fs.inodes[inode].kind {
-                            // check that we're not displacing any entries
-                            assert!(entries.insert(segment.clone(), new_inode).is_none());
-                            state.fs.inodes[new_inode].stat.st_ino = state.fs.inode_counter.get();
-                            inode = new_inode;
-                        }
-                        debug!("Directory {:#?} lazily loaded", &cumulative_path);
-                    }
-                    continue 'outer;
-                }
-                Kind::Symlink { forwarded } => {
-                    // TODO: updated cumulative path
-                    sym_count += 1;
-                    inode = forwarded.clone();
-                    if sym_count > MAX_SYMLINKS {
-                        return __WASI_ELOOP;
-                    }
-                }
-                _ => {
-                    return __WASI_ENOTDIR;
-                }
-            }
-        }
-    }
-
-    let stat = match &state.fs.inodes[inode].kind {
-        Kind::Dir { path, entries, .. } => {
-            // read it from internal data structures if we can
-            let last_segment = path_vec.last().unwrap();
-            cumulative_path.push(last_segment);
-
-            if entries.contains_key(last_segment) {
-                state.fs.inodes[entries[last_segment]].stat
-            } else {
-                // otherwise read it from the host FS
-                if !cumulative_path.exists() {
-                    return __WASI_ENOENT;
-                }
-                let final_path_metadata =
-                    wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_EIO));
-                wasi_try!(get_stat_for_kind(&state.fs.inodes[inode].kind).ok_or(__WASI_EIO))
-            }
-        }
-        _ => {
-            return __WASI_ENOTDIR;
-        }
-    };
     buf_cell.set(stat);
 
     __WASI_ESUCCESS
@@ -1562,7 +1479,8 @@ pub fn path_open(
                         real_open_file
                     };
                     Kind::File {
-                        handle: WasiFile::HostFile(real_opened_file),
+                        handle: Some(WasiFile::HostFile(real_opened_file)),
+                        path: file_path,
                     }
                 };
 
@@ -1612,24 +1530,37 @@ pub fn path_readlink(
     let memory = ctx.memory(0);
 
     let base_dir = wasi_try!(state.fs.fd_map.get(&dir_fd).ok_or(__WASI_EBADF));
+    if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_READLINK) {
+        return __WASI_EACCES;
+    }
     let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
-    let result = wasi_try!(std::fs::read_link(path_str).ok().ok_or(__WASI_EIO));
-    let result_path_as_str = result.to_string_lossy();
-    let bytes = result_path_as_str.bytes();
-    if bytes.len() < buf_len as usize {
-        return __WASI_EOVERFLOW;
-    }
+    let inode = wasi_try!(state.fs.get_inode_at_path(dir_fd, path_str));
 
-    let out = wasi_try!(buf.deref(memory, 0, buf_len));
-    let mut bytes_written = 0;
-    for b in bytes {
-        out[bytes_written].set(b);
-        bytes_written += 1;
-    }
-    // should we null terminate this?
+    if let Kind::Symlink { forwarded, .. } = &state.fs.inodes[inode].kind {
+        if let Some(fwd) = forwarded {
+            let resolved_name = &state.fs.inodes[*fwd].name;
+            let bytes = resolved_name.bytes();
+            if bytes.len() < buf_len as usize {
+                return __WASI_EOVERFLOW;
+            }
 
-    let bytes_out = wasi_try!(buf_used.deref(memory));
-    bytes_out.set(bytes_written as u32);
+            let out = wasi_try!(buf.deref(memory, 0, buf_len));
+            let mut bytes_written = 0;
+            for b in bytes {
+                out[bytes_written].set(b);
+                bytes_written += 1;
+            }
+            // should we null terminate this?
+
+            let bytes_out = wasi_try!(buf_used.deref(memory));
+            bytes_out.set(bytes_written as u32);
+        } else {
+            panic!("do this before shipping");
+            return __WASI_EINVAL;
+        }
+    } else {
+        return __WASI_EINVAL;
+    }
 
     __WASI_ESUCCESS
 }
