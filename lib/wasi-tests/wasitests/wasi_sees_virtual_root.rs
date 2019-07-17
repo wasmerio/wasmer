@@ -9,7 +9,7 @@ fn main() {
     // just cheat in this test because there is no comparison for native
     #[cfg(not(target_os = "wasi"))]
     let results = {
-        let start = vec!["/act1", "act1-again", "/act2"];
+        let start = vec!["\"/act1\"", "\"/act1-again\"", "\"/act2\""];
 
         let mut out = vec![];
         for _ in 0..4 {

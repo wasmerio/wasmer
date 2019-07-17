@@ -1217,7 +1217,11 @@ pub fn path_filestat_get(
     .map_err(|_| __WASI_EINVAL));
     debug!("=> path: {}", &path_string);
 
-    let file_inode = wasi_try!(state.fs.get_inode_at_path(fd, path_string));
+    let file_inode = wasi_try!(state.fs.get_inode_at_path(
+        fd,
+        path_string,
+        flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+    ));
     let stat = wasi_try!(state
         .fs
         .get_stat_for_kind(&state.fs.inodes[file_inode].kind)
@@ -1328,6 +1332,10 @@ pub fn path_open(
     fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::path_open");
+    if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
+        // TODO: resolution fn needs to get this bit
+        debug!("  - will follow symlinks when opening path");
+    }
     let memory = ctx.memory(0);
     /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     if path_len > 1024 * 1024 {
@@ -1352,7 +1360,11 @@ pub fn path_open(
 
     let path_string = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
     let path = std::path::PathBuf::from(path_string);
-    let inode = wasi_try!(state.fs.get_inode_at_path(dirfd, path_string));
+    let inode = wasi_try!(state.fs.get_inode_at_path(
+        dirfd,
+        path_string,
+        dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+    ));
 
     match &mut state.fs.inodes[inode].kind {
         Kind::File {
@@ -1387,13 +1399,22 @@ pub fn path_open(
                 }
             }
         }
-        Kind::Symlink { .. } => {
-            // TODO: figure out what to do here
-            unimplemented!("wasi::path_open on symlink");
+        Kind::Symlink {
+            base_po_dir,
+            path_to_symlink,
+            relative_path,
+        } => {
+            unimplemented!("SYMLINKS IN PATH_OPEN");
+            /*if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
+                //state.fs.get_inode_at_path(base_po_dir, )
+
+            } else {
+                // TODO: figure out what to do here
+                return __WASI_EINVAL;
+            }*/
         }
     }
 
-    // TODO: reimplement all the flag checking logic
     debug!(
         "inode {:?} value {:#?} found!",
         inode, state.fs.inodes[inode]
@@ -1429,12 +1450,12 @@ pub fn path_readlink(
         return __WASI_EACCES;
     }
     let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
-    let inode = wasi_try!(state.fs.get_inode_at_path(dir_fd, path_str));
+    let inode = wasi_try!(state.fs.get_inode_at_path(dir_fd, path_str, false));
 
     if let Kind::Symlink { relative_path, .. } = &state.fs.inodes[inode].kind {
         let rel_path_str = relative_path.to_string_lossy();
         let bytes = rel_path_str.bytes();
-        if bytes.len() < buf_len as usize {
+        if bytes.len() >= buf_len as usize {
             return __WASI_EOVERFLOW;
         }
 
