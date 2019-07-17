@@ -6,6 +6,16 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 - [#542](https://github.com/wasmerio/wasmer/pull/542) Add SIMD support to wasmer and implement it in the LLVM backend only.
+
+## 0.5.6
+- [#565](https://github.com/wasmerio/wasmer/pull/565) Update wapm and bump version to 0.5.6
+- [#563](https://github.com/wasmerio/wasmer/pull/563) Improve wasi testing infrastructure
+  - fixes arg parsing from comments & fixes the mapdir test to have the native code doing the same thing as the WASI code
+  - makes wasitests-generate output stdout/stderr by default & adds function to print stdout and stderr for a command if it fails
+  - compiles wasm with size optimizations & strips generated wasm with wasm-strip
+- [#554](https://github.com/wasmerio/wasmer/pull/554) Finish implementation of `wasi::fd_seek`, fix bug in filestat
+
+## 0.5.5
 - [#541](https://github.com/wasmerio/wasmer/pull/541) Fix dependency graph by making separate test crates; ABI implementations should not depend on compilers. Add Cranelift fork as git submodule of clif-backend
 - [#537](https://github.com/wasmerio/wasmer/pull/537) Add hidden flag (`--cache-key`) to use prehashed key into the compiled wasm cache and change compiler backend-specific caching to use directories
 - [#536](https://github.com/wasmerio/wasmer/pull/536) ~Update cache to use compiler backend name in cache key~

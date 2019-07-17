@@ -15,7 +15,7 @@ use structopt::StructOpt;
 
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
-#[cfg(feature = "backend:llvm")]
+#[cfg(feature = "backend-llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
@@ -27,7 +27,7 @@ use wasmer_runtime_core::{
     debug,
     loader::{Instance as LoadedInstance, LocalLoader},
 };
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
@@ -112,9 +112,15 @@ struct Run {
     )]
     loader: Option<LoaderName>,
 
-    #[cfg(feature = "backend:singlepass")]
+    /// Path to previously saved instance image to resume.
+    #[cfg(feature = "backend-singlepass")]
     #[structopt(long = "resume")]
     resume: Option<String>,
+
+    /// Whether or not state tracking should be disabled during compilation.
+    /// State tracking is necessary for tier switching and backtracing.
+    #[structopt(long = "no-track-state")]
+    no_track_state: bool,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
@@ -137,7 +143,7 @@ struct Run {
 #[derive(Debug, Copy, Clone)]
 enum LoaderName {
     Local,
-    #[cfg(feature = "loader:kernel")]
+    #[cfg(feature = "loader-kernel")]
     Kernel,
 }
 
@@ -145,7 +151,7 @@ impl LoaderName {
     pub fn variants() -> &'static [&'static str] {
         &[
             "local",
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             "kernel",
         ]
     }
@@ -156,7 +162,7 @@ impl FromStr for LoaderName {
     fn from_str(s: &str) -> Result<LoaderName, String> {
         match s.to_lowercase().as_str() {
             "local" => Ok(LoaderName::Local),
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             "kernel" => Ok(LoaderName::Kernel),
             _ => Err(format!("The loader {} doesn't exist", s)),
         }
@@ -317,25 +323,27 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     let compiler: Box<dyn Compiler> = match options.backend {
-        #[cfg(feature = "backend:singlepass")]
+        #[cfg(feature = "backend-singlepass")]
         Backend::Singlepass => Box::new(SinglePassCompiler::new()),
-        #[cfg(not(feature = "backend:singlepass"))]
+        #[cfg(not(feature = "backend-singlepass"))]
         Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        #[cfg(feature = "backend:llvm")]
+        #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
-        #[cfg(not(feature = "backend:llvm"))]
+        #[cfg(not(feature = "backend-llvm"))]
         Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
-    #[cfg(feature = "loader:kernel")]
+    let track_state = !options.no_track_state;
+
+    #[cfg(feature = "loader-kernel")]
     let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
         true
     } else {
         false
     };
 
-    #[cfg(not(feature = "loader:kernel"))]
+    #[cfg(not(feature = "loader-kernel"))]
     let is_kernel_loader = false;
 
     let module = if is_kernel_loader {
@@ -345,6 +353,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 symbol_map: em_symbol_map,
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
+                track_state,
             },
             &*compiler,
         )
@@ -354,6 +363,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             &wasm_binary[..],
             CompilerConfig {
                 symbol_map: em_symbol_map,
+                track_state,
                 ..Default::default()
             },
             &*compiler,
@@ -399,6 +409,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         &wasm_binary[..],
                         CompilerConfig {
                             symbol_map: em_symbol_map,
+                            track_state,
                             ..Default::default()
                         },
                         &*compiler,
@@ -442,7 +453,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     .load(LocalLoader)
                     .expect("Can't use the local loader"),
             ),
-            #[cfg(feature = "loader:kernel")]
+            #[cfg(feature = "loader-kernel")]
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
@@ -503,7 +514,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
-            #[cfg(feature = "backend:singlepass")]
+            #[cfg(feature = "backend-singlepass")]
             unsafe {
                 if options.backend == Backend::Singlepass {
                     use wasmer_runtime_core::fault::{catch_unsafe_unwind, ensure_sighandler};
@@ -610,18 +621,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 struct InteractiveShellContext {
     image: Option<wasmer_runtime_core::state::InstanceImage>,
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 #[derive(Debug)]
 enum ShellExitOperation {
     ContinueWith(wasmer_runtime_core::state::InstanceImage),
 }
 
-#[cfg(feature = "backend:singlepass")]
+#[cfg(feature = "backend-singlepass")]
 fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     use std::io::Write;
 

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.5.4"
+version = "0.5.6"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -8,7 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-nix = "0.12.0"
+nix = "0.14.0"
 page_size = "0.4.1"
 wasmparser = "0.32.1"
 parking_lot = "0.7.1"
@@ -55,5 +55,5 @@ cc = "1.0"
 debug = []
 trace = ["debug"]
 # backend flags used in conditional compilation of Backend::variants
-"backend:singlepass" = []
-"backend:llvm" = []
+"backend-singlepass" = []
+"backend-llvm" = []

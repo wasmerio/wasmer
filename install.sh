@@ -365,10 +365,14 @@ wasmer_download() {
 
   # determine install directory if required
   if [ -z "$INSTALL_DIRECTORY" ]; then
-      # findWasmerBinDirectory INSTALL_DIRECTORY
-      INSTALL_DIRECTORY="$HOME/.wasmer"
+      if [ -z "$WASMER_DIR" ]; then
+          # If WASMER_DIR is not present
+          INSTALL_DIRECTORY="$HOME/.wasmer"
+      else
+          # If WASMER_DIR is present
+          INSTALL_DIRECTORY="${WASMER_DIR}"
+      fi
   fi
-  WASMER=INSTALL_DIRECTORY
 
   # assemble expected release artifact name
   BINARY="wasmer-${OS}-${ARCH}.tar.gz"

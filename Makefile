@@ -8,7 +8,7 @@ generate-emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release
 
 generate-wasitests:
-	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release
+	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv
 
 generate: generate-spectests generate-emtests generate-wasitests
 
@@ -112,13 +112,16 @@ lint:
 precommit: lint test
 
 debug:
-	cargo build --release --features backend:singlepass,debug,trace
+	cargo build --release --features backend-singlepass,debug,trace
 
 install:
 	cargo install --path .
 
+check:
+	cargo check --release --features backend-singlepass,backend-llvm,loader-kernel
+
 release:
-	cargo build --release --features backend:singlepass,backend:llvm,loader:kernel
+	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
 
 # Only one backend (cranelift)
 release-fast:
@@ -127,10 +130,10 @@ release-fast:
 	cargo build --release
 
 release-singlepass:
-	cargo build --release --features backend:singlepass
+	cargo build --release --features backend-singlepass
 
 release-llvm:
-	cargo build --release --features backend:llvm
+	cargo build --release --features backend-llvm
 
 bench:
 	cargo bench --all

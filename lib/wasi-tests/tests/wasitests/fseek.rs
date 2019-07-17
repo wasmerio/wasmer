@@ -1,13 +1,13 @@
 #[test]
-fn test_mapdir() {
+fn test_fseek() {
     assert_wasi_output!(
-        "../../wasitests/mapdir.wasm",
-        "mapdir",
+        "../../wasitests/fseek.wasm",
+        "fseek",
         vec![(
             ".".to_string(),
             ::std::path::PathBuf::from("wasitests/test_fs/hamlet")
         ),],
         vec![],
-        "../../wasitests/mapdir.out"
+        "../../wasitests/fseek.out"
     );
 }
