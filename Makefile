@@ -10,6 +10,10 @@ generate-emtests:
 generate-wasitests:
 	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv
 
+spectests-generate: generate-spectests
+emtests-generate: generate-emtests
+wasitests-generate: generate-wasitests
+
 generate: generate-spectests generate-emtests generate-wasitests
 
 
