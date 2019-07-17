@@ -4,7 +4,10 @@ fn test_readlink() {
         "../../wasitests/readlink.wasm",
         "readlink",
         vec![],
-        vec![(".".to_string(), ::std::path::PathBuf::from("wasitests/test_fs/hamlet")),],
+        vec![(
+            ".".to_string(),
+            ::std::path::PathBuf::from("wasitests/test_fs/hamlet")
+        ),],
         vec![],
         "../../wasitests/readlink.out"
     );

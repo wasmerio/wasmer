@@ -33,8 +33,7 @@ macro_rules! assert_wasi_output {
         let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &get_compiler())
             .expect("WASM can't be compiled");
 
-        let import_object =
-            generate_import_object(vec![], vec![], $po_dir_args, $mapdir_args);
+        let import_object = generate_import_object(vec![], vec![], $po_dir_args, $mapdir_args);
 
         let instance = module
             .instantiate(&import_object)
