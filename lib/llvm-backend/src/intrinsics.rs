@@ -115,6 +115,8 @@ pub struct Intrinsics {
 
     pub throw_trap: FunctionValue,
 
+    pub experimental_stackmap: FunctionValue,
+
     pub ctx_ptr_ty: PointerType,
 }
 
@@ -389,6 +391,17 @@ impl Intrinsics {
             throw_trap: module.add_function(
                 "vm.exception.trap",
                 void_ty.fn_type(&[i32_ty_basic], false),
+                None,
+            ),
+            experimental_stackmap: module.add_function(
+                "llvm.experimental.stackmap",
+                void_ty.fn_type(
+                    &[
+                        i64_ty_basic, /* id */
+                        i32_ty_basic, /* numShadowBytes */
+                    ],
+                    true,
+                ),
                 None,
             ),
             ctx_ptr_ty,

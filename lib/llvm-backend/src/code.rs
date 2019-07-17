@@ -8,6 +8,8 @@ use inkwell::{
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, Token},
@@ -299,9 +301,65 @@ fn resolve_memory_ptr(
     Ok(builder.build_int_to_ptr(effective_address_int, ptr_ty, &state.var_name()))
 }
 
+fn emit_stack_map(
+    intrinsics: &Intrinsics,
+    builder: &Builder,
+    local_function_id: usize,
+    target: &mut StackmapRegistry,
+    kind: StackmapEntryKind,
+    locals: &[PointerValue],
+    state: &State,
+) {
+    let stackmap_id = target.entries.len();
+
+    let mut params = vec![];
+
+    params.push(
+        intrinsics
+            .i64_ty
+            .const_int(stackmap_id as u64, false)
+            .as_basic_value_enum(),
+    );
+    params.push(intrinsics.i32_ty.const_int(0, false).as_basic_value_enum());
+
+    let locals: Vec<_> = locals.iter().map(|x| x.as_basic_value_enum()).collect();
+
+    params.extend_from_slice(&locals);
+    params.extend_from_slice(&state.stack);
+
+    builder.build_call(intrinsics.experimental_stackmap, &params, &state.var_name());
+
+    target.entries.push(StackmapEntry {
+        kind,
+        local_function_id,
+        local_count: locals.len(),
+        stack_count: state.stack.len(),
+    });
+}
+
 #[derive(Debug)]
 pub struct CodegenError {
     pub message: String,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct StackmapRegistry {
+    entries: Vec<StackmapEntry>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StackmapEntry {
+    kind: StackmapEntryKind,
+    local_function_id: usize,
+    local_count: usize,
+    stack_count: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum StackmapEntryKind {
+    Loop,
+    Call,
+    Trappable,
 }
 
 pub struct LLVMModuleCodeGenerator {
@@ -315,6 +373,7 @@ pub struct LLVMModuleCodeGenerator {
     func_import_count: usize,
     personality_func: FunctionValue,
     module: Module,
+    stackmaps: Rc<RefCell<StackmapRegistry>>,
 }
 
 pub struct LLVMFunctionCodeGenerator {
@@ -329,6 +388,8 @@ pub struct LLVMFunctionCodeGenerator {
     num_params: usize,
     ctx: Option<CtxType<'static>>,
     unreachable_depth: usize,
+    stackmaps: Rc<RefCell<StackmapRegistry>>,
+    index: usize,
 }
 
 impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
@@ -487,6 +548,20 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 };
 
                 builder.position_at_end(&loop_body);
+
+                {
+                    let mut stackmaps = self.stackmaps.borrow_mut();
+                    emit_stack_map(
+                        intrinsics,
+                        builder,
+                        self.index,
+                        &mut *stackmaps,
+                        StackmapEntryKind::Loop,
+                        &self.locals,
+                        state,
+                    )
+                }
+
                 state.push_loop(loop_body, loop_next, phis);
             }
             Operator::Br { relative_depth } => {
@@ -748,6 +823,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 // If llvm cannot prove that this is never touched,
                 // it will emit a `ud2` instruction on x86_64 arches.
 
+                {
+                    let mut stackmaps = self.stackmaps.borrow_mut();
+                    emit_stack_map(
+                        intrinsics,
+                        builder,
+                        self.index,
+                        &mut *stackmaps,
+                        StackmapEntryKind::Trappable,
+                        &self.locals,
+                        state,
+                    )
+                }
+
                 builder.build_call(
                     intrinsics.throw_trap,
                     &[intrinsics.trap_unreachable],
@@ -850,7 +938,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let llvm_sig = signatures[sigindex];
                 let func_sig = &info.signatures[sigindex];
 
-                let call_site = match func_index.local_or_import(info) {
+                let (params, func_ptr) = match func_index.local_or_import(info) {
                     LocalOrImport::Local(local_func_index) => {
                         let params: Vec<_> = [ctx.basic()]
                             .iter()
@@ -861,7 +949,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         let func_ptr =
                             ctx.local_func(local_func_index, llvm_sig, intrinsics, builder);
 
-                        builder.build_call(func_ptr, &params, &state.var_name())
+                        (params, func_ptr)
                     }
                     LocalOrImport::Import(import_func_index) => {
                         let (func_ptr_untyped, ctx_ptr) =
@@ -880,11 +968,24 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                             "typed_func_ptr",
                         );
 
-                        builder.build_call(func_ptr, &params, &state.var_name())
+                        (params, func_ptr)
                     }
                 };
 
                 state.popn(func_sig.params().len())?;
+                {
+                    let mut stackmaps = self.stackmaps.borrow_mut();
+                    emit_stack_map(
+                        intrinsics,
+                        builder,
+                        self.index,
+                        &mut *stackmaps,
+                        StackmapEntryKind::Call,
+                        &self.locals,
+                        state,
+                    )
+                }
+                let call_site = builder.build_call(func_ptr, &params, &state.var_name());
 
                 if let Some(basic_value) = call_site.try_as_basic_value().left() {
                     match func_sig.returns().len() {
@@ -1049,6 +1150,18 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     "typed_func_ptr",
                 );
 
+                {
+                    let mut stackmaps = self.stackmaps.borrow_mut();
+                    emit_stack_map(
+                        intrinsics,
+                        builder,
+                        self.index,
+                        &mut *stackmaps,
+                        StackmapEntryKind::Call,
+                        &self.locals,
+                        state,
+                    )
+                }
                 let call_site = builder.build_call(typed_func_ptr, &args, "indirect_call");
 
                 match wasmer_fn_sig.returns() {
@@ -2396,6 +2509,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             function_signatures: None,
             func_import_count: 0,
             personality_func,
+            stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
         }
     }
 
@@ -2468,6 +2582,8 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         );
         let num_params = locals.len();
 
+        let local_func_index = self.functions.len();
+
         let code = LLVMFunctionCodeGenerator {
             state,
             context: Some(context),
@@ -2480,6 +2596,8 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             num_params,
             ctx: None,
             unreachable_depth: 0,
+            stackmaps: self.stackmaps.clone(),
+            index: local_func_index,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
