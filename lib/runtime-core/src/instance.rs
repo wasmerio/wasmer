@@ -519,7 +519,12 @@ fn call_func_with_index(
 
     let signature = &info.signatures[sig_index];
     let num_results = signature.returns().len();
-    let num_results = num_results + signature.returns().iter().filter(|&&ty| ty == Type::V128).count();
+    let num_results = num_results
+        + signature
+            .returns()
+            .iter()
+            .filter(|&&ty| ty == Type::V128)
+            .count();
     rets.reserve(num_results);
 
     if !signature.check_param_value_types(args) {
@@ -548,17 +553,25 @@ fn call_func_with_index(
     let mut raw_args: SmallVec<[u64; 8]> = SmallVec::new();
     for v in args {
         match v {
-            Value::I32(i) => { raw_args.push(*i as u64); }
-            Value::I64(i) => { raw_args.push(*i as u64); }
-            Value::F32(f) => { raw_args.push(f.to_bits() as u64); }
-            Value::F64(f) => { raw_args.push(f.to_bits() as u64); }
+            Value::I32(i) => {
+                raw_args.push(*i as u64);
+            }
+            Value::I64(i) => {
+                raw_args.push(*i as u64);
+            }
+            Value::F32(f) => {
+                raw_args.push(f.to_bits() as u64);
+            }
+            Value::F64(f) => {
+                raw_args.push(f.to_bits() as u64);
+            }
             Value::V128(v) => {
                 let bytes = v.to_le_bytes();
                 let mut lo = [0u8; 8];
-                lo.clone_from_slice(&bytes[0 .. 8]);
+                lo.clone_from_slice(&bytes[0..8]);
                 raw_args.push(u64::from_le_bytes(lo));
                 let mut hi = [0u8; 8];
-                hi.clone_from_slice(&bytes[8 .. 16]);
+                hi.clone_from_slice(&bytes[8..16]);
                 raw_args.push(u64::from_le_bytes(hi));
             }
         }
@@ -621,7 +634,10 @@ fn call_func_with_index(
             let mut bytes = [0u8; 16];
             let lo = result[0].to_le_bytes();
             let hi = result[1].to_le_bytes();
-            for i in 0..8 { bytes[i] = lo[i]; bytes[i + 8] = hi[i]; }
+            for i in 0..8 {
+                bytes[i] = lo[i];
+                bytes[i + 8] = hi[i];
+            }
             rets.push(Value::V128(u128::from_le_bytes(bytes)));
             Ok(())
         }

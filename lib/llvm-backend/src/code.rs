@@ -114,14 +114,22 @@ fn trunc_sat(
     let int_min_value = splat_vector(
         builder,
         intrinsics,
-        ivec_ty.get_element_type().into_int_type().const_int(int_min_value, is_signed).as_basic_value_enum(),
+        ivec_ty
+            .get_element_type()
+            .into_int_type()
+            .const_int(int_min_value, is_signed)
+            .as_basic_value_enum(),
         ivec_ty,
         "",
     );
     let int_max_value = splat_vector(
         builder,
         intrinsics,
-        ivec_ty.get_element_type().into_int_type().const_int(int_max_value, is_signed).as_basic_value_enum(),
+        ivec_ty
+            .get_element_type()
+            .into_int_type()
+            .const_int(int_max_value, is_signed)
+            .as_basic_value_enum(),
         ivec_ty,
         "",
     );
@@ -183,10 +191,15 @@ fn trunc_sat(
         "",
     );
     let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
-    let above_upper_bound_cmp = builder.build_float_compare(FloatPredicate::OGT, value, upper_bound, "above_upper_bound");
-    let below_lower_bound_cmp = builder.build_float_compare(FloatPredicate::OLT, value, lower_bound, "below_lower_bound");
-    let not_representable = builder
-        .build_or(builder.build_or(nan_cmp, above_upper_bound_cmp, ""), below_lower_bound_cmp, "not_representable_as_int");
+    let above_upper_bound_cmp =
+        builder.build_float_compare(FloatPredicate::OGT, value, upper_bound, "above_upper_bound");
+    let below_lower_bound_cmp =
+        builder.build_float_compare(FloatPredicate::OLT, value, lower_bound, "below_lower_bound");
+    let not_representable = builder.build_or(
+        builder.build_or(nan_cmp, above_upper_bound_cmp, ""),
+        below_lower_bound_cmp,
+        "not_representable_as_int",
+    );
     let value = builder
         .build_select(not_representable, zero, value, "safe_to_convert")
         .into_vector_value();
@@ -4120,10 +4133,24 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     let idx = builder
                         .build_extract_element(v2, intrinsics.i32_ty.const_int(i, false), "idx")
                         .into_int_value();
-                    let idx_out_of_range = builder.build_int_compare(IntPredicate::UGE, idx, lanes, "idx_out_of_range");
-                    let idx_clamped = builder.build_select(idx_out_of_range, intrinsics.i32_zero, idx, "idx_clamped").into_int_value();
-                    let elem = builder.build_extract_element(v1, idx_clamped, "elem").into_int_value();
-                    let elem_or_zero = builder.build_select(idx_out_of_range, intrinsics.i32_zero, elem, "elem_or_zero");
+                    let idx_out_of_range = builder.build_int_compare(
+                        IntPredicate::UGE,
+                        idx,
+                        lanes,
+                        "idx_out_of_range",
+                    );
+                    let idx_clamped = builder
+                        .build_select(idx_out_of_range, intrinsics.i32_zero, idx, "idx_clamped")
+                        .into_int_value();
+                    let elem = builder
+                        .build_extract_element(v1, idx_clamped, "elem")
+                        .into_int_value();
+                    let elem_or_zero = builder.build_select(
+                        idx_out_of_range,
+                        intrinsics.i32_zero,
+                        elem,
+                        "elem_or_zero",
+                    );
                     res = builder.build_insert_element(
                         res,
                         elem_or_zero,
