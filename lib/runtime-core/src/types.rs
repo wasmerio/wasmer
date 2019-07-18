@@ -51,13 +51,13 @@ impl Value {
         }
     }
 
-    pub fn to_u64(&self) -> u64 {
+    pub fn to_u128(&self) -> u128 {
         match *self {
-            Value::I32(x) => x as u32 as u64,
-            Value::I64(x) => x as u64,
-            Value::F32(x) => f32::to_bits(x) as u64,
-            Value::F64(x) => f64::to_bits(x),
-            Value::V128(_) => unimplemented!(),
+            Value::I32(x) => x as u128,
+            Value::I64(x) => x as u128,
+            Value::F32(x) => f32::to_bits(x) as u128,
+            Value::F64(x) => f64::to_bits(x) as u128,
+            Value::V128(x) => x,
         }
     }
 }
