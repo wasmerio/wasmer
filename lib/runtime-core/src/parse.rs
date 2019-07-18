@@ -427,6 +427,9 @@ fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
         Operator::F64Const { value } => {
             Initializer::Const(Value::F64(f64::from_bits(value.bits())))
         }
+        Operator::V128Const { value } => {
+            Initializer::Const(Value::V128(u128::from_le_bytes(*value.bytes())))
+        }
         _ => {
             return Err(BinaryReaderError {
                 message: "init expr evaluation failed: unsupported opcode",

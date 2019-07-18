@@ -92,6 +92,8 @@ fn trunc_sat(
     ivec_ty: VectorType,
     lower_bound: u64, // Exclusive (lowest representable value)
     upper_bound: u64, // Exclusive (greatest representable value)
+    int_min_value: u64,
+    int_max_value: u64,
     value: IntValue,
     name: &str,
 ) -> IntValue {
@@ -102,10 +104,27 @@ fn trunc_sat(
     //    lanes that need to saturate to min.
     // d) Use vector select (not shuffle) to pick from either the
     //    splat vector or the input vector depending on whether the
-    //    comparison indicates that we have an unrepresentable value.
+    //    comparison indicates that we have an unrepresentable value. Replace
+    //    unrepresentable values with zero.
     // e) Now that the value is safe, fpto[su]i it.
+    // f) Use our previous comparison results to replace certain zeros with
+    //    int_min or int_max.
 
-    let is_signed = lower_bound != 0;
+    let is_signed = int_min_value != 0;
+    let int_min_value = splat_vector(
+        builder,
+        intrinsics,
+        ivec_ty.get_element_type().into_int_type().const_int(int_min_value, is_signed).as_basic_value_enum(),
+        ivec_ty,
+        "",
+    );
+    let int_max_value = splat_vector(
+        builder,
+        intrinsics,
+        ivec_ty.get_element_type().into_int_type().const_int(int_max_value, is_signed).as_basic_value_enum(),
+        ivec_ty,
+        "",
+    );
     let lower_bound = if is_signed {
         builder.build_signed_int_to_float(
             ivec_ty
@@ -163,23 +182,25 @@ fn trunc_sat(
         fvec_ty,
         "",
     );
-    let nan_cmp = builder.build_float_compare(FloatPredicate::UNE, value, value, "");
-    let underflow_cmp = builder.build_float_compare(FloatPredicate::UGT, value, upper_bound, "");
-    let overflow_cmp = builder.build_float_compare(FloatPredicate::ULT, value, lower_bound, "");
+    let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+    let above_upper_bound_cmp = builder.build_float_compare(FloatPredicate::OGT, value, upper_bound, "above_upper_bound");
+    let below_lower_bound_cmp = builder.build_float_compare(FloatPredicate::OLT, value, lower_bound, "below_lower_bound");
+    let not_representable = builder
+        .build_or(builder.build_or(nan_cmp, above_upper_bound_cmp, ""), below_lower_bound_cmp, "not_representable_as_int");
     let value = builder
-        .build_select(nan_cmp, zero, value, "")
+        .build_select(not_representable, zero, value, "safe_to_convert")
         .into_vector_value();
-    let value = builder
-        .build_select(underflow_cmp, lower_bound, value, "")
-        .into_vector_value();
-    let value = builder
-        .build_select(overflow_cmp, upper_bound, value, "")
-        .into_vector_value();
-    let res = if is_signed {
-        builder.build_float_to_signed_int(value, ivec_ty, name)
+    let value = if is_signed {
+        builder.build_float_to_signed_int(value, ivec_ty, "as_int")
     } else {
-        builder.build_float_to_unsigned_int(value, ivec_ty, name)
+        builder.build_float_to_unsigned_int(value, ivec_ty, "as_int")
     };
+    let value = builder
+        .build_select(above_upper_bound_cmp, int_max_value, value, "")
+        .into_vector_value();
+    let res = builder
+        .build_select(below_lower_bound_cmp, int_min_value, value, name)
+        .into_vector_value();
     builder
         .build_bitcast(res, intrinsics.i128_ty, "")
         .into_int_value()
@@ -3110,6 +3131,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     intrinsics.f32x4_ty,
                     intrinsics.i32x4_ty,
+                    -2147480000i32 as u32 as u64,
+                    2147480000,
                     std::i32::MIN as u64,
                     std::i32::MAX as u64,
                     v,
@@ -3124,6 +3147,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     intrinsics.f32x4_ty,
                     intrinsics.i32x4_ty,
+                    0,
+                    4294960000,
                     std::u32::MIN as u64,
                     std::u32::MAX as u64,
                     v,
@@ -3140,6 +3165,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics.i64x2_ty,
                     std::i64::MIN as u64,
                     std::i64::MAX as u64,
+                    std::i64::MIN as u64,
+                    std::i64::MAX as u64,
                     v,
                     &state.var_name(),
                 );
@@ -3152,6 +3179,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     intrinsics.f64x2_ty,
                     intrinsics.i64x2_ty,
+                    std::u64::MIN,
+                    std::u64::MAX,
                     std::u64::MIN,
                     std::u64::MAX,
                     v,
@@ -4085,16 +4114,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v2 = builder
                     .build_bitcast(v2, intrinsics.i8x16_ty, "")
                     .into_vector_value();
+                let lanes = intrinsics.i32_ty.const_int(16, false);
                 let mut res = intrinsics.i8x16_ty.get_undef();
                 for i in 0..15 {
                     let idx = builder
-                        .build_extract_element(v2, intrinsics.i32_ty.const_int(i, false), "")
+                        .build_extract_element(v2, intrinsics.i32_ty.const_int(i, false), "idx")
                         .into_int_value();
-                    let idx = builder.build_and(idx, intrinsics.i32_ty.const_int(15, false), "");
-                    let elem = builder.build_extract_element(v1, idx, "");
+                    let idx_out_of_range = builder.build_int_compare(IntPredicate::UGE, idx, lanes, "idx_out_of_range");
+                    let idx_clamped = builder.build_select(idx_out_of_range, intrinsics.i32_zero, idx, "idx_clamped").into_int_value();
+                    let elem = builder.build_extract_element(v1, idx_clamped, "elem").into_int_value();
+                    let elem_or_zero = builder.build_select(idx_out_of_range, intrinsics.i32_zero, elem, "elem_or_zero");
                     res = builder.build_insert_element(
                         res,
-                        elem,
+                        elem_or_zero,
                         intrinsics.i32_ty.const_int(i, false),
                         "",
                     );

@@ -78,7 +78,8 @@ fn generate_trampoline(
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
     args_vec.push(vmctx_ptr);
 
-    for (i, param_ty) in func_sig.params().iter().enumerate() {
+    let mut i = 0;
+    for param_ty in func_sig.params().iter() {
         let index = intrinsics.i32_ty.const_int(i as _, false);
         let item_pointer = unsafe { builder.build_in_bounds_gep(args_ptr, &[index], "arg_ptr") };
 
@@ -89,6 +90,10 @@ fn generate_trampoline(
 
         let arg = builder.build_load(typed_item_pointer, "arg");
         args_vec.push(arg);
+        i = i + 1;
+        if *param_ty == Type::V128 {
+            i = i + 1;
+        }
     }
 
     let call_site = builder.build_call(func_ptr, &args_vec, "call");

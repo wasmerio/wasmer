@@ -519,6 +519,7 @@ fn call_func_with_index(
 
     let signature = &info.signatures[sig_index];
     let num_results = signature.returns().len();
+    let num_results = num_results + signature.returns().iter().filter(|&&ty| ty == Type::V128).count();
     rets.reserve(num_results);
 
     if !signature.check_param_value_types(args) {
@@ -544,16 +545,24 @@ fn call_func_with_index(
         }
     };
 
-    let raw_args: SmallVec<[u64; 8]> = args
-        .iter()
-        .map(|v| match v {
-            Value::I32(i) => *i as u64,
-            Value::I64(i) => *i as u64,
-            Value::F32(f) => f.to_bits() as u64,
-            Value::F64(f) => f.to_bits(),
-            Value::V128(_) => unimplemented!(),
-        })
-        .collect();
+    let mut raw_args: SmallVec<[u64; 8]> = SmallVec::new();
+    for v in args {
+        match v {
+            Value::I32(i) => { raw_args.push(*i as u64); }
+            Value::I64(i) => { raw_args.push(*i as u64); }
+            Value::F32(f) => { raw_args.push(f.to_bits() as u64); }
+            Value::F64(f) => { raw_args.push(f.to_bits() as u64); }
+            Value::V128(v) => {
+                let bytes = v.to_le_bytes();
+                let mut lo = [0u8; 8];
+                lo.clone_from_slice(&bytes[0 .. 8]);
+                raw_args.push(u64::from_le_bytes(lo));
+                let mut hi = [0u8; 8];
+                hi.clone_from_slice(&bytes[8 .. 16]);
+                raw_args.push(u64::from_le_bytes(hi));
+            }
+        }
+    }
 
     let Wasm {
         trampoline,
@@ -596,12 +605,24 @@ fn call_func_with_index(
         Type::I64 => Value::I64(raw as i64),
         Type::F32 => Value::F32(f32::from_bits(raw as u32)),
         Type::F64 => Value::F64(f64::from_bits(raw)),
-        Type::V128 => unimplemented!(),
+        _ => unreachable!(),
     };
 
     match signature.returns() {
         &[] => {
             run_wasm(0 as *mut u64)?;
+            Ok(())
+        }
+        &[Type::V128] => {
+            let mut result = [0u64; 2];
+
+            run_wasm(result.as_mut_ptr())?;
+
+            let mut bytes = [0u8; 16];
+            let lo = result[0].to_le_bytes();
+            let hi = result[1].to_le_bytes();
+            for i in 0..8 { bytes[i] = lo[i]; bytes[i + 8] = hi[i]; }
+            rets.push(Value::V128(u128::from_le_bytes(bytes)));
             Ok(())
         }
         &[ty] => {
