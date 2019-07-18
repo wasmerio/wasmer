@@ -1,3 +1,4 @@
+use super::stackmap::{self, StackmapRegistry};
 use crate::intrinsics::Intrinsics;
 use inkwell::{
     memory_buffer::MemoryBuffer,
@@ -25,6 +26,7 @@ use wasmer_runtime_core::{
     },
     cache::Error as CacheError,
     module::ModuleInfo,
+    state::ModuleStateMap,
     structures::TypedIndex,
     typed_func::{Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
@@ -76,6 +78,10 @@ extern "C" {
     ) -> LLVMResult;
     fn module_delete(module: *mut LLVMModule);
     fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
+    fn llvm_backend_get_stack_map_ptr(module: *const LLVMModule) -> *const u8;
+    fn llvm_backend_get_stack_map_size(module: *const LLVMModule) -> usize;
+    fn llvm_backend_get_code_ptr(module: *const LLVMModule) -> *const u8;
+    fn llvm_backend_get_code_size(module: *const LLVMModule) -> usize;
 
     fn throw_trap(ty: i32);
 
@@ -231,10 +237,15 @@ pub struct LLVMBackend {
     module: *mut LLVMModule,
     #[allow(dead_code)]
     buffer: Arc<Buffer>,
+    msm: Option<ModuleStateMap>,
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, _intrinsics: Intrinsics) -> (Self, LLVMCache) {
+    pub fn new(
+        module: Module,
+        _intrinsics: Intrinsics,
+        _stackmaps: &StackmapRegistry,
+    ) -> (Self, LLVMCache) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
             asm_printer: true,
@@ -285,10 +296,24 @@ impl LLVMBackend {
 
         let buffer = Arc::new(Buffer::LlvmMemory(memory_buffer));
 
+        let raw_stackmap = unsafe {
+            ::std::slice::from_raw_parts(
+                llvm_backend_get_stack_map_ptr(module),
+                llvm_backend_get_stack_map_size(module),
+            )
+        };
+        if raw_stackmap.len() > 0 {
+            let map = stackmap::StackMap::parse(raw_stackmap);
+            eprintln!("{:?}", map);
+        } else {
+            eprintln!("WARNING: No stack map");
+        }
+
         (
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
+                msm: None,
             },
             LLVMCache { buffer },
         )
@@ -318,6 +343,7 @@ impl LLVMBackend {
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
+                msm: None,
             },
             LLVMCache { buffer },
         ))
@@ -370,6 +396,19 @@ impl RunnableModule for LLVMBackend {
         };
 
         Some(unsafe { Wasm::from_raw_parts(trampoline, invoke_trampoline, None) })
+    }
+
+    fn get_code(&self) -> Option<&[u8]> {
+        Some(unsafe {
+            ::std::slice::from_raw_parts(
+                llvm_backend_get_code_ptr(self.module),
+                llvm_backend_get_code_size(self.module),
+            )
+        })
+    }
+
+    fn get_module_state_map(&self) -> Option<ModuleStateMap> {
+        self.msm.clone()
     }
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {

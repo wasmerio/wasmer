@@ -156,6 +156,10 @@ struct WasmModule
         callbacks_t callbacks);
 
     void *get_func(llvm::StringRef name) const;
+    uint8_t *get_stack_map_ptr() const;
+    size_t get_stack_map_size() const;
+    uint8_t *get_code_ptr() const;
+    size_t get_code_size() const;
 
     bool _init_failed = false;
   private:
@@ -232,5 +236,21 @@ extern "C"
     void *get_func_symbol(WasmModule *module, const char *name)
     {
         return module->get_func(llvm::StringRef(name));
+    }
+
+    const uint8_t *llvm_backend_get_stack_map_ptr(const WasmModule *module) {
+        return module->get_stack_map_ptr();
+    }
+
+    size_t llvm_backend_get_stack_map_size(const WasmModule *module) {
+        return module->get_stack_map_size();
+    }
+
+    const uint8_t *llvm_backend_get_code_ptr(const WasmModule *module) {
+        return module->get_code_ptr();
+    }
+
+    size_t llvm_backend_get_code_size(const WasmModule *module) {
+        return module->get_code_size();
     }
 }

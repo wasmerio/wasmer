@@ -6,6 +6,7 @@ mod code;
 mod intrinsics;
 mod platform;
 mod read_info;
+mod stackmap;
 mod state;
 mod trampolines;
 

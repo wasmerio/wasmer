@@ -27,6 +27,7 @@ use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
 use crate::backend::LLVMBackend;
 use crate::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
 use crate::read_info::{blocktype_to_type, type_to_type};
+use crate::stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry};
 use crate::state::{ControlFrame, IfElseState, State};
 use crate::trampolines::generate_trampolines;
 
@@ -340,26 +341,6 @@ fn emit_stack_map(
 #[derive(Debug)]
 pub struct CodegenError {
     pub message: String,
-}
-
-#[derive(Default, Debug, Clone)]
-pub struct StackmapRegistry {
-    entries: Vec<StackmapEntry>,
-}
-
-#[derive(Debug, Clone)]
-pub struct StackmapEntry {
-    kind: StackmapEntryKind,
-    local_function_id: usize,
-    local_count: usize,
-    stack_count: usize,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum StackmapEntryKind {
-    Loop,
-    Call,
-    Trappable,
 }
 
 pub struct LLVMModuleCodeGenerator {
@@ -2653,7 +2634,10 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         // self.module.print_to_stderr();
 
-        let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics.take().unwrap());
+        let stackmaps = self.stackmaps.borrow();
+
+        let (backend, cache_gen) =
+            LLVMBackend::new(self.module, self.intrinsics.take().unwrap(), &*stackmaps);
         Ok((backend, Box::new(cache_gen)))
     }
 

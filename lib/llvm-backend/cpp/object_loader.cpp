@@ -9,6 +9,22 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager {
 public:
     MemoryManager(callbacks_t callbacks) : callbacks(callbacks) {}
 
+    uint8_t * get_stack_map_ptr() const {
+        return stack_map_ptr;
+    }
+
+    size_t get_stack_map_size() const {
+        return stack_map_size;
+    }
+
+    uint8_t * get_code_ptr() const {
+        return (uint8_t *) code_start_ptr;
+    }
+
+    size_t get_code_size() const {
+        return code_size;
+    }
+
     virtual ~MemoryManager() override {
         deregisterEHFrames();
         // Deallocate all of the allocated memory.
@@ -24,11 +40,17 @@ public:
     virtual uint8_t* allocateDataSection(uintptr_t size, unsigned alignment, unsigned section_id, llvm::StringRef section_name, bool read_only) override {
         // Allocate from the read-only section or the read-write section, depending on if this allocation
         // should be read-only or not.
+        uint8_t *ret;
         if (read_only) {
-            return allocate_bump(read_section, read_bump_ptr, size, alignment);
+            ret = allocate_bump(read_section, read_bump_ptr, size, alignment);
         } else {
-            return allocate_bump(readwrite_section, readwrite_bump_ptr, size, alignment);
+            ret = allocate_bump(readwrite_section, readwrite_bump_ptr, size, alignment);
         }
+        if(section_name.equals(llvm::StringRef("__llvm_stackmaps")) || section_name.equals(llvm::StringRef(".llvm_stackmaps"))) {
+            stack_map_ptr = ret;
+            stack_map_size = size;
+        }
+        return ret;
     }
 
     virtual void reserveAllocationSpace(
@@ -53,6 +75,8 @@ public:
         assert(code_result == RESULT_OK);
         code_section = Section { code_ptr_out, code_size_out };
         code_bump_ptr = (uintptr_t)code_ptr_out;
+        code_start_ptr = (uintptr_t)code_ptr_out;
+        this->code_size = code_size;
 
         uint8_t *read_ptr_out = nullptr;
         size_t read_size_out = 0;
@@ -127,12 +151,17 @@ private:
     }
 
     Section code_section, read_section, readwrite_section;
+    uintptr_t code_start_ptr;
+    size_t code_size;
     uintptr_t code_bump_ptr, read_bump_ptr, readwrite_bump_ptr;
     uint8_t* eh_frame_ptr;
     size_t eh_frame_size;
     bool eh_frames_registered = false;
 
     callbacks_t callbacks;
+
+    uint8_t *stack_map_ptr = nullptr;
+    size_t stack_map_size = 0;
 };
 
 struct SymbolLookup : llvm::JITSymbolResolver {
@@ -201,4 +230,29 @@ WasmModule::WasmModule(
 void* WasmModule::get_func(llvm::StringRef name) const {
     auto symbol = runtime_dyld->getSymbol(name);
     return (void*)symbol.getAddress();
+}
+
+uint8_t * WasmModule::get_stack_map_ptr() const {
+    llvm::RuntimeDyld::MemoryManager& mm = *memory_manager;
+    MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
+    return local_mm->get_stack_map_ptr();
+}
+
+size_t WasmModule::get_stack_map_size() const {
+    llvm::RuntimeDyld::MemoryManager& mm = *memory_manager;
+    MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
+    return local_mm->get_stack_map_size();
+}
+
+
+uint8_t * WasmModule::get_code_ptr() const {
+    llvm::RuntimeDyld::MemoryManager& mm = *memory_manager;
+    MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
+    return local_mm->get_code_ptr();
+}
+
+size_t WasmModule::get_code_size() const {
+    llvm::RuntimeDyld::MemoryManager& mm = *memory_manager;
+    MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
+    return local_mm->get_code_size();
 }
