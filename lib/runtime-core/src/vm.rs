@@ -42,7 +42,7 @@ pub struct Ctx {
     pub import_backing: *mut ImportBacking,
     pub module: *const ModuleInner,
 
-    //// This is intended to be user-supplied, per-instance
+    /// This is intended to be user-supplied, per-instance
     /// contextual data. There are currently some issue with it,
     /// notably that it cannot be set before running the `start`
     /// function in a WebAssembly module.

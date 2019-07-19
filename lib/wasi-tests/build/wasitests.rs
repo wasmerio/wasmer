@@ -89,7 +89,7 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     };
 
     let src_code = fs::read_to_string(file).expect("read src file");
-    let args = extract_args_from_source_file(&src_code).unwrap_or_default();
+    let args: Args = extract_args_from_source_file(&src_code).unwrap_or_default();
 
     let mapdir_args = {
         let mut out_str = String::new();
@@ -116,12 +116,25 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         out_str
     };
 
+    let dir_args = {
+        let mut out_str = String::new();
+        out_str.push_str("vec![");
+
+        for entry in args.po_dirs {
+            out_str.push_str(&format!("\"{}\".to_string(),", entry));
+        }
+
+        out_str.push_str("]");
+        out_str
+    };
+
     let contents = format!(
         "#[test]{ignore}
 fn test_{rs_module_name}() {{
     assert_wasi_output!(
         \"../../{module_path}\",
         \"{rs_module_name}\",
+        {dir_args},
         {mapdir_args},
         {envvar_args},
         \"../../{test_output_path}\"
@@ -132,6 +145,7 @@ fn test_{rs_module_name}() {{
         module_path = wasm_out_name,
         rs_module_name = rs_module_name,
         test_output_path = format!("{}.out", normalized_name),
+        dir_args = dir_args,
         mapdir_args = mapdir_args,
         envvar_args = envvar_args
     );
@@ -192,6 +206,8 @@ fn read_ignore_list() -> HashSet<String> {
 struct Args {
     pub mapdir: Vec<(String, String)>,
     pub envvars: Vec<(String, String)>,
+    /// pre-opened directories
+    pub po_dirs: Vec<String>,
 }
 
 /// Pulls args to the program out of a comment at the top of the file starting with "// Args:"
@@ -236,6 +252,9 @@ fn extract_args_from_source_file(source_code: &str) -> Option<Args> {
                     } else {
                         eprintln!("Parse error in env {} not parsed correctly", &tokenized[1]);
                     }
+                }
+                "dir" => {
+                    args.po_dirs.push(tokenized[1].to_string());
                 }
                 e => {
                     eprintln!("WARN: comment arg: {} is not supported", e);
