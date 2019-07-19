@@ -23,6 +23,10 @@ pub enum WasiFile {
     HostFile(fs::File),
 }
 
+impl WasiFile {
+    pub fn close(self) {}
+}
+
 impl Write for WasiFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
@@ -447,11 +451,10 @@ impl WasiFs {
                             let file = {
                                 let mut cd = path.clone();
                                 cd.push(component);
-                                dbg!(cd)
+                                cd
                             };
                             // TODO: verify this returns successfully when given a non-symlink
-                            let metadata =
-                                dbg!(file.symlink_metadata()).ok().ok_or(__WASI_EINVAL)?;
+                            let metadata = file.symlink_metadata().ok().ok_or(__WASI_EINVAL)?;
                             let file_type = metadata.file_type();
 
                             let kind = if file_type.is_dir() {
@@ -472,16 +475,9 @@ impl WasiFs {
                                 debug!("attempting to decompose path {:?}", link_value);
 
                                 let (pre_open_dir_fd, relative_path) = if link_value.is_relative() {
-                                    // the symlink resolution part of canonicalize is not what we want:
-                                    // this should help tests pass, then we can make it fail with a new test
-                                    // actually, it might be fine
-                                    /*let canon_link_value = dbg!(link_value.canonicalize())
-                                    .ok()
-                                    .ok_or(__WASI_EINVAL)?;*/
-                                    dbg!(self.path_into_pre_open_and_relative_path(&file))?
+                                    self.path_into_pre_open_and_relative_path(&file)?
                                 } else {
-                                    unimplemented!("ABSOLUTE SYMLINKS ARE NO GOOD");
-                                    //dbg!(self.path_into_pre_open_and_relative_path(&link_value))?
+                                    unimplemented!("Absolute symlinks are not yet supported");
                                 };
                                 loop_for_symlink = true;
                                 symlink_count += 1;
@@ -614,7 +610,7 @@ impl WasiFs {
         for comp in components.rev() {
             parent_dir.push(comp);
         }
-        dbg!(self.get_inode_at_path(base, dbg!(&parent_dir.to_string_lossy()), follow_symlinks,))
+        self.get_inode_at_path(base, &parent_dir.to_string_lossy(), follow_symlinks)
             .map(|v| (v, new_entity_name))
     }
 
@@ -741,13 +737,6 @@ impl WasiFs {
     /// returns true if the inode existed and was removed
     pub unsafe fn remove_inode(&mut self, inode: Inode) -> bool {
         self.inodes.remove(inode).is_some()
-    }
-
-    pub fn get_base_path_for_directory(&self, directory: Inode) -> Option<String> {
-        if let Kind::Dir { path, .. } = &self.inodes[directory].kind {
-            return Some(path.to_string_lossy().to_string());
-        }
-        None
     }
 
     fn create_virtual_root(&mut self) -> Inode {

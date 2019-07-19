@@ -314,12 +314,30 @@ pub fn fd_allocate(
 ///     If `fd` is invalid or not open (TODO: consider __WASI_EINVAL)
 pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_close");
-    // FD is too large
-    return __WASI_EMFILE;
-    // FD is a directory (due to user input)
-    return __WASI_EISDIR;
-    // FD is invalid
-    return __WASI_EBADF;
+
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+
+    let inode_val = &mut state.fs.inodes[fd_entry.inode];
+    if inode_val.is_preopened {
+        return __WASI_EACCES;
+    }
+    match &mut inode_val.kind {
+        Kind::File { ref mut handle, .. } => {
+            let mut empty_handle = None;
+            std::mem::swap(handle, &mut empty_handle);
+            if let Some(handle_inner) = empty_handle {
+                handle_inner.close()
+            } else {
+                return __WASI_EINVAL;
+            }
+        }
+        Kind::Dir { .. } => return __WASI_EISDIR,
+        Kind::Root { .. } => return __WASI_EACCES,
+        Kind::Symlink { .. } | Kind::Buffer { .. } => return __WASI_EINVAL,
+    }
+
     __WASI_ESUCCESS
 }
 
@@ -1154,7 +1172,7 @@ pub fn path_create_directory(
     let mut cur_dir_inode = working_dir.inode;
     for comp in &path_vec {
         debug!("Creating dir {}", comp);
-        match dbg!(&mut state.fs.inodes[cur_dir_inode].kind) {
+        match &mut state.fs.inodes[cur_dir_inode].kind {
             Kind::Dir {
                 ref mut entries,
                 path,
@@ -1387,19 +1405,17 @@ pub fn path_open(
     debug!("=> fd: {}, path: {}", dirfd, &path_string);
 
     let path_arg = std::path::PathBuf::from(path_string);
-    let maybe_inode = dbg!(state.fs.get_inode_at_path(
+    let maybe_inode = state.fs.get_inode_at_path(
         dirfd,
         path_string,
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
-    ));
+    );
 
     // TODO: traverse rights of dirs properly
     let adjusted_rights = fs_rights_base & working_dir.rights_inheriting;
-    dbg!(fs_rights_base & __WASI_RIGHT_FD_WRITE != 0);
-    dbg!(working_dir.rights_inheriting & __WASI_RIGHT_FD_WRITE != 0);
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
-        match dbg!(&mut state.fs.inodes[inode].kind) {
+        match &mut state.fs.inodes[inode].kind {
             Kind::File {
                 ref mut handle,
                 path,
@@ -1408,7 +1424,7 @@ pub fn path_open(
                     return __WASI_ENOTDIR;
                 }
                 if o_flags & __WASI_O_EXCL != 0 {
-                    if dbg!(dbg!(&path).exists()) {
+                    if path.exists() {
                         return __WASI_EEXIST;
                     }
                 }
@@ -1428,7 +1444,7 @@ pub fn path_open(
             Kind::Dir { .. } | Kind::Root { .. } => {
                 // TODO: adjust these to be correct
                 if o_flags & __WASI_O_EXCL != 0 {
-                    if dbg!(dbg!(&path_arg).exists()) {
+                    if path_arg.exists() {
                         return __WASI_EEXIST;
                     }
                 }
@@ -1462,7 +1478,6 @@ pub fn path_open(
             let new_file_host_path = match &state.fs.inodes[parent_inode].kind {
                 Kind::Dir { path, .. } => {
                     let mut new_path = path.clone();
-                    dbg!(new_path.exists());
                     new_path.push(&new_entity_name);
                     new_path
                 }
@@ -1480,19 +1495,18 @@ pub fn path_open(
                     .write(true)
                     .create_new(true);
 
-                dbg!(&new_file_host_path.exists());
-                Some(WasiFile::HostFile(wasi_try!(dbg!(open_options
-                    .open(dbg!(&new_file_host_path))
+                Some(WasiFile::HostFile(wasi_try!(open_options
+                    .open(&new_file_host_path)
                     .map_err(|e| {
                         debug!("Error opening file {}", e);
                         __WASI_EIO
-                    })))))
+                    }))))
             };
 
             let new_inode = {
                 let kind = Kind::File {
                     handle,
-                    path: dbg!(new_file_host_path),
+                    path: new_file_host_path,
                 };
                 wasi_try!(state.fs.create_inode(kind, false, new_entity_name.clone()))
             };
