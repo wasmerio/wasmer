@@ -4119,7 +4119,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
-            Operator::V8x16Shuffle1 => {
+            Operator::V8x16Swizzle => {
                 let (v1, v2) = state.pop2()?;
                 let v1 = builder
                     .build_bitcast(v1, intrinsics.i8x16_ty, "")
@@ -4127,27 +4127,46 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v2 = builder
                     .build_bitcast(v2, intrinsics.i8x16_ty, "")
                     .into_vector_value();
-                let lanes = intrinsics.i32_ty.const_int(16, false);
+                let lanes = intrinsics.i8_ty.const_int(16, false);
+                let lanes = splat_vector(
+                    builder,
+                    intrinsics,
+                    lanes.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    "",
+                );
                 let mut res = intrinsics.i8x16_ty.get_undef();
-                for i in 0..15 {
+                let idx_out_of_range =
+                    builder.build_int_compare(IntPredicate::UGE, v2, lanes, "idx_out_of_range");
+                let idx_clamped = builder
+                    .build_select(
+                        idx_out_of_range,
+                        intrinsics.i8x16_ty.const_zero(),
+                        v2,
+                        "idx_clamped",
+                    )
+                    .into_vector_value();
+                for i in 0..16 {
                     let idx = builder
-                        .build_extract_element(v2, intrinsics.i32_ty.const_int(i, false), "idx")
+                        .build_extract_element(
+                            idx_clamped,
+                            intrinsics.i32_ty.const_int(i, false),
+                            "idx",
+                        )
                         .into_int_value();
-                    let idx_out_of_range = builder.build_int_compare(
-                        IntPredicate::UGE,
-                        idx,
-                        lanes,
-                        "idx_out_of_range",
-                    );
-                    let idx_clamped = builder
-                        .build_select(idx_out_of_range, intrinsics.i32_zero, idx, "idx_clamped")
+                    let replace_with_zero = builder
+                        .build_extract_element(
+                            idx_out_of_range,
+                            intrinsics.i32_ty.const_int(i, false),
+                            "replace_with_zero",
+                        )
                         .into_int_value();
                     let elem = builder
-                        .build_extract_element(v1, idx_clamped, "elem")
+                        .build_extract_element(v1, idx, "elem")
                         .into_int_value();
                     let elem_or_zero = builder.build_select(
-                        idx_out_of_range,
-                        intrinsics.i32_zero,
+                        replace_with_zero,
+                        intrinsics.i8_zero,
                         elem,
                         "elem_or_zero",
                     );
@@ -4161,7 +4180,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::V8x16Shuffle2Imm { lanes } => {
+            Operator::V8x16Shuffle { lanes } => {
                 let (v1, v2) = state.pop2()?;
                 let v1 = builder
                     .build_bitcast(v1, intrinsics.i8x16_ty, "")
@@ -4177,6 +4196,98 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         .as_slice(),
                 );
                 let res = builder.build_shuffle_vector(v1, v2, mask, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16LoadSplat { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                let elem = builder.build_load(effective_address, "").into_int_value();
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    elem.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LoadSplat { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                let elem = builder.build_load(effective_address, "").into_int_value();
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    elem.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LoadSplat { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                let elem = builder.build_load(effective_address, "").into_int_value();
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    elem.as_basic_value_enum(),
+                    intrinsics.i32x4_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2LoadSplat { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                let elem = builder.build_load(effective_address, "").into_int_value();
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    elem.as_basic_value_enum(),
+                    intrinsics.i64x2_ty,
+                    &state.var_name(),
+                );
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }

@@ -22,7 +22,7 @@ include = [
 byteorder = "1.3.1"
 errno = "0.2.4"
 structopt = "0.2.11"
-wabt = "0.8.0"
+wabt = { git = "https://github.com/wasmerio/wabt-rs.git", rev = "77081af74fe3ecaa300e3517c9f87233ae8cf95b" }
 hashbrown = "0.1.8"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
@@ -61,7 +61,7 @@ members = [
 ]
 
 [build-dependencies]
-wabt = "0.8.0"
+wabt = { git = "https://github.com/wasmerio/wabt-rs.git", rev = "77081af74fe3ecaa300e3517c9f87233ae8cf95b" }
 glob = "0.2.11"
 rustc_version = "0.2.3"
 

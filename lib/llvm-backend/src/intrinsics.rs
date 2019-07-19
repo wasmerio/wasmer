@@ -118,6 +118,7 @@ pub struct Intrinsics {
     pub anyfunc_ty: StructType,
 
     pub i1_zero: IntValue,
+    pub i8_zero: IntValue,
     pub i32_zero: IntValue,
     pub i64_zero: IntValue,
     pub i128_zero: IntValue,
@@ -179,6 +180,7 @@ impl Intrinsics {
         let f64_ptr_ty = f64_ty.ptr_type(AddressSpace::Generic);
 
         let i1_zero = i1_ty.const_int(0, false);
+        let i8_zero = i8_ty.const_int(0, false);
         let i32_zero = i32_ty.const_int(0, false);
         let i64_zero = i64_ty.const_int(0, false);
         let i128_zero = i128_ty.const_int(0, false);
@@ -443,6 +445,7 @@ impl Intrinsics {
             anyfunc_ty,
 
             i1_zero,
+            i8_zero,
             i32_zero,
             i64_zero,
             i128_zero,
