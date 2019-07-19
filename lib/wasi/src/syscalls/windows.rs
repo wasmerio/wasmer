@@ -1,5 +1,6 @@
 use crate::syscalls::types::*;
 use std::cell::Cell;
+use wasmer_runtime_core::debug;
 
 pub fn platform_clock_res_get(
     clock_id: __wasi_clockid_t,
