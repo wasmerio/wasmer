@@ -15,3 +15,4 @@ mod mapdir;
 mod quine;
 mod readlink;
 mod wasi_sees_virtual_root;
+mod writing;

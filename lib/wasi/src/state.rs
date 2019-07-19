@@ -173,10 +173,27 @@ impl WasiFs {
         };
         // create virtual root
         let root_inode = {
-            let default_rights = 0x1FFFFFFF; // all rights
+            let all_rights = 0x1FFFFFFF;
+            // TODO: make this a list of positive rigths instead of negative ones
+            // root gets all right for now
+            let root_rights = all_rights
+                /*& (!__WASI_RIGHT_FD_WRITE)
+                & (!__WASI_RIGHT_FD_ALLOCATE)
+                & (!__WASI_RIGHT_PATH_CREATE_DIRECTORY)
+                & (!__WASI_RIGHT_PATH_CREATE_FILE)
+                & (!__WASI_RIGHT_PATH_LINK_SOURCE)
+                & (!__WASI_RIGHT_PATH_RENAME_SOURCE)
+                & (!__WASI_RIGHT_PATH_RENAME_TARGET)
+                & (!__WASI_RIGHT_PATH_FILESTAT_SET_SIZE)
+                & (!__WASI_RIGHT_PATH_FILESTAT_SET_TIMES)
+                & (!__WASI_RIGHT_FD_FILESTAT_SET_SIZE)
+                & (!__WASI_RIGHT_FD_FILESTAT_SET_TIMES)
+                & (!__WASI_RIGHT_PATH_SYMLINK)
+                & (!__WASI_RIGHT_PATH_UNLINK_FILE)
+                & (!__WASI_RIGHT_PATH_REMOVE_DIRECTORY)*/;
             let inode = wasi_fs.create_virtual_root();
             let fd = wasi_fs
-                .create_fd(default_rights, default_rights, 0, inode)
+                .create_fd(root_rights, root_rights, 0, inode)
                 .expect("Could not create root fd");
             wasi_fs.preopen_fds.push(fd);
             inode
@@ -408,13 +425,17 @@ impl WasiFs {
                         ref parent,
                         ..
                     } => {
-                        if component.as_os_str().to_string_lossy() == ".." {
-                            if let Some(p) = parent {
-                                cur_inode = *p;
-                                continue 'path_iter;
-                            } else {
-                                return Err(__WASI_EACCES);
+                        match component.as_os_str().to_string_lossy().borrow() {
+                            ".." => {
+                                if let Some(p) = parent {
+                                    cur_inode = *p;
+                                    continue 'path_iter;
+                                } else {
+                                    return Err(__WASI_EACCES);
+                                }
                             }
+                            "." => continue 'path_iter,
+                            _ => (),
                         }
                         // used for full resolution of symlinks
                         let mut loop_for_symlink = false;
@@ -426,10 +447,11 @@ impl WasiFs {
                             let file = {
                                 let mut cd = path.clone();
                                 cd.push(component);
-                                cd
+                                dbg!(cd)
                             };
                             // TODO: verify this returns successfully when given a non-symlink
-                            let metadata = file.symlink_metadata().ok().ok_or(__WASI_EEXIST)?;
+                            let metadata =
+                                dbg!(file.symlink_metadata()).ok().ok_or(__WASI_EINVAL)?;
                             let file_type = metadata.file_type();
 
                             let kind = if file_type.is_dir() {

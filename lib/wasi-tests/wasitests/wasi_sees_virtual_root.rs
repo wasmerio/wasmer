@@ -18,6 +18,7 @@ fn main() {
             }
         }
 
+        out.push("ROOT IS SAFE".to_string());
         out
     };
 
@@ -40,6 +41,13 @@ fn main() {
         let read_dir = fs::read_dir("act1/../../act2/../act1/../../../").unwrap();
         for entry in read_dir {
             out.push(format!("{:?}", entry.unwrap().path()))
+        }
+        let f = fs::OpenOptions::new().write(true).open("/abc");
+
+        if f.is_ok() {
+            out.push("ROOT IS NOT SAFE".to_string());
+        } else {
+            out.push("ROOT IS SAFE".to_string());
         }
 
         out
