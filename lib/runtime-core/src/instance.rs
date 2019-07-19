@@ -693,3 +693,16 @@ impl<'a> DynFunc<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn is_send<T: Send>() {}
+
+    #[test]
+    fn test_instance_is_send() {
+        is_send::<Instance>();
+    }
+
+}

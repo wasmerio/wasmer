@@ -285,3 +285,16 @@ impl TypedIndex for NameIndex {
         self.0 as usize
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn is_send<T: Send>() {}
+
+    #[test]
+    fn test_module_is_send() {
+        is_send::<Module>();
+    }
+
+}
