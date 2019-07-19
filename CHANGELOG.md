@@ -5,6 +5,11 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#555](https://github.com/wasmerio/wasmer/pull/555) WASI filesystem rewrite.  Major improvements
+  - adds virtual root showing all preopened directories
+  - improved sandboxing and code-reuse
+  - symlinks work in a lot more situations
+  - many various improvements to most syscalls touching the filesystem
 
 ## 0.5.6
 - [#565](https://github.com/wasmerio/wasmer/pull/565) Update wapm and bump version to 0.5.6

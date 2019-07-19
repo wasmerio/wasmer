@@ -1,7 +1,5 @@
 #![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
 
-#[macro_use]
-extern crate log;
 #[cfg(target = "windows")]
 extern crate winapi;
 
