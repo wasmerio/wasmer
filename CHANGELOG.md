@@ -5,6 +5,9 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+
+## 0.5.6
+- [#565](https://github.com/wasmerio/wasmer/pull/565) Update wapm and bump version to 0.5.6
 - [#563](https://github.com/wasmerio/wasmer/pull/563) Improve wasi testing infrastructure
   - fixes arg parsing from comments & fixes the mapdir test to have the native code doing the same thing as the WASI code
   - makes wasitests-generate output stdout/stderr by default & adds function to print stdout and stderr for a command if it fails
