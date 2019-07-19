@@ -116,7 +116,7 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         out_str
     };
 
-    let po_args = {
+    let dir_args = {
         let mut out_str = String::new();
         out_str.push_str("vec![");
 
@@ -134,7 +134,7 @@ fn test_{rs_module_name}() {{
     assert_wasi_output!(
         \"../../{module_path}\",
         \"{rs_module_name}\",
-        {po_args},
+        {dir_args},
         {mapdir_args},
         {envvar_args},
         \"../../{test_output_path}\"
@@ -145,7 +145,7 @@ fn test_{rs_module_name}() {{
         module_path = wasm_out_name,
         rs_module_name = rs_module_name,
         test_output_path = format!("{}.out", normalized_name),
-        po_args = po_args,
+        dir_args = dir_args,
         mapdir_args = mapdir_args,
         envvar_args = envvar_args
     );

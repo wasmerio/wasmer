@@ -16,6 +16,8 @@ use std::{
 };
 use wasmer_runtime_core::debug;
 
+/// A completely aribtrary "big enough" number used as the upper limit for
+/// the number of symlinks that can be traversed when resolving a path
 pub const MAX_SYMLINKS: u32 = 128;
 
 #[derive(Debug)]
