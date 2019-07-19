@@ -23,7 +23,7 @@ semver = "0.9"
 rustc_version = "0.2.3"
 
 [dev-dependencies]
-wabt = { git = "https://github.com/wasmerio/wabt-rs.git", rev = "77081af74fe3ecaa300e3517c9f87233ae8cf95b" }
+wabt = { git = "https://github.com/wasmerio/wabt-rs.git", rev = "17188863021f0ed7721a1969da510efbc17615f2" }
 
 [features]
 debug = ["wasmer-runtime-core/debug"]
