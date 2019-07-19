@@ -595,6 +595,29 @@ impl WasiFs {
         self.get_inode_at_path_inner(base, path, 0, follow_symlinks)
     }
 
+    /// Returns the parent Dir or Root that the file at a given path is in and the file name
+    /// stripped off
+    pub fn get_parent_inode_at_path(
+        &mut self,
+        base: __wasi_fd_t,
+        path: &Path,
+        follow_symlinks: bool,
+    ) -> Result<(Inode, String), __wasi_errno_t> {
+        let mut parent_dir = std::path::PathBuf::new();
+        let mut components = path.components().rev();
+        let new_entity_name = components
+            .next()
+            .ok_or(__WASI_EINVAL)?
+            .as_os_str()
+            .to_string_lossy()
+            .to_string();
+        for comp in components.rev() {
+            parent_dir.push(comp);
+        }
+        dbg!(self.get_inode_at_path(base, dbg!(&parent_dir.to_string_lossy()), follow_symlinks,))
+            .map(|v| (v, new_entity_name))
+    }
+
     pub fn get_fd(&self, fd: __wasi_fd_t) -> Result<&Fd, __wasi_errno_t> {
         self.fd_map.get(&fd).ok_or(__WASI_EBADF)
     }
@@ -710,6 +733,14 @@ impl WasiFs {
             },
         );
         Ok(idx)
+    }
+
+    /// This function is unsafe because it's the caller's responsibility to ensure that
+    /// all refences to the given inode have been removed from the filesystem
+    ///
+    /// returns true if the inode existed and was removed
+    pub unsafe fn remove_inode(&mut self, inode: Inode) -> bool {
+        self.inodes.remove(inode).is_some()
     }
 
     pub fn get_base_path_for_directory(&self, directory: Inode) -> Option<String> {

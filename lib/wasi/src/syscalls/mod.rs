@@ -15,6 +15,7 @@ use crate::{
     ExitCode,
 };
 use rand::{thread_rng, Rng};
+use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::Infallible;
 use std::io::{self, Read, Seek, Write};
@@ -1124,17 +1125,15 @@ pub fn path_create_directory(
     let memory = ctx.memory(0);
     let state = get_wasi_state(ctx);
 
-    let working_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let working_dir = wasi_try!(state.fs.get_fd(fd)).clone();
+    if let Kind::Root { .. } = &state.fs.inodes[working_dir.inode].kind {
+        return __WASI_EACCES;
+    }
     if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_CREATE_DIRECTORY) {
         return __WASI_EACCES;
     }
-    let path_cells = wasi_try!(path.deref(memory, 0, path_len));
-    let path_string =
-        wasi_try!(
-            std::str::from_utf8(unsafe { &*(path_cells as *const [_] as *const [u8]) })
-                .map_err(|_| __WASI_EINVAL)
-        );
-    debug!("=> path: {}", &path_string);
+    let path_string = wasi_try!(path.get_utf8_string(memory, path_len), __WASI_EINVAL);
+    debug!("=> fd: {}, path: {}", fd, &path_string);
 
     let path = std::path::PathBuf::from(path_string);
     let path_vec = wasi_try!(path
@@ -1150,30 +1149,57 @@ pub fn path_create_directory(
         return __WASI_EINVAL;
     }
 
-    assert!(
-        path_vec.len() == 1,
-        "path_create_directory for paths greater than depth 1 has not been implemented because our WASI FS abstractions are a work in progress.  We apologize for the inconvenience"
-    );
-    debug!("Path vec: {:#?}", path_vec);
+    debug!("Looking at components {:?}", &path_vec);
 
-    wasi_try!(std::fs::create_dir(&path).map_err(|_| __WASI_EIO));
-
-    let kind = Kind::Dir {
-        parent: Some(working_dir.inode),
-        path: path.clone(),
-        entries: Default::default(),
-    };
-    let new_inode = state.fs.inodes.insert(InodeVal {
-        stat: wasi_try!(state.fs.get_stat_for_kind(&kind).ok_or(__WASI_EIO)),
-        is_preopened: false,
-        name: path_vec[0].clone(),
-        kind,
-    });
-
-    if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
-        entries.insert(path_vec[0].clone(), new_inode);
-    } else {
-        return __WASI_ENOTDIR;
+    let mut cur_dir_inode = working_dir.inode;
+    for comp in &path_vec {
+        debug!("Creating dir {}", comp);
+        match dbg!(&mut state.fs.inodes[cur_dir_inode].kind) {
+            Kind::Dir {
+                ref mut entries,
+                path,
+                parent,
+            } => {
+                match comp.borrow() {
+                    ".." => {
+                        if let Some(p) = parent {
+                            cur_dir_inode = *p;
+                            continue;
+                        }
+                    }
+                    "." => continue,
+                    _ => (),
+                }
+                if let Some(child) = entries.get(comp) {
+                    cur_dir_inode = *child;
+                } else {
+                    let mut adjusted_path = path.clone();
+                    // TODO: double check this doesn't risk breaking the sandbox
+                    adjusted_path.push(comp);
+                    if adjusted_path.exists() && !adjusted_path.is_dir() {
+                        return __WASI_ENOTDIR;
+                    } else if !adjusted_path.exists() {
+                        wasi_try!(std::fs::create_dir(&adjusted_path).ok(), __WASI_EIO);
+                    }
+                    let kind = Kind::Dir {
+                        parent: Some(cur_dir_inode),
+                        path: adjusted_path,
+                        entries: Default::default(),
+                    };
+                    let new_inode = wasi_try!(state.fs.create_inode(kind, false, comp.to_string()));
+                    // reborrow to insert
+                    if let Kind::Dir {
+                        ref mut entries, ..
+                    } = &mut state.fs.inodes[cur_dir_inode].kind
+                    {
+                        entries.insert(comp.to_string(), new_inode);
+                    }
+                    cur_dir_inode = new_inode;
+                }
+            }
+            Kind::Root { .. } => return __WASI_EACCES,
+            _ => return __WASI_ENOTDIR,
+        }
     }
 
     __WASI_ESUCCESS
@@ -1205,17 +1231,15 @@ pub fn path_filestat_get(
     let state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    let root_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let root_dir = wasi_try!(state.fs.get_fd(fd));
 
     if !has_rights(root_dir.rights, __WASI_RIGHT_PATH_FILESTAT_GET) {
         return __WASI_EACCES;
     }
 
-    let path_string = wasi_try!(::std::str::from_utf8(unsafe {
-        &*(wasi_try!(path.deref(memory, 0, path_len)) as *const [_] as *const [u8])
-    })
-    .map_err(|_| __WASI_EINVAL));
-    debug!("=> path: {}", &path_string);
+    let path_string = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+
+    debug!("=> base_fd: {}, path: {}", fd, &path_string);
 
     let file_inode = wasi_try!(state.fs.get_inode_at_path(
         fd,
@@ -1429,22 +1453,12 @@ pub fn path_open(
             }
             debug!("Creating file");
             // strip end file name
-            let mut parent_dir = std::path::PathBuf::new();
-            let mut components = path_arg.components().rev();
-            let new_entity_name = wasi_try!(components.next().ok_or(__WASI_EINVAL))
-                .as_os_str()
-                .to_string_lossy()
-                .to_string();
-            for comp in components.rev() {
-                parent_dir.push(comp);
-            }
 
-            let parent_inode = wasi_try!(dbg!(state.fs.get_inode_at_path(
+            let (parent_inode, new_entity_name) = wasi_try!(state.fs.get_parent_inode_at_path(
                 dirfd,
-                dbg!(&parent_dir.to_string_lossy()),
-                dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
-            )));
-
+                &path_arg,
+                dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
+            ));
             let new_file_host_path = match &state.fs.inodes[parent_inode].kind {
                 Kind::Dir { path, .. } => {
                     let mut new_path = path.clone();
@@ -1557,6 +1571,7 @@ pub fn path_readlink(
     __WASI_ESUCCESS
 }
 
+/// Returns __WASI_ENOTEMTPY if directory is not empty
 pub fn path_remove_directory(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -1568,9 +1583,55 @@ pub fn path_remove_directory(
     let state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    let base_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
-    let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
-    let _result = wasi_try!(std::fs::remove_dir(path_str).ok().ok_or(__WASI_EIO));
+    let base_dir = wasi_try!(state.fs.fd_map.get(&fd), __WASI_EBADF);
+    let path_str = wasi_try!(path.get_utf8_string(memory, path_len), __WASI_EINVAL);
+
+    let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));
+    let (parent_inode, childs_name) =
+        wasi_try!(state
+            .fs
+            .get_parent_inode_at_path(fd, std::path::Path::new(path_str), false));
+
+    let host_path_to_remove = match &state.fs.inodes[inode].kind {
+        Kind::Dir { entries, path, .. } => {
+            if !entries.is_empty() {
+                return __WASI_ENOTEMPTY;
+            } else {
+                if wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0 {
+                    return __WASI_ENOTEMPTY;
+                }
+            }
+            path.clone()
+        }
+        Kind::Root { .. } => return __WASI_EACCES,
+        _ => return __WASI_ENOTDIR,
+    };
+
+    match &mut state.fs.inodes[parent_inode].kind {
+        Kind::Dir {
+            ref mut entries, ..
+        } => {
+            let removed_inode = wasi_try!(entries.remove(&childs_name).ok_or(__WASI_EINVAL));
+            // TODO: make this a debug assert in the future
+            assert!(inode == removed_inode);
+        }
+        Kind::Root { .. } => return __WASI_EACCES,
+        _ => unreachable!(
+            "Internal logic error in wasi::path_remove_directory, parent is not a directory"
+        ),
+    }
+
+    if let Err(_) = std::fs::remove_dir(path_str) {
+        // reinsert to prevent FS from being in bad state
+        if let Kind::Dir {
+            ref mut entries, ..
+        } = &mut state.fs.inodes[parent_inode].kind
+        {
+            entries.insert(childs_name, inode);
+        }
+        // TODO: more intelligently return error value by inspecting returned error value
+        return __WASI_EIO;
+    }
 
     __WASI_ESUCCESS
 }
@@ -1614,13 +1675,37 @@ pub fn path_unlink_file(
     let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
 
     let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));
+    let (parent_inode, childs_name) =
+        wasi_try!(state
+            .fs
+            .get_parent_inode_at_path(fd, std::path::Path::new(path_str), false));
 
-    match &state.fs.inodes[inode].kind {
-        Kind::File { path, .. } => {
-            let _result = wasi_try!(std::fs::remove_file(path).ok().ok_or(__WASI_EIO));
-        }
+    let host_path_to_remove = match &state.fs.inodes[inode].kind {
+        Kind::File { path, .. } => path.clone(),
         _ => unimplemented!("wasi::path_unlink_file for non-files"),
+    };
+
+    match &mut state.fs.inodes[parent_inode].kind {
+        Kind::Dir {
+            ref mut entries, ..
+        } => {
+            let removed_inode = wasi_try!(entries.remove(&childs_name).ok_or(__WASI_EINVAL));
+            // TODO: make this a debug assert in the future
+            assert!(inode == removed_inode);
+        }
+        Kind::Root { .. } => return __WASI_EACCES,
+        _ => unreachable!(
+            "Internal logic error in wasi::path_unlink_file, parent is not a directory"
+        ),
     }
+    let inode_was_removed = unsafe { state.fs.remove_inode(inode) };
+    assert!(
+        inode_was_removed,
+        "Inode could not be removed because it doesn't exist"
+    );
+    let _result = wasi_try!(std::fs::remove_file(host_path_to_remove)
+        .ok()
+        .ok_or(__WASI_EIO));
 
     __WASI_ESUCCESS
 }
