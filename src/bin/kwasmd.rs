@@ -157,6 +157,7 @@ fn run_listen(opts: Listen) {
 
 #[cfg(feature = "loader-kernel")]
 fn main() {
+    panic!("Kwasm not updated for 128-bit support, yet. Sorry!");
     let options = CLIOptions::from_args();
     match options {
         CLIOptions::Listen(listen) => {
