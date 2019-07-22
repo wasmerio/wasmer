@@ -1,14 +1,14 @@
 run_with_build_env_vars: &run_with_build_env_vars
   environment:
-    LLVM_SYS_70_PREFIX: /home/circleci/project/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/
+    LLVM_SYS_80_PREFIX: /home/circleci/project/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04/
 
 run_install_dependencies: &run_install_dependencies
   run:
     name: install dependencies
     command: |
       sudo apt-get install -y cmake
-      curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      curl -O https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      tar xf clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
 
 version: 2
 jobs:
@@ -149,8 +149,8 @@ jobs:
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             # Installing LLVM outside of brew
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            curl -O https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz
+            tar xf clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz
       - run:
           name: Install Rust
           command: |
@@ -162,7 +162,7 @@ jobs:
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
@@ -182,7 +182,7 @@ jobs:
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             make integration-tests
       - save_cache:
           paths:
@@ -213,18 +213,18 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            curl -O https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            tar xf clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       - run: rustup default nightly-2019-06-10
       - run:
           name: Tests
           command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make test
       - run:
           name: Release Build
           command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make release
             cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
@@ -275,8 +275,8 @@ jobs:
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             # Installing LLVM outside of brew
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            curl -O https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz
+            tar xf clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz
       - run:
           name: Install Rust
           command: |
@@ -288,7 +288,7 @@ jobs:
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
@@ -299,7 +299,7 @@ jobs:
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             make release
             cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
             mkdir -p artifacts
