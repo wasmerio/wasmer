@@ -27,7 +27,7 @@ use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
 use crate::backend::LLVMBackend;
 use crate::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
 use crate::read_info::{blocktype_to_type, type_to_type};
-use crate::stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry};
+use crate::stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic};
 use crate::state::{ControlFrame, IfElseState, State};
 use crate::trampolines::generate_trampolines;
 
@@ -310,6 +310,7 @@ fn emit_stack_map(
     kind: StackmapEntryKind,
     locals: &[PointerValue],
     state: &State,
+    opcode_offset: usize,
 ) {
     let stackmap_id = target.entries.len();
 
@@ -324,9 +325,13 @@ fn emit_stack_map(
     params.push(intrinsics.i32_ty.const_int(0, false).as_basic_value_enum());
 
     let locals: Vec<_> = locals.iter().map(|x| x.as_basic_value_enum()).collect();
+    let mut value_semantics: Vec<ValueSemantic> = vec![];
 
     params.extend_from_slice(&locals);
+    value_semantics.extend((0..locals.len()).map(ValueSemantic::WasmLocal));
+
     params.extend_from_slice(&state.stack);
+    value_semantics.extend((0..state.stack.len()).map(ValueSemantic::WasmStack));
 
     builder.build_call(intrinsics.experimental_stackmap, &params, &state.var_name());
 
@@ -335,6 +340,8 @@ fn emit_stack_map(
         local_function_id,
         local_count: locals.len(),
         stack_count: state.stack.len(),
+        opcode_offset,
+        value_semantics,
     });
 }
 
@@ -371,6 +378,7 @@ pub struct LLVMFunctionCodeGenerator {
     unreachable_depth: usize,
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     index: usize,
+    opcode_offset: usize,
 }
 
 impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
@@ -443,8 +451,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     }
 
     fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        let mut opcode_offset: Option<usize> = None;
         let op = match event {
-            Event::Wasm(x) => x,
+            Event::Wasm(x) => {
+                opcode_offset = Some(self.opcode_offset);
+                self.opcode_offset += 1;
+                x
+            }
             Event::Internal(_x) => {
                 return Ok(());
             }
@@ -530,7 +543,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
                 builder.position_at_end(&loop_body);
 
-                {
+                if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
                         intrinsics,
@@ -540,6 +553,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         StackmapEntryKind::Loop,
                         &self.locals,
                         state,
+                        offset,
                     )
                 }
 
@@ -804,7 +818,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 // If llvm cannot prove that this is never touched,
                 // it will emit a `ud2` instruction on x86_64 arches.
 
-                {
+                if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
                         intrinsics,
@@ -814,6 +828,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         StackmapEntryKind::Trappable,
                         &self.locals,
                         state,
+                        offset,
                     )
                 }
 
@@ -954,7 +969,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 };
 
                 state.popn(func_sig.params().len())?;
-                {
+                if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
                         intrinsics,
@@ -964,6 +979,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         StackmapEntryKind::Call,
                         &self.locals,
                         state,
+                        offset,
                     )
                 }
                 let call_site = builder.build_call(func_ptr, &params, &state.var_name());
@@ -1131,7 +1147,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     "typed_func_ptr",
                 );
 
-                {
+                if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
                         intrinsics,
@@ -1141,6 +1157,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         StackmapEntryKind::Call,
                         &self.locals,
                         state,
+                        offset,
                     )
                 }
                 let call_site = builder.build_call(typed_func_ptr, &args, "indirect_call");
@@ -2565,6 +2582,20 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         let local_func_index = self.functions.len();
 
+        {
+            let mut stackmaps = self.stackmaps.borrow_mut();
+            emit_stack_map(
+                &intrinsics,
+                &builder,
+                local_func_index,
+                &mut *stackmaps,
+                StackmapEntryKind::FunctionHeader,
+                &locals,
+                &state,
+                ::std::usize::MAX,
+            );
+        }
+
         let code = LLVMFunctionCodeGenerator {
             state,
             context: Some(context),
@@ -2579,6 +2610,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             unreachable_depth: 0,
             stackmaps: self.stackmaps.clone(),
             index: local_func_index,
+            opcode_offset: 0,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())

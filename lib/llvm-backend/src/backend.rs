@@ -244,7 +244,7 @@ impl LLVMBackend {
     pub fn new(
         module: Module,
         _intrinsics: Intrinsics,
-        _stackmaps: &StackmapRegistry,
+        stackmaps: &StackmapRegistry,
     ) -> (Self, LLVMCache) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
@@ -303,8 +303,36 @@ impl LLVMBackend {
             )
         };
         if raw_stackmap.len() > 0 {
-            let map = stackmap::StackMap::parse(raw_stackmap);
+            let map = stackmap::StackMap::parse(raw_stackmap).unwrap();
             eprintln!("{:?}", map);
+
+            let (code_ptr, code_size) = unsafe {
+                (
+                    llvm_backend_get_code_ptr(module),
+                    llvm_backend_get_code_size(module),
+                )
+            };
+            let mut msm = ModuleStateMap {
+                local_functions: Default::default(),
+                total_size: code_size,
+            };
+            let mut map_record_idx: usize = 0;
+            for size_record in &map.stk_size_records {
+                for _ in 0..size_record.record_count {
+                    let map_record = &map.stk_map_records[map_record_idx];
+                    let map_entry = &stackmaps.entries[map_record_idx];
+                    assert_eq!(map_record.patchpoint_id, map_record_idx as u64);
+                    map_record_idx += 1;
+
+                    map_entry.populate_msm(
+                        code_ptr as usize,
+                        &map,
+                        size_record,
+                        map_record,
+                        &mut msm,
+                    );
+                }
+            }
         } else {
             eprintln!("WARNING: No stack map");
         }

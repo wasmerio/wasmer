@@ -842,6 +842,7 @@ pub mod x64 {
         XMM7,
     }
 
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     pub enum X64Register {
         GPR(GPR),
         XMM(XMM),
@@ -853,6 +854,37 @@ pub mod x64 {
                 X64Register::GPR(x) => RegisterIndex(x as usize),
                 X64Register::XMM(x) => RegisterIndex(x as usize + 16),
             }
+        }
+
+        pub fn from_dwarf_regnum(x: u16) -> Option<X64Register> {
+            Some(match x {
+                0 => X64Register::GPR(GPR::RAX),
+                1 => X64Register::GPR(GPR::RDX),
+                2 => X64Register::GPR(GPR::RCX),
+                3 => X64Register::GPR(GPR::RBX),
+                4 => X64Register::GPR(GPR::RSI),
+                5 => X64Register::GPR(GPR::RDI),
+                6 => X64Register::GPR(GPR::RBP),
+                7 => X64Register::GPR(GPR::RSP),
+                8 => X64Register::GPR(GPR::R8),
+                9 => X64Register::GPR(GPR::R9),
+                10 => X64Register::GPR(GPR::R10),
+                11 => X64Register::GPR(GPR::R11),
+                12 => X64Register::GPR(GPR::R12),
+                13 => X64Register::GPR(GPR::R13),
+                14 => X64Register::GPR(GPR::R14),
+                15 => X64Register::GPR(GPR::R15),
+
+                17 => X64Register::XMM(XMM::XMM0),
+                18 => X64Register::XMM(XMM::XMM1),
+                19 => X64Register::XMM(XMM::XMM2),
+                20 => X64Register::XMM(XMM::XMM3),
+                21 => X64Register::XMM(XMM::XMM4),
+                22 => X64Register::XMM(XMM::XMM5),
+                23 => X64Register::XMM(XMM::XMM6),
+                24 => X64Register::XMM(XMM::XMM7),
+                _ => return None,
+            })
         }
     }
 }
