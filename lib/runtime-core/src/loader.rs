@@ -20,7 +20,7 @@ pub trait Loader {
 
 pub trait Instance {
     type Error: Debug;
-    fn call(&mut self, id: usize, args: &[Value]) -> Result<u64, Self::Error>;
+    fn call(&mut self, id: usize, args: &[Value]) -> Result<u128, Self::Error>;
     fn read_memory(&mut self, _offset: u32, _len: u32) -> Result<Vec<u8>, Self::Error> {
         unimplemented!()
     }
@@ -61,7 +61,7 @@ pub struct LocalInstance {
 
 impl Instance for LocalInstance {
     type Error = String;
-    fn call(&mut self, id: usize, args: &[Value]) -> Result<u64, Self::Error> {
+    fn call(&mut self, id: usize, args: &[Value]) -> Result<u128, Self::Error> {
         let mut args_u64: Vec<u64> = Vec::new();
         for arg in args {
             if arg.ty() == Type::V128 {
@@ -81,23 +81,23 @@ impl Instance for LocalInstance {
         use std::mem::transmute;
         Ok(unsafe {
             match args_u64.len() {
-                0 => (transmute::<_, extern "C" fn() -> u64>(addr))(),
-                1 => (transmute::<_, extern "C" fn(u64) -> u64>(addr))(args_u64[0]),
+                0 => (transmute::<_, extern "C" fn() -> u128>(addr))(),
+                1 => (transmute::<_, extern "C" fn(u64) -> u128>(addr))(args_u64[0]),
                 2 => {
-                    (transmute::<_, extern "C" fn(u64, u64) -> u64>(addr))(args_u64[0], args_u64[1])
+                    (transmute::<_, extern "C" fn(u64, u64) -> u128>(addr))(args_u64[0], args_u64[1])
                 }
-                3 => (transmute::<_, extern "C" fn(u64, u64, u64) -> u64>(addr))(
+                3 => (transmute::<_, extern "C" fn(u64, u64, u64) -> u128>(addr))(
                     args_u64[0],
                     args_u64[1],
                     args_u64[2],
                 ),
-                4 => (transmute::<_, extern "C" fn(u64, u64, u64, u64) -> u64>(addr))(
+                4 => (transmute::<_, extern "C" fn(u64, u64, u64, u64) -> u128>(addr))(
                     args_u64[0],
                     args_u64[1],
                     args_u64[2],
                     args_u64[3],
                 ),
-                5 => (transmute::<_, extern "C" fn(u64, u64, u64, u64, u64) -> u64>(addr))(
+                5 => (transmute::<_, extern "C" fn(u64, u64, u64, u64, u64) -> u128>(addr))(
                     args_u64[0],
                     args_u64[1],
                     args_u64[2],
