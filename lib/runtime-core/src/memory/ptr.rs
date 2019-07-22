@@ -126,6 +126,15 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
             [index as usize..slice_full_len];
         Some(cell_ptrs)
     }
+
+    pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+        if self.offset as usize + str_len as usize > memory.size().bytes().0 {
+            return None;
+        }
+        let ptr = unsafe { memory.view::<u8>().as_ptr().add(self.offset as usize) as *const u8 };
+        let slice: &[u8] = unsafe { std::slice::from_raw_parts(ptr, str_len as usize) };
+        std::str::from_utf8(slice).ok()
+    }
 }
 
 unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {

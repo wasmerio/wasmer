@@ -42,7 +42,7 @@ pub struct Ctx {
     pub import_backing: *mut ImportBacking,
     pub module: *const ModuleInner,
 
-    //// This is intended to be user-supplied, per-instance
+    /// This is intended to be user-supplied, per-instance
     /// contextual data. There are currently some issue with it,
     /// notably that it cannot be set before running the `start`
     /// function in a WebAssembly module.
@@ -88,7 +88,7 @@ pub struct InternalCtx {
     /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
     pub globals: *mut *mut LocalGlobal,
 
-    /// A pointer to an array of imported memories, indexed by `MemoryIndex,
+    /// A pointer to an array of imported memories, indexed by `MemoryIndex`,
     pub imported_memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.

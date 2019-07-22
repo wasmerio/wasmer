@@ -5,6 +5,7 @@ fn test_envvar() {
         "envvar",
         vec![],
         vec![],
+        vec!["DOG=1".to_string(), "CAT=2".to_string(),],
         "../../wasitests/envvar.out"
     );
 }

@@ -9,12 +9,13 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
-        get_stat_for_kind, host_file_type_to_wasi_file_type, Fd, InodeVal, Kind, WasiFile,
-        WasiState, MAX_SYMLINKS,
+        host_file_type_to_wasi_file_type, Fd, Inode, InodeVal, Kind, WasiFile, WasiState,
+        MAX_SYMLINKS,
     },
     ExitCode,
 };
 use rand::{thread_rng, Rng};
+use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::Infallible;
 use std::io::{self, Read, Seek, Write};
@@ -313,12 +314,30 @@ pub fn fd_allocate(
 ///     If `fd` is invalid or not open (TODO: consider __WASI_EINVAL)
 pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_close");
-    // FD is too large
-    return __WASI_EMFILE;
-    // FD is a directory (due to user input)
-    return __WASI_EISDIR;
-    // FD is invalid
-    return __WASI_EBADF;
+
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+
+    let inode_val = &mut state.fs.inodes[fd_entry.inode];
+    if inode_val.is_preopened {
+        return __WASI_EACCES;
+    }
+    match &mut inode_val.kind {
+        Kind::File { ref mut handle, .. } => {
+            let mut empty_handle = None;
+            std::mem::swap(handle, &mut empty_handle);
+            if let Some(handle_inner) = empty_handle {
+                handle_inner.close()
+            } else {
+                return __WASI_EINVAL;
+            }
+        }
+        Kind::Dir { .. } => return __WASI_EISDIR,
+        Kind::Root { .. } => return __WASI_EACCES,
+        Kind::Symlink { .. } | Kind::Buffer { .. } => return __WASI_EINVAL,
+    }
+
     __WASI_ESUCCESS
 }
 
@@ -568,28 +587,31 @@ pub fn fd_prestat_dir_name(
 
     // check inode-val.is_preopened?
 
-    if let Kind::Dir { .. } = inode_val.kind {
-        // TODO: verify this: null termination, etc
-        if inode_val.name.len() <= path_len as usize {
-            let mut i = 0;
-            for c in inode_val.name.bytes() {
-                path_chars[i].set(c);
-                i += 1
-            }
-            path_chars[i].set(0);
+    match inode_val.kind {
+        Kind::Dir { .. } | Kind::Root { .. } => {
+            // TODO: verify this: null termination, etc
+            if inode_val.name.len() <= path_len as usize {
+                let mut i = 0;
+                for c in inode_val.name.bytes() {
+                    path_chars[i].set(c);
+                    i += 1
+                }
+                path_chars[i].set(0);
 
-            debug!(
-                "=> result: \"{}\"",
-                ::std::str::from_utf8(unsafe { &*(&path_chars[..] as *const [_] as *const [u8]) })
+                debug!(
+                    "=> result: \"{}\"",
+                    ::std::str::from_utf8(unsafe {
+                        &*(&path_chars[..] as *const [_] as *const [u8])
+                    })
                     .unwrap()
-            );
+                );
 
-            __WASI_ESUCCESS
-        } else {
-            __WASI_EOVERFLOW
+                __WASI_ESUCCESS
+            } else {
+                __WASI_EOVERFLOW
+            }
         }
-    } else {
-        __WASI_ENOTDIR
+        Kind::Symlink { .. } | Kind::Buffer { .. } | Kind::File { .. } => __WASI_ENOTDIR,
     }
 }
 
@@ -648,11 +670,15 @@ pub fn fd_pwrite(
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
             let bytes_written = match &mut inode.kind {
-                Kind::File { handle } => {
-                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
-                    wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                Kind::File { handle, .. } => {
+                    if let Some(handle) = handle {
+                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                    } else {
+                        return __WASI_EINVAL;
+                    }
                 }
-                Kind::Dir { .. } => {
+                Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify
                     return __WASI_EISDIR;
                 }
@@ -736,11 +762,15 @@ pub fn fd_read(
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
             let bytes_read = match &mut inode.kind {
-                Kind::File { handle } => {
-                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
-                    wasi_try!(read_bytes(handle, memory, iovs_arr_cell))
+                Kind::File { handle, .. } => {
+                    if let Some(handle) = handle {
+                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        wasi_try!(read_bytes(handle, memory, iovs_arr_cell))
+                    } else {
+                        return __WASI_EINVAL;
+                    }
                 }
-                Kind::Dir { .. } => {
+                Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify
                     return __WASI_EISDIR;
                 }
@@ -796,54 +826,79 @@ pub fn fd_readdir(
     let mut cur_cookie = cookie;
     let mut buf_idx = 0;
 
-    if let Kind::Dir { path, .. } = &state.fs.inodes[working_dir.inode].kind {
-        // we need to support multiple calls,
-        // simple and obviously correct implementation for now:
-        // maintain consistent order via lexacographic sorting
-        let mut entries = wasi_try!(wasi_try!(std::fs::read_dir(path).map_err(|_| __WASI_EIO))
-            .collect::<Result<Vec<std::fs::DirEntry>, _>>()
-            .map_err(|_| __WASI_EIO));
-        entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-
-        for entry in entries.iter().skip(cookie as usize) {
-            cur_cookie += 1;
-            let entry_path = entry.path();
-            let entry_path = wasi_try!(entry_path.file_name().ok_or(__WASI_EIO));
-            let entry_path_str = entry_path.to_string_lossy();
-            let namlen = entry_path_str.len();
-            debug!("Returning dirent for {}", entry_path_str);
-            let dirent = __wasi_dirent_t {
-                d_next: cur_cookie,
-                d_ino: 0, // TODO: inode
-                d_namlen: namlen as u32,
-                d_type: host_file_type_to_wasi_file_type(wasi_try!(entry
-                    .file_type()
-                    .map_err(|_| __WASI_EIO))),
-            };
-            let dirent_bytes = dirent_to_le_bytes(&dirent);
-            let upper_limit = std::cmp::min(
-                buf_len as usize - buf_idx,
-                std::mem::size_of::<__wasi_dirent_t>(),
-            );
-            for i in 0..upper_limit {
-                buf_arr_cell[i + buf_idx].set(dirent_bytes[i]);
-            }
-            buf_idx += upper_limit;
-            if upper_limit != std::mem::size_of::<__wasi_dirent_t>() {
-                break;
-            }
-            let upper_limit = std::cmp::min(buf_len as usize - buf_idx, namlen);
-            for (i, b) in entry_path_str.bytes().take(upper_limit).enumerate() {
-                buf_arr_cell[i + buf_idx].set(b);
-            }
-            buf_idx += upper_limit;
-            if upper_limit != namlen {
-                break;
-            }
+    let entries = match &state.fs.inodes[working_dir.inode].kind {
+        Kind::Dir { path, .. } => {
+            // TODO: refactor this code
+            // we need to support multiple calls,
+            // simple and obviously correct implementation for now:
+            // maintain consistent order via lexacographic sorting
+            let mut entries = wasi_try!(wasi_try!(std::fs::read_dir(path).map_err(|_| __WASI_EIO))
+                .collect::<Result<Vec<std::fs::DirEntry>, _>>()
+                .map_err(|_| __WASI_EIO));
+            entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+            wasi_try!(entries
+                .into_iter()
+                .map(|entry| Ok((
+                    entry.file_name().to_string_lossy().to_string(),
+                    host_file_type_to_wasi_file_type(entry.file_type().map_err(|_| __WASI_EIO)?),
+                    0, // TODO: inode
+                )))
+                .collect::<Result<Vec<(String, u8, u64)>, __wasi_errno_t>>())
         }
-    } else {
-        return __WASI_ENOTDIR;
+        Kind::Root { entries } => {
+            let sorted_entries = {
+                let mut entry_vec: Vec<(String, Inode)> =
+                    entries.iter().map(|(a, b)| (a.clone(), *b)).collect();
+                entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
+                entry_vec
+            };
+            sorted_entries
+                .into_iter()
+                .map(|(name, inode)| {
+                    let entry = &state.fs.inodes[inode];
+                    (
+                        format!("/{}", entry.name),
+                        entry.stat.st_filetype,
+                        entry.stat.st_ino,
+                    )
+                })
+                .collect()
+        }
+        Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => return __WASI_ENOTDIR,
+    };
+
+    for (entry_path_str, wasi_file_type, ino) in entries.iter().skip(cookie as usize) {
+        cur_cookie += 1;
+        let namlen = entry_path_str.len();
+        debug!("Returning dirent for {}", entry_path_str);
+        let dirent = __wasi_dirent_t {
+            d_next: cur_cookie,
+            d_ino: *ino,
+            d_namlen: namlen as u32,
+            d_type: *wasi_file_type,
+        };
+        let dirent_bytes = dirent_to_le_bytes(&dirent);
+        let upper_limit = std::cmp::min(
+            buf_len as usize - buf_idx,
+            std::mem::size_of::<__wasi_dirent_t>(),
+        );
+        for i in 0..upper_limit {
+            buf_arr_cell[i + buf_idx].set(dirent_bytes[i]);
+        }
+        buf_idx += upper_limit;
+        if upper_limit != std::mem::size_of::<__wasi_dirent_t>() {
+            break;
+        }
+        let upper_limit = std::cmp::min(buf_len as usize - buf_idx, namlen);
+        for (i, b) in entry_path_str.bytes().take(upper_limit).enumerate() {
+            buf_arr_cell[i + buf_idx].set(b);
+        }
+        buf_idx += upper_limit;
+        if upper_limit != namlen {
+            break;
+        }
     }
+
     bufused_cell.set(buf_idx as u32);
     __WASI_ESUCCESS
 }
@@ -906,15 +961,19 @@ pub fn fd_seek(
         __WASI_WHENCE_END => {
             use std::io::SeekFrom;
             match state.fs.inodes[fd_entry.inode].kind {
-                Kind::File { ref mut handle } => {
-                    let end = wasi_try!(handle.seek(SeekFrom::End(0)).ok().ok_or(__WASI_EIO));
-                    // TODO: handle case if fd_entry.offset uses 64 bits of a u64
-                    fd_entry.offset = (end as i64 + offset) as u64;
+                Kind::File { ref mut handle, .. } => {
+                    if let Some(handle) = handle {
+                        let end = wasi_try!(handle.seek(SeekFrom::End(0)).ok().ok_or(__WASI_EIO));
+                        // TODO: handle case if fd_entry.offset uses 64 bits of a u64
+                        fd_entry.offset = (end as i64 + offset) as u64;
+                    } else {
+                        return __WASI_EINVAL;
+                    }
                 }
                 Kind::Symlink { .. } => {
                     unimplemented!("wasi::fd_seek not implemented for symlinks")
                 }
-                Kind::Dir { .. } => {
+                Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: check this
                     return __WASI_EINVAL;
                 }
@@ -1032,12 +1091,15 @@ pub fn fd_write(
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
             let bytes_written = match &mut inode.kind {
-                Kind::File { handle } => {
-                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
-
-                    wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                Kind::File { handle, .. } => {
+                    if let Some(handle) = handle {
+                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                    } else {
+                        return __WASI_EINVAL;
+                    }
                 }
-                Kind::Dir { .. } => {
+                Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify
                     return __WASI_EISDIR;
                 }
@@ -1081,17 +1143,15 @@ pub fn path_create_directory(
     let memory = ctx.memory(0);
     let state = get_wasi_state(ctx);
 
-    let working_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let working_dir = wasi_try!(state.fs.get_fd(fd)).clone();
+    if let Kind::Root { .. } = &state.fs.inodes[working_dir.inode].kind {
+        return __WASI_EACCES;
+    }
     if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_CREATE_DIRECTORY) {
         return __WASI_EACCES;
     }
-    let path_cells = wasi_try!(path.deref(memory, 0, path_len));
-    let path_string =
-        wasi_try!(
-            std::str::from_utf8(unsafe { &*(path_cells as *const [_] as *const [u8]) })
-                .map_err(|_| __WASI_EINVAL)
-        );
-    debug!("=> path: {}", &path_string);
+    let path_string = wasi_try!(path.get_utf8_string(memory, path_len), __WASI_EINVAL);
+    debug!("=> fd: {}, path: {}", fd, &path_string);
 
     let path = std::path::PathBuf::from(path_string);
     let path_vec = wasi_try!(path
@@ -1107,30 +1167,57 @@ pub fn path_create_directory(
         return __WASI_EINVAL;
     }
 
-    assert!(
-        path_vec.len() == 1,
-        "path_create_directory for paths greater than depth 1 has not been implemented because our WASI FS abstractions are a work in progress.  We apologize for the inconvenience"
-    );
-    debug!("Path vec: {:#?}", path_vec);
+    debug!("Looking at components {:?}", &path_vec);
 
-    wasi_try!(std::fs::create_dir(&path).map_err(|_| __WASI_EIO));
-
-    let kind = Kind::Dir {
-        parent: Some(working_dir.inode),
-        path: path.clone(),
-        entries: Default::default(),
-    };
-    let new_inode = state.fs.inodes.insert(InodeVal {
-        stat: wasi_try!(get_stat_for_kind(&kind).ok_or(__WASI_EIO)),
-        is_preopened: false,
-        name: path_vec[0].clone(),
-        kind,
-    });
-
-    if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
-        entries.insert(path_vec[0].clone(), new_inode);
-    } else {
-        return __WASI_ENOTDIR;
+    let mut cur_dir_inode = working_dir.inode;
+    for comp in &path_vec {
+        debug!("Creating dir {}", comp);
+        match &mut state.fs.inodes[cur_dir_inode].kind {
+            Kind::Dir {
+                ref mut entries,
+                path,
+                parent,
+            } => {
+                match comp.borrow() {
+                    ".." => {
+                        if let Some(p) = parent {
+                            cur_dir_inode = *p;
+                            continue;
+                        }
+                    }
+                    "." => continue,
+                    _ => (),
+                }
+                if let Some(child) = entries.get(comp) {
+                    cur_dir_inode = *child;
+                } else {
+                    let mut adjusted_path = path.clone();
+                    // TODO: double check this doesn't risk breaking the sandbox
+                    adjusted_path.push(comp);
+                    if adjusted_path.exists() && !adjusted_path.is_dir() {
+                        return __WASI_ENOTDIR;
+                    } else if !adjusted_path.exists() {
+                        wasi_try!(std::fs::create_dir(&adjusted_path).ok(), __WASI_EIO);
+                    }
+                    let kind = Kind::Dir {
+                        parent: Some(cur_dir_inode),
+                        path: adjusted_path,
+                        entries: Default::default(),
+                    };
+                    let new_inode = wasi_try!(state.fs.create_inode(kind, false, comp.to_string()));
+                    // reborrow to insert
+                    if let Kind::Dir {
+                        ref mut entries, ..
+                    } = &mut state.fs.inodes[cur_dir_inode].kind
+                    {
+                        entries.insert(comp.to_string(), new_inode);
+                    }
+                    cur_dir_inode = new_inode;
+                }
+            }
+            Kind::Root { .. } => return __WASI_EACCES,
+            _ => return __WASI_ENOTDIR,
+        }
     }
 
     __WASI_ESUCCESS
@@ -1162,135 +1249,27 @@ pub fn path_filestat_get(
     let state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    let root_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let root_dir = wasi_try!(state.fs.get_fd(fd));
 
     if !has_rights(root_dir.rights, __WASI_RIGHT_PATH_FILESTAT_GET) {
         return __WASI_EACCES;
     }
 
-    let path_string = wasi_try!(::std::str::from_utf8(unsafe {
-        &*(wasi_try!(path.deref(memory, 0, path_len)) as *const [_] as *const [u8])
-    })
-    .map_err(|_| __WASI_EINVAL));
-    debug!("=> path: {}", &path_string);
-    let path = std::path::PathBuf::from(path_string);
-    let path_vec = path
-        .components()
-        .map(|comp| comp.as_os_str().to_string_lossy().to_string())
-        .collect::<Vec<String>>();
-    let buf_cell = wasi_try!(buf.deref(memory));
+    let path_string = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
 
-    if path_vec.is_empty() {
-        return __WASI_EINVAL;
-    }
-    let mut cumulative_path = std::path::PathBuf::from(wasi_try!(state
+    debug!("=> base_fd: {}, path: {}", fd, &path_string);
+
+    let file_inode = wasi_try!(state.fs.get_inode_at_path(
+        fd,
+        path_string,
+        flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+    ));
+    let stat = wasi_try!(state
         .fs
-        .get_base_path_for_directory(root_dir.inode)
-        .ok_or(__WASI_EIO)));
+        .get_stat_for_kind(&state.fs.inodes[file_inode].kind)
+        .ok_or(__WASI_EIO));
 
-    debug!("=> Path vec: {:?}:", &path_vec);
-    // find the inode by traversing the path
-    let mut inode = root_dir.inode;
-    'outer: for segment in &path_vec[..(path_vec.len() - 1)] {
-        // loop to traverse symlinks
-        // TODO: proper cycle detection
-        let mut sym_count = 0;
-        loop {
-            match &state.fs.inodes[inode].kind {
-                Kind::Dir { entries, .. } => {
-                    cumulative_path.push(&segment);
-                    if let Some(entry) = entries.get(segment) {
-                        debug!("Entry {:?} found", &segment);
-                        inode = entry.clone();
-                    } else {
-                        // lazily load
-                        debug!("Lazily loading entry {:?}", &segment);
-                        let path_metadata =
-                            wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_ENOENT));
-                        if !path_metadata.is_dir() {
-                            // TODO: should this just return invalid arg?
-                            return __WASI_ENOTDIR;
-                        }
-                        let kind = Kind::Dir {
-                            parent: Some(inode),
-                            path: std::path::PathBuf::from(&segment),
-                            entries: Default::default(),
-                        };
-                        let inode_val = InodeVal::from_file_metadata(
-                            &path_metadata,
-                            segment.clone(),
-                            false,
-                            kind,
-                        );
-                        let new_inode = state.fs.inodes.insert(inode_val);
-                        let inode_idx = state.fs.inode_counter.get();
-                        state.fs.inode_counter.replace(inode_idx + 1);
-                        if let Kind::Dir { entries, .. } = &mut state.fs.inodes[inode].kind {
-                            // check that we're not displacing any entries
-                            assert!(entries.insert(segment.clone(), new_inode).is_none());
-                            state.fs.inodes[new_inode].stat.st_ino = state.fs.inode_counter.get();
-                            inode = new_inode;
-                        }
-                        debug!("Directory {:#?} lazily loaded", &cumulative_path);
-                    }
-                    continue 'outer;
-                }
-                Kind::Symlink { forwarded } => {
-                    // TODO: updated cumulative path
-                    sym_count += 1;
-                    inode = forwarded.clone();
-                    if sym_count > MAX_SYMLINKS {
-                        return __WASI_ELOOP;
-                    }
-                }
-                _ => {
-                    return __WASI_ENOTDIR;
-                }
-            }
-        }
-    }
-
-    let stat = match &state.fs.inodes[inode].kind {
-        Kind::Dir { path, entries, .. } => {
-            // read it from internal data structures if we can
-            let last_segment = path_vec.last().unwrap();
-            cumulative_path.push(last_segment);
-
-            // read it from wasi FS cache first, otherwise check host system
-            if entries.contains_key(last_segment) {
-                state.fs.inodes[entries[last_segment]].stat
-            } else {
-                // otherwise read it from the host FS
-                if !cumulative_path.exists() {
-                    return __WASI_ENOENT;
-                }
-                let final_path_metadata =
-                    wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_EIO));
-                let kind = if final_path_metadata.is_file() {
-                    let file =
-                        wasi_try!(std::fs::File::open(&cumulative_path).ok().ok_or(__WASI_EIO));
-                    Kind::File {
-                        handle: WasiFile::HostFile(file),
-                    }
-                } else if final_path_metadata.is_dir() {
-                    Kind::Dir {
-                        parent: Some(inode),
-                        // TODO: verify that this doesn't cause issues with relative paths
-                        path: cumulative_path.clone(),
-                        entries: Default::default(),
-                    }
-                } else {
-                    // TODO: check this
-                    return __WASI_EINVAL;
-                };
-
-                wasi_try!(get_stat_for_kind(&kind).ok_or(__WASI_EIO))
-            }
-        }
-        _ => {
-            return __WASI_ENOTDIR;
-        }
-    };
+    let buf_cell = wasi_try!(buf.deref(memory));
     buf_cell.set(stat);
 
     __WASI_ESUCCESS
@@ -1395,6 +1374,10 @@ pub fn path_open(
     fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::path_open");
+    if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
+        // TODO: resolution fn needs to get this bit
+        debug!("  - will follow symlinks when opening path");
+    }
     let memory = ctx.memory(0);
     /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     if path_len > 1024 * 1024 {
@@ -1402,236 +1385,156 @@ pub fn path_open(
     }
 
     let fd_cell = wasi_try!(fd.deref(memory));
-    let path_cells = wasi_try!(path.deref(memory, 0, path_len));
     let state = get_wasi_state(ctx);
 
     // o_flags:
-    // - __WASI_O_FLAG_CREAT (create if it does not exist)
+    // - __WASI_O_CREAT (create if it does not exist)
     // - __WASI_O_DIRECTORY (fail if not dir)
     // - __WASI_O_EXCL (fail if file exists)
     // - __WASI_O_TRUNC (truncate size to 0)
 
-    let working_dir = wasi_try!(state.fs.fd_map.get(&dirfd).ok_or(__WASI_EBADF));
+    let working_dir = wasi_try!(state.fs.get_fd(dirfd)).clone();
 
     // ASSUMPTION: open rights apply recursively
     if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_OPEN) {
         return __WASI_EACCES;
     }
 
-    let path_string =
-        wasi_try!(
-            std::str::from_utf8(unsafe { &*(path_cells as *const [_] as *const [u8]) })
-                .map_err(|_| __WASI_EINVAL)
-        );
-    let path = std::path::PathBuf::from(path_string);
-    let path_vec = wasi_try!(path
-        .components()
-        .map(|comp| {
-            comp.as_os_str()
-                .to_str()
-                .map(|inner_str| inner_str.to_string())
-                .ok_or(__WASI_EINVAL)
-        })
-        .collect::<Result<Vec<String>, __wasi_errno_t>>());
-    debug!("Path vec: {:#?}", path_vec);
+    let path_string = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
 
-    if path_vec.is_empty() {
-        return __WASI_EINVAL;
-    }
+    debug!("=> fd: {}, path: {}", dirfd, &path_string);
 
-    let mut cur_dir_inode = working_dir.inode;
-    let mut cumulative_path = std::path::PathBuf::from(wasi_try!(state
-        .fs
-        .get_base_path_for_directory(working_dir.inode)
-        .ok_or(__WASI_EIO)));
-
-    // traverse path
-    if path_vec.len() > 1 {
-        for path_segment in &path_vec[..(path_vec.len() - 1)] {
-            match &state.fs.inodes[cur_dir_inode].kind {
-                Kind::Dir { entries, .. } => {
-                    if let Some(child) = entries.get(path_segment) {
-                        cumulative_path.push(path_segment);
-                        let inode_val = *child;
-                        cur_dir_inode = inode_val;
-                    } else {
-                        // attempt to lazily load or create
-                        if path_segment == ".." {
-                            unimplemented!(
-                                "\"..\" in paths in `path_open` has not been implemented yet"
-                            );
-                        }
-                        // lazily load
-                        cumulative_path.push(path_segment);
-                        let mut open_options = std::fs::OpenOptions::new();
-                        let open_options = open_options.read(true);
-                        // ASSUMPTION: __WASI_O_CREAT applies recursively
-                        let open_options = if o_flags & __WASI_O_CREAT != 0 {
-                            open_options.create(true)
-                        } else {
-                            open_options
-                        };
-                        // TODO: handle __WASI_O_TRUNC on directories
-
-                        // TODO: refactor and reuse
-                        let cur_file_metadata =
-                            wasi_try!(cumulative_path.metadata().map_err(|_| __WASI_EINVAL));
-                        let kind = if cur_file_metadata.is_dir() {
-                            Kind::Dir {
-                                parent: Some(cur_dir_inode),
-                                path: cumulative_path.clone(),
-                                entries: Default::default(),
-                            }
-                        } else {
-                            return __WASI_ENOTDIR;
-                        };
-                        let inode_val = InodeVal::from_file_metadata(
-                            &cur_file_metadata,
-                            path_segment.clone(),
-                            false,
-                            kind,
-                        );
-
-                        let new_inode = state.fs.inodes.insert(inode_val);
-                        let inode_idx = state.fs.inode_counter.get();
-                        state.fs.inode_counter.replace(inode_idx + 1);
-                        // reborrow to insert entry
-                        if let Kind::Dir { entries, .. } = &mut state.fs.inodes[cur_dir_inode].kind
-                        {
-                            assert!(entries.insert(path_segment.clone(), new_inode).is_none());
-                            state.fs.inodes[new_inode].stat.st_ino = state.fs.inode_counter.get();
-                            cur_dir_inode = new_inode;
-                        }
-                    }
-                }
-                Kind::Symlink { .. } => unimplemented!("Symlinks not yet supported in `path_open`"),
-                _ => return __WASI_ENOTDIR,
-            }
-        }
-    }
-
-    let file_name = path_vec.last().unwrap();
-
-    debug!(
-        "Looking for file {} in directory {:#?}",
-        file_name, cumulative_path
+    let path_arg = std::path::PathBuf::from(path_string);
+    let maybe_inode = state.fs.get_inode_at_path(
+        dirfd,
+        path_string,
+        dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     );
 
-    cumulative_path.push(file_name);
-    let file_path = cumulative_path;
-
-    let out_fd = if let Kind::Dir {
-        entries, parent, ..
-    } = &mut state.fs.inodes[cur_dir_inode].kind
-    {
-        // short circuit logic if attempting to get parent
-        if file_name == ".." {
-            if let Some(p) = parent {
-                let parent_inode = *p;
-                wasi_try!(state.fs.create_fd(
-                    fs_rights_base,
-                    fs_rights_inheriting,
-                    fs_flags,
-                    parent_inode
-                ))
-            } else {
-                return __WASI_EACCES;
-            }
-        } else {
-            if let Some(child) = entries.get(file_name).cloned() {
-                let child_inode_val = &state.fs.inodes[child];
-                // early return based on flags
-                if o_flags & __WASI_O_EXCL != 0 {
-                    return __WASI_EEXIST;
-                }
+    // TODO: traverse rights of dirs properly
+    let adjusted_rights = fs_rights_base & working_dir.rights_inheriting;
+    let inode = if let Ok(inode) = maybe_inode {
+        // Happy path, we found the file we're trying to open
+        match &mut state.fs.inodes[inode].kind {
+            Kind::File {
+                ref mut handle,
+                path,
+            } => {
                 if o_flags & __WASI_O_DIRECTORY != 0 {
-                    match &child_inode_val.kind {
-                        Kind::Dir { .. } => (),
-                        Kind::Symlink { .. } => {
-                            unimplemented!("Symlinks not yet supported in path_open")
-                        }
-                        _ => return __WASI_ENOTDIR,
+                    return __WASI_ENOTDIR;
+                }
+                if o_flags & __WASI_O_EXCL != 0 {
+                    if path.exists() {
+                        return __WASI_EEXIST;
                     }
                 }
-                // do logic on child
-                wasi_try!(state
-                    .fs
-                    .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
-            } else {
-                debug!("Attempting to load file from host system");
+                let mut open_options = std::fs::OpenOptions::new();
+                let open_options = open_options
+                    .read(true)
+                    // TODO: ensure these rights are actually valid given parent, etc.
+                    .write(adjusted_rights & __WASI_RIGHT_FD_WRITE != 0)
+                    .create(o_flags & __WASI_O_CREAT != 0)
+                    .truncate(o_flags & __WASI_O_TRUNC != 0);
 
-                let file_metadata = file_path.metadata();
-                // if entry does not exist in parent directory, try to lazily
-                // load it; possibly creating or truncating it if flags set
-                let kind = if file_metadata.is_ok() && file_metadata.unwrap().is_dir() {
-                    // special dir logic
-                    Kind::Dir {
-                        parent: Some(cur_dir_inode),
-                        path: file_path.clone(),
-                        entries: Default::default(),
+                *handle = Some(WasiFile::HostFile(wasi_try!(open_options
+                    .open(&path)
+                    .map_err(|_| __WASI_EIO))));
+            }
+            Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
+            Kind::Dir { .. } | Kind::Root { .. } => {
+                // TODO: adjust these to be correct
+                if o_flags & __WASI_O_EXCL != 0 {
+                    if path_arg.exists() {
+                        return __WASI_EEXIST;
                     }
-                } else {
-                    // file is not a dir
-                    let real_opened_file = {
-                        let mut open_options = std::fs::OpenOptions::new();
-                        let open_options = open_options.read(true);
-                        let open_options = if fs_rights_base & __WASI_RIGHT_FD_WRITE != 0 {
-                            open_options.write(true)
-                        } else {
-                            open_options
-                        };
-                        let open_options = if o_flags & __WASI_O_CREAT != 0 {
-                            debug!(
-                                "File {:?} may be created when opened if it does not exist",
-                                &file_path
-                            );
-                            open_options.create(true)
-                        } else {
-                            open_options
-                        };
-                        let open_options = if o_flags & __WASI_O_TRUNC != 0 {
-                            debug!("File {:?} will be truncated when opened", &file_path);
-                            open_options.truncate(true)
-                        } else {
-                            open_options
-                        };
-                        debug!("Opening host file {:?}", &file_path);
-                        let real_open_file =
-                            wasi_try!(open_options.open(&file_path).map_err(|_| __WASI_EIO));
-
-                        real_open_file
-                    };
-                    Kind::File {
-                        handle: WasiFile::HostFile(real_opened_file),
-                    }
-                };
-
-                // record lazily loaded or newly created fd
-                let new_inode = state.fs.inodes.insert(InodeVal {
-                    stat: wasi_try!(get_stat_for_kind(&kind).ok_or(__WASI_EIO)),
-                    is_preopened: false,
-                    name: file_name.clone(),
-                    kind,
-                });
-
-                // reborrow to insert entry
-                if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
-                    entries.insert(file_name.clone(), new_inode);
                 }
-                let new_fd = wasi_try!(state.fs.create_fd(
-                    fs_rights_base,
-                    fs_rights_inheriting,
-                    fs_flags,
-                    new_inode,
-                ));
-
-                new_fd
+            }
+            Kind::Symlink {
+                base_po_dir,
+                path_to_symlink,
+                relative_path,
+            } => {
+                // I think this should return an error
+                // TODO: investigate this
+                unimplemented!("SYMLINKS IN PATH_OPEN");
             }
         }
+        inode
     } else {
-        // working_dir did not match on Kind::Dir
-        return __WASI_ENOTDIR;
+        // less-happy path, we have to try to create the file
+        debug!("Maybe creating file");
+        if o_flags & __WASI_O_CREAT != 0 {
+            if o_flags & __WASI_O_DIRECTORY != 0 {
+                return __WASI_ENOTDIR;
+            }
+            debug!("Creating file");
+            // strip end file name
+
+            let (parent_inode, new_entity_name) = wasi_try!(state.fs.get_parent_inode_at_path(
+                dirfd,
+                &path_arg,
+                dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
+            ));
+            let new_file_host_path = match &state.fs.inodes[parent_inode].kind {
+                Kind::Dir { path, .. } => {
+                    let mut new_path = path.clone();
+                    new_path.push(&new_entity_name);
+                    new_path
+                }
+                Kind::Root { .. } => return __WASI_EACCES,
+                _ => return __WASI_EINVAL,
+            };
+            // once we got the data we need from the parent, we lookup the host file
+            // todo: extra check that opening with write access is okay
+            let handle = {
+                let mut open_options = std::fs::OpenOptions::new();
+                let open_options = open_options
+                    .read(true)
+                    // TODO: ensure these rights are actually valid given parent, etc.
+                    // write access is required for creating a file
+                    .write(true)
+                    .create_new(true);
+
+                Some(WasiFile::HostFile(wasi_try!(open_options
+                    .open(&new_file_host_path)
+                    .map_err(|e| {
+                        debug!("Error opening file {}", e);
+                        __WASI_EIO
+                    }))))
+            };
+
+            let new_inode = {
+                let kind = Kind::File {
+                    handle,
+                    path: new_file_host_path,
+                };
+                wasi_try!(state.fs.create_inode(kind, false, new_entity_name.clone()))
+            };
+
+            if let Kind::Dir {
+                ref mut entries, ..
+            } = &mut state.fs.inodes[parent_inode].kind
+            {
+                entries.insert(new_entity_name, new_inode);
+            }
+
+            new_inode
+        } else {
+            return maybe_inode.unwrap_err();
+        }
     };
+
+    debug!(
+        "inode {:?} value {:#?} found!",
+        inode, state.fs.inodes[inode]
+    );
+
+    // TODO: check and reduce these
+    // TODO: ensure a mutable fd to root can never be opened
+    let out_fd =
+        wasi_try!(state
+            .fs
+            .create_fd(adjusted_rights, fs_rights_inheriting, fs_flags, inode));
 
     fd_cell.set(out_fd);
 
@@ -1648,18 +1551,105 @@ pub fn path_readlink(
     buf_used: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::path_readlink");
-    unimplemented!("wasi::path_readlink")
+    let state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
+    let base_dir = wasi_try!(state.fs.fd_map.get(&dir_fd).ok_or(__WASI_EBADF));
+    if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_READLINK) {
+        return __WASI_EACCES;
+    }
+    let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let inode = wasi_try!(state.fs.get_inode_at_path(dir_fd, path_str, false));
+
+    if let Kind::Symlink { relative_path, .. } = &state.fs.inodes[inode].kind {
+        let rel_path_str = relative_path.to_string_lossy();
+        let bytes = rel_path_str.bytes();
+        if bytes.len() >= buf_len as usize {
+            return __WASI_EOVERFLOW;
+        }
+
+        let out = wasi_try!(buf.deref(memory, 0, buf_len));
+        let mut bytes_written = 0;
+        for b in bytes {
+            out[bytes_written].set(b);
+            bytes_written += 1;
+        }
+        // should we null terminate this?
+
+        let bytes_out = wasi_try!(buf_used.deref(memory));
+        bytes_out.set(bytes_written as u32);
+    } else {
+        return __WASI_EINVAL;
+    }
+
+    __WASI_ESUCCESS
 }
 
+/// Returns __WASI_ENOTEMTPY if directory is not empty
 pub fn path_remove_directory(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
+    // TODO check if fd is a dir, ensure it's within sandbox, etc.
     debug!("wasi::path_remove_directory");
-    unimplemented!("wasi::path_remove_directory")
+    let state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
+    let base_dir = wasi_try!(state.fs.fd_map.get(&fd), __WASI_EBADF);
+    let path_str = wasi_try!(path.get_utf8_string(memory, path_len), __WASI_EINVAL);
+
+    let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));
+    let (parent_inode, childs_name) =
+        wasi_try!(state
+            .fs
+            .get_parent_inode_at_path(fd, std::path::Path::new(path_str), false));
+
+    let host_path_to_remove = match &state.fs.inodes[inode].kind {
+        Kind::Dir { entries, path, .. } => {
+            if !entries.is_empty() {
+                return __WASI_ENOTEMPTY;
+            } else {
+                if wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0 {
+                    return __WASI_ENOTEMPTY;
+                }
+            }
+            path.clone()
+        }
+        Kind::Root { .. } => return __WASI_EACCES,
+        _ => return __WASI_ENOTDIR,
+    };
+
+    match &mut state.fs.inodes[parent_inode].kind {
+        Kind::Dir {
+            ref mut entries, ..
+        } => {
+            let removed_inode = wasi_try!(entries.remove(&childs_name).ok_or(__WASI_EINVAL));
+            // TODO: make this a debug assert in the future
+            assert!(inode == removed_inode);
+        }
+        Kind::Root { .. } => return __WASI_EACCES,
+        _ => unreachable!(
+            "Internal logic error in wasi::path_remove_directory, parent is not a directory"
+        ),
+    }
+
+    if let Err(_) = std::fs::remove_dir(path_str) {
+        // reinsert to prevent FS from being in bad state
+        if let Kind::Dir {
+            ref mut entries, ..
+        } = &mut state.fs.inodes[parent_inode].kind
+        {
+            entries.insert(childs_name, inode);
+        }
+        // TODO: more intelligently return error value by inspecting returned error value
+        return __WASI_EIO;
+    }
+
+    __WASI_ESUCCESS
 }
+
 pub fn path_rename(
     ctx: &mut Ctx,
     old_fd: __wasi_fd_t,
@@ -1683,15 +1673,57 @@ pub fn path_symlink(
     debug!("wasi::path_symlink");
     unimplemented!("wasi::path_symlink")
 }
+
 pub fn path_unlink_file(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
+    // TODO check if fd is a dir, ensure it's within sandbox, etc.
     debug!("wasi::path_unlink_file");
-    unimplemented!("wasi::path_unlink_file")
+    let state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
+    let base_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+
+    let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));
+    let (parent_inode, childs_name) =
+        wasi_try!(state
+            .fs
+            .get_parent_inode_at_path(fd, std::path::Path::new(path_str), false));
+
+    let host_path_to_remove = match &state.fs.inodes[inode].kind {
+        Kind::File { path, .. } => path.clone(),
+        _ => unimplemented!("wasi::path_unlink_file for non-files"),
+    };
+
+    match &mut state.fs.inodes[parent_inode].kind {
+        Kind::Dir {
+            ref mut entries, ..
+        } => {
+            let removed_inode = wasi_try!(entries.remove(&childs_name).ok_or(__WASI_EINVAL));
+            // TODO: make this a debug assert in the future
+            assert!(inode == removed_inode);
+        }
+        Kind::Root { .. } => return __WASI_EACCES,
+        _ => unreachable!(
+            "Internal logic error in wasi::path_unlink_file, parent is not a directory"
+        ),
+    }
+    let inode_was_removed = unsafe { state.fs.remove_inode(inode) };
+    assert!(
+        inode_was_removed,
+        "Inode could not be removed because it doesn't exist"
+    );
+    let _result = wasi_try!(std::fs::remove_file(host_path_to_remove)
+        .ok()
+        .ok_or(__WASI_EIO));
+
+    __WASI_ESUCCESS
 }
+
 pub fn poll_oneoff(
     ctx: &mut Ctx,
     in_: WasmPtr<__wasi_subscription_t, Array>,
