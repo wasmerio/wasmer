@@ -108,7 +108,7 @@ impl From<Converter<ir::Type>> for Type {
             ir::types::F32 => Type::F32,
             ir::types::F64 => Type::F64,
             ir::types::I32X4 => Type::V128,
-            _ => panic!("unsupported wasm type"),
+            _ => unimplemented!("unsupported wasm type"),
         }
     }
 }

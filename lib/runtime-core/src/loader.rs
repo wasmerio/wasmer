@@ -83,9 +83,10 @@ impl Instance for LocalInstance {
             match args_u64.len() {
                 0 => (transmute::<_, extern "C" fn() -> u128>(addr))(),
                 1 => (transmute::<_, extern "C" fn(u64) -> u128>(addr))(args_u64[0]),
-                2 => {
-                    (transmute::<_, extern "C" fn(u64, u64) -> u128>(addr))(args_u64[0], args_u64[1])
-                }
+                2 => (transmute::<_, extern "C" fn(u64, u64) -> u128>(addr))(
+                    args_u64[0],
+                    args_u64[1],
+                ),
                 3 => (transmute::<_, extern "C" fn(u64, u64, u64) -> u128>(addr))(
                     args_u64[0],
                     args_u64[1],

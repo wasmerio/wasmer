@@ -111,12 +111,11 @@ fn trunc_sat(
     //    int_min or int_max.
 
     let is_signed = int_min_value != 0;
+    let ivec_element_ty = ivec_ty.get_element_type().into_int_type();
     let int_min_value = splat_vector(
         builder,
         intrinsics,
-        ivec_ty
-            .get_element_type()
-            .into_int_type()
+        ivec_element_ty
             .const_int(int_min_value, is_signed)
             .as_basic_value_enum(),
         ivec_ty,
@@ -125,9 +124,7 @@ fn trunc_sat(
     let int_max_value = splat_vector(
         builder,
         intrinsics,
-        ivec_ty
-            .get_element_type()
-            .into_int_type()
+        ivec_element_ty
             .const_int(int_max_value, is_signed)
             .as_basic_value_enum(),
         ivec_ty,
@@ -135,38 +132,26 @@ fn trunc_sat(
     );
     let lower_bound = if is_signed {
         builder.build_signed_int_to_float(
-            ivec_ty
-                .get_element_type()
-                .into_int_type()
-                .const_int(lower_bound, is_signed),
+            ivec_element_ty.const_int(lower_bound, is_signed),
             fvec_ty.get_element_type().into_float_type(),
             "",
         )
     } else {
         builder.build_unsigned_int_to_float(
-            ivec_ty
-                .get_element_type()
-                .into_int_type()
-                .const_int(lower_bound, is_signed),
+            ivec_element_ty.const_int(lower_bound, is_signed),
             fvec_ty.get_element_type().into_float_type(),
             "",
         )
     };
     let upper_bound = if is_signed {
         builder.build_signed_int_to_float(
-            ivec_ty
-                .get_element_type()
-                .into_int_type()
-                .const_int(upper_bound, is_signed),
+            ivec_element_ty.const_int(upper_bound, is_signed),
             fvec_ty.get_element_type().into_float_type(),
             "",
         )
     } else {
         builder.build_unsigned_int_to_float(
-            ivec_ty
-                .get_element_type()
-                .into_int_type()
-                .const_int(upper_bound, is_signed),
+            ivec_element_ty.const_int(upper_bound, is_signed),
             fvec_ty.get_element_type().into_float_type(),
             "",
         )
@@ -3948,7 +3933,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     Operator::I16x8AllTrue => intrinsics.i16x8_ty,
                     Operator::I32x4AllTrue => intrinsics.i32x4_ty,
                     Operator::I64x2AllTrue => intrinsics.i64x2_ty,
-                    _ => panic!(),
+                    _ => unreachable!(),
                 };
                 let v = state.pop1()?.into_int_value();
                 let lane_int_ty = context.custom_width_int_type(vec_ty.get_size());

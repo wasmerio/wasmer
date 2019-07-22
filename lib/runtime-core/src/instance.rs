@@ -618,7 +618,7 @@ fn call_func_with_index(
         Type::I64 => Value::I64(raw as i64),
         Type::F32 => Value::F32(f32::from_bits(raw as u32)),
         Type::F64 => Value::F64(f64::from_bits(raw)),
-        _ => unreachable!(),
+        Type::V128 => unreachable!("V128 does not map to any single value"),
     };
 
     match signature.returns() {
