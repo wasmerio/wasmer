@@ -6,11 +6,14 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 - [#542](https://github.com/wasmerio/wasmer/pull/542) Add SIMD support to wasmer and implement it in the LLVM backend only.
+
+## 0.5.7
+- [#575](https://github.com/wasmerio/wasmer/pull/575) Prepare for release; update wapm to 0.3.6
 - [#555](https://github.com/wasmerio/wasmer/pull/555) WASI filesystem rewrite.  Major improvements
   - adds virtual root showing all preopened directories
   - improved sandboxing and code-reuse
   - symlinks work in a lot more situations
-  - many various improvements to most syscalls touching the filesystem
+  - many misc. improvements to most syscalls touching the filesystem
 
 ## 0.5.6
 - [#565](https://github.com/wasmerio/wasmer/pull/565) Update wapm and bump version to 0.5.6
