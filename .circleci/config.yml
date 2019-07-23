@@ -171,6 +171,7 @@ jobs:
           name: Check
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             make check
       - run:
           name: Release
