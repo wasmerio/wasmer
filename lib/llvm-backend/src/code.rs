@@ -1355,7 +1355,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
                 let res = builder
-                    .build_call(intrinsics.sadd_sat_i8x16, &[v1, v2], "")
+                    .build_call(intrinsics.sadd_sat_i8x16, &[v1, v2], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -1368,7 +1368,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
                 let res = builder
-                    .build_call(intrinsics.sadd_sat_i16x8, &[v1, v2], "")
+                    .build_call(intrinsics.sadd_sat_i16x8, &[v1, v2], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -1381,7 +1381,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
                 let res = builder
-                    .build_call(intrinsics.uadd_sat_i8x16, &[v1, v2], "")
+                    .build_call(intrinsics.uadd_sat_i8x16, &[v1, v2], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -1394,7 +1394,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
                 let res = builder
-                    .build_call(intrinsics.uadd_sat_i16x8, &[v1, v2], "")
+                    .build_call(intrinsics.uadd_sat_i16x8, &[v1, v2], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -1465,7 +1465,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
                 let res = builder
-                    .build_call(intrinsics.ssub_sat_i8x16, &[v1, v2], "")
+                    .build_call(intrinsics.ssub_sat_i8x16, &[v1, v2], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -1478,7 +1478,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
                 let res = builder
-                    .build_call(intrinsics.ssub_sat_i16x8, &[v1, v2], "")
+                    .build_call(intrinsics.ssub_sat_i16x8, &[v1, v2], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -1491,7 +1491,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
                 let res = builder
-                    .build_call(intrinsics.usub_sat_i8x16, &[v1, v2], "")
+                    .build_call(intrinsics.usub_sat_i8x16, &[v1, v2], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -1504,7 +1504,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
                 let res = builder
-                    .build_call(intrinsics.usub_sat_i16x8, &[v1, v2], "")
+                    .build_call(intrinsics.usub_sat_i16x8, &[v1, v2], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
