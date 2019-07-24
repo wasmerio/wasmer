@@ -16,7 +16,7 @@ use crate::{
     vm::{self, InternalField},
 };
 use smallvec::{smallvec, SmallVec};
-use std::{mem, ptr::NonNull, sync::Arc};
+use std::{mem, pin::Pin, ptr::NonNull, sync::Arc};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -41,7 +41,7 @@ impl Drop for InstanceInner {
 /// [`ImportObject`]: struct.ImportObject.html
 pub struct Instance {
     pub module: Arc<ModuleInner>,
-    inner: Box<InstanceInner>,
+    inner: Pin<Box<InstanceInner>>,
     #[allow(dead_code)]
     import_object: ImportObject,
 }
@@ -51,32 +51,32 @@ impl Instance {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
-        let mut vmctx = unsafe { Box::new(mem::uninitialized()) };
+        let mut vmctx: Box<mem::MaybeUninit<vm::Ctx>> =
+            Box::new(mem::MaybeUninit::<vm::Ctx>::zeroed());
 
-        let import_backing = ImportBacking::new(&module, &imports, &mut *vmctx)?;
-        let backing = LocalBacking::new(&module, &import_backing, &mut *vmctx);
+        let import_backing = ImportBacking::new(&module, &imports, vmctx.as_mut_ptr())?;
+        let backing = LocalBacking::new(&module, &import_backing, vmctx.as_mut_ptr());
 
-        // When Pin is stablized, this will use `Box::pinned` instead of `Box::new`.
-        let mut inner = Box::new(InstanceInner {
+        let mut inner = Box::pin(InstanceInner {
             backing,
             import_backing,
-            vmctx: Box::leak(vmctx),
+            vmctx: vmctx.as_mut_ptr(),
         });
 
         // Initialize the vm::Ctx in-place after the backing
         // has been boxed.
         unsafe {
-            *inner.vmctx = match imports.call_state_creator() {
-                Some((data, dtor)) => vm::Ctx::new_with_data(
-                    &mut inner.backing,
-                    &mut inner.import_backing,
-                    &module,
-                    data,
-                    dtor,
-                ),
-                None => vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module),
+            let backing = &mut *(&mut inner.backing as *mut _);
+            let import_backing = &mut *(&mut inner.import_backing as *mut _);
+            let real_ctx = match imports.call_state_creator() {
+                Some((data, dtor)) => {
+                    vm::Ctx::new_with_data(backing, import_backing, &module, data, dtor)
+                }
+                None => vm::Ctx::new(backing, import_backing, &module),
             };
+            vmctx.as_mut_ptr().write(real_ctx);
         };
+        Box::leak(vmctx);
 
         let instance = Instance {
             module,
