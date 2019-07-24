@@ -74,6 +74,8 @@ const TESTS: &[&str] = &[
     "spectests/unwind.wast",
     #[cfg(feature = "llvm")]
     "spectests/simd.wast",
+    #[cfg(feature = "llvm")]
+    "spectests/simd_binaryen.wast",
 ];
 
 static COMMON: &'static str = r##"
