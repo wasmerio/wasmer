@@ -35,7 +35,7 @@ pub struct MachineStateDiff {
     pub wasm_inst_offset: usize, // absolute value; not a diff.
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum MachineValue {
     Undefined,
     Vmctx,
@@ -44,6 +44,7 @@ pub enum MachineValue {
     ExplicitShadow,           // indicates that all values above this are above the shadow region
     WasmStack(usize),
     WasmLocal(usize),
+    TwoHalves(Box<(MachineValue, MachineValue)>), // 32-bit values. TODO: optimize: add another type for inner "half" value to avoid boxing?
 }
 
 #[derive(Clone, Debug)]
@@ -203,7 +204,7 @@ impl MachineState {
             .iter()
             .zip(old.stack_values.iter())
             .enumerate()
-            .find(|&(_, (&a, &b))| a != b)
+            .find(|&(_, (a, b))| a != b)
             .map(|x| x.0)
             .unwrap_or(old.stack_values.len().min(self.stack_values.len()));
         assert_eq!(self.register_values.len(), old.register_values.len());
@@ -212,15 +213,15 @@ impl MachineState {
             .iter()
             .zip(old.register_values.iter())
             .enumerate()
-            .filter(|&(_, (&a, &b))| a != b)
-            .map(|(i, (&a, _))| (RegisterIndex(i), a))
+            .filter(|&(_, (a, b))| a != b)
+            .map(|(i, (a, _))| (RegisterIndex(i), a.clone()))
             .collect();
         let first_diff_wasm_stack_depth: usize = self
             .wasm_stack
             .iter()
             .zip(old.wasm_stack.iter())
             .enumerate()
-            .find(|&(_, (&a, &b))| a != b)
+            .find(|&(_, (a, b))| a != b)
             .map(|x| x.0)
             .unwrap_or(old.wasm_stack.len().min(self.wasm_stack.len()));
         MachineStateDiff {
@@ -255,10 +256,10 @@ impl MachineStateDiff {
                 state.stack_values.pop().unwrap();
             }
             for v in &x.stack_push {
-                state.stack_values.push(*v);
+                state.stack_values.push(v.clone());
             }
-            for &(index, v) in &x.reg_diff {
-                state.register_values[index.0] = v;
+            for &(index, ref v) in &x.reg_diff {
+                state.register_values[index.0] = v.clone();
             }
             for _ in 0..x.wasm_stack_pop {
                 state.wasm_stack.pop().unwrap();
@@ -486,6 +487,72 @@ pub mod x64 {
                             WasmAbstractValue::Runtime => {
                                 stack[stack_offset] = f.locals[x].unwrap();
                             }
+                        }
+                    }
+                    MachineValue::TwoHalves(ref inner) => {
+                        stack_offset -= 1;
+                        // TODO: Cleanup
+                        match inner.0 {
+                            MachineValue::WasmStack(x) => {
+                                match state.wasm_stack[x] {
+                                    WasmAbstractValue::Const(x) => {
+                                        assert!(x <= ::std::u32::MAX as u64);
+                                        stack[stack_offset] |= x;
+                                    }
+                                    WasmAbstractValue::Runtime => {
+                                        let v = f.stack[x].unwrap();
+                                        assert!(v <= ::std::u32::MAX as u64);
+                                        stack[stack_offset] |= v;
+                                    }
+                                }
+                            }
+                            MachineValue::WasmLocal(x) => {
+                                stack_offset -= 1;
+                                match fsm.locals[x] {
+                                    WasmAbstractValue::Const(x) => {
+                                        assert!(x <= ::std::u32::MAX as u64);
+                                        stack[stack_offset] |= x;
+                                    }
+                                    WasmAbstractValue::Runtime => {
+                                        let v = f.locals[x].unwrap();
+                                        assert!(v <= ::std::u32::MAX as u64);
+                                        stack[stack_offset] |= v;
+                                    }
+                                }
+                            }
+                            MachineValue::Undefined => {}
+                            _ => unimplemented!("TwoHalves.0"),
+                        }
+                        match inner.1 {
+                            MachineValue::WasmStack(x) => {
+                                match state.wasm_stack[x] {
+                                    WasmAbstractValue::Const(x) => {
+                                        assert!(x <= ::std::u32::MAX as u64);
+                                        stack[stack_offset] |= x << 32;
+                                    }
+                                    WasmAbstractValue::Runtime => {
+                                        let v = f.stack[x].unwrap();
+                                        assert!(v <= ::std::u32::MAX as u64);
+                                        stack[stack_offset] |= v << 32;
+                                    }
+                                }
+                            }
+                            MachineValue::WasmLocal(x) => {
+                                stack_offset -= 1;
+                                match fsm.locals[x] {
+                                    WasmAbstractValue::Const(x) => {
+                                        assert!(x <= ::std::u32::MAX as u64);
+                                        stack[stack_offset] |= x << 32;
+                                    }
+                                    WasmAbstractValue::Runtime => {
+                                        let v = f.locals[x].unwrap();
+                                        assert!(v <= ::std::u32::MAX as u64);
+                                        stack[stack_offset] |= v << 32;
+                                    }
+                                }
+                            }
+                            MachineValue::Undefined => {}
+                            _ => unimplemented!("TwoHalves.1"),
                         }
                     }
                 }
@@ -784,6 +851,30 @@ pub mod x64 {
                     MachineValue::WasmLocal(idx) => {
                         wasm_locals[idx] = Some(*stack);
                         stack = stack.offset(1);
+                    }
+                    MachineValue::TwoHalves(ref inner) => {
+                        let v = *stack;
+                        stack = stack.offset(1);
+                        match inner.0 {
+                            MachineValue::WasmStack(idx) => {
+                                wasm_stack[idx] = Some(v & 0xffffffffu64);
+                            }
+                            MachineValue::WasmLocal(idx) => {
+                                wasm_locals[idx] = Some(v & 0xffffffffu64);
+                            }
+                            MachineValue::Undefined => {},
+                            _ => unimplemented!("TwoHalves.0 (read)")
+                        }
+                        match inner.1 {
+                            MachineValue::WasmStack(idx) => {
+                                wasm_stack[idx] = Some(v >> 32);
+                            }
+                            MachineValue::WasmLocal(idx) => {
+                                wasm_locals[idx] = Some(v >> 32);
+                            }
+                            MachineValue::Undefined => {},
+                            _ => unimplemented!("TwoHalves.1 (read)")
+                        }
                     }
                 }
             }

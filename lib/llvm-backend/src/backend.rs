@@ -1,4 +1,4 @@
-use super::stackmap::{self, StackmapRegistry};
+use super::stackmap::{self, StackmapRegistry, StkMapRecord};
 use crate::intrinsics::Intrinsics;
 use inkwell::{
     memory_buffer::MemoryBuffer,
@@ -18,6 +18,7 @@ use std::{
     ptr::{self, NonNull},
     slice, str,
     sync::{Arc, Once},
+    collections::BTreeMap,
 };
 use wasmer_runtime_core::{
     backend::{
@@ -304,7 +305,7 @@ impl LLVMBackend {
         };
         if raw_stackmap.len() > 0 {
             let map = stackmap::StackMap::parse(raw_stackmap).unwrap();
-            eprintln!("{:?}", map);
+            println!("{:?}", map);
 
             let (code_ptr, code_size) = unsafe {
                 (
@@ -316,10 +317,16 @@ impl LLVMBackend {
                 local_functions: Default::default(),
                 total_size: code_size,
             };
+
+            let mut map_records: BTreeMap<usize, &StkMapRecord> = BTreeMap::new();
+            for r in &map.stk_map_records {
+                map_records.insert(r.patchpoint_id as usize, r);
+            }
+
             let mut map_record_idx: usize = 0;
             for size_record in &map.stk_size_records {
-                for _ in 0..size_record.record_count {
-                    let map_record = &map.stk_map_records[map_record_idx];
+                for _ in 0..size_record.record_count as usize {
+                    let map_record = map_records.get(&map_record_idx).expect("map record not found");
                     let map_entry = &stackmaps.entries[map_record_idx];
                     assert_eq!(map_record.patchpoint_id, map_record_idx as u64);
                     map_record_idx += 1;

@@ -74,7 +74,7 @@ impl StackmapEntry {
         map_record: &StkMapRecord,
         msm: &mut ModuleStateMap,
     ) {
-        #[derive(Copy, Clone, Debug)]
+        #[derive(Clone, Debug)]
         enum RuntimeOrConstant {
             Runtime(MachineValue),
             Constant(u64),
@@ -88,10 +88,9 @@ impl StackmapEntry {
             });
 
         assert_eq!(self.value_semantics.len(), map_record.locations.len());
-        assert!(size_record.stack_size % 8 == 0);
+        //assert!(size_record.stack_size % 8 == 0); // is this also aligned to 16 bytes?
 
-        let mut machine_stack_layout: Vec<MachineValue> =
-            vec![MachineValue::Undefined; (size_record.stack_size as usize) / 8];
+        let mut machine_stack_half_layout: Vec<MachineValue> = Vec::new();
         let mut regs: Vec<(RegisterIndex, MachineValue)> = vec![];
         let mut stack_constants: HashMap<usize, u64> = HashMap::new();
 
@@ -145,36 +144,64 @@ impl StackmapEntry {
                 }
                 LocationType::Direct => match mv {
                     MachineValue::WasmLocal(_) => {
-                        assert_eq!(loc.location_size, 8);
-                        assert!(loc.offset_or_small_constant < 0);
+                        assert_eq!(loc.location_size, 8); // the pointer itself
                         assert!(
                             X64Register::from_dwarf_regnum(loc.dwarf_regnum).unwrap()
                                 == X64Register::GPR(GPR::RBP)
                         );
-                        let stack_offset = ((-loc.offset_or_small_constant) % 8) as usize;
-                        assert!(stack_offset > 0 && stack_offset <= machine_stack_layout.len());
-                        machine_stack_layout[stack_offset - 1] = mv;
+                        if loc.offset_or_small_constant >= 0 {
+                            eprintln!("XXX: {}", loc.offset_or_small_constant);
+                        }
+                        assert!(loc.offset_or_small_constant < 0);
+                        let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
+                        while stack_offset > machine_stack_half_layout.len() {
+                            machine_stack_half_layout.push(MachineValue::Undefined);
+                        }
+                        assert!(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len());
+                        machine_stack_half_layout[stack_offset - 1] = mv;
                     }
                     _ => unreachable!(
                         "Direct location type is not expected for values other than local"
                     ),
                 },
                 LocationType::Indirect => {
-                    assert_eq!(loc.location_size, 8);
                     assert!(loc.offset_or_small_constant < 0);
                     assert!(
                         X64Register::from_dwarf_regnum(loc.dwarf_regnum).unwrap()
                             == X64Register::GPR(GPR::RBP)
                     );
-                    let stack_offset = ((-loc.offset_or_small_constant) % 8) as usize;
-                    assert!(stack_offset > 0 && stack_offset <= machine_stack_layout.len());
-                    machine_stack_layout[stack_offset - 1] = mv;
+                    let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
+                    while stack_offset > machine_stack_half_layout.len() {
+                        machine_stack_half_layout.push(MachineValue::Undefined);
+                    }
+                    assert!(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len());
+                    machine_stack_half_layout[stack_offset - 1] = mv;
                 }
             }
         }
 
         assert_eq!(wasm_stack.len(), self.stack_count);
         assert_eq!(wasm_locals.len(), self.local_count);
+
+        if machine_stack_half_layout.len() % 2 != 0 {
+            machine_stack_half_layout.push(MachineValue::Undefined);
+        }
+
+        let mut machine_stack_layout: Vec<MachineValue> = Vec::with_capacity(machine_stack_half_layout.len() / 2);
+
+        for i in 0..machine_stack_half_layout.len() / 2 {
+            let left = &machine_stack_half_layout[i * 2];
+            let right = &machine_stack_half_layout[i * 2 + 1];
+            let only_left = match *right {
+                MachineValue::Undefined => true,
+                _ => false,
+            };
+            if only_left {
+                machine_stack_layout.push(left.clone());
+            } else {
+                machine_stack_layout.push(MachineValue::TwoHalves(Box::new((right.clone(), left.clone()))));
+            }
+        }
 
         let diff = MachineStateDiff {
             last: None,

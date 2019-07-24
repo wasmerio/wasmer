@@ -447,6 +447,26 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let ctx = CtxType::new(module_info, function, cache_builder);
 
         self.ctx = Some(ctx);
+
+
+        {
+            let mut state = &mut self.state;
+            let builder = self.builder.as_ref().unwrap();
+            let intrinsics = self.intrinsics.as_ref().unwrap();
+
+            let mut stackmaps = self.stackmaps.borrow_mut();
+            emit_stack_map(
+                &intrinsics,
+                &builder,
+                self.index,
+                &mut *stackmaps,
+                StackmapEntryKind::FunctionHeader,
+                &self.locals,
+                &state,
+                ::std::usize::MAX,
+            );
+        }
+
         Ok(())
     }
 
@@ -2581,20 +2601,6 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         let num_params = locals.len();
 
         let local_func_index = self.functions.len();
-
-        {
-            let mut stackmaps = self.stackmaps.borrow_mut();
-            emit_stack_map(
-                &intrinsics,
-                &builder,
-                local_func_index,
-                &mut *stackmaps,
-                StackmapEntryKind::FunctionHeader,
-                &locals,
-                &state,
-                ::std::usize::MAX,
-            );
-        }
 
         let code = LLVMFunctionCodeGenerator {
             state,
