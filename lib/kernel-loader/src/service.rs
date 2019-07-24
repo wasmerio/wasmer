@@ -54,7 +54,7 @@ struct LoadCodeRequest {
     memory_max: u32,
     table: *const TableEntryRequest,
     table_count: u32,
-    globals: *const u64,
+    globals: *const u128,
     global_count: u32,
 
     imported_funcs: *const ImportRequest,
@@ -67,7 +67,7 @@ struct LoadCodeRequest {
 #[repr(C)]
 struct RunCodeRequest {
     entry_offset: u32,
-    params: *const u64,
+    params: *const u128,
     param_count: u32,
     result: *mut RunCodeResult,
 }
@@ -75,7 +75,7 @@ struct RunCodeRequest {
 #[repr(C)]
 struct RunCodeResult {
     success: u32,
-    retval: u64,
+    retval: u128,
 }
 
 #[repr(C)]
@@ -108,7 +108,7 @@ pub struct LoadProfile<'a> {
     pub code: &'a [u8],
     pub memory: Option<&'a [u8]>,
     pub memory_max: usize,
-    pub globals: &'a [u64],
+    pub globals: &'a [u128],
     pub imports: &'a [ImportInfo],
     pub dynamic_sigindices: &'a [u32],
     pub table: Option<&'a [TableEntryRequest]>,
@@ -121,7 +121,7 @@ pub struct ImportInfo {
 
 pub struct RunProfile<'a> {
     pub entry_offset: u32,
-    pub params: &'a [u64],
+    pub params: &'a [u128],
 }
 
 pub struct ServiceContext {
@@ -181,7 +181,7 @@ impl ServiceContext {
         }
     }
 
-    pub fn run_code(&mut self, run: RunProfile) -> ServiceResult<u64> {
+    pub fn run_code(&mut self, run: RunProfile) -> ServiceResult<u128> {
         let mut result: RunCodeResult = unsafe { ::std::mem::zeroed() };
         let mut req = RunCodeRequest {
             entry_offset: run.entry_offset,

@@ -204,6 +204,7 @@ fn wasm_ty_to_clif(ty: Type) -> ir::types::Type {
         Type::I64 => ir::types::I64,
         Type::F32 => ir::types::F32,
         Type::F64 => ir::types::F64,
+        Type::V128 => ir::types::I32X4,
     }
 }
 

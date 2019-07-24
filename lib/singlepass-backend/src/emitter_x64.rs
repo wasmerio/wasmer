@@ -6,6 +6,7 @@ pub enum Location {
     Imm8(u8),
     Imm32(u32),
     Imm64(u64),
+    Imm128(u128),
     GPR(GPR),
     XMM(XMM),
     Memory(GPR, i32),

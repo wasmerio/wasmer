@@ -16,7 +16,7 @@ wasmer-llvm-backend = { path = "../llvm-backend", version = "0.5.7", optional = 
 wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.5.7", optional = true }
 
 [dev-dependencies]
-wabt = "0.7.2"
+wabt = "0.9.0"
 wasmer-dev-utils = { path = "../dev-utils", version = "0.5.7"}
 
 [build-dependencies]

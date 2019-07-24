@@ -139,24 +139,19 @@ struct SymbolLookup : llvm::JITSymbolResolver {
 public:
     SymbolLookup(callbacks_t callbacks) : callbacks(callbacks) {}
 
-    virtual llvm::Expected<LookupResult> lookup(const LookupSet& symbols) override {
+    void lookup(const LookupSet& symbols, OnResolvedFunction OnResolved) {
         LookupResult result;
 
         for (auto symbol : symbols) {
             result.emplace(symbol, symbol_lookup(symbol));
         }
 
-        return result;
+        OnResolved(result);
     }
 
-    virtual llvm::Expected<LookupFlagsResult> lookupFlags(const LookupSet& symbols) override {
-        LookupFlagsResult result;
-
-        for (auto symbol : symbols) {
-            result.emplace(symbol, symbol_lookup(symbol).getFlags());
-        }
-
-        return result;
+    llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet &Symbols) {
+        const std::set<llvm::StringRef> empty;
+        return empty;
     }
 
 private:

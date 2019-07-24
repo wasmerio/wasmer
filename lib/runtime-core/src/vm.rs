@@ -549,7 +549,7 @@ impl LocalMemory {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalGlobal {
-    pub data: u64,
+    pub data: u128,
 }
 
 impl LocalGlobal {

@@ -147,7 +147,7 @@ nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmer
 
 5. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
 
-6. Install [LLVM 7.0](https://prereleases.llvm.org/win-snapshots/LLVM-7.0.0-r336178-win64.exe)
+6. Install [LLVM 8.0](https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe)
 
 ## Building
 

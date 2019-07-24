@@ -94,7 +94,7 @@ fn handle_client(mut stream: UnixStream) {
                 match ret {
                     Ok(x) => {
                         stream.write_u32::<LittleEndian>(1).unwrap();
-                        stream.write_u64::<LittleEndian>(x).unwrap();
+                        stream.write_u128::<LittleEndian>(x).unwrap();
                     }
                     Err(e) => {
                         println!("Execution error: {:?}", e);
@@ -157,6 +157,7 @@ fn run_listen(opts: Listen) {
 
 #[cfg(feature = "loader-kernel")]
 fn main() {
+    panic!("Kwasm not updated for 128-bit support, yet. Sorry!");
     let options = CLIOptions::from_args();
     match options {
         CLIOptions::Listen(listen) => {

@@ -95,7 +95,7 @@ pub struct ExecutionStateImage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstanceImage {
     pub memory: Option<Vec<u8>>,
-    pub globals: Vec<u64>,
+    pub globals: Vec<u128>,
     pub execution_state: ExecutionStateImage,
 }
 
@@ -662,11 +662,11 @@ pub mod x64 {
 
             // FIXME: Imported globals
             let globals_len = (*vmctx.module).info.globals.len();
-            let globals: Vec<u64> = (0..globals_len)
+            let globals: Vec<u128> = (0..globals_len)
                 .map(|i| {
                     (*vmctx.local_backing).globals[LocalGlobalIndex::new(i)]
                         .get()
-                        .to_u64()
+                        .to_u128()
                 })
                 .collect();
 

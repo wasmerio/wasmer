@@ -5,6 +5,7 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#542](https://github.com/wasmerio/wasmer/pull/542) Add SIMD support to wasmer and implement it in the LLVM backend only.
 
 ## 0.5.7
 - [#575](https://github.com/wasmerio/wasmer/pull/575) Prepare for release; update wapm to 0.3.6

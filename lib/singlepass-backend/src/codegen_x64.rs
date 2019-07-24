@@ -4912,6 +4912,7 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::I64 => WpType::I64,
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
+        Type::V128 => WpType::V128,
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{backend::RunnableModule, module::ModuleInfo, types::Value, vm::Ctx};
+use crate::{backend::RunnableModule, module::ModuleInfo, types::Type, types::Value, vm::Ctx};
 #[cfg(unix)]
 use libc::{mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE};
 use std::{
@@ -20,7 +20,7 @@ pub trait Loader {
 
 pub trait Instance {
     type Error: Debug;
-    fn call(&mut self, id: usize, args: &[Value]) -> Result<u64, Self::Error>;
+    fn call(&mut self, id: usize, args: &[Value]) -> Result<u128, Self::Error>;
     fn read_memory(&mut self, _offset: u32, _len: u32) -> Result<Vec<u8>, Self::Error> {
         unimplemented!()
     }
@@ -61,35 +61,49 @@ pub struct LocalInstance {
 
 impl Instance for LocalInstance {
     type Error = String;
-    fn call(&mut self, id: usize, args: &[Value]) -> Result<u64, Self::Error> {
+    fn call(&mut self, id: usize, args: &[Value]) -> Result<u128, Self::Error> {
+        let mut args_u64: Vec<u64> = Vec::new();
+        for arg in args {
+            if arg.ty() == Type::V128 {
+                let bytes = arg.to_u128().to_le_bytes();
+                let mut lo = [0u8; 8];
+                lo.clone_from_slice(&bytes[0..8]);
+                args_u64.push(u64::from_le_bytes(lo));
+                let mut hi = [0u8; 8];
+                hi.clone_from_slice(&bytes[8..16]);
+                args_u64.push(u64::from_le_bytes(hi));
+            } else {
+                args_u64.push(arg.to_u128() as u64);
+            }
+        }
         let offset = self.offsets[id];
         let addr: *const u8 = unsafe { self.code.as_ptr().offset(offset as isize) };
         use std::mem::transmute;
         Ok(unsafe {
-            match args.len() {
-                0 => (transmute::<_, extern "C" fn() -> u64>(addr))(),
-                1 => (transmute::<_, extern "C" fn(u64) -> u64>(addr))(args[0].to_u64()),
-                2 => (transmute::<_, extern "C" fn(u64, u64) -> u64>(addr))(
-                    args[0].to_u64(),
-                    args[1].to_u64(),
+            match args_u64.len() {
+                0 => (transmute::<_, extern "C" fn() -> u128>(addr))(),
+                1 => (transmute::<_, extern "C" fn(u64) -> u128>(addr))(args_u64[0]),
+                2 => (transmute::<_, extern "C" fn(u64, u64) -> u128>(addr))(
+                    args_u64[0],
+                    args_u64[1],
                 ),
-                3 => (transmute::<_, extern "C" fn(u64, u64, u64) -> u64>(addr))(
-                    args[0].to_u64(),
-                    args[1].to_u64(),
-                    args[2].to_u64(),
+                3 => (transmute::<_, extern "C" fn(u64, u64, u64) -> u128>(addr))(
+                    args_u64[0],
+                    args_u64[1],
+                    args_u64[2],
                 ),
-                4 => (transmute::<_, extern "C" fn(u64, u64, u64, u64) -> u64>(addr))(
-                    args[0].to_u64(),
-                    args[1].to_u64(),
-                    args[2].to_u64(),
-                    args[3].to_u64(),
+                4 => (transmute::<_, extern "C" fn(u64, u64, u64, u64) -> u128>(addr))(
+                    args_u64[0],
+                    args_u64[1],
+                    args_u64[2],
+                    args_u64[3],
                 ),
-                5 => (transmute::<_, extern "C" fn(u64, u64, u64, u64, u64) -> u64>(addr))(
-                    args[0].to_u64(),
-                    args[1].to_u64(),
-                    args[2].to_u64(),
-                    args[3].to_u64(),
-                    args[4].to_u64(),
+                5 => (transmute::<_, extern "C" fn(u64, u64, u64, u64, u64) -> u128>(addr))(
+                    args_u64[0],
+                    args_u64[1],
+                    args_u64[2],
+                    args_u64[3],
+                    args_u64[4],
                 ),
                 _ => return Err("too many arguments".into()),
             }
