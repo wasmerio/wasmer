@@ -749,7 +749,10 @@ fn {}() {{
             } => {
                 // Do nothing for now
             }
-            CommandKind::AssertExhaustion { action: _ } => {
+            CommandKind::AssertExhaustion {
+                action: _,
+                message: _,
+            } => {
                 // Do nothing for now
             }
             CommandKind::AssertUnlinkable {
