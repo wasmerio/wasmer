@@ -12,7 +12,6 @@
 ;; wasmer silently doesn't implement (register) yet
 ;;(module $M
 ;;  (global (export "a") v128       (v128.const f32x4 0.0 1.0 2.0 3.0))
-;; Wasmer does not yet support mutable global variables.
 ;;  (global (export "b") (mut v128) (v128.const f32x4 4.0 5.0 6.0 7.0))
 ;;)
 ;;(register "M" $M)
