@@ -13,8 +13,8 @@ wasmer-runtime-core = { path = "../runtime-core", version = "0.5.7" }
 cranelift-native = { version = "0.31" }
 cranelift-codegen = { version = "0.31" }
 cranelift-entity = { version = "0.31" }
-cranelift-frontend = { package = "wasmer-clif-fork-frontend", version = "0.31.1" }
-cranelift-wasm = { package = "wasmer-clif-fork-wasm", version = "0.31.1" }
+cranelift-frontend = { package = "wasmer-clif-fork-frontend", version = "0.32" }
+cranelift-wasm = { package = "wasmer-clif-fork-wasm", version = "0.32" }
 hashbrown = "0.1"
 target-lexicon = "0.4.0"
 wasmparser = "0.34.0"
