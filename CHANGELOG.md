@@ -5,9 +5,12 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
-- [#542](https://github.com/wasmerio/wasmer/pull/542) Add SIMD support to wasmer and implement it in the LLVM backend only.
+- [#561](https://github.com/wasmerio/wasmer/pull/561) Call the `data_finalizer` field on the `Ctx`
+- [#576](https://github.com/wasmerio/wasmer/pull/576) fix `Drop` of uninit `Ctx`
+- [#542](https://github.com/wasmerio/wasmer/pull/542) Add SIMD support to Wasmer (LLVM backend only)
+  - Updates LLVM to version 8.0
 
-## 0.5.7
+## 0.5.7 - 2019-07-23
 - [#575](https://github.com/wasmerio/wasmer/pull/575) Prepare for release; update wapm to 0.3.6
 - [#555](https://github.com/wasmerio/wasmer/pull/555) WASI filesystem rewrite.  Major improvements
   - adds virtual root showing all preopened directories
@@ -15,7 +18,7 @@ Blocks of changes will separated by version increments.
   - symlinks work in a lot more situations
   - many misc. improvements to most syscalls touching the filesystem
 
-## 0.5.6
+## 0.5.6 - 2019-07-16
 - [#565](https://github.com/wasmerio/wasmer/pull/565) Update wapm and bump version to 0.5.6
 - [#563](https://github.com/wasmerio/wasmer/pull/563) Improve wasi testing infrastructure
   - fixes arg parsing from comments & fixes the mapdir test to have the native code doing the same thing as the WASI code
@@ -23,15 +26,15 @@ Blocks of changes will separated by version increments.
   - compiles wasm with size optimizations & strips generated wasm with wasm-strip
 - [#554](https://github.com/wasmerio/wasmer/pull/554) Finish implementation of `wasi::fd_seek`, fix bug in filestat
 
-## 0.5.5
+## 0.5.5 - 2019-07-10
 - [#541](https://github.com/wasmerio/wasmer/pull/541) Fix dependency graph by making separate test crates; ABI implementations should not depend on compilers. Add Cranelift fork as git submodule of clif-backend
 - [#537](https://github.com/wasmerio/wasmer/pull/537) Add hidden flag (`--cache-key`) to use prehashed key into the compiled wasm cache and change compiler backend-specific caching to use directories
 - [#536](https://github.com/wasmerio/wasmer/pull/536) ~Update cache to use compiler backend name in cache key~
 
-## 0.5.4
+## 0.5.4 - 2019-07-06
 - [#529](https://github.com/wasmerio/wasmer/pull/529) Updates the Wasm Interface library, which is used by wapm, with bug fixes and error message improvements
 
-## 0.5.3
+## 0.5.3 - 2019-07-03
 - [#523](https://github.com/wasmerio/wasmer/pull/523) Update wapm version to fix bug related to signed packages in the global namespace and locally-stored public keys
 
 ## 0.5.2 - 2019-07-02
