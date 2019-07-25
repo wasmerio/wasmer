@@ -99,10 +99,9 @@ curl https://sh.rustup.rs -sSf | sh
 
 Please select your operating system:
 
-- [macOS](#macos)
-- [Debian-based Linuxes](#debian-based-linuxes)
-- [FreeBSD](#freebsd)
-- [Microsoft Windows](#windows-msvc)
+<details>
+  <summary>macOS</summary>
+  <p>
 
 #### macOS
 
@@ -118,17 +117,35 @@ Or, in case you have [MacPorts](https://www.macports.org/install.php):
 sudo port install cmake
 ```
 
+  </p>
+</details>
+
+<details>
+  <summary>Debian-based Linuxes</summary>
+  <p>
 #### Debian-based Linuxes
 
 ```sh
 sudo apt install cmake pkg-config libssl-dev
 ```
+  </p>
+</details>
+
+<details>
+  <summary>FreeBSD</summary>
+  <p>
 
 #### FreeBSD
 
 ```sh
 pkg install cmake
 ```
+  </p>
+</details>
+
+<details>
+  <summary>Windows</summary>
+  <p>
 
 #### Windows (MSVC)
 
@@ -148,6 +165,8 @@ nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmer
 5. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
 
 6. Install [LLVM 8.0](https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe)
+  </p>
+</details>
 
 ## Building
 
