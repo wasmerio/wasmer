@@ -14,6 +14,9 @@
   <a href="https://spectrum.chat/wasmer">
     <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
   </a>
+  <a href="https://twitter.com/wasmerio">
+    <img alt="Follow @wasmerio on Twitter" src="https://img.shields.io/twitter/follow/wasmerio?label=%40wasmerio&style=social">
+  </a>
 </p>
 
 ## Introduction
