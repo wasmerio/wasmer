@@ -93,7 +93,7 @@ curl https://sh.rustup.rs -sSf | sh
 Please select your operating system:
 
 <details>
-  <summary>macOS</summary>
+  <summary><b>macOS</b></summary>
   <p>
 
 #### macOS
@@ -114,8 +114,9 @@ sudo port install cmake
 </details>
 
 <details>
-  <summary>Debian-based Linuxes</summary>
+  <summary><b>Debian-based Linuxes</b></summary>
   <p>
+
 #### Debian-based Linuxes
 
 ```sh
@@ -125,7 +126,7 @@ sudo apt install cmake pkg-config libssl-dev
 </details>
 
 <details>
-  <summary>FreeBSD</summary>
+  <summary><b>FreeBSD</b></summary>
   <p>
 
 #### FreeBSD
@@ -137,7 +138,7 @@ pkg install cmake
 </details>
 
 <details>
-  <summary>Windows</summary>
+  <summary><b>Windows</b></summary>
   <p>
 
 #### Windows (MSVC)
@@ -228,9 +229,8 @@ Below are some of the goals of this project (in order of priority):
 - [x] It should be 100% compatible with the [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests)
 - [x] It should be fast _(partially achieved)_
 - [x] Support WASI - released in [0.3.0](https://github.com/wasmerio/wasmer/releases/tag/0.3.0)
-- [ ] Support Emscripten calls _(in the works)_
-- [ ] Support Rust ABI calls
-- [ ] Support Go ABI calls
+- [x] Support Emscripten calls _(in the works)_
+- [ ] Support Go js ABI calls
 
 ## Architecture
 
