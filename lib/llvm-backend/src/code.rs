@@ -1577,9 +1577,45 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I32RemS | Operator::I64RemS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let int_type = v1.get_type();
+                let (min_value, neg_one_value) = if int_type == intrinsics.i32_ty {
+                    let min_value = int_type.const_int(i32::min_value() as u64, false);
+                    let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
+                    (min_value, neg_one_value)
+                } else if int_type == intrinsics.i64_ty {
+                    let min_value = int_type.const_int(i64::min_value() as u64, false);
+                    let neg_one_value = int_type.const_int(-1i64 as u64, false);
+                    (min_value, neg_one_value)
+                } else {
+                    unreachable!()
+                };
 
                 trap_if_zero(builder, intrinsics, context, &function, v2);
 
+                // "Overflow also leads to undefined behavior; this is a rare
+                // case, but can occur, for example, by taking the remainder of
+                // a 32-bit division of -2147483648 by -1. (The remainder
+                // doesn’t actually overflow, but this rule lets srem be
+                // implemented using instructions that return both the result
+                // of the division and the remainder.)"
+                //   -- https://llvm.org/docs/LangRef.html#srem-instruction
+                //
+                // In Wasm, the i32.rem_s i32.const -2147483648 i32.const -1 is
+                // i32.const 0. We implement this by swapping out the left value
+                // for 0 in this case.
+                let will_overflow = builder.build_and(
+                    builder.build_int_compare(IntPredicate::EQ, v1, min_value, "left_is_min"),
+                    builder.build_int_compare(
+                        IntPredicate::EQ,
+                        v2,
+                        neg_one_value,
+                        "right_is_neg_one",
+                    ),
+                    "srem_will_overflow",
+                );
+                let v1 = builder
+                    .build_select(will_overflow, int_type.const_zero(), v1, "")
+                    .into_int_value();
                 let res = builder.build_int_signed_rem(v1, v2, &state.var_name());
                 state.push1(res);
             }
