@@ -3,6 +3,7 @@ name = "wasmer-llvm-backend"
 version = "0.5.7"
 authors = ["Lachlan Sneff <lachlan.sneff@gmail.com>"]
 edition = "2018"
+readme = "README.md"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.5.7" }
