@@ -32,6 +32,7 @@ pub enum Backend {
 impl Backend {
     pub fn variants() -> &'static [&'static str] {
         &[
+            #[cfg(feature = "backend-cranelift")]
             "cranelift",
             #[cfg(feature = "backend-singlepass")]
             "singlepass",

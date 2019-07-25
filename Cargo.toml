@@ -66,15 +66,16 @@ glob = "0.2.11"
 rustc_version = "0.2.3"
 
 [features]
-default = ["fast-tests", "wasi"]
+default = ["fast-tests", "wasi", "backend-cranelift"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
-"backend-llvm" = ["wasmer-llvm-backend", "wasmer-runtime-core/backend-llvm"]
-"backend-singlepass" = ["wasmer-singlepass-backend", "wasmer-runtime-core/backend-singlepass"]
+backend-cranelift = ["wasmer-runtime-core/backend-cranelift", "wasmer-runtime/cranelift"]
+backend-llvm = ["wasmer-llvm-backend", "wasmer-runtime-core/backend-llvm", "wasmer-runtime/llvm"]
+backend-singlepass = ["wasmer-singlepass-backend", "wasmer-runtime-core/backend-singlepass", "wasmer-runtime/singlepass"]
 wasi = ["wasmer-wasi"]
 # vfs = ["wasmer-runtime-abi"]
 

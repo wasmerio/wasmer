@@ -32,12 +32,15 @@ path = "../llvm-backend"
 optional = true
 
 [features]
-default = ["default-compiler"]
-default-compiler = ["wasmer-clif-backend"]
-cache = ["default-compiler"]
+default = ["cranelift", "default-backend-cranelift"]
+cranelift = ["wasmer-clif-backend"]
+cache = ["cranelift"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 llvm = ["wasmer-llvm-backend"]
 singlepass = ["wasmer-singlepass-backend"]
+default-backend-singlepass = ["singlepass"]
+default-backend-llvm = ["llvm"]
+default-backend-cranelift = ["cranelift"]
 
 [[bench]]
 name = "nginx"
