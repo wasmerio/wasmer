@@ -52,7 +52,7 @@ wasmer run examples/lua.wasm
 #### With WAPM
 
 Installing Wasmer through `wasmer.io` includes
-[wapm](https://github.com/wasmerio/wapm-cli), the WebAssembly package manager.
+[`wapm`](https://github.com/wasmerio/wapm-cli), the [WebAssembly Package Manager](https://wapm.io/).
 
 Wapm allows you to easily download, run, and distribute WebAssembly binaries.
 
