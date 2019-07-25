@@ -45,16 +45,9 @@ Once installed, you will be able to run any WebAssembly files (_including Lua, P
 ```sh
 # Run Lua
 wasmer run examples/lua.wasm
-
-# Run PHP
-wasmer run examples/php.wasm
-
-# Run SQLite
-wasmer run examples/sqlite.wasm
-
-# Run nginx
-wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 ```
+
+*You can find more `wasm/wat` examples in the [examples](./examples) directory.*
 
 #### With WAPM
 
