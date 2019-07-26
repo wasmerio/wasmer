@@ -110,6 +110,11 @@ impl Default for MemoryBoundCheckMode {
     }
 }
 
+#[derive(Default)]
+pub struct Features {
+    pub simd: bool,
+}
+
 /// Configuration data for the compiler
 #[derive(Default)]
 pub struct CompilerConfig {
@@ -118,6 +123,7 @@ pub struct CompilerConfig {
     pub memory_bound_check_mode: MemoryBoundCheckMode,
     pub enforce_stack_check: bool,
     pub track_state: bool,
+    pub features: Features,
 }
 
 pub trait Compiler {
