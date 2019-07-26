@@ -110,13 +110,13 @@ impl Default for MemoryBoundCheckMode {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Features {
     pub simd: bool,
 }
 
 /// Configuration data for the compiler
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
