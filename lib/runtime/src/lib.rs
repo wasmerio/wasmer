@@ -76,6 +76,7 @@
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 //! [`compile_with`]: fn.compile_with.html
 
+pub use wasmer_runtime_core::backend::Backend;
 pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
 pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
@@ -179,16 +180,55 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
 
 /// Get a single instance of the default compiler to use.
 pub fn default_compiler() -> impl Compiler {
-    #[cfg(feature = "llvm")]
+    #[cfg(any(
+        all(
+            feature = "default-backend-llvm",
+            any(
+                feature = "default-backend-cranelift",
+                feature = "default-backend-singlepass"
+            )
+        ),
+        all(
+            feature = "default-backend-cranelift",
+            feature = "default-backend-singlepass"
+        )
+    ))]
+    compile_error!(
+        "The `default-backend-X` features are mutually exclusive.  Please choose just one"
+    );
+
+    #[cfg(feature = "default-backend-llvm")]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(feature = "singlepass")]
+    #[cfg(feature = "default-backend-singlepass")]
     use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
-    #[cfg(not(any(feature = "llvm", feature = "singlepass")))]
+    #[cfg(feature = "default-backend-cranelift")]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     DefaultCompiler::new()
+}
+
+pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
+    match backend {
+        #[cfg(feature = "cranelift")]
+        Backend::Cranelift => Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new())),
+
+        #[cfg(feature = "singlepass")]
+        Backend::Singlepass => Some(Box::new(
+            wasmer_singlepass_backend::SinglePassCompiler::new(),
+        )),
+
+        #[cfg(feature = "llvm")]
+        Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
+
+        #[cfg(any(
+            not(feature = "llvm"),
+            not(feature = "singlepass"),
+            not(feature = "cranelift")
+        ))]
+        _ => None,
+    }
 }
 
 /// The current version of this crate
