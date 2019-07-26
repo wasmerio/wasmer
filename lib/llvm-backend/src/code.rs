@@ -849,7 +849,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         &self.locals,
                         state,
                         offset,
-                    )
+                    );
+                    builder.build_call(
+                        intrinsics.trap,
+                        &[],
+                        "trap",
+                    );
                 }
 
                 builder.build_call(
@@ -2675,7 +2680,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         let stackmaps = self.stackmaps.borrow();
 
         let (backend, cache_gen) =
-            LLVMBackend::new(self.module, self.intrinsics.take().unwrap(), &*stackmaps);
+            LLVMBackend::new(self.module, self.intrinsics.take().unwrap(), &*stackmaps, module_info);
         Ok((backend, Box::new(cache_gen)))
     }
 

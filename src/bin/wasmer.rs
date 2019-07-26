@@ -113,7 +113,7 @@ struct Run {
     loader: Option<LoaderName>,
 
     /// Path to previously saved instance image to resume.
-    #[cfg(feature = "backend-singlepass")]
+    #[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
     #[structopt(long = "resume")]
     resume: Option<String>,
 
@@ -512,10 +512,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
-            #[cfg(feature = "backend-singlepass")]
+            #[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
             unsafe {
-                if options.backend == Backend::Singlepass {
-                    use wasmer_runtime_core::fault::{catch_unsafe_unwind, ensure_sighandler};
+                if options.backend == Backend::Singlepass || options.backend == Backend::LLVM {
+                    use wasmer_runtime_core::fault::{catch_unsafe_unwind, ensure_sighandler, with_ctx};
                     use wasmer_runtime_core::state::{
                         x64::invoke_call_return_on_stack, InstanceImage,
                     };
@@ -537,29 +537,32 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     let breakpoints = instance.module.runnable_module.get_breakpoints();
 
                     loop {
-                        let ret = if let Some(image) = image.take() {
-                            let msm = instance
-                                .module
-                                .runnable_module
-                                .get_module_state_map()
-                                .unwrap();
-                            let code_base =
-                                instance.module.runnable_module.get_code().unwrap().as_ptr()
-                                    as usize;
-                            invoke_call_return_on_stack(
-                                &msm,
-                                code_base,
-                                image,
-                                instance.context_mut(),
-                                breakpoints.clone(),
-                            )
-                            .map(|_| ())
-                        } else {
-                            catch_unsafe_unwind(
-                                || start_raw(instance.context_mut()),
-                                breakpoints.clone(),
-                            )
-                        };
+                        let ctx = instance.context_mut() as *mut _;
+                        let ret = with_ctx(ctx, || {
+                            if let Some(image) = image.take() {
+                                let msm = instance
+                                    .module
+                                    .runnable_module
+                                    .get_module_state_map()
+                                    .unwrap();
+                                let code_base =
+                                    instance.module.runnable_module.get_code().unwrap().as_ptr()
+                                        as usize;
+                                invoke_call_return_on_stack(
+                                    &msm,
+                                    code_base,
+                                    image,
+                                    instance.context_mut(),
+                                    breakpoints.clone(),
+                                )
+                                .map(|_| ())
+                            } else {
+                                catch_unsafe_unwind(
+                                    || start_raw(instance.context_mut()),
+                                    breakpoints.clone(),
+                                )
+                            }
+                        });
                         if let Err(e) = ret {
                             if let Some(new_image) = e.downcast_ref::<InstanceImage>() {
                                 let op = interactive_shell(InteractiveShellContext {
@@ -619,18 +622,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(feature = "backend-singlepass")]
+#[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
 struct InteractiveShellContext {
     image: Option<wasmer_runtime_core::state::InstanceImage>,
 }
 
-#[cfg(feature = "backend-singlepass")]
+#[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
 #[derive(Debug)]
 enum ShellExitOperation {
     ContinueWith(wasmer_runtime_core::state::InstanceImage),
 }
 
-#[cfg(feature = "backend-singlepass")]
+#[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
 fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     use std::io::Write;
 

@@ -88,9 +88,13 @@ impl StackmapEntry {
             });
 
         assert_eq!(self.value_semantics.len(), map_record.locations.len());
-        //assert!(size_record.stack_size % 8 == 0); // is this also aligned to 16 bytes?
 
-        let mut machine_stack_half_layout: Vec<MachineValue> = Vec::new();
+        // System V requires 16-byte alignment before each call instruction.
+        // Considering the saved rbp we need to ensure the stack size % 16 always equals to 8.
+        assert!(size_record.stack_size % 16 == 8);
+
+        // Layout begins just below saved rbp. (push rbp; mov rbp, rsp)
+        let mut machine_stack_half_layout: Vec<MachineValue> = vec![MachineValue::Undefined; (size_record.stack_size - 8) as usize / 4];
         let mut regs: Vec<(RegisterIndex, MachineValue)> = vec![];
         let mut stack_constants: HashMap<usize, u64> = HashMap::new();
 
@@ -150,15 +154,13 @@ impl StackmapEntry {
                                 == X64Register::GPR(GPR::RBP)
                         );
                         if loc.offset_or_small_constant >= 0 {
-                            eprintln!("XXX: {}", loc.offset_or_small_constant);
+                            // FIXME: parameters passed on stack?
+                            //eprintln!("XXX: {}", loc.offset_or_small_constant);
+                        } else {
+                            let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
+                            assert!(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len());
+                            machine_stack_half_layout[stack_offset - 1] = mv;
                         }
-                        assert!(loc.offset_or_small_constant < 0);
-                        let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
-                        while stack_offset > machine_stack_half_layout.len() {
-                            machine_stack_half_layout.push(MachineValue::Undefined);
-                        }
-                        assert!(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len());
-                        machine_stack_half_layout[stack_offset - 1] = mv;
                     }
                     _ => unreachable!(
                         "Direct location type is not expected for values other than local"
@@ -171,9 +173,6 @@ impl StackmapEntry {
                             == X64Register::GPR(GPR::RBP)
                     );
                     let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
-                    while stack_offset > machine_stack_half_layout.len() {
-                        machine_stack_half_layout.push(MachineValue::Undefined);
-                    }
                     assert!(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len());
                     machine_stack_half_layout[stack_offset - 1] = mv;
                 }
@@ -183,23 +182,19 @@ impl StackmapEntry {
         assert_eq!(wasm_stack.len(), self.stack_count);
         assert_eq!(wasm_locals.len(), self.local_count);
 
-        if machine_stack_half_layout.len() % 2 != 0 {
-            machine_stack_half_layout.push(MachineValue::Undefined);
-        }
-
         let mut machine_stack_layout: Vec<MachineValue> = Vec::with_capacity(machine_stack_half_layout.len() / 2);
 
         for i in 0..machine_stack_half_layout.len() / 2 {
-            let left = &machine_stack_half_layout[i * 2];
-            let right = &machine_stack_half_layout[i * 2 + 1];
-            let only_left = match *right {
+            let major = &machine_stack_half_layout[i * 2 + 1]; // mod 8 == 0
+            let minor = &machine_stack_half_layout[i * 2]; // mod 8 == 4
+            let only_major = match *minor {
                 MachineValue::Undefined => true,
                 _ => false,
             };
-            if only_left {
-                machine_stack_layout.push(left.clone());
+            if only_major {
+                machine_stack_layout.push(major.clone());
             } else {
-                machine_stack_layout.push(MachineValue::TwoHalves(Box::new((right.clone(), left.clone()))));
+                machine_stack_layout.push(MachineValue::TwoHalves(Box::new((major.clone(), minor.clone()))));
             }
         }
 

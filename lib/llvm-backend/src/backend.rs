@@ -1,4 +1,4 @@
-use super::stackmap::{self, StackmapRegistry, StkMapRecord};
+use super::stackmap::{self, StackmapRegistry, StkMapRecord, StkSizeRecord};
 use crate::intrinsics::Intrinsics;
 use inkwell::{
     memory_buffer::MemoryBuffer,
@@ -246,6 +246,7 @@ impl LLVMBackend {
         module: Module,
         _intrinsics: Intrinsics,
         stackmaps: &StackmapRegistry,
+        module_info: &ModuleInfo,
     ) -> (Self, LLVMCache) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
@@ -305,7 +306,6 @@ impl LLVMBackend {
         };
         if raw_stackmap.len() > 0 {
             let map = stackmap::StackMap::parse(raw_stackmap).unwrap();
-            println!("{:?}", map);
 
             let (code_ptr, code_size) = unsafe {
                 (
@@ -318,40 +318,73 @@ impl LLVMBackend {
                 total_size: code_size,
             };
 
+            let mut local_func_id_to_addr: Vec<usize> = Vec::new();
+
+            // All local functions.
+            for index in module_info.imported_functions.len()..module_info.func_assoc.len() {
+                let name = if cfg!(target_os = "macos") {
+                    format!("_fn{}", index)
+                } else {
+                    format!("fn{}", index)
+                };
+
+                let c_str = CString::new(name).unwrap();
+                let ptr = unsafe { get_func_symbol(module, c_str.as_ptr()) };
+
+                assert!(!ptr.is_null());
+                local_func_id_to_addr.push(ptr as usize);
+            }
+
+            let mut addr_to_size_record: BTreeMap<usize, &StkSizeRecord> = BTreeMap::new();
+
+            for record in &map.stk_size_records {
+                addr_to_size_record.insert(record.function_address as usize, record);
+            }
+
             let mut map_records: BTreeMap<usize, &StkMapRecord> = BTreeMap::new();
+
             for r in &map.stk_map_records {
                 map_records.insert(r.patchpoint_id as usize, r);
             }
 
-            let mut map_record_idx: usize = 0;
-            for size_record in &map.stk_size_records {
-                for _ in 0..size_record.record_count as usize {
-                    let map_record = map_records.get(&map_record_idx).expect("map record not found");
-                    let map_entry = &stackmaps.entries[map_record_idx];
-                    assert_eq!(map_record.patchpoint_id, map_record_idx as u64);
-                    map_record_idx += 1;
-
-                    map_entry.populate_msm(
+            for (i, entry) in stackmaps.entries.iter().enumerate() {
+                if let Some(map_record) = map_records.get(&i) {
+                    assert_eq!(i, map_record.patchpoint_id as usize);
+                    let addr = local_func_id_to_addr[entry.local_function_id];
+                    let size_record = *addr_to_size_record.get(&addr).expect("size_record not found");
+                    entry.populate_msm(
                         code_ptr as usize,
                         &map,
                         size_record,
                         map_record,
                         &mut msm,
                     );
+                } else {
+                    // TODO: optimized out?
                 }
             }
+
+            //println!("MSM: {:?}", msm);
+
+            (
+                Self {
+                    module,
+                    buffer: Arc::clone(&buffer),
+                    msm: Some(msm),
+                },
+                LLVMCache { buffer },
+            )
         } else {
             eprintln!("WARNING: No stack map");
+            (
+                Self {
+                    module,
+                    buffer: Arc::clone(&buffer),
+                    msm: None,
+                },
+                LLVMCache { buffer },
+            )
         }
-
-        (
-            Self {
-                module,
-                buffer: Arc::clone(&buffer),
-                msm: None,
-            },
-            LLVMCache { buffer },
-        )
     }
 
     pub unsafe fn from_buffer(memory: Memory) -> Result<(Self, LLVMCache), String> {

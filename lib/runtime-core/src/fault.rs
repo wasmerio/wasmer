@@ -40,6 +40,7 @@ struct UnwindInfo {
 
 thread_local! {
     static UNWIND: UnsafeCell<Option<UnwindInfo>> = UnsafeCell::new(None);
+    static CURRENT_CTX: UnsafeCell<*mut vm::Ctx> = UnsafeCell::new(::std::ptr::null_mut());
 }
 
 struct InterruptSignalMem(*mut u8);
@@ -67,6 +68,15 @@ lazy_static! {
     };
 }
 static INTERRUPT_SIGNAL_DELIVERED: AtomicBool = AtomicBool::new(false);
+
+pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
+    let addr = CURRENT_CTX.with(|x| x.get());
+    let old = *addr;
+    *addr = ctx;
+    let ret = cb();
+    *addr = old;
+    ret
+}
 
 pub unsafe fn get_wasm_interrupt_signal_mem() -> *mut u8 {
     INTERRUPT_SIGNAL_MEM.0
@@ -209,9 +219,7 @@ extern "C" fn signal_trap_handler(
                 _ => {}
             }
 
-            // TODO: make this safer
-            let ctx = &mut *(fault.known_registers[X64Register::GPR(GPR::R15).to_index().0].unwrap()
-                as *mut vm::Ctx);
+            let ctx: &mut vm::Ctx = &mut **CURRENT_CTX.with(|x| x.get());
             let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
 
             let msm = (*ctx.module)
