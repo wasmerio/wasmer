@@ -9,6 +9,9 @@ mod read_info;
 mod state;
 mod trampolines;
 
+pub use code::LLVMFunctionCodeGenerator as FunctionCodeGenerator;
+pub use code::LLVMModuleCodeGenerator as ModuleCodeGenerator;
+
 use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
 
 pub type LLVMCompiler = SimpleStreamingCompilerGen<
