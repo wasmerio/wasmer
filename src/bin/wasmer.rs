@@ -23,7 +23,7 @@ use wasmer_runtime::{
 };
 use wasmer_runtime_core::{
     self,
-    backend::{Backend, Compiler, CompilerConfig, MemoryBoundCheckMode},
+    backend::{Backend, Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
     debug,
     loader::{Instance as LoadedInstance, LocalLoader},
 };
@@ -65,6 +65,17 @@ enum CLIOptions {
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
     SelfUpdate,
+}
+
+#[derive(Debug, StructOpt)]
+struct PrestandardFeatures {
+    /// Enable support for the SIMD proposal.
+    #[structopt(long = "enable-simd")]
+    simd: bool,
+
+    /// Enable support for all pre-standard proposals.
+    #[structopt(long = "enable-all")]
+    all: bool,
 }
 
 #[derive(Debug, StructOpt)]
@@ -134,6 +145,9 @@ struct Run {
     #[structopt(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
 
+    #[structopt(flatten)]
+    features: PrestandardFeatures,
+
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
@@ -185,6 +199,9 @@ struct Validate {
     /// Input file
     #[structopt(parse(from_os_str))]
     path: PathBuf,
+
+    #[structopt(flatten)]
+    features: PrestandardFeatures,
 }
 
 /// Read the contents of a file
@@ -315,10 +332,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         None
     };
 
+    // Don't error on --enable-all for other backends.
+    if options.features.simd && options.backend != Backend::LLVM {
+        return Err("SIMD is only supported in the LLVM backend for now".to_string());
+    }
+
     if !utils::is_wasm_binary(&wasm_binary) {
         let mut features = wabt::Features::new();
-        if options.backend == Backend::LLVM {
-            // SIMD is only supported in the LLVM backend for now
+        if options.features.simd || options.features.all {
             features.enable_simd();
         }
         wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
@@ -357,6 +378,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
                 track_state,
+                features: Features {
+                    simd: options.features.simd || options.features.all,
+                },
             },
             &*compiler,
         )
@@ -367,6 +391,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             CompilerConfig {
                 symbol_map: em_symbol_map,
                 track_state,
+                features: Features {
+                    simd: options.features.simd || options.features.all,
+                },
                 ..Default::default()
             },
             &*compiler,
@@ -737,8 +764,13 @@ fn validate_wasm(validate: Validate) -> Result<(), String> {
         ));
     }
 
-    wasmer_runtime_core::validate_and_report_errors(&wasm_binary)
-        .map_err(|err| format!("Validation failed: {}", err))?;
+    wasmer_runtime_core::validate_and_report_errors_with_features(
+        &wasm_binary,
+        Features {
+            simd: validate.features.simd || validate.features.all,
+        },
+    )
+    .map_err(|err| format!("Validation failed: {}", err))?;
 
     Ok(())
 }
