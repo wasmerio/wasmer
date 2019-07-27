@@ -129,6 +129,26 @@ jobs:
             - target/release/deps
           key: v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
+  test-rust-example:
+    docker:
+      - image: circleci/rust:latest
+    <<: *run_with_build_env_vars
+    steps:
+      - checkout
+      - run:
+          name: "Check Wasmer Rust example"
+          command: |
+            git clone https://github.com/wasmerio/wasmer-rust-example
+            rustup default stable
+            rustup target add wasm32-unknown-unknown
+            cd wasmer-rust-example
+            cd wasm-sample-app
+            cargo build --release
+            cd ..
+            sed -i 's/wasmer-runtime.*/wasmer-runtime = \{ path  = "..\/lib\/runtime" \}/g' Cargo.toml
+            cargo run
+            cargo test
+
   test-macos:
     macos:
       xcode: "9.0"
@@ -378,6 +398,12 @@ workflows:
       - changelog
       - lint
       - test:
+          filters:
+            branches:
+              only:
+                - trying
+                - staging
+      - test-rust-example:
           filters:
             branches:
               only:
