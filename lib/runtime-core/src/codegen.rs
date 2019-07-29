@@ -150,7 +150,7 @@ pub fn validating_parser_config(features: &Features) -> wasmparser::ValidatingPa
     }
 }
 
-fn validate(bytes: &[u8], features: &Features) -> CompileResult<()> {
+fn validate_with_features(bytes: &[u8], features: &Features) -> CompileResult<()> {
     let mut parser =
         wasmparser::ValidatingParser::new(bytes, Some(validating_parser_config(features)));
     loop {
@@ -180,7 +180,7 @@ impl<
         _: Token,
     ) -> CompileResult<ModuleInner> {
         if requires_pre_validation(MCG::backend_id()) {
-            validate(wasm, &compiler_config.features)?;
+            validate_with_features(wasm, &compiler_config.features)?;
         }
 
         let mut mcg = MCG::new();
