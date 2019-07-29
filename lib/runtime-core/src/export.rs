@@ -34,7 +34,7 @@ impl FuncPointer {
         FuncPointer(f)
     }
 
-    pub fn inner(&self) -> *const vm::Func {
+    pub(crate) fn inner(&self) -> *const vm::Func {
         self.0
     }
 }
