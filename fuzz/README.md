@@ -33,6 +33,19 @@ INFO: seed corpus: files: 8 min: 1b max: 1b total: 8b rss: 133Mb
 ```
 It will continue to generate random inputs forever, until it finds a bug or is terminated. The testcases for bugs it finds go into `fuzz/artifacts/simple_instantiate` and you can rerun the fuzzer on a single input by passing it on the command line `cargo fuzz run simple_instantiate my_testcase.wasm`.
 
+## Seeding the corpus, optional
+
+The fuzzer works best when it has examples of small Wasm files to start with. Using `wast2json` from [wabt](https://github.com/WebAssembly/wabt), we can easily produce `.wasm` files out of the WebAssembly spec tests.
+
+```sh
+mkdir spec-test-corpus
+for i in lib/spectests/spectests/*.wast; do wast2json $i -o spec-test-corpus/$(basename $i).json; done
+mv spec-test-corpus/*.wasm fuzz/corpus/simple_instantiate/
+rm -r spec-test-corpus
+```
+
+The corpus directory is created on the first run of the fuzzer. If it doesn't exist, run it first and then seed the corpus. The fuzzer will pick up new files added to the corpus while it is running.
+
 ## Trophy case
 
 - [x] https://github.com/wasmerio/wasmer/issues/558
