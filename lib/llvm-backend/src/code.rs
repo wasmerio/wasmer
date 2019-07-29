@@ -209,14 +209,23 @@ fn trap_if_not_representable_as_int(
     intrinsics: &Intrinsics,
     context: &Context,
     function: &FunctionValue,
-    lower_bound: f64,
-    upper_bound: f64,
+    lower_bound: u64, // Inclusive (not a trapping value)
+    upper_bound: u64, // Inclusive (not a trapping value)
     value: FloatValue,
 ) {
     let float_ty = value.get_type();
+    let int_ty = if float_ty == intrinsics.f32_ty {
+        intrinsics.i32_ty
+    } else {
+        intrinsics.i64_ty
+    };
 
-    let lower_bound = float_ty.const_float(lower_bound);
-    let upper_bound = float_ty.const_float(upper_bound);
+    let lower_bound = builder
+        .build_bitcast(int_ty.const_int(lower_bound, false), float_ty, "")
+        .into_float_value();
+    let upper_bound = builder
+        .build_bitcast(int_ty.const_int(upper_bound, false), float_ty, "")
+        .into_float_value();
 
     // The 'U' in the float predicate is short for "unordered" which means that
     // the comparison will compare true if either operand is a NaN. Thus, NaNs
@@ -3264,12 +3273,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I32TruncSF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -2147483904.0,
-                    2147483648.0,
+                    builder, intrinsics, context, &function, 0xcf000000, // -2147483600.0
+                    0x4effffff, // 2147483500.0
                     v1,
                 );
                 let res =
@@ -3283,8 +3288,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -2147483649.0,
-                    2147483648.0,
+                    0xc1e00000001fffff, // -2147483648.9999995
+                    0x41dfffffffffffff, // 2147483647.9999998
                     v1,
                 );
                 let res =
@@ -3300,12 +3305,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I64TruncSF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -9223373136366403584.0,
-                    9223372036854775808.0,
+                    builder, intrinsics, context, &function,
+                    0xdf000000, // -9223372000000000000.0
+                    0x5effffff, // 9223371500000000000.0
                     v1,
                 );
                 let res =
@@ -3319,8 +3321,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -9223372036854777856.0,
-                    9223372036854775808.0,
+                    0xc3e0000000000000, // -9223372036854776000.0
+                    0x43dfffffffffffff, // 9223372036854775000.0
                     v1,
                 );
                 let res =
@@ -3336,12 +3338,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I32TruncUF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -1.0,
-                    4294967296.0,
+                    builder, intrinsics, context, &function, 0xbf7fffff, // -0.99999994
+                    0x4f7fffff, // 4294967000.0
                     v1,
                 );
                 let res =
@@ -3355,8 +3353,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -1.0,
-                    4294967296.0,
+                    0xbfefffffffffffff, // -0.9999999999999999
+                    0x41efffffffffffff, // 4294967295.9999995
                     v1,
                 );
                 let res =
@@ -3372,12 +3370,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I64TruncUF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -1.0,
-                    18446744073709551616.0,
+                    builder, intrinsics, context, &function, 0xbf7fffff, // -0.99999994
+                    0x5f7fffff, // 18446743000000000000.0
                     v1,
                 );
                 let res =
@@ -3391,8 +3385,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -1.0,
-                    18446744073709551616.0,
+                    0xbfefffffffffffff, // -0.9999999999999999
+                    0x43efffffffffffff, // 18446744073709550000.0
                     v1,
                 );
                 let res =
