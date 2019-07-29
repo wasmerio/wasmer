@@ -97,6 +97,7 @@ pub mod table;
 pub mod trampoline;
 pub mod value;
 
+#[derive(Debug)]
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub enum wasmer_result_t {
