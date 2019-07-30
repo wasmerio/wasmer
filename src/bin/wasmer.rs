@@ -18,7 +18,7 @@ use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
-    cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION},
+    cache::{Cache as BaseCache, FileSystemCache, WasmHash, VERSION},
     Func, Value,
 };
 use wasmer_runtime_core::{
@@ -218,14 +218,14 @@ fn get_cache_dir() -> PathBuf {
     match env::var("WASMER_CACHE_DIR") {
         Ok(dir) => {
             let mut path = PathBuf::from(dir);
-            path.push(WASMER_VERSION);
+            path.push(VERSION);
             path
         }
         Err(_) => {
             // We use a temporal directory for saving cache files
             let mut temp_dir = env::temp_dir();
             temp_dir.push("wasmer");
-            temp_dir.push(WASMER_VERSION);
+            temp_dir.push(VERSION);
             temp_dir
         }
     }
