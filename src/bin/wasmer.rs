@@ -18,7 +18,7 @@ use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
-    cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
+    cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION},
     Func, Value,
 };
 use wasmer_runtime_core::{
@@ -216,12 +216,16 @@ fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
 
 fn get_cache_dir() -> PathBuf {
     match env::var("WASMER_CACHE_DIR") {
-        Ok(dir) => PathBuf::from(dir),
+        Ok(dir) => {
+            let mut path = PathBuf::from(dir);
+            path.push(WASMER_VERSION);
+            path
+        },
         Err(_) => {
             // We use a temporal directory for saving cache files
             let mut temp_dir = env::temp_dir();
             temp_dir.push("wasmer");
-            temp_dir.push(WASMER_VERSION_HASH);
+            temp_dir.push(WASMER_VERSION);
             temp_dir
         }
     }
@@ -270,10 +274,6 @@ fn get_env_var_args(input: &[String]) -> Result<Vec<(&str, &str)>, String> {
 
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
-    // force disable caching on windows
-    #[cfg(target_os = "windows")]
-    let disable_cache = true;
-    #[cfg(not(target_os = "windows"))]
     let disable_cache = options.disable_cache;
 
     let mapped_dirs = get_mapped_dirs(&options.mapped_dirs[..])?;
@@ -401,7 +401,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     } else {
         // If we have cache enabled
-
         let wasmer_cache_dir = get_cache_dir();
 
         // We create a new cache instance.
@@ -421,7 +420,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     return Ok(module);
                 }
             }
-
             // We generate a hash for the given binary, so we can use it as key
             // for the Filesystem cache
             let hash = WasmHash::generate(&wasm_binary);
@@ -796,7 +794,6 @@ fn main() {
         CLIOptions::SelfUpdate => {
             println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
         }
-        #[cfg(not(target_os = "windows"))]
         CLIOptions::Cache(cache) => match cache {
             Cache::Clean => {
                 use std::fs;
@@ -812,10 +809,6 @@ fn main() {
         },
         CLIOptions::Validate(validate_options) => {
             validate(validate_options);
-        }
-        #[cfg(target_os = "windows")]
-        CLIOptions::Cache(_) => {
-            println!("Caching is disabled for Windows.");
         }
     }
 }
