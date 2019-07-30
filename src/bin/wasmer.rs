@@ -438,6 +438,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         CompilerConfig {
                             symbol_map: em_symbol_map,
                             track_state,
+                            features: Features {
+                                simd: options.features.simd || options.features.all,
+                            },
                             ..Default::default()
                         },
                         &*compiler,
