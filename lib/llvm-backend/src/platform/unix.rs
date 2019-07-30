@@ -1,11 +1,11 @@
 use super::common::round_up_to_page_size;
 use crate::structs::{LLVMResult, MemProtect};
 use libc::{
-    c_char, mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE, PROT_READ,
-    PROT_WRITE,
+    mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE, PROT_READ,
+    PROT_WRITE, c_void, siginfo_t
 };
-use libc::{c_void, siginfo_t};
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGSEGV};
+use std::ptr;
 
 /// `__register_frame` and `__deregister_frame` on macos take a single fde as an
 /// argument, so we need to parse the fde table here.
