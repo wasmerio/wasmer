@@ -18,8 +18,8 @@ use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
-    cache::{Cache as BaseCache, FileSystemCache, WasmHash, VERSION},
-    Func, Value,
+    cache::{Cache as BaseCache, FileSystemCache, WasmHash},
+    Func, Value, VERSION,
 };
 use wasmer_runtime_core::{
     self,
