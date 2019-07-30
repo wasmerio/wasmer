@@ -12,13 +12,13 @@ use libc::{
 };
 use std::{
     any::Any,
+    collections::BTreeMap,
     ffi::{c_void, CString},
     mem,
     ops::Deref,
     ptr::{self, NonNull},
     slice, str,
     sync::{Arc, Once},
-    collections::BTreeMap,
 };
 use wasmer_runtime_core::{
     backend::{
@@ -347,16 +347,31 @@ impl LLVMBackend {
                 map_records.insert(r.patchpoint_id as usize, r);
             }
 
-            for (i, entry) in stackmaps.entries.iter().enumerate() {
-                if let Some(map_record) = map_records.get(&i) {
-                    assert_eq!(i, map_record.patchpoint_id as usize);
-                    let addr = local_func_id_to_addr[entry.local_function_id];
-                    let size_record = *addr_to_size_record.get(&addr).expect("size_record not found");
-                    entry.populate_msm(
+            for ((start_id, start_entry), (end_id, end_entry)) in stackmaps
+                .entries
+                .iter()
+                .enumerate()
+                .step_by(2)
+                .zip(stackmaps.entries.iter().enumerate().skip(1).step_by(2))
+            {
+                if let Some(map_record) = map_records.get(&start_id) {
+                    assert_eq!(start_id, map_record.patchpoint_id as usize);
+                    assert!(start_entry.is_start);
+                    assert!(!end_entry.is_start);
+
+                    let end_record = map_records.get(&end_id);
+
+                    let addr = local_func_id_to_addr[start_entry.local_function_id];
+                    let size_record = *addr_to_size_record
+                        .get(&addr)
+                        .expect("size_record not found");
+
+                    start_entry.populate_msm(
                         code_ptr as usize,
                         &map,
                         size_record,
                         map_record,
+                        end_record.map(|x| (end_entry, *x)),
                         &mut msm,
                     );
                 } else {

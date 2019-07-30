@@ -22,6 +22,7 @@ pub struct StackmapEntry {
     pub value_semantics: Vec<ValueSemantic>,
     pub local_count: usize,
     pub stack_count: usize,
+    pub is_start: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -30,7 +31,7 @@ pub enum ValueSemantic {
     WasmStack(usize),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum StackmapEntryKind {
     FunctionHeader,
     Loop,
@@ -72,6 +73,7 @@ impl StackmapEntry {
         llvm_map: &StackMap,
         size_record: &StkSizeRecord,
         map_record: &StkMapRecord,
+        end: Option<(&StackmapEntry, &StkMapRecord)>,
         msm: &mut ModuleStateMap,
     ) {
         #[derive(Clone, Debug)]
@@ -80,12 +82,23 @@ impl StackmapEntry {
             Constant(u64),
         }
 
-        let fsm = msm
-            .local_functions
-            .entry(self.local_function_id)
-            .or_insert_with(|| {
-                FunctionStateMap::new(new_machine_state(), self.local_function_id, 0, vec![])
-            });
+        let func_base_addr = (size_record.function_address as usize)
+            .checked_sub(code_addr)
+            .unwrap();
+        let target_offset = func_base_addr + map_record.instruction_offset as usize;
+
+        if msm.local_functions.len() == self.local_function_id {
+            assert_eq!(self.kind, StackmapEntryKind::FunctionHeader);
+            msm.local_functions.insert(
+                target_offset,
+                FunctionStateMap::new(new_machine_state(), self.local_function_id, 0, vec![]),
+            );
+        } else if msm.local_functions.len() == self.local_function_id + 1 {
+        } else {
+            panic!("unordered local functions");
+        }
+
+        let (_, fsm) = msm.local_functions.iter_mut().last().unwrap();
 
         assert_eq!(self.value_semantics.len(), map_record.locations.len());
 
@@ -94,7 +107,8 @@ impl StackmapEntry {
         assert!(size_record.stack_size % 16 == 8);
 
         // Layout begins just below saved rbp. (push rbp; mov rbp, rsp)
-        let mut machine_stack_half_layout: Vec<MachineValue> = vec![MachineValue::Undefined; (size_record.stack_size - 8) as usize / 4];
+        let mut machine_stack_half_layout: Vec<MachineValue> =
+            vec![MachineValue::Undefined; (size_record.stack_size - 8) as usize / 4];
         let mut regs: Vec<(RegisterIndex, MachineValue)> = vec![];
         let mut stack_constants: HashMap<usize, u64> = HashMap::new();
 
@@ -158,7 +172,9 @@ impl StackmapEntry {
                             //eprintln!("XXX: {}", loc.offset_or_small_constant);
                         } else {
                             let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
-                            assert!(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len());
+                            assert!(
+                                stack_offset > 0 && stack_offset <= machine_stack_half_layout.len()
+                            );
                             machine_stack_half_layout[stack_offset - 1] = mv;
                         }
                     }
@@ -182,7 +198,8 @@ impl StackmapEntry {
         assert_eq!(wasm_stack.len(), self.stack_count);
         assert_eq!(wasm_locals.len(), self.local_count);
 
-        let mut machine_stack_layout: Vec<MachineValue> = Vec::with_capacity(machine_stack_half_layout.len() / 2);
+        let mut machine_stack_layout: Vec<MachineValue> =
+            Vec::with_capacity(machine_stack_half_layout.len() / 2);
 
         for i in 0..machine_stack_half_layout.len() / 2 {
             let major = &machine_stack_half_layout[i * 2 + 1]; // mod 8 == 0
@@ -194,7 +211,10 @@ impl StackmapEntry {
             if only_major {
                 machine_stack_layout.push(major.clone());
             } else {
-                machine_stack_layout.push(MachineValue::TwoHalves(Box::new((major.clone(), minor.clone()))));
+                machine_stack_layout.push(MachineValue::TwoHalves(Box::new((
+                    major.clone(),
+                    minor.clone(),
+                ))));
             }
         }
 
@@ -219,10 +239,19 @@ impl StackmapEntry {
                 assert_eq!(fsm.locals, wasm_locals);
             }
         }
-        let target_offset = (size_record.function_address as usize)
-            .checked_sub(code_addr)
-            .unwrap()
-            + map_record.instruction_offset as usize;
+
+        let end_offset = {
+            if let Some(end) = end {
+                let (end_entry, end_record) = end;
+                assert_eq!(end_entry.is_start, false);
+                assert_eq!(self.opcode_offset, end_entry.opcode_offset);
+                let end_offset = func_base_addr + end_record.instruction_offset as usize;
+                assert!(end_offset >= target_offset);
+                end_offset
+            } else {
+                target_offset + 1
+            }
+        };
 
         match self.kind {
             StackmapEntryKind::Loop => {
@@ -231,6 +260,7 @@ impl StackmapEntry {
                 fsm.loop_offsets.insert(
                     target_offset,
                     OffsetInfo {
+                        end_offset,
                         diff_id,
                         activate_offset: target_offset,
                     },
@@ -242,6 +272,7 @@ impl StackmapEntry {
                 fsm.call_offsets.insert(
                     target_offset,
                     OffsetInfo {
+                        end_offset: end_offset + 1, // The return address is just after 'call' instruction. Offset by one here.
                         diff_id,
                         activate_offset: target_offset,
                     },
@@ -253,6 +284,7 @@ impl StackmapEntry {
                 fsm.trappable_offsets.insert(
                     target_offset,
                     OffsetInfo {
+                        end_offset,
                         diff_id,
                         activate_offset: target_offset,
                     },
@@ -260,6 +292,14 @@ impl StackmapEntry {
             }
             StackmapEntryKind::FunctionHeader => {
                 fsm.wasm_function_header_target_offset = Some(SuspendOffset::Loop(target_offset));
+                fsm.loop_offsets.insert(
+                    target_offset,
+                    OffsetInfo {
+                        end_offset,
+                        diff_id,
+                        activate_offset: target_offset,
+                    },
+                );
             }
         }
     }

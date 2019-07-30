@@ -445,6 +445,8 @@ pub struct CtxType<'a> {
     info: &'a ModuleInfo,
     cache_builder: Builder,
 
+    cached_signal_mem: Option<PointerValue>,
+
     cached_memories: HashMap<MemoryIndex, MemoryCache>,
     cached_tables: HashMap<TableIndex, TableCache>,
     cached_sigindices: HashMap<SigIndex, IntValue>,
@@ -470,6 +472,8 @@ impl<'a> CtxType<'a> {
             info,
             cache_builder,
 
+            cached_signal_mem: None,
+
             cached_memories: HashMap::new(),
             cached_tables: HashMap::new(),
             cached_sigindices: HashMap::new(),
@@ -482,6 +486,27 @@ impl<'a> CtxType<'a> {
 
     pub fn basic(&self) -> BasicValueEnum {
         self.ctx_ptr_value.as_basic_value_enum()
+    }
+
+    pub fn signal_mem(&mut self) -> PointerValue {
+        if let Some(x) = self.cached_signal_mem {
+            return x;
+        }
+
+        let (ctx_ptr_value, cache_builder) = (self.ctx_ptr_value, &self.cache_builder);
+
+        let ptr_ptr = unsafe {
+            cache_builder.build_struct_gep(
+                ctx_ptr_value,
+                offset_to_index(Ctx::offset_interrupt_signal_mem()),
+                "interrupt_signal_mem_ptr",
+            )
+        };
+        let ptr = cache_builder
+            .build_load(ptr_ptr, "interrupt_signal_mem")
+            .into_pointer_value();
+        self.cached_signal_mem = Some(ptr);
+        ptr
     }
 
     pub fn memory(&mut self, index: MemoryIndex, intrinsics: &Intrinsics) -> MemoryCache {
