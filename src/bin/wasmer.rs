@@ -41,7 +41,12 @@ mod wasmer_wasi {
         false
     }
 
-    pub fn generate_import_object(_args: Vec<Vec<u8>>, _envs: Vec<Vec<u8>>) -> ImportObject {
+    pub fn generate_import_object(
+        _args: Vec<Vec<u8>>,
+        _envs: Vec<Vec<u8>>,
+        _preopened_files: Vec<String>,
+        _mapped_dirs: Vec<(String, std::path::PathBuf)>,
+    ) -> ImportObject {
         unimplemented!()
     }
 }
@@ -620,11 +625,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 if let Err(ref err) = result {
                     match err {
                         RuntimeError::Trap { msg } => panic!("wasm trap occured: {}", msg),
+                        #[cfg(feature = "wasi")]
                         RuntimeError::Error { data } => {
                             if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
                                 std::process::exit(error_code.code as i32)
                             }
                         }
+                        #[cfg(not(feature = "wasi"))]
+                        RuntimeError::Error { .. } => (),
                     }
                     panic!("error: {:?}", err)
                 }
