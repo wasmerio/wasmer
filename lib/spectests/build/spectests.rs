@@ -86,7 +86,7 @@ use wasmer_runtime_core::types::Value;
 use wasmer_runtime_core::{{Instance, module::Module}};
 use wasmer_runtime_core::error::Result;
 use wasmer_runtime_core::vm::Ctx;
-use wasmer_runtime_core::backend::Compiler;
+use wasmer_runtime_core::backend::{Compiler, CompilerConfig, Features};
 
 static IMPORT_MODULE: &str = r#"
 (module
@@ -136,7 +136,7 @@ pub fn generate_imports() -> ImportObject {
     let mut features = wabt::Features::new();
     features.enable_simd();
     let wasm_binary = wat2wasm_with_features(IMPORT_MODULE.as_bytes(), features).expect("WAST not valid or malformed");
-    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &get_compiler())
+    let module = wasmer_runtime_core::compile_with_config(&wasm_binary[..], &get_compiler(), CompilerConfig { features: Features { simd: true }, ..Default::default() })
         .expect("WASM can't be compiled");
     let instance = module
         .instantiate(&ImportObject::new())
@@ -408,7 +408,7 @@ fn test_module_{}() {{
     let module_str = \"{}\";
     println!(\"{{}}\", module_str);
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
-    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &get_compiler()).expect(\"WASM can't be compiled\");
+    let module = wasmer_runtime_core::compile_with_config(&wasm_binary[..], &get_compiler(), CompilerConfig {{ features: Features {{ simd: true }}, ..Default::default() }}).expect(\"WASM can't be compiled\");
     module.instantiate(&generate_imports()).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
@@ -431,7 +431,7 @@ fn test_module_{}() {{
                 "#[test]
 fn {}_assert_invalid() {{
     let wasm_binary = {:?};
-    let module = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler());
+    let module = wasmer_runtime_core::compile_with_config(&wasm_binary, &get_compiler(), CompilerConfig {{ features: Features {{ simd: true }}, ..Default::default() }});
     assert!(module.is_err(), \"WASM should not compile as is invalid\");
 }}\n",
                 command_name,
@@ -562,7 +562,7 @@ fn {}_assert_invalid() {{
                 "#[test]
 fn {}_assert_malformed() {{
     let wasm_binary = {:?};
-    let compilation = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler());
+    let compilation = wasmer_runtime_core::compile_with_config(&wasm_binary, &get_compiler(), CompilerConfig {{ features: Features {{ simd: true }}, ..Default::default() }});
     assert!(compilation.is_err(), \"WASM should not compile as is malformed\");
 }}\n",
                 command_name,
