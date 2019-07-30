@@ -141,8 +141,12 @@ release-singlepass:
 release-llvm:
 	cargo build --release --features backend-llvm
 
-bench:
-	cargo bench --all
+bench-singlepass:
+	cargo bench --all --no-default-features --features "backend-singlepass"
+bench-clif:
+	cargo bench --all --no-default-features --features "backend-clif"
+bench-llvm:
+	cargo bench --all --no-default-features --features "backend-llvm"
 
 
 # Build utils
