@@ -813,7 +813,6 @@ fn main() {
     }
 }
 
-
 #[test]
 fn filesystem_cache_should_work() -> Result<(), String> {
     let wasmer_cache_dir = get_cache_dir();
