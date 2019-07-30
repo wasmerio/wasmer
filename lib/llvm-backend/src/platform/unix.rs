@@ -1,8 +1,8 @@
 use super::common::round_up_to_page_size;
 use crate::structs::{LLVMResult, MemProtect};
 use libc::{
-    mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE, PROT_READ,
-    PROT_WRITE, c_void, siginfo_t
+    c_void, mmap, mprotect, munmap, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE,
+    PROT_READ, PROT_WRITE,
 };
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGSEGV};
 use std::ptr;
