@@ -2129,7 +2129,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
                 let v1 = canonicalize_nans(builder, intrinsics, v1);
                 let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
@@ -2140,7 +2140,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
                 let v1 = canonicalize_nans(builder, intrinsics, v1);
                 let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
@@ -2159,7 +2159,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
                 let v1 = canonicalize_nans(builder, intrinsics, v1);
                 let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
@@ -2170,7 +2170,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
                 let v1 = canonicalize_nans(builder, intrinsics, v1);
                 let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
@@ -2219,7 +2219,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
                 let v1 = canonicalize_nans(builder, intrinsics, v1);
                 let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_div(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
@@ -2230,7 +2230,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
                 let v1 = canonicalize_nans(builder, intrinsics, v1);
                 let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_div(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
