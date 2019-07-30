@@ -75,16 +75,16 @@ public:
     }
 
     virtual void registerEHFrames(uint8_t* addr, uint64_t LoadAddr, size_t size) override {
-        eh_frame_ptr = addr;
+        /* eh_frame_ptr = addr;
         eh_frame_size = size;
         eh_frames_registered = true;
-        callbacks.visit_fde(addr, size, __register_frame);
+        callbacks.visit_fde(addr, size, __register_frame);*/
     }
 
     virtual void deregisterEHFrames() override {
-        if (eh_frames_registered) {
+        /* if (eh_frames_registered) {
             callbacks.visit_fde(eh_frame_ptr, eh_frame_size, __deregister_frame);
-        }
+        }*/
     }
 
     virtual bool finalizeMemory(std::string *ErrMsg = nullptr) override {
