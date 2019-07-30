@@ -327,11 +327,6 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
         Kind::File { ref mut handle, .. } => {
             let mut empty_handle = None;
             std::mem::swap(handle, &mut empty_handle);
-            if let Some(handle_inner) = empty_handle {
-                handle_inner.close()
-            } else {
-                return __WASI_EINVAL;
-            }
         }
         Kind::Dir { .. } => return __WASI_EISDIR,
         Kind::Root { .. } => return __WASI_EACCES,
@@ -642,24 +637,13 @@ pub fn fd_pwrite(
     let memory = ctx.memory(0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
+    let state = get_wasi_state(ctx);
 
     let bytes_written = match fd {
-        0 => return __WASI_EINVAL,
-        1 => {
-            let stdout = io::stdout();
-            let mut handle = stdout.lock();
-
-            wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
-        }
-
-        2 => {
-            let stderr = io::stderr();
-            let mut handle = stderr.lock();
-
-            wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
-        }
+        __WASI_STDIN_FILENO => return __WASI_EINVAL,
+        __WASI_STDOUT_FILENO => wasi_try!(write_bytes(&mut state.fs.stdout, memory, iovs_arr_cell)),
+        __WASI_STDERR_FILENO => wasi_try!(write_bytes(&mut state.fs.stderr, memory, iovs_arr_cell)),
         _ => {
-            let state = get_wasi_state(ctx);
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
             if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
@@ -740,17 +724,12 @@ pub fn fd_read(
         }
         Ok(bytes_read)
     }
+    let state = get_wasi_state(ctx);
 
     let bytes_read = match fd {
-        0 => {
-            let stdin = io::stdin();
-            let mut handle = stdin.lock();
-
-            wasi_try!(read_bytes(handle, memory, iovs_arr_cell))
-        }
-        1 | 2 => return __WASI_EINVAL,
+        __WASI_STDIN_FILENO => wasi_try!(read_bytes(&mut state.fs.stdin, memory, iovs_arr_cell)),
+        __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => return __WASI_EINVAL,
         _ => {
-            let state = get_wasi_state(ctx);
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
             if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ) {
@@ -1062,22 +1041,12 @@ pub fn fd_write(
     let memory = ctx.memory(0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
+    let state = get_wasi_state(ctx);
 
     let bytes_written = match fd {
-        0 => return __WASI_EINVAL,
-        1 => {
-            let stdout = io::stdout();
-            let mut handle = stdout.lock();
-
-            wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
-        }
-
-        2 => {
-            let stderr = io::stderr();
-            let mut handle = stderr.lock();
-
-            wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
-        }
+        __WASI_STDIN_FILENO => return __WASI_EINVAL,
+        __WASI_STDOUT_FILENO => wasi_try!(write_bytes(&mut state.fs.stdout, memory, iovs_arr_cell)),
+        __WASI_STDERR_FILENO => wasi_try!(write_bytes(&mut state.fs.stderr, memory, iovs_arr_cell)),
         _ => {
             let state = get_wasi_state(ctx);
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
@@ -1436,7 +1405,7 @@ pub fn path_open(
                     .create(o_flags & __WASI_O_CREAT != 0)
                     .truncate(o_flags & __WASI_O_TRUNC != 0);
 
-                *handle = Some(WasiFile::HostFile(wasi_try!(open_options
+                *handle = Some(Box::new(wasi_try!(open_options
                     .open(&path)
                     .map_err(|_| __WASI_EIO))));
             }
@@ -1495,12 +1464,14 @@ pub fn path_open(
                     .write(true)
                     .create_new(true);
 
-                Some(WasiFile::HostFile(wasi_try!(open_options
-                    .open(&new_file_host_path)
-                    .map_err(|e| {
-                        debug!("Error opening file {}", e);
-                        __WASI_EIO
-                    }))))
+                Some(
+                    Box::new(wasi_try!(open_options.open(&new_file_host_path).map_err(
+                        |e| {
+                            debug!("Error opening file {}", e);
+                            __WASI_EIO
+                        }
+                    ))) as Box<dyn WasiFile>,
+                )
             };
 
             let new_inode = {

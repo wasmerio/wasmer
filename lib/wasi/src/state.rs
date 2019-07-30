@@ -5,7 +5,7 @@
 use crate::syscalls::types::*;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
-use hashbrown::hash_map::{Entry, HashMap};
+use hashbrown::hash_map::HashMap;
 use std::{
     borrow::Borrow,
     cell::Cell,
@@ -20,74 +20,296 @@ use wasmer_runtime_core::debug;
 /// the number of symlinks that can be traversed when resolving a path
 pub const MAX_SYMLINKS: u32 = 128;
 
+/// Error type for external users
+#[derive(Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+// dead code beacuse this is for external use
+pub enum WasiFsError {
+    /// The fd given as a base was not a directory so the operation was not possible
+    BaseNotDirectory,
+    /// Expected a file but found not a file
+    NotAFile,
+    /// The fd given was not usable
+    InvalidFd,
+    /// File exists
+    AlreadyExists,
+    /// Something failed when doing IO. These errors can generally not be handled.
+    /// It may work if tried again.
+    IOError,
+    /// A WASI error without an external name.  If you encounter this it means
+    /// that there's probably a bug on our side (maybe as simple as forgetting to wrap
+    /// this error, but perhaps something broke)
+    UnknownError(__wasi_errno_t),
+}
+
+impl WasiFsError {
+    pub fn from_wasi_err(err: __wasi_errno_t) -> WasiFsError {
+        match err {
+            __WASI_EBADF => WasiFsError::InvalidFd,
+            __WASI_EEXIST => WasiFsError::AlreadyExists,
+            __WASI_EIO => WasiFsError::IOError,
+            _ => WasiFsError::UnknownError(err),
+        }
+    }
+}
+
+/// This trait relies on your file closing when it goes out of scope via `Drop`
+/// it does not require `Drop` because `std::fs::File` does not implement it
+/// (TODO: figure out how that makes sense, because it clearly does)
+pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
+    /// the last time the file was accessed in nanoseconds as a UNIX timestamp
+    fn last_accessed(&self) -> u64;
+    /// the last time the file was modified in nanoseconds as a UNIX timestamp
+    fn last_modified(&self) -> u64;
+    /// the time at which the file was created in nanoseconds as a UNIX timestamp
+    fn created_time(&self) -> u64;
+    /// the size of the file in bytes
+    fn size(&self) -> u64;
+}
+
+impl WasiFile for fs::File {
+    fn last_accessed(&self) -> u64 {
+        self.metadata()
+            .unwrap()
+            .accessed()
+            .ok()
+            .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
+            .map(|ct| ct.as_nanos() as u64)
+            .unwrap_or(0)
+    }
+
+    fn last_modified(&self) -> u64 {
+        self.metadata()
+            .unwrap()
+            .modified()
+            .ok()
+            .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
+            .map(|ct| ct.as_nanos() as u64)
+            .unwrap_or(0)
+    }
+
+    fn created_time(&self) -> u64 {
+        self.metadata()
+            .unwrap()
+            .created()
+            .ok()
+            .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
+            .map(|ct| ct.as_nanos() as u64)
+            .unwrap_or(0)
+    }
+
+    fn size(&self) -> u64 {
+        self.metadata().unwrap().len()
+    }
+}
+
 #[derive(Debug)]
-pub enum WasiFile {
-    HostFile(fs::File),
+pub struct Stdout(std::io::Stdout);
+impl Read for Stdout {
+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from stdout",
+        ))
+    }
+    fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from stdout",
+        ))
+    }
+    fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from stdout",
+        ))
+    }
+    fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from stdout",
+        ))
+    }
 }
-
-impl WasiFile {
-    pub fn close(self) {}
+impl Seek for Stdout {
+    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not seek stdout",
+        ))
+    }
 }
-
-impl Write for WasiFile {
+impl Write for Stdout {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            WasiFile::HostFile(hf) => hf.write(buf),
-        }
+        self.0.write(buf)
     }
-
     fn flush(&mut self) -> io::Result<()> {
-        match self {
-            WasiFile::HostFile(hf) => hf.flush(),
-        }
+        self.0.flush()
     }
-
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        match self {
-            WasiFile::HostFile(hf) => hf.write_all(buf),
-        }
+        self.0.write_all(buf)
     }
-
     fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
-        match self {
-            WasiFile::HostFile(hf) => hf.write_fmt(fmt),
-        }
+        self.0.write_fmt(fmt)
     }
 }
 
-impl Read for WasiFile {
+impl WasiFile for Stdout {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+    fn last_modified(&self) -> u64 {
+        0
+    }
+    fn created_time(&self) -> u64 {
+        0
+    }
+    fn size(&self) -> u64 {
+        0
+    }
+}
+
+#[derive(Debug)]
+pub struct Stderr(std::io::Stderr);
+impl Read for Stderr {
+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from stderr",
+        ))
+    }
+    fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from stderr",
+        ))
+    }
+    fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from stderr",
+        ))
+    }
+    fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from stderr",
+        ))
+    }
+}
+impl Seek for Stderr {
+    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not seek stderr",
+        ))
+    }
+}
+impl Write for Stderr {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()
+    }
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.0.write_all(buf)
+    }
+    fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
+        self.0.write_fmt(fmt)
+    }
+}
+
+impl WasiFile for Stderr {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+    fn last_modified(&self) -> u64 {
+        0
+    }
+    fn created_time(&self) -> u64 {
+        0
+    }
+    fn size(&self) -> u64 {
+        0
+    }
+}
+
+#[derive(Debug)]
+pub struct Stdin(std::io::Stdin);
+impl Read for Stdin {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self {
-            WasiFile::HostFile(hf) => hf.read(buf),
-        }
+        self.0.read(buf)
     }
-
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
-        match self {
-            WasiFile::HostFile(hf) => hf.read_to_end(buf),
-        }
+        self.0.read_to_end(buf)
     }
-
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
-        match self {
-            WasiFile::HostFile(hf) => hf.read_to_string(buf),
-        }
+        self.0.read_to_string(buf)
     }
-
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
-        match self {
-            WasiFile::HostFile(hf) => hf.read_exact(buf),
-        }
+        self.0.read_exact(buf)
+    }
+}
+impl Seek for Stdin {
+    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not seek stdin",
+        ))
+    }
+}
+impl Write for Stdin {
+    fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not write to stdin",
+        ))
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not write to stdin",
+        ))
+    }
+    fn write_all(&mut self, _buf: &[u8]) -> io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not write to stdin",
+        ))
+    }
+    fn write_fmt(&mut self, _fmt: ::std::fmt::Arguments) -> io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not write to stdin",
+        ))
     }
 }
 
-impl Seek for WasiFile {
-    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
-        match self {
-            WasiFile::HostFile(hf) => hf.seek(pos),
-        }
+impl WasiFile for Stdin {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+    fn last_modified(&self) -> u64 {
+        0
+    }
+    fn created_time(&self) -> u64 {
+        0
+    }
+    fn size(&self) -> u64 {
+        0
     }
 }
+
+/*
+TODO: Think about using this
+trait WasiFdBacking: std::fmt::Debug {
+    fn get_stat(&self) -> &__wasi_filestat_t;
+    fn get_stat_mut(&mut self) -> &mut __wasi_filestat_t;
+    fn is_preopened(&self) -> bool;
+    fn get_name(&self) -> &str;
+}
+*/
 
 /// A file that Wasi knows about that may or may not be open
 #[derive(Debug)]
@@ -98,12 +320,30 @@ pub struct InodeVal {
     pub kind: Kind,
 }
 
+/*impl WasiFdBacking for InodeVal {
+    fn get_stat(&self) -> &__wasi_filestat_t {
+        &self.stat
+    }
+
+    fn get_stat_mut(&mut self) -> &mut __wasi_filestat_t {
+        &mut self.stat
+    }
+
+    fn is_preopened(&self) -> bool {
+        self.is_preopened
+    }
+
+    fn get_name(&self) -> &str {
+        self.name.as_ref()
+    }
+}*/
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum Kind {
     File {
         /// the open file, if it's open
-        handle: Option<WasiFile>,
+        handle: Option<Box<dyn WasiFile>>,
         /// the path to the file
         path: PathBuf,
     },
@@ -160,6 +400,10 @@ pub struct WasiFs {
     pub fd_map: HashMap<u32, Fd>,
     pub next_fd: Cell<u32>,
     inode_counter: Cell<u64>,
+
+    pub stdout: Box<dyn WasiFile>,
+    pub stderr: Box<dyn WasiFile>,
+    pub stdin: Box<dyn WasiFile>,
 }
 
 impl WasiFs {
@@ -176,6 +420,10 @@ impl WasiFs {
             fd_map: HashMap::new(),
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1024),
+
+            stdin: Box::new(Stdin(io::stdin())),
+            stdout: Box::new(Stdout(io::stdout())),
+            stderr: Box::new(Stderr(io::stderr())),
         };
         // create virtual root
         let root_inode = {
@@ -291,117 +539,78 @@ impl WasiFs {
         next
     }
 
+    /// Opens a user-supplied file in the directory specified with the
+    /// name and flags given
+    // dead code because this is an API for external use
     #[allow(dead_code)]
-    fn get_inode(&mut self, path: &str) -> Option<Inode> {
-        Some(match self.name_map.entry(path.to_string()) {
-            Entry::Occupied(o) => *o.get(),
-            Entry::Vacant(_v) => {
-                return None;
-                // let file = if let Ok(file) = OpenOptions::new()
-                //     .read(true)
-                //     .write(true)
-                //     .create(false)
-                //     .open(&mut self.repo, path)
-                // {
-                //     file
-                // } else {
-                //     return None;
-                // };
+    pub fn open_file_at(
+        &mut self,
+        base: __wasi_fd_t,
+        file: Box<dyn WasiFile>,
+        name: String,
+        rights: __wasi_rights_t,
+        rights_inheriting: __wasi_rights_t,
+        flags: __wasi_fdflags_t,
+    ) -> Result<__wasi_fd_t, WasiFsError> {
+        let base_fd = self.get_fd(base).map_err(WasiFsError::from_wasi_err)?;
+        // TODO: check permissions here? probably not, but this should be
+        // an explicit choice, so justify it in a comment when we remove this one
+        let base_inode = base_fd.inode;
 
-                // let metadata = file.metadata().unwrap();
-                // let inode_index = {
-                //     let index = self.inode_counter.get();
-                //     self.inode_counter.replace(index + 1)
-                // };
-
-                // let systime_to_nanos = |systime: SystemTime| {
-                //     let duration = systime
-                //         .duration_since(SystemTime::UNIX_EPOCH)
-                //         .expect("should always be after unix epoch");
-                //     duration.as_nanos() as u64
-                // };
-
-                // let inode = self.inodes.insert(InodeVal {
-                //     stat: __wasi_filestat_t {
-                //         st_dev: 0,
-                //         st_ino: inode_index,
-                //         st_filetype: match metadata.file_type() {
-                //             FileType::File => __WASI_FILETYPE_REGULAR_FILE,
-                //             FileType::Dir => __WASI_FILETYPE_DIRECTORY,
-                //         },
-                //         st_nlink: 0,
-                //         st_size: metadata.content_len() as u64,
-                //         st_atim: systime_to_nanos(SystemTime::now()),
-                //         st_mtim: systime_to_nanos(metadata.modified_at()),
-                //         st_ctim: systime_to_nanos(metadata.created_at()),
-                //     },
-                //     is_preopened: false,
-                //     name: path.to_string(),
-                //     kind: match metadata.file_type() {
-                //         FileType::File => Kind::File { handle: file },
-                //         FileType::Dir => Kind::Dir {
-                //             handle: file,
-                //             entries: HashMap::new(),
-                //         },
-                //     },
-                // });
-                // v.insert(inode);
-                // inode
-            }
-        })
-    }
-
-    /*
-    #[allow(dead_code)]
-    fn filestat_inode(
-        &self,
-        inode: Inode,
-        flags: __wasi_lookupflags_t,
-    ) -> Result<__wasi_filestat_t, __wasi_errno_t> {
-        let inode_val = &self.inodes[inode];
-        if let (
-            true,
-            Kind::Symlink {
-                mut forwarded,
-                path,
-            },
-        ) = (flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0, &inode_val.kind)
-        {
-            // Time to follow the symlink.
-            let mut counter = 0;
-
-            while counter <= MAX_SYMLINKS {
-                let inode_val = &self.inodes[forwarded];
-                if let &Kind::Symlink {
-                    forwarded: new_forwarded,
-                } = &inode_val.kind
-                {
-                    counter += 1;
-                    forwarded = new_forwarded;
-                } else {
-                    return Ok(inode_val.stat);
+        match &self.inodes[base_inode].kind {
+            Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
+                if let Some(_entry) = entries.get(&name) {
+                    // TODO: eventually change the logic here to allow overwrites
+                    return Err(WasiFsError::AlreadyExists);
                 }
-            }
 
-            Err(__WASI_EMLINK)
-        } else {
-            Ok(inode_val.stat)
+                let kind = Kind::File {
+                    handle: Some(file),
+                    path: PathBuf::from(""),
+                };
+
+                let inode = self
+                    .create_inode(kind, false, name.clone())
+                    .map_err(|_| WasiFsError::IOError)?;
+                // reborrow to insert
+                match &mut self.inodes[base_inode].kind {
+                    Kind::Dir {
+                        ref mut entries, ..
+                    }
+                    | Kind::Root { ref mut entries } => {
+                        entries.insert(name, inode).ok_or(WasiFsError::IOError)?;
+                    }
+                    _ => unreachable!("Dir or Root became not Dir or Root"),
+                }
+
+                self.create_fd(rights, rights_inheriting, flags, inode)
+                    .map_err(WasiFsError::from_wasi_err)
+            }
+            _ => Err(WasiFsError::BaseNotDirectory),
         }
     }
 
+    /// Change the backing of a given file descriptor
+    /// Returns the old backing
+    /// TODO: add examples
     #[allow(dead_code)]
-    pub fn filestat_path(
+    pub fn swap_file(
         &mut self,
-        preopened_fd: __wasi_fd_t,
-        flags: __wasi_lookupflags_t,
-        path: &str,
-    ) -> Result<__wasi_filestat_t, __wasi_errno_t> {
-        warn!("Should use preopned_fd: {}", preopened_fd);
-        let inode = self.get_inode(path).ok_or(__WASI_EINVAL)?;
+        fd: __wasi_fd_t,
+        file: Box<dyn WasiFile>,
+    ) -> Result<Option<Box<dyn WasiFile>>, WasiFsError> {
+        let base_fd = self.get_fd(fd).map_err(WasiFsError::from_wasi_err)?;
+        let base_inode = base_fd.inode;
 
-        self.filestat_inode(inode, flags)
+        match &mut self.inodes[base_inode].kind {
+            Kind::File { ref mut handle, .. } => {
+                let mut ret = Some(file);
+                std::mem::swap(handle, &mut ret);
+                Ok(ret)
+            }
+            _ => Err(WasiFsError::NotAFile),
+        }
     }
-    */
 
     fn get_inode_at_path_inner(
         &mut self,
@@ -762,7 +971,17 @@ impl WasiFs {
     pub fn get_stat_for_kind(&self, kind: &Kind) -> Option<__wasi_filestat_t> {
         let md = match kind {
             Kind::File { handle, path } => match handle {
-                Some(WasiFile::HostFile(hf)) => hf.metadata().ok()?,
+                Some(wf) => {
+                    return Some(__wasi_filestat_t {
+                        st_filetype: __WASI_FILETYPE_REGULAR_FILE,
+                        st_size: wf.size(),
+                        st_atim: wf.last_accessed(),
+                        st_mtim: wf.last_modified(),
+                        st_ctim: wf.created_time(),
+
+                        ..__wasi_filestat_t::default()
+                    })
+                }
                 None => path.metadata().ok()?,
             },
             Kind::Dir { path, .. } => path.metadata().ok()?,
