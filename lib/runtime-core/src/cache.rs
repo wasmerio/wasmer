@@ -241,5 +241,3 @@ pub trait Cache {
 /// A unique ID generated from the version of Wasmer for use with cache versioning
 pub const WASMER_VERSION_HASH: &'static str =
     include_str!(concat!(env!("OUT_DIR"), "/wasmer_version_hash.txt"));
-
-pub const WASMER_VERSION: &'static str = env!("CARGO_PKG_VERSION");

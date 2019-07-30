@@ -9,7 +9,7 @@ use std::{
 use wasmer_runtime_core::cache::Error as CacheError;
 pub use wasmer_runtime_core::{
     backend::Backend,
-    cache::{Artifact, Cache, WasmHash, WASMER_VERSION},
+    cache::{Artifact, Cache, WasmHash},
 };
 
 /// Representation of a directory that contains compiled wasm artifacts.

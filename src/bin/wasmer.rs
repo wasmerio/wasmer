@@ -818,8 +818,7 @@ fn main() {
 fn filesystem_cache_should_work() -> Result<(), String> {
     let wasmer_cache_dir = get_cache_dir();
 
-    unsafe {
-        FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
-    };
+    unsafe { FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))? };
+
     Ok(())
 }
