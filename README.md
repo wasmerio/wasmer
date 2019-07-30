@@ -220,7 +220,10 @@ Each integration can be tested separately:
 Benchmarks can be run with:
 
 ```sh
-make bench
+make bench-[backend]
+
+# for example
+make bench-singlepass
 ```
 
 ## Roadmap
