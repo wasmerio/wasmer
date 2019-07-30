@@ -70,6 +70,7 @@ pub enum SuspendOffset {
 
 #[derive(Clone, Debug)]
 pub struct OffsetInfo {
+    pub end_offset: usize, // excluded bound
     pub diff_id: usize,
     pub activate_offset: usize,
 }
@@ -101,33 +102,11 @@ pub struct InstanceImage {
 }
 
 impl ModuleStateMap {
-    fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
-        if ip < base || ip - base >= self.total_size {
-            None
-        } else {
-            let (_, fsm) = self
-                .local_functions
-                .range((Unbounded, Included(&(ip - base))))
-                .last()
-                .unwrap();
-
-            match fsm.call_offsets.get(&(ip - base)) {
-                Some(x) => {
-                    if x.diff_id < fsm.diffs.len() {
-                        Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
-                    } else {
-                        None
-                    }
-                }
-                None => None,
-            }
-        }
-    }
-
-    fn lookup_trappable_ip(
+    fn lookup_ip<F: FnOnce(&FunctionStateMap) -> &BTreeMap<usize, OffsetInfo>>(
         &self,
         ip: usize,
         base: usize,
+        offset_table_provider: F,
     ) -> Option<(&FunctionStateMap, MachineState)> {
         if ip < base || ip - base >= self.total_size {
             None
@@ -138,9 +117,14 @@ impl ModuleStateMap {
                 .last()
                 .unwrap();
 
-            match fsm.trappable_offsets.get(&(ip - base)) {
-                Some(x) => {
-                    if x.diff_id < fsm.diffs.len() {
+            match offset_table_provider(fsm)
+                .range((Unbounded, Included(&(ip - base))))
+                .last()
+            {
+                Some((_, x)) => {
+                    if ip - base >= x.end_offset {
+                        None
+                    } else if x.diff_id < fsm.diffs.len() {
                         Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
                     } else {
                         None
@@ -150,28 +134,20 @@ impl ModuleStateMap {
             }
         }
     }
+    fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
+        self.lookup_ip(ip, base, |fsm| &fsm.call_offsets)
+    }
+
+    fn lookup_trappable_ip(
+        &self,
+        ip: usize,
+        base: usize,
+    ) -> Option<(&FunctionStateMap, MachineState)> {
+        self.lookup_ip(ip, base, |fsm| &fsm.trappable_offsets)
+    }
 
     fn lookup_loop_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
-        if ip < base || ip - base >= self.total_size {
-            None
-        } else {
-            let (_, fsm) = self
-                .local_functions
-                .range((Unbounded, Included(&(ip - base))))
-                .last()
-                .unwrap();
-
-            match fsm.loop_offsets.get(&(ip - base)) {
-                Some(x) => {
-                    if x.diff_id < fsm.diffs.len() {
-                        Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
-                    } else {
-                        None
-                    }
-                }
-                None => None,
-            }
-        }
+        self.lookup_ip(ip, base, |fsm| &fsm.loop_offsets)
     }
 }
 
@@ -493,19 +469,17 @@ pub mod x64 {
                         stack_offset -= 1;
                         // TODO: Cleanup
                         match inner.0 {
-                            MachineValue::WasmStack(x) => {
-                                match state.wasm_stack[x] {
-                                    WasmAbstractValue::Const(x) => {
-                                        assert!(x <= ::std::u32::MAX as u64);
-                                        stack[stack_offset] |= x;
-                                    }
-                                    WasmAbstractValue::Runtime => {
-                                        let v = f.stack[x].unwrap();
-                                        assert!(v <= ::std::u32::MAX as u64);
-                                        stack[stack_offset] |= v;
-                                    }
+                            MachineValue::WasmStack(x) => match state.wasm_stack[x] {
+                                WasmAbstractValue::Const(x) => {
+                                    assert!(x <= ::std::u32::MAX as u64);
+                                    stack[stack_offset] |= x;
                                 }
-                            }
+                                WasmAbstractValue::Runtime => {
+                                    let v = f.stack[x].unwrap();
+                                    assert!(v <= ::std::u32::MAX as u64);
+                                    stack[stack_offset] |= v;
+                                }
+                            },
                             MachineValue::WasmLocal(x) => {
                                 stack_offset -= 1;
                                 match fsm.locals[x] {
@@ -524,19 +498,17 @@ pub mod x64 {
                             _ => unimplemented!("TwoHalves.0"),
                         }
                         match inner.1 {
-                            MachineValue::WasmStack(x) => {
-                                match state.wasm_stack[x] {
-                                    WasmAbstractValue::Const(x) => {
-                                        assert!(x <= ::std::u32::MAX as u64);
-                                        stack[stack_offset] |= x << 32;
-                                    }
-                                    WasmAbstractValue::Runtime => {
-                                        let v = f.stack[x].unwrap();
-                                        assert!(v <= ::std::u32::MAX as u64);
-                                        stack[stack_offset] |= v << 32;
-                                    }
+                            MachineValue::WasmStack(x) => match state.wasm_stack[x] {
+                                WasmAbstractValue::Const(x) => {
+                                    assert!(x <= ::std::u32::MAX as u64);
+                                    stack[stack_offset] |= x << 32;
                                 }
-                            }
+                                WasmAbstractValue::Runtime => {
+                                    let v = f.stack[x].unwrap();
+                                    assert!(v <= ::std::u32::MAX as u64);
+                                    stack[stack_offset] |= v << 32;
+                                }
+                            },
                             MachineValue::WasmLocal(x) => {
                                 stack_offset -= 1;
                                 match fsm.locals[x] {
@@ -862,8 +834,8 @@ pub mod x64 {
                             MachineValue::WasmLocal(idx) => {
                                 wasm_locals[idx] = Some(v & 0xffffffffu64);
                             }
-                            MachineValue::Undefined => {},
-                            _ => unimplemented!("TwoHalves.0 (read)")
+                            MachineValue::Undefined => {}
+                            _ => unimplemented!("TwoHalves.0 (read)"),
                         }
                         match inner.1 {
                             MachineValue::WasmStack(idx) => {
@@ -872,8 +844,8 @@ pub mod x64 {
                             MachineValue::WasmLocal(idx) => {
                                 wasm_locals[idx] = Some(v >> 32);
                             }
-                            MachineValue::Undefined => {},
-                            _ => unimplemented!("TwoHalves.1 (read)")
+                            MachineValue::Undefined => {}
+                            _ => unimplemented!("TwoHalves.1 (read)"),
                         }
                     }
                 }

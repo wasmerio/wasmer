@@ -320,16 +320,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    let compiler: Box<dyn Compiler> = match options.backend {
-        #[cfg(feature = "backend-singlepass")]
-        Backend::Singlepass => Box::new(SinglePassCompiler::new()),
-        #[cfg(not(feature = "backend-singlepass"))]
-        Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
-        Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        #[cfg(feature = "backend-llvm")]
-        Backend::LLVM => Box::new(LLVMCompiler::new()),
-        #[cfg(not(feature = "backend-llvm"))]
-        Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
+    let compiler: Box<dyn Compiler> = match get_compiler_by_backend(options.backend) {
+        Some(x) => x,
+        None => return Err("the requested backend is not enabled".into()),
     };
 
     let track_state = !options.no_track_state;
@@ -348,7 +341,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         webassembly::compile_with_config_with(
             &wasm_binary[..],
             CompilerConfig {
-                symbol_map: em_symbol_map,
+                symbol_map: em_symbol_map.clone(),
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
                 track_state,
@@ -360,7 +353,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         webassembly::compile_with_config_with(
             &wasm_binary[..],
             CompilerConfig {
-                symbol_map: em_symbol_map,
+                symbol_map: em_symbol_map.clone(),
                 track_state,
                 ..Default::default()
             },
@@ -378,7 +371,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let mut cache = unsafe {
             FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
         };
-        let load_cache_key = || -> Result<_, String> {
+        let mut load_cache_key = || -> Result<_, String> {
             if let Some(ref prehashed_cache_key) = options.cache_key {
                 if let Ok(module) =
                     WasmHash::decode(prehashed_cache_key).and_then(|prehashed_key| {
@@ -406,7 +399,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     let module = webassembly::compile_with_config_with(
                         &wasm_binary[..],
                         CompilerConfig {
-                            symbol_map: em_symbol_map,
+                            symbol_map: em_symbol_map.clone(),
                             track_state,
                             ..Default::default()
                         },
@@ -515,7 +508,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             #[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
             unsafe {
                 if options.backend == Backend::Singlepass || options.backend == Backend::LLVM {
-                    use wasmer_runtime_core::fault::{catch_unsafe_unwind, ensure_sighandler, with_ctx};
+                    use wasmer_runtime_core::fault::{
+                        catch_unsafe_unwind, ensure_sighandler, with_ctx,
+                    };
                     use wasmer_runtime_core::state::{
                         x64::invoke_call_return_on_stack, InstanceImage,
                     };
@@ -534,9 +529,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     } else {
                         None
                     };
-                    let breakpoints = instance.module.runnable_module.get_breakpoints();
 
                     loop {
+                        let breakpoints = instance.module.runnable_module.get_breakpoints();
                         let ctx = instance.context_mut() as *mut _;
                         let ret = with_ctx(ctx, || {
                             if let Some(image) = image.take() {
@@ -569,8 +564,35 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                                     image: Some(new_image.clone()),
                                 });
                                 match op {
-                                    ShellExitOperation::ContinueWith(new_image) => {
+                                    ShellExitOperation::ContinueWith(new_image, new_backend) => {
                                         image = Some(new_image);
+                                        if let Some(new_backend) = new_backend {
+                                            let compiler =
+                                                match get_compiler_by_backend(new_backend) {
+                                                    Some(x) => x,
+                                                    None => {
+                                                        return Err(
+                                                            "the requested backend is not enabled"
+                                                                .into(),
+                                                        )
+                                                    }
+                                                };
+                                            let module = webassembly::compile_with_config_with(
+                                                &wasm_binary[..],
+                                                CompilerConfig {
+                                                    symbol_map: em_symbol_map.clone(),
+                                                    track_state,
+                                                    ..Default::default()
+                                                },
+                                                &*compiler,
+                                            )
+                                            .map_err(|e| {
+                                                format!("Can't compile module: {:?}", e)
+                                            })?;
+                                            instance = module.instantiate(&import_object).map_err(
+                                                |e| format!("Can't instantiate module: {:?}", e),
+                                            )?;
+                                        }
                                     }
                                 }
                             } else {
@@ -630,7 +652,7 @@ struct InteractiveShellContext {
 #[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
 #[derive(Debug)]
 enum ShellExitOperation {
-    ContinueWith(wasmer_runtime_core::state::InstanceImage),
+    ContinueWith(wasmer_runtime_core::state::InstanceImage, Option<Backend>),
 }
 
 #[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
@@ -683,7 +705,28 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
             }
             "continue" | "c" => {
                 if let Some(image) = ctx.image.take() {
-                    return ShellExitOperation::ContinueWith(image);
+                    return ShellExitOperation::ContinueWith(image, None);
+                } else {
+                    println!("Program state not available, cannot continue execution");
+                }
+            }
+            "switch_backend" => {
+                let backend_name = parts.next();
+                if backend_name.is_none() {
+                    println!("Usage: switch_backend [backend_name]");
+                    continue;
+                }
+                let backend_name = backend_name.unwrap();
+                let backend = match backend_name {
+                    "singlepass" => Backend::Singlepass,
+                    "llvm" => Backend::LLVM,
+                    _ => {
+                        println!("unknown backend");
+                        continue;
+                    }
+                };
+                if let Some(image) = ctx.image.take() {
+                    return ShellExitOperation::ContinueWith(image, Some(backend));
                 } else {
                     println!("Program state not available, cannot continue execution");
                 }
@@ -750,6 +793,20 @@ fn validate(validate: Validate) {
         }
         _ => (),
     }
+}
+
+fn get_compiler_by_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
+    Some(match backend {
+        #[cfg(feature = "backend-singlepass")]
+        Backend::Singlepass => Box::new(SinglePassCompiler::new()),
+        #[cfg(not(feature = "backend-singlepass"))]
+        Backend::Singlepass => return None,
+        Backend::Cranelift => Box::new(CraneliftCompiler::new()),
+        #[cfg(feature = "backend-llvm")]
+        Backend::LLVM => Box::new(LLVMCompiler::new()),
+        #[cfg(not(feature = "backend-llvm"))]
+        Backend::LLVM => return None,
+    })
 }
 
 fn main() {
