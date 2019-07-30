@@ -18,7 +18,6 @@ environment:
 cache:
   - 'C:\Users\appveyor\.cargo'
   - target
-  - wapm-cli-target
 
 install:
   # Install LLVM
@@ -51,16 +50,7 @@ build_script:
   - cargo build --release --verbose
   - git submodule init
   - git submodule update
-  # Cache wapm cli target in dir above to prevent breaking git submodule on windows
-  - if not exist wapm-cli-target mkdir wapm-cli-target
-  - move wapm-cli-target wapm-cli
-  - cd wapm-cli
-  - rename wapm-cli-target target
-  - cd ..
-  - cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
-  - cd wapm-cli
-  - cd ..
-  - xcopy wapm-cli\target wapm-cli-target\ /i /y
+  - if %APPVEYOR_REPO_BRANCH%==master cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
   - cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
 
 test_script:
