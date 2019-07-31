@@ -103,7 +103,7 @@ impl WasiFile for LoggingWrapper {
 
 /// Called by the program when it wants to set itself up
 fn initialize(ctx: &mut Ctx) {
-    let state = state::get_wasi_state(ctx);
+    let state = unsafe { state::get_wasi_state(ctx) };
     let wasi_file_inner = LoggingWrapper {
         wasm_module_name: "example module name".to_string(),
     };
@@ -127,17 +127,16 @@ fn main() {
     let custom_imports = imports! {
         "env" => {
             "it_works" => func!(it_works),
-            "initialize" => func!(initialize),
         },
     };
     // The WASI imports object contains all required import functions for a WASI module to run.
     // Extend this imports with our custom imports containing "it_works" function so that our custom wasm code may run.
     base_imports.extend(custom_imports);
-    let instance =
+    let mut instance =
         instantiate(&wasm_bytes[..], &base_imports).expect("failed to instantiate wasm module");
+    // set up logging by replacing stdout
+    initialize(instance.context_mut());
 
-    let main = instance.func::<(), ()>("_start").unwrap();
-    main.call().expect("Could not initialize");
     // get a reference to the function "plugin_entrypoint" which takes an i32 and returns an i32
     let entry_point = instance.func::<(i32), i32>("plugin_entrypoint").unwrap();
     // call the "entry_point" function in WebAssembly with the number "2" as the i32 argument
