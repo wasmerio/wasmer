@@ -1,14 +1,12 @@
 use crate::intrinsics::Intrinsics;
+use crate::structs::{Callbacks, LLVMModule, LLVMResult, MemProtect};
 use inkwell::{
     memory_buffer::MemoryBuffer,
     module::Module,
     targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
     OptimizationLevel,
 };
-use libc::{
-    c_char, mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE, PROT_READ,
-    PROT_WRITE,
-};
+use libc::c_char;
 use std::{
     any::Any,
     ffi::{c_void, CString},
@@ -30,42 +28,6 @@ use wasmer_runtime_core::{
     types::{LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
-
-#[repr(C)]
-struct LLVMModule {
-    _private: [u8; 0],
-}
-
-#[allow(non_camel_case_types, dead_code)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(C)]
-enum MemProtect {
-    NONE,
-    READ,
-    READ_WRITE,
-    READ_EXECUTE,
-}
-
-#[allow(non_camel_case_types, dead_code)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(C)]
-enum LLVMResult {
-    OK,
-    ALLOCATE_FAILURE,
-    PROTECT_FAILURE,
-    DEALLOC_FAILURE,
-    OBJECT_LOAD_FAILURE,
-}
-
-#[repr(C)]
-struct Callbacks {
-    alloc_memory: extern "C" fn(usize, MemProtect, &mut *mut u8, &mut usize) -> LLVMResult,
-    protect_memory: extern "C" fn(*mut u8, usize, MemProtect) -> LLVMResult,
-    dealloc_memory: extern "C" fn(*mut u8, usize) -> LLVMResult,
-
-    lookup_vm_symbol: extern "C" fn(*const c_char, usize) -> *const vm::Func,
-    visit_fde: extern "C" fn(*mut u8, usize, extern "C" fn(*mut u8)),
-}
 
 extern "C" {
     fn module_load(
@@ -99,69 +61,21 @@ extern "C" {
 }
 
 fn get_callbacks() -> Callbacks {
-    fn round_up_to_page_size(size: usize) -> usize {
-        (size + (4096 - 1)) & !(4096 - 1)
-    }
-
     extern "C" fn alloc_memory(
         size: usize,
         protect: MemProtect,
         ptr_out: &mut *mut u8,
         size_out: &mut usize,
     ) -> LLVMResult {
-        let size = round_up_to_page_size(size);
-        let ptr = unsafe {
-            mmap(
-                ptr::null_mut(),
-                size,
-                match protect {
-                    MemProtect::NONE => PROT_NONE,
-                    MemProtect::READ => PROT_READ,
-                    MemProtect::READ_WRITE => PROT_READ | PROT_WRITE,
-                    MemProtect::READ_EXECUTE => PROT_READ | PROT_EXEC,
-                },
-                MAP_PRIVATE | MAP_ANON,
-                -1,
-                0,
-            )
-        };
-        if ptr as isize == -1 {
-            return LLVMResult::ALLOCATE_FAILURE;
-        }
-        *ptr_out = ptr as _;
-        *size_out = size;
-        LLVMResult::OK
+        unsafe { crate::platform::alloc_memory(size, protect, ptr_out, size_out) }
     }
 
     extern "C" fn protect_memory(ptr: *mut u8, size: usize, protect: MemProtect) -> LLVMResult {
-        let res = unsafe {
-            mprotect(
-                ptr as _,
-                round_up_to_page_size(size),
-                match protect {
-                    MemProtect::NONE => PROT_NONE,
-                    MemProtect::READ => PROT_READ,
-                    MemProtect::READ_WRITE => PROT_READ | PROT_WRITE,
-                    MemProtect::READ_EXECUTE => PROT_READ | PROT_EXEC,
-                },
-            )
-        };
-
-        if res == 0 {
-            LLVMResult::OK
-        } else {
-            LLVMResult::PROTECT_FAILURE
-        }
+        unsafe { crate::platform::protect_memory(ptr, size, protect) }
     }
 
     extern "C" fn dealloc_memory(ptr: *mut u8, size: usize) -> LLVMResult {
-        let res = unsafe { munmap(ptr as _, round_up_to_page_size(size)) };
-
-        if res == 0 {
-            LLVMResult::OK
-        } else {
-            LLVMResult::DEALLOC_FAILURE
-        }
+        unsafe { crate::platform::dealloc_memory(ptr, size) }
     }
 
     extern "C" fn lookup_vm_symbol(name_ptr: *const c_char, length: usize) -> *const vm::Func {

@@ -6,6 +6,8 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 - [#595](https://github.com/wasmerio/wasmer/pull/595) Add unstable public API for interfacing with the WASI file system in plugin-like usecases
+- [#598](https://github.com/wasmerio/wasmer/pull/598) LLVM Backend is now supported in Windows
+- [#599](https://github.com/wasmerio/wasmer/pull/599) Fix llvm backend failures in fat spec tests and simd_binaryen spec test.
 - [#579](https://github.com/wasmerio/wasmer/pull/579) Fix bug in caching with LLVM and Singlepass backends.
   Add `default-backend-singlepass`, `default-backend-llvm`, and `default-backend-cranelift` features to `wasmer-runtime`
   to control the `default_compiler()` function (this is a breaking change).  Add `compiler_for_backend` function in `wasmer-runtime`
@@ -29,6 +31,8 @@ Blocks of changes will separated by version increments.
   - makes wasitests-generate output stdout/stderr by default & adds function to print stdout and stderr for a command if it fails
   - compiles wasm with size optimizations & strips generated wasm with wasm-strip
 - [#554](https://github.com/wasmerio/wasmer/pull/554) Finish implementation of `wasi::fd_seek`, fix bug in filestat
+- [#550](https://github.com/wasmerio/wasmer/pull/550) Fix singlepass compilation error with `imul` instruction
+
 
 ## 0.5.5 - 2019-07-10
 - [#541](https://github.com/wasmerio/wasmer/pull/541) Fix dependency graph by making separate test crates; ABI implementations should not depend on compilers. Add Cranelift fork as git submodule of clif-backend
@@ -42,6 +46,7 @@ Blocks of changes will separated by version increments.
 - [#523](https://github.com/wasmerio/wasmer/pull/523) Update wapm version to fix bug related to signed packages in the global namespace and locally-stored public keys
 
 ## 0.5.2 - 2019-07-02
+- [#516](https://github.com/wasmerio/wasmer/pull/516) Add workaround for singlepass miscompilation on GetLocal
 - [#521](https://github.com/wasmerio/wasmer/pull/521) Update Wapm-cli, bump version numbers
 - [#518](https://github.com/wasmerio/wasmer/pull/518) Update Cranelift and WasmParser
 - [#514](https://github.com/wasmerio/wasmer/pull/514) [#519](https://github.com/wasmerio/wasmer/pull/519) Improved Emscripten network related calls, added a null check to `WasmPtr`

@@ -164,15 +164,11 @@ fn get_compiler(limit: u64, metering: bool) -> impl Compiler {
 }
 
 #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
-fn get_compiler(_limit: u64, metering: bool) -> impl Compiler {
-    panic!("compiler not specified, activate a compiler via features");
-    use wasmer_clif_backend::CraneliftCompiler;
-    CraneliftCompiler::new()
-}
+compile_error!("compiler not specified, activate a compiler via features");
 
 #[cfg(feature = "clif")]
 fn get_compiler(_limit: u64, metering: bool) -> impl Compiler {
-    panic!("cranelift does not implement metering");
+    compile_error!("cranelift does not implement metering");
     use wasmer_clif_backend::CraneliftCompiler;
     CraneliftCompiler::new()
 }

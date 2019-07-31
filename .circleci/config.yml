@@ -115,6 +115,8 @@ jobs:
           name: Check
           command: |
             make check
+            make compile-bench-singlepass
+            # TODO: add compile-bench-llvm and compile-bench-clif when they work
       - run:
           name: Release
           command: make release-fast
