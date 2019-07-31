@@ -9,7 +9,7 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
-        host_file_type_to_wasi_file_type, Fd, Inode, InodeVal, Kind, WasiFile, WasiState,
+        self, host_file_type_to_wasi_file_type, Fd, Inode, InodeVal, Kind, WasiFile, WasiState,
         MAX_SYMLINKS,
     },
     ExitCode,
@@ -27,9 +27,10 @@ pub use unix::*;
 #[cfg(any(target_os = "windows"))]
 pub use windows::*;
 
+/// This function is not safe
 #[allow(clippy::mut_from_ref)]
-fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
-    unsafe { &mut *(ctx.data as *mut WasiState) }
+pub(crate) fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
+    unsafe { state::get_wasi_state(&mut *(ctx as *const Ctx as *mut Ctx)) }
 }
 
 fn write_bytes<T: Write>(

@@ -1,3 +1,6 @@
+//! WARNING: the API exposed here is unstable and very experimental.  Certain thins will not
+//! yet and may be broken in patch releases.  If you're using this and have any specific needs,
+//! please let us know here https://github.com/wasmerio/wasmer/issues/583 or by filing an issue.
 // use wasmer_runtime_abi::vfs::{
 //     vfs::Vfs,
 //     file_like::{FileLike, Metadata};
@@ -14,7 +17,12 @@ use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use wasmer_runtime_core::debug;
+use wasmer_runtime_core::{debug, vm::Ctx};
+
+/// Get WasiState from a Ctx
+pub unsafe fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
+    &mut *(ctx.data as *mut WasiState)
+}
 
 /// A completely aribtrary "big enough" number used as the upper limit for
 /// the number of symlinks that can be traversed when resolving a path
@@ -54,8 +62,6 @@ impl WasiFsError {
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
-/// it does not require `Drop` because `std::fs::File` does not implement it
-/// (TODO: figure out how that makes sense, because it clearly does)
 pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
@@ -392,6 +398,8 @@ pub struct Fd {
 }
 
 #[derive(Debug)]
+/// Warning, modifying these fields directly may cause invariants to break and
+/// should be considered unsafe.  These fields may be made private in a future release
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: Vec<u32>,
@@ -875,9 +883,9 @@ impl WasiFs {
 
     pub fn flush(&mut self, fd: __wasi_fd_t) -> Result<(), __wasi_errno_t> {
         match fd {
-            0 => (),
-            1 => io::stdout().flush().map_err(|_| __WASI_EIO)?,
-            2 => io::stderr().flush().map_err(|_| __WASI_EIO)?,
+            __WASI_STDIN_FILENO => (),
+            __WASI_STDOUT_FILENO => self.stdout.flush().map_err(|_| __WASI_EIO)?,
+            __WASI_STDERR_FILENO => self.stderr.flush().map_err(|_| __WASI_EIO)?,
             _ => {
                 let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
                 if fd.rights & __WASI_RIGHT_FD_DATASYNC == 0 {
@@ -926,7 +934,7 @@ impl WasiFs {
         rights_inheriting: __wasi_rights_t,
         flags: __wasi_fdflags_t,
         inode: Inode,
-    ) -> Result<u32, __wasi_errno_t> {
+    ) -> Result<__wasi_fd_t, __wasi_errno_t> {
         let idx = self.next_fd.get();
         self.next_fd.set(idx + 1);
         self.fd_map.insert(
