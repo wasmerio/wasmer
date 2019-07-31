@@ -337,6 +337,8 @@ void *wasmer_instance_context_data_get(const wasmer_instance_context_t *ctx);
 /// passed to all imported function for instance.
 void wasmer_instance_context_data_set(wasmer_instance_t *instance, void *data_ptr);
 
+const wasmer_instance_context_t *wasmer_instance_context_get(wasmer_instance_t *instance);
+
 /// Gets the memory within the context at the index `memory_idx`.
 /// The index is always 0 until multiple memories are supported.
 const wasmer_memory_t *wasmer_instance_context_memory(const wasmer_instance_context_t *ctx,
