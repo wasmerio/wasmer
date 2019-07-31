@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-clif-backend"
-version = "0.5.7"
+version = "0.6.0"
 description = "Wasmer runtime Cranelift compiler backend"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -9,7 +9,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.5.7" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.6.0" }
 cranelift-native = { version = "0.31" }
 cranelift-codegen = { version = "0.31" }
 cranelift-entity = { version = "0.31" }
@@ -35,7 +35,7 @@ version = "0.0.7"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["errhandlingapi", "minwindef", "minwinbase", "winnt"] }
-wasmer-win-exception-handler = { path = "../win-exception-handler", version = "0.5.7" }
+wasmer-win-exception-handler = { path = "../win-exception-handler", version = "0.6.0" }
 
 [features]
 debug = ["wasmer-runtime-core/debug"]
