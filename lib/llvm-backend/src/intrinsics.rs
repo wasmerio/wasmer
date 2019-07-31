@@ -328,12 +328,12 @@ impl Intrinsics {
             minimum_f32: module.add_function("llvm.minnum.f32", ret_f32_take_f32_f32, None),
             minimum_f64: module.add_function("llvm.minnum.f64", ret_f64_take_f64_f64, None),
             minimum_f32x4: module.add_function(
-                "llvm.minimum.v4f32",
+                "llvm.minnum.v4f32",
                 ret_f32x4_take_f32x4_f32x4,
                 None,
             ),
             minimum_f64x2: module.add_function(
-                "llvm.minimum.v2f64",
+                "llvm.minnum.v2f64",
                 ret_f64x2_take_f64x2_f64x2,
                 None,
             ),
@@ -341,12 +341,12 @@ impl Intrinsics {
             maximum_f32: module.add_function("llvm.maxnum.f32", ret_f32_take_f32_f32, None),
             maximum_f64: module.add_function("llvm.maxnum.f64", ret_f64_take_f64_f64, None),
             maximum_f32x4: module.add_function(
-                "llvm.maximum.v4f32",
+                "llvm.maxnum.v4f32",
                 ret_f32x4_take_f32x4_f32x4,
                 None,
             ),
             maximum_f64x2: module.add_function(
-                "llvm.maximum.v2f64",
+                "llvm.maxnum.v2f64",
                 ret_f64x2_take_f64x2_f64x2,
                 None,
             ),
