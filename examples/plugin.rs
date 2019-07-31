@@ -137,8 +137,6 @@ fn main() {
     // set up logging by replacing stdout
     initialize(instance.context_mut());
 
-    let main = instance.func::<(), ()>("_start").unwrap();
-    main.call().expect("Could not initialize");
     // get a reference to the function "plugin_entrypoint" which takes an i32 and returns an i32
     let entry_point = instance.func::<(i32), i32>("plugin_entrypoint").unwrap();
     // call the "entry_point" function in WebAssembly with the number "2" as the i32 argument
