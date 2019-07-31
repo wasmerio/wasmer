@@ -19,9 +19,14 @@ use std::{
 };
 use wasmer_runtime_core::{debug, vm::Ctx};
 
+/// the fd value of the virtual root
+pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 4;
+/// all the rights enabled
+pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFFFFFF;
+
 /// Get WasiState from a Ctx
-pub unsafe fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
-    &mut *(ctx.data as *mut WasiState)
+pub fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
+    unsafe { &mut *(ctx.data as *mut WasiState) }
 }
 
 /// A completely aribtrary "big enough" number used as the upper limit for
@@ -607,16 +612,35 @@ impl WasiFs {
         fd: __wasi_fd_t,
         file: Box<dyn WasiFile>,
     ) -> Result<Option<Box<dyn WasiFile>>, WasiFsError> {
-        let base_fd = self.get_fd(fd).map_err(WasiFsError::from_wasi_err)?;
-        let base_inode = base_fd.inode;
-
-        match &mut self.inodes[base_inode].kind {
-            Kind::File { ref mut handle, .. } => {
-                let mut ret = Some(file);
-                std::mem::swap(handle, &mut ret);
-                Ok(ret)
+        match fd {
+            __WASI_STDIN_FILENO => {
+                let mut ret = file;
+                std::mem::swap(&mut self.stdin, &mut ret);
+                Ok(Some(ret))
             }
-            _ => Err(WasiFsError::NotAFile),
+            __WASI_STDOUT_FILENO => {
+                let mut ret = file;
+                std::mem::swap(&mut self.stdout, &mut ret);
+                Ok(Some(ret))
+            }
+            __WASI_STDERR_FILENO => {
+                let mut ret = file;
+                std::mem::swap(&mut self.stderr, &mut ret);
+                Ok(Some(ret))
+            }
+            _ => {
+                let base_fd = self.get_fd(fd).map_err(WasiFsError::from_wasi_err)?;
+                let base_inode = base_fd.inode;
+
+                match &mut self.inodes[base_inode].kind {
+                    Kind::File { ref mut handle, .. } => {
+                        let mut ret = Some(file);
+                        std::mem::swap(handle, &mut ret);
+                        Ok(ret)
+                    }
+                    _ => return Err(WasiFsError::NotAFile),
+                }
+            }
         }
     }
 
