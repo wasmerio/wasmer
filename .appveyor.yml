@@ -75,4 +75,4 @@ deploy:
   provider: GitHub
   on:
     branch: master
-    # appveyor_repo_tag: true
+    appveyor_repo_tag: true
