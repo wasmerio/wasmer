@@ -108,6 +108,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
     wasmer_result_t::WASMER_OK
 }
 
+/// Extracts the instance's context and returns it.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instance_context_get(
