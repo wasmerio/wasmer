@@ -73,11 +73,21 @@ int main()
     counter->amount = 5;
     wasmer_instance_context_data_set(instance, counter);
 
-    wasmer_result_t call1_result = wasmer_instance_call(instance, "inc_and_get", NULL, 0, NULL, 0);
-    printf("Call result:  %d\n", call1_result);
+    wasmer_value_t result_one;
+    wasmer_value_t params[] = {};
+    wasmer_value_t results[] = {result_one};
 
-    wasmer_result_t call2_result = wasmer_instance_call(instance, "inc_and_get", NULL, 0, NULL, 0);
+    wasmer_result_t call1_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
+    printf("Call result:  %d\n", call1_result);
+    printf("Result: %d\n", results[0].value.I32);
+    assert(results[0].value.I32 == 5);
+    assert(call1_result == WASMER_OK);
+
+    wasmer_result_t call2_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
     printf("Call result:  %d\n", call2_result);
+    printf("Result: %d\n", results[0].value.I32);
+    assert(results[0].value.I32 == 10);
+    assert(call2_result == WASMER_OK);
 
     return 0;
 }
