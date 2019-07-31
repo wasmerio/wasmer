@@ -47,11 +47,12 @@ install:
 #  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 build_script:
-  - cargo build --release --verbose
+  - cargo build --release --verbose --features backend-llvm
   - git submodule init
   - git submodule update
-  - if %APPVEYOR_REPO_BRANCH%==master cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+  - if not %APPVEYOR_PULL_REQUEST_HEAD_COMMIT% cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
   - cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
+  - appveyor PushArtifact target\release\wasmer_runtime_c_api.dll
 
 test_script:
   - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
@@ -74,4 +75,4 @@ deploy:
   provider: GitHub
   on:
     branch: master
-    appveyor_repo_tag: true
+    # appveyor_repo_tag: true
