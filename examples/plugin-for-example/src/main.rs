@@ -1,6 +1,5 @@
 extern "C" {
     fn it_works() -> i32;
-    fn initialize();
 }
 
 #[no_mangle]
@@ -10,6 +9,4 @@ pub fn plugin_entrypoint(n: i32) -> i32 {
     result + n
 }
 
-pub fn main() {
-    unsafe { initialize() };
-}
+pub fn main() {}

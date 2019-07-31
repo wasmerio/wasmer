@@ -40,6 +40,4 @@ In this example, we instantiate a system with an extended (WASI)[wasi] ABI, allo
 
 Because the Rust WASI doesn't support the crate type of `cdylib`, we have to include a main function which we don't use.  This is being discussed [here](https://github.com/WebAssembly/WASI/issues/24).
 
-We call the main function to initialize WASI's libpreopen internal datastructures and have the module call back into the host to set swap out the modules implementation of stdout.  The host then provides a wrapper around stdout, allowing the guest's writes to stdout to be formatted in a host-appropriate manner.
-
 [wasi]: https://hacks.mozilla.org/2019/03/standardizing-wasi-a-webassembly-system-interface/

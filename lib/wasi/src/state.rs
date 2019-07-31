@@ -25,8 +25,9 @@ pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 4;
 pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFFFFFF;
 
 /// Get WasiState from a Ctx
-pub fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
-    unsafe { &mut *(ctx.data as *mut WasiState) }
+/// This function is unsafe because it must be called on a WASI Ctx
+pub unsafe fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
+    &mut *(ctx.data as *mut WasiState)
 }
 
 /// A completely aribtrary "big enough" number used as the upper limit for

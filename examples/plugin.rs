@@ -103,7 +103,7 @@ impl WasiFile for LoggingWrapper {
 
 /// Called by the program when it wants to set itself up
 fn initialize(ctx: &mut Ctx) {
-    let state = state::get_wasi_state(ctx);
+    let state = unsafe { state::get_wasi_state(ctx) };
     let wasi_file_inner = LoggingWrapper {
         wasm_module_name: "example module name".to_string(),
     };
@@ -127,14 +127,15 @@ fn main() {
     let custom_imports = imports! {
         "env" => {
             "it_works" => func!(it_works),
-            "initialize" => func!(initialize),
         },
     };
     // The WASI imports object contains all required import functions for a WASI module to run.
     // Extend this imports with our custom imports containing "it_works" function so that our custom wasm code may run.
     base_imports.extend(custom_imports);
-    let instance =
+    let mut instance =
         instantiate(&wasm_bytes[..], &base_imports).expect("failed to instantiate wasm module");
+    // set up logging by replacing stdout
+    initialize(instance.context_mut());
 
     let main = instance.func::<(), ()>("_start").unwrap();
     main.call().expect("Could not initialize");
