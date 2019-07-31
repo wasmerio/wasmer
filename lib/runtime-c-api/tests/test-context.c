@@ -69,7 +69,7 @@ int main()
     printf("Compile result:  %d\n", compile_result);
 
     counter_data* counter = malloc(sizeof(counter_data));
-    counter->value = 0;
+    counter->value = 2;
     counter->amount = 5;
     wasmer_instance_context_data_set(instance, counter);
 
@@ -80,14 +80,20 @@ int main()
     wasmer_result_t call1_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
     printf("Call result:  %d\n", call1_result);
     printf("Result: %d\n", results[0].value.I32);
-    assert(results[0].value.I32 == 5);
+    assert(results[0].value.I32 == 7);
     assert(call1_result == WASMER_OK);
 
     wasmer_result_t call2_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
     printf("Call result:  %d\n", call2_result);
     printf("Result: %d\n", results[0].value.I32);
-    assert(results[0].value.I32 == 10);
+    assert(results[0].value.I32 == 12);
     assert(call2_result == WASMER_OK);
+
+    wasmer_import_func_destroy(inc_func);
+    wasmer_import_func_destroy(get_func);
+    wasmer_instance_destroy(instance);
+    free(counter);
+    free(bytes);
 
     return 0;
 }
