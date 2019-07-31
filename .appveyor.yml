@@ -31,8 +31,8 @@ install:
 
   # Install Rust
   # uncomment these lines if the cache is cleared, or if we must re-install rust for some reason
-  # - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
-  # - rustup-init.exe -yv --default-host %target%
+  - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+  - rustup-init.exe -yv --default-host %target%
   - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
   - rustup default stable-%target%
   - rustup update
