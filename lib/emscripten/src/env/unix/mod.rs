@@ -196,18 +196,15 @@ pub fn _getaddrinfo(
 
     let hints = hints_ptr.deref(memory).map(|hints_memory| {
         let hints_guest = hints_memory.get();
-        unsafe {
-            let mut hints_native: addrinfo = std::mem::uninitialized();
-            hints_native.ai_flags = hints_guest.ai_flags;
-            hints_native.ai_family = hints_guest.ai_family;
-            hints_native.ai_socktype = hints_guest.ai_socktype;
-            hints_native.ai_protocol = hints_guest.ai_protocol;
-            hints_native.ai_addrlen = 0;
-            hints_native.ai_addr = std::ptr::null_mut();
-            hints_native.ai_canonname = std::ptr::null_mut();
-            hints_native.ai_next = std::ptr::null_mut();
-
-            hints_native
+        addrinfo {
+            ai_flags: hints_guest.ai_flags,
+            ai_family: hints_guest.ai_family,
+            ai_socktype: hints_guest.ai_socktype,
+            ai_protocol: hints_guest.ai_protocol,
+            ai_addrlen: 0,
+            ai_addr: std::ptr::null_mut(),
+            ai_canonname: std::ptr::null_mut(),
+            ai_next: std::ptr::null_mut(),
         }
     });
 
