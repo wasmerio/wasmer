@@ -147,6 +147,7 @@ pub struct Intrinsics {
     pub memory_size_shared_import: FunctionValue,
 
     pub throw_trap: FunctionValue,
+    pub throw_breakpoint: FunctionValue,
 
     pub ctx_ptr_ty: PointerType,
 }
@@ -309,7 +310,6 @@ impl Intrinsics {
             i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false);
 
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
-
         Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
             ctlz_i64: module.add_function("llvm.ctlz.i64", ret_i64_take_i64_i1, None),
@@ -523,6 +523,11 @@ impl Intrinsics {
             throw_trap: module.add_function(
                 "vm.exception.trap",
                 void_ty.fn_type(&[i32_ty_basic], false),
+                None,
+            ),
+            throw_breakpoint: module.add_function(
+                "vm.breakpoint",
+                void_ty.fn_type(&[i64_ty_basic], false),
                 None,
             ),
             ctx_ptr_ty,

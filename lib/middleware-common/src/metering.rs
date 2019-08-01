@@ -129,7 +129,7 @@ pub fn set_points_used_ctx(ctx: &mut Ctx, value: u64) {
     ctx.set_internal(&INTERNAL_FIELD, value);
 }
 
-#[cfg(all(test, feature = "singlepass"))]
+#[cfg(all(test, any(feature = "singlepass", feature = "llvm")))]
 mod tests {
     use super::*;
     use wabt::wat2wasm;

@@ -1,9 +1,10 @@
 #include <cstddef>
 #include <cstdint>
-#include <llvm/ExecutionEngine/RuntimeDyld.h>
+#include <exception>
 #include <iostream>
 #include <sstream>
-#include <exception>
+
+#include <llvm/ExecutionEngine/RuntimeDyld.h>
 
 typedef enum
 {
@@ -75,6 +76,19 @@ struct UserException : UncatchableException
 
     // The parts of a `Box<dyn Any>`.
     box_any_t error_data;
+};
+
+struct BreakpointException : UncatchableException
+{
+  public:
+    BreakpointException(uintptr_t callback) : callback(callback) {}
+
+    virtual std::string description() const noexcept override
+    {
+        return "breakpoint exception";
+    }
+
+    uintptr_t callback;
 };
 
 struct WasmTrap : UncatchableException
@@ -166,6 +180,8 @@ struct WasmModule
 
 extern "C"
 {
+    void callback_trampoline(void *, void *);
+
     result_t module_load(const uint8_t *mem_ptr, size_t mem_size, callbacks_t callbacks, WasmModule **module_out)
     {
         *module_out = new WasmModule(mem_ptr, mem_size, callbacks);
@@ -192,6 +208,12 @@ extern "C"
         throw UserException(data, vtable);
     }
 
+    // Throw a pointer that's assumed to be codegen::BreakpointHandler on the
+    // rust side.
+    [[noreturn]] void throw_breakpoint(uintptr_t callback) {
+        throw BreakpointException(callback);
+    }
+
     bool invoke_trampoline(
         trampoline_t trampoline,
         void *ctx,
@@ -215,6 +237,10 @@ extern "C"
         catch (const UserException &e)
         {
             *user_error = e.error_data;
+            return false;
+        }
+        catch (const BreakpointException &e) {
+            callback_trampoline(user_error, (void *)e.callback);
             return false;
         }
         catch (const WasmException &e)
