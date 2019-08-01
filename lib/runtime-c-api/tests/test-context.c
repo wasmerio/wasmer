@@ -5,18 +5,61 @@
 #include <string.h>
 
 typedef struct {
-  int32_t amount;
-  int32_t value;
+    int32_t amount;
+    int32_t value;
 } counter_data;
 
+typedef struct {
+    uint8_t* bytes;
+    long bytes_len;
+} wasm_file_t;
+
+wasm_file_t read_wasm_file(const char* file_name) {
+    wasm_file_t wasm_file;
+
+    FILE *file = fopen(file_name, "r");
+    fseek(file, 0, SEEK_END);
+    wasm_file.bytes_len = ftell(file);
+
+    wasm_file.bytes = malloc(wasm_file.bytes_len);
+    fseek(file, 0, SEEK_SET);
+    fread(wasm_file.bytes, 1, wasm_file.bytes_len, file);
+    fclose(file);
+
+    return wasm_file;
+}
+
 void inc_counter(wasmer_instance_context_t *ctx) {
-  counter_data* data = (counter_data*)wasmer_instance_context_data_get(ctx);
-  data->value = data->value + data->amount;
+    counter_data* data = (counter_data*)wasmer_instance_context_data_get(ctx);
+    data->value = data->value + data->amount;
 }
 
 int32_t get_counter(wasmer_instance_context_t *ctx) {
-  counter_data* data = (counter_data*)wasmer_instance_context_data_get(ctx);
-  return data->value;
+    counter_data* data = (counter_data*)wasmer_instance_context_data_get(ctx);
+    return data->value;
+}
+
+counter_data *init_counter(int32_t value, int32_t amount) {
+    counter_data* counter = malloc(sizeof(counter_data));
+    counter->value = value;
+    counter->amount = amount;
+    return counter;
+}
+
+void assert_counter(wasmer_instance_t *instance, int32_t expected) {
+    wasmer_value_t result_one;
+    wasmer_value_t params[] = {};
+    wasmer_value_t results[] = {result_one};
+
+    wasmer_result_t call1_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
+    printf("Call result:  %d\n", call1_result);
+    printf("Result: %d\n", results[0].value.I32);
+    assert(results[0].value.I32 == expected);
+    assert(call1_result == WASMER_OK);
+
+    const wasmer_instance_context_t *ctx = wasmer_instance_context_get(instance);
+    counter_data *cd = (counter_data*)wasmer_instance_context_data_get(ctx);
+    assert(cd->value == expected);
 }
 
 wasmer_import_t create_import(char* module_name, char* import_name, wasmer_import_func_t *func) {
@@ -41,7 +84,7 @@ wasmer_import_t create_import(char* module_name, char* import_name, wasmer_impor
 
 int main()
 {
-    // Imports
+    // Prepare Imports
     wasmer_value_tag inc_params_sig[] = {};
     wasmer_value_tag inc_returns_sig[] = {};
     wasmer_import_func_t *inc_func = wasmer_import_func_new((void (*)(void *)) inc_counter, inc_params_sig, 0, inc_returns_sig, 0);
@@ -54,46 +97,30 @@ int main()
 
     wasmer_import_t imports[] = {inc_import, get_import};
 
-    // Read the wasm file bytes
-    FILE *file = fopen("assets/inc.wasm", "r");
-    fseek(file, 0, SEEK_END);
-    long len = ftell(file);
-    uint8_t *bytes = malloc(len);
-    fseek(file, 0, SEEK_SET);
-    fread(bytes, 1, len, file);
-    fclose(file);
+    // Read the wasm file
+    wasm_file_t wasm_file = read_wasm_file("assets/inc.wasm");
 
+    // Instantiate instance
     printf("Instantiating\n");
     wasmer_instance_t *instance = NULL;
-    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 2);
+    wasmer_result_t compile_result = wasmer_instantiate(&instance, wasm_file.bytes, wasm_file.bytes_len, imports, 2);
     printf("Compile result:  %d\n", compile_result);
 
-    counter_data* counter = malloc(sizeof(counter_data));
-    counter->value = 2;
-    counter->amount = 5;
+    // Init counter
+    counter_data *counter = init_counter(2, 5);
     wasmer_instance_context_data_set(instance, counter);
 
-    wasmer_value_t result_one;
-    wasmer_value_t params[] = {};
-    wasmer_value_t results[] = {result_one};
+    // Run `instance.inc_and_get` and assert
+    assert_counter(instance, 7);
+    assert_counter(instance, 12);
+    assert_counter(instance, 17);
 
-    wasmer_result_t call1_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
-    printf("Call result:  %d\n", call1_result);
-    printf("Result: %d\n", results[0].value.I32);
-    assert(results[0].value.I32 == 7);
-    assert(call1_result == WASMER_OK);
-
-    wasmer_result_t call2_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
-    printf("Call result:  %d\n", call2_result);
-    printf("Result: %d\n", results[0].value.I32);
-    assert(results[0].value.I32 == 12);
-    assert(call2_result == WASMER_OK);
-
+    // Clear resources
     wasmer_import_func_destroy(inc_func);
     wasmer_import_func_destroy(get_func);
     wasmer_instance_destroy(instance);
     free(counter);
-    free(bytes);
+    free(wasm_file.bytes);
 
     return 0;
 }
