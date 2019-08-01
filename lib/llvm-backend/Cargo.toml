@@ -8,7 +8,6 @@ readme = "README.md"
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.6.0" }
 wasmparser = "0.35.1"
-hashbrown = "0.1.8"
 smallvec = "0.6.8"
 goblin = "0.0.20"
 libc = "0.2.60"

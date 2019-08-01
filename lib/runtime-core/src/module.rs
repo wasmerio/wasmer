@@ -14,7 +14,7 @@ use crate::{
 };
 
 use crate::backend::CacheGen;
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use indexmap::IndexMap;
 use std::sync::Arc;
 

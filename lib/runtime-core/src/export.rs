@@ -2,7 +2,7 @@ use crate::{
     global::Global, instance::InstanceInner, memory::Memory, module::ExportIndex,
     module::ModuleInner, table::Table, types::FuncSig, vm,
 };
-use hashbrown::hash_map;
+use std::collections::hash_map;
 use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone)]

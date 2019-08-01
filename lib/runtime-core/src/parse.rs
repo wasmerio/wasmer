@@ -14,7 +14,7 @@ use crate::{
     },
     units::Pages,
 };
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use wasmparser::{

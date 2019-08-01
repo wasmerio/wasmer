@@ -23,7 +23,6 @@ byteorder = "1.3.2"
 errno = "0.2.4"
 structopt = "0.2.18"
 wabt = "0.9.0"
-hashbrown = "0.1.8"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }

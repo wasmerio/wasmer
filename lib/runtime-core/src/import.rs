@@ -1,5 +1,5 @@
 use crate::export::Export;
-use hashbrown::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, HashMap};
 use std::collections::VecDeque;
 use std::{
     cell::{Ref, RefCell},

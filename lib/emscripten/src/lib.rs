@@ -3,7 +3,7 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
 use std::path::PathBuf;
