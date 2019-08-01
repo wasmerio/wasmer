@@ -34,6 +34,11 @@ void inc_counter(wasmer_instance_context_t *ctx) {
     data->value = data->value + data->amount;
 }
 
+void mul_counter(wasmer_instance_context_t *ctx) {
+    counter_data* data = (counter_data*)wasmer_instance_context_data_get(ctx);
+    data->value = data->value * data->amount;
+}
+
 int32_t get_counter(wasmer_instance_context_t *ctx) {
     counter_data* data = (counter_data*)wasmer_instance_context_data_get(ctx);
     return data->value;
@@ -90,12 +95,17 @@ int main()
     wasmer_import_func_t *inc_func = wasmer_import_func_new((void (*)(void *)) inc_counter, inc_params_sig, 0, inc_returns_sig, 0);
     wasmer_import_t inc_import = create_import("env", "inc", inc_func);
 
+    wasmer_value_tag mul_params_sig[] = {};
+    wasmer_value_tag mul_returns_sig[] = {};
+    wasmer_import_func_t *mul_func = wasmer_import_func_new((void (*)(void *)) mul_counter, mul_params_sig, 0, mul_returns_sig, 0);
+    wasmer_import_t mul_import = create_import("env", "mul", mul_func);
+
     wasmer_value_tag get_params_sig[] = {};
     wasmer_value_tag get_returns_sig[] = {WASM_I32};
     wasmer_import_func_t *get_func = wasmer_import_func_new((void (*)(void *)) get_counter, get_params_sig, 0, get_returns_sig, 1);
     wasmer_import_t get_import = create_import("env", "get", get_func);
 
-    wasmer_import_t imports[] = {inc_import, get_import};
+    wasmer_import_t imports[] = {inc_import, mul_import, get_import};
 
     // Read the wasm file
     wasm_file_t wasm_file = read_wasm_file("assets/inc.wasm");
@@ -103,8 +113,9 @@ int main()
     // Instantiate instance
     printf("Instantiating\n");
     wasmer_instance_t *instance = NULL;
-    wasmer_result_t compile_result = wasmer_instantiate(&instance, wasm_file.bytes, wasm_file.bytes_len, imports, 2);
-    printf("Compile result:  %d\n", compile_result);
+    wasmer_result_t instantiate_res = wasmer_instantiate(&instance, wasm_file.bytes, wasm_file.bytes_len, imports, 3);
+    printf("Compile result:  %d\n", instantiate_res);
+    assert(instantiate_res == WASMER_OK);
 
     // Init counter
     counter_data *counter = init_counter(2, 5);

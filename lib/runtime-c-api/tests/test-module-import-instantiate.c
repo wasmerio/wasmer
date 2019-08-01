@@ -119,6 +119,7 @@ int main()
     wasmer_instance_t *instance = NULL;
     wasmer_result_t instantiate_res = wasmer_module_import_instantiate(&instance, module, import_object);
     printf("Compile result:  %d\n", instantiate_res);
+    assert(instantiate_res == WASMER_OK);
 
     // Init counter
     counter_data *counter = init_counter(2, 5);
