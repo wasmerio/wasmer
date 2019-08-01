@@ -10,7 +10,7 @@ readme = "README.md"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.6.0" }
-wasmparser = "0.34.0"
+wasmparser = "0.35.1"
 dynasm = "0.3.2"
 dynasmrt = "0.3.1"
 lazy_static = "1.2.0"
