@@ -10,7 +10,7 @@ edition = "2018"
 [target.'cfg(windows)'.dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.6.0" }
 winapi = { version = "0.3", features = ["winbase", "errhandlingapi", "minwindef", "minwinbase", "winnt"] }
-libc = "0.2.49"
+libc = "0.2.60"
 
 [build-dependencies]
 cmake = "0.1.35"

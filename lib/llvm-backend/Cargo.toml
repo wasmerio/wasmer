@@ -11,8 +11,8 @@ wasmparser = "0.35.1"
 hashbrown = "0.1.8"
 smallvec = "0.6.8"
 goblin = "0.0.20"
-libc = "0.2.49"
-nix = "0.14.0"
+libc = "0.2.60"
+nix = "0.14.1"
 capstone = { version = "0.5.0", optional = true }
 
 [dependencies.inkwell]

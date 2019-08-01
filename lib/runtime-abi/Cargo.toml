@@ -8,7 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-libc = "0.2.50"
+libc = "0.2.60"
 wasmer-runtime-core = { path = "../runtime-core" }
 hashbrown = "0.1"
 failure = "0.1"
