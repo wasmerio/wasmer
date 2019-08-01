@@ -8,4 +8,4 @@ edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
 
 [dependencies]
-libc = "0.2.49"
+libc = "0.2.60"

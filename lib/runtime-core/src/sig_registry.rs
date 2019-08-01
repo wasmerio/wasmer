@@ -2,9 +2,9 @@ use crate::{
     structures::Map,
     types::{FuncSig, SigIndex},
 };
-use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 lazy_static! {
