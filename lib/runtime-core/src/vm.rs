@@ -850,6 +850,7 @@ mod vm_ctx_tests {
         use crate::cache::Error as CacheError;
         use crate::typed_func::Wasm;
         use crate::types::{LocalFuncIndex, SigIndex};
+        use indexmap::IndexMap;
         use std::any::Any;
         use std::collections::HashMap;
         use std::ptr::NonNull;
@@ -890,7 +891,7 @@ mod vm_ctx_tests {
                 imported_tables: Map::new(),
                 imported_globals: Map::new(),
 
-                exports: HashMap::new(),
+                exports: IndexMap::new(),
 
                 data_initializers: Vec::new(),
                 elem_initializers: Vec::new(),
