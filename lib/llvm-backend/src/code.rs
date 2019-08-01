@@ -19,7 +19,7 @@ use wasmer_runtime_core::{
     module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
+        FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type, ImportedFuncIndex,
     },
 };
 use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
@@ -303,6 +303,7 @@ fn resolve_memory_ptr(
 }
 
 fn emit_stack_map(
+    module_info: &ModuleInfo,
     intrinsics: &Intrinsics,
     builder: &Builder,
     local_function_id: usize,
@@ -310,6 +311,7 @@ fn emit_stack_map(
     kind: StackmapEntryKind,
     locals: &[PointerValue],
     state: &State,
+    ctx: &mut CtxType,
     opcode_offset: usize,
 ) {
     let stackmap_id = target.entries.len();
@@ -332,6 +334,76 @@ fn emit_stack_map(
 
     params.extend_from_slice(&state.stack);
     value_semantics.extend((0..state.stack.len()).map(ValueSemantic::WasmStack));
+
+    params.push(ctx.basic());
+    value_semantics.push(ValueSemantic::Ctx);
+
+    if module_info.memories.len() + module_info.imported_memories.len() > 0 {
+        let cache = ctx.memory(MemoryIndex::new(0), intrinsics);
+        match cache {
+            MemoryCache::Dynamic { ptr_to_base_ptr, ptr_to_bounds } => {
+                params.push(ptr_to_base_ptr.as_basic_value_enum());
+                value_semantics.push(ValueSemantic::PointerToMemoryBase);
+
+                params.push(ptr_to_bounds.as_basic_value_enum());
+                value_semantics.push(ValueSemantic::PointerToMemoryBound);
+            }
+            MemoryCache::Static { base_ptr, bounds } => {
+                params.push(base_ptr.as_basic_value_enum());
+                value_semantics.push(ValueSemantic::MemoryBase);
+
+                params.push(bounds.as_basic_value_enum());
+                value_semantics.push(ValueSemantic::MemoryBound);
+            }
+        }
+    }
+
+    if module_info.tables.len() + module_info.imported_tables.len() > 0 {
+        let (ptr_to_base_ptr, ptr_to_bounds) = ctx.table_prepare(TableIndex::new(0), intrinsics);
+
+        params.push(ptr_to_base_ptr.as_basic_value_enum());
+        value_semantics.push(ValueSemantic::PointerToTableBase);
+
+        params.push(ptr_to_bounds.as_basic_value_enum());
+        value_semantics.push(ValueSemantic::PointerToMemoryBound);
+    }
+
+    if module_info.globals.len() + module_info.imported_globals.len() > 0 {
+        for i in 0..module_info.globals.len() + module_info.imported_globals.len() {
+            let cache = ctx.global_cache(GlobalIndex::new(i), intrinsics);
+            match cache {
+                GlobalCache::Const { value } => {
+                    params.push(value);
+                    value_semantics.push(ValueSemantic::Global(i));
+                }
+                GlobalCache::Mut { ptr_to_value } => {
+                    params.push(ptr_to_value.as_basic_value_enum());
+                    value_semantics.push(ValueSemantic::PointerToGlobal(i));
+                }
+            }
+
+        }
+    }
+
+    if module_info.imported_functions.len() > 0 {
+        // TODO: Optimize this
+        for i in 0..module_info.imported_functions.len() {
+            let (func_ptr, ctx_ptr) = ctx.imported_func(ImportedFuncIndex::new(i), intrinsics);
+
+            params.push(func_ptr.as_basic_value_enum());
+            value_semantics.push(ValueSemantic::ImportedFuncPointer(i));
+
+            params.push(ctx_ptr.as_basic_value_enum());
+            value_semantics.push(ValueSemantic::ImportedFuncCtx(i));
+        }
+    }
+
+    params.push(ctx.signal_mem().as_basic_value_enum());
+    value_semantics.push(ValueSemantic::SignalMem);
+
+    // TODO: sigindices
+
+    assert_eq!(params.len(), value_semantics.len() + 2);
 
     builder.build_call(intrinsics.experimental_stackmap, &params, &state.var_name());
 
@@ -487,6 +559,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
             let mut stackmaps = self.stackmaps.borrow_mut();
             emit_stack_map(
+                &module_info,
                 &intrinsics,
                 &builder,
                 self.index,
@@ -494,6 +567,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 StackmapEntryKind::FunctionHeader,
                 &self.locals,
                 &state,
+                self.ctx.as_mut().unwrap(),
                 ::std::usize::MAX,
             );
             finalize_opcode_stack_map(
@@ -605,6 +679,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
+                        &info,
                         intrinsics,
                         builder,
                         self.index,
@@ -612,6 +687,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         StackmapEntryKind::Loop,
                         &self.locals,
                         state,
+                        ctx,
                         offset,
                     );
                     let signal_mem = ctx.signal_mem();
@@ -892,6 +968,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
+                        &info,
                         intrinsics,
                         builder,
                         self.index,
@@ -899,6 +976,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         StackmapEntryKind::Trappable,
                         &self.locals,
                         state,
+                        ctx,
                         offset,
                     );
                     builder.build_call(intrinsics.trap, &[], "trap");
@@ -908,7 +986,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         self.index,
                         &mut *stackmaps,
                         StackmapEntryKind::Trappable,
-                        offset + 1,
+                        offset,
                     );
                 }
 
@@ -1052,6 +1130,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
+                        &info,
                         intrinsics,
                         builder,
                         self.index,
@@ -1059,6 +1138,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         StackmapEntryKind::Call,
                         &self.locals,
                         state,
+                        ctx,
                         offset,
                     )
                 }
@@ -1241,6 +1321,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
+                        &info,
                         intrinsics,
                         builder,
                         self.index,
@@ -1248,6 +1329,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         StackmapEntryKind::Call,
                         &self.locals,
                         state,
+                        ctx,
                         offset,
                     )
                 }
@@ -2737,6 +2819,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         if cfg!(test) {
             pass_manager.add_verifier_pass();
         }
+        /*
         pass_manager.add_lower_expect_intrinsic_pass();
         pass_manager.add_scalar_repl_aggregates_pass();
         pass_manager.add_instruction_combining_pass();
@@ -2749,7 +2832,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         pass_manager.add_reassociate_pass();
         pass_manager.add_cfg_simplification_pass();
         pass_manager.add_bit_tracking_dce_pass();
-        pass_manager.add_slp_vectorize_pass();
+        pass_manager.add_slp_vectorize_pass();*/
         pass_manager.run_on_module(&self.module);
 
         // self.module.print_to_stderr();

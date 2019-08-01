@@ -582,12 +582,11 @@ impl<'a> CtxType<'a> {
         })
     }
 
-    pub fn table(
+    pub fn table_prepare(
         &mut self,
         index: TableIndex,
         intrinsics: &Intrinsics,
-        builder: &Builder,
-    ) -> (PointerValue, IntValue) {
+    ) -> (PointerValue, PointerValue) {
         let (cached_tables, info, ctx_ptr_value, cache_builder) = (
             &mut self.cached_tables,
             self.info,
@@ -646,6 +645,16 @@ impl<'a> CtxType<'a> {
             }
         });
 
+        (ptr_to_base_ptr, ptr_to_bounds)
+    }
+
+    pub fn table(
+        &mut self,
+        index: TableIndex,
+        intrinsics: &Intrinsics,
+        builder: &Builder,
+    ) -> (PointerValue, IntValue) {
+        let (ptr_to_base_ptr, ptr_to_bounds) = self.table_prepare(index, intrinsics);
         (
             builder
                 .build_load(ptr_to_base_ptr, "base_ptr")

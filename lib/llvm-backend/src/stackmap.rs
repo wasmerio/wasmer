@@ -8,6 +8,13 @@ use wasmer_runtime_core::state::{
     FunctionStateMap, MachineStateDiff, MachineValue, ModuleStateMap, OffsetInfo, RegisterIndex,
     SuspendOffset, WasmAbstractValue,
 };
+use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime_core::{
+    module::ModuleInfo,
+    types::{GlobalIndex, TableIndex, LocalOrImport},
+    structures::TypedIndex,
+    vm,
+};
 
 #[derive(Default, Debug, Clone)]
 pub struct StackmapRegistry {
@@ -29,6 +36,19 @@ pub struct StackmapEntry {
 pub enum ValueSemantic {
     WasmLocal(usize),
     WasmStack(usize),
+    Ctx,
+    SignalMem,
+    PointerToMemoryBase,
+    PointerToMemoryBound, // 64-bit
+    MemoryBase,
+    MemoryBound, // 64-bit
+    PointerToGlobal(usize),
+    Global(usize),
+    PointerToTableBase,
+    PointerToTableBound,
+    ImportedFuncPointer(usize),
+    ImportedFuncCtx(usize),
+    DynamicSigindice(usize),
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -69,6 +89,7 @@ pub struct MachineStateDiff {
 impl StackmapEntry {
     pub fn populate_msm(
         &self,
+        module_info: &ModuleInfo,
         code_addr: usize,
         llvm_map: &StackMap,
         size_record: &StkSizeRecord,
@@ -86,6 +107,7 @@ impl StackmapEntry {
             .checked_sub(code_addr)
             .unwrap();
         let target_offset = func_base_addr + map_record.instruction_offset as usize;
+        assert!(self.is_start);
 
         if msm.local_functions.len() == self.local_function_id {
             assert_eq!(self.kind, StackmapEntryKind::FunctionHeader);
@@ -131,6 +153,31 @@ impl StackmapEntry {
                     wasm_stack.push(WasmAbstractValue::Runtime);
                     MachineValue::WasmStack(x)
                 }
+                ValueSemantic::Ctx => MachineValue::Vmctx,
+                ValueSemantic::SignalMem => MachineValue::VmctxDeref(vec![Ctx::offset_interrupt_signal_mem() as usize, 0]),
+                ValueSemantic::PointerToMemoryBase => MachineValue::VmctxDeref(vec![Ctx::offset_memory_base() as usize]),
+                ValueSemantic::PointerToMemoryBound => MachineValue::VmctxDeref(vec![Ctx::offset_memory_bound() as usize]),
+                ValueSemantic::MemoryBase => MachineValue::VmctxDeref(vec![Ctx::offset_memory_base() as usize, 0]),
+                ValueSemantic::MemoryBound => MachineValue::VmctxDeref(vec![Ctx::offset_memory_bound() as usize, 0]),
+                ValueSemantic::PointerToGlobal(idx) => MachineValue::VmctxDeref(deref_global(module_info, idx, false)),
+                ValueSemantic::Global(idx) => MachineValue::VmctxDeref(deref_global(module_info, idx, true)),
+                ValueSemantic::PointerToTableBase => MachineValue::VmctxDeref(deref_table_base(module_info, 0, false)),
+                ValueSemantic::PointerToTableBound => MachineValue::VmctxDeref(deref_table_bound(module_info, 0, false)),
+                ValueSemantic::ImportedFuncPointer(idx) => MachineValue::VmctxDeref(vec![
+                    Ctx::offset_imported_funcs() as usize,
+                    vm::ImportedFunc::size() as usize * idx + vm::ImportedFunc::offset_func() as usize,
+                    0,
+                ]),
+                ValueSemantic::ImportedFuncCtx(idx) => MachineValue::VmctxDeref(vec![
+                    Ctx::offset_imported_funcs() as usize,
+                    vm::ImportedFunc::size() as usize * idx + vm::ImportedFunc::offset_vmctx() as usize,
+                    0,
+                ]),
+                ValueSemantic::DynamicSigindice(idx) => MachineValue::VmctxDeref(vec![
+                    Ctx::offset_signatures() as usize,
+                    idx * 4,
+                    0,
+                ]),
             };
             match loc.ty {
                 LocationType::Register => {
@@ -487,4 +534,61 @@ impl StackMap {
         }
         Ok(map)
     }
+}
+
+fn deref_global(info: &ModuleInfo, idx: usize, deref_into_value: bool) -> Vec<usize> {
+    let mut x: Vec<usize> = match GlobalIndex::new(idx).local_or_import(info) {
+        LocalOrImport::Local(idx) => vec![
+            Ctx::offset_globals() as usize,
+            idx.index() * 8,
+            0,
+        ],
+        LocalOrImport::Import(idx) => vec![
+            Ctx::offset_imported_globals() as usize,
+            idx.index() * 8,
+            0,
+        ],
+    };
+    if deref_into_value {
+        x.push(0);
+    }
+    x
+}
+
+fn deref_table_base(info: &ModuleInfo, idx: usize, deref_into_value: bool) -> Vec<usize> {
+    let mut x: Vec<usize> = match TableIndex::new(idx).local_or_import(info) {
+        LocalOrImport::Local(idx) => vec![
+            Ctx::offset_tables() as usize,
+            idx.index() * 8,
+            0,
+        ],
+        LocalOrImport::Import(idx) => vec![
+            Ctx::offset_imported_tables() as usize,
+            idx.index() * 8,
+            0,
+        ],
+    };
+    if deref_into_value {
+        x.push(0);
+    }
+    x
+}
+
+fn deref_table_bound(info: &ModuleInfo, idx: usize, deref_into_value: bool) -> Vec<usize> {
+    let mut x: Vec<usize> = match TableIndex::new(idx).local_or_import(info) {
+        LocalOrImport::Local(idx) => vec![
+            Ctx::offset_tables() as usize,
+            idx.index() * 8,
+            8,
+        ],
+        LocalOrImport::Import(idx) => vec![
+            Ctx::offset_imported_tables() as usize,
+            idx.index() * 8,
+            8,
+        ],
+    };
+    if deref_into_value {
+        x.push(0);
+    }
+    x
 }

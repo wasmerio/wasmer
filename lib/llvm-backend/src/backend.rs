@@ -367,6 +367,7 @@ impl LLVMBackend {
                         .expect("size_record not found");
 
                     start_entry.populate_msm(
+                        module_info,
                         code_ptr as usize,
                         &map,
                         size_record,

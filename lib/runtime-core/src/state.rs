@@ -39,6 +39,7 @@ pub struct MachineStateDiff {
 pub enum MachineValue {
     Undefined,
     Vmctx,
+    VmctxDeref(Vec<usize>),
     PreserveRegister(RegisterIndex),
     CopyStackBPRelative(i32), // relative to Base Pointer, in byte offset
     ExplicitShadow,           // indicates that all values above this are above the shadow region
@@ -361,6 +362,14 @@ pub mod x64 {
     use crate::vm::Ctx;
     use std::any::Any;
 
+    unsafe fn compute_vmctx_deref(vmctx: *const Ctx, seq: &[usize]) -> u64 {
+        let mut ptr = &vmctx as *const *const Ctx as *const u8;
+        for x in seq {
+            ptr = (*(ptr as *const *const u8)).offset(*x as isize);
+        }
+        ptr as usize as u64
+    }
+
     pub fn new_machine_state() -> MachineState {
         MachineState {
             stack_values: vec![],
@@ -427,6 +436,10 @@ pub mod x64 {
                         stack_offset -= 1;
                         stack[stack_offset] = vmctx as *mut Ctx as usize as u64;
                     }
+                    MachineValue::VmctxDeref(ref seq) => {
+                        stack_offset -= 1;
+                        stack[stack_offset] = compute_vmctx_deref(vmctx as *const Ctx, seq);
+                    }
                     MachineValue::PreserveRegister(index) => {
                         stack_offset -= 1;
                         stack[stack_offset] = known_registers[index.0].unwrap_or(0);
@@ -481,7 +494,6 @@ pub mod x64 {
                                 }
                             },
                             MachineValue::WasmLocal(x) => {
-                                stack_offset -= 1;
                                 match fsm.locals[x] {
                                     WasmAbstractValue::Const(x) => {
                                         assert!(x <= ::std::u32::MAX as u64);
@@ -493,6 +505,9 @@ pub mod x64 {
                                         stack[stack_offset] |= v;
                                     }
                                 }
+                            }
+                            MachineValue::VmctxDeref(ref seq) => {
+                                stack[stack_offset] |= compute_vmctx_deref(vmctx as *const Ctx, seq) & (::std::u32::MAX as u64);
                             }
                             MachineValue::Undefined => {}
                             _ => unimplemented!("TwoHalves.0"),
@@ -510,7 +525,6 @@ pub mod x64 {
                                 }
                             },
                             MachineValue::WasmLocal(x) => {
-                                stack_offset -= 1;
                                 match fsm.locals[x] {
                                     WasmAbstractValue::Const(x) => {
                                         assert!(x <= ::std::u32::MAX as u64);
@@ -522,6 +536,9 @@ pub mod x64 {
                                         stack[stack_offset] |= v << 32;
                                     }
                                 }
+                            }
+                            MachineValue::VmctxDeref(ref seq) => {
+                                stack[stack_offset] |= (compute_vmctx_deref(vmctx as *const Ctx, seq) & (::std::u32::MAX as u64)) << 32;
                             }
                             MachineValue::Undefined => {}
                             _ => unimplemented!("TwoHalves.1"),
@@ -538,6 +555,9 @@ pub mod x64 {
                     MachineValue::Undefined => {}
                     MachineValue::Vmctx => {
                         known_registers[i] = Some(vmctx as *mut Ctx as usize as u64);
+                    }
+                    MachineValue::VmctxDeref(ref seq) => {
+                        known_registers[i] = Some(compute_vmctx_deref(vmctx as *const Ctx, seq));
                     }
                     MachineValue::WasmStack(x) => match state.wasm_stack[x] {
                         WasmAbstractValue::Const(x) => {
@@ -563,6 +583,7 @@ pub mod x64 {
 
             stack_offset -= 1;
             stack[stack_offset] = (code_base + activate_offset) as u64; // return address
+            println!("activating at {:?}", (code_base + activate_offset) as *const u8);
         }
 
         stack_offset -= 1;
@@ -673,6 +694,7 @@ pub mod x64 {
 
         catch_unsafe_unwind(
             || {
+                ::std::intrinsics::breakpoint();
                 run_on_alternative_stack(
                     stack.as_mut_ptr().offset(stack.len() as isize),
                     stack.as_mut_ptr().offset(stack_offset as isize),
@@ -765,6 +787,7 @@ pub mod x64 {
                 match *v {
                     MachineValue::Undefined => {}
                     MachineValue::Vmctx => {}
+                    MachineValue::VmctxDeref(_) => {}
                     MachineValue::WasmStack(idx) => {
                         if let Some(v) = known_registers[i] {
                             wasm_stack[idx] = Some(v);
@@ -809,6 +832,9 @@ pub mod x64 {
                     MachineValue::Vmctx => {
                         stack = stack.offset(1);
                     }
+                    MachineValue::VmctxDeref(_) => {
+                        stack = stack.offset(1);
+                    }
                     MachineValue::PreserveRegister(idx) => {
                         known_registers[idx.0] = Some(*stack);
                         stack = stack.offset(1);
@@ -834,6 +860,7 @@ pub mod x64 {
                             MachineValue::WasmLocal(idx) => {
                                 wasm_locals[idx] = Some(v & 0xffffffffu64);
                             }
+                            MachineValue::VmctxDeref(_) => {}
                             MachineValue::Undefined => {}
                             _ => unimplemented!("TwoHalves.0 (read)"),
                         }
@@ -844,6 +871,7 @@ pub mod x64 {
                             MachineValue::WasmLocal(idx) => {
                                 wasm_locals[idx] = Some(v >> 32);
                             }
+                            MachineValue::VmctxDeref(_) => {}
                             MachineValue::Undefined => {}
                             _ => unimplemented!("TwoHalves.1 (read)"),
                         }

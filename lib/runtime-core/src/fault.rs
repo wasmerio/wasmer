@@ -188,6 +188,8 @@ extern "C" fn signal_trap_handler(
         let should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
             let mut is_suspend_signal = false;
 
+            println!("SIGNAL: {:?} {:?}", Signal::from_c_int(signum), fault.faulting_addr);
+
             match Signal::from_c_int(signum) {
                 Ok(SIGTRAP) => {
                     // breakpoint
