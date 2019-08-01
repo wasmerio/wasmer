@@ -56,6 +56,23 @@ fn write_bytes<T: Write>(
     Ok(bytes_written)
 }
 
+fn read_bytes<T: Read>(
+    mut reader: T,
+    memory: &Memory,
+    iovs_arr_cell: &[Cell<__wasi_iovec_t>],
+) -> Result<u32, __wasi_errno_t> {
+    let mut bytes_read = 0;
+
+    for iov in iovs_arr_cell {
+        let iov_inner = iov.get();
+        let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
+        let mut raw_bytes: &mut [u8] =
+            unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
+        bytes_read += reader.read(raw_bytes).map_err(|_| __WASI_EIO)? as u32;
+    }
+    Ok(bytes_read)
+}
+
 /// checks that `rights_check_set` is a subset of `rights_set`
 fn has_rights(rights_set: __wasi_rights_t, rights_check_set: __wasi_rights_t) -> bool {
     rights_set | rights_check_set == rights_set
@@ -607,6 +624,21 @@ pub fn fd_filestat_set_times(
     __WASI_ESUCCESS
 }
 
+/// ### `fd_pread()`
+/// Read from the file at the given offset without updating the file cursor.
+/// This acts like a stateless version of Seek + Read
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file descriptor to read the data with
+/// - `const __wasi_iovec_t* iovs'
+///     Vectors where the data will be stored
+/// - `size_t iovs_len`
+///     The number of vectors to store the data into
+/// - `__wasi_filesize_t offset`
+///     The file cursor to use: the starting position from which data will be read
+/// Output:
+/// - `size_t nread`
+///     The number of bytes read
 pub fn fd_pread(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -620,9 +652,56 @@ pub fn fd_pread(
 
     let iov_cells = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nread_cell = wasi_try!(nread.deref(memory));
+    let state = get_wasi_state(ctx);
 
-    unimplemented!("wasi::fd_pread");
+    let bytes_read = match fd {
+        __WASI_STDIN_FILENO => wasi_try!(read_bytes(&mut state.fs.stdin, memory, iov_cells)),
+        __WASI_STDOUT_FILENO => return __WASI_EINVAL,
+        __WASI_STDERR_FILENO => return __WASI_EINVAL,
+        _ => {
+            let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+            let inode = fd_entry.inode;
 
+            if !(has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ)
+                && has_rights(fd_entry.rights, __WASI_RIGHT_FD_SEEK))
+            {
+                return __WASI_EACCES;
+            }
+            match &mut state.fs.inodes[inode].kind {
+                Kind::File { handle, .. } => {
+                    if let Some(h) = handle {
+                        let current_pos =
+                            wasi_try!(h.seek(std::io::SeekFrom::Current(0)).ok(), __WASI_EIO);
+                        wasi_try!(
+                            h.seek(std::io::SeekFrom::Start(offset as u64)).ok(),
+                            __WASI_EIO
+                        );
+                        let bytes_read = wasi_try!(read_bytes(h, memory, iov_cells));
+                        // reborrow so we can seek it back (the &mut gets moved into `read_bytes`
+                        // and we can't use it after)
+                        // If you're in the future and there's a nicer way to do this, please
+                        // clean up this code
+                        if let Some(h) = handle {
+                            wasi_try!(
+                                h.seek(std::io::SeekFrom::Start(current_pos)).ok(),
+                                __WASI_EIO
+                            );
+                        }
+                        bytes_read
+                    } else {
+                        return __WASI_EINVAL;
+                    }
+                }
+                Kind::Dir { .. } | Kind::Root { .. } => return __WASI_EISDIR,
+                Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pread"),
+                Kind::Buffer { buffer } => {
+                    wasi_try!(read_bytes(&buffer[(offset as usize)..], memory, iov_cells))
+                }
+            }
+        }
+    };
+
+    nread_cell.set(bytes_read);
     __WASI_ESUCCESS
 }
 
@@ -733,8 +812,9 @@ pub fn fd_pwrite(
         _ => {
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
-            if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
-                // TODO: figure out the error to return when lacking rights
+            if !(has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE)
+                && has_rights(fd_entry.rights, __WASI_RIGHT_FD_SEEK))
+            {
                 return __WASI_EACCES;
             }
 
@@ -794,23 +874,6 @@ pub fn fd_read(
 
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nread_cell = wasi_try!(nread.deref(memory));
-
-    fn read_bytes<T: Read>(
-        mut reader: T,
-        memory: &Memory,
-        iovs_arr_cell: &[Cell<__wasi_iovec_t>],
-    ) -> Result<u32, __wasi_errno_t> {
-        let mut bytes_read = 0;
-
-        for iov in iovs_arr_cell {
-            let iov_inner = iov.get();
-            let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
-            let mut raw_bytes: &mut [u8] =
-                unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
-            bytes_read += reader.read(raw_bytes).map_err(|_| __WASI_EIO)? as u32;
-        }
-        Ok(bytes_read)
-    }
     let state = get_wasi_state(ctx);
 
     let bytes_read = match fd {
@@ -830,7 +893,7 @@ pub fn fd_read(
             let bytes_read = match &mut inode.kind {
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
-                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        handle.seek(std::io::SeekFrom::Start(offset as u64));
                         wasi_try!(read_bytes(handle, memory, iovs_arr_cell))
                     } else {
                         return __WASI_EINVAL;
