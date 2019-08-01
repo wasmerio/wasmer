@@ -18,7 +18,7 @@ use wasmer_runtime_core::{
         GlobalIndex, ImportedFuncIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
-    vm::Ctx,
+    vm::{Ctx, INTERNALS_SIZE},
 };
 
 fn type_to_llvm_ptr(intrinsics: &Intrinsics, ty: Type) -> PointerType {
@@ -328,12 +328,12 @@ impl Intrinsics {
             minimum_f32: module.add_function("llvm.minnum.f32", ret_f32_take_f32_f32, None),
             minimum_f64: module.add_function("llvm.minnum.f64", ret_f64_take_f64_f64, None),
             minimum_f32x4: module.add_function(
-                "llvm.minimum.v4f32",
+                "llvm.minnum.v4f32",
                 ret_f32x4_take_f32x4_f32x4,
                 None,
             ),
             minimum_f64x2: module.add_function(
-                "llvm.minimum.v2f64",
+                "llvm.minnum.v2f64",
                 ret_f64x2_take_f64x2_f64x2,
                 None,
             ),
@@ -341,12 +341,12 @@ impl Intrinsics {
             maximum_f32: module.add_function("llvm.maxnum.f32", ret_f32_take_f32_f32, None),
             maximum_f64: module.add_function("llvm.maxnum.f64", ret_f64_take_f64_f64, None),
             maximum_f32x4: module.add_function(
-                "llvm.maximum.v4f32",
+                "llvm.maxnum.v4f32",
                 ret_f32x4_take_f32x4_f32x4,
                 None,
             ),
             maximum_f64x2: module.add_function(
-                "llvm.maximum.v2f64",
+                "llvm.maxnum.v2f64",
                 ret_f64x2_take_f64x2_f64x2,
                 None,
             ),
@@ -941,5 +941,32 @@ impl<'a> CtxType<'a> {
         });
 
         (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr)
+    }
+
+    pub fn internal_field(
+        &mut self,
+        index: usize,
+        intrinsics: &Intrinsics,
+        builder: &Builder,
+    ) -> PointerValue {
+        assert!(index < INTERNALS_SIZE);
+
+        let local_internals_ptr_ptr = unsafe {
+            builder.build_struct_gep(
+                self.ctx_ptr_value,
+                offset_to_index(Ctx::offset_internals()),
+                "local_internals_ptr_ptr",
+            )
+        };
+        let local_internals_ptr = builder
+            .build_load(local_internals_ptr_ptr, "local_internals_ptr")
+            .into_pointer_value();
+        unsafe {
+            builder.build_in_bounds_gep(
+                local_internals_ptr,
+                &[intrinsics.i32_ty.const_int(index as u64, false)],
+                "local_internal_field_ptr",
+            )
+        }
     }
 }

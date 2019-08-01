@@ -1,5 +1,11 @@
-use libc::{c_void, siginfo_t};
+use super::common::round_up_to_page_size;
+use crate::structs::{LLVMResult, MemProtect};
+use libc::{
+    c_void, mmap, mprotect, munmap, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE,
+    PROT_READ, PROT_WRITE,
+};
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGSEGV};
+use std::ptr;
 
 /// `__register_frame` and `__deregister_frame` on macos take a single fde as an
 /// argument, so we need to parse the fde table here.
@@ -66,5 +72,62 @@ extern "C" fn signal_trap_handler(
         //
         // This works on macos, not sure about linux.
         throw_trap(2);
+    }
+}
+
+pub unsafe fn alloc_memory(
+    size: usize,
+    protect: MemProtect,
+    ptr_out: &mut *mut u8,
+    size_out: &mut usize,
+) -> LLVMResult {
+    let size = round_up_to_page_size(size);
+    let ptr = mmap(
+        ptr::null_mut(),
+        size,
+        match protect {
+            MemProtect::NONE => PROT_NONE,
+            MemProtect::READ => PROT_READ,
+            MemProtect::READ_WRITE => PROT_READ | PROT_WRITE,
+            MemProtect::READ_EXECUTE => PROT_READ | PROT_EXEC,
+        },
+        MAP_PRIVATE | MAP_ANON,
+        -1,
+        0,
+    );
+    if ptr as isize == -1 {
+        return LLVMResult::ALLOCATE_FAILURE;
+    }
+    *ptr_out = ptr as _;
+    *size_out = size;
+    LLVMResult::OK
+}
+
+pub unsafe fn protect_memory(ptr: *mut u8, size: usize, protect: MemProtect) -> LLVMResult {
+    let res = mprotect(
+        ptr as _,
+        round_up_to_page_size(size),
+        match protect {
+            MemProtect::NONE => PROT_NONE,
+            MemProtect::READ => PROT_READ,
+            MemProtect::READ_WRITE => PROT_READ | PROT_WRITE,
+            MemProtect::READ_EXECUTE => PROT_READ | PROT_EXEC,
+        },
+    );
+
+    if res == 0 {
+        LLVMResult::OK
+    } else {
+        LLVMResult::PROTECT_FAILURE
+    }
+}
+
+pub unsafe fn dealloc_memory(ptr: *mut u8, size: usize) -> LLVMResult {
+    let res = munmap(ptr as _, round_up_to_page_size(size));
+
+    if res == 0 {
+        LLVMResult::OK
+    } else {
+        LLVMResult::DEALLOC_FAILURE
     }
 }

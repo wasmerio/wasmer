@@ -19,7 +19,10 @@ pub fn platform_clock_res_get(
     };
 
     let (output, timespec_out) = unsafe {
-        let mut timespec_out: timespec = mem::uninitialized();
+        let mut timespec_out: timespec = timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
         (clock_getres(unix_clock_id, &mut timespec_out), timespec_out)
     };
 
@@ -44,7 +47,10 @@ pub fn platform_clock_time_get(
     };
 
     let (output, timespec_out) = unsafe {
-        let mut timespec_out: timespec = mem::uninitialized();
+        let mut timespec_out: timespec = timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
         (
             clock_gettime(unix_clock_id, &mut timespec_out),
             timespec_out,

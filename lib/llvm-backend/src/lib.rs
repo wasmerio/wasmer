@@ -7,7 +7,11 @@ mod intrinsics;
 mod platform;
 mod read_info;
 mod state;
+mod structs;
 mod trampolines;
+
+pub use code::LLVMFunctionCodeGenerator as FunctionCodeGenerator;
+pub use code::LLVMModuleCodeGenerator as ModuleCodeGenerator;
 
 use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
 

@@ -55,6 +55,7 @@ fn handle_client(mut stream: UnixStream) {
             memory_bound_check_mode: MemoryBoundCheckMode::Disable,
             enforce_stack_check: true,
             track_state: false,
+            features: Default::default(),
         },
         &SinglePassCompiler::new(),
     )

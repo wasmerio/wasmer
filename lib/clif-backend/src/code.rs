@@ -304,8 +304,15 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
         let trampolines = Arc::new(Trampolines::new(&*self.isa, module_info));
 
+        let signatures_empty = Map::new();
+        let signatures = if self.signatures.is_some() {
+            &self.signatures.as_ref().unwrap()
+        } else {
+            &signatures_empty
+        };
+
         let (func_resolver, backend_cache) = func_resolver_builder.finalize(
-            &self.signatures.as_ref().unwrap(),
+            signatures,
             Arc::clone(&trampolines),
             handler_data.clone(),
         )?;

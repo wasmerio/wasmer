@@ -18,24 +18,22 @@ environment:
 cache:
   - 'C:\Users\appveyor\.cargo'
   - target
-  - wapm-cli-target
 
 install:
-  # # Install LLVM
-  # - mkdir C:\projects\deps
-  # - cd C:\projects\deps
-  # - appveyor DownloadFile https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe -FileName llvm.exe
-  # - 7z x llvm.exe -oC:\projects\deps\llvm
-  # # - set "PATH=%PATH%;C:\projects\deps\llvm\bin"
-  # - set "LLD_LINK=C:\projects\deps\llvm\bin\lld-link.exe"
-  # - set "LLVM_SYS_80_PREFIX=C:\projects\deps\llvm"
-  # - cd "%APPVEYOR_BUILD_FOLDER%"
+  # Install LLVM
+  - mkdir C:\projects\deps
+  - cd C:\projects\deps
+  - appveyor DownloadFile https://github.com/wasmerio/windows-llvm-build/releases/download/v8.0.0/llvm-8.0.0-install.zip -FileName llvm-8.0.0-install.zip
+  - 7z x llvm-8.0.0-install.zip
+  - C:\projects\deps\llvm-8.0.0-install\bin\llvm-config.exe --version
+  - set "LLVM_SYS_80_PREFIX=C:\projects\deps\llvm-8.0.0-install"
+  - cd "%APPVEYOR_BUILD_FOLDER%"
 
   # Install Rust
   # uncomment these lines if the cache is cleared, or if we must re-install rust for some reason
-  # - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
-  # - rustup-init.exe -yv --default-host %target%
-  - set PATH=%PATH%;C:\\Libraries\\llvm-5.0.0\\bin;%USERPROFILE%\.cargo\bin
+  - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+  - rustup-init.exe -yv --default-host %target%
+  - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
   - rustup default stable-%target%
   - rustup update
   - rustc -vV
@@ -49,25 +47,17 @@ install:
 #  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 build_script:
-  - cargo build --release --verbose
-  - git submodule init
-  - git submodule update
-  # Cache wapm cli target in dir above to prevent breaking git submodule on windows
-  - if not exist wapm-cli-target mkdir wapm-cli-target
-  - move wapm-cli-target wapm-cli
-  - cd wapm-cli
-  - rename wapm-cli-target target
-  - cd ..
-  - cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
-  - cd wapm-cli
-  - cd ..
-  - xcopy wapm-cli\target wapm-cli-target\ /i /y
+  - cargo build --release --verbose --features backend-llvm
   - cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
 
 test_script:
   - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 
 before_deploy:
+  - appveyor PushArtifact target\release\wasmer_runtime_c_api.dll
+  - git submodule init
+  - git submodule update
+  - cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
   - cd ./src/installer
   - iscc wasmer.iss
   - copy /y .\WasmerInstaller.exe ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
