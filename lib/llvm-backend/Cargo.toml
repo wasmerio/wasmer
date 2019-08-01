@@ -27,7 +27,7 @@ winapi = { version = "0.3", features = ["memoryapi"] }
 [build-dependencies]
 cc = "1.0"
 lazy_static = "1.2.0"
-regex = "1.1.0"
+regex = "1.2.0"
 semver = "0.9"
 rustc_version = "0.2.3"
 

@@ -15,4 +15,4 @@ libc = "0.2.49"
 [build-dependencies]
 cmake = "0.1.35"
 bindgen = "0.46.0"
-regex = "1.0.6"
+regex = "1.2.0"
