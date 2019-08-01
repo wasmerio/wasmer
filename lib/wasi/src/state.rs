@@ -70,18 +70,33 @@ impl WasiFsError {
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
-    fn last_accessed(&self) -> u64;
+    fn last_accessed(&self) -> __wasi_timestamp_t;
     /// the last time the file was modified in nanoseconds as a UNIX timestamp
-    fn last_modified(&self) -> u64;
+    fn last_modified(&self) -> __wasi_timestamp_t;
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
-    fn created_time(&self) -> u64;
+    fn created_time(&self) -> __wasi_timestamp_t;
+    /// set the last time the file was accessed in nanoseconds as a UNIX timestamp
+    // TODO: stablize this in 0.7.0 by removing default impl
+    fn set_last_accessed(&self, _last_accessed: __wasi_timestamp_t) {
+        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_last_accessed for your type before then");
+    }
+    /// set the last time the file was modified in nanoseconds as a UNIX timestamp
+    // TODO: stablize this in 0.7.0 by removing default impl
+    fn set_last_modified(&self, _last_modified: __wasi_timestamp_t) {
+        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_last_modified for your type before then");
+    }
+    /// set the time at which the file was created in nanoseconds as a UNIX timestamp
+    // TODO: stablize this in 0.7.0 by removing default impl
+    fn set_created_time(&self, _created_time: __wasi_timestamp_t) {
+        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_created_time for your type before then");
+    }
     /// the size of the file in bytes
     fn size(&self) -> u64;
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
     // TODO: stablize this in 0.7.0 by removing default impl
     fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Option<()> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.X.  Please implement WasiFile::allocate for your type before then");
+        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::allocate for your type before then");
     }
 }
 
@@ -96,6 +111,10 @@ impl WasiFile for fs::File {
             .unwrap_or(0)
     }
 
+    fn set_last_accessed(&self, _last_accessed: __wasi_timestamp_t) {
+        // TODO: figure out how to do this
+    }
+
     fn last_modified(&self) -> u64 {
         self.metadata()
             .unwrap()
@@ -106,6 +125,10 @@ impl WasiFile for fs::File {
             .unwrap_or(0)
     }
 
+    fn set_last_modified(&self, _last_modified: __wasi_timestamp_t) {
+        // TODO: figure out how to do this
+    }
+
     fn created_time(&self) -> u64 {
         self.metadata()
             .unwrap()
@@ -114,6 +137,10 @@ impl WasiFile for fs::File {
             .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
             .map(|ct| ct.as_nanos() as u64)
             .unwrap_or(0)
+    }
+
+    fn set_created_time(&self, _created_time: __wasi_timestamp_t) {
+        // TODO: figure out how to do this
     }
 
     fn size(&self) -> u64 {

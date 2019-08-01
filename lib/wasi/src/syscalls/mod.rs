@@ -566,14 +566,42 @@ pub fn fd_filestat_set_times(
         inode.stat.st_atim = st_atim;
     } else if fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
         // set to current real time
-        unimplemented!("Set filestat time to the current real time");
+        let now = std::time::SystemTime::now();
+        let duration = wasi_try!(
+            now.duration_since(std::time::SystemTime::UNIX_EPOCH).ok(),
+            __WASI_EIO
+        );
+        inode.stat.st_atim = duration.as_nanos() as __wasi_timestamp_t;
+        // TODO: set it for more than just files
+        match &mut inode.kind {
+            Kind::File { handle, .. } => {
+                if let Some(handle) = handle {
+                    handle.set_last_accessed(duration.as_nanos() as __wasi_timestamp_t);
+                }
+            }
+            _ => {}
+        }
     }
 
     if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 {
         inode.stat.st_mtim = st_mtim;
     } else if fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
         // set to current real time
-        unimplemented!("Set filestat time to the current real time");
+        let now = std::time::SystemTime::now();
+        let duration = wasi_try!(
+            now.duration_since(std::time::SystemTime::UNIX_EPOCH).ok(),
+            __WASI_EIO
+        );
+        inode.stat.st_mtim = duration.as_nanos() as __wasi_timestamp_t;
+        // TODO: set it for more than just files
+        match &mut inode.kind {
+            Kind::File { handle, .. } => {
+                if let Some(handle) = handle {
+                    handle.set_last_modified(duration.as_nanos() as __wasi_timestamp_t);
+                }
+            }
+            _ => {}
+        }
     }
 
     __WASI_ESUCCESS
