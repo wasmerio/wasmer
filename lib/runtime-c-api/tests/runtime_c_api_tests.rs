@@ -4,19 +4,17 @@ use std::process::Command;
 fn test_c_api() {
     let project_tests_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
 
-    run_command("cmake", project_tests_dir, Some("."));
-    run_command("make", project_tests_dir, Some("-Wdev -Werror=dev"));
-    run_command("make", project_tests_dir, Some("test"));
+    run_command("cmake", project_tests_dir, vec!["."]);
+    run_command("make", project_tests_dir, vec!["-Wdev", "-Werror=dev"]);
+    run_command("make", project_tests_dir, vec!["test", "ARGS=\"-V\""]);
 }
 
-fn run_command(command_str: &str, dir: &str, arg: Option<&str>) {
-    println!("Running command: `{}` arg: {:?}", command_str, arg);
+fn run_command(command_str: &str, dir: &str, args: Vec<&str>) {
+    println!("Running command: `{}` args: {:?}", command_str, args);
 
     let mut command = Command::new(command_str);
 
-    if let Some(a) = arg {
-        command.arg(a);
-    }
+    command.args(&args);
 
     command.current_dir(dir);
 

@@ -118,6 +118,6 @@ pub struct wasmer_limit_option_t {
 
 #[repr(C)]
 pub struct wasmer_byte_array {
-    bytes: *const u8,
-    bytes_len: u32,
+    pub bytes: *const u8,
+    pub bytes_len: u32,
 }

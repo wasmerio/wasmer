@@ -134,24 +134,22 @@ mod tests {
     use super::*;
     use wabt::wat2wasm;
 
+    use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
     use wasmer_runtime_core::{backend::Compiler, compile_with, imports, Func};
 
     #[cfg(feature = "llvm")]
     fn get_compiler(limit: u64) -> impl Compiler {
-        use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
-        use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
-        let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> =
-            StreamingCompiler::new(move || {
-                let mut chain = MiddlewareChain::new();
-                chain.push(Metering::new(limit));
-                chain
-            });
+        use wasmer_llvm_backend::ModuleCodeGenerator as LLVMMCG;
+        let c: StreamingCompiler<LLVMMCG, _, _, _, _> = StreamingCompiler::new(move || {
+            let mut chain = MiddlewareChain::new();
+            chain.push(Metering::new(limit));
+            chain
+        });
         c
     }
 
     #[cfg(feature = "singlepass")]
     fn get_compiler(limit: u64) -> impl Compiler {
-        use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
         use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
         let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();

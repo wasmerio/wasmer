@@ -5,7 +5,7 @@ use cranelift_codegen::{
     ir::{self, InstBuilder},
     isa, Context,
 };
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::{iter, mem, ptr::NonNull};
 use wasmer_runtime_core::{
     backend::sys::{Memory, Protect},

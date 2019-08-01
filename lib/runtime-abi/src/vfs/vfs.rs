@@ -1,7 +1,7 @@
 use crate::vfs::file_like::FileLike;
 use crate::vfs::vfs_header::{header_from_bytes, ArchiveType, CompressionType};
 use crate::vfs::virtual_file::VirtualFile;
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::cell::RefCell;
 use std::io;
 use std::io::Read;
