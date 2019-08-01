@@ -77,6 +77,12 @@ pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     fn created_time(&self) -> u64;
     /// the size of the file in bytes
     fn size(&self) -> u64;
+    /// Change the size of the file, if the `new_size` is greater than the current size
+    /// the extra bytes will be allocated and zeroed
+    // TODO: stablize this in 0.7.0 by removing default impl
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Option<()> {
+        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.X.  Please implement WasiFile::allocate for your type before then");
+    }
 }
 
 impl WasiFile for fs::File {
@@ -112,6 +118,10 @@ impl WasiFile for fs::File {
 
     fn size(&self) -> u64 {
         self.metadata().unwrap().len()
+    }
+
+    fn set_len(&mut self, new_size: __wasi_filesize_t) -> Option<()> {
+        fs::File::set_len(self, new_size).ok()
     }
 }
 

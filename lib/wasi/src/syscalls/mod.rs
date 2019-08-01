@@ -300,7 +300,33 @@ pub fn fd_allocate(
     len: __wasi_filesize_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_allocate");
-    unimplemented!("wasi::fd_allocate")
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let inode = fd_entry.inode;
+
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_ALLOCATE) {
+        return __WASI_EACCES;
+    }
+    let new_size = wasi_try!(offset.checked_add(len), __WASI_EINVAL);
+
+    match &mut state.fs.inodes[inode].kind {
+        Kind::File { handle, .. } => {
+            if let Some(handle) = handle {
+                wasi_try!(handle.set_len(new_size), __WASI_EIO);
+            } else {
+                return __WASI_EBADF;
+            }
+        }
+        Kind::Buffer { buffer } => {
+            buffer.resize(new_size as usize, 0);
+        }
+        Kind::Symlink { .. } => return __WASI_EBADF,
+        Kind::Dir { .. } | Kind::Root { .. } => return __WASI_EISDIR,
+    }
+    state.fs.inodes[inode].stat.st_size = new_size;
+
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_close()`
@@ -462,13 +488,45 @@ pub fn fd_filestat_get(
     __WASI_ESUCCESS
 }
 
+/// ### `fd_filestat_set_size()`
+/// Change the size of an open file, zeroing out any new bytes
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     File descriptor to adjust
+/// - `__wasi_filesize_t st_size`
+///     New size that `fd` will be set to
 pub fn fd_filestat_set_size(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
     st_size: __wasi_filesize_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_filestat_set_size");
-    unimplemented!("wasi::fd_filestat_set_size")
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let inode = fd_entry.inode;
+
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_SET_SIZE) {
+        return __WASI_EACCES;
+    }
+
+    match &mut state.fs.inodes[inode].kind {
+        Kind::File { handle, .. } => {
+            if let Some(handle) = handle {
+                wasi_try!(handle.set_len(st_size), __WASI_EIO);
+            } else {
+                return __WASI_EBADF;
+            }
+        }
+        Kind::Buffer { buffer } => {
+            buffer.resize(st_size as usize, 0);
+        }
+        Kind::Symlink { .. } => return __WASI_EBADF,
+        Kind::Dir { .. } | Kind::Root { .. } => return __WASI_EISDIR,
+    }
+    state.fs.inodes[inode].stat.st_size = st_size;
+
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_filestat_set_times()`
