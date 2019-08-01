@@ -29,10 +29,13 @@ Install Wasmer with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
+> Note: *Wasmer is also available on Windows. Download the [`WasmerInstaller.exe` from the Github Releases](https://github.com/wasmerio/wasmer/releases) page.*
+
 Wasmer runtime can also be embedded in different languages, so you can use WebAssembly anywhere ✨:
 
-* [🦀 **Rust**](https://github.com/wasmerio/wasmer-rust-example)
-* [**C/C++**](https://github.com/wasmerio/wasmer-c-api)
+* [**🦀 Rust**](https://github.com/wasmerio/wasmer-rust-example)
+* [**🔗 C/C++**](https://github.com/wasmerio/wasmer-c-api)
+* [**#️⃣ C#**](https://github.com/migueldeicaza/WasmerSharp)
 * [**🐘 PHP**](https://github.com/wasmerio/php-ext-wasm)
 * [**🐍 Python**](https://github.com/wasmerio/python-ext-wasm)
 * [**💎 Ruby**](https://github.com/wasmerio/ruby-ext-wasm)
@@ -82,7 +85,7 @@ Wasmer is structured into different directories:
 
 Building Wasmer requires [rustup](https://rustup.rs/).
 
-To build on Windows, download and run [`rustup-init.exe`](https://win.rustup.rs/)
+To build Wasmer on Windows, download and run [`rustup-init.exe`](https://win.rustup.rs/)
 then follow the onscreen instructions.
 
 To build on other systems, run:
@@ -146,8 +149,8 @@ pkg install cmake
 
 #### Windows (MSVC)
 
-Windows support is _highly experimental_. Only simple Wasm programs may be run, and no syscalls are allowed. This means
-nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmerio/wasmer/issues/176) regarding Emscripten syscall polyfills for Windows.
+Windows support is _experimental_. WASI is fully supported, but Emscripten support is on the works (this means
+nginx and Lua do not work on Windows - you can track the progress on [this issue](https://github.com/wasmerio/wasmer/issues/176)).
 
 1. Install [Visual Studio](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=15)
 
@@ -181,8 +184,14 @@ git clone https://github.com/wasmerio/wasmer.git
 cd wasmer
 
 # install tools
-# make sure that `python` is accessible.
-make install
+make release-clif # To build with cranelift (default)
+
+make release-llvm # To build with llvm support
+
+make release-singlepass # To build with singlepass support
+
+# or
+make release # To build with singlepass, cranelift and llvm support
 ```
 
 ## Testing
@@ -240,7 +249,7 @@ Below are some of the goals of this project (in order of priority):
 
 ## Architecture
 
-If you would like to know how Wasmer works under the hood, please see [ARCHITECTURE.md](./ARCHITECTURE.md).
+If you would like to know how Wasmer works under the hood, please see [docs/architecture.md](./docs/architecture.md).
 
 ## License
 

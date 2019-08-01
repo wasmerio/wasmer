@@ -104,7 +104,7 @@ test: spectests emtests middleware wasitests circleci-clean test-rest
 
 
 # Integration tests
-integration-tests: release-fast
+integration-tests: release-clif
 	echo "Running Integration Tests"
 	./integration_tests/lua/test.sh
 	./integration_tests/nginx/test.sh
@@ -130,7 +130,7 @@ release:
 	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
 
 # Only one backend (cranelift)
-release-fast:
+release-clif:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
