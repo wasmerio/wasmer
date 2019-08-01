@@ -6,7 +6,7 @@ fn test_c_api() {
 
     run_command("cmake", project_tests_dir, Some("."));
     run_command("make", project_tests_dir, Some("-Wdev -Werror=dev"));
-    run_command("make", project_tests_dir, Some("test"));
+    run_command("make", project_tests_dir, Some("test VERBOSE=1"));
 }
 
 fn run_command(command_str: &str, dir: &str, arg: Option<&str>) {
