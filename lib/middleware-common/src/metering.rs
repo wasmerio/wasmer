@@ -138,9 +138,9 @@ mod tests {
 
     #[cfg(feature = "llvm")]
     fn get_compiler(limit: u64) -> impl Compiler {
-        use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
         use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
-        let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> =
+        use wasmer_llvm_backend::ModuleCodeGenerator as LLVMMCG;
+        let c: StreamingCompiler<LLVMMCG, _, _, _, _> =
             StreamingCompiler::new(move || {
                 let mut chain = MiddlewareChain::new();
                 chain.push(Metering::new(limit));
