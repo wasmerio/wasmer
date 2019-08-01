@@ -2,7 +2,7 @@ use crate::{
     global::Global, instance::InstanceInner, memory::Memory, module::ExportIndex,
     module::ModuleInner, table::Table, types::FuncSig, vm,
 };
-use hashbrown::hash_map;
+use indexmap::map::Iter as IndexMapIter;
 use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone)]
@@ -41,7 +41,7 @@ impl FuncPointer {
 
 pub struct ExportIter<'a> {
     inner: &'a InstanceInner,
-    iter: hash_map::Iter<'a, String, ExportIndex>,
+    iter: IndexMapIter<'a, String, ExportIndex>,
     module: &'a ModuleInner,
 }
 

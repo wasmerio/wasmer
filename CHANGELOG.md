@@ -5,6 +5,7 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#609](https://github.com/wasmerio/wasmer/issues/609) Update dependencies
 
 ## 0.6.0 - 2019-07-31
 - [#603](https://github.com/wasmerio/wasmer/pull/603) Update Wapm-cli, bump version numbers

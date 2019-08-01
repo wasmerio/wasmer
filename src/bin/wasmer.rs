@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use structopt::StructOpt;
 
 use wasmer::*;

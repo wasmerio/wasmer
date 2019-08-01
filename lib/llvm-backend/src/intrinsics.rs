@@ -1,4 +1,3 @@
-use hashbrown::HashMap;
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -9,6 +8,7 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use wasmer_runtime_core::{
     memory::MemoryType,

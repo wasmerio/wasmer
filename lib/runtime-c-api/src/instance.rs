@@ -138,6 +138,19 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     return wasmer_result_t::WASMER_OK;
 }
 
+/// Extracts the instance's context and returns it.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_instance_context_get(
+    instance: *mut wasmer_instance_t,
+) -> *const wasmer_instance_context_t {
+    let instance_ref = &*(instance as *const Instance);
+
+    let ctx: *const Ctx = instance_ref.context() as *const _;
+
+    ctx as *const wasmer_instance_context_t
+}
+
 /// Calls an instances exported function by `name` with the provided parameters.
 /// Results are set using the provided `results` pointer.
 ///

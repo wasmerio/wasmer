@@ -15,7 +15,7 @@ use crate::{
 };
 use std::{any::Any, ptr::NonNull};
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 pub mod sys {
     pub use crate::sys::*;
