@@ -1,6 +1,6 @@
 use crate::relocation::{ExternalRelocation, TrapSink};
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{sys::Memory, CacheGen},
