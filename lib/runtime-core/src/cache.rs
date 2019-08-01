@@ -20,6 +20,7 @@ pub enum Error {
     Unknown(String),
     InvalidFile(InvalidFileType),
     InvalidatedCache,
+    UnsupportedBackend(Backend),
 }
 
 impl From<io::Error> for Error {

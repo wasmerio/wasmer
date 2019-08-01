@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.5.7"
+version = "0.6.0"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -55,5 +55,6 @@ cc = "1.0"
 debug = []
 trace = ["debug"]
 # backend flags used in conditional compilation of Backend::variants
+"backend-cranelift" = []
 "backend-singlepass" = []
 "backend-llvm" = []

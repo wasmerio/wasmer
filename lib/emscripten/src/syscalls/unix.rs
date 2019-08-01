@@ -617,13 +617,13 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
                 unsafe { address_len.deref_mut(ctx.memory(0)).unwrap().get_mut() };
             // let mut address_len_addr: socklen_t = 0;
 
-            let (fd, host_address) = unsafe {
-                let mut host_address: sockaddr = std::mem::uninitialized();
-                let fd = accept(socket, &mut host_address, address_len_addr);
-
-                (fd, host_address)
+            let mut host_address: sockaddr = sockaddr {
+                sa_family: Default::default(),
+                sa_data: Default::default(),
+                #[cfg(target_os = "macos")]
+                sa_len: Default::default(),
             };
-
+            let fd = unsafe { accept(socket, &mut host_address, address_len_addr) };
             let address_addr = unsafe { address.deref_mut(ctx.memory(0)).unwrap().get_mut() };
 
             address_addr.sa_family = host_address.sa_family as _;
@@ -651,15 +651,18 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address_len_addr =
                 unsafe { address_len.deref_mut(ctx.memory(0)).unwrap().get_mut() };
 
-            let (ret, sock_addr_host) = unsafe {
-                // read host data into new var
-                let mut address: sockaddr = std::mem::uninitialized();
-                let ret = getsockname(
+            let mut sock_addr_host: sockaddr = sockaddr {
+                sa_family: Default::default(),
+                sa_data: Default::default(),
+                #[cfg(target_os = "macos")]
+                sa_len: Default::default(),
+            };
+            let ret = unsafe {
+                getsockname(
                     socket,
-                    &mut address as *mut sockaddr,
+                    &mut sock_addr_host as *mut sockaddr,
                     address_len_addr as *mut u32,
-                );
-                (ret, address)
+                )
             };
             // translate from host data into emscripten data
             let mut address_mut = unsafe { address.deref_mut(ctx.memory(0)).unwrap().get_mut() };

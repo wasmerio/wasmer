@@ -219,7 +219,7 @@ fn __get_async_io_payload<
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Default, Copy, Clone)]
 struct SockaddrIn {
     sin_family: u16, // e.g. AF_INET
     sin_port: u16,   // e.g. htons(3490)
@@ -315,7 +315,7 @@ impl Tcp4Listener {
             self.fd,
             EpollDirection::In,
             move |fd| -> Result<Arc<TcpStream>, i32> {
-                let mut incoming_sa: SockaddrIn = unsafe { ::std::mem::uninitialized() };
+                let mut incoming_sa: SockaddrIn = SockaddrIn::default();
                 let mut real_len: usize = ::std::mem::size_of::<SockaddrIn>();
                 let conn = unsafe { _accept4(fd, &mut incoming_sa, &mut real_len, O_NONBLOCK) };
                 if conn >= 0 {
