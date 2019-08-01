@@ -91,6 +91,10 @@ struct wasmer_import_func_t {
 
 };
 
+struct wasmer_import_object_t {
+
+};
+
 struct wasmer_instance_t {
 
 };
@@ -318,6 +322,9 @@ wasmer_result_t wasmer_import_func_returns(const wasmer_import_func_t *func,
 wasmer_result_t wasmer_import_func_returns_arity(const wasmer_import_func_t *func,
                                                  uint32_t *result);
 
+/// Frees memory of the given ImportObject
+void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
+
 /// Calls an instances exported function by `name` with the provided parameters.
 /// Results are set using the provided `results` pointer.
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -417,6 +424,14 @@ wasmer_result_t wasmer_module_deserialize(wasmer_module_t **module,
 
 /// Frees memory for the given Module
 void wasmer_module_destroy(wasmer_module_t *module);
+
+/// Given:
+///  A prepared `wasmer svm` import-object
+///  A compiled wasmer module
+/// Instantiates a wasmer instance
+wasmer_result_t wasmer_module_import_instantiate(wasmer_instance_t **instance,
+                                                 const wasmer_module_t *module,
+                                                 const wasmer_import_object_t *import_object);
 
 /// Creates a new Instance from the given module and imports.
 /// Returns `wasmer_result_t::WASMER_OK` upon success.

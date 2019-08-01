@@ -13,6 +13,7 @@ use std::{ffi::c_void, ptr, slice, sync::Arc};
 use wasmer_runtime::Module;
 use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer},
+    import::ImportObject,
     module::ImportName,
     types::{FuncSig, Type},
 };
@@ -24,6 +25,9 @@ pub struct wasmer_import_t {
     pub tag: wasmer_import_export_kind,
     pub value: wasmer_import_export_value,
 }
+
+#[repr(C)]
+pub struct wasmer_import_object_t;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -349,6 +353,14 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
     if !func.is_null() {
         unsafe { Box::from_raw(func as *mut Export) };
+    }
+}
+
+/// Frees memory of the given ImportObject
+#[no_mangle]
+pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import_object_t) {
+    if !import_object.is_null() {
+        unsafe { Box::from_raw(import_object as *mut ImportObject) };
     }
 }
 
