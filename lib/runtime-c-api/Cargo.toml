@@ -27,4 +27,4 @@ debug = ["wasmer-runtime/debug"]
 llvm = ["wasmer-runtime/llvm"]
 
 [build-dependencies]
-cbindgen = "0.8"
+cbindgen = "0.9.0"

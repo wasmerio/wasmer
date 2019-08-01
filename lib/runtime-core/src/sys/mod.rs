@@ -16,7 +16,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use serde_bytes::Bytes;
+use serde_bytes::{Bytes, ByteBuf};
 
 use std::fmt;
 
@@ -56,10 +56,10 @@ impl<'de> Deserialize<'de> for Memory {
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
 
-                let bytes: Bytes = seq
+                let bytes: ByteBuf = seq
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-
+                
                 let mut memory = Memory::with_size_protect(bytes.len(), Protect::ReadWrite)
                     .expect("Could not create a memory");
 

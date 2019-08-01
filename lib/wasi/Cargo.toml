@@ -17,4 +17,4 @@ log = "0.4.8"
 byteorder = "1.3.2"
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3"
+winapi = "0.3.7"
