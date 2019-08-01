@@ -418,6 +418,11 @@ void *wasmer_instance_context_data_get(const wasmer_instance_context_t *ctx);
 void wasmer_instance_context_data_set(wasmer_instance_t *instance, void *data_ptr);
 
 /**
+ * Extracts the instance's context and returns it.
+ */
+const wasmer_instance_context_t *wasmer_instance_context_get(wasmer_instance_t *instance);
+
+/**
  * Gets the memory within the context at the index `memory_idx`.
  * The index is always 0 until multiple memories are supported.
  */
