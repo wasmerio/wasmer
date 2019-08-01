@@ -99,14 +99,6 @@ typedef struct {
 
 typedef struct {
 
-} wasmer_instance_t;
-
-typedef struct {
-
-} wasmer_instance_context_t;
-
-typedef struct {
-
 } wasmer_table_t;
 
 typedef union {
@@ -122,6 +114,14 @@ typedef struct {
   wasmer_import_export_kind tag;
   wasmer_import_export_value value;
 } wasmer_import_t;
+
+typedef struct {
+
+} wasmer_instance_t;
+
+typedef struct {
+
+} wasmer_instance_context_t;
 
 typedef struct {
   bool has_some;
@@ -400,6 +400,19 @@ wasmer_result_t wasmer_import_func_returns_arity(const wasmer_import_func_t *fun
  * Frees memory of the given ImportObject
  */
 void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
+
+/**
+ * Extends an existing import object with new imports
+ */
+wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_object,
+                                            wasmer_import_t *imports,
+                                            unsigned int imports_len);
+
+/**
+ * Creates a new empty import object.
+ * See also `wasmer_import_object_append`
+ */
+wasmer_import_object_t *wasmer_import_object_new(void);
 
 /**
  * Calls an instances exported function by `name` with the provided parameters.

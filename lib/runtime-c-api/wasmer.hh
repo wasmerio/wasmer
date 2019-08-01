@@ -95,14 +95,6 @@ struct wasmer_import_object_t {
 
 };
 
-struct wasmer_instance_t {
-
-};
-
-struct wasmer_instance_context_t {
-
-};
-
 struct wasmer_table_t {
 
 };
@@ -119,6 +111,14 @@ struct wasmer_import_t {
   wasmer_byte_array import_name;
   wasmer_import_export_kind tag;
   wasmer_import_export_value value;
+};
+
+struct wasmer_instance_t {
+
+};
+
+struct wasmer_instance_context_t {
+
 };
 
 struct wasmer_limit_option_t {
@@ -324,6 +324,15 @@ wasmer_result_t wasmer_import_func_returns_arity(const wasmer_import_func_t *fun
 
 /// Frees memory of the given ImportObject
 void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
+
+/// Extends an existing import object with new imports
+wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_object,
+                                            wasmer_import_t *imports,
+                                            unsigned int imports_len);
+
+/// Creates a new empty import object.
+/// See also `wasmer_import_object_append`
+wasmer_import_object_t *wasmer_import_object_new();
 
 /// Calls an instances exported function by `name` with the provided parameters.
 /// Results are set using the provided `results` pointer.

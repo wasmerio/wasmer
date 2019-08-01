@@ -23,3 +23,4 @@ test-module-imports
 test-module-serialize
 test-tables
 test-validate
+test-module-import-instantiate
