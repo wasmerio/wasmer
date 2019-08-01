@@ -184,8 +184,14 @@ git clone https://github.com/wasmerio/wasmer.git
 cd wasmer
 
 # install tools
-# make sure that `python` is accessible.
-make install
+make release-clif # To build with cranelift (default)
+
+make release-llvm # To build with llvm support
+
+make release-singlepass # To build with singlepass support
+
+# or
+make release # To build with singlepass, cranelift and llvm support
 ```
 
 ## Testing
