@@ -1,6 +1,6 @@
 use crate::export::Export;
-use std::collections::{hash_map::Entry, HashMap};
 use std::collections::VecDeque;
+use std::collections::{hash_map::Entry, HashMap};
 use std::{
     cell::{Ref, RefCell},
     ffi::c_void,

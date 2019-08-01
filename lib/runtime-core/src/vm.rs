@@ -850,8 +850,8 @@ mod vm_ctx_tests {
         use crate::cache::Error as CacheError;
         use crate::typed_func::Wasm;
         use crate::types::{LocalFuncIndex, SigIndex};
-        use std::collections::HashMap;
         use std::any::Any;
+        use std::collections::HashMap;
         use std::ptr::NonNull;
         struct Placeholder;
         impl RunnableModule for Placeholder {

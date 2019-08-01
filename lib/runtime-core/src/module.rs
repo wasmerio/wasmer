@@ -14,8 +14,8 @@ use crate::{
 };
 
 use crate::backend::CacheGen;
-use std::collections::HashMap;
 use indexmap::IndexMap;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// This is used to instantiate a new WebAssembly module.
