@@ -1,4 +1,10 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
+#![deny(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
 mod backend;
