@@ -35,8 +35,7 @@ void inc_counter(wasmer_instance_context_t *ctx) {
 }
 
 void mul_counter(wasmer_instance_context_t *ctx) {
-    counter_data* data = (counter_data*)wasmer_instance_context_data_get(ctx);
-    data->value = data->value * data->amount;
+  // never called in this example
 }
 
 int32_t get_counter(wasmer_instance_context_t *ctx) {
@@ -93,9 +92,9 @@ int main()
     wasm_file_t wasm_file = read_wasm_file("assets/inc.wasm");
 
     // Compile module
-		wasmer_module_t *module = NULL;
-		wasmer_result_t compile_res = wasmer_compile(&module, wasm_file.bytes, wasm_file.bytes_len);
-		assert(compile_res == WASMER_OK);
+    wasmer_module_t *module = NULL;
+    wasmer_result_t compile_res = wasmer_compile(&module, wasm_file.bytes, wasm_file.bytes_len);
+    assert(compile_res == WASMER_OK);
 
 		// Prepare Import Object
     wasmer_import_object_t *import_object = wasmer_import_object_new();
