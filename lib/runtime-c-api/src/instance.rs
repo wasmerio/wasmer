@@ -51,7 +51,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
     let import_object: &mut ImportObject = &mut *(raw_import_object as *mut ImportObject);
 
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
-    let result = wasmer_runtime::instantiate(bytes, &import_object);
+    let result = wasmer_runtime::instantiate(bytes, import_object);
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {
