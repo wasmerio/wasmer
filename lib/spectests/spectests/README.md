@@ -109,7 +109,6 @@ The following spec tests are currently covered:
 
 There are some cases that we decided to skip for now to accelerate the release schedule:
 
-  - `globals.wast`
 - `SKIP_CALL_INDIRECT_TYPE_MISMATCH`: we implemented traps in a fast way. We haven't yet covered the type mismatch on `call_indirect`. Specs affected:
 
   - `call_indirect.wast`
