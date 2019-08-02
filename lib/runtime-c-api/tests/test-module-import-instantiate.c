@@ -51,22 +51,6 @@ counter_data *init_counter(int32_t value, int32_t amount) {
     return counter;
 }
 
-void assert_counter(wasmer_instance_t *instance, int32_t expected) {
-    wasmer_value_t result_one;
-    wasmer_value_t params[] = {};
-    wasmer_value_t results[] = {result_one};
-
-    wasmer_result_t call1_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
-    printf("Call result:  %d\n", call1_result);
-    printf("Result: %d\n", results[0].value.I32);
-    assert(results[0].value.I32 == expected);
-    assert(call1_result == WASMER_OK);
-
-    const wasmer_instance_context_t *ctx = wasmer_instance_context_get(instance);
-    counter_data *cd = (counter_data*)wasmer_instance_context_data_get(ctx);
-    assert(cd->value == expected);
-}
-
 wasmer_import_t create_import(char* module_name, char* import_name, wasmer_import_func_t *func) {
     wasmer_import_t import;
     wasmer_byte_array module_name_bytes;
@@ -105,15 +89,35 @@ int main()
     wasmer_import_func_t *get_func = wasmer_import_func_new((void (*)(void *)) get_counter, get_params_sig, 0, get_returns_sig, 1);
     wasmer_import_t get_import = create_import("env", "get", get_func);
 
-    wasmer_import_t imports[] = {inc_import, mul_import, get_import};
-
     // Read the wasm file
     wasm_file_t wasm_file = read_wasm_file("assets/inc.wasm");
+
+    // Compile module
+		wasmer_module_t *module = NULL;
+		wasmer_result_t compile_res = wasmer_compile(&module, wasm_file.bytes, wasm_file.bytes_len);
+		assert(compile_res == WASMER_OK);
+
+		// Prepare Import Object
+    wasmer_import_object_t *import_object = wasmer_import_object_new();
+
+    // First, we import `inc_counter` and `mul_counter`
+    wasmer_import_t imports[] = {inc_import, mul_import};
+    wasmer_result_t extend_res = wasmer_import_object_extend(import_object, imports, 2);
+    assert(extend_res == WASMER_OK);
+
+    // Now, we'll import `inc_counter` and `mul_counter`
+    wasmer_import_t more_imports[] = {get_import};
+    wasmer_result_t extend_res2 = wasmer_import_object_extend(import_object, more_imports, 1);
+    assert(extend_res2 == WASMER_OK);
+
+    // Same `wasmer_import_object_extend` as the first, doesn't affect anything
+    wasmer_result_t extend_res3 = wasmer_import_object_extend(import_object, imports, 2);
+    assert(extend_res3 == WASMER_OK);
 
     // Instantiate instance
     printf("Instantiating\n");
     wasmer_instance_t *instance = NULL;
-    wasmer_result_t instantiate_res = wasmer_instantiate(&instance, wasm_file.bytes, wasm_file.bytes_len, imports, 3);
+    wasmer_result_t instantiate_res = wasmer_module_import_instantiate(&instance, module, import_object);
     printf("Compile result:  %d\n", instantiate_res);
     assert(instantiate_res == WASMER_OK);
 
@@ -121,13 +125,21 @@ int main()
     counter_data *counter = init_counter(2, 5);
     wasmer_instance_context_data_set(instance, counter);
 
-    // Run `instance.inc_and_get` and assert
-    assert_counter(instance, 7);
-    assert_counter(instance, 12);
-    assert_counter(instance, 17);
+    wasmer_value_t result_one;
+    wasmer_value_t params[] = {};
+    wasmer_value_t results[] = {result_one};
+
+    wasmer_result_t call1_result = wasmer_instance_call(instance, "inc_and_get", params, 0, results, 1);
+    printf("Call result:  %d\n", call1_result);
+    printf("Result: %d\n", results[0].value.I32);
+
+    wasmer_result_t call2_result = wasmer_instance_call(instance, "mul_and_get", params, 0, results, 1);
+    printf("Call result:  %d\n", call2_result);
+    printf("Result: %d\n", results[0].value.I32);
 
     // Clear resources
     wasmer_import_func_destroy(inc_func);
+    wasmer_import_func_destroy(mul_func);
     wasmer_import_func_destroy(get_func);
     wasmer_instance_destroy(instance);
     free(counter);

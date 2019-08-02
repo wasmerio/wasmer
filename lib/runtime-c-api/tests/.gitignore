@@ -24,3 +24,4 @@ test-module-serialize
 test-tables
 test-validate
 test-context
+test-module-import-instantiate
