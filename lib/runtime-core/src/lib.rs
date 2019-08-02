@@ -140,7 +140,7 @@ pub fn validate_and_report_errors_with_features(
             enable_reference_types: false,
             enable_threads: false,
         },
-        mutable_global_imports: false,
+        mutable_global_imports: true,
     };
     let mut parser = wasmparser::ValidatingParser::new(wasm, Some(config));
     loop {
