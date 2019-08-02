@@ -89,7 +89,6 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             func,
             func_translator,
             next_local: 0,
-            module_info: Arc::clone(&module_info),
             position: Position::default(),
             func_env: FunctionEnvironment {
                 module_info: Arc::clone(&module_info),
@@ -394,7 +393,6 @@ pub struct CraneliftFunctionCodeGenerator {
     func: Function,
     func_translator: FuncTranslator,
     next_local: usize,
-    module_info: Arc<RwLock<ModuleInfo>>,
     position: Position,
     func_env: FunctionEnvironment,
 }
