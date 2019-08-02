@@ -376,7 +376,7 @@ wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance,
                                    uint8_t *wasm_bytes,
                                    uint32_t wasm_bytes_len,
                                    wasmer_import_t *imports,
-                                   int imports_len);
+                                   unsigned int imports_len);
 
 /// Gets the length in bytes of the last error.
 /// This can be used to dynamically allocate a buffer with the correct number of
