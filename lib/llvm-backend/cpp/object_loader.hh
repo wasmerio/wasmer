@@ -192,7 +192,7 @@ void module_delete(WasmModule *module) { delete module; }
 
 bool invoke_trampoline(trampoline_t trampoline, void *ctx, void *func,
                        void *params, void *results, WasmTrap::Type *trap_out,
-                       box_any_t *user_error, void *invoke_env) throw() {
+                       box_any_t *user_error, void *invoke_env) noexcept {
   try {
     trampoline(ctx, func, params, results);
     return true;
