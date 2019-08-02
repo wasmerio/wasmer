@@ -496,6 +496,21 @@ pub struct CodegenError {
     pub message: String,
 }
 
+// This is only called by C++ code, the 'pub' + '#[no_mangle]' combination
+// prevents unused function elimination.
+#[no_mangle]
+pub unsafe extern "C" fn callback_trampoline(
+    b: *mut Option<Box<dyn std::any::Any>>,
+    callback: *mut BreakpointHandler,
+) {
+    let callback = Box::from_raw(callback);
+    let result: Result<(), Box<dyn std::any::Any>> = callback(BreakpointInfo { fault: None });
+    match result {
+        Ok(()) => *b = None,
+        Err(e) => *b = Some(e),
+    }
+}
+
 pub struct LLVMModuleCodeGenerator {
     context: Option<Context>,
     builder: Option<Builder>,
@@ -612,7 +627,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {
                         return Ok(());
                     }
-                    InternalEvent::Breakpoint(_callback) => {
+                    InternalEvent::Breakpoint(callback) => {
+                        let raw = Box::into_raw(Box::new(callback)) as u64;
+                        let callback = intrinsics.i64_ty.const_int(raw, false);
+                        builder.build_call(
+                            intrinsics.throw_breakpoint,
+                            &[callback.as_basic_value_enum()],
+                            "",
+                        );
                         return Ok(());
                     }
                     InternalEvent::GetInternal(idx) => {
