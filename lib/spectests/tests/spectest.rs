@@ -3,6 +3,47 @@
 #[cfg(test)]
 mod tests {
 
+    struct SpecFailure {
+        file: String,
+        line: u64,
+        kind: String,
+        message: String,
+    }
+
+    struct TestReport {
+        failures: Vec<SpecFailure>,
+        passed: u32,
+        failed: u32,
+    }
+
+    impl TestReport {
+        pub fn countPassed(&mut self) {
+            self.passed += 1;
+        }
+
+        pub fn hasFailures(&self) -> bool {
+            self.failed > 0
+        }
+
+        pub fn addFailure(&mut self, failure: SpecFailure) {
+            self.failed += 1;
+            self.failures.push(failure);
+        }
+
+        pub fn print_report(&self) {
+            //            println!("total tests: {}", self.passed + self.failed);
+            //            println!("passed: {}", self.passed);
+            //            println!("failed: {}", self.failed);
+            println!("failures:");
+            for failure in self.failures.iter() {
+                println!(
+                    "    {:?} {:?} {:?} {:?}",
+                    failure.file, failure.line, failure.kind, failure.message
+                );
+            }
+        }
+    }
+
     const TESTS: &[&str] = &[
         "spectests/address.wast",
         "spectests/align.wast",
@@ -104,7 +145,13 @@ mod tests {
     use wasmer_runtime_core::import::ImportObject;
     use wasmer_runtime_core::Instance;
 
-    fn parse_and_run(path: &PathBuf) -> Result<(), String> {
+    fn parse_and_run(path: &PathBuf) -> Result<TestReport, String> {
+        let mut test_report = TestReport {
+            failures: vec![],
+            passed: 0,
+            failed: 0,
+        };
+
         // TODO Collect results
         // TODO Add more assertions
         // TODO
@@ -124,7 +171,7 @@ mod tests {
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
         {
             let mut instance: Option<Instance> = None;
-            println!("line: {:?}", line);
+            // println!("line: {:?}", line);
             match kind {
                 CommandKind::Module { module, name } => {
                     println!("Module");
@@ -139,7 +186,12 @@ mod tests {
                     });
                     match result {
                         Err(e) => {
-                            println!("instantiate failed {:?}", e);
+                            test_report.addFailure(SpecFailure {
+                                file: filename.to_string(),
+                                line: line,
+                                kind: format!("{:?}", "Module"),
+                                message: format!("caught panic {:?}", e),
+                            });
                             instance = None;
                         }
                         Ok(i) => {
@@ -148,7 +200,28 @@ mod tests {
                     }
                 }
                 CommandKind::AssertReturn { action, expected } => {
-                    println!("in assert return");
+                    match action {
+                        Action::Invoke {
+                            module,
+                            field,
+                            args,
+                        } => {
+                            if instance.is_none() {
+                                test_report.addFailure(SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertReturn"),
+                                    message: format!("No instance avaiable"),
+                                });
+                            } else {
+
+                            }
+                            //                            let params: Vec<Value> = args.iter().cloned().map(|x| x.into()).collect();
+                            //                            instance.call(field, )
+                        }
+                        _ => println!("unexpected action"),
+                    }
+                    //                    println!("in assert return");
                 }
                 CommandKind::AssertReturnCanonicalNan { action } => {
                     println!("AssertReturnCanonicalNan")
@@ -157,7 +230,40 @@ mod tests {
                     println!("AssertReturnArithmeticNan")
                 }
                 CommandKind::AssertTrap { action, message } => println!("AssertTrap"),
-                CommandKind::AssertInvalid { module, message } => println!("AssertInvalid"),
+                CommandKind::AssertInvalid { module, message } => {
+                    println!("AssertInvalid");
+                    let result = panic::catch_unwind(|| {
+                        wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
+                    });
+                    match result {
+                        Ok(module) => {
+                            if let Err(CompileError::InternalError { msg }) = module {
+                                test_report.countPassed();
+                                println!("expected: {:?}", message);
+                                println!("actual: {:?}", msg);
+                            } else if let Err(CompileError::ValidationError { msg }) = module {
+                                test_report.countPassed();
+                                println!("validation expected: {:?}", message);
+                                println!("validation actual: {:?}", msg);
+                            } else {
+                                test_report.addFailure(SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertInvalid"),
+                                    message: "Should be invalid".to_string(),
+                                });
+                            }
+                        }
+                        Err(p) => {
+                            test_report.addFailure(SpecFailure {
+                                file: filename.to_string(),
+                                line: line,
+                                kind: format!("{:?}", "AssertInvalid"),
+                                message: format!("caught panic {:?}", p),
+                            });
+                        }
+                    }
+                }
                 CommandKind::AssertMalformed { module, message } => {
                     println!("AssertMalformed");
 
@@ -168,17 +274,24 @@ mod tests {
                     match result {
                         Ok(module) => {
                             if let Err(CompileError::InternalError { msg }) = module {
+                                test_report.countPassed();
                                 println!("expected: {:?}", message);
                                 println!("actual: {:?}", msg);
                             } else if let Err(CompileError::ValidationError { msg }) = module {
-                                println!("expected: {:?}", message);
-                                println!("actual: {:?}", msg);
+                                test_report.countPassed();
+                                println!("validation expected: {:?}", message);
+                                println!("validation actual: {:?}", msg);
                             } else {
                                 println!("Should be malformed");
                             }
                         }
                         Err(p) => {
-                            println!("caught panic {:?}", p);
+                            test_report.addFailure(SpecFailure {
+                                file: filename.to_string(),
+                                line: line,
+                                kind: format!("{:?}", "AssertMalformed"),
+                                message: format!("caught panic {:?}", p),
+                            });
                         }
                     }
                 }
@@ -192,26 +305,59 @@ mod tests {
                 _ => panic!("unknown wast command"),
             }
         }
-        Ok(())
+        test_report.print_report();
+        Ok(test_report)
     }
 
     #[test]
     fn test_run_spectests() {
         let mut success = true;
+        let mut test_reports = vec![];
 
         for test in TESTS.iter() {
             let test_name = test.split("/").last().unwrap().split(".").next().unwrap();
-            println!("Running:  {:?} =============================>", test_name);
+            //            println!("Running:  {:?} =============================>", test_name);
             let mut wast_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             wast_path.push(test);
             let result = parse_and_run(&wast_path);
-            if let Ok(()) = result {
-                println!("Success: {:?}.wast", test_name);
-            } else {
-                println!("Failed: {:?}.wast", test_name);
+            match result {
+                Ok(test_report) => {
+                    if test_report.hasFailures() {
+                        success = false
+                    }
+                    test_reports.push(test_report);
+                }
+                Err(e) => {
+                    success = false;
+                    println!("Unexpected test run error: {:?}", e)
+                }
             }
         }
 
+        // Print summary
+        let mut failures = vec![];
+        let mut total_passed = 0;
+        let mut total_failed = 0;
+        for mut test_report in test_reports.into_iter() {
+            total_passed += test_report.passed;
+            total_failed += test_report.failed;
+            failures.append(&mut test_report.failures);
+        }
+
+        println!("");
+        println!("");
+        println!("Spec tests summary report: ");
+        println!("total: {}", total_passed + total_failed);
+        println!("passed: {}", total_passed);
+        println!("failed: {}", total_failed);
+        for failure in failures.iter() {
+            println!(
+                "    {:?} {:?} {:?} {:?}",
+                failure.file, failure.line, failure.kind, failure.message
+            );
+        }
+        println!("");
+        println!("");
         assert!(success, "tests passed")
     }
 
