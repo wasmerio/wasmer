@@ -39,7 +39,8 @@ extern "C" {
     fn module_delete(module: *mut LLVMModule);
     fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
 
-    fn throw_trap(ty: i32);
+    fn throw_trap(ty: i32) -> !;
+    fn throw_breakpoint(ty: i64) -> !;
 
     /// This should be the same as spliting up the fat pointer into two arguments,
     /// but this is cleaner, I think?
@@ -103,6 +104,7 @@ fn get_callbacks() -> Callbacks {
             fn_name!("vm.memory.size.static.local") => vmcalls::local_static_memory_size as _,
 
             fn_name!("vm.exception.trap") => throw_trap as _,
+            fn_name!("vm.breakpoint") => throw_breakpoint as _,
 
             _ => ptr::null(),
         }
