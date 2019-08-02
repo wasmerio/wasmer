@@ -113,7 +113,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
 }
 
 /// Given:
-/// * A prepared `wasmer svm` import-object
+/// * A prepared `wasmer` import-object
 /// * A compiled wasmer module
 ///
 /// Instantiates a wasmer instance
