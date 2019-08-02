@@ -105,6 +105,10 @@ mod tests {
     use wasmer_runtime_core::Instance;
 
     fn parse_and_run(path: &PathBuf) -> Result<(), String> {
+        // TODO Collect results
+        // TODO Add more assertions
+        // TODO
+        // TODO Allow running WAST &str directly
         let source = fs::read(&path).unwrap();
         let filename = path.file_name().unwrap().to_str().unwrap();
         let source = fs::read(&path).unwrap();
@@ -115,7 +119,7 @@ mod tests {
                 .expect(&format!("Failed to parse script {}", &filename));
 
         let parse_result = parser.next();
-
+        use std::panic;
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
         {
@@ -123,14 +127,25 @@ mod tests {
             println!("line: {:?}", line);
             match kind {
                 CommandKind::Module { module, name } => {
-                    println!("in module");
-                    let module =
-                        wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
-                            .expect("WASM can't be compiled");
-                    let i = module
-                        .instantiate(&ImportObject::new())
-                        .expect("WASM can't be instantiated");
-                    instance = Some(i);
+                    println!("Module");
+                    let result = panic::catch_unwind(|| {
+                        let module =
+                            wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
+                                .expect("WASM can't be compiled");
+                        let i = module
+                            .instantiate(&ImportObject::new())
+                            .expect("WASM can't be instantiated");
+                        i
+                    });
+                    match result {
+                        Err(e) => {
+                            println!("instantiate failed {:?}", e);
+                            instance = None;
+                        }
+                        Ok(i) => {
+                            instance = Some(i);
+                        }
+                    }
                 }
                 CommandKind::AssertReturn { action, expected } => {
                     println!("in assert return");
@@ -144,18 +159,28 @@ mod tests {
                 CommandKind::AssertTrap { action, message } => println!("AssertTrap"),
                 CommandKind::AssertInvalid { module, message } => println!("AssertInvalid"),
                 CommandKind::AssertMalformed { module, message } => {
-                    let module =
-                        wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler());
-                    if let Err(CompileError::InternalError { msg }) = module {
-                        println!("expected: {:?}", message);
-                        println!("actual: {:?}", msg);
-                    } else if let Err(CompileError::ValidationError { msg }) = module {
-                        println!("expected: {:?}", message);
-                        println!("actual: {:?}", msg);
-                    } else {
-                        println!("Should be malformed")
+                    println!("AssertMalformed");
+
+                    let result = panic::catch_unwind(|| {
+                        wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
+                    });
+
+                    match result {
+                        Ok(module) => {
+                            if let Err(CompileError::InternalError { msg }) = module {
+                                println!("expected: {:?}", message);
+                                println!("actual: {:?}", msg);
+                            } else if let Err(CompileError::ValidationError { msg }) = module {
+                                println!("expected: {:?}", message);
+                                println!("actual: {:?}", msg);
+                            } else {
+                                println!("Should be malformed");
+                            }
+                        }
+                        Err(p) => {
+                            println!("caught panic {:?}", p);
+                        }
                     }
-                    println!("AssertMalformed")
                 }
                 CommandKind::AssertUninstantiable { module, message } => {
                     println!("AssertUninstantiable")
