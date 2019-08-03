@@ -29,19 +29,6 @@ mod tests {
             self.failed += 1;
             self.failures.push(failure);
         }
-
-        pub fn print_report(&self) {
-            //            println!("total tests: {}", self.passed + self.failed);
-            //            println!("passed: {}", self.passed);
-            //            println!("failed: {}", self.failed);
-            println!("failures:");
-            for failure in self.failures.iter() {
-                println!(
-                    "    {:?} {:?} {:?} {:?}",
-                    failure.file, failure.line, failure.kind, failure.message
-                );
-            }
-        }
     }
 
     const TESTS: &[&str] = &[
@@ -152,10 +139,10 @@ mod tests {
             failed: 0,
         };
 
-        // TODO Collect results
         // TODO Add more assertions
-        // TODO
         // TODO Allow running WAST &str directly
+        // TODO Check all tests are up to date
+        // TODO Files could be run with multiple threads
         let source = fs::read(&path).unwrap();
         let filename = path.file_name().unwrap().to_str().unwrap();
         let source = fs::read(&path).unwrap();
@@ -165,16 +152,16 @@ mod tests {
             ScriptParser::from_source_and_name_with_features(&source, filename, features)
                 .expect(&format!("Failed to parse script {}", &filename));
 
-        let parse_result = parser.next();
         use std::panic;
+        let mut instance: Option<Instance> = None;
+
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
         {
-            let mut instance: Option<Instance> = None;
-            // println!("line: {:?}", line);
+            //            println!("line: {:?}", line);
             match kind {
                 CommandKind::Module { module, name } => {
-                    println!("Module");
+                    //                    println!("Module");
                     let result = panic::catch_unwind(|| {
                         let module =
                             wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
@@ -206,32 +193,214 @@ mod tests {
                             field,
                             args,
                         } => {
-                            if instance.is_none() {
+                            if (&instance).is_none() {
                                 test_report.addFailure(SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{:?}", "AssertReturn"),
-                                    message: format!("No instance avaiable"),
+                                    message: format!("No instance available"),
                                 });
                             } else {
-
+                                let params: Vec<wasmer_runtime_core::types::Value> =
+                                    args.iter().cloned().map(|x| convert_value(x)).collect();
+                                let call_result =
+                                    instance.as_ref().unwrap().call(&field, &params[..]);
+                                match call_result {
+                                    Err(e) => {
+                                        test_report.addFailure(SpecFailure {
+                                            file: filename.to_string(),
+                                            line,
+                                            kind: format!("{:?}", "AssertReturn"),
+                                            message: format!("Call failed {:?}", e),
+                                        });
+                                    }
+                                    Ok(values) => {
+                                        for (i, v) in values.iter().enumerate() {
+                                            let expected_value =
+                                                convert_value(*expected.get(i).unwrap());
+                                            if (*v != expected_value) {
+                                                test_report.addFailure(SpecFailure {
+                                                    file: filename.to_string(),
+                                                    line,
+                                                    kind: format!("{:?}", "AssertReturn"),
+                                                    message: format!(
+                                                        "result {:?} ({:?}) does not match expected {:?} ({:?})",
+                                                        v, to_hex(v.clone()), expected_value, to_hex(expected_value.clone())
+                                                    ),
+                                                });
+                                            } else {
+                                                test_report.countPassed();
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                            //                            let params: Vec<Value> = args.iter().cloned().map(|x| x.into()).collect();
-                            //                            instance.call(field, )
                         }
-                        _ => println!("unexpected action"),
+                        _ => println!("unexpected action in assert return"),
                     }
                     //                    println!("in assert return");
                 }
-                CommandKind::AssertReturnCanonicalNan { action } => {
-                    println!("AssertReturnCanonicalNan")
-                }
-                CommandKind::AssertReturnArithmeticNan { action } => {
-                    println!("AssertReturnArithmeticNan")
-                }
-                CommandKind::AssertTrap { action, message } => println!("AssertTrap"),
+                CommandKind::AssertReturnCanonicalNan { action } => match action {
+                    Action::Invoke {
+                        module,
+                        field,
+                        args,
+                    } => {
+                        if (&instance).is_none() {
+                            test_report.addFailure(SpecFailure {
+                                file: filename.to_string(),
+                                line: line,
+                                kind: format!("{:?}", "AssertReturnCanonicalNan"),
+                                message: format!("No instance available"),
+                            });
+                        } else {
+                            let params: Vec<wasmer_runtime_core::types::Value> =
+                                args.iter().cloned().map(|x| convert_value(x)).collect();
+                            let call_result = instance.as_ref().unwrap().call(&field, &params[..]);
+                            match call_result {
+                                Err(e) => {
+                                    test_report.addFailure(SpecFailure {
+                                        file: filename.to_string(),
+                                        line,
+                                        kind: format!("{:?}", "AssertReturnCanonicalNan"),
+                                        message: format!("Call failed {:?}", e),
+                                    });
+                                }
+                                Ok(values) => {
+                                    for (i, v) in values.iter().enumerate() {
+                                        if is_canonical_nan(v.clone()) {
+                                            test_report.countPassed();
+                                        } else {
+                                            test_report.addFailure(SpecFailure {
+                                                file: filename.to_string(),
+                                                line,
+                                                kind: format!("{:?}", "AssertReturnCanonicalNan"),
+                                                message: format!(
+                                                    "value is not canonical nan {:?}",
+                                                    v
+                                                ),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => panic!("unexpected action in assert return canonical nan"),
+                },
+                CommandKind::AssertReturnArithmeticNan { action } => match action {
+                    Action::Invoke {
+                        module,
+                        field,
+                        args,
+                    } => {
+                        if (&instance).is_none() {
+                            test_report.addFailure(SpecFailure {
+                                file: filename.to_string(),
+                                line: line,
+                                kind: format!("{:?}", "AssertReturnArithmeticNan"),
+                                message: format!("No instance available"),
+                            });
+                        } else {
+                            let params: Vec<wasmer_runtime_core::types::Value> =
+                                args.iter().cloned().map(|x| convert_value(x)).collect();
+                            let call_result = instance.as_ref().unwrap().call(&field, &params[..]);
+                            match call_result {
+                                Err(e) => {
+                                    test_report.addFailure(SpecFailure {
+                                        file: filename.to_string(),
+                                        line,
+                                        kind: format!("{:?}", "AssertReturnArithmeticNan"),
+                                        message: format!("Call failed {:?}", e),
+                                    });
+                                }
+                                Ok(values) => {
+                                    for (i, v) in values.iter().enumerate() {
+                                        if is_arithmetic_nan(v.clone()) {
+                                            test_report.countPassed();
+                                        } else {
+                                            test_report.addFailure(SpecFailure {
+                                                file: filename.to_string(),
+                                                line,
+                                                kind: format!("{:?}", "AssertReturnArithmeticNan"),
+                                                message: format!(
+                                                    "value is not arithmetic nan {:?}",
+                                                    v
+                                                ),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => panic!("unexpected action in assert return arithmetic nan"),
+                },
+                CommandKind::AssertTrap { action, message } => match action {
+                    Action::Invoke {
+                        module,
+                        field,
+                        args,
+                    } => {
+                        if (&instance).is_none() {
+                            test_report.addFailure(SpecFailure {
+                                file: filename.to_string(),
+                                line: line,
+                                kind: format!("{:?}", "AssertTrap"),
+                                message: format!("No instance available"),
+                            });
+                        } else {
+                            let params: Vec<wasmer_runtime_core::types::Value> =
+                                args.iter().cloned().map(|x| convert_value(x)).collect();
+                            let call_result = instance.as_ref().unwrap().call(&field, &params[..]);
+                            use wasmer_runtime_core::error::{CallError, RuntimeError};
+                            match call_result {
+                                Err(e) => {
+                                    match e {
+                                        CallError::Resolve(_) => {
+                                            test_report.addFailure(SpecFailure {
+                                                file: filename.to_string(),
+                                                line,
+                                                kind: format!("{:?}", "AssertTrap"),
+                                                message: format!("expected trap, got {:?}", e),
+                                            });
+                                        }
+                                        CallError::Runtime(r) => {
+                                            match r {
+                                                RuntimeError::Trap { .. } => {
+                                                    // TODO assert message?
+                                                    test_report.countPassed()
+                                                }
+                                                RuntimeError::Error { .. } => {
+                                                    test_report.addFailure(SpecFailure {
+                                                        file: filename.to_string(),
+                                                        line,
+                                                        kind: format!("{:?}", "AssertTrap"),
+                                                        message: format!(
+                                                            "expected trap, got Runtime:Error {:?}",
+                                                            r
+                                                        ),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Ok(values) => {
+                                    test_report.addFailure(SpecFailure {
+                                        file: filename.to_string(),
+                                        line,
+                                        kind: format!("{:?}", "AssertTrap"),
+                                        message: format!("expected trap, got {:?}", values),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    _ => println!("unexpected action"),
+                },
                 CommandKind::AssertInvalid { module, message } => {
-                    println!("AssertInvalid");
+                    //                    println!("AssertInvalid");
                     let result = panic::catch_unwind(|| {
                         wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
                     });
@@ -239,12 +408,12 @@ mod tests {
                         Ok(module) => {
                             if let Err(CompileError::InternalError { msg }) = module {
                                 test_report.countPassed();
-                                println!("expected: {:?}", message);
-                                println!("actual: {:?}", msg);
+                            //                                println!("expected: {:?}", message);
+                            //                                println!("actual: {:?}", msg);
                             } else if let Err(CompileError::ValidationError { msg }) = module {
                                 test_report.countPassed();
-                                println!("validation expected: {:?}", message);
-                                println!("validation actual: {:?}", msg);
+                            //                                println!("validation expected: {:?}", message);
+                            //                                println!("validation actual: {:?}", msg);
                             } else {
                                 test_report.addFailure(SpecFailure {
                                     file: filename.to_string(),
@@ -265,7 +434,7 @@ mod tests {
                     }
                 }
                 CommandKind::AssertMalformed { module, message } => {
-                    println!("AssertMalformed");
+                    //                    println!("AssertMalformed");
 
                     let result = panic::catch_unwind(|| {
                         wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
@@ -275,14 +444,19 @@ mod tests {
                         Ok(module) => {
                             if let Err(CompileError::InternalError { msg }) = module {
                                 test_report.countPassed();
-                                println!("expected: {:?}", message);
-                                println!("actual: {:?}", msg);
+                            //                                println!("expected: {:?}", message);
+                            //                                println!("actual: {:?}", msg);
                             } else if let Err(CompileError::ValidationError { msg }) = module {
                                 test_report.countPassed();
-                                println!("validation expected: {:?}", message);
-                                println!("validation actual: {:?}", msg);
+                            //                                println!("validation expected: {:?}", message);
+                            //                                println!("validation actual: {:?}", msg);
                             } else {
-                                println!("Should be malformed");
+                                test_report.addFailure(SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertMalformed"),
+                                    message: format!("should be malformed"),
+                                });
                             }
                         }
                         Err(p) => {
@@ -305,8 +479,43 @@ mod tests {
                 _ => panic!("unknown wast command"),
             }
         }
-        test_report.print_report();
         Ok(test_report)
+    }
+
+    fn is_canonical_nan(val: wasmer_runtime_core::types::Value) -> bool {
+        match val {
+            wasmer_runtime_core::types::Value::F32(x) => x.is_canonical_nan(),
+            wasmer_runtime_core::types::Value::F64(x) => x.is_canonical_nan(),
+            _ => panic!("value is not a float {:?}", val),
+        }
+    }
+
+    fn is_arithmetic_nan(val: wasmer_runtime_core::types::Value) -> bool {
+        match val {
+            wasmer_runtime_core::types::Value::F32(x) => x.is_quiet_nan(),
+            wasmer_runtime_core::types::Value::F64(x) => x.is_quiet_nan(),
+            _ => panic!("value is not a float {:?}", val),
+        }
+    }
+
+    fn convert_value(other: Value<f32, f64>) -> wasmer_runtime_core::types::Value {
+        match other {
+            Value::I32(v) => wasmer_runtime_core::types::Value::I32(v),
+            Value::I64(v) => wasmer_runtime_core::types::Value::I64(v),
+            Value::F32(v) => wasmer_runtime_core::types::Value::F32(v),
+            Value::F64(v) => wasmer_runtime_core::types::Value::F64(v),
+            Value::V128(v) => wasmer_runtime_core::types::Value::V128(v),
+        }
+    }
+
+    fn to_hex(v: wasmer_runtime_core::types::Value) -> String {
+        match v {
+            wasmer_runtime_core::types::Value::I32(v) => format!("{:#x}", v),
+            wasmer_runtime_core::types::Value::I64(v) => format!("{:#x}", v),
+            wasmer_runtime_core::types::Value::F32(v) => format!("{:#x}", v.to_bits()),
+            wasmer_runtime_core::types::Value::F64(v) => format!("{:#x}", v.to_bits()),
+            wasmer_runtime_core::types::Value::V128(v) => format!("{:#x}", v),
+        }
     }
 
     #[test]
@@ -359,6 +568,56 @@ mod tests {
         println!("");
         println!("");
         assert!(success, "tests passed")
+    }
+
+    /// Bit pattern of an f32 value:
+    ///     1-bit sign + 8-bit mantissa + 23-bit exponent = 32 bits
+    ///
+    /// Bit pattern of an f64 value:
+    ///     1-bit sign + 11-bit mantissa + 52-bit exponent = 64 bits
+    ///
+    /// NOTE: On some old platforms (PA-RISC, some MIPS) quiet NaNs (qNaN) have
+    /// their mantissa MSB unset and set for signaling NaNs (sNaN).
+    ///
+    /// Links:
+    ///     * https://en.wikipedia.org/wiki/Floating-point_arithmetic
+    ///     * https://github.com/WebAssembly/spec/issues/286
+    ///     * https://en.wikipedia.org/wiki/NaN
+    ///
+    pub trait NaNCheck {
+        fn is_quiet_nan(&self) -> bool;
+        fn is_canonical_nan(&self) -> bool;
+    }
+
+    impl NaNCheck for f32 {
+        /// The MSB of the mantissa must be set for a NaN to be a quiet NaN.
+        fn is_quiet_nan(&self) -> bool {
+            let bit_mask = 0b1 << 22; // Used to check if 23rd bit is set, which is MSB of the mantissa
+            self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
+        }
+
+        /// For a NaN to be canonical, its mantissa bits must all be unset
+        fn is_canonical_nan(&self) -> bool {
+            let bit_mask: u32 = 0b1____0000_0000____011_1111_1111_1111_1111_1111;
+            let masked_value = self.to_bits() ^ bit_mask;
+            masked_value == 0xFFFF_FFFF || masked_value == 0x7FFF_FFFF
+        }
+    }
+
+    impl NaNCheck for f64 {
+        /// The MSB of the mantissa must be set for a NaN to be a quiet NaN.
+        fn is_quiet_nan(&self) -> bool {
+            let bit_mask = 0b1 << 51; // Used to check if 52st bit is set, which is MSB of the mantissa
+            self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
+        }
+
+        /// For a NaN to be canonical, its mantissa bits must all be unset
+        fn is_canonical_nan(&self) -> bool {
+            let bit_mask: u64 =
+                0b1____000_0000_0000____0111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111;
+            let masked_value = self.to_bits() ^ bit_mask;
+            masked_value == 0x7FFF_FFFF_FFFF_FFFF || masked_value == 0xFFF_FFFF_FFFF_FFFF
+        }
     }
 
 }
