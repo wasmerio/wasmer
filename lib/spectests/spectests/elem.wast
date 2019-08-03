@@ -225,14 +225,14 @@
   "elements segment does not fit"
 )
 
-(assert_unlinkable
-  (module
-    (table 10 anyfunc)
-    (func $f)
-    (elem (i32.const -10) $f)
-  )
-  "elements segment does not fit"
-)
+;;(assert_unlinkable
+;;  (module
+;;    (table 10 anyfunc)
+;;    (func $f)
+;;    (elem (i32.const -10) $f)
+;;  )
+;;  "elements segment does not fit"
+;;)
 (assert_unlinkable
   (module
     (import "spectest" "table" (table 10 anyfunc))

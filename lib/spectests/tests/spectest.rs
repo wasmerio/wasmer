@@ -472,10 +472,54 @@ mod tests {
                 CommandKind::AssertUninstantiable { module, message } => {
                     println!("AssertUninstantiable")
                 }
-                CommandKind::AssertExhaustion { action, message } => println!("AssertExhaustion"),
-                CommandKind::AssertUnlinkable { module, message } => println!("AssertUnlinkable"),
-                CommandKind::Register { name, as_name } => println!("Register"),
-                CommandKind::PerformAction(ref action) => println!("PerformAction"),
+                CommandKind::AssertExhaustion { action, message } => {
+                    println!("AssertExhaustion not yet implemented")
+                }
+                CommandKind::AssertUnlinkable { module, message } => {
+                    println!("AssertUnlinkable {:? }{:?}", filename, line);
+                    let result = panic::catch_unwind(|| {
+                        let module =
+                            wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
+                                .expect("WASM can't be compiled");
+                        module.instantiate(&ImportObject::new())
+                    });
+                    match result {
+                        Err(e) => {
+                            test_report.addFailure(SpecFailure {
+                                file: filename.to_string(),
+                                line: line,
+                                kind: format!("{:?}", "AssertUnlinkable"),
+                                message: format!("caught panic {:?}", e),
+                            });
+                        }
+                        Ok(result) => match result {
+                            Ok(_) => {
+                                test_report.addFailure(SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertUnlinkable"),
+                                    message: format!("instantiate successful, expected unlinkable"),
+                                });
+                            }
+                            Err(e) => match e {
+                                wasmer_runtime_core::error::Error::LinkError(_) => {
+                                    test_report.countPassed();
+                                }
+                                _ => {
+                                    test_report.addFailure(SpecFailure {
+                                        file: filename.to_string(),
+                                        line: line,
+                                        kind: format!("{:?}", "AssertUnlinkable"),
+                                        message: format!("expected link error, got {:?}", e),
+                                    });
+                                }
+                            },
+                        },
+                    }
+                    println!("AssertUnlinkable Done");
+                }
+                CommandKind::Register { name, as_name } => println!("Register not implemented"),
+                CommandKind::PerformAction(ref action) => println!("PerformAction not implemented"),
                 _ => panic!("unknown wast command"),
             }
         }
