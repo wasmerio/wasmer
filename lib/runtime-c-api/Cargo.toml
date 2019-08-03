@@ -15,10 +15,12 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 libc = "0.2.60"
 
 [dependencies.wasmer-runtime]
+default-features = false
 path = "../runtime"
 version = "0.6.0"
 
 [dependencies.wasmer-runtime-core]
+default-features = false
 path = "../runtime-core"
 version = "0.6.0"
 
