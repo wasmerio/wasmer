@@ -86,7 +86,7 @@ use wasmer_runtime_core::types::Value;
 use wasmer_runtime_core::{{Instance, module::Module}};
 use wasmer_runtime_core::error::Result;
 use wasmer_runtime_core::vm::Ctx;
-use wasmer_runtime_core::backend::Compiler;
+use wasmer_runtime_core::backend::{Compiler, CompilerConfig, Features};
 
 static IMPORT_MODULE: &str = r#"
 (module
@@ -132,17 +132,20 @@ fn get_compiler() -> impl Compiler {
   CraneliftCompiler::new()
 }
 
-pub fn generate_imports() -> ImportObject {
+pub fn generate_imports(extra_imports: Vec<(String, Instance)>) -> ImportObject {
     let mut features = wabt::Features::new();
     features.enable_simd();
     let wasm_binary = wat2wasm_with_features(IMPORT_MODULE.as_bytes(), features).expect("WAST not valid or malformed");
-    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &get_compiler())
+    let module = wasmer_runtime_core::compile_with_config(&wasm_binary[..], &get_compiler(), CompilerConfig { features: Features { simd: true }, ..Default::default() })
         .expect("WASM can't be compiled");
     let instance = module
         .instantiate(&ImportObject::new())
         .expect("WASM can't be instantiated");
     let mut imports = ImportObject::new();
     imports.register("spectest", instance);
+    for (name, instance) in extra_imports {
+        imports.register(name, instance);
+    }
     imports
 }
 
@@ -303,6 +306,8 @@ struct WastTestGenerator {
     script_parser: ScriptParser,
     module_calls: HashMap<i32, Vec<String>>,
     buffer: String,
+    modules_by_name: HashMap<String, i32>,
+    registered_modules: Vec<(i32, String)>,
 }
 
 impl WastTestGenerator {
@@ -322,6 +327,8 @@ impl WastTestGenerator {
             script_parser: script,
             buffer: buffer,
             module_calls: HashMap::new(),
+            modules_by_name: HashMap::new(),
+            registered_modules: Vec::new(),
         }
     }
 
@@ -392,7 +399,7 @@ fn test_module_{}() {{
         self.module_calls.remove(&module);
     }
 
-    fn visit_module(&mut self, module: &ModuleBinary, _name: &Option<String>) {
+    fn visit_module(&mut self, module: &ModuleBinary, name: &Option<String>) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
         let mut features = Features::new();
         features.enable_simd();
@@ -408,8 +415,10 @@ fn test_module_{}() {{
     let module_str = \"{}\";
     println!(\"{{}}\", module_str);
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
-    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &get_compiler()).expect(\"WASM can't be compiled\");
-    module.instantiate(&generate_imports()).expect(\"WASM can't be instantiated\")
+    let module = wasmer_runtime_core::compile_with_config(&wasm_binary[..], &get_compiler(), CompilerConfig {{ features: Features {{ simd: true }}, ..Default::default() }}).expect(\"WASM can't be compiled\");
+    let mut extra_imports = Vec::new();
+    {}
+    module.instantiate(&generate_imports(extra_imports)).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
                 // We do this to ident four spaces, so it looks aligned to the function body
@@ -417,9 +426,22 @@ fn test_module_{}() {{
                     .replace("\n", "\n    ")
                     .replace("\\", "\\\\")
                     .replace("\"", "\\\""),
+                self.registered_modules.iter().map(|(number, name)| format!("extra_imports.push((String::from(\"{}\"), create_module_{}()));", name, number)).fold(String::from(""), |acc, x| format!("{}{}\n", acc, x)),
             )
             .as_str(),
         );
+        if let Some(name) = name {
+            self.record_named_module(name);
+        }
+    }
+
+    fn record_named_module(&mut self, name: &String) {
+        self.modules_by_name.insert(name.clone(), self.last_module);
+    }
+
+    fn visit_register_module(&mut self, name: &String, as_name: &String) {
+        self.registered_modules
+            .push((*self.modules_by_name.get(name).unwrap(), as_name.clone()));
     }
 
     fn visit_assert_invalid(&mut self, module: &ModuleBinary) {
@@ -431,7 +453,7 @@ fn test_module_{}() {{
                 "#[test]
 fn {}_assert_invalid() {{
     let wasm_binary = {:?};
-    let module = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler());
+    let module = wasmer_runtime_core::compile_with_config(&wasm_binary, &get_compiler(), CompilerConfig {{ features: Features {{ simd: true }}, ..Default::default() }});
     assert!(module.is_err(), \"WASM should not compile as is invalid\");
 }}\n",
                 command_name,
@@ -562,7 +584,7 @@ fn {}_assert_invalid() {{
                 "#[test]
 fn {}_assert_malformed() {{
     let wasm_binary = {:?};
-    let compilation = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler());
+    let compilation = wasmer_runtime_core::compile_with_config(&wasm_binary, &get_compiler(), CompilerConfig {{ features: Features {{ simd: true }}, ..Default::default() }});
     assert!(compilation.is_err(), \"WASM should not compile as is malformed\");
 }}\n",
                 command_name,
@@ -763,11 +785,8 @@ fn {}() {{
             } => {
                 // Do nothing for now
             }
-            CommandKind::Register {
-                name: _,
-                as_name: _,
-            } => {
-                // Do nothing for now
+            CommandKind::Register { name, as_name } => {
+                self.visit_register_module(name.as_ref().unwrap(), as_name);
             }
             CommandKind::PerformAction(action) => {
                 self.visit_perform_action(action);

@@ -76,9 +76,6 @@ jobs:
             make llvm
             make test-rest
       - run:
-          name: Release
-          command: make release-fast
-      - run:
           name: Integration Tests
           command: make integration-tests
       - save_cache:
@@ -115,9 +112,9 @@ jobs:
           name: Check
           command: |
             make check
-      - run:
-          name: Release
-          command: make release-fast
+            make compile-bench-singlepass
+            make compile-bench-llvm
+            # TODO: add compile-bench-clif when it works
       - run:
           name: Integration Tests
           command: make integration-tests
@@ -193,11 +190,6 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             make check
-      - run:
-          name: Release
-          command: |
-            export PATH="$HOME/.cargo/bin:$PATH"
-            make release-fast
       - run:
           name: Integration Tests
           command: |

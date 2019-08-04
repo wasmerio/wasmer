@@ -209,14 +209,23 @@ fn trap_if_not_representable_as_int(
     intrinsics: &Intrinsics,
     context: &Context,
     function: &FunctionValue,
-    lower_bound: f64,
-    upper_bound: f64,
+    lower_bound: u64, // Inclusive (not a trapping value)
+    upper_bound: u64, // Inclusive (not a trapping value)
     value: FloatValue,
 ) {
     let float_ty = value.get_type();
+    let int_ty = if float_ty == intrinsics.f32_ty {
+        intrinsics.i32_ty
+    } else {
+        intrinsics.i64_ty
+    };
 
-    let lower_bound = float_ty.const_float(lower_bound);
-    let upper_bound = float_ty.const_float(upper_bound);
+    let lower_bound = builder
+        .build_bitcast(int_ty.const_int(lower_bound, false), float_ty, "")
+        .into_float_value();
+    let upper_bound = builder
+        .build_bitcast(int_ty.const_int(upper_bound, false), float_ty, "")
+        .into_float_value();
 
     // The 'U' in the float predicate is short for "unordered" which means that
     // the comparison will compare true if either operand is a NaN. Thus, NaNs
@@ -351,6 +360,45 @@ fn trap_if_zero(
     builder.position_at_end(&shouldnt_trap_block);
 }
 
+// Replaces any NaN with the canonical QNaN, otherwise leaves the value alone.
+fn canonicalize_nans(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    value: BasicValueEnum,
+) -> BasicValueEnum {
+    let f_ty = value.get_type();
+    let canonicalized = if f_ty.is_vector_type() {
+        let value = value.into_vector_value();
+        let f_ty = f_ty.into_vector_type();
+        let zero = f_ty.const_zero();
+        let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+        let canonical_qnan = f_ty
+            .get_element_type()
+            .into_float_type()
+            .const_float(std::f64::NAN);
+        let canonical_qnan = splat_vector(
+            builder,
+            intrinsics,
+            canonical_qnan.as_basic_value_enum(),
+            f_ty,
+            "",
+        );
+        builder
+            .build_select(nan_cmp, canonical_qnan, value, "")
+            .as_basic_value_enum()
+    } else {
+        let value = value.into_float_value();
+        let f_ty = f_ty.into_float_type();
+        let zero = f_ty.const_zero();
+        let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+        let canonical_qnan = f_ty.const_float(std::f64::NAN);
+        builder
+            .build_select(nan_cmp, canonical_qnan, value, "")
+            .as_basic_value_enum()
+    };
+    canonicalized
+}
+
 fn resolve_memory_ptr(
     builder: &Builder,
     intrinsics: &Intrinsics,
@@ -446,6 +494,21 @@ fn resolve_memory_ptr(
 #[derive(Debug)]
 pub struct CodegenError {
     pub message: String,
+}
+
+// This is only called by C++ code, the 'pub' + '#[no_mangle]' combination
+// prevents unused function elimination.
+#[no_mangle]
+pub unsafe extern "C" fn callback_trampoline(
+    b: *mut Option<Box<dyn std::any::Any>>,
+    callback: *mut BreakpointHandler,
+) {
+    let callback = Box::from_raw(callback);
+    let result: Result<(), Box<dyn std::any::Any>> = callback(BreakpointInfo { fault: None });
+    match result {
+        Ok(()) => *b = None,
+        Err(e) => *b = Some(e),
+    }
 }
 
 pub struct LLVMModuleCodeGenerator {
@@ -546,14 +609,6 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     }
 
     fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        let op = match event {
-            Event::Wasm(x) => x,
-            Event::Internal(_x) => {
-                return Ok(());
-            }
-            Event::WasmOwned(ref x) => x,
-        };
-
         let mut state = &mut self.state;
         let builder = self.builder.as_ref().unwrap();
         let context = self.context.as_ref().unwrap();
@@ -563,6 +618,45 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let info = module_info;
         let signatures = &self.signatures;
         let mut ctx = self.ctx.as_mut().unwrap();
+
+        let op = match event {
+            Event::Wasm(x) => x,
+            Event::WasmOwned(ref x) => x,
+            Event::Internal(x) => {
+                match x {
+                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {
+                        return Ok(());
+                    }
+                    InternalEvent::Breakpoint(callback) => {
+                        let raw = Box::into_raw(Box::new(callback)) as u64;
+                        let callback = intrinsics.i64_ty.const_int(raw, false);
+                        builder.build_call(
+                            intrinsics.throw_breakpoint,
+                            &[callback.as_basic_value_enum()],
+                            "",
+                        );
+                        return Ok(());
+                    }
+                    InternalEvent::GetInternal(idx) => {
+                        if state.reachable {
+                            let idx = idx as usize;
+                            let field_ptr = ctx.internal_field(idx, intrinsics, builder);
+                            let result = builder.build_load(field_ptr, "get_internal");
+                            state.push1(result);
+                        }
+                    }
+                    InternalEvent::SetInternal(idx) => {
+                        if state.reachable {
+                            let idx = idx as usize;
+                            let field_ptr = ctx.internal_field(idx, intrinsics, builder);
+                            let v = state.pop1()?;
+                            builder.build_store(field_ptr, v);
+                        }
+                    }
+                }
+                return Ok(());
+            }
+        };
 
         if !state.reachable {
             match *op {
@@ -1577,9 +1671,45 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I32RemS | Operator::I64RemS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let int_type = v1.get_type();
+                let (min_value, neg_one_value) = if int_type == intrinsics.i32_ty {
+                    let min_value = int_type.const_int(i32::min_value() as u64, false);
+                    let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
+                    (min_value, neg_one_value)
+                } else if int_type == intrinsics.i64_ty {
+                    let min_value = int_type.const_int(i64::min_value() as u64, false);
+                    let neg_one_value = int_type.const_int(-1i64 as u64, false);
+                    (min_value, neg_one_value)
+                } else {
+                    unreachable!()
+                };
 
                 trap_if_zero(builder, intrinsics, context, &function, v2);
 
+                // "Overflow also leads to undefined behavior; this is a rare
+                // case, but can occur, for example, by taking the remainder of
+                // a 32-bit division of -2147483648 by -1. (The remainder
+                // doesn’t actually overflow, but this rule lets srem be
+                // implemented using instructions that return both the result
+                // of the division and the remainder.)"
+                //   -- https://llvm.org/docs/LangRef.html#srem-instruction
+                //
+                // In Wasm, the i32.rem_s i32.const -2147483648 i32.const -1 is
+                // i32.const 0. We implement this by swapping out the left value
+                // for 0 in this case.
+                let will_overflow = builder.build_and(
+                    builder.build_int_compare(IntPredicate::EQ, v1, min_value, "left_is_min"),
+                    builder.build_int_compare(
+                        IntPredicate::EQ,
+                        v2,
+                        neg_one_value,
+                        "right_is_neg_one",
+                    ),
+                    "srem_will_overflow",
+                );
+                let v1 = builder
+                    .build_select(will_overflow, int_type.const_zero(), v1, "")
+                    .into_int_value();
                 let res = builder.build_int_signed_rem(v1, v2, &state.var_name());
                 state.push1(res);
             }
@@ -2033,120 +2163,120 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
              ***************************/
             Operator::F32Add | Operator::F64Add => {
                 let (v1, v2) = state.pop2()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::F32x4Add => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
-                    .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
-                    .into_vector_value();
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F64x2Add => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
-                    .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
-                    .into_vector_value();
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Sub | Operator::F64Sub => {
                 let (v1, v2) = state.pop2()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::F32x4Sub => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
-                    .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
-                    .into_vector_value();
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F64x2Sub => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
-                    .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
-                    .into_vector_value();
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Mul | Operator::F64Mul => {
                 let (v1, v2) = state.pop2()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::F32x4Mul => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
-                    .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
-                    .into_vector_value();
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F64x2Mul => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
-                    .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
-                    .into_vector_value();
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Div | Operator::F64Div => {
                 let (v1, v2) = state.pop2()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_div(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::F32x4Div => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
-                    .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
-                    .into_vector_value();
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_div(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F64x2Div => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
-                    .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
-                    .into_vector_value();
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
                 let res = builder.build_float_div(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
@@ -3189,12 +3319,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I32TruncSF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -2147483904.0,
-                    2147483648.0,
+                    builder, intrinsics, context, &function, 0xcf000000, // -2147483600.0
+                    0x4effffff, // 2147483500.0
                     v1,
                 );
                 let res =
@@ -3208,8 +3334,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -2147483649.0,
-                    2147483648.0,
+                    0xc1e00000001fffff, // -2147483648.9999995
+                    0x41dfffffffffffff, // 2147483647.9999998
                     v1,
                 );
                 let res =
@@ -3225,12 +3351,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I64TruncSF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -9223373136366403584.0,
-                    9223372036854775808.0,
+                    builder, intrinsics, context, &function,
+                    0xdf000000, // -9223372000000000000.0
+                    0x5effffff, // 9223371500000000000.0
                     v1,
                 );
                 let res =
@@ -3244,8 +3367,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -9223372036854777856.0,
-                    9223372036854775808.0,
+                    0xc3e0000000000000, // -9223372036854776000.0
+                    0x43dfffffffffffff, // 9223372036854775000.0
                     v1,
                 );
                 let res =
@@ -3261,12 +3384,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I32TruncUF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -1.0,
-                    4294967296.0,
+                    builder, intrinsics, context, &function, 0xbf7fffff, // -0.99999994
+                    0x4f7fffff, // 4294967000.0
                     v1,
                 );
                 let res =
@@ -3280,8 +3399,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -1.0,
-                    4294967296.0,
+                    0xbfefffffffffffff, // -0.9999999999999999
+                    0x41efffffffffffff, // 4294967295.9999995
                     v1,
                 );
                 let res =
@@ -3297,12 +3416,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I64TruncUF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -1.0,
-                    18446744073709551616.0,
+                    builder, intrinsics, context, &function, 0xbf7fffff, // -0.99999994
+                    0x5f7fffff, // 18446743000000000000.0
                     v1,
                 );
                 let res =
@@ -3316,8 +3431,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -1.0,
-                    18446744073709551616.0,
+                    0xbfefffffffffffff, // -0.9999999999999999
+                    0x43efffffffffffff, // 18446744073709550000.0
                     v1,
                 );
                 let res =
@@ -3331,12 +3446,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(res);
             }
             Operator::F32DemoteF64 => {
-                let v1 = state.pop1()?.into_float_value();
+                let v1 = state.pop1()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1).into_float_value();
                 let res = builder.build_float_trunc(v1, intrinsics.f32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::F64PromoteF32 => {
-                let v1 = state.pop1()?.into_float_value();
+                let v1 = state.pop1()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1).into_float_value();
                 let res = builder.build_float_ext(v1, intrinsics.f64_ty, &state.var_name());
                 state.push1(res);
             }

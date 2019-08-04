@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.5.7"
+version = "0.6.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -19,11 +19,10 @@ include = [
 ]
 
 [dependencies]
-byteorder = "1.3.1"
+byteorder = "1.3.2"
 errno = "0.2.4"
-structopt = "0.2.11"
+structopt = "0.2.18"
 wabt = "0.9.0"
-hashbrown = "0.1.8"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
@@ -62,7 +61,7 @@ members = [
 
 [build-dependencies]
 wabt = "0.9.0"
-glob = "0.2.11"
+glob = "0.3.0"
 rustc_version = "0.2.3"
 
 [features]
@@ -73,9 +72,23 @@ trace = ["wasmer-runtime-core/trace"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
-backend-cranelift = ["wasmer-runtime-core/backend-cranelift", "wasmer-runtime/cranelift"]
-backend-llvm = ["wasmer-llvm-backend", "wasmer-runtime-core/backend-llvm", "wasmer-runtime/llvm"]
-backend-singlepass = ["wasmer-singlepass-backend", "wasmer-runtime-core/backend-singlepass", "wasmer-runtime/singlepass"]
+backend-cranelift = [
+    "wasmer-runtime-core/backend-cranelift",
+    "wasmer-runtime/cranelift",
+    "wasmer-middleware-common/clif"
+]
+backend-llvm = [
+    "wasmer-llvm-backend",
+    "wasmer-runtime-core/backend-llvm",
+    "wasmer-runtime/llvm",
+    "wasmer-middleware-common/llvm"
+]
+backend-singlepass = [
+    "wasmer-singlepass-backend",
+    "wasmer-runtime-core/backend-singlepass",
+    "wasmer-runtime/singlepass",
+    "wasmer-middleware-common/singlepass"
+]
 wasi = ["wasmer-wasi"]
 # vfs = ["wasmer-runtime-abi"]
 

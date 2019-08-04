@@ -84,7 +84,7 @@ singlepass: spectests-singlepass emtests-singlepass middleware-singlepass wasite
 cranelift: spectests-cranelift emtests-cranelift middleware-cranelift wasitests-cranelift
 	cargo test -p wasmer-clif-backend --release
 
-llvm: spectests-llvm emtests-llvm middleware-llvm wasitests-llvm
+llvm: spectests-llvm emtests-llvm wasitests-llvm
 	cargo test -p wasmer-llvm-backend --release
 
 
@@ -104,7 +104,7 @@ test: spectests emtests middleware wasitests circleci-clean test-rest
 
 
 # Integration tests
-integration-tests: release-fast
+integration-tests: release-clif
 	echo "Running Integration Tests"
 	./integration_tests/lua/test.sh
 	./integration_tests/nginx/test.sh
@@ -130,7 +130,7 @@ release:
 	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
 
 # Only one backend (cranelift)
-release-fast:
+release-clif:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
@@ -141,8 +141,20 @@ release-singlepass:
 release-llvm:
 	cargo build --release --features backend-llvm
 
-bench:
-	cargo bench --all
+bench-singlepass:
+	cargo bench --all --no-default-features --features "backend-singlepass"
+bench-clif:
+	cargo bench --all --no-default-features --features "backend-clif"
+bench-llvm:
+	cargo bench --all --no-default-features --features "backend-llvm"
+
+# compile but don't run the benchmarks
+compile-bench-singlepass:
+	cargo bench --all --no-run --no-default-features --features "backend-singlepass"
+compile-bench-clif:
+	cargo bench --all --no-run --no-default-features --features "backend-clif"
+compile-bench-llvm:
+	cargo bench --all --no-run --no-default-features --features "backend-llvm"
 
 
 # Build utils

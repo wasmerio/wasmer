@@ -14,7 +14,7 @@ use crate::{
     },
     units::Pages,
 };
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use wasmparser::{
@@ -85,8 +85,10 @@ pub fn read_module<
         custom_sections: HashMap::new(),
     }));
 
-    let mut parser =
-        wasmparser::ValidatingParser::new(wasm, Some(default_validating_parser_config()));
+    let mut parser = wasmparser::ValidatingParser::new(
+        wasm,
+        Some(validating_parser_config(&compiler_config.features)),
+    );
 
     let mut namespace_builder = Some(StringTableBuilder::new());
     let mut name_builder = Some(StringTableBuilder::new());

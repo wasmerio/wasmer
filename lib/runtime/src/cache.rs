@@ -9,7 +9,7 @@ use std::{
 use wasmer_runtime_core::cache::Error as CacheError;
 pub use wasmer_runtime_core::{
     backend::Backend,
-    cache::{Artifact, Cache, WasmHash, WASMER_VERSION_HASH},
+    cache::{Artifact, Cache, WasmHash},
 };
 
 /// Representation of a directory that contains compiled wasm artifacts.
@@ -49,12 +49,7 @@ impl FileSystemCache {
     /// This method is unsafe because there's no way to ensure the artifacts
     /// stored in this cache haven't been corrupted or tampered with.
     pub unsafe fn new<P: Into<PathBuf>>(path: P) -> io::Result<Self> {
-        let path: PathBuf = {
-            let mut path = path.into();
-            path.push(WASMER_VERSION_HASH);
-            path
-        };
-
+        let path: PathBuf = path.into();
         if path.exists() {
             let metadata = path.metadata()?;
             if metadata.is_dir() {
