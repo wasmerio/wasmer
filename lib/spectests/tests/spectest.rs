@@ -131,6 +131,15 @@ mod tests {
     use wasmer_runtime_core::error::CompileError;
     use wasmer_runtime_core::import::ImportObject;
     use wasmer_runtime_core::Instance;
+    use wasmer_runtime_core::{func, imports, vm::Ctx};
+    use wasmer_runtime_core::{
+        global::Global,
+        memory::Memory,
+        prelude::*,
+        table::Table,
+        types::{ElementType, MemoryDescriptor, TableDescriptor},
+        units::Pages,
+    };
 
     fn parse_and_run(path: &PathBuf) -> Result<TestReport, String> {
         let mut test_report = TestReport {
@@ -143,6 +152,8 @@ mod tests {
         // TODO Allow running WAST &str directly
         // TODO Check all tests are up to date
         // TODO Files could be run with multiple threads
+        // TODO system for excludes
+
         let source = fs::read(&path).unwrap();
         let filename = path.file_name().unwrap().to_str().unwrap();
         let source = fs::read(&path).unwrap();
@@ -153,6 +164,7 @@ mod tests {
                 .expect(&format!("Failed to parse script {}", &filename));
 
         use std::panic;
+
         let mut instance: Option<Instance> = None;
 
         while let Some(Command { kind, line }) =
@@ -163,11 +175,12 @@ mod tests {
                 CommandKind::Module { module, name } => {
                     //                    println!("Module");
                     let result = panic::catch_unwind(|| {
+                        let spectest_import_object = get_spectest_import_object();
                         let module =
                             wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
                                 .expect("WASM can't be compiled");
                         let i = module
-                            .instantiate(&ImportObject::new())
+                            .instantiate(&spectest_import_object)
                             .expect("WASM can't be instantiated");
                         i
                     });
@@ -470,7 +483,7 @@ mod tests {
                     }
                 }
                 CommandKind::AssertUninstantiable { module, message } => {
-                    println!("AssertUninstantiable")
+                    println!("AssertUninstantiable not yet implmented")
                 }
                 CommandKind::AssertExhaustion { action, message } => {
                     println!("AssertExhaustion not yet implemented")
@@ -518,8 +531,51 @@ mod tests {
                     }
                     println!("AssertUnlinkable Done");
                 }
-                CommandKind::Register { name, as_name } => println!("Register not implemented {:?} {:?}", filename, line),
-                CommandKind::PerformAction(ref action) => println!("PerformAction not implemented {:?} {:?}", filename, line),
+                CommandKind::Register { name, as_name } => {
+                    println!("Register not implemented {:?} {:?}", filename, line)
+                }
+                CommandKind::PerformAction(ref action) => match action {
+                    Action::Invoke {
+                        module,
+                        field,
+                        args,
+                    } => {
+                        println!("PerformAction: {:?} {:?}", filename, line);
+                        if module.is_some() {
+                            panic!("unexpected module in invoke");
+                        } else {
+                            if (&instance).is_none() {
+                                test_report.addFailure(SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "PerformAction"),
+                                    message: format!("No instance available"),
+                                });
+                            } else {
+                                let params: Vec<wasmer_runtime_core::types::Value> =
+                                    args.iter().cloned().map(|x| convert_value(x)).collect();
+                                let call_result =
+                                    instance.as_ref().unwrap().call(&field, &params[..]);
+                                match call_result {
+                                    Err(e) => {
+                                        test_report.addFailure(SpecFailure {
+                                            file: filename.to_string(),
+                                            line,
+                                            kind: format!("{:?}", "PerformAction"),
+                                            message: format!("Call failed {:?}", e),
+                                        });
+                                    }
+                                    Ok(values) => {
+                                        test_report.countPassed();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Action::Get { module, field } => {
+                        println!("Action Get not implemented {:?} {:?}", filename, line)
+                    }
+                },
                 _ => panic!("unknown wast command"),
             }
         }
@@ -559,6 +615,40 @@ mod tests {
             wasmer_runtime_core::types::Value::F32(v) => format!("{:#x}", v.to_bits()),
             wasmer_runtime_core::types::Value::F64(v) => format!("{:#x}", v.to_bits()),
             wasmer_runtime_core::types::Value::V128(v) => format!("{:#x}", v),
+        }
+    }
+
+    fn print_i32(ctx: &mut Ctx, val: i32) {
+        println!("{}", val);
+    }
+
+    fn get_spectest_import_object() -> ImportObject {
+        let memory = Memory::new(MemoryDescriptor {
+            minimum: Pages(1),
+            maximum: Some(Pages(1)),
+            shared: false,
+        })
+        .unwrap();
+
+        let global_i32 = Global::new(wasmer_runtime_core::types::Value::I32(666));
+        let global_f32 = Global::new(wasmer_runtime_core::types::Value::F32(666.0));
+        let global_f64 = Global::new(wasmer_runtime_core::types::Value::F64(666.0));
+
+        let table = Table::new(TableDescriptor {
+            element: ElementType::Anyfunc,
+            minimum: 10,
+            maximum: Some(20),
+        })
+        .unwrap();
+        imports! {
+            "spectest" => {
+                "print_i32" => func!(print_i32),
+                "table" => table,
+                "global_i32" => global_i32,
+                "global_f32" => global_f32,
+                "global_f64" => global_f64,
+
+            },
         }
     }
 
