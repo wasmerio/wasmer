@@ -3,6 +3,17 @@
 #[cfg(test)]
 mod tests {
 
+    // TODO fix spec failures
+    // TODO Add more assertions
+    // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
+    // TODO Files could be run with multiple threads
+    // TODO implment allowed failures in excludes
+    // TODO fix NaN checking
+    // TODO Fix Readme and remove old spectest
+    // TODO consider submodule for spectests?
+    // TODO cleanup refactor
+    // TODO fix panics and remove panic handlers
+
     struct SpecFailure {
         file: String,
         line: u64,
@@ -30,73 +41,6 @@ mod tests {
             self.failures.push(failure);
         }
     }
-
-    const TESTS: &[&str] = &[
-        "spectests/address.wast",
-        "spectests/align.wast",
-        "spectests/binary.wast",
-        "spectests/block.wast",
-        "spectests/br.wast",
-        "spectests/br_if.wast",
-        "spectests/br_table.wast",
-        "spectests/break_drop.wast",
-        "spectests/call.wast",
-        "spectests/call_indirect.wast",
-        "spectests/comments.wast",
-        "spectests/const_.wast",
-        "spectests/conversions.wast",
-        "spectests/custom.wast",
-        "spectests/data.wast",
-        "spectests/elem.wast",
-        "spectests/endianness.wast",
-        "spectests/exports.wast",
-        "spectests/f32_.wast",
-        "spectests/f32_bitwise.wast",
-        "spectests/f32_cmp.wast",
-        "spectests/f64_.wast",
-        "spectests/f64_bitwise.wast",
-        "spectests/f64_cmp.wast",
-        "spectests/fac.wast",
-        "spectests/float_exprs.wast",
-        "spectests/float_literals.wast",
-        "spectests/float_memory.wast",
-        "spectests/float_misc.wast",
-        "spectests/forward.wast",
-        "spectests/func.wast",
-        "spectests/func_ptrs.wast",
-        "spectests/get_local.wast",
-        "spectests/globals.wast",
-        "spectests/i32_.wast",
-        "spectests/i64_.wast",
-        "spectests/if_.wast",
-        "spectests/int_exprs.wast",
-        "spectests/int_literals.wast",
-        "spectests/labels.wast",
-        "spectests/left_to_right.wast",
-        "spectests/loop_.wast",
-        "spectests/memory.wast",
-        "spectests/memory_grow.wast",
-        "spectests/memory_redundancy.wast",
-        "spectests/memory_trap.wast",
-        "spectests/nop.wast",
-        "spectests/return_.wast",
-        "spectests/select.wast",
-        "spectests/set_local.wast",
-        "spectests/stack.wast",
-        "spectests/start.wast",
-        "spectests/store_retval.wast",
-        "spectests/switch.wast",
-        "spectests/tee_local.wast",
-        "spectests/token.wast",
-        "spectests/traps.wast",
-        "spectests/typecheck.wast",
-        "spectests/types.wast",
-        "spectests/unwind.wast",
-        #[cfg(feature = "llvm")]
-        "spectests/simd.wast",
-        #[cfg(feature = "llvm")]
-        "spectests/simd_binaryen.wast",
-    ];
 
     use wasmer_runtime_core::backend::Compiler;
 
@@ -146,6 +90,7 @@ mod tests {
         "unknown"
     }
 
+    use glob::glob;
     use std::collections::HashMap;
     use std::path::PathBuf;
     use std::{env, fs, io::Write};
@@ -173,15 +118,16 @@ mod tests {
             failed: 0,
         };
 
-        // TODO Add more assertions
-        // TODO Allow running WAST &str directly (E.g. for use outside of spectests
-        // TODO Check all tests are up to date
-        // TODO Files could be run with multiple threads
-        // TODO implment allowed failures in excludes
-
         let source = fs::read(&path).unwrap();
         let filename = path.file_name().unwrap().to_str().unwrap();
         let source = fs::read(&path).unwrap();
+        let backend = get_compiler_name();
+
+        let star_key = format!("{}:{}:*", backend, filename);
+        if excludes.contains_key(&star_key) {
+            return Ok(test_report);
+        }
+
         let mut features = wabt::Features::new();
         features.enable_simd();
         let mut parser: ScriptParser =
@@ -195,13 +141,13 @@ mod tests {
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
         {
-            let backend = get_compiler_name();
             let test_key = format!("{}:{}:{}", backend, filename, line);
 
             // Use this line to debug which test is running
             println!("Running test: {}", test_key);
 
-            if excludes.contains_key(&test_key) && *excludes.get(&test_key).unwrap() == Exclude::Skip
+            if excludes.contains_key(&test_key)
+                && *excludes.get(&test_key).unwrap() == Exclude::Skip
             {
                 println!("Skipping test: {}", test_key);
                 continue;
@@ -710,7 +656,8 @@ mod tests {
             if line.trim().is_empty() || line.starts_with("#") {
                 // ignore line
             } else {
-                if line.contains("#"){ // Allow end of line comment
+                if line.contains("#") {
+                    // Allow end of line comment
                     let l: Vec<&str> = line.split('#').collect();
                     line = l.get(0).unwrap().to_string();
                 }
@@ -740,23 +687,29 @@ mod tests {
 
         let excludes = read_excludes();
 
-        for test in TESTS.iter() {
-            let test_name = test.split("/").last().unwrap().split(".").next().unwrap();
-            //            println!("Running:  {:?} =============================>", test_name);
-            let mut wast_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            wast_path.push(test);
-            let result = parse_and_run(&wast_path, &excludes);
-            match result {
-                Ok(test_report) => {
-                    if test_report.hasFailures() {
-                        success = false
+        let mut glob_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        glob_path.push("spectests");
+        glob_path.push("*.wast");
+
+        let glob_str = glob_path.to_str().unwrap();
+        for entry in glob(glob_str).expect("Failed to read glob pattern") {
+            match entry {
+                Ok(wast_path) => {
+                    let result = parse_and_run(&wast_path, &excludes);
+                    match result {
+                        Ok(test_report) => {
+                            if test_report.hasFailures() {
+                                success = false
+                            }
+                            test_reports.push(test_report);
+                        }
+                        Err(e) => {
+                            success = false;
+                            println!("Unexpected test run error: {:?}", e)
+                        }
                     }
-                    test_reports.push(test_report);
                 }
-                Err(e) => {
-                    success = false;
-                    println!("Unexpected test run error: {:?}", e)
-                }
+                Err(e) => panic!("glob err: {:?}", e),
             }
         }
 

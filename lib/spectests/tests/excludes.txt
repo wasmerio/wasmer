@@ -6,9 +6,21 @@
 #       clif:skip:data.wast:172  # comments are allowed here
 #
 # Use skip when the test failure prevents the spec suite from running, otherwise use fail
+#
+# Star line allows skipping an entire wast file
+#    clif:skip:simd.wast:*
 
-clif:skip:elem.wast:229  # Spec running forever
+clif:skip:elem.wast:229        # Spec running forever
+clif:skip:names.wast:*         # Names file has parsing error?
+clif:skip:simd.wast:*          # SIMD not implemented
+clif:skip:simd_binaryen.wast:* # SIMD not implemented
 
-llvm:skip:elem.wast:229  # Spec running forever
+llvm:skip:elem.wast:229    # Spec running forever
+llvm:skip:imports.wast:487 # LLVM ERROR: Program used external function '_vm.memory.grow.static.import' which could not be resolved!
+llvm:skip:linking.wast:306 # LLVM ERROR: Program used external function '_vm.memory.grow.static.import' which could not be resolved!
+llvm:skip:names.wast:*     # Names file has parsing error?
 
-singlepass:skip:elem.wast:229  # Spec running forever
+singlepass:skip:elem.wast:229        # Spec running forever
+singlepass:skip:names.wast:*         # Names file has parsing error?
+singlepass:skip:simd.wast:*          # SIMD not implemented
+singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
