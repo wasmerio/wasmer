@@ -42,8 +42,6 @@ mod tests {
         }
     }
 
-    use wasmer_runtime_core::backend::Compiler;
-
     #[cfg(feature = "clif")]
     fn get_compiler() -> impl Compiler {
         use wasmer_clif_backend::CraneliftCompiler;
@@ -92,9 +90,11 @@ mod tests {
 
     use glob::glob;
     use std::collections::HashMap;
+    use std::panic::{self, AssertUnwindSafe};
     use std::path::PathBuf;
     use std::{env, fs, io::Write};
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
+    use wasmer_runtime_core::backend::{Compiler, CompilerConfig, Features};
     use wasmer_runtime_core::error::CompileError;
     use wasmer_runtime_core::import::ImportObject;
     use wasmer_runtime_core::Instance;
@@ -107,6 +107,7 @@ mod tests {
         table::Table,
         types::{ElementType, MemoryDescriptor, TableDescriptor},
         units::Pages,
+        Module,
     };
     use wasmer_runtime_core::{func, imports, vm::Ctx};
 
@@ -143,7 +144,9 @@ mod tests {
 
         let mut named_modules: HashMap<String, Rc<Instance>> = HashMap::new();
 
-        use wasmer_runtime_core::backend::{Compiler, CompilerConfig, Features};
+        let mut registered_modules: HashMap<String, Module> = HashMap::new();
+
+        //
 
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
@@ -163,8 +166,9 @@ mod tests {
             match kind {
                 CommandKind::Module { module, name } => {
                     //                    println!("Module");
-                    let result = panic::catch_unwind(|| {
-                        let spectest_import_object = get_spectest_import_object();
+                    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                        let spectest_import_object =
+                            get_spectest_import_object(&registered_modules);
                         let config = CompilerConfig {
                             features: Features { simd: true },
                             ..Default::default()
@@ -179,7 +183,7 @@ mod tests {
                             .instantiate(&spectest_import_object)
                             .expect("WASM can't be instantiated");
                         i
-                    });
+                    }));
                     match result {
                         Err(e) => {
                             test_report.addFailure(SpecFailure {
@@ -712,7 +716,30 @@ mod tests {
                     println!("AssertUnlinkable Done");
                 }
                 CommandKind::Register { name, as_name } => {
-                    println!("Register not implemented {:?} {:?}", filename, line)
+                    let mut import_object = get_spectest_import_object(&registered_modules);
+                    let instance: Option<&Instance> = match name {
+                        Some(ref name) => {
+                            let i = named_modules.get(name);
+                            match i {
+                                Some(ins) => Some(ins.borrow()),
+                                None => None,
+                            }
+                        }
+                        None => match instance {
+                            Some(ref i) => Some(i.borrow()),
+                            None => None,
+                        },
+                    };
+                    if instance.is_none() {
+                        test_report.addFailure(SpecFailure {
+                            file: filename.to_string(),
+                            line: line,
+                            kind: format!("{:?}", "Register"),
+                            message: format!("No instance available"),
+                        });
+                    } else {
+                        registered_modules.insert(as_name, instance.unwrap().module());
+                    }
                 }
                 CommandKind::PerformAction(ref action) => match action {
                     Action::Invoke {
@@ -811,7 +838,7 @@ mod tests {
         println!("{}", val);
     }
 
-    fn get_spectest_import_object() -> ImportObject {
+    fn get_spectest_import_object(registered_modules: &HashMap<String, Module>) -> ImportObject {
         let memory = Memory::new(MemoryDescriptor {
             minimum: Pages(1),
             maximum: Some(Pages(1)),
@@ -829,7 +856,7 @@ mod tests {
             maximum: Some(20),
         })
         .unwrap();
-        imports! {
+        let mut import_object = imports! {
             "spectest" => {
                 "print_i32" => func!(print_i32),
                 "table" => table,
@@ -838,7 +865,15 @@ mod tests {
                 "global_f64" => global_f64,
 
             },
+        };
+
+        for (name, module) in registered_modules.iter() {
+            let i = module
+                .instantiate(&ImportObject::new())
+                .expect("Registered WASM can't be instantiated");
+            import_object.register(name.clone(), i);
         }
+        import_object
     }
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
