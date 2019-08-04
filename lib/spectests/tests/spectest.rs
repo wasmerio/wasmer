@@ -5,10 +5,9 @@ mod tests {
 
     // TODO fix NaN checking
     // TODO fix spec failures
-    // TODO implement allowed failures in excludes
-    // TODO consider submodule for spectests?
-    // TODO cleanup refactor
     // TODO fix panics and remove panic handlers
+    // TODO consider git submodule for spectests? & separate dir for simd/extra tests
+    // TODO cleanup refactor
     // TODO Files could be run with multiple threads
     // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
 
@@ -23,6 +22,7 @@ mod tests {
         failures: Vec<SpecFailure>,
         passed: u32,
         failed: u32,
+        allowed_failure: u32,
     }
 
     impl TestReport {
@@ -34,7 +34,16 @@ mod tests {
             self.failed > 0
         }
 
-        pub fn addFailure(&mut self, failure: SpecFailure) {
+        pub fn addFailure(
+            &mut self,
+            failure: SpecFailure,
+            testkey: &str,
+            excludes: &HashMap<String, Exclude>,
+        ) {
+            if (excludes.contains_key(testkey)) {
+                self.allowed_failure += 1;
+                return;
+            }
             self.failed += 1;
             self.failures.push(failure);
         }
@@ -117,6 +126,7 @@ mod tests {
             failures: vec![],
             passed: 0,
             failed: 0,
+            allowed_failure: 0,
         };
 
         let source = fs::read(&path).unwrap();
@@ -184,12 +194,16 @@ mod tests {
                     }));
                     match result {
                         Err(e) => {
-                            test_report.addFailure(SpecFailure {
-                                file: filename.to_string(),
-                                line: line,
-                                kind: format!("{:?}", "Module"),
-                                message: format!("caught panic {:?}", e),
-                            });
+                            test_report.addFailure(
+                                SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "Module"),
+                                    message: format!("caught panic {:?}", e),
+                                },
+                                &test_key,
+                                excludes,
+                            );
                             instance = None;
                         }
                         Ok(i) => {
@@ -222,24 +236,32 @@ mod tests {
                                 },
                             };
                             if instance.is_none() {
-                                test_report.addFailure(SpecFailure {
-                                    file: filename.to_string(),
-                                    line: line,
-                                    kind: format!("{:?}", "AssertReturn"),
-                                    message: format!("No instance available: {:?}", &module),
-                                });
+                                test_report.addFailure(
+                                    SpecFailure {
+                                        file: filename.to_string(),
+                                        line: line,
+                                        kind: format!("{:?}", "AssertReturn"),
+                                        message: format!("No instance available: {:?}", &module),
+                                    },
+                                    &test_key,
+                                    excludes,
+                                );
                             } else {
                                 let params: Vec<wasmer_runtime_core::types::Value> =
                                     args.iter().cloned().map(|x| convert_value(x)).collect();
                                 let call_result = instance.unwrap().call(&field, &params[..]);
                                 match call_result {
                                     Err(e) => {
-                                        test_report.addFailure(SpecFailure {
-                                            file: filename.to_string(),
-                                            line,
-                                            kind: format!("{:?}", "AssertReturn"),
-                                            message: format!("Call failed {:?}", e),
-                                        });
+                                        test_report.addFailure(
+                                            SpecFailure {
+                                                file: filename.to_string(),
+                                                line,
+                                                kind: format!("{:?}", "AssertReturn"),
+                                                message: format!("Call failed {:?}", e),
+                                            },
+                                            &test_key,
+                                            excludes,
+                                        );
                                     }
                                     Ok(values) => {
                                         for (i, v) in values.iter().enumerate() {
@@ -254,7 +276,7 @@ mod tests {
                                                         "result {:?} ({:?}) does not match expected {:?} ({:?})",
                                                         v, to_hex(v.clone()), expected_value, to_hex(expected_value.clone())
                                                     ),
-                                                });
+                                                }, &test_key, excludes);
                                             } else {
                                                 test_report.countPassed();
                                             }
@@ -278,12 +300,16 @@ mod tests {
                                 },
                             };
                             if instance.is_none() {
-                                test_report.addFailure(SpecFailure {
-                                    file: filename.to_string(),
-                                    line: line,
-                                    kind: format!("{:?}", "AssertReturn Get"),
-                                    message: format!("No instance available {:?}", &module),
-                                });
+                                test_report.addFailure(
+                                    SpecFailure {
+                                        file: filename.to_string(),
+                                        line: line,
+                                        kind: format!("{:?}", "AssertReturn Get"),
+                                        message: format!("No instance available {:?}", &module),
+                                    },
+                                    &test_key,
+                                    excludes,
+                                );
                             } else {
                                 let export: Export = instance
                                     .unwrap()
@@ -297,24 +323,32 @@ mod tests {
                                         if value == expected_value {
                                             test_report.countPassed();
                                         } else {
-                                            test_report.addFailure(SpecFailure {
-                                                file: filename.to_string(),
-                                                line: line,
-                                                kind: format!("{:?}", "AssertReturn Get"),
-                                                message: format!(
-                                                    "Expected Global {:?} got: {:?}",
-                                                    expected_value, value
-                                                ),
-                                            });
+                                            test_report.addFailure(
+                                                SpecFailure {
+                                                    file: filename.to_string(),
+                                                    line: line,
+                                                    kind: format!("{:?}", "AssertReturn Get"),
+                                                    message: format!(
+                                                        "Expected Global {:?} got: {:?}",
+                                                        expected_value, value
+                                                    ),
+                                                },
+                                                &test_key,
+                                                excludes,
+                                            );
                                         }
                                     }
                                     _ => {
-                                        test_report.addFailure(SpecFailure {
-                                            file: filename.to_string(),
-                                            line: line,
-                                            kind: format!("{:?}", "AssertReturn Get"),
-                                            message: format!("Expected Global"),
-                                        });
+                                        test_report.addFailure(
+                                            SpecFailure {
+                                                file: filename.to_string(),
+                                                line: line,
+                                                kind: format!("{:?}", "AssertReturn Get"),
+                                                message: format!("Expected Global"),
+                                            },
+                                            &test_key,
+                                            excludes,
+                                        );
                                     }
                                 }
                             }
@@ -342,39 +376,54 @@ mod tests {
                             },
                         };
                         if instance.is_none() {
-                            test_report.addFailure(SpecFailure {
-                                file: filename.to_string(),
-                                line: line,
-                                kind: format!("{:?}", "AssertReturnCanonicalNan"),
-                                message: format!("No instance available {:?}", &module),
-                            });
+                            test_report.addFailure(
+                                SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertReturnCanonicalNan"),
+                                    message: format!("No instance available {:?}", &module),
+                                },
+                                &test_key,
+                                excludes,
+                            );
                         } else {
                             let params: Vec<wasmer_runtime_core::types::Value> =
                                 args.iter().cloned().map(|x| convert_value(x)).collect();
                             let call_result = instance.unwrap().call(&field, &params[..]);
                             match call_result {
                                 Err(e) => {
-                                    test_report.addFailure(SpecFailure {
-                                        file: filename.to_string(),
-                                        line,
-                                        kind: format!("{:?}", "AssertReturnCanonicalNan"),
-                                        message: format!("Call failed {:?}", e),
-                                    });
+                                    test_report.addFailure(
+                                        SpecFailure {
+                                            file: filename.to_string(),
+                                            line,
+                                            kind: format!("{:?}", "AssertReturnCanonicalNan"),
+                                            message: format!("Call failed {:?}", e),
+                                        },
+                                        &test_key,
+                                        excludes,
+                                    );
                                 }
                                 Ok(values) => {
                                     for (i, v) in values.iter().enumerate() {
                                         if is_canonical_nan(v.clone()) {
                                             test_report.countPassed();
                                         } else {
-                                            test_report.addFailure(SpecFailure {
-                                                file: filename.to_string(),
-                                                line,
-                                                kind: format!("{:?}", "AssertReturnCanonicalNan"),
-                                                message: format!(
-                                                    "value is not canonical nan {:?}",
-                                                    v
-                                                ),
-                                            });
+                                            test_report.addFailure(
+                                                SpecFailure {
+                                                    file: filename.to_string(),
+                                                    line,
+                                                    kind: format!(
+                                                        "{:?}",
+                                                        "AssertReturnCanonicalNan"
+                                                    ),
+                                                    message: format!(
+                                                        "value is not canonical nan {:?}",
+                                                        v
+                                                    ),
+                                                },
+                                                &test_key,
+                                                excludes,
+                                            );
                                         }
                                     }
                                 }
@@ -403,39 +452,54 @@ mod tests {
                             },
                         };
                         if instance.is_none() {
-                            test_report.addFailure(SpecFailure {
-                                file: filename.to_string(),
-                                line: line,
-                                kind: format!("{:?}", "AssertReturnArithmeticNan"),
-                                message: format!("No instance available"),
-                            });
+                            test_report.addFailure(
+                                SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertReturnArithmeticNan"),
+                                    message: format!("No instance available"),
+                                },
+                                &test_key,
+                                excludes,
+                            );
                         } else {
                             let params: Vec<wasmer_runtime_core::types::Value> =
                                 args.iter().cloned().map(|x| convert_value(x)).collect();
                             let call_result = instance.unwrap().call(&field, &params[..]);
                             match call_result {
                                 Err(e) => {
-                                    test_report.addFailure(SpecFailure {
-                                        file: filename.to_string(),
-                                        line,
-                                        kind: format!("{:?}", "AssertReturnArithmeticNan"),
-                                        message: format!("Call failed {:?}", e),
-                                    });
+                                    test_report.addFailure(
+                                        SpecFailure {
+                                            file: filename.to_string(),
+                                            line,
+                                            kind: format!("{:?}", "AssertReturnArithmeticNan"),
+                                            message: format!("Call failed {:?}", e),
+                                        },
+                                        &test_key,
+                                        excludes,
+                                    );
                                 }
                                 Ok(values) => {
                                     for (i, v) in values.iter().enumerate() {
                                         if is_arithmetic_nan(v.clone()) {
                                             test_report.countPassed();
                                         } else {
-                                            test_report.addFailure(SpecFailure {
-                                                file: filename.to_string(),
-                                                line,
-                                                kind: format!("{:?}", "AssertReturnArithmeticNan"),
-                                                message: format!(
-                                                    "value is not arithmetic nan {:?}",
-                                                    v
-                                                ),
-                                            });
+                                            test_report.addFailure(
+                                                SpecFailure {
+                                                    file: filename.to_string(),
+                                                    line,
+                                                    kind: format!(
+                                                        "{:?}",
+                                                        "AssertReturnArithmeticNan"
+                                                    ),
+                                                    message: format!(
+                                                        "value is not arithmetic nan {:?}",
+                                                        v
+                                                    ),
+                                                },
+                                                &test_key,
+                                                excludes,
+                                            );
                                         }
                                     }
                                 }
@@ -464,12 +528,16 @@ mod tests {
                             },
                         };
                         if instance.is_none() {
-                            test_report.addFailure(SpecFailure {
-                                file: filename.to_string(),
-                                line: line,
-                                kind: format!("{:?}", "AssertTrap"),
-                                message: format!("No instance available"),
-                            });
+                            test_report.addFailure(
+                                SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertTrap"),
+                                    message: format!("No instance available"),
+                                },
+                                &test_key,
+                                excludes,
+                            );
                         } else {
                             let params: Vec<wasmer_runtime_core::types::Value> =
                                 args.iter().cloned().map(|x| convert_value(x)).collect();
@@ -479,12 +547,16 @@ mod tests {
                                 Err(e) => {
                                     match e {
                                         CallError::Resolve(_) => {
-                                            test_report.addFailure(SpecFailure {
-                                                file: filename.to_string(),
-                                                line,
-                                                kind: format!("{:?}", "AssertTrap"),
-                                                message: format!("expected trap, got {:?}", e),
-                                            });
+                                            test_report.addFailure(
+                                                SpecFailure {
+                                                    file: filename.to_string(),
+                                                    line,
+                                                    kind: format!("{:?}", "AssertTrap"),
+                                                    message: format!("expected trap, got {:?}", e),
+                                                },
+                                                &test_key,
+                                                excludes,
+                                            );
                                         }
                                         CallError::Runtime(r) => {
                                             match r {
@@ -493,27 +565,35 @@ mod tests {
                                                     test_report.countPassed()
                                                 }
                                                 RuntimeError::Error { .. } => {
-                                                    test_report.addFailure(SpecFailure {
-                                                        file: filename.to_string(),
-                                                        line,
-                                                        kind: format!("{:?}", "AssertTrap"),
-                                                        message: format!(
+                                                    test_report.addFailure(
+                                                        SpecFailure {
+                                                            file: filename.to_string(),
+                                                            line,
+                                                            kind: format!("{:?}", "AssertTrap"),
+                                                            message: format!(
                                                             "expected trap, got Runtime:Error {:?}",
                                                             r
                                                         ),
-                                                    });
+                                                        },
+                                                        &test_key,
+                                                        excludes,
+                                                    );
                                                 }
                                             }
                                         }
                                     }
                                 }
                                 Ok(values) => {
-                                    test_report.addFailure(SpecFailure {
-                                        file: filename.to_string(),
-                                        line,
-                                        kind: format!("{:?}", "AssertTrap"),
-                                        message: format!("expected trap, got {:?}", values),
-                                    });
+                                    test_report.addFailure(
+                                        SpecFailure {
+                                            file: filename.to_string(),
+                                            line,
+                                            kind: format!("{:?}", "AssertTrap"),
+                                            message: format!("expected trap, got {:?}", values),
+                                        },
+                                        &test_key,
+                                        excludes,
+                                    );
                                 }
                             }
                         }
@@ -544,21 +624,29 @@ mod tests {
                             //                                println!("validation expected: {:?}", message);
                             //                                println!("validation actual: {:?}", msg);
                             } else {
-                                test_report.addFailure(SpecFailure {
-                                    file: filename.to_string(),
-                                    line: line,
-                                    kind: format!("{:?}", "AssertInvalid"),
-                                    message: "Should be invalid".to_string(),
-                                });
+                                test_report.addFailure(
+                                    SpecFailure {
+                                        file: filename.to_string(),
+                                        line: line,
+                                        kind: format!("{:?}", "AssertInvalid"),
+                                        message: "Should be invalid".to_string(),
+                                    },
+                                    &test_key,
+                                    excludes,
+                                );
                             }
                         }
                         Err(p) => {
-                            test_report.addFailure(SpecFailure {
-                                file: filename.to_string(),
-                                line: line,
-                                kind: format!("{:?}", "AssertInvalid"),
-                                message: format!("caught panic {:?}", p),
-                            });
+                            test_report.addFailure(
+                                SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertInvalid"),
+                                    message: format!("caught panic {:?}", p),
+                                },
+                                &test_key,
+                                excludes,
+                            );
                         }
                     }
                 }
@@ -588,21 +676,29 @@ mod tests {
                             //                                println!("validation expected: {:?}", message);
                             //                                println!("validation actual: {:?}", msg);
                             } else {
-                                test_report.addFailure(SpecFailure {
-                                    file: filename.to_string(),
-                                    line: line,
-                                    kind: format!("{:?}", "AssertMalformed"),
-                                    message: format!("should be malformed"),
-                                });
+                                test_report.addFailure(
+                                    SpecFailure {
+                                        file: filename.to_string(),
+                                        line: line,
+                                        kind: format!("{:?}", "AssertMalformed"),
+                                        message: format!("should be malformed"),
+                                    },
+                                    &test_key,
+                                    excludes,
+                                );
                             }
                         }
                         Err(p) => {
-                            test_report.addFailure(SpecFailure {
-                                file: filename.to_string(),
-                                line: line,
-                                kind: format!("{:?}", "AssertMalformed"),
-                                message: format!("caught panic {:?}", p),
-                            });
+                            test_report.addFailure(
+                                SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertMalformed"),
+                                    message: format!("caught panic {:?}", p),
+                                },
+                                &test_key,
+                                excludes,
+                            );
                         }
                     }
                 }
@@ -631,12 +727,16 @@ mod tests {
                                 },
                             };
                             if instance.is_none() {
-                                test_report.addFailure(SpecFailure {
-                                    file: filename.to_string(),
-                                    line: line,
-                                    kind: format!("{:?}", "AssertExhaustion"),
-                                    message: format!("No instance available"),
-                                });
+                                test_report.addFailure(
+                                    SpecFailure {
+                                        file: filename.to_string(),
+                                        line: line,
+                                        kind: format!("{:?}", "AssertExhaustion"),
+                                        message: format!("No instance available"),
+                                    },
+                                    &test_key,
+                                    excludes,
+                                );
                             } else {
                                 let params: Vec<wasmer_runtime_core::types::Value> =
                                     args.iter().cloned().map(|x| convert_value(x)).collect();
@@ -646,15 +746,19 @@ mod tests {
                                         test_report.countPassed();
                                     }
                                     Ok(values) => {
-                                        test_report.addFailure(SpecFailure {
-                                            file: filename.to_string(),
-                                            line,
-                                            kind: format!("{:?}", "AssertExhaustion"),
-                                            message: format!(
-                                                "Expected call failure, got {:?}",
-                                                values
-                                            ),
-                                        });
+                                        test_report.addFailure(
+                                            SpecFailure {
+                                                file: filename.to_string(),
+                                                line,
+                                                kind: format!("{:?}", "AssertExhaustion"),
+                                                message: format!(
+                                                    "Expected call failure, got {:?}",
+                                                    values
+                                                ),
+                                            },
+                                            &test_key,
+                                            excludes,
+                                        );
                                     }
                                 }
                             }
@@ -680,33 +784,47 @@ mod tests {
                     });
                     match result {
                         Err(e) => {
-                            test_report.addFailure(SpecFailure {
-                                file: filename.to_string(),
-                                line: line,
-                                kind: format!("{:?}", "AssertUnlinkable"),
-                                message: format!("caught panic {:?}", e),
-                            });
-                        }
-                        Ok(result) => match result {
-                            Ok(_) => {
-                                test_report.addFailure(SpecFailure {
+                            test_report.addFailure(
+                                SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{:?}", "AssertUnlinkable"),
-                                    message: format!("instantiate successful, expected unlinkable"),
-                                });
+                                    message: format!("caught panic {:?}", e),
+                                },
+                                &test_key,
+                                excludes,
+                            );
+                        }
+                        Ok(result) => match result {
+                            Ok(_) => {
+                                test_report.addFailure(
+                                    SpecFailure {
+                                        file: filename.to_string(),
+                                        line: line,
+                                        kind: format!("{:?}", "AssertUnlinkable"),
+                                        message: format!(
+                                            "instantiate successful, expected unlinkable"
+                                        ),
+                                    },
+                                    &test_key,
+                                    excludes,
+                                );
                             }
                             Err(e) => match e {
                                 wasmer_runtime_core::error::Error::LinkError(_) => {
                                     test_report.countPassed();
                                 }
                                 _ => {
-                                    test_report.addFailure(SpecFailure {
-                                        file: filename.to_string(),
-                                        line: line,
-                                        kind: format!("{:?}", "AssertUnlinkable"),
-                                        message: format!("expected link error, got {:?}", e),
-                                    });
+                                    test_report.addFailure(
+                                        SpecFailure {
+                                            file: filename.to_string(),
+                                            line: line,
+                                            kind: format!("{:?}", "AssertUnlinkable"),
+                                            message: format!("expected link error, got {:?}", e),
+                                        },
+                                        &test_key,
+                                        excludes,
+                                    );
                                 }
                             },
                         },
@@ -729,12 +847,16 @@ mod tests {
                         },
                     };
                     if instance.is_none() {
-                        test_report.addFailure(SpecFailure {
-                            file: filename.to_string(),
-                            line: line,
-                            kind: format!("{:?}", "Register"),
-                            message: format!("No instance available"),
-                        });
+                        test_report.addFailure(
+                            SpecFailure {
+                                file: filename.to_string(),
+                                line: line,
+                                kind: format!("{:?}", "Register"),
+                                message: format!("No instance available"),
+                            },
+                            &test_key,
+                            excludes,
+                        );
                     } else {
                         registered_modules.insert(as_name, instance.unwrap().module());
                     }
@@ -761,24 +883,32 @@ mod tests {
                         };
 
                         if instance.is_none() {
-                            test_report.addFailure(SpecFailure {
-                                file: filename.to_string(),
-                                line: line,
-                                kind: format!("{:?}", "PerformAction"),
-                                message: format!("No instance available"),
-                            });
+                            test_report.addFailure(
+                                SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "PerformAction"),
+                                    message: format!("No instance available"),
+                                },
+                                &test_key,
+                                excludes,
+                            );
                         } else {
                             let params: Vec<wasmer_runtime_core::types::Value> =
                                 args.iter().cloned().map(|x| convert_value(x)).collect();
                             let call_result = instance.unwrap().call(&field, &params[..]);
                             match call_result {
                                 Err(e) => {
-                                    test_report.addFailure(SpecFailure {
-                                        file: filename.to_string(),
-                                        line,
-                                        kind: format!("{:?}", "PerformAction"),
-                                        message: format!("Call failed {:?}", e),
-                                    });
+                                    test_report.addFailure(
+                                        SpecFailure {
+                                            file: filename.to_string(),
+                                            line,
+                                            kind: format!("{:?}", "PerformAction"),
+                                            message: format!("Call failed {:?}", e),
+                                        },
+                                        &test_key,
+                                        excludes,
+                                    );
                                 }
                                 Ok(values) => {
                                     test_report.countPassed();
@@ -958,18 +1088,17 @@ mod tests {
         let mut failures = vec![];
         let mut total_passed = 0;
         let mut total_failed = 0;
+        let mut total_allowed_failures = 0;
         for mut test_report in test_reports.into_iter() {
             total_passed += test_report.passed;
             total_failed += test_report.failed;
+            total_allowed_failures += test_report.allowed_failure;
             failures.append(&mut test_report.failures);
         }
 
+
         println!("");
-        println!("");
-        println!("Spec tests summary report: ");
-        println!("total: {}", total_passed + total_failed);
-        println!("passed: {}", total_passed);
-        println!("failed: {}", total_failed);
+        println!("Failures:");
         for failure in failures.iter() {
             println!(
                 "    {:?} {:?} {:?} {:?}",
@@ -977,6 +1106,15 @@ mod tests {
             );
         }
         println!("");
+        println!("");
+        println!("Spec tests summary report: ");
+        println!(
+            "total: {}",
+            total_passed + total_failed + total_allowed_failures
+        );
+        println!("passed: {}", total_passed);
+        println!("failed: {}", total_failed);
+        println!("allowed failures: {}", total_allowed_failures);
         println!("");
         assert!(success, "tests passed")
     }

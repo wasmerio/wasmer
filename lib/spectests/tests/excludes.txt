@@ -4,6 +4,7 @@
 #       clif:fail:data.wast:172
 #       clif:skip:data.wast:172
 #       clif:skip:data.wast:172  # comments are allowed here
+#       clif:fail:conversions.wast:418
 #
 # Use skip when the test failure prevents the spec suite from running, otherwise use fail
 #
