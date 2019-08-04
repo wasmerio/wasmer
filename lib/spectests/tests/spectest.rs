@@ -518,8 +518,8 @@ mod tests {
                     }
                     println!("AssertUnlinkable Done");
                 }
-                CommandKind::Register { name, as_name } => println!("Register not implemented"),
-                CommandKind::PerformAction(ref action) => println!("PerformAction not implemented"),
+                CommandKind::Register { name, as_name } => println!("Register not implemented {:?} {:?}", filename, line),
+                CommandKind::PerformAction(ref action) => println!("PerformAction not implemented {:?} {:?}", filename, line),
                 _ => panic!("unknown wast command"),
             }
         }
