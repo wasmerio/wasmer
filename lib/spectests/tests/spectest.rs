@@ -3,16 +3,16 @@
 #[cfg(test)]
 mod tests {
 
+    // TODO fix NaN checking
     // TODO fix spec failures
     // TODO Add more assertions
-    // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
-    // TODO Files could be run with multiple threads
     // TODO implment allowed failures in excludes
-    // TODO fix NaN checking
     // TODO Fix Readme and remove old spectest
     // TODO consider submodule for spectests?
     // TODO cleanup refactor
     // TODO fix panics and remove panic handlers
+    // TODO Files could be run with multiple threads
+    // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
 
     struct SpecFailure {
         file: String,
@@ -468,7 +468,46 @@ mod tests {
                     println!("AssertUninstantiable not yet implmented")
                 }
                 CommandKind::AssertExhaustion { action, message } => {
-                    println!("AssertExhaustion not yet implemented")
+                    println!("AssertExhaustion {:? }{:?}", filename, line);
+                    match action {
+                        Action::Invoke {
+                            module,
+                            field,
+                            args,
+                        } => {
+                            if (&instance).is_none() {
+                                test_report.addFailure(SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{:?}", "AssertExhaustion"),
+                                    message: format!("No instance available"),
+                                });
+                            } else {
+                                let params: Vec<wasmer_runtime_core::types::Value> =
+                                    args.iter().cloned().map(|x| convert_value(x)).collect();
+                                let call_result =
+                                    instance.as_ref().unwrap().call(&field, &params[..]);
+                                match call_result {
+                                    Err(e) => {
+                                        test_report.countPassed();
+                                    }
+                                    Ok(values) => {
+                                        test_report.addFailure(SpecFailure {
+                                            file: filename.to_string(),
+                                            line,
+                                            kind: format!("{:?}", "AssertExhaustion"),
+                                            message: format!(
+                                                "Expected call failure, got {:?}",
+                                                values
+                                            ),
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        _ => println!("unexpected action in assert return"),
+                    }
+                    println!("AssertExhaustion Done");
                 }
                 CommandKind::AssertUnlinkable { module, message } => {
                     println!("AssertUnlinkable {:? }{:?}", filename, line);
