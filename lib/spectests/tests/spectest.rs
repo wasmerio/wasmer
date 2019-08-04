@@ -1,4 +1,11 @@
-#![allow(warnings, dead_code)]
+#![deny(
+    bad_style,
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 
 #[cfg(test)]
 mod tests {
@@ -6,6 +13,7 @@ mod tests {
     // TODO fix NaN checking
     // TODO fix spec failures
     // TODO fix panics and remove panic handlers
+    // TODO do something with messages _message, message: _, msg: _
     // TODO consider git submodule for spectests? & separate dir for simd/extra tests
     // TODO cleanup refactor
     // TODO Files could be run with multiple threads
@@ -26,21 +34,21 @@ mod tests {
     }
 
     impl TestReport {
-        pub fn countPassed(&mut self) {
+        pub fn count_passed(&mut self) {
             self.passed += 1;
         }
 
-        pub fn hasFailures(&self) -> bool {
+        pub fn has_failures(&self) -> bool {
             self.failed > 0
         }
 
-        pub fn addFailure(
+        pub fn add_failure(
             &mut self,
             failure: SpecFailure,
             testkey: &str,
             excludes: &HashMap<String, Exclude>,
         ) {
-            if (excludes.contains_key(testkey)) {
+            if excludes.contains_key(testkey) {
                 self.allowed_failure += 1;
                 return;
             }
@@ -97,9 +105,9 @@ mod tests {
 
     use glob::glob;
     use std::collections::HashMap;
-    use std::panic::{self, AssertUnwindSafe};
+    use std::fs;
+    use std::panic::AssertUnwindSafe;
     use std::path::PathBuf;
-    use std::{env, fs, io::Write};
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
     use wasmer_runtime_core::backend::{Compiler, CompilerConfig, Features};
     use wasmer_runtime_core::error::CompileError;
@@ -110,7 +118,6 @@ mod tests {
         global::Global,
         import::LikeNamespace,
         memory::Memory,
-        prelude::*,
         table::Table,
         types::{ElementType, MemoryDescriptor, TableDescriptor},
         units::Pages,
@@ -129,7 +136,6 @@ mod tests {
             allowed_failure: 0,
         };
 
-        let source = fs::read(&path).unwrap();
         let filename = path.file_name().unwrap().to_str().unwrap();
         let source = fs::read(&path).unwrap();
         let backend = get_compiler_name();
@@ -146,7 +152,6 @@ mod tests {
                 .expect(&format!("Failed to parse script {}", &filename));
 
         use std::panic;
-
         let mut instance: Option<Rc<Instance>> = None;
         use std::rc::Rc;
 
@@ -194,7 +199,7 @@ mod tests {
                     }));
                     match result {
                         Err(e) => {
-                            test_report.addFailure(
+                            test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
@@ -236,7 +241,7 @@ mod tests {
                                 },
                             };
                             if instance.is_none() {
-                                test_report.addFailure(
+                                test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
@@ -252,7 +257,7 @@ mod tests {
                                 let call_result = instance.unwrap().call(&field, &params[..]);
                                 match call_result {
                                     Err(e) => {
-                                        test_report.addFailure(
+                                        test_report.add_failure(
                                             SpecFailure {
                                                 file: filename.to_string(),
                                                 line,
@@ -267,8 +272,8 @@ mod tests {
                                         for (i, v) in values.iter().enumerate() {
                                             let expected_value =
                                                 convert_value(*expected.get(i).unwrap());
-                                            if (*v != expected_value) {
-                                                test_report.addFailure(SpecFailure {
+                                            if *v != expected_value {
+                                                test_report.add_failure(SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
                                                     kind: format!("{:?}", "AssertReturn"),
@@ -278,7 +283,7 @@ mod tests {
                                                     ),
                                                 }, &test_key, excludes);
                                             } else {
-                                                test_report.countPassed();
+                                                test_report.count_passed();
                                             }
                                         }
                                     }
@@ -300,7 +305,7 @@ mod tests {
                                 },
                             };
                             if instance.is_none() {
-                                test_report.addFailure(
+                                test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
@@ -321,9 +326,9 @@ mod tests {
                                         let expected_value =
                                             convert_value(*expected.get(0).unwrap());
                                         if value == expected_value {
-                                            test_report.countPassed();
+                                            test_report.count_passed();
                                         } else {
-                                            test_report.addFailure(
+                                            test_report.add_failure(
                                                 SpecFailure {
                                                     file: filename.to_string(),
                                                     line: line,
@@ -339,7 +344,7 @@ mod tests {
                                         }
                                     }
                                     _ => {
-                                        test_report.addFailure(
+                                        test_report.add_failure(
                                             SpecFailure {
                                                 file: filename.to_string(),
                                                 line: line,
@@ -376,7 +381,7 @@ mod tests {
                             },
                         };
                         if instance.is_none() {
-                            test_report.addFailure(
+                            test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
@@ -392,7 +397,7 @@ mod tests {
                             let call_result = instance.unwrap().call(&field, &params[..]);
                             match call_result {
                                 Err(e) => {
-                                    test_report.addFailure(
+                                    test_report.add_failure(
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line,
@@ -404,11 +409,11 @@ mod tests {
                                     );
                                 }
                                 Ok(values) => {
-                                    for (i, v) in values.iter().enumerate() {
+                                    for v in values.iter() {
                                         if is_canonical_nan(v.clone()) {
-                                            test_report.countPassed();
+                                            test_report.count_passed();
                                         } else {
-                                            test_report.addFailure(
+                                            test_report.add_failure(
                                                 SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
@@ -452,7 +457,7 @@ mod tests {
                             },
                         };
                         if instance.is_none() {
-                            test_report.addFailure(
+                            test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
@@ -468,7 +473,7 @@ mod tests {
                             let call_result = instance.unwrap().call(&field, &params[..]);
                             match call_result {
                                 Err(e) => {
-                                    test_report.addFailure(
+                                    test_report.add_failure(
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line,
@@ -480,11 +485,11 @@ mod tests {
                                     );
                                 }
                                 Ok(values) => {
-                                    for (i, v) in values.iter().enumerate() {
+                                    for v in values.iter() {
                                         if is_arithmetic_nan(v.clone()) {
-                                            test_report.countPassed();
+                                            test_report.count_passed();
                                         } else {
-                                            test_report.addFailure(
+                                            test_report.add_failure(
                                                 SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
@@ -508,7 +513,7 @@ mod tests {
                     }
                     _ => panic!("unexpected action in assert return arithmetic nan"),
                 },
-                CommandKind::AssertTrap { action, message } => match action {
+                CommandKind::AssertTrap { action, message: _ } => match action {
                     Action::Invoke {
                         module,
                         field,
@@ -528,7 +533,7 @@ mod tests {
                             },
                         };
                         if instance.is_none() {
-                            test_report.addFailure(
+                            test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
@@ -547,7 +552,7 @@ mod tests {
                                 Err(e) => {
                                     match e {
                                         CallError::Resolve(_) => {
-                                            test_report.addFailure(
+                                            test_report.add_failure(
                                                 SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
@@ -562,10 +567,10 @@ mod tests {
                                             match r {
                                                 RuntimeError::Trap { .. } => {
                                                     // TODO assert message?
-                                                    test_report.countPassed()
+                                                    test_report.count_passed()
                                                 }
                                                 RuntimeError::Error { .. } => {
-                                                    test_report.addFailure(
+                                                    test_report.add_failure(
                                                         SpecFailure {
                                                             file: filename.to_string(),
                                                             line,
@@ -584,7 +589,7 @@ mod tests {
                                     }
                                 }
                                 Ok(values) => {
-                                    test_report.addFailure(
+                                    test_report.add_failure(
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line,
@@ -600,7 +605,7 @@ mod tests {
                     }
                     _ => println!("unexpected action"),
                 },
-                CommandKind::AssertInvalid { module, message } => {
+                CommandKind::AssertInvalid { module, message: _ } => {
                     //                    println!("AssertInvalid");
                     let result = panic::catch_unwind(|| {
                         let config = CompilerConfig {
@@ -615,16 +620,16 @@ mod tests {
                     });
                     match result {
                         Ok(module) => {
-                            if let Err(CompileError::InternalError { msg }) = module {
-                                test_report.countPassed();
+                            if let Err(CompileError::InternalError { msg: _ }) = module {
+                                test_report.count_passed();
                             //                                println!("expected: {:?}", message);
                             //                                println!("actual: {:?}", msg);
-                            } else if let Err(CompileError::ValidationError { msg }) = module {
-                                test_report.countPassed();
+                            } else if let Err(CompileError::ValidationError { msg: _ }) = module {
+                                test_report.count_passed();
                             //                                println!("validation expected: {:?}", message);
                             //                                println!("validation actual: {:?}", msg);
                             } else {
-                                test_report.addFailure(
+                                test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
@@ -637,7 +642,7 @@ mod tests {
                             }
                         }
                         Err(p) => {
-                            test_report.addFailure(
+                            test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
@@ -650,7 +655,7 @@ mod tests {
                         }
                     }
                 }
-                CommandKind::AssertMalformed { module, message } => {
+                CommandKind::AssertMalformed { module, message: _ } => {
                     //                    println!("AssertMalformed");
 
                     let result = panic::catch_unwind(|| {
@@ -667,16 +672,16 @@ mod tests {
 
                     match result {
                         Ok(module) => {
-                            if let Err(CompileError::InternalError { msg }) = module {
-                                test_report.countPassed();
+                            if let Err(CompileError::InternalError { msg: _ }) = module {
+                                test_report.count_passed();
                             //                                println!("expected: {:?}", message);
                             //                                println!("actual: {:?}", msg);
-                            } else if let Err(CompileError::ValidationError { msg }) = module {
-                                test_report.countPassed();
+                            } else if let Err(CompileError::ValidationError { msg: _ }) = module {
+                                test_report.count_passed();
                             //                                println!("validation expected: {:?}", message);
                             //                                println!("validation actual: {:?}", msg);
                             } else {
-                                test_report.addFailure(
+                                test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
@@ -689,7 +694,7 @@ mod tests {
                             }
                         }
                         Err(p) => {
-                            test_report.addFailure(
+                            test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
@@ -702,10 +707,11 @@ mod tests {
                         }
                     }
                 }
-                CommandKind::AssertUninstantiable { module, message } => {
-                    println!("AssertUninstantiable not yet implmented")
-                }
-                CommandKind::AssertExhaustion { action, message } => {
+                CommandKind::AssertUninstantiable {
+                    module: _,
+                    message: _,
+                } => println!("AssertUninstantiable not yet implmented "),
+                CommandKind::AssertExhaustion { action, message: _ } => {
                     println!("AssertExhaustion {:? }{:?}", filename, line);
                     match action {
                         Action::Invoke {
@@ -727,7 +733,7 @@ mod tests {
                                 },
                             };
                             if instance.is_none() {
-                                test_report.addFailure(
+                                test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
@@ -742,11 +748,12 @@ mod tests {
                                     args.iter().cloned().map(|x| convert_value(x)).collect();
                                 let call_result = instance.unwrap().call(&field, &params[..]);
                                 match call_result {
-                                    Err(e) => {
-                                        test_report.countPassed();
+                                    Err(_e) => {
+                                        // TODO is specific error required?
+                                        test_report.count_passed();
                                     }
                                     Ok(values) => {
-                                        test_report.addFailure(
+                                        test_report.add_failure(
                                             SpecFailure {
                                                 file: filename.to_string(),
                                                 line,
@@ -767,7 +774,7 @@ mod tests {
                     }
                     println!("AssertExhaustion Done");
                 }
-                CommandKind::AssertUnlinkable { module, message } => {
+                CommandKind::AssertUnlinkable { module, message: _ } => {
                     println!("AssertUnlinkable {:? }{:?}", filename, line);
                     let result = panic::catch_unwind(|| {
                         let config = CompilerConfig {
@@ -784,7 +791,7 @@ mod tests {
                     });
                     match result {
                         Err(e) => {
-                            test_report.addFailure(
+                            test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
@@ -797,7 +804,7 @@ mod tests {
                         }
                         Ok(result) => match result {
                             Ok(_) => {
-                                test_report.addFailure(
+                                test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
@@ -812,10 +819,10 @@ mod tests {
                             }
                             Err(e) => match e {
                                 wasmer_runtime_core::error::Error::LinkError(_) => {
-                                    test_report.countPassed();
+                                    test_report.count_passed();
                                 }
                                 _ => {
-                                    test_report.addFailure(
+                                    test_report.add_failure(
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line: line,
@@ -832,7 +839,6 @@ mod tests {
                     println!("AssertUnlinkable Done");
                 }
                 CommandKind::Register { name, as_name } => {
-                    let mut import_object = get_spectest_import_object(&registered_modules);
                     let instance: Option<&Instance> = match name {
                         Some(ref name) => {
                             let i = named_modules.get(name);
@@ -847,7 +853,7 @@ mod tests {
                         },
                     };
                     if instance.is_none() {
-                        test_report.addFailure(
+                        test_report.add_failure(
                             SpecFailure {
                                 file: filename.to_string(),
                                 line: line,
@@ -883,7 +889,7 @@ mod tests {
                         };
 
                         if instance.is_none() {
-                            test_report.addFailure(
+                            test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
@@ -899,7 +905,7 @@ mod tests {
                             let call_result = instance.unwrap().call(&field, &params[..]);
                             match call_result {
                                 Err(e) => {
-                                    test_report.addFailure(
+                                    test_report.add_failure(
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line,
@@ -910,17 +916,17 @@ mod tests {
                                         excludes,
                                     );
                                 }
-                                Ok(values) => {
-                                    test_report.countPassed();
+                                Ok(_values) => {
+                                    test_report.count_passed();
                                 }
                             }
                         }
                     }
-                    Action::Get { module, field } => {
-                        println!("Action Get not implemented {:?} {:?}", filename, line)
-                    }
+                    Action::Get { module, field } => println!(
+                        "Action Get not implemented {:?} {:?} {:?} {:?}",
+                        module, field, filename, line
+                    ),
                 },
-                _ => panic!("unknown wast command"),
             }
         }
         Ok(test_report)
@@ -962,14 +968,14 @@ mod tests {
         }
     }
 
-    fn print_i32(ctx: &mut Ctx, val: i32) {
+    fn print_i32(_ctx: &mut Ctx, val: i32) {
         println!("{}", val);
     }
 
     fn get_spectest_import_object(registered_modules: &HashMap<String, Module>) -> ImportObject {
         let memory = Memory::new(MemoryDescriptor {
             minimum: Pages(1),
-            maximum: Some(Pages(1)),
+            maximum: Some(Pages(2)),
             shared: false,
         })
         .unwrap();
@@ -988,6 +994,7 @@ mod tests {
             "spectest" => {
                 "print_i32" => func!(print_i32),
                 "table" => table,
+                "memory" => memory,
                 "global_i32" => global_i32,
                 "global_f32" => global_f32,
                 "global_f64" => global_f64,
@@ -1010,9 +1017,9 @@ mod tests {
         Fail,
     }
 
-    use core::borrow::{Borrow, BorrowMut};
+    use core::borrow::Borrow;
     use std::fs::File;
-    use std::io::{BufRead, BufReader, Error};
+    use std::io::{BufRead, BufReader};
 
     /// Reads the excludes.txt file into a hash map
     fn read_excludes() -> HashMap<String, Exclude> {
@@ -1069,7 +1076,7 @@ mod tests {
                     let result = parse_and_run(&wast_path, &excludes);
                     match result {
                         Ok(test_report) => {
-                            if test_report.hasFailures() {
+                            if test_report.has_failures() {
                                 success = false
                             }
                             test_reports.push(test_report);
@@ -1095,7 +1102,6 @@ mod tests {
             total_allowed_failures += test_report.allowed_failure;
             failures.append(&mut test_report.failures);
         }
-
 
         println!("");
         println!("Failures:");

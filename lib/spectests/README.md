@@ -104,7 +104,7 @@ Currently `cranelift_wasm::ModuleEnvironment` does not provide `declare_table_im
 - `SKIP_UNARY_OPERATION` [memory_grow.wast]
   In some versions of MacOS this is failing (perhaps because of the chip).
   More info here: 
-  ```
+ ```
 Executing function c82_l299_action_invoke
 thread 'test_memory_grow::test_module_5' panicked at 'assertion failed: `(left == right)`
   left: `Ok([I32(0)])`,
@@ -116,3 +116,12 @@ failures:
     test_memory_grow::test_module_5
 ```
   https://circleci.com/gh/wasmerio/wasmer/9556
+  
+### Development
+To test locally, try the following commands:
+
+```
+RUST_BACKTRACE=1 cargo test --features clif -- --nocapture
+RUST_BACKTRACE=1 cargo test --features llvm -- --nocapture
+RUST_BACKTRACE=1 cargo +nightly test --features singlepass -- --nocapture
+```
