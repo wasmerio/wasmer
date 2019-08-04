@@ -143,6 +143,8 @@ mod tests {
 
         let mut named_modules: HashMap<String, Rc<Instance>> = HashMap::new();
 
+        use wasmer_runtime_core::backend::{Compiler, CompilerConfig, Features};
+
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
         {
@@ -163,9 +165,16 @@ mod tests {
                     //                    println!("Module");
                     let result = panic::catch_unwind(|| {
                         let spectest_import_object = get_spectest_import_object();
-                        let module =
-                            wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
-                                .expect("WASM can't be compiled");
+                        let config = CompilerConfig {
+                            features: Features { simd: true },
+                            ..Default::default()
+                        };
+                        let module = wasmer_runtime_core::compile_with_config(
+                            &module.into_vec(),
+                            &get_compiler(),
+                            config,
+                        )
+                        .expect("WASM can't be compiled");
                         let i = module
                             .instantiate(&spectest_import_object)
                             .expect("WASM can't be instantiated");
@@ -512,7 +521,15 @@ mod tests {
                 CommandKind::AssertInvalid { module, message } => {
                     //                    println!("AssertInvalid");
                     let result = panic::catch_unwind(|| {
-                        wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
+                        let config = CompilerConfig {
+                            features: Features { simd: true },
+                            ..Default::default()
+                        };
+                        wasmer_runtime_core::compile_with_config(
+                            &module.into_vec(),
+                            &get_compiler(),
+                            config,
+                        )
                     });
                     match result {
                         Ok(module) => {
@@ -547,7 +564,15 @@ mod tests {
                     //                    println!("AssertMalformed");
 
                     let result = panic::catch_unwind(|| {
-                        wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
+                        let config = CompilerConfig {
+                            features: Features { simd: true },
+                            ..Default::default()
+                        };
+                        wasmer_runtime_core::compile_with_config(
+                            &module.into_vec(),
+                            &get_compiler(),
+                            config,
+                        )
                     });
 
                     match result {
@@ -639,9 +664,16 @@ mod tests {
                 CommandKind::AssertUnlinkable { module, message } => {
                     println!("AssertUnlinkable {:? }{:?}", filename, line);
                     let result = panic::catch_unwind(|| {
-                        let module =
-                            wasmer_runtime_core::compile_with(&module.into_vec(), &get_compiler())
-                                .expect("WASM can't be compiled");
+                        let config = CompilerConfig {
+                            features: Features { simd: true },
+                            ..Default::default()
+                        };
+                        let module = wasmer_runtime_core::compile_with_config(
+                            &module.into_vec(),
+                            &get_compiler(),
+                            config,
+                        )
+                        .expect("WASM can't be compiled");
                         module.instantiate(&ImportObject::new())
                     });
                     match result {
