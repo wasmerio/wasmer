@@ -98,15 +98,17 @@ mod tests {
     use wasmer_runtime_core::error::CompileError;
     use wasmer_runtime_core::import::ImportObject;
     use wasmer_runtime_core::Instance;
-    use wasmer_runtime_core::{func, imports, vm::Ctx};
     use wasmer_runtime_core::{
+        export::Export,
         global::Global,
+        import::LikeNamespace,
         memory::Memory,
         prelude::*,
         table::Table,
         types::{ElementType, MemoryDescriptor, TableDescriptor},
         units::Pages,
     };
+    use wasmer_runtime_core::{func, imports, vm::Ctx};
 
     fn parse_and_run(
         path: &PathBuf,
@@ -231,7 +233,51 @@ mod tests {
                                 }
                             }
                         }
-                        _ => println!("unexpected action in assert return"),
+                        Action::Get { module, field } => {
+                            if module.is_some() {
+                                println!("named modules not yet implemented");
+                            } else {
+                                if (&instance).is_none() {
+                                    test_report.addFailure(SpecFailure {
+                                        file: filename.to_string(),
+                                        line: line,
+                                        kind: format!("{:?}", "AssertReturn Get"),
+                                        message: format!("No instance available"),
+                                    });
+                                } else {
+                                    let export: Export =
+                                        instance.as_ref().unwrap().get_export(&field).unwrap();
+                                    match export {
+                                        Export::Global(g) => {
+                                            let value = g.get();
+                                            let expected_value =
+                                                convert_value(*expected.get(0).unwrap());
+                                            if value == expected_value {
+                                                test_report.countPassed();
+                                            } else {
+                                                test_report.addFailure(SpecFailure {
+                                                    file: filename.to_string(),
+                                                    line: line,
+                                                    kind: format!("{:?}", "AssertReturn Get"),
+                                                    message: format!(
+                                                        "Expected Global {:?} got: {:?}",
+                                                        expected_value, value
+                                                    ),
+                                                });
+                                            }
+                                        }
+                                        _ => {
+                                            test_report.addFailure(SpecFailure {
+                                                file: filename.to_string(),
+                                                line: line,
+                                                kind: format!("{:?}", "AssertReturn Get"),
+                                                message: format!("Expected Global"),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     //                    println!("in assert return");
                 }
@@ -505,7 +551,7 @@ mod tests {
                                 }
                             }
                         }
-                        _ => println!("unexpected action in assert return"),
+                        _ => println!("unexpected action in assert exhaustion"),
                     }
                     println!("AssertExhaustion Done");
                 }
