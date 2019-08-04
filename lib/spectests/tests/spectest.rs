@@ -125,6 +125,28 @@ mod tests {
         CraneliftCompiler::new()
     }
 
+    #[cfg(feature = "clif")]
+    fn get_compiler_name() -> &'static str {
+        "clif"
+    }
+
+    #[cfg(feature = "llvm")]
+    fn get_compiler_name() -> &'static str {
+        "llvm"
+    }
+
+    #[cfg(feature = "singlepass")]
+    fn get_compiler_name() -> &'static str {
+        "singlepass"
+    }
+
+    #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
+    fn get_compiler_name() -> &'static str {
+        panic!("compiler not specified, activate a compiler via features");
+        "unknown"
+    }
+
+    use std::collections::HashMap;
     use std::path::PathBuf;
     use std::{env, fs, io::Write};
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
@@ -141,7 +163,10 @@ mod tests {
         units::Pages,
     };
 
-    fn parse_and_run(path: &PathBuf) -> Result<TestReport, String> {
+    fn parse_and_run(
+        path: &PathBuf,
+        excludes: &HashMap<String, Exclude>,
+    ) -> Result<TestReport, String> {
         let mut test_report = TestReport {
             failures: vec![],
             passed: 0,
@@ -149,10 +174,10 @@ mod tests {
         };
 
         // TODO Add more assertions
-        // TODO Allow running WAST &str directly
+        // TODO Allow running WAST &str directly (E.g. for use outside of spectests
         // TODO Check all tests are up to date
         // TODO Files could be run with multiple threads
-        // TODO system for excludes
+        // TODO implment allowed failures in excludes
 
         let source = fs::read(&path).unwrap();
         let filename = path.file_name().unwrap().to_str().unwrap();
@@ -170,7 +195,18 @@ mod tests {
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
         {
-            //            println!("line: {:?}", line);
+            let backend = get_compiler_name();
+            let test_key = format!("{}:{}:{}", backend, filename, line);
+
+            // Use this line to debug which test is running
+            println!("Running test: {}", test_key);
+
+            if excludes.contains_key(&test_key) && *excludes.get(&test_key).unwrap() == Exclude::Skip
+            {
+                println!("Skipping test: {}", test_key);
+                continue;
+            }
+
             match kind {
                 CommandKind::Module { module, name } => {
                     //                    println!("Module");
@@ -652,17 +688,64 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    enum Exclude {
+        Skip,
+        Fail,
+    }
+
+    use std::fs::File;
+    use std::io::{BufRead, BufReader, Error};
+
+    /// Reads the excludes.txt file into a hash map
+    fn read_excludes() -> HashMap<String, Exclude> {
+        let mut excludes_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        excludes_path.push("tests");
+        excludes_path.push("excludes.txt");
+        let input = File::open(excludes_path).unwrap();
+        let buffered = BufReader::new(input);
+        let mut result = HashMap::new();
+        for line in buffered.lines() {
+            let mut line = line.unwrap();
+            if line.trim().is_empty() || line.starts_with("#") {
+                // ignore line
+            } else {
+                if line.contains("#"){ // Allow end of line comment
+                    let l: Vec<&str> = line.split('#').collect();
+                    line = l.get(0).unwrap().to_string();
+                }
+                //println!("exclude line {}", line);
+                // <backend>:<exclude-kind>:<test-file-name>:<test-file-line>
+                let split: Vec<&str> = line.trim().split(':').collect();
+                assert_eq!(split.len(), 4);
+                let kind = match *split.get(1).unwrap() {
+                    "skip" => Exclude::Skip,
+                    "fail" => Exclude::Fail,
+                    _ => panic!("unknown exclude kind"),
+                };
+                let backend = split.get(0).unwrap();
+                let testfile = split.get(2).unwrap();
+                let line = split.get(3).unwrap();
+                let key = format!("{}:{}:{}", backend, testfile, line);
+                result.insert(key, kind);
+            }
+        }
+        result
+    }
+
     #[test]
     fn test_run_spectests() {
         let mut success = true;
         let mut test_reports = vec![];
+
+        let excludes = read_excludes();
 
         for test in TESTS.iter() {
             let test_name = test.split("/").last().unwrap().split(".").next().unwrap();
             //            println!("Running:  {:?} =============================>", test_name);
             let mut wast_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             wast_path.push(test);
-            let result = parse_and_run(&wast_path);
+            let result = parse_and_run(&wast_path, &excludes);
             match result {
                 Ok(test_report) => {
                     if test_report.hasFailures() {

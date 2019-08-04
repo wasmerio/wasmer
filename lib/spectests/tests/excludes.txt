@@ -1,0 +1,14 @@
+# Comment lines begin with # are ignored, empty lines are ignored
+# Exclude lines follow the format:
+#       <backend>:<exclude-kind>:<test-file-name>:<test-file-line>
+#       clif:fail:data.wast:172
+#       clif:skip:data.wast:172
+#       clif:skip:data.wast:172  # comments are allowed here
+#
+# Use skip when the test failure prevents the spec suite from running, otherwise use fail
+
+clif:skip:elem.wast:229  # Spec running forever
+
+llvm:skip:elem.wast:229  # Spec running forever
+
+singlepass:skip:elem.wast:229  # Spec running forever
