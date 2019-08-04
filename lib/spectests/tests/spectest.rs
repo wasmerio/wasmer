@@ -5,9 +5,7 @@ mod tests {
 
     // TODO fix NaN checking
     // TODO fix spec failures
-    // TODO Add more assertions
-    // TODO implment allowed failures in excludes
-    // TODO Fix Readme and remove old spectest
+    // TODO implement allowed failures in excludes
     // TODO consider submodule for spectests?
     // TODO cleanup refactor
     // TODO fix panics and remove panic handlers
