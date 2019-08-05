@@ -388,6 +388,10 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_datasync");
     let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_DATASYNC) {
+        return __WASI_EACCES;
+    }
 
     if let Err(e) = state.fs.flush(fd) {
         e

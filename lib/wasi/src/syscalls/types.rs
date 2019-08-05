@@ -296,7 +296,7 @@ pub type __wasi_filedelta_t = i64;
 
 pub type __wasi_filesize_t = u64;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,
@@ -309,7 +309,49 @@ pub struct __wasi_filestat_t {
     pub st_ctim: __wasi_timestamp_t,
 }
 
+impl std::fmt::Debug for __wasi_filestat_t {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let convert_ts_into_time_string = |ts| {
+            let tspec = time::Timespec::new(ts as i64 / 1_000_000_000, (ts % 1_000_000_000) as i32);
+            let tm = time::at(tspec);
+            let out_time = tm.rfc822();
+            format!("{} ({})", out_time, ts)
+        };
+        f.debug_struct("__wasi_filestat_t")
+            .field("st_dev", &self.st_dev)
+            .field("st_ino", &self.st_ino)
+            .field(
+                "st_filetype",
+                &format!(
+                    "{} ({})",
+                    wasi_filetype_to_name(self.st_filetype),
+                    self.st_filetype,
+                ),
+            )
+            .field("st_nlink", &self.st_nlink)
+            .field("st_size", &self.st_size)
+            .field("st_atim", &convert_ts_into_time_string(self.st_atim))
+            .field("st_mtim", &convert_ts_into_time_string(self.st_mtim))
+            .field("st_ctim", &convert_ts_into_time_string(self.st_ctim))
+            .finish()
+    }
+}
+
 unsafe impl ValueType for __wasi_filestat_t {}
+
+pub fn wasi_filetype_to_name(ft: __wasi_filetype_t) -> &'static str {
+    match ft {
+        __WASI_FILETYPE_UNKNOWN => "Unknown",
+        __WASI_FILETYPE_BLOCK_DEVICE => "Block device",
+        __WASI_FILETYPE_CHARACTER_DEVICE => "Character device",
+        __WASI_FILETYPE_DIRECTORY => "Directory",
+        __WASI_FILETYPE_REGULAR_FILE => "Regular file",
+        __WASI_FILETYPE_SOCKET_DGRAM => "Socket dgram",
+        __WASI_FILETYPE_SOCKET_STREAM => "Socket stream",
+        __WASI_FILETYPE_SYMBOLIC_LINK => "Symbolic link",
+        _ => "Invalid",
+    }
+}
 
 pub type __wasi_filetype_t = u8;
 pub const __WASI_FILETYPE_UNKNOWN: u8 = 0;
