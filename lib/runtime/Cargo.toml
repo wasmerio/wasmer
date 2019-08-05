@@ -45,3 +45,7 @@ default-backend-cranelift = ["cranelift"]
 [[bench]]
 name = "nginx"
 harness = false
+
+[[bench]]
+name = "many_instances"
+harness = false
