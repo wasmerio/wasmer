@@ -100,6 +100,7 @@ pub struct InstanceImage {
 }
 
 impl ModuleStateMap {
+    #[warn(dead_code)]
     fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
         if ip < base || ip - base >= self.total_size {
             None
@@ -123,6 +124,7 @@ impl ModuleStateMap {
         }
     }
 
+    #[warn(dead_code)]
     fn lookup_trappable_ip(
         &self,
         ip: usize,
@@ -150,6 +152,7 @@ impl ModuleStateMap {
         }
     }
 
+    #[warn(dead_code)]
     fn lookup_loop_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
         if ip < base || ip - base >= self.total_size {
             None

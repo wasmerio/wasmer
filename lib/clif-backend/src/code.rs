@@ -89,10 +89,12 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             func,
             func_translator,
             next_local: 0,
-            clif_signatures: self.clif_signatures.clone(),
-            module_info: Arc::clone(&module_info),
-            target_config: self.isa.frontend_config().clone(),
             position: Position::default(),
+            func_env: FunctionEnvironment {
+                module_info: Arc::clone(&module_info),
+                target_config: self.isa.frontend_config().clone(),
+                clif_signatures: self.clif_signatures.clone(),
+            },
         };
 
         debug_assert_eq!(func_env.func.dfg.num_ebbs(), 0, "Function must be empty");
@@ -391,10 +393,8 @@ pub struct CraneliftFunctionCodeGenerator {
     func: Function,
     func_translator: FuncTranslator,
     next_local: usize,
-    pub clif_signatures: Map<SigIndex, ir::Signature>,
-    module_info: Arc<RwLock<ModuleInfo>>,
-    target_config: isa::TargetFrontendConfig,
     position: Position,
+    func_env: FunctionEnvironment,
 }
 
 pub struct FunctionEnvironment {
@@ -1138,11 +1138,6 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         //let builder = self.builder.as_mut().unwrap();
         //let func_environment = FuncEnv::new();
         //let state = TranslationState::new();
-        let mut function_environment = FunctionEnvironment {
-            module_info: Arc::clone(&self.module_info),
-            target_config: self.target_config.clone(),
-            clif_signatures: self.clif_signatures.clone(),
-        };
 
         if self.func_translator.state.control_stack.is_empty() {
             return Ok(());
@@ -1154,7 +1149,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             &mut self.position,
         );
         let state = &mut self.func_translator.state;
-        translate_operator(op, &mut builder, state, &mut function_environment)?;
+        translate_operator(op, &mut builder, state, &mut self.func_env)?;
         Ok(())
     }
 

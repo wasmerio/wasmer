@@ -1,5 +1,10 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
-
+#![deny(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 extern crate structopt;
 
 use std::env;
@@ -10,7 +15,7 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use structopt::StructOpt;
 
 use wasmer::*;

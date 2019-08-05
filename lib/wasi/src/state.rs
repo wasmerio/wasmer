@@ -8,7 +8,7 @@
 use crate::syscalls::types::*;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
-use hashbrown::hash_map::HashMap;
+use std::collections::HashMap;
 use std::{
     borrow::Borrow,
     cell::Cell,

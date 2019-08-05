@@ -17,7 +17,7 @@ wasmer-llvm-backend = { path = "../llvm-backend", version = "0.6.0", optional = 
 
 
 [build-dependencies]
-glob = "0.2.11"
+glob = "0.3.0"
 
 [dev-dependencies]
 wasmer-clif-backend = { path = "../clif-backend", version = "0.6.0" }

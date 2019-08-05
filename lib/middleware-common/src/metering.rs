@@ -129,29 +129,27 @@ pub fn set_points_used_ctx(ctx: &mut Ctx, value: u64) {
     ctx.set_internal(&INTERNAL_FIELD, value);
 }
 
-#[cfg(all(test, feature = "singlepass"))]
+#[cfg(all(test, any(feature = "singlepass", feature = "llvm")))]
 mod tests {
     use super::*;
     use wabt::wat2wasm;
 
+    use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
     use wasmer_runtime_core::{backend::Compiler, compile_with, imports, Func};
 
     #[cfg(feature = "llvm")]
     fn get_compiler(limit: u64) -> impl Compiler {
-        use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
-        use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
-        let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> =
-            StreamingCompiler::new(move || {
-                let mut chain = MiddlewareChain::new();
-                chain.push(Metering::new(limit));
-                chain
-            });
+        use wasmer_llvm_backend::ModuleCodeGenerator as LLVMMCG;
+        let c: StreamingCompiler<LLVMMCG, _, _, _, _> = StreamingCompiler::new(move || {
+            let mut chain = MiddlewareChain::new();
+            chain.push(Metering::new(limit));
+            chain
+        });
         c
     }
 
     #[cfg(feature = "singlepass")]
     fn get_compiler(limit: u64) -> impl Compiler {
-        use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
         use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
         let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
@@ -249,7 +247,7 @@ mod tests {
         // verify it returns the correct value
         assert_eq!(value, 7);
 
-        // verify is uses the correct number of points
+        // verify it used the correct number of points
         assert_eq!(get_points_used(&instance), 74);
     }
 
@@ -278,7 +276,7 @@ mod tests {
             _ => unreachable!(),
         }
 
-        // verify is uses the correct number of points
+        // verify it used the correct number of points
         assert_eq!(get_points_used(&instance), 109); // Used points will be slightly more than `limit` because of the way we do gas checking.
     }
 

@@ -1,4 +1,10 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
+#![deny(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
 #[cfg(test)]
@@ -134,7 +140,7 @@ pub fn validate_and_report_errors_with_features(
             enable_reference_types: false,
             enable_threads: false,
         },
-        mutable_global_imports: false,
+        mutable_global_imports: true,
     };
     let mut parser = wasmparser::ValidatingParser::new(wasm, Some(config));
     loop {

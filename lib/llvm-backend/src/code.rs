@@ -496,6 +496,21 @@ pub struct CodegenError {
     pub message: String,
 }
 
+// This is only called by C++ code, the 'pub' + '#[no_mangle]' combination
+// prevents unused function elimination.
+#[no_mangle]
+pub unsafe extern "C" fn callback_trampoline(
+    b: *mut Option<Box<dyn std::any::Any>>,
+    callback: *mut BreakpointHandler,
+) {
+    let callback = Box::from_raw(callback);
+    let result: Result<(), Box<dyn std::any::Any>> = callback(BreakpointInfo { fault: None });
+    match result {
+        Ok(()) => *b = None,
+        Err(e) => *b = Some(e),
+    }
+}
+
 pub struct LLVMModuleCodeGenerator {
     context: Option<Context>,
     builder: Option<Builder>,
@@ -594,14 +609,6 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     }
 
     fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        let op = match event {
-            Event::Wasm(x) => x,
-            Event::Internal(_x) => {
-                return Ok(());
-            }
-            Event::WasmOwned(ref x) => x,
-        };
-
         let mut state = &mut self.state;
         let builder = self.builder.as_ref().unwrap();
         let context = self.context.as_ref().unwrap();
@@ -611,6 +618,45 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let info = module_info;
         let signatures = &self.signatures;
         let mut ctx = self.ctx.as_mut().unwrap();
+
+        let op = match event {
+            Event::Wasm(x) => x,
+            Event::WasmOwned(ref x) => x,
+            Event::Internal(x) => {
+                match x {
+                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {
+                        return Ok(());
+                    }
+                    InternalEvent::Breakpoint(callback) => {
+                        let raw = Box::into_raw(Box::new(callback)) as u64;
+                        let callback = intrinsics.i64_ty.const_int(raw, false);
+                        builder.build_call(
+                            intrinsics.throw_breakpoint,
+                            &[callback.as_basic_value_enum()],
+                            "",
+                        );
+                        return Ok(());
+                    }
+                    InternalEvent::GetInternal(idx) => {
+                        if state.reachable {
+                            let idx = idx as usize;
+                            let field_ptr = ctx.internal_field(idx, intrinsics, builder);
+                            let result = builder.build_load(field_ptr, "get_internal");
+                            state.push1(result);
+                        }
+                    }
+                    InternalEvent::SetInternal(idx) => {
+                        if state.reachable {
+                            let idx = idx as usize;
+                            let field_ptr = ctx.internal_field(idx, intrinsics, builder);
+                            let v = state.pop1()?;
+                            builder.build_store(field_ptr, v);
+                        }
+                    }
+                }
+                return Ok(());
+            }
+        };
 
         if !state.reachable {
             match *op {
