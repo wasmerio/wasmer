@@ -1108,11 +1108,6 @@ mod tests {
         println!("Failures:");
         let backend = get_compiler_name();
         for failure in failures.iter() {
-//            println!(
-//                "    {:?} {:?} {:?} {:?}",
-//                failure.file, failure.line, failure.kind, failure.message
-//            );
-
             // To print excludes for all failures:
             println!(
                 "{}:fail:{}:{} # {} - {}",
