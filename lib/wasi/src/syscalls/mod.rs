@@ -103,6 +103,14 @@ fn write_buffer_array(
     __WASI_ESUCCESS
 }
 
+fn get_current_time_in_nanos() -> Result<__wasi_timestamp_t, __wasi_errno_t> {
+    let now = std::time::SystemTime::now();
+    let duration = now
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .map_err(|_| __WASI_EIO)?;
+    Ok(duration.as_nanos() as __wasi_timestamp_t)
+}
+
 /// ### `args_get()`
 /// Read command-line argument data.
 /// The sizes of the buffers should match that returned by [`args_sizes_get()`](#args_sizes_get).
@@ -590,42 +598,36 @@ pub fn fd_filestat_set_times(
 
     let inode = &mut state.fs.inodes[fd_entry.inode];
 
-    if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 {
-        inode.stat.st_atim = st_atim;
-    } else if fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
-        // set to current real time
-        let now = std::time::SystemTime::now();
-        let duration = wasi_try!(
-            now.duration_since(std::time::SystemTime::UNIX_EPOCH).ok(),
-            __WASI_EIO
-        );
-        inode.stat.st_atim = duration.as_nanos() as __wasi_timestamp_t;
+    if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 || fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
+        let time_to_set = if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 {
+            st_atim
+        } else {
+            wasi_try!(get_current_time_in_nanos())
+        };
+        inode.stat.st_atim = time_to_set;
         // TODO: set it for more than just files
         match &mut inode.kind {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
-                    handle.set_last_accessed(duration.as_nanos() as __wasi_timestamp_t);
+                    handle.set_last_accessed(time_to_set);
                 }
             }
             _ => {}
         }
     }
 
-    if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 {
-        inode.stat.st_mtim = st_mtim;
-    } else if fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
-        // set to current real time
-        let now = std::time::SystemTime::now();
-        let duration = wasi_try!(
-            now.duration_since(std::time::SystemTime::UNIX_EPOCH).ok(),
-            __WASI_EIO
-        );
-        inode.stat.st_mtim = duration.as_nanos() as __wasi_timestamp_t;
+    if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 || fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
+        let time_to_set = if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 {
+            st_mtim
+        } else {
+            wasi_try!(get_current_time_in_nanos())
+        };
+        inode.stat.st_mtim = time_to_set;
         // TODO: set it for more than just files
         match &mut inode.kind {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
-                    handle.set_last_modified(duration.as_nanos() as __wasi_timestamp_t);
+                    handle.set_last_modified(time_to_set);
                 }
             }
             _ => {}
@@ -1433,7 +1435,70 @@ pub fn path_filestat_set_times(
     fst_flags: __wasi_fstflags_t,
 ) -> __wasi_errno_t {
     debug!("wasi::path_filestat_set_times");
-    unimplemented!("wasi::path_filestat_set_times")
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_PATH_FILESTAT_SET_TIMES) {
+        return __WASI_EACCES;
+    }
+    if (fst_flags & __WASI_FILESTAT_SET_ATIM != 0 && fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0)
+        || (fst_flags & __WASI_FILESTAT_SET_MTIM != 0
+            && fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0)
+    {
+        return __WASI_EINVAL;
+    }
+
+    let path_string = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    debug!("=> base_fd: {}, path: {}", fd, &path_string);
+
+    let file_inode = wasi_try!(state.fs.get_inode_at_path(
+        fd,
+        path_string,
+        flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+    ));
+    let stat = wasi_try!(state
+        .fs
+        .get_stat_for_kind(&state.fs.inodes[file_inode].kind)
+        .ok_or(__WASI_EIO));
+
+    let inode = &mut state.fs.inodes[fd_entry.inode];
+
+    if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 || fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
+        let time_to_set = if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 {
+            st_atim
+        } else {
+            wasi_try!(get_current_time_in_nanos())
+        };
+        inode.stat.st_atim = time_to_set;
+        // TODO: set it for more than just files
+        match &mut inode.kind {
+            Kind::File { handle, .. } => {
+                if let Some(handle) = handle {
+                    handle.set_last_accessed(time_to_set);
+                }
+            }
+            _ => {}
+        }
+    }
+    if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 || fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
+        let time_to_set = if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 {
+            st_mtim
+        } else {
+            wasi_try!(get_current_time_in_nanos())
+        };
+        inode.stat.st_mtim = time_to_set;
+        // TODO: set it for more than just files
+        match &mut inode.kind {
+            Kind::File { handle, .. } => {
+                if let Some(handle) = handle {
+                    handle.set_last_modified(time_to_set);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    __WASI_ESUCCESS
 }
 
 /// ### `path_link()`
