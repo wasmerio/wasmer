@@ -166,7 +166,7 @@ mod tests {
             let test_key = format!("{}:{}:{}", backend, filename, line);
 
             // Use this line to debug which test is running
-            println!("Running test: {}", test_key);
+            // println!("Running test: {}", test_key);
 
             if excludes.contains_key(&test_key)
                 && *excludes.get(&test_key).unwrap() == Exclude::Skip
@@ -202,7 +202,7 @@ mod tests {
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
-                                    kind: format!("{:?}", "Module"),
+                                    kind: format!("{}", "Module"),
                                     message: format!("caught panic {:?}", e),
                                 },
                                 &test_key,
@@ -244,7 +244,7 @@ mod tests {
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
-                                        kind: format!("{:?}", "AssertReturn"),
+                                        kind: format!("{}", "AssertReturn"),
                                         message: format!("No instance available: {:?}", &module),
                                     },
                                     &test_key,
@@ -260,7 +260,7 @@ mod tests {
                                             SpecFailure {
                                                 file: filename.to_string(),
                                                 line,
-                                                kind: format!("{:?}", "AssertReturn"),
+                                                kind: format!("{}", "AssertReturn"),
                                                 message: format!("Call failed {:?}", e),
                                             },
                                             &test_key,
@@ -277,7 +277,7 @@ mod tests {
                                                 test_report.add_failure(SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
-                                                    kind: format!("{:?}", "AssertReturn"),
+                                                    kind: format!("{}", "AssertReturn"),
                                                     message: format!(
                                                         "result {:?} ({:?}) does not match expected {:?} ({:?})",
                                                         v, to_hex(v.clone()), expected_value, to_hex(expected_value.clone())
@@ -310,7 +310,7 @@ mod tests {
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
-                                        kind: format!("{:?}", "AssertReturn Get"),
+                                        kind: format!("{}", "AssertReturn Get"),
                                         message: format!("No instance available {:?}", &module),
                                     },
                                     &test_key,
@@ -333,7 +333,7 @@ mod tests {
                                                 SpecFailure {
                                                     file: filename.to_string(),
                                                     line: line,
-                                                    kind: format!("{:?}", "AssertReturn Get"),
+                                                    kind: format!("{}", "AssertReturn Get"),
                                                     message: format!(
                                                         "Expected Global {:?} got: {:?}",
                                                         expected_value, value
@@ -349,7 +349,7 @@ mod tests {
                                             SpecFailure {
                                                 file: filename.to_string(),
                                                 line: line,
-                                                kind: format!("{:?}", "AssertReturn Get"),
+                                                kind: format!("{}", "AssertReturn Get"),
                                                 message: format!("Expected Global"),
                                             },
                                             &test_key,
@@ -386,7 +386,7 @@ mod tests {
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
-                                    kind: format!("{:?}", "AssertReturnCanonicalNan"),
+                                    kind: format!("{}", "AssertReturnCanonicalNan"),
                                     message: format!("No instance available {:?}", &module),
                                 },
                                 &test_key,
@@ -402,7 +402,7 @@ mod tests {
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line,
-                                            kind: format!("{:?}", "AssertReturnCanonicalNan"),
+                                            kind: format!("{}", "AssertReturnCanonicalNan"),
                                             message: format!("Call failed {:?}", e),
                                         },
                                         &test_key,
@@ -462,7 +462,7 @@ mod tests {
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
-                                    kind: format!("{:?}", "AssertReturnArithmeticNan"),
+                                    kind: format!("{}", "AssertReturnArithmeticNan"),
                                     message: format!("No instance available"),
                                 },
                                 &test_key,
@@ -478,7 +478,7 @@ mod tests {
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line,
-                                            kind: format!("{:?}", "AssertReturnArithmeticNan"),
+                                            kind: format!("{}", "AssertReturnArithmeticNan"),
                                             message: format!("Call failed {:?}", e),
                                         },
                                         &test_key,
@@ -538,7 +538,7 @@ mod tests {
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
-                                    kind: format!("{:?}", "AssertTrap"),
+                                    kind: format!("{}", "AssertTrap"),
                                     message: format!("No instance available"),
                                 },
                                 &test_key,
@@ -557,7 +557,7 @@ mod tests {
                                                 SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
-                                                    kind: format!("{:?}", "AssertTrap"),
+                                                    kind: format!("{}", "AssertTrap"),
                                                     message: format!("expected trap, got {:?}", e),
                                                 },
                                                 &test_key,
@@ -575,7 +575,7 @@ mod tests {
                                                         SpecFailure {
                                                             file: filename.to_string(),
                                                             line,
-                                                            kind: format!("{:?}", "AssertTrap"),
+                                                            kind: format!("{}", "AssertTrap"),
                                                             message: format!(
                                                             "expected trap, got Runtime:Error {:?}",
                                                             r
@@ -594,7 +594,7 @@ mod tests {
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line,
-                                            kind: format!("{:?}", "AssertTrap"),
+                                            kind: format!("{}", "AssertTrap"),
                                             message: format!("expected trap, got {:?}", values),
                                         },
                                         &test_key,
@@ -634,7 +634,7 @@ mod tests {
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
-                                        kind: format!("{:?}", "AssertInvalid"),
+                                        kind: format!("{}", "AssertInvalid"),
                                         message: "Should be invalid".to_string(),
                                     },
                                     &test_key,
@@ -647,7 +647,7 @@ mod tests {
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
-                                    kind: format!("{:?}", "AssertInvalid"),
+                                    kind: format!("{}", "AssertInvalid"),
                                     message: format!("caught panic {:?}", p),
                                 },
                                 &test_key,
@@ -686,7 +686,7 @@ mod tests {
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
-                                        kind: format!("{:?}", "AssertMalformed"),
+                                        kind: format!("{}", "AssertMalformed"),
                                         message: format!("should be malformed"),
                                     },
                                     &test_key,
@@ -699,7 +699,7 @@ mod tests {
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
-                                    kind: format!("{:?}", "AssertMalformed"),
+                                    kind: format!("{}", "AssertMalformed"),
                                     message: format!("caught panic {:?}", p),
                                 },
                                 &test_key,
@@ -738,7 +738,7 @@ mod tests {
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
-                                        kind: format!("{:?}", "AssertExhaustion"),
+                                        kind: format!("{}", "AssertExhaustion"),
                                         message: format!("No instance available"),
                                     },
                                     &test_key,
@@ -758,7 +758,7 @@ mod tests {
                                             SpecFailure {
                                                 file: filename.to_string(),
                                                 line,
-                                                kind: format!("{:?}", "AssertExhaustion"),
+                                                kind: format!("{}", "AssertExhaustion"),
                                                 message: format!(
                                                     "Expected call failure, got {:?}",
                                                     values
@@ -796,7 +796,7 @@ mod tests {
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
-                                    kind: format!("{:?}", "AssertUnlinkable"),
+                                    kind: format!("{}", "AssertUnlinkable"),
                                     message: format!("caught panic {:?}", e),
                                 },
                                 &test_key,
@@ -809,7 +809,7 @@ mod tests {
                                     SpecFailure {
                                         file: filename.to_string(),
                                         line: line,
-                                        kind: format!("{:?}", "AssertUnlinkable"),
+                                        kind: format!("{}", "AssertUnlinkable"),
                                         message: format!(
                                             "instantiate successful, expected unlinkable"
                                         ),
@@ -827,7 +827,7 @@ mod tests {
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line: line,
-                                            kind: format!("{:?}", "AssertUnlinkable"),
+                                            kind: format!("{}", "AssertUnlinkable"),
                                             message: format!("expected link error, got {:?}", e),
                                         },
                                         &test_key,
@@ -858,7 +858,7 @@ mod tests {
                             SpecFailure {
                                 file: filename.to_string(),
                                 line: line,
-                                kind: format!("{:?}", "Register"),
+                                kind: format!("{}", "Register"),
                                 message: format!("No instance available"),
                             },
                             &test_key,
@@ -894,7 +894,7 @@ mod tests {
                                 SpecFailure {
                                     file: filename.to_string(),
                                     line: line,
-                                    kind: format!("{:?}", "PerformAction"),
+                                    kind: format!("{}", "PerformAction"),
                                     message: format!("No instance available"),
                                 },
                                 &test_key,
@@ -910,7 +910,7 @@ mod tests {
                                         SpecFailure {
                                             file: filename.to_string(),
                                             line,
-                                            kind: format!("{:?}", "PerformAction"),
+                                            kind: format!("{}", "PerformAction"),
                                             message: format!("Call failed {:?}", e),
                                         },
                                         &test_key,
@@ -1106,11 +1106,19 @@ mod tests {
 
         println!("");
         println!("Failures:");
+        let backend = get_compiler_name();
         for failure in failures.iter() {
+//            println!(
+//                "    {:?} {:?} {:?} {:?}",
+//                failure.file, failure.line, failure.kind, failure.message
+//            );
+
+            // To print excludes for all failures:
             println!(
-                "    {:?} {:?} {:?} {:?}",
-                failure.file, failure.line, failure.kind, failure.message
+                "{}:fail:{}:{} # {} - {}",
+                backend, failure.file, failure.line, failure.kind, failure.message
             );
+
         }
         println!("");
         println!("");
