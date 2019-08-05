@@ -71,7 +71,8 @@ pub enum Kind {
     File {
         /// the open file, if it's open
         handle: Option<Box<dyn WasiFile>>,
-        /// the path to the file
+        /// The path on the host system where the file is located
+        /// This is deprecated and will be removed in 0.7.0 or a shortly thereafter
         path: PathBuf,
     },
     Dir {
@@ -360,6 +361,27 @@ impl WasiFs {
         }
     }
 
+    /// refresh size from filesystem
+    pub(crate) fn filestat_resync_size(
+        &mut self,
+        fd: __wasi_fd_t,
+    ) -> Result<__wasi_filesize_t, __wasi_errno_t> {
+        let fd = self.fd_map.get_mut(&fd).ok_or(__WASI_EBADF)?;
+        match &mut self.inodes[fd.inode].kind {
+            Kind::File { handle, .. } => {
+                if let Some(h) = handle {
+                    let new_size = h.size();
+                    self.inodes[fd.inode].stat.st_size = new_size;
+                    Ok(new_size as __wasi_filesize_t)
+                } else {
+                    Err(__WASI_EBADF)
+                }
+            }
+            Kind::Dir { .. } | Kind::Root { .. } => Err(__WASI_EISDIR),
+            _ => Err(__WASI_EINVAL),
+        }
+    }
+
     fn get_inode_at_path_inner(
         &mut self,
         base: __wasi_fd_t,
@@ -578,13 +600,13 @@ impl WasiFs {
     }
 
     pub fn filestat_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_filestat_t, __wasi_errno_t> {
-        let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
+        let fd = self.get_fd(fd)?;
 
         Ok(self.inodes[fd.inode].stat)
     }
 
     pub fn fdstat(&self, fd: __wasi_fd_t) -> Result<__wasi_fdstat_t, __wasi_errno_t> {
-        let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
+        let fd = self.get_fd(fd)?;
 
         debug!("fdstat: {:?}", fd);
 

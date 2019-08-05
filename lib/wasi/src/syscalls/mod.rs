@@ -422,9 +422,6 @@ pub fn fd_fdstat_get(
     let mut state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
-    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_GET) {
-        return __WASI_EACCES;
-    }
 
     let stat = wasi_try!(state.fs.fdstat(fd));
     let buf = wasi_try!(buf_ptr.deref(memory));
@@ -506,6 +503,10 @@ pub fn fd_filestat_get(
     debug!("wasi::fd_filestat_get");
     let mut state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_GET) {
+        return __WASI_EACCES;
+    }
 
     let stat = wasi_try!(state.fs.filestat_fd(fd));
 
@@ -833,7 +834,7 @@ pub fn fd_pwrite(
             let bytes_written = match &mut inode.kind {
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
-                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        handle.seek(std::io::SeekFrom::Start(offset as u64));
                         wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
                     } else {
                         return __WASI_EINVAL;
@@ -1212,7 +1213,6 @@ pub fn fd_write(
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
             if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
-                // TODO: figure out the error to return when lacking rights
                 return __WASI_EACCES;
             }
 
@@ -1222,7 +1222,7 @@ pub fn fd_write(
             let bytes_written = match &mut inode.kind {
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
-                        handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                        handle.seek(std::io::SeekFrom::Start(offset as u64));
                         wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
                     } else {
                         return __WASI_EINVAL;
@@ -1239,6 +1239,7 @@ pub fn fd_write(
             };
 
             fd_entry.offset += bytes_written as u64;
+            wasi_try!(state.fs.filestat_resync_size(fd));
 
             bytes_written
         }
@@ -1541,7 +1542,9 @@ pub fn path_open(
     );
 
     // TODO: traverse rights of dirs properly
-    let adjusted_rights = fs_rights_base & working_dir.rights_inheriting;
+    // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
+    //              TODO: look into this; file a bug report if this is a bug
+    let adjusted_rights = /*fs_rights_base &*/ working_dir.rights_inheriting;
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         match &mut state.fs.inodes[inode].kind {
@@ -1817,6 +1820,9 @@ pub fn path_unlink_file(
     let memory = ctx.memory(0);
 
     let base_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_UNLINK_FILE) {
+        return __WASI_EACCES;
+    }
     let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
     debug!("Requested file: {}", path_str);
 

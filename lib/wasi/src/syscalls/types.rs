@@ -426,6 +426,56 @@ pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: u64 = 1 << 26;
 pub const __WASI_RIGHT_POLL_FD_READWRITE: u64 = 1 << 27;
 pub const __WASI_RIGHT_SOCK_SHUTDOWN: u64 = 1 << 28;
 
+/// function for debugging rights issues
+#[allow(dead_code)]
+pub fn print_right_set(rights: __wasi_rights_t) {
+    // BTreeSet for consistent order
+    let mut right_set = std::collections::BTreeSet::new();
+    for i in 0..28 {
+        let cur_right = rights & (1 << i);
+        if cur_right != 0 {
+            right_set.insert(right_to_string(cur_right).unwrap_or("INVALID RIGHT"));
+        }
+    }
+    println!("{:#?}", right_set);
+}
+
+/// expects a single right, returns None if out of bounds or > 1 bit set
+pub fn right_to_string(right: __wasi_rights_t) -> Option<&'static str> {
+    Some(match right {
+        __WASI_RIGHT_FD_DATASYNC => "__WASI_RIGHT_FD_DATASYNC",
+        __WASI_RIGHT_FD_READ => "__WASI_RIGHT_FD_READ",
+        __WASI_RIGHT_FD_SEEK => "__WASI_RIGHT_FD_SEEK",
+        __WASI_RIGHT_FD_FDSTAT_SET_FLAGS => "__WASI_RIGHT_FD_FDSTAT_SET_FLAGS",
+        __WASI_RIGHT_FD_SYNC => "__WASI_RIGHT_FD_SYNC",
+        __WASI_RIGHT_FD_TELL => "__WASI_RIGHT_FD_TELL",
+        __WASI_RIGHT_FD_WRITE => "__WASI_RIGHT_FD_WRITE",
+        __WASI_RIGHT_FD_ADVISE => "__WASI_RIGHT_FD_ADVISE",
+        __WASI_RIGHT_FD_ALLOCATE => "__WASI_RIGHT_FD_ALLOCATE",
+        __WASI_RIGHT_PATH_CREATE_DIRECTORY => "__WASI_RIGHT_PATH_CREATE_DIRECTORY",
+        __WASI_RIGHT_PATH_CREATE_FILE => "__WASI_RIGHT_PATH_CREATE_FILE",
+        __WASI_RIGHT_PATH_LINK_SOURCE => "__WASI_RIGHT_PATH_LINK_SOURCE",
+        __WASI_RIGHT_PATH_LINK_TARGET => "__WASI_RIGHT_PATH_LINK_TARGET",
+        __WASI_RIGHT_PATH_OPEN => "__WASI_RIGHT_PATH_OPEN",
+        __WASI_RIGHT_FD_READDIR => "__WASI_RIGHT_FD_READDIR",
+        __WASI_RIGHT_PATH_READLINK => "__WASI_RIGHT_PATH_READLINK",
+        __WASI_RIGHT_PATH_RENAME_SOURCE => "__WASI_RIGHT_PATH_RENAME_SOURCE",
+        __WASI_RIGHT_PATH_RENAME_TARGET => "__WASI_RIGHT_PATH_RENAME_TARGET",
+        __WASI_RIGHT_PATH_FILESTAT_GET => "__WASI_RIGHT_PATH_FILESTAT_GET",
+        __WASI_RIGHT_PATH_FILESTAT_SET_SIZE => "__WASI_RIGHT_PATH_FILESTAT_SET_SIZE",
+        __WASI_RIGHT_PATH_FILESTAT_SET_TIMES => "__WASI_RIGHT_PATH_FILESTAT_SET_TIMES",
+        __WASI_RIGHT_FD_FILESTAT_GET => "__WASI_RIGHT_FD_FILESTAT_GET",
+        __WASI_RIGHT_FD_FILESTAT_SET_SIZE => "__WASI_RIGHT_FD_FILESTAT_SET_SIZE",
+        __WASI_RIGHT_FD_FILESTAT_SET_TIMES => "__WASI_RIGHT_FD_FILESTAT_SET_TIMES",
+        __WASI_RIGHT_PATH_SYMLINK => "__WASI_RIGHT_PATH_SYMLINK",
+        __WASI_RIGHT_PATH_UNLINK_FILE => "__WASI_RIGHT_PATH_UNLINK_FILE",
+        __WASI_RIGHT_PATH_REMOVE_DIRECTORY => "__WASI_RIGHT_PATH_REMOVE_DIRECTORY",
+        __WASI_RIGHT_POLL_FD_READWRITE => "__WASI_RIGHT_POLL_FD_READWRITE",
+        __WASI_RIGHT_SOCK_SHUTDOWN => "__WASI_RIGHT_SOCK_SHUTDOWN",
+        _ => return None,
+    })
+}
+
 pub type __wasi_roflags_t = u16;
 pub const __WASI_SOCK_RECV_DATA_TRUNCATED: u16 = 1 << 0;
 

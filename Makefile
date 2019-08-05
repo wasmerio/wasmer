@@ -62,13 +62,17 @@ middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
 
 # Wasitests
-wasitests-singlepass:
+wasitests-setup:
+	rm -rf lib/wasi-tests/wasitests/test_fs/temp
+	mkdir -p lib/wasi-tests/wasitests/test_fs/temp
+
+wasitests-singlepass: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features singlepass -- --test-threads=1
 
-wasitests-cranelift:
+wasitests-cranelift: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1
 
-wasitests-llvm:
+wasitests-llvm: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features llvm -- --test-threads=1
 
 wasitests-unit:

@@ -7,6 +7,7 @@
 mod _common;
 mod create_dir;
 mod envvar;
+mod fd_allocate;
 mod fd_pread;
 mod file_metadata;
 mod fs_sandbox_test;
