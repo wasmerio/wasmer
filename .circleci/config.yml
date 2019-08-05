@@ -357,6 +357,8 @@ jobs:
             VERSION=$(cat ./artifacts/version)
             # VERSION_TAG=${CIRCLE_TAG}
             VERSION_TAG=$(cat ./artifacts/git_version)
+            LATEST_VERSION_PUBLISHED_ON_CRATES=$(curl -s https://raw.githubusercontent.com/rust-lang/crates.io-index/master/wa/sm/wasmer-runtime | tail -n 1 | sed 's/.*"vers":"\([^"]*\)".*/\1/')
+            if ( [ $VERSION_TAG -ne $LATEST_VERSION_PUBLISHED_ON_CRATES ] ) then { echo "Could not detect version published to crates.io; make sure we've published the crates before publishing the Wasmer binary"; exit 1; } else { true; } fi
             rm ./artifacts/version
             rm ./artifacts/git_version
             # VERSION_TAG=$(git describe --exact-match --tags)
