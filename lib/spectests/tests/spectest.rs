@@ -10,7 +10,6 @@
 #[cfg(test)]
 mod tests {
 
-    // TODO fix NaN checking
     // TODO fix spec failures
     // TODO fix panics and remove panic handlers
     // TODO do something with messages _message, message: _, msg: _
@@ -272,7 +271,9 @@ mod tests {
                                         for (i, v) in values.iter().enumerate() {
                                             let expected_value =
                                                 convert_value(*expected.get(i).unwrap());
-                                            if *v != expected_value {
+                                            if *v != expected_value
+                                                && !(*v != *v && expected_value != expected_value)
+                                            {
                                                 test_report.add_failure(SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
@@ -1147,31 +1148,28 @@ mod tests {
     impl NaNCheck for f32 {
         /// The MSB of the mantissa must be set for a NaN to be a quiet NaN.
         fn is_quiet_nan(&self) -> bool {
-            let bit_mask = 0b1 << 22; // Used to check if 23rd bit is set, which is MSB of the mantissa
-            self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
+            let mantissa_msb = 0b1 << 22;
+            self.is_nan() && (self.to_bits() & mantissa_msb) != 0
         }
 
-        /// For a NaN to be canonical, its mantissa bits must all be unset
+        /// For a NaN to be canonical, the MSB of the mantissa must be set and
+        /// all other mantissa bits must be unset.
         fn is_canonical_nan(&self) -> bool {
-            let bit_mask: u32 = 0b1____0000_0000____011_1111_1111_1111_1111_1111;
-            let masked_value = self.to_bits() ^ bit_mask;
-            masked_value == 0xFFFF_FFFF || masked_value == 0x7FFF_FFFF
+            return self.to_bits() == 0xFFC0_0000 || self.to_bits() == 0x7FC0_0000;
         }
     }
 
     impl NaNCheck for f64 {
         /// The MSB of the mantissa must be set for a NaN to be a quiet NaN.
         fn is_quiet_nan(&self) -> bool {
-            let bit_mask = 0b1 << 51; // Used to check if 52st bit is set, which is MSB of the mantissa
-            self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
+            let mantissa_msb = 0b1 << 51;
+            self.is_nan() && (self.to_bits() & mantissa_msb) != 0
         }
 
-        /// For a NaN to be canonical, its mantissa bits must all be unset
+        /// For a NaN to be canonical, the MSB of the mantissa must be set and
+        /// all other mantissa bits must be unset.
         fn is_canonical_nan(&self) -> bool {
-            let bit_mask: u64 =
-                0b1____000_0000_0000____0111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111;
-            let masked_value = self.to_bits() ^ bit_mask;
-            masked_value == 0x7FFF_FFFF_FFFF_FFFF || masked_value == 0xFFF_FFFF_FFFF_FFFF
+            self.to_bits() == 0x7FF8_0000_0000_0000 || self.to_bits() == 0xFFF8_0000_0000_0000
         }
     }
 
