@@ -84,7 +84,7 @@ singlepass: spectests-singlepass emtests-singlepass middleware-singlepass wasite
 cranelift: spectests-cranelift emtests-cranelift middleware-cranelift wasitests-cranelift
 	cargo test -p wasmer-clif-backend --release
 
-llvm: spectests-llvm emtests-llvm middleware-llvm wasitests-llvm
+llvm: spectests-llvm emtests-llvm wasitests-llvm
 	cargo test -p wasmer-llvm-backend --release
 
 

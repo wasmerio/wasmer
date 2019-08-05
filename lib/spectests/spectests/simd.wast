@@ -9,49 +9,48 @@
 
 ;; v128 globals
 
-;; wasmer silently doesn't implement (register) yet
-;;(module $M
-;;  (global (export "a") v128       (v128.const f32x4 0.0 1.0 2.0 3.0))
-;;  (global (export "b") (mut v128) (v128.const f32x4 4.0 5.0 6.0 7.0))
-;;)
-;;(register "M" $M)
+(module $M
+  (global (export "a") v128       (v128.const f32x4 0.0 1.0 2.0 3.0))
+  (global (export "b") (mut v128) (v128.const f32x4 4.0 5.0 6.0 7.0))
+)
+(register "M" $M)
 
 (module
-;;  (global $a (import "M" "a") v128)
-;;  (global $b (import "M" "b") (mut v128))
-  
-;;  (global $c v128       (global.get $a))
+  (global $a (import "M" "a") v128)
+  (global $b (import "M" "b") (mut v128))
+
+  (global $c v128       (global.get $a))
   (global $d v128       (v128.const i32x4 8 9 10 11))
-;;  (global $e (mut v128) (global.get $a))
-;;  (global $f (mut v128) (v128.const i32x4 12 13 14 15))
+  (global $e (mut v128) (global.get $a))
+  (global $f (mut v128) (v128.const i32x4 12 13 14 15))
 
-;;  (func (export "get-a") (result v128) (global.get $a))
-;;  (func (export "get-b") (result v128) (global.get $b))
-;;  (func (export "get-c") (result v128) (global.get $c))
+  (func (export "get-a") (result v128) (global.get $a))
+  (func (export "get-b") (result v128) (global.get $b))
+  (func (export "get-c") (result v128) (global.get $c))
   (func (export "get-d") (result v128) (global.get $d))
-;;  (func (export "get-e") (result v128) (global.get $e))
-;;  (func (export "get-f") (result v128) (global.get $f))
+  (func (export "get-e") (result v128) (global.get $e))
+  (func (export "get-f") (result v128) (global.get $f))
 
-;;  (func (export "set-b") (param $value v128) (global.set $b (local.get $value)))
-;;  (func (export "set-e") (param $value v128) (global.set $e (local.get $value)))
-;;  (func (export "set-f") (param $value v128) (global.set $f (local.get $value)))
+  (func (export "set-b") (param $value v128) (global.set $b (local.get $value)))
+  (func (export "set-e") (param $value v128) (global.set $e (local.get $value)))
+  (func (export "set-f") (param $value v128) (global.set $f (local.get $value)))
 )
 
-;;(assert_return (invoke "get-a") (v128.const f32x4 0.0 1.0 2.0 3.0))
-;;(assert_return (invoke "get-b") (v128.const f32x4 4.0 5.0 6.0 7.0))
-;;(assert_return (invoke "get-c") (v128.const f32x4 0.0 1.0 2.0 3.0))
+(assert_return (invoke "get-a") (v128.const f32x4 0.0 1.0 2.0 3.0))
+(assert_return (invoke "get-b") (v128.const f32x4 4.0 5.0 6.0 7.0))
+(assert_return (invoke "get-c") (v128.const f32x4 0.0 1.0 2.0 3.0))
 (assert_return (invoke "get-d") (v128.const i32x4 8 9 10 11))
-;;(assert_return (invoke "get-e") (v128.const f32x4 0.0 1.0 2.0 3.0))
-;;(assert_return (invoke "get-f") (v128.const i32x4 12 13 14 15))
+(assert_return (invoke "get-e") (v128.const f32x4 0.0 1.0 2.0 3.0))
+(assert_return (invoke "get-f") (v128.const i32x4 12 13 14 15))
 
-;;(invoke "set-b" (v128.const f64x2 nan:0x1 nan:0x2))
-;;(assert_return (invoke "get-b") (v128.const f64x2 nan:0x1 nan:0x2))
-;;
-;;(invoke "set-e" (v128.const f64x2 -nan:0x3 +inf))
-;;(assert_return (invoke "get-e") (v128.const f64x2 -nan:0x3 +inf))
-;;
-;;(invoke "set-f" (v128.const f32x4 -inf +3.14 10.0e30 +nan:0x42))
-;;(assert_return (invoke "get-f") (v128.const f32x4 -inf +3.14 10.0e30 +nan:0x42))
+(invoke "set-b" (v128.const f64x2 nan:0x1 nan:0x2))
+(assert_return (invoke "get-b") (v128.const f64x2 nan:0x1 nan:0x2))
+
+(invoke "set-e" (v128.const f64x2 -nan:0x3 +inf))
+(assert_return (invoke "get-e") (v128.const f64x2 -nan:0x3 +inf))
+
+(invoke "set-f" (v128.const f32x4 -inf +3.14 10.0e30 +nan:0x42))
+(assert_return (invoke "get-f") (v128.const f32x4 -inf +3.14 10.0e30 +nan:0x42))
 
 (assert_invalid (module (global v128 (i32.const 0))) "invalid initializer expression")
 (assert_invalid (module (global v128 (i64.const 0))) "invalid initializer expression")

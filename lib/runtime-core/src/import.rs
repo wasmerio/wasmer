@@ -1,6 +1,6 @@
 use crate::export::Export;
-use hashbrown::{hash_map::Entry, HashMap};
 use std::collections::VecDeque;
+use std::collections::{hash_map::Entry, HashMap};
 use std::{
     cell::{Ref, RefCell},
     ffi::c_void,
@@ -51,7 +51,7 @@ pub struct ImportObject {
 }
 
 impl ImportObject {
-    /// Create a new `ImportObject`.  
+    /// Create a new `ImportObject`.
     pub fn new() -> Self {
         Self {
             map: Rc::new(RefCell::new(HashMap::new())),
