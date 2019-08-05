@@ -17,6 +17,7 @@ impl FunctionMiddleware for CallTrace {
             Event::Internal(InternalEvent::FunctionBegin(id)) => sink.push(Event::Internal(
                 InternalEvent::Breakpoint(Box::new(move |_| {
                     eprintln!("func ({})", id);
+                    Ok(())
                 })),
             )),
             _ => {}

@@ -1,4 +1,10 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
+#![deny(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 #![feature(proc_macro_hygiene)]
 
 #[cfg(not(any(
@@ -22,7 +28,7 @@ extern crate smallvec;
 mod codegen_x64;
 mod emitter_x64;
 mod machine;
-mod protect_unix;
+pub mod protect_unix;
 
 pub use codegen_x64::X64FunctionCode as FunctionCodeGenerator;
 pub use codegen_x64::X64ModuleCodeGenerator as ModuleCodeGenerator;

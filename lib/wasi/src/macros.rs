@@ -12,7 +12,7 @@ macro_rules! wasi_try {
             }
         }
     }};
-    ($expr:expr; $e:expr) => {{
+    ($expr:expr, $e:expr) => {{
         let opt: Option<_> = $expr;
         wasi_try!(opt.ok_or($e))
     }};

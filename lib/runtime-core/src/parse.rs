@@ -14,7 +14,7 @@ use crate::{
     },
     units::Pages,
 };
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use wasmparser::{
@@ -87,15 +87,7 @@ pub fn read_module<
 
     let mut parser = wasmparser::ValidatingParser::new(
         wasm,
-        Some(wasmparser::ValidatingParserConfig {
-            operator_config: wasmparser::OperatorValidatorConfig {
-                enable_threads: false,
-                enable_reference_types: false,
-                enable_simd: false,
-                enable_bulk_memory: false,
-            },
-            mutable_global_imports: false,
-        }),
+        Some(validating_parser_config(&compiler_config.features)),
     );
 
     let mut namespace_builder = Some(StringTableBuilder::new());
@@ -222,13 +214,6 @@ pub fn read_module<
                 let fcg = mcg
                     .next_function(Arc::clone(&info))
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                middlewares
-                    .run(
-                        Some(fcg),
-                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
-                        &info.read().unwrap(),
-                    )
-                    .map_err(|x| LoadError::Codegen(x))?;
 
                 let info_read = info.read().unwrap();
                 let sig = info_read
@@ -270,6 +255,13 @@ pub fn read_module<
                                 body_begun = true;
                                 fcg.begin_body(&info.read().unwrap())
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                                middlewares
+                                    .run(
+                                        Some(fcg),
+                                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
+                                        &info.read().unwrap(),
+                                    )
+                                    .map_err(|x| LoadError::Codegen(x))?;
                             }
                             middlewares
                                 .run(Some(fcg), Event::Wasm(op), &info.read().unwrap())
@@ -390,12 +382,7 @@ pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
         WpType::I64 => Type::I64,
         WpType::F32 => Type::F32,
         WpType::F64 => Type::F64,
-        WpType::V128 => {
-            return Err(BinaryReaderError {
-                message: "the wasmer llvm backend does not yet support the simd extension",
-                offset: -1isize as usize,
-            });
-        }
+        WpType::V128 => Type::V128,
         _ => panic!("broken invariant, invalid type"),
     })
 }
@@ -406,6 +393,7 @@ pub fn type_to_wp_type(ty: Type) -> WpType {
         Type::I64 => WpType::I64,
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
+        Type::V128 => WpType::V128,
     }
 }
 
@@ -440,6 +428,9 @@ fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
         }
         Operator::F64Const { value } => {
             Initializer::Const(Value::F64(f64::from_bits(value.bits())))
+        }
+        Operator::V128Const { value } => {
+            Initializer::Const(Value::V128(u128::from_le_bytes(*value.bytes())))
         }
         _ => {
             return Err(BinaryReaderError {

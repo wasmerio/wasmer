@@ -1,4 +1,5 @@
 ignore = [
     "src/spectests",
-    "src/emtests",
+    "src/emscripten-tests",
+    "src/wasi-tests",
 ]

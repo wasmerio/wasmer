@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-c-api"
-version = "0.5.1"
+version = "0.6.0"
 description = "Wasmer C API library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -12,19 +12,19 @@ readme = "README.md"
 crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
-libc = "0.2"
+libc = "0.2.60"
 
 [dependencies.wasmer-runtime]
 path = "../runtime"
-version = "0.5.1"
+version = "0.6.0"
 
 [dependencies.wasmer-runtime-core]
 path = "../runtime-core"
-version = "0.5.1"
+version = "0.6.0"
 
 [features]
 debug = ["wasmer-runtime/debug"]
 llvm = ["wasmer-runtime/llvm"]
 
 [build-dependencies]
-cbindgen = "0.8"
+cbindgen = "0.9.0"

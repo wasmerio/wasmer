@@ -3,9 +3,9 @@ RUN sudo apt-get update && \
   sudo apt-get install -y --no-install-recommends \
   cmake \
   && sudo rm -rf /var/lib/apt/lists/*
-RUN curl -SL https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz \
+RUN curl -SL https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz \
     | tar -xJC /home/circleci
-ENV LLVM_SYS_70_PREFIX /home/circleci/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/
+ENV LLVM_SYS_80_PREFIX /home/circleci/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04/
 
 FROM wasmer-build-env AS wasmer-debug-env
 RUN sudo apt-get update && \

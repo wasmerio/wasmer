@@ -1,5 +1,10 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
-
+#![deny(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 mod cache;
 mod code;
 mod libcalls;
@@ -25,6 +30,7 @@ fn get_isa() -> Box<isa::TargetIsa> {
     let flags = {
         let mut builder = settings::builder();
         builder.set("opt_level", "best").unwrap();
+        builder.set("jump_tables_enabled", "false").unwrap();
 
         if cfg!(not(test)) {
             builder.set("enable_verifier", "false").unwrap();

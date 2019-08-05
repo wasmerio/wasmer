@@ -107,7 +107,8 @@ impl From<Converter<ir::Type>> for Type {
             ir::types::I64 => Type::I64,
             ir::types::F32 => Type::F32,
             ir::types::F64 => Type::F64,
-            _ => panic!("unsupported wasm type"),
+            ir::types::I32X4 => Type::V128,
+            _ => unimplemented!("unsupported wasm type"),
         }
     }
 }
@@ -119,6 +120,7 @@ impl From<Converter<Type>> for ir::Type {
             Type::I64 => ir::types::I64,
             Type::F32 => ir::types::F32,
             Type::F64 => ir::types::F64,
+            Type::V128 => ir::types::I32X4,
         }
     }
 }
@@ -130,6 +132,7 @@ impl From<Converter<Type>> for ir::AbiParam {
             Type::I64 => ir::AbiParam::new(ir::types::I64),
             Type::F32 => ir::AbiParam::new(ir::types::F32),
             Type::F64 => ir::AbiParam::new(ir::types::F64),
+            Type::V128 => ir::AbiParam::new(ir::types::I32X4),
         }
     }
 }

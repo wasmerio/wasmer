@@ -25,7 +25,7 @@ Currently supported command assertions:
 - [x] `assert_malformed` _fully implemented_
 - [ ] `assert_uninstantiable` _not implemented yet_
 - [ ] `assert_exhaustion` _not implemented yet_
-- [ ] `register` _not implemented yet_
+- [x] `register` _fully implemented_
 - [x] `perform_action` _partially implemented, only function invocations for now_
 
 ### Covered spec tests
@@ -86,6 +86,7 @@ The following spec tests are currently covered:
 - [x] return.wast
 - [x] select.wast
 - [x] set_local.wast
+- [x] simd.wast
 - [ ] skip-stack-guard-page.wast
 - [x] stack.wast
 - [x] start.wast
@@ -108,8 +109,6 @@ The following spec tests are currently covered:
 
 There are some cases that we decided to skip for now to accelerate the release schedule:
 
-- `SKIP_MUTABLE_GLOBALS`: Right now the Wasm parser can't validate a module with imported/exported `mut` globals. We decided to skip the tests until Cranelift and wasmparser can handle this (see [original spec proposal](https://github.com/WebAssembly/mutable-global)). Spec tests affected:
-  - `globals.wast`
 - `SKIP_CALL_INDIRECT_TYPE_MISMATCH`: we implemented traps in a fast way. We haven't yet covered the type mismatch on `call_indirect`. Specs affected:
 
   - `call_indirect.wast`
@@ -145,3 +144,19 @@ Currently `cranelift_wasm::ModuleEnvironment` does not provide `declare_table_im
     ```
 
   - `elem.wast`
+
+- `SKIP_UNARY_OPERATION` [memory_grow.wast]
+  In some versions of MacOS this is failing (perhaps because of the chip).
+  More info here: 
+  ```
+Executing function c82_l299_action_invoke
+thread 'test_memory_grow::test_module_5' panicked at 'assertion failed: `(left == right)`
+  left: `Ok([I32(0)])`,
+ right: `Ok([I32(31)])`', /Users/distiller/project/target/release/build/wasmer-spectests-98805f54de053dd1/out/spectests.rs:32304:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace.
+
+
+failures:
+    test_memory_grow::test_module_5
+```
+  https://circleci.com/gh/wasmerio/wasmer/9556

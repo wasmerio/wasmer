@@ -5,7 +5,7 @@ use cranelift_codegen::{
     ir::{self, InstBuilder},
     isa, Context,
 };
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::{iter, mem, ptr::NonNull};
 use wasmer_runtime_core::{
     backend::sys::{Memory, Protect},
@@ -204,6 +204,7 @@ fn wasm_ty_to_clif(ty: Type) -> ir::types::Type {
         Type::I64 => ir::types::I64,
         Type::F32 => ir::types::F32,
         Type::F64 => ir::types::F64,
+        Type::V128 => ir::types::I32X4,
     }
 }
 

@@ -14,7 +14,7 @@ use std::{
     sync::Once,
 };
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 /// The context of the currently running WebAssembly instance.
 ///
@@ -38,11 +38,11 @@ pub struct Ctx {
 
     /// These are pointers to things that are known to be owned
     /// by the owning `Instance`.
-    local_backing: *mut LocalBacking,
-    import_backing: *mut ImportBacking,
+    pub local_backing: *mut LocalBacking,
+    pub import_backing: *mut ImportBacking,
     pub module: *const ModuleInner,
 
-    //// This is intended to be user-supplied, per-instance
+    /// This is intended to be user-supplied, per-instance
     /// contextual data. There are currently some issue with it,
     /// notably that it cannot be set before running the `start`
     /// function in a WebAssembly module.
@@ -56,6 +56,20 @@ pub struct Ctx {
     /// when the context is destructed, e.g. when an `Instance`
     /// is dropped.
     pub data_finalizer: Option<fn(data: *mut c_void)>,
+}
+
+/// When an instance context is destructed, we're calling its `data_finalizer`
+/// In order avoid leaking resources.
+///
+/// Implementing the `data_finalizer` function is the responsibility of the `wasmer` end-user.
+///
+/// See test: `test_data_finalizer` as an example
+impl Drop for Ctx {
+    fn drop(&mut self) {
+        if let Some(ref finalizer) = self.data_finalizer {
+            finalizer(self.data);
+        }
+    }
 }
 
 /// The internal context of the currently running WebAssembly instance.
@@ -74,7 +88,7 @@ pub struct InternalCtx {
     /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
     pub globals: *mut *mut LocalGlobal,
 
-    /// A pointer to an array of imported memories, indexed by `MemoryIndex,
+    /// A pointer to an array of imported memories, indexed by `MemoryIndex`,
     pub imported_memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
@@ -100,6 +114,8 @@ pub struct InternalCtx {
     pub memory_bound: usize,
 
     pub internals: *mut [u64; INTERNALS_SIZE], // TODO: Make this dynamic?
+
+    pub interrupt_signal_mem: *mut u8,
 }
 
 static INTERNAL_FIELDS: AtomicUsize = AtomicUsize::new(0);
@@ -207,6 +223,17 @@ fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
     }
 }
 
+#[cfg(all(unix, target_arch = "x86_64"))]
+fn get_interrupt_signal_mem() -> *mut u8 {
+    unsafe { crate::fault::get_wasm_interrupt_signal_mem() }
+}
+
+#[cfg(not(all(unix, target_arch = "x86_64")))]
+fn get_interrupt_signal_mem() -> *mut u8 {
+    static mut REGION: u64 = 0;
+    unsafe { &mut REGION as *mut u64 as *mut u8 }
+}
+
 impl Ctx {
     #[doc(hidden)]
     pub unsafe fn new(
@@ -245,6 +272,8 @@ impl Ctx {
                 memory_bound: mem_bound,
 
                 internals: &mut local_backing.internals.0,
+
+                interrupt_signal_mem: get_interrupt_signal_mem(),
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -296,6 +325,8 @@ impl Ctx {
                 memory_bound: mem_bound,
 
                 internals: &mut local_backing.internals.0,
+
+                interrupt_signal_mem: get_interrupt_signal_mem(),
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -419,8 +450,12 @@ impl Ctx {
         12 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_local_functions() -> u8 {
+    pub fn offset_interrupt_signal_mem() -> u8 {
         13 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn offset_local_functions() -> u8 {
+        14 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -514,7 +549,7 @@ impl LocalMemory {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalGlobal {
-    pub data: u64,
+    pub data: u128,
 }
 
 impl LocalGlobal {
@@ -641,6 +676,11 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
+            Ctx::offset_interrupt_signal_mem() as usize,
+            offset_of!(InternalCtx => interrupt_signal_mem).get_byte_offset(),
+        );
+
+        assert_eq!(
             Ctx::offset_local_functions() as usize,
             offset_of!(Ctx => local_functions).get_byte_offset(),
         );
@@ -723,14 +763,24 @@ mod vm_ctx_tests {
         x: u32,
         y: bool,
         str: String,
+        finalizer: Box<FnMut()>,
+    }
+
+    impl Drop for TestData {
+        fn drop(&mut self) {
+            (*self.finalizer)();
+        }
     }
 
     fn test_data_finalizer(data: *mut c_void) {
         let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
-        assert_eq!(test_data.x, 10);
-        assert_eq!(test_data.y, true);
-        assert_eq!(test_data.str, "Test".to_string());
+
+        assert_eq!(10, test_data.x);
+        assert_eq!(true, test_data.y);
+        assert_eq!("Test".to_string(), test_data.str,);
+
         println!("hello from finalizer");
+
         drop(test_data);
     }
 
@@ -740,7 +790,9 @@ mod vm_ctx_tests {
             x: 10,
             y: true,
             str: "Test".to_string(),
+            finalizer: Box::new(move || {}),
         };
+
         let mut local_backing = LocalBacking {
             memories: Map::new().into_boxed_map(),
             tables: Map::new().into_boxed_map(),
@@ -755,6 +807,7 @@ mod vm_ctx_tests {
 
             internals: crate::backing::Internals([0; crate::backing::INTERNALS_SIZE]),
         };
+
         let mut import_backing = ImportBacking {
             memories: Map::new().into_boxed_map(),
             tables: Map::new().into_boxed_map(),
@@ -765,21 +818,24 @@ mod vm_ctx_tests {
             vm_tables: Map::new().into_boxed_map(),
             vm_globals: Map::new().into_boxed_map(),
         };
+
         let module = generate_module();
-        let data = &mut data as *mut _ as *mut c_void;
+        let data_ptr = &mut data as *mut _ as *mut c_void;
         let ctx = unsafe {
             Ctx::new_with_data(
                 &mut local_backing,
                 &mut import_backing,
                 &module,
-                data,
+                data_ptr,
                 test_data_finalizer,
             )
         };
+
         let ctx_test_data = cast_test_data(ctx.data);
-        assert_eq!(ctx_test_data.x, 10);
-        assert_eq!(ctx_test_data.y, true);
-        assert_eq!(ctx_test_data.str, "Test".to_string());
+        assert_eq!(10, ctx_test_data.x);
+        assert_eq!(true, ctx_test_data.y);
+        assert_eq!("Test".to_string(), ctx_test_data.str);
+
         drop(ctx);
     }
 
@@ -794,8 +850,9 @@ mod vm_ctx_tests {
         use crate::cache::Error as CacheError;
         use crate::typed_func::Wasm;
         use crate::types::{LocalFuncIndex, SigIndex};
-        use hashbrown::HashMap;
+        use indexmap::IndexMap;
         use std::any::Any;
+        use std::collections::HashMap;
         use std::ptr::NonNull;
         struct Placeholder;
         impl RunnableModule for Placeholder {
@@ -834,7 +891,7 @@ mod vm_ctx_tests {
                 imported_tables: Map::new(),
                 imported_globals: Map::new(),
 
-                exports: HashMap::new(),
+                exports: IndexMap::new(),
 
                 data_initializers: Vec::new(),
                 elem_initializers: Vec::new(),

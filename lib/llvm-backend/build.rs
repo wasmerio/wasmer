@@ -41,7 +41,7 @@ lazy_static! {
 
         // Did the user give us a binary path to use? If yes, try
         // to use that and fail if it doesn't work.
-        let binary_prefix_var = "LLVM_SYS_70_PREFIX";
+        let binary_prefix_var = "LLVM_SYS_80_PREFIX";
 
         let path = if let Some(path) = env::var_os(&binary_prefix_var) {
             Some(path.to_str().unwrap().to_owned())

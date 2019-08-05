@@ -1,6 +1,7 @@
 use crate::{
     error::CompileResult,
     module::ModuleInner,
+    state::ModuleStateMap,
     typed_func::Wasm,
     types::{LocalFuncIndex, SigIndex},
     vm,
@@ -8,12 +9,13 @@ use crate::{
 
 use crate::{
     cache::{Artifact, Error as CacheError},
+    codegen::BreakpointMap,
     module::ModuleInfo,
     sys::Memory,
 };
 use std::{any::Any, ptr::NonNull};
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 pub mod sys {
     pub use crate::sys::*;
@@ -25,6 +27,63 @@ pub enum Backend {
     Cranelift,
     Singlepass,
     LLVM,
+}
+
+impl Backend {
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            #[cfg(feature = "backend-cranelift")]
+            "cranelift",
+            #[cfg(feature = "backend-singlepass")]
+            "singlepass",
+            #[cfg(feature = "backend-llvm")]
+            "llvm",
+        ]
+    }
+
+    /// stable string representation of the backend
+    /// can be used as part of a cache key, for example
+    pub fn to_string(&self) -> &'static str {
+        match self {
+            Backend::Cranelift => "cranelift",
+            Backend::Singlepass => "singlepass",
+            Backend::LLVM => "llvm",
+        }
+    }
+}
+
+impl Default for Backend {
+    fn default() -> Self {
+        Backend::Cranelift
+    }
+}
+
+impl std::str::FromStr for Backend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Backend, String> {
+        match s.to_lowercase().as_str() {
+            "singlepass" => Ok(Backend::Singlepass),
+            "cranelift" => Ok(Backend::Cranelift),
+            "llvm" => Ok(Backend::LLVM),
+            _ => Err(format!("The backend {} doesn't exist", s)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod backend_test {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn str_repr_matches() {
+        // if this test breaks, think hard about why it's breaking
+        // can we avoid having these be different?
+
+        for &backend in &[Backend::Cranelift, Backend::LLVM, Backend::Singlepass] {
+            assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
+        }
+    }
 }
 
 /// This type cannot be constructed from
@@ -52,13 +111,20 @@ impl Default for MemoryBoundCheckMode {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct Features {
+    pub simd: bool,
+}
+
 /// Configuration data for the compiler
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
     pub memory_bound_check_mode: MemoryBoundCheckMode,
     pub enforce_stack_check: bool,
+    pub track_state: bool,
+    pub features: Features,
 }
 
 pub trait Compiler {
@@ -83,6 +149,14 @@ pub trait RunnableModule: Send + Sync {
         info: &ModuleInfo,
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>>;
+
+    fn get_module_state_map(&self) -> Option<ModuleStateMap> {
+        None
+    }
+
+    fn get_breakpoints(&self) -> Option<BreakpointMap> {
+        None
+    }
 
     /// A wasm trampoline contains the necessary data to dynamically call an exported wasm function.
     /// Given a particular signature index, we are returned a trampoline that is matched with that

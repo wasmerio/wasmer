@@ -7,7 +7,10 @@ use std::{
 };
 
 use wasmer_runtime_core::cache::Error as CacheError;
-pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash, WASMER_VERSION_HASH};
+pub use wasmer_runtime_core::{
+    backend::Backend,
+    cache::{Artifact, Cache, WasmHash},
+};
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
@@ -46,12 +49,7 @@ impl FileSystemCache {
     /// This method is unsafe because there's no way to ensure the artifacts
     /// stored in this cache haven't been corrupted or tampered with.
     pub unsafe fn new<P: Into<PathBuf>>(path: P) -> io::Result<Self> {
-        let path: PathBuf = {
-            let mut path = path.into();
-            path.push(WASMER_VERSION_HASH);
-            path
-        };
-
+        let path: PathBuf = path.into();
         if path.exists() {
             let metadata = path.metadata()?;
             if metadata.is_dir() {
@@ -87,26 +85,39 @@ impl Cache for FileSystemCache {
     type StoreError = CacheError;
 
     fn load(&self, key: WasmHash) -> Result<Module, CacheError> {
+        self.load_with_backend(key, Backend::default())
+    }
+
+    fn load_with_backend(&self, key: WasmHash, backend: Backend) -> Result<Module, CacheError> {
         let filename = key.encode();
         let mut new_path_buf = self.path.clone();
+        new_path_buf.push(backend.to_string());
         new_path_buf.push(filename);
         let file = File::open(new_path_buf)?;
         let mmap = unsafe { Mmap::map(&file)? };
 
         let serialized_cache = Artifact::deserialize(&mmap[..])?;
         unsafe {
-            wasmer_runtime_core::load_cache_with(serialized_cache, &super::default_compiler())
+            wasmer_runtime_core::load_cache_with(
+                serialized_cache,
+                super::compiler_for_backend(backend)
+                    .ok_or_else(|| CacheError::UnsupportedBackend(backend))?
+                    .as_ref(),
+            )
         }
     }
 
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), CacheError> {
         let filename = key.encode();
+        let backend_str = module.info().backend.to_string();
         let mut new_path_buf = self.path.clone();
-        new_path_buf.push(filename);
+        new_path_buf.push(backend_str);
 
         let serialized_cache = module.cache()?;
         let buffer = serialized_cache.serialize()?;
 
+        std::fs::create_dir_all(&new_path_buf)?;
+        new_path_buf.push(filename);
         let mut file = File::create(new_path_buf)?;
         file.write_all(&buffer)?;
 

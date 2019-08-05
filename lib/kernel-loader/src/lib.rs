@@ -75,7 +75,7 @@ impl Loader for KernelLoader {
         if module.imported_globals.len() > 0 {
             return Err("imported globals are not supported".into());
         }
-        let globals: Vec<u64> = unsafe {
+        let globals: Vec<u128> = unsafe {
             let globals: &[*mut LocalGlobal] =
                 ::std::slice::from_raw_parts(ctx.globals, module.globals.len());
             globals.iter().map(|x| (**x).data).collect()
@@ -138,11 +138,11 @@ pub struct KernelInstance {
 
 impl Instance for KernelInstance {
     type Error = String;
-    fn call(&mut self, id: usize, args: &[Value]) -> Result<u64, String> {
+    fn call(&mut self, id: usize, args: &[Value]) -> Result<u128, String> {
         if args.len() != self.param_counts[id] {
             return Err("param count mismatch".into());
         }
-        let args: Vec<u64> = args.iter().map(|x| x.to_u64()).collect();
+        let args: Vec<u128> = args.iter().map(|x| x.to_u128()).collect();
 
         let ret = self
             .context

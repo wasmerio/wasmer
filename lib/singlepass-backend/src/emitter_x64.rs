@@ -1,44 +1,12 @@
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum GPR {
-    RAX,
-    RCX,
-    RDX,
-    RBX,
-    RSP,
-    RBP,
-    RSI,
-    RDI,
-    R8,
-    R9,
-    R10,
-    R11,
-    R12,
-    R13,
-    R14,
-    R15,
-}
-
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum XMM {
-    XMM0,
-    XMM1,
-    XMM2,
-    XMM3,
-    XMM4,
-    XMM5,
-    XMM6,
-    XMM7,
-}
+pub use wasmer_runtime_core::state::x64::{GPR, XMM};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
     Imm8(u8),
     Imm32(u32),
     Imm64(u64),
+    Imm128(u128),
     GPR(GPR),
     XMM(XMM),
     Memory(GPR, i32),
@@ -87,7 +55,7 @@ pub trait Emitter {
     type Offset;
 
     fn get_label(&mut self) -> Self::Label;
-    fn get_offset(&mut self) -> Self::Offset;
+    fn get_offset(&self) -> Self::Offset;
 
     fn emit_u64(&mut self, x: u64);
 
@@ -488,7 +456,7 @@ impl Emitter for Assembler {
         self.new_dynamic_label()
     }
 
-    fn get_offset(&mut self) -> AssemblyOffset {
+    fn get_offset(&self) -> AssemblyOffset {
         self.offset()
     }
 
