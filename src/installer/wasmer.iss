@@ -1,6 +1,6 @@
 [Setup]
 AppName=Wasmer
-AppVersion=0.4.0
+AppVersion=0.6.0
 DefaultDirName={pf}\Wasmer
 DefaultGroupName=Wasmer
 Compression=lzma2
@@ -13,6 +13,12 @@ WizardImageFile=..\..\media\wizard_logo_2.bmp
 WizardSmallImageFile=..\..\media\wizard_logo_small.bmp
 SetupIconFile=..\..\media\wizard_logo.ico
 DisableWelcomePage=no
+
+[Registry]
+Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_DIR"; \
+    ValueData: "{%USERPROFILE}\.wasmer"; Flags: preservestringtype
+Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_CACHE_DIR"; \
+    ValueData: "{%USERPROFILE}\.wasmer\cache"; Flags: preservestringtype
 
 [Files]
 Source: "..\..\target\release\wasmer.exe"; DestDir: "{app}\bin"
