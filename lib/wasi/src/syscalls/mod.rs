@@ -9,8 +9,8 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
-        self, host_file_type_to_wasi_file_type, Fd, Inode, InodeVal, Kind, WasiFile, WasiState,
-        MAX_SYMLINKS,
+        self, host_file_type_to_wasi_file_type, Fd, HostFile, Inode, InodeVal, Kind, WasiFile,
+        WasiState, MAX_SYMLINKS,
     },
     ExitCode,
 };
@@ -342,6 +342,7 @@ pub fn fd_allocate(
         Kind::Dir { .. } | Kind::Root { .. } => return __WASI_EISDIR,
     }
     state.fs.inodes[inode].stat.st_size = new_size;
+    debug!("New file size: {}", new_size);
 
     __WASI_ESUCCESS
 }
@@ -420,6 +421,11 @@ pub fn fd_fdstat_get(
     );
     let mut state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_GET) {
+        return __WASI_EACCES;
+    }
+
     let stat = wasi_try!(state.fs.fdstat(fd));
     let buf = wasi_try!(buf_ptr.deref(memory));
 
@@ -1559,9 +1565,10 @@ pub fn path_open(
                     .create(o_flags & __WASI_O_CREAT != 0)
                     .truncate(o_flags & __WASI_O_TRUNC != 0);
 
-                *handle = Some(Box::new(wasi_try!(open_options
-                    .open(&path)
-                    .map_err(|_| __WASI_EIO))));
+                *handle = Some(Box::new(HostFile::new(
+                    wasi_try!(open_options.open(&path).map_err(|_| __WASI_EIO)),
+                    path.to_path_buf(),
+                )));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Dir { .. } | Kind::Root { .. } => {
@@ -1618,14 +1625,13 @@ pub fn path_open(
                     .write(true)
                     .create_new(true);
 
-                Some(
-                    Box::new(wasi_try!(open_options.open(&new_file_host_path).map_err(
-                        |e| {
-                            debug!("Error opening file {}", e);
-                            __WASI_EIO
-                        }
-                    ))) as Box<dyn WasiFile>,
-                )
+                Some(Box::new(HostFile::new(
+                    wasi_try!(open_options.open(&new_file_host_path).map_err(|e| {
+                        debug!("Error opening file {}", e);
+                        __WASI_EIO
+                    })),
+                    new_file_host_path.clone(),
+                )) as Box<dyn WasiFile>)
             };
 
             let new_inode = {
@@ -1812,6 +1818,7 @@ pub fn path_unlink_file(
 
     let base_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
     let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    debug!("Requested file: {}", path_str);
 
     let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));
     let (parent_inode, childs_name) =
