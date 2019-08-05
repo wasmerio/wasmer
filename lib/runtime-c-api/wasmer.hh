@@ -438,7 +438,7 @@ wasmer_result_t wasmer_module_deserialize(wasmer_module_t **module,
 void wasmer_module_destroy(wasmer_module_t *module);
 
 /// Given:
-///  A prepared `wasmer svm` import-object
+///  A prepared `wasmer` import-object
 ///  A compiled wasmer module
 /// Instantiates a wasmer instance
 wasmer_result_t wasmer_module_import_instantiate(wasmer_instance_t **instance,

@@ -555,7 +555,7 @@ void wasmer_module_destroy(wasmer_module_t *module);
 
 /**
  * Given:
- *  A prepared `wasmer svm` import-object
+ *  A prepared `wasmer` import-object
  *  A compiled wasmer module
  * Instantiates a wasmer instance
  */
