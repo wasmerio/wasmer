@@ -1113,7 +1113,6 @@ mod tests {
                 "{}:fail:{}:{} # {} - {}",
                 backend, failure.file, failure.line, failure.kind, failure.message
             );
-
         }
         println!("");
         println!("");
