@@ -63,9 +63,6 @@ clif:fail:elem.wast:380 # AssertReturn - result I32(65) ("0x41") does not match 
 clif:fail:elem.wast:381 # AssertReturn - result I32(66) ("0x42") does not match expected I32(70) ("0x46")
 clif:fail:globals.wast:243 # AssertInvalid - Should be invalid
 clif:fail:globals.wast:301 # Module - caught panic Any
-clif:fail:imports.wast:24 # Module - caught panic Any
-clif:fail:imports.wast:87 # AssertReturn - No instance available: None
-clif:fail:imports.wast:88 # AssertReturn - No instance available: None
 clif:fail:imports.wast:98 # Module - caught panic Any
 clif:fail:imports.wast:99 # Module - caught panic Any
 clif:fail:imports.wast:100 # Module - caught panic Any
@@ -804,9 +801,6 @@ llvm:fail:i32.wast:243 # AssertReturn - result I32(286499151) ("0x1113a14f") doe
 llvm:fail:i32.wast:252 # AssertReturn - result I32(286499168) ("0x1113a160") does not match expected I32(32) ("0x20")
 llvm:fail:i64.wast:243 # AssertReturn - result I64(4581466607) ("0x11113a1ef") does not match expected I64(64) ("0x40")
 llvm:fail:i64.wast:252 # AssertReturn - result I64(4581466592) ("0x11113a1e0") does not match expected I64(64) ("0x40")
-llvm:fail:imports.wast:24 # Module - caught panic Any
-llvm:fail:imports.wast:87 # AssertReturn - No instance available: None
-llvm:fail:imports.wast:88 # AssertReturn - No instance available: None
 llvm:fail:imports.wast:98 # Module - caught panic Any
 llvm:fail:imports.wast:99 # Module - caught panic Any
 llvm:fail:imports.wast:100 # Module - caught panic Any
@@ -1659,9 +1653,6 @@ singlepass:fail:i64.wast:248 # AssertReturn - result I64(1) ("0x1") does not mat
 singlepass:fail:i64.wast:249 # AssertReturn - result I64(62) ("0x3e") does not match expected I64(1) ("0x1")
 singlepass:fail:i64.wast:252 # AssertReturn - result I64(0) ("0x0") does not match expected I64(64) ("0x40")
 singlepass:fail:if.wast:440 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:24 # Module - caught panic Any
-singlepass:fail:imports.wast:87 # AssertReturn - No instance available: None
-singlepass:fail:imports.wast:88 # AssertReturn - No instance available: None
 singlepass:fail:imports.wast:98 # Module - caught panic Any
 singlepass:fail:imports.wast:99 # Module - caught panic Any
 singlepass:fail:imports.wast:100 # Module - caught panic Any

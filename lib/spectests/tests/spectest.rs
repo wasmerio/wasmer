@@ -166,7 +166,7 @@ mod tests {
             let test_key = format!("{}:{}:{}", backend, filename, line);
 
             // Use this line to debug which test is running
-            // println!("Running test: {}", test_key);
+            //println!("Running test: {}", test_key);
 
             if excludes.contains_key(&test_key)
                 && *excludes.get(&test_key).unwrap() == Exclude::Skip
@@ -968,6 +968,22 @@ mod tests {
         println!("{}", val);
     }
 
+    fn print_f32(_ctx: &mut Ctx, val: f32) {
+        println!("{}", val);
+    }
+
+    fn print_f64(_ctx: &mut Ctx, val: f64) {
+        println!("{}", val);
+    }
+
+    fn print_i32_f32(_ctx: &mut Ctx, val: i32, val2: f32) {
+        println!("{} {}", val, val2);
+    }
+
+    fn print_f64_f64(_ctx: &mut Ctx, val: f64, val2: f64) {
+        println!("{} {}", val, val2);
+    }
+
     fn get_spectest_import_object(registered_modules: &HashMap<String, Module>) -> ImportObject {
         let memory = Memory::new(MemoryDescriptor {
             minimum: Pages(1),
@@ -989,6 +1005,10 @@ mod tests {
         let mut import_object = imports! {
             "spectest" => {
                 "print_i32" => func!(print_i32),
+                "print_f32" => func!(print_f32),
+                "print_f64" => func!(print_f64),
+                "print_i32_f32" => func!(print_i32_f32),
+                "print_f64_f64" => func!(print_f64_f64),
                 "table" => table,
                 "memory" => memory,
                 "global_i32" => global_i32,
