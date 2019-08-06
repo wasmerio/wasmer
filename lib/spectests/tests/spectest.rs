@@ -171,7 +171,7 @@ mod tests {
             if excludes.contains_key(&test_key)
                 && *excludes.get(&test_key).unwrap() == Exclude::Skip
             {
-                println!("Skipping test: {}", test_key);
+                //                println!("Skipping test: {}", test_key);
                 continue;
             }
 
@@ -713,7 +713,6 @@ mod tests {
                     message: _,
                 } => println!("AssertUninstantiable not yet implmented "),
                 CommandKind::AssertExhaustion { action, message: _ } => {
-                    println!("AssertExhaustion {:? }{:?}", filename, line);
                     match action {
                         Action::Invoke {
                             module,
@@ -773,10 +772,8 @@ mod tests {
                         }
                         _ => println!("unexpected action in assert exhaustion"),
                     }
-                    println!("AssertExhaustion Done");
                 }
                 CommandKind::AssertUnlinkable { module, message: _ } => {
-                    println!("AssertUnlinkable {:? }{:?}", filename, line);
                     let result = panic::catch_unwind(|| {
                         let config = CompilerConfig {
                             features: Features { simd: true },
@@ -837,7 +834,6 @@ mod tests {
                             },
                         },
                     }
-                    println!("AssertUnlinkable Done");
                 }
                 CommandKind::Register { name, as_name } => {
                     let instance: Option<&Instance> = match name {
@@ -874,7 +870,6 @@ mod tests {
                         field,
                         args,
                     } => {
-                        println!("PerformAction: {:?} {:?}", filename, line);
                         let instance: Option<&Instance> = match module {
                             Some(ref name) => {
                                 let i = named_modules.get(name);
