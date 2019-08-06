@@ -10,6 +10,11 @@
 #
 # Star line allows skipping an entire wast file
 #    clif:skip:simd.wast:*
+#
+# Excludes can also contain platform
+#    clif:skip:data.wast:172:windows
+#    clif:skip:data.wast:172:unix
+#
 
 # Cranelift
 clif:skip:elem.wast:229        # Spec running forever
@@ -184,6 +189,9 @@ clif:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembl
 clif:fail:start.wast:92 # Module - caught panic Any
 
 # clif:skip:skip-stack-guard-page.wast:2 # Slow test
+
+# Cranelift Windows
+clif:skip:address.wast:194:windows
 
 # LLVM bug with min/max over NaNs
 llvm:skip:f32.wast:1651

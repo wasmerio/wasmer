@@ -51,6 +51,11 @@ mod tests {
                 self.allowed_failure += 1;
                 return;
             }
+            let platform_key = format!("{}:{}", testkey, get_platform());
+            if excludes.contains_key(&platform_key) {
+                self.allowed_failure += 1;
+                return;
+            }
             self.failed += 1;
             self.failures.push(failure);
         }
@@ -94,6 +99,16 @@ mod tests {
     #[cfg(feature = "singlepass")]
     fn get_compiler_name() -> &'static str {
         "singlepass"
+    }
+
+    #[cfg(unix)]
+    fn get_platform() -> &'static str {
+        "unix"
+    }
+
+    #[cfg(windows)]
+    fn get_platform() -> &'static str {
+        "windows"
     }
 
     #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
@@ -157,19 +172,21 @@ mod tests {
         let mut named_modules: HashMap<String, Rc<Instance>> = HashMap::new();
 
         let mut registered_modules: HashMap<String, Module> = HashMap::new();
-
+        let platform = get_platform();
         //
 
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
         {
             let test_key = format!("{}:{}:{}", backend, filename, line);
-
+            let test_platform_key = format!("{}:{}:{}:{}", backend, filename, line, platform);
             // Use this line to debug which test is running
             //println!("Running test: {}", test_key);
 
-            if excludes.contains_key(&test_key)
-                && *excludes.get(&test_key).unwrap() == Exclude::Skip
+            if (excludes.contains_key(&test_key)
+                && *excludes.get(&test_key).unwrap() == Exclude::Skip)
+                || (excludes.contains_key(&test_platform_key)
+                    && *excludes.get(&test_platform_key).unwrap() == Exclude::Skip)
             {
                 //                println!("Skipping test: {}", test_key);
                 continue;
@@ -1058,16 +1075,23 @@ mod tests {
                 //println!("exclude line {}", line);
                 // <backend>:<exclude-kind>:<test-file-name>:<test-file-line>
                 let split: Vec<&str> = line.trim().split(':').collect();
-                assert_eq!(split.len(), 4);
+
                 let kind = match *split.get(1).unwrap() {
                     "skip" => Exclude::Skip,
                     "fail" => Exclude::Fail,
                     _ => panic!("unknown exclude kind"),
                 };
+                let has_platform = split.len() > 4;
+
                 let backend = split.get(0).unwrap();
                 let testfile = split.get(2).unwrap();
                 let line = split.get(3).unwrap();
-                let key = format!("{}:{}:{}", backend, testfile, line);
+                let key = if has_platform {
+                    let platform = split.get(4).unwrap();
+                    format!("{}:{}:{}:{}", backend, testfile, line, platform)
+                } else {
+                    format!("{}:{}:{}", backend, testfile, line)
+                };
                 result.insert(key, kind);
             }
         }
