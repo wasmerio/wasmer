@@ -4,37 +4,40 @@
 
 extern "C" void __register_frame(uint8_t *);
 extern "C" void __deregister_frame(uint8_t *);
+extern "C" void unwinding_setjmp(uint8_t **stack_out, void (*func)(void *), void *userdata);
+[[noreturn]] extern "C" void unwinding_longjmp(uint8_t *stack_in);
 
 struct UnwindPoint {
     UnwindPoint *prev;
-    jmp_buf unwind_info;
+    uint8_t *stack;
+    std::function<void()> *f;
     std::unique_ptr<std::exception> exception;
 };
 
 static thread_local UnwindPoint *unwind_state = nullptr;
 
+static void unwind_payload(void *_point) {
+    UnwindPoint *point = (UnwindPoint *) _point;
+    (*point->f)();
+}
+
 void catch_unwind(std::function<void()>&& f) {
     UnwindPoint current;
     current.prev = unwind_state;
+    current.f = &f;
     unwind_state = &current;
 
-    bool rethrow = false;
-
-    if(setjmp(current.unwind_info)) {
-        rethrow = true;
-    } else {
-        f();
+    unwinding_setjmp(&current.stack, unwind_payload, (void *) &current);
+    if(current.exception) {
+        throw *current.exception;
     }
-
-    unwind_state = current.prev;
-    if(rethrow) throw *current.exception;
 }
 
 void unsafe_unwind(std::exception *exception) {
     UnwindPoint *state = unwind_state;
     if(state) {
         state->exception.reset(exception);
-        longjmp(state->unwind_info, 42);
+        unwinding_longjmp(state->stack);
     } else {
         abort();
     }
