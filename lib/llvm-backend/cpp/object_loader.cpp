@@ -5,6 +5,41 @@
 extern "C" void __register_frame(uint8_t *);
 extern "C" void __deregister_frame(uint8_t *);
 
+struct UnwindPoint {
+    UnwindPoint *prev;
+    jmp_buf unwind_info;
+    std::unique_ptr<std::exception> exception;
+};
+
+static thread_local UnwindPoint *unwind_state = nullptr;
+
+void catch_unwind(std::function<void()>&& f) {
+    UnwindPoint current;
+    current.prev = unwind_state;
+    unwind_state = &current;
+
+    bool rethrow = false;
+
+    if(setjmp(current.unwind_info)) {
+        rethrow = true;
+    } else {
+        f();
+    }
+
+    unwind_state = current.prev;
+    if(rethrow) throw *current.exception;
+}
+
+void unsafe_unwind(std::exception *exception) {
+    UnwindPoint *state = unwind_state;
+    if(state) {
+        state->exception.reset(exception);
+        longjmp(state->unwind_info, 42);
+    } else {
+        abort();
+    }
+}
+
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager {
 public:
   MemoryManager(callbacks_t callbacks) : callbacks(callbacks) {}
