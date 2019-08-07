@@ -154,8 +154,13 @@ mod tests {
         let source = fs::read(&path).unwrap();
         let backend = get_compiler_name();
 
+        let platform = get_platform();
         let star_key = format!("{}:{}:*", backend, filename);
-        if excludes.contains_key(&star_key) {
+        let platform_star_key = format!("{}:{}:*:{}", backend, filename, platform);
+        if (excludes.contains_key(&star_key) && *excludes.get(&star_key).unwrap() == Exclude::Skip)
+            || (excludes.contains_key(&platform_star_key)
+                && *excludes.get(&platform_star_key).unwrap() == Exclude::Skip)
+        {
             return Ok(test_report);
         }
 
@@ -172,7 +177,6 @@ mod tests {
         let mut named_modules: HashMap<String, Rc<Instance>> = HashMap::new();
 
         let mut registered_modules: HashMap<String, Module> = HashMap::new();
-        let platform = get_platform();
         //
 
         while let Some(Command { kind, line }) =
