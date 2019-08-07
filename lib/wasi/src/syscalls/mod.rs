@@ -1146,6 +1146,7 @@ pub fn fd_seek(
 /// - `__WASI_ENOTCAPABLE`
 pub fn fd_sync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_sync");
+    debug!("=> fd={}", fd);
     let memory = ctx.memory(0);
     let state = get_wasi_state(ctx);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));

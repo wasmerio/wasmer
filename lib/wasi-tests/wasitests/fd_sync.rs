@@ -2,19 +2,17 @@
 // mapdir: .:wasitests/test_fs/temp
 
 use std::fs;
-#[cfg(target_os = "wasi")]
-use std::os::wasi::prelude::AsRawFd;
 use std::path::PathBuf;
 
 #[cfg(target_os = "wasi")]
 #[link(wasm_import_module = "wasi_unstable")]
 extern "C" {
-    fn fd_allocate(fd: u32, offset: u64, length: u64) -> u16;
+    fn fd_sync(fd: u32) -> u16;
 }
 
 #[cfg(target_os = "wasi")]
-fn allocate(fd: u32, offset: u64, length: u64) -> u16 {
-    unsafe { fd_allocate(fd, offset, length) }
+fn sync(fd: u32) -> u16 {
+    unsafe { fd_sync(fd) }
 }
 
 fn main() {
@@ -22,7 +20,7 @@ fn main() {
     let mut base = PathBuf::from(".");
     #[cfg(target_os = "wasi")]
     {
-        base.push("fd_allocate_file.txt");
+        base.push("fd_sync_file.txt");
         let mut file = fs::OpenOptions::new()
             .create(true)
             .write(true)
@@ -34,16 +32,16 @@ fn main() {
         {
             use std::io::Write;
             // example text from https://www.un.org/en/universal-declaration-human-rights/
-            file.write_all(b"All human beings are born free and equal in dignity and rights. They are endowed with reason and conscience and should act towards one another in a spirit of brotherhood.\n").unwrap();
-            let raw_fd = file.as_raw_fd();
-            file.flush();
+            file.write_all(b"All human beings are born free and equal in dignity and rights. They are endowed with reason and conscience and should act towards one another in a spirit of brotherhood.").unwrap();
+            file.sync_all();
             let len = file.metadata().unwrap().len();
             println!("{}", len);
-            assert_eq!(len, 171);
-            allocate(raw_fd, len, 1234);
+            assert_eq!(len, 170);
+            file.set_len(170 + 1234);
+            file.sync_all();
             let len = file.metadata().unwrap().len();
             println!("{}", len);
-            assert_eq!(len, 1234 + 171);
+            assert_eq!(len, 1234 + 170);
         }
     }
     #[cfg(target_os = "wasi")]
@@ -52,7 +50,7 @@ fn main() {
     #[cfg(not(target_os = "wasi"))]
     {
         // eh, just print the output directly
-        println!("171");
-        println!("1405");
+        println!("170");
+        println!("1404");
     }
 }
