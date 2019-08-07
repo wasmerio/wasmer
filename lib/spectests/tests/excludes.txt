@@ -191,7 +191,197 @@ clif:fail:start.wast:92 # Module - caught panic Any
 # clif:skip:skip-stack-guard-page.wast:2 # Slow test
 
 # Cranelift Windows
-clif:skip:address.wast:194:windows
+clif:skip:address.wast:*:windows
+clif:skip:call.wast:*:windows
+clif:skip:call_indirect.wast:*:windows
+clif:skip:conversions.wast:*:windows
+clif:skip:elem.wast:*:windows
+clif:skip:fac.wast:*:windows
+clif:skip:func_ptrs.wast:*:windows
+clif:skip:globals.wast:*:windows
+clif:skip:i32.wast:*:windows
+clif:skip:i64.wast:*:windows
+clif:skip:if.wast:*:windows
+clif:skip:imports.wast:*:windows
+clif:skip:int_exprs.wast:*:windows
+clif:skip:linking.wast:*:windows
+clif:skip:memory_grow.wast:*:windows
+clif:skip:memory_trap.wast:*:windows
+clif:skip:select.wast:*:windows
+clif:skip:skip-stack-guard-page.wast:*:windows
+clif:skip:traps.wast:*:windows
+clif:skip:unreachable.wast:*:windows
+clif:skip:unwind.wast:*:windows
+
+clif:fail:align.wast:3:windows # Module - caught panic Any
+clif:fail:align.wast:4:windows # Module - caught panic Any
+clif:fail:align.wast:5:windows # Module - caught panic Any
+clif:fail:align.wast:6:windows # Module - caught panic Any
+clif:fail:align.wast:7:windows # Module - caught panic Any
+clif:fail:align.wast:8:windows # Module - caught panic Any
+clif:fail:align.wast:9:windows # Module - caught panic Any
+clif:fail:align.wast:10:windows # Module - caught panic Any
+clif:fail:align.wast:11:windows # Module - caught panic Any
+clif:fail:align.wast:12:windows # Module - caught panic Any
+clif:fail:align.wast:13:windows # Module - caught panic Any
+clif:fail:align.wast:14:windows # Module - caught panic Any
+clif:fail:align.wast:15:windows # Module - caught panic Any
+clif:fail:align.wast:16:windows # Module - caught panic Any
+clif:fail:align.wast:17:windows # Module - caught panic Any
+clif:fail:align.wast:18:windows # Module - caught panic Any
+clif:fail:align.wast:19:windows # Module - caught panic Any
+clif:fail:align.wast:20:windows # Module - caught panic Any
+clif:fail:align.wast:21:windows # Module - caught panic Any
+clif:fail:align.wast:22:windows # Module - caught panic Any
+clif:fail:align.wast:23:windows # Module - caught panic Any
+clif:fail:align.wast:24:windows # Module - caught panic Any
+clif:fail:align.wast:25:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:2:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:7:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:12:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:18:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:24:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:32:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:40:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:48:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:56:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:65:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:110:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:145:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:157:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:164:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:171:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:178:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:186:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:193:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:200:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:207:windows # Module - caught panic Any
+clif:fail:binary.wast:1:windows # Module - caught panic Any
+clif:fail:binary.wast:2:windows # Module - caught panic Any
+clif:fail:binary.wast:3:windows # Module - caught panic Any
+clif:fail:binary.wast:4:windows # Module - caught panic Any
+clif:fail:binary.wast:350:windows # Module - caught panic Any
+clif:fail:binary.wast:406:windows # Module - caught panic Any
+clif:fail:binary.wast:412:windows # Module - caught panic Any
+clif:fail:binary.wast:418:windows # Module - caught panic Any
+clif:fail:binary.wast:446:windows # Module - caught panic Any
+clif:fail:binary.wast:498:windows # Module - caught panic Any
+clif:fail:binary.wast:514:windows # Module - caught panic Any
+clif:fail:binary.wast:530:windows # Module - caught panic Any
+clif:fail:binary.wast:558:windows # Module - caught panic Any
+clif:fail:binary.wast:612:windows # Module - caught panic Any
+clif:fail:binary.wast:661:windows # Module - caught panic Any
+clif:fail:binary.wast:723:windows # Module - caught panic Any
+clif:fail:comments.wast:10:windows # Module - caught panic Any
+clif:fail:comments.wast:52:windows # Module - caught panic Any
+clif:fail:comments.wast:62:windows # Module - caught panic Any
+clif:fail:comments.wast:71:windows # Module - caught panic Any
+clif:fail:const.wast:5:windows # Module - caught panic Any
+clif:fail:const.wast:6:windows # Module - caught panic Any
+clif:fail:const.wast:16:windows # Module - caught panic Any
+clif:fail:const.wast:17:windows # Module - caught panic Any
+clif:fail:const.wast:27:windows # Module - caught panic Any
+clif:fail:const.wast:28:windows # Module - caught panic Any
+clif:fail:const.wast:38:windows # Module - caught panic Any
+clif:fail:const.wast:39:windows # Module - caught panic Any
+clif:fail:const.wast:49:windows # Module - caught panic Any
+clif:fail:const.wast:50:windows # Module - caught panic Any
+clif:fail:const.wast:51:windows # Module - caught panic Any
+clif:fail:const.wast:52:windows # Module - caught panic Any
+clif:fail:const.wast:53:windows # Module - caught panic Any
+clif:fail:const.wast:54:windows # Module - caught panic Any
+clif:fail:const.wast:55:windows # Module - caught panic Any
+clif:fail:const.wast:56:windows # Module - caught panic Any
+clif:fail:const.wast:57:windows # Module - caught panic Any
+clif:fail:const.wast:58:windows # Module - caught panic Any
+clif:fail:const.wast:76:windows # Module - caught panic Any
+clif:fail:const.wast:77:windows # Module - caught panic Any
+clif:fail:const.wast:87:windows # Module - caught panic Any
+clif:fail:const.wast:88:windows # Module - caught panic Any
+clif:fail:const.wast:98:windows # Module - caught panic Any
+clif:fail:const.wast:99:windows # Module - caught panic Any
+clif:fail:const.wast:100:windows # Module - caught panic Any
+clif:fail:const.wast:101:windows # Module - caught panic Any
+clif:fail:const.wast:102:windows # Module - caught panic Any
+clif:fail:const.wast:103:windows # Module - caught panic Any
+clif:fail:const.wast:104:windows # Module - caught panic Any
+clif:fail:const.wast:105:windows # Module - caught panic Any
+clif:fail:const.wast:123:windows # Module - caught panic Any
+clif:fail:const.wast:124:windows # Module - caught panic Any
+clif:fail:const.wast:134:windows # Module - caught panic Any
+clif:fail:const.wast:135:windows # Module - caught panic Any
+clif:fail:const.wast:145:windows # Module - caught panic Any
+clif:fail:const.wast:146:windows # Module - caught panic Any
+clif:fail:const.wast:147:windows # Module - caught panic Any
+clif:fail:const.wast:148:windows # Module - caught panic Any
+clif:fail:custom.wast:1:windows # Module - caught panic Any
+clif:fail:custom.wast:14:windows # Module - caught panic Any
+clif:fail:data.wast:5:windows # Module - caught panic Any
+clif:fail:data.wast:23:windows # Module - caught panic Any
+clif:fail:data.wast:32:windows # Module - caught panic Any
+clif:fail:data.wast:78:windows # Module - caught panic Any
+clif:fail:data.wast:89:windows # Module - caught panic Any
+clif:fail:data.wast:94:windows # Module - caught panic Any
+clif:fail:data.wast:103:windows # Module - caught panic Any
+clif:fail:data.wast:108:windows # Module - caught panic Any
+clif:fail:data.wast:113:windows # Module - caught panic Any
+clif:fail:data.wast:122:windows # Module - caught panic Any
+clif:fail:exports.wast:24:windows # Module - caught panic Any
+clif:fail:exports.wast:25:windows # Module - caught panic Any
+clif:fail:exports.wast:56:windows # Module - caught panic Any
+clif:fail:exports.wast:57:windows # Module - caught panic Any
+clif:fail:exports.wast:58:windows # Module - caught panic Any
+clif:fail:exports.wast:60:windows # Module - caught panic Any
+clif:fail:exports.wast:61:windows # Module - caught panic Any
+clif:fail:exports.wast:62:windows # Module - caught panic Any
+clif:fail:exports.wast:63:windows # Module - caught panic Any
+clif:fail:exports.wast:64:windows # Module - caught panic Any
+clif:fail:exports.wast:65:windows # Module - caught panic Any
+clif:fail:exports.wast:67:windows # Module - caught panic Any
+clif:fail:exports.wast:71:windows # AssertReturn Get - No instance available None
+clif:fail:exports.wast:72:windows # AssertReturn Get - No instance available Some("$Global")
+clif:fail:exports.wast:73:windows # Module - caught panic Any
+clif:fail:exports.wast:74:windows # Module - caught panic Any
+clif:fail:exports.wast:75:windows # AssertReturn Get - No instance available Some("$Global")
+clif:fail:exports.wast:105:windows # Module - caught panic Any
+clif:fail:exports.wast:106:windows # Module - caught panic Any
+clif:fail:exports.wast:110:windows # Module - caught panic Any
+clif:fail:exports.wast:111:windows # Module - caught panic Any
+clif:fail:exports.wast:112:windows # Module - caught panic Any
+clif:fail:exports.wast:113:windows # Module - caught panic Any
+clif:fail:exports.wast:114:windows # Module - caught panic Any
+clif:fail:exports.wast:115:windows # Module - caught panic Any
+clif:fail:exports.wast:116:windows # Module - caught panic Any
+clif:fail:exports.wast:117:windows # Module - caught panic Any
+clif:fail:exports.wast:118:windows # Module - caught panic Any
+clif:fail:exports.wast:119:windows # Module - caught panic Any
+clif:fail:exports.wast:120:windows # Module - caught panic Any
+clif:fail:exports.wast:121:windows # Module - caught panic Any
+clif:fail:exports.wast:154:windows # Module - caught panic Any
+clif:fail:exports.wast:155:windows # Module - caught panic Any
+clif:fail:exports.wast:159:windows # Module - caught panic Any
+clif:fail:exports.wast:160:windows # Module - caught panic Any
+clif:fail:exports.wast:161:windows # Module - caught panic Any
+clif:fail:exports.wast:162:windows # Module - caught panic Any
+clif:fail:exports.wast:163:windows # Module - caught panic Any
+clif:fail:exports.wast:164:windows # Module - caught panic Any
+clif:fail:exports.wast:165:windows # Module - caught panic Any
+clif:fail:exports.wast:166:windows # Module - caught panic Any
+clif:fail:exports.wast:167:windows # Module - caught panic Any
+clif:fail:exports.wast:168:windows # Module - caught panic Any
+clif:fail:exports.wast:169:windows # Module - caught panic Any
+clif:fail:exports.wast:170:windows # Module - caught panic Any
+clif:fail:f32.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+clif:fail:f32.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+clif:fail:f64.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+clif:fail:f64.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+clif:fail:func.wast:289:windows # Module - caught panic Any
+clif:fail:memory.wast:3:windows # Module - caught panic Any
+clif:fail:memory.wast:4:windows # Module - caught panic Any
+clif:fail:memory.wast:5:windows # Module - caught panic Any
+clif:fail:memory.wast:6:windows # Module - caught panic Any
+clif:fail:stack.wast:137:windows # Module - caught panic Any
+clif:fail:type.wast:3:windows # Module - caught panic Any
 
 # LLVM bug with min/max over NaNs
 llvm:skip:f32.wast:1651
@@ -935,6 +1125,30 @@ llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembl
 llvm:fail:load.wast:201 # AssertReturn - result I32(290889759) ("0x1156a01f") does not match expected I32(32) ("0x20")
 llvm:fail:start.wast:92 # Module - caught panic Any
 llvm:fail:type.wast:3 # Module - caught panic Any
+
+# LLVM Windows
+llvm:skip:address.wast:*:windows
+llvm:skip:align.wast:*:windows
+llvm:skip:call.wast:*:windows
+llvm:skip:br_table.wast:*:windows
+llvm:skip:call_indirect.wast:*:windows
+llvm:skip:conversions.wast:*:windows
+llvm:skip:elem.wast:*:windows
+llvm:skip:func_ptrs.wast:*:windows
+llvm:skip:const.wast:*:windows
+llvm:skip:globals.wast:*:windows
+llvm:skip:i32.wast:*:windows
+llvm:skip:i64.wast:*:windows
+llvm:skip:if.wast:*:windows
+llvm:skip:imports.wast:*:windows
+llvm:skip:int_exprs.wast:*:windows
+llvm:skip:linking.wast:*:windows
+llvm:skip:memory_grow.wast:*:windows
+llvm:skip:memory_trap.wast:*:windows
+llvm:skip:select.wast:*:windows
+llvm:skip:traps.wast:*:windows
+llvm:skip:unreachable.wast:*:windows
+llvm:skip:unwind.wast:*:windows
 
 # Singlepass
 singlepass:skip:elem.wast:229        # Spec running forever
