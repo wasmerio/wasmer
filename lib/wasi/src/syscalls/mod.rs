@@ -1550,7 +1550,60 @@ pub fn path_link(
     new_path_len: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::path_link");
-    unimplemented!("wasi::path_link")
+    if old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
+        debug!("  - will follow symlinks when opening path");
+    }
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let old_path_str = wasi_try!(
+        old_path.get_utf8_string(memory, old_path_len),
+        __WASI_EINVAL
+    );
+    let new_path_str = wasi_try!(
+        new_path.get_utf8_string(memory, new_path_len),
+        __WASI_EINVAL
+    );
+
+    let source_fd = wasi_try!(state.fs.get_fd(old_fd));
+    let target_fd = wasi_try!(state.fs.get_fd(new_fd));
+    debug!(
+        "=> source_fd: {}, source_path: {}, target_fd: {}, target_path: {}",
+        old_fd, old_path_str, new_fd, new_path_str
+    );
+
+    if !(has_rights(source_fd.rights, __WASI_RIGHT_PATH_LINK_SOURCE)
+        && has_rights(target_fd.rights, __WASI_RIGHT_PATH_LINK_TARGET))
+    {
+        return __WASI_EACCES;
+    }
+
+    let source_inode = wasi_try!(state.fs.get_inode_at_path(
+        old_fd,
+        old_path_str,
+        old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+    ));
+    let target_path_arg = std::path::PathBuf::from(new_path_str);
+    let (target_parent_inode, new_entry_name) =
+        wasi_try!(state
+            .fs
+            .get_parent_inode_at_path(new_fd, &target_path_arg, false));
+
+    if state.fs.inodes[source_inode].stat.st_nlink == __wasi_linkcount_t::max_value() {
+        return __WASI_EMLINK;
+    }
+    match &mut state.fs.inodes[target_parent_inode].kind {
+        Kind::Dir { entries, .. } => {
+            if entries.contains_key(&new_entry_name) {
+                return __WASI_EEXIST;
+            }
+            entries.insert(new_entry_name, source_inode);
+        }
+        Kind::Root { .. } => return __WASI_EINVAL,
+        Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => return __WASI_ENOTDIR,
+    }
+    state.fs.inodes[source_inode].stat.st_nlink += 1;
+
+    __WASI_ESUCCESS
 }
 
 /// ### `path_open()`
@@ -1591,7 +1644,6 @@ pub fn path_open(
 ) -> __wasi_errno_t {
     debug!("wasi::path_open");
     if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
-        // TODO: resolution fn needs to get this bit
         debug!("  - will follow symlinks when opening path");
     }
     let memory = ctx.memory(0);
@@ -1783,6 +1835,7 @@ pub fn path_readlink(
 
     if let Kind::Symlink { relative_path, .. } = &state.fs.inodes[inode].kind {
         let rel_path_str = relative_path.to_string_lossy();
+        debug!("Result => {:?}", rel_path_str);
         let bytes = rel_path_str.bytes();
         if bytes.len() >= buf_len as usize {
             return __WASI_EOVERFLOW;
@@ -1918,32 +1971,43 @@ pub fn path_unlink_file(
             .fs
             .get_parent_inode_at_path(fd, std::path::Path::new(path_str), false));
 
-    let host_path_to_remove = match &state.fs.inodes[inode].kind {
-        Kind::File { path, .. } => path.clone(),
-        _ => unimplemented!("wasi::path_unlink_file for non-files"),
-    };
-
-    match &mut state.fs.inodes[parent_inode].kind {
+    let removed_inode = match &mut state.fs.inodes[parent_inode].kind {
         Kind::Dir {
             ref mut entries, ..
         } => {
             let removed_inode = wasi_try!(entries.remove(&childs_name).ok_or(__WASI_EINVAL));
             // TODO: make this a debug assert in the future
             assert!(inode == removed_inode);
+            debug_assert!(state.fs.inodes[inode].stat.st_nlink > 0);
+            removed_inode
         }
         Kind::Root { .. } => return __WASI_EACCES,
         _ => unreachable!(
             "Internal logic error in wasi::path_unlink_file, parent is not a directory"
         ),
+    };
+
+    state.fs.inodes[removed_inode].stat.st_nlink -= 1;
+    if state.fs.inodes[removed_inode].stat.st_nlink == 0 {
+        match &mut state.fs.inodes[removed_inode].kind {
+            Kind::File { handle, path } => {
+                if let Some(h) = handle {
+                    wasi_try!(h.unlink().ok_or(__WASI_EIO));
+                } else {
+                    // File is closed
+                    // problem with the abstraction, we can't call unlink because there's no handle
+                    // TODO: replace this code in 0.7.0
+                    wasi_try!(std::fs::remove_file(path).map_err(|_| __WASI_EIO));
+                }
+            }
+            _ => unimplemented!("wasi::path_unlink_file for non-files"),
+        }
+        let inode_was_removed = unsafe { state.fs.remove_inode(removed_inode) };
+        assert!(
+            inode_was_removed,
+            "Inode could not be removed because it doesn't exist"
+        );
     }
-    let inode_was_removed = unsafe { state.fs.remove_inode(inode) };
-    assert!(
-        inode_was_removed,
-        "Inode could not be removed because it doesn't exist"
-    );
-    let _result = wasi_try!(std::fs::remove_file(host_path_to_remove)
-        .ok()
-        .ok_or(__WASI_EIO));
 
     __WASI_ESUCCESS
 }

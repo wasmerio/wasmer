@@ -1,10 +1,6 @@
-//! WARNING: the API exposed here is unstable and very experimental.  Certain thins will not
+//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
 //! yet and may be broken in patch releases.  If you're using this and have any specific needs,
 //! please let us know here https://github.com/wasmerio/wasmer/issues/583 or by filing an issue.
-// use wasmer_runtime_abi::vfs::{
-//     vfs::Vfs,
-//     file_like::{FileLike, Metadata};
-// };
 
 mod types;
 
@@ -24,7 +20,7 @@ use std::{
 use wasmer_runtime_core::{debug, vm::Ctx};
 
 /// the fd value of the virtual root
-pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 4;
+pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
 /// all the rights enabled
 pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFFFFFF;
 
@@ -437,8 +433,12 @@ impl WasiFs {
                             // TODO: verify this returns successfully when given a non-symlink
                             let metadata = file.symlink_metadata().ok().ok_or(__WASI_EINVAL)?;
                             let file_type = metadata.file_type();
+                            // we want to insert newly opened dirs and files, but not transient symlinks
+                            // TODO: explain why (think about this deeply when well rested)
+                            let mut should_insert = false;
 
                             let kind = if file_type.is_dir() {
+                                should_insert = true;
                                 // load DIR
                                 Kind::Dir {
                                     parent: Some(cur_inode),
@@ -446,6 +446,7 @@ impl WasiFs {
                                     entries: Default::default(),
                                 }
                             } else if file_type.is_file() {
+                                should_insert = true;
                                 // load file
                                 Kind::File {
                                     handle: None,
@@ -471,8 +472,21 @@ impl WasiFs {
                                 unimplemented!("state::get_inode_at_path unknown file type: not file, directory, or symlink");
                             };
 
-                            cur_inode =
+                            let new_inode =
                                 self.create_inode(kind, false, file.to_string_lossy().to_string())?;
+                            if should_insert {
+                                if let Kind::Dir {
+                                    ref mut entries, ..
+                                } = &mut self.inodes[cur_inode].kind
+                                {
+                                    entries.insert(
+                                        component.as_os_str().to_string_lossy().to_string(),
+                                        new_inode,
+                                    );
+                                }
+                            }
+                            cur_inode = new_inode;
+
                             if loop_for_symlink && follow_symlinks {
                                 continue 'symlink_resolution;
                             }

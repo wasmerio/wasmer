@@ -296,7 +296,7 @@ pub type __wasi_filedelta_t = i64;
 
 pub type __wasi_filesize_t = u64;
 
-#[derive(Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,
@@ -307,6 +307,21 @@ pub struct __wasi_filestat_t {
     pub st_atim: __wasi_timestamp_t,
     pub st_mtim: __wasi_timestamp_t,
     pub st_ctim: __wasi_timestamp_t,
+}
+
+impl Default for __wasi_filestat_t {
+    fn default() -> Self {
+        __wasi_filestat_t {
+            st_dev: Default::default(),
+            st_ino: Default::default(),
+            st_filetype: __WASI_FILETYPE_UNKNOWN,
+            st_nlink: 1,
+            st_size: Default::default(),
+            st_atim: Default::default(),
+            st_mtim: Default::default(),
+            st_ctim: Default::default(),
+        }
+    }
 }
 
 impl std::fmt::Debug for __wasi_filestat_t {

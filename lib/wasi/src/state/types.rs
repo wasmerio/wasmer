@@ -73,7 +73,8 @@ pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     }
 
     /// Request deletion of the file
-    // TODO: stablize this in 0.7.0 by removing default impl
+    // TODO: break this out into a WasiPath trait which is dynamically in Kind::File
+    // this change can't be done until before release
     fn unlink(&mut self) -> Option<()> {
         panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::unlink for your type before then");
     }
@@ -84,6 +85,8 @@ pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
         panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::sync_to_disk for your type before then");
     }
 }
+
+pub trait WasiPath {}
 
 /// A thin wrapper around `std::fs::File`
 #[derive(Debug)]

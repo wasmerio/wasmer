@@ -15,6 +15,7 @@ mod fs_sandbox_test;
 mod fseek;
 mod hello;
 mod mapdir;
+mod path_link;
 mod quine;
 mod readlink;
 mod wasi_sees_virtual_root;
