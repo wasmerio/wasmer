@@ -55,7 +55,7 @@ impl Instance {
             Box::new(mem::MaybeUninit::<vm::Ctx>::zeroed());
 
         let import_backing = ImportBacking::new(&module, &imports, vmctx.as_mut_ptr())?;
-        let backing = LocalBacking::new(&module, &import_backing, vmctx.as_mut_ptr());
+        let backing = LocalBacking::new(&module, &import_backing, vmctx.as_mut_ptr())?;
 
         let mut inner = Box::pin(InstanceInner {
             backing,
