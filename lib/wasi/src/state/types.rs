@@ -77,6 +77,12 @@ pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     fn unlink(&mut self) -> Option<()> {
         panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::unlink for your type before then");
     }
+
+    /// Store file contents and metadata to disk
+    // TODO: stablize this in 0.7.0 by removing default impl
+    fn sync_to_disk(&self) -> Option<()> {
+        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::sync_to_disk for your type before then");
+    }
 }
 
 /// A thin wrapper around `std::fs::File`
@@ -184,6 +190,9 @@ impl WasiFile for HostFile {
 
     fn unlink(&mut self) -> Option<()> {
         std::fs::remove_file(&self.host_path).ok()
+    }
+    fn sync_to_disk(&self) -> Option<()> {
+        self.inner.sync_all().ok()
     }
 }
 

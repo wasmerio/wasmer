@@ -1146,8 +1146,28 @@ pub fn fd_seek(
 /// - `__WASI_ENOTCAPABLE`
 pub fn fd_sync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_sync");
-    // TODO: check __WASI_RIGHT_FD_SYNC
-    unimplemented!("wasi::fd_sync")
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_SYNC) {
+        return __WASI_EACCES;
+    }
+    let inode = fd_entry.inode;
+
+    // TODO: implement this for more than files
+    match &mut state.fs.inodes[inode].kind {
+        Kind::File { handle, .. } => {
+            if let Some(h) = handle {
+                wasi_try!(h.sync_to_disk(), __WASI_EIO);
+            } else {
+                return __WASI_EINVAL;
+            }
+        }
+        Kind::Root { .. } | Kind::Dir { .. } => return __WASI_EISDIR,
+        Kind::Buffer { .. } | Kind::Symlink { .. } => return __WASI_EINVAL,
+    }
+
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_tell()`
