@@ -1,15 +1,27 @@
 #include "object_loader.hh"
 #include <iostream>
 #include <memory>
+#include <setjmp.h>
 
 extern "C" void __register_frame(uint8_t *);
 extern "C" void __deregister_frame(uint8_t *);
-extern "C" void unwinding_setjmp(uint8_t **stack_out, void (*func)(void *), void *userdata);
-[[noreturn]] extern "C" void unwinding_longjmp(uint8_t *stack_in);
+
+void unwinding_setjmp(jmp_buf stack_out, void (*func)(void *), void *userdata) {
+  if(setjmp(stack_out)) {
+
+  } else {
+    func(userdata);
+  }
+}
+
+[[noreturn]]
+void unwinding_longjmp(jmp_buf stack_in) {
+  longjmp(stack_in, 42);
+}
 
 struct UnwindPoint {
     UnwindPoint *prev;
-    uint8_t *stack;
+    jmp_buf stack;
     std::function<void()> *f;
     std::unique_ptr<std::exception> exception;
 };
@@ -27,7 +39,7 @@ void catch_unwind(std::function<void()>&& f) {
     current.f = &f;
     unwind_state = &current;
 
-    unwinding_setjmp(&current.stack, unwind_payload, (void *) &current);
+    unwinding_setjmp(current.stack, unwind_payload, (void *) &current);
     if(current.exception) {
         throw *current.exception;
     }
