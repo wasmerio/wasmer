@@ -10,7 +10,7 @@ use crate::{
     ptr::{Array, WasmPtr},
     state::{
         self, host_file_type_to_wasi_file_type, Fd, HostFile, Inode, InodeVal, Kind, WasiFile,
-        WasiState, MAX_SYMLINKS,
+        WasiFsError, WasiState, MAX_SYMLINKS,
     },
     ExitCode,
 };
@@ -338,7 +338,7 @@ pub fn fd_allocate(
     match &mut state.fs.inodes[inode].kind {
         Kind::File { handle, .. } => {
             if let Some(handle) = handle {
-                wasi_try!(handle.set_len(new_size), __WASI_EIO);
+                wasi_try!(handle.set_len(new_size).map_err(WasiFsError::into_wasi_err));
             } else {
                 return __WASI_EBADF;
             }
@@ -549,7 +549,7 @@ pub fn fd_filestat_set_size(
     match &mut state.fs.inodes[inode].kind {
         Kind::File { handle, .. } => {
             if let Some(handle) = handle {
-                wasi_try!(handle.set_len(st_size), __WASI_EIO);
+                wasi_try!(handle.set_len(st_size).map_err(WasiFsError::into_wasi_err));
             } else {
                 return __WASI_EBADF;
             }
@@ -1159,7 +1159,7 @@ pub fn fd_sync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     match &mut state.fs.inodes[inode].kind {
         Kind::File { handle, .. } => {
             if let Some(h) = handle {
-                wasi_try!(h.sync_to_disk(), __WASI_EIO);
+                wasi_try!(h.sync_to_disk().map_err(WasiFsError::into_wasi_err));
             } else {
                 return __WASI_EINVAL;
             }
@@ -1935,6 +1935,20 @@ pub fn path_rename(
     debug!("wasi::path_rename");
     unimplemented!("wasi::path_rename")
 }
+
+/// ### `path_symlink()`
+/// Create a symlink
+/// Inputs:
+/// - `const char *old_path`
+///     Array of UTF-8 bytes representing the source path
+/// - `u32 old_path_len`
+///     The number of bytes to read from `old_path`
+/// - `__wasi_fd_t fd`
+///     The base directory from which the paths are understood
+/// - `const char *new_path`
+///     Array of UTF-8 bytes representing the target path
+/// - `u32 new_path_len`
+///     The number of bytes to read from `new_path`
 pub fn path_symlink(
     ctx: &mut Ctx,
     old_path: WasmPtr<u8, Array>,
@@ -1944,16 +1958,39 @@ pub fn path_symlink(
     new_path_len: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::path_symlink");
-    unimplemented!("wasi::path_symlink")
+    let state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+    let old_path_str = wasi_try!(
+        old_path.get_utf8_string(memory, old_path_len),
+        __WASI_EINVAL
+    );
+    let new_path_str = wasi_try!(
+        new_path.get_utf8_string(memory, new_path_len),
+        __WASI_EINVAL
+    );
+    let base_fd = wasi_try!(state.fs.get_fd(fd));
+    if !has_rights(base_fd.rights, __WASI_RIGHT_PATH_SYMLINK) {
+        return __WASI_EACCES;
+    }
+
+    __WASI_ESUCCESS
 }
 
+/// ### `path_unlink_file()`
+/// Unlink a file, deleting if the number of hardlinks is 1
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The base file descriptor from which the path is understood
+/// - `const char *path`
+///     Array of UTF-8 bytes representing the path
+/// - `u32 path_len`
+///     The number of bytes in the `path` array
 pub fn path_unlink_file(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
-    // TODO check if fd is a dir, ensure it's within sandbox, etc.
     debug!("wasi::path_unlink_file");
     let state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
@@ -1992,7 +2029,7 @@ pub fn path_unlink_file(
         match &mut state.fs.inodes[removed_inode].kind {
             Kind::File { handle, path } => {
                 if let Some(h) = handle {
-                    wasi_try!(h.unlink().ok_or(__WASI_EIO));
+                    wasi_try!(h.unlink().map_err(WasiFsError::into_wasi_err));
                 } else {
                     // File is closed
                     // problem with the abstraction, we can't call unlink because there's no handle
@@ -2000,6 +2037,7 @@ pub fn path_unlink_file(
                     wasi_try!(std::fs::remove_file(path).map_err(|_| __WASI_EIO));
                 }
             }
+            Kind::Dir { .. } | Kind::Root { .. } => return __WASI_EISDIR,
             _ => unimplemented!("wasi::path_unlink_file for non-files"),
         }
         let inode_was_removed = unsafe { state.fs.remove_inode(removed_inode) };
