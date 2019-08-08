@@ -63,6 +63,22 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     std::fs::remove_file(&normalized_name).expect("could not delete executable");
     let wasm_out_name = format!("{}.wasm", &normalized_name);
 
+    let mut file_contents = String::new();
+    {
+        let mut file = std::fs::File::open(file).unwrap();
+        file.read_to_string(&mut file_contents).unwrap();
+    }
+    {
+        let mut actual_file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(file)
+            .unwrap();
+        actual_file
+            .write_all(format!("#![feature(wasi_ext)]\n{}", &file_contents).as_bytes())
+            .unwrap();
+    }
+
     let wasm_compilation_out = Command::new("rustc")
         .arg("+nightly")
         .arg("--target=wasm32-wasi")
@@ -74,6 +90,14 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         .output()
         .expect("Failed to compile program to native code");
     print_info_on_error(&wasm_compilation_out, "WASM COMPILATION");
+    {
+        let mut actual_file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(file)
+            .unwrap();
+        actual_file.write_all(file_contents.as_bytes()).unwrap();
+    }
 
     // to prevent commiting huge binary blobs forever
     let wasm_strip_out = Command::new("wasm-strip")

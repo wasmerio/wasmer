@@ -296,7 +296,7 @@ pub type __wasi_filedelta_t = i64;
 
 pub type __wasi_filesize_t = u64;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,
@@ -309,7 +309,64 @@ pub struct __wasi_filestat_t {
     pub st_ctim: __wasi_timestamp_t,
 }
 
+impl Default for __wasi_filestat_t {
+    fn default() -> Self {
+        __wasi_filestat_t {
+            st_dev: Default::default(),
+            st_ino: Default::default(),
+            st_filetype: __WASI_FILETYPE_UNKNOWN,
+            st_nlink: 1,
+            st_size: Default::default(),
+            st_atim: Default::default(),
+            st_mtim: Default::default(),
+            st_ctim: Default::default(),
+        }
+    }
+}
+
+impl std::fmt::Debug for __wasi_filestat_t {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let convert_ts_into_time_string = |ts| {
+            let tspec = time::Timespec::new(ts as i64 / 1_000_000_000, (ts % 1_000_000_000) as i32);
+            let tm = time::at(tspec);
+            let out_time = tm.rfc822();
+            format!("{} ({})", out_time, ts)
+        };
+        f.debug_struct("__wasi_filestat_t")
+            .field("st_dev", &self.st_dev)
+            .field("st_ino", &self.st_ino)
+            .field(
+                "st_filetype",
+                &format!(
+                    "{} ({})",
+                    wasi_filetype_to_name(self.st_filetype),
+                    self.st_filetype,
+                ),
+            )
+            .field("st_nlink", &self.st_nlink)
+            .field("st_size", &self.st_size)
+            .field("st_atim", &convert_ts_into_time_string(self.st_atim))
+            .field("st_mtim", &convert_ts_into_time_string(self.st_mtim))
+            .field("st_ctim", &convert_ts_into_time_string(self.st_ctim))
+            .finish()
+    }
+}
+
 unsafe impl ValueType for __wasi_filestat_t {}
+
+pub fn wasi_filetype_to_name(ft: __wasi_filetype_t) -> &'static str {
+    match ft {
+        __WASI_FILETYPE_UNKNOWN => "Unknown",
+        __WASI_FILETYPE_BLOCK_DEVICE => "Block device",
+        __WASI_FILETYPE_CHARACTER_DEVICE => "Character device",
+        __WASI_FILETYPE_DIRECTORY => "Directory",
+        __WASI_FILETYPE_REGULAR_FILE => "Regular file",
+        __WASI_FILETYPE_SOCKET_DGRAM => "Socket dgram",
+        __WASI_FILETYPE_SOCKET_STREAM => "Socket stream",
+        __WASI_FILETYPE_SYMBOLIC_LINK => "Symbolic link",
+        _ => "Invalid",
+    }
+}
 
 pub type __wasi_filetype_t = u8;
 pub const __WASI_FILETYPE_UNKNOWN: u8 = 0;
@@ -383,6 +440,56 @@ pub const __WASI_RIGHT_PATH_UNLINK_FILE: u64 = 1 << 25;
 pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: u64 = 1 << 26;
 pub const __WASI_RIGHT_POLL_FD_READWRITE: u64 = 1 << 27;
 pub const __WASI_RIGHT_SOCK_SHUTDOWN: u64 = 1 << 28;
+
+/// function for debugging rights issues
+#[allow(dead_code)]
+pub fn print_right_set(rights: __wasi_rights_t) {
+    // BTreeSet for consistent order
+    let mut right_set = std::collections::BTreeSet::new();
+    for i in 0..28 {
+        let cur_right = rights & (1 << i);
+        if cur_right != 0 {
+            right_set.insert(right_to_string(cur_right).unwrap_or("INVALID RIGHT"));
+        }
+    }
+    println!("{:#?}", right_set);
+}
+
+/// expects a single right, returns None if out of bounds or > 1 bit set
+pub fn right_to_string(right: __wasi_rights_t) -> Option<&'static str> {
+    Some(match right {
+        __WASI_RIGHT_FD_DATASYNC => "__WASI_RIGHT_FD_DATASYNC",
+        __WASI_RIGHT_FD_READ => "__WASI_RIGHT_FD_READ",
+        __WASI_RIGHT_FD_SEEK => "__WASI_RIGHT_FD_SEEK",
+        __WASI_RIGHT_FD_FDSTAT_SET_FLAGS => "__WASI_RIGHT_FD_FDSTAT_SET_FLAGS",
+        __WASI_RIGHT_FD_SYNC => "__WASI_RIGHT_FD_SYNC",
+        __WASI_RIGHT_FD_TELL => "__WASI_RIGHT_FD_TELL",
+        __WASI_RIGHT_FD_WRITE => "__WASI_RIGHT_FD_WRITE",
+        __WASI_RIGHT_FD_ADVISE => "__WASI_RIGHT_FD_ADVISE",
+        __WASI_RIGHT_FD_ALLOCATE => "__WASI_RIGHT_FD_ALLOCATE",
+        __WASI_RIGHT_PATH_CREATE_DIRECTORY => "__WASI_RIGHT_PATH_CREATE_DIRECTORY",
+        __WASI_RIGHT_PATH_CREATE_FILE => "__WASI_RIGHT_PATH_CREATE_FILE",
+        __WASI_RIGHT_PATH_LINK_SOURCE => "__WASI_RIGHT_PATH_LINK_SOURCE",
+        __WASI_RIGHT_PATH_LINK_TARGET => "__WASI_RIGHT_PATH_LINK_TARGET",
+        __WASI_RIGHT_PATH_OPEN => "__WASI_RIGHT_PATH_OPEN",
+        __WASI_RIGHT_FD_READDIR => "__WASI_RIGHT_FD_READDIR",
+        __WASI_RIGHT_PATH_READLINK => "__WASI_RIGHT_PATH_READLINK",
+        __WASI_RIGHT_PATH_RENAME_SOURCE => "__WASI_RIGHT_PATH_RENAME_SOURCE",
+        __WASI_RIGHT_PATH_RENAME_TARGET => "__WASI_RIGHT_PATH_RENAME_TARGET",
+        __WASI_RIGHT_PATH_FILESTAT_GET => "__WASI_RIGHT_PATH_FILESTAT_GET",
+        __WASI_RIGHT_PATH_FILESTAT_SET_SIZE => "__WASI_RIGHT_PATH_FILESTAT_SET_SIZE",
+        __WASI_RIGHT_PATH_FILESTAT_SET_TIMES => "__WASI_RIGHT_PATH_FILESTAT_SET_TIMES",
+        __WASI_RIGHT_FD_FILESTAT_GET => "__WASI_RIGHT_FD_FILESTAT_GET",
+        __WASI_RIGHT_FD_FILESTAT_SET_SIZE => "__WASI_RIGHT_FD_FILESTAT_SET_SIZE",
+        __WASI_RIGHT_FD_FILESTAT_SET_TIMES => "__WASI_RIGHT_FD_FILESTAT_SET_TIMES",
+        __WASI_RIGHT_PATH_SYMLINK => "__WASI_RIGHT_PATH_SYMLINK",
+        __WASI_RIGHT_PATH_UNLINK_FILE => "__WASI_RIGHT_PATH_UNLINK_FILE",
+        __WASI_RIGHT_PATH_REMOVE_DIRECTORY => "__WASI_RIGHT_PATH_REMOVE_DIRECTORY",
+        __WASI_RIGHT_POLL_FD_READWRITE => "__WASI_RIGHT_POLL_FD_READWRITE",
+        __WASI_RIGHT_SOCK_SHUTDOWN => "__WASI_RIGHT_SOCK_SHUTDOWN",
+        _ => return None,
+    })
+}
 
 pub type __wasi_roflags_t = u16;
 pub const __WASI_SOCK_RECV_DATA_TRUNCATED: u16 = 1 << 0;
