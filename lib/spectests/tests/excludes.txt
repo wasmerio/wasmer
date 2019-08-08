@@ -1127,28 +1127,9 @@ llvm:fail:start.wast:92 # Module - caught panic Any
 llvm:fail:type.wast:3 # Module - caught panic Any
 
 # LLVM Windows
-llvm:skip:address.wast:*:windows
-llvm:skip:align.wast:*:windows
 llvm:skip:call.wast:*:windows
 llvm:skip:br_table.wast:*:windows
-llvm:skip:call_indirect.wast:*:windows
-llvm:skip:conversions.wast:*:windows
 llvm:skip:elem.wast:*:windows
-llvm:skip:func_ptrs.wast:*:windows
-llvm:skip:const.wast:*:windows
-llvm:skip:globals.wast:*:windows
-llvm:skip:i32.wast:*:windows
-llvm:skip:i64.wast:*:windows
-llvm:skip:if.wast:*:windows
-llvm:skip:imports.wast:*:windows
-llvm:skip:int_exprs.wast:*:windows
-llvm:skip:linking.wast:*:windows
-llvm:skip:memory_grow.wast:*:windows
-llvm:skip:memory_trap.wast:*:windows
-llvm:skip:select.wast:*:windows
-llvm:skip:traps.wast:*:windows
-llvm:skip:unreachable.wast:*:windows
-llvm:skip:unwind.wast:*:windows
 
 # Singlepass
 singlepass:skip:elem.wast:229        # Spec running forever
