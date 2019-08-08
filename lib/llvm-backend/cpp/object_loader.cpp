@@ -7,52 +7,49 @@ extern "C" void __register_frame(uint8_t *);
 extern "C" void __deregister_frame(uint8_t *);
 
 void unwinding_setjmp(jmp_buf stack_out, void (*func)(void *), void *userdata) {
-  if(setjmp(stack_out)) {
+  if (setjmp(stack_out)) {
 
   } else {
     func(userdata);
   }
 }
 
-[[noreturn]]
-void unwinding_longjmp(jmp_buf stack_in) {
-  longjmp(stack_in, 42);
-}
+[[noreturn]] void unwinding_longjmp(jmp_buf stack_in) { longjmp(stack_in, 42); }
 
 struct UnwindPoint {
-    UnwindPoint *prev;
-    jmp_buf stack;
-    std::function<void()> *f;
-    std::unique_ptr<std::exception> exception;
+  UnwindPoint *prev;
+  jmp_buf stack;
+  std::function<void()> *f;
+  std::unique_ptr<std::exception> exception;
 };
 
 static thread_local UnwindPoint *unwind_state = nullptr;
 
 static void unwind_payload(void *_point) {
-    UnwindPoint *point = (UnwindPoint *) _point;
-    (*point->f)();
+  UnwindPoint *point = (UnwindPoint *)_point;
+  (*point->f)();
 }
 
-void catch_unwind(std::function<void()>&& f) {
-    UnwindPoint current;
-    current.prev = unwind_state;
-    current.f = &f;
-    unwind_state = &current;
+void catch_unwind(std::function<void()> &&f) {
+  UnwindPoint current;
+  current.prev = unwind_state;
+  current.f = &f;
+  unwind_state = &current;
 
-    unwinding_setjmp(current.stack, unwind_payload, (void *) &current);
-    if(current.exception) {
-        throw *current.exception;
-    }
+  unwinding_setjmp(current.stack, unwind_payload, (void *)&current);
+  if (current.exception) {
+    throw *current.exception;
+  }
 }
 
 void unsafe_unwind(std::exception *exception) {
-    UnwindPoint *state = unwind_state;
-    if(state) {
-        state->exception.reset(exception);
-        unwinding_longjmp(state->stack);
-    } else {
-        abort();
-    }
+  UnwindPoint *state = unwind_state;
+  if (state) {
+    state->exception.reset(exception);
+    unwinding_longjmp(state->stack);
+  } else {
+    abort();
+  }
 }
 
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager {

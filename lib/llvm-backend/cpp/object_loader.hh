@@ -1,10 +1,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <functional>
 #include <iostream>
 #include <sstream>
+
 #include <setjmp.h>
-#include <functional>
 
 #include <llvm/ExecutionEngine/RuntimeDyld.h>
 
@@ -50,7 +51,7 @@ typedef struct {
   size_t data, vtable;
 } box_any_t;
 
-void catch_unwind(std::function<void()>&& f);
+void catch_unwind(std::function<void()> &&f);
 [[noreturn]] void unsafe_unwind(std::exception *exception);
 
 struct WasmException : std::exception {
@@ -179,7 +180,9 @@ result_t module_load(const uint8_t *mem_ptr, size_t mem_size,
   return RESULT_OK;
 }
 
-[[noreturn]] void throw_trap(WasmTrap::Type ty) { unsafe_unwind(new WasmTrap(ty)); }
+[[noreturn]] void throw_trap(WasmTrap::Type ty) {
+  unsafe_unwind(new WasmTrap(ty));
+}
 
 void module_delete(WasmModule *module) { delete module; }
 
@@ -200,7 +203,7 @@ bool invoke_trampoline(trampoline_t trampoline, void *ctx, void *func,
                        box_any_t *user_error, void *invoke_env) noexcept {
   try {
     catch_unwind([trampoline, ctx, func, params, results]() {
-        trampoline(ctx, func, params, results);
+      trampoline(ctx, func, params, results);
     });
     return true;
   } catch (const WasmTrap &e) {
