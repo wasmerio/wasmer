@@ -261,14 +261,14 @@ impl Protect {
 
     pub fn is_readable(self) -> bool {
         match self {
-            Protect::Read | Protect::ReadWrite | Protect::ReadExec => true,
+            Protect::Read | Protect::ReadWrite | Protect::ReadExec | Protect::ReadWriteExec => true,
             _ => false,
         }
     }
 
     pub fn is_writable(self) -> bool {
         match self {
-            Protect::ReadWrite => true,
+            Protect::ReadWrite | Protect::ReadWriteExec => true,
             _ => false,
         }
     }
@@ -297,10 +297,12 @@ impl Drop for RawFd {
 
 /// Round `size` up to the nearest multiple of `page_size`.
 fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
+    assert!(page_size.is_power_of_two());
     (size + (page_size - 1)) & !(page_size - 1)
 }
 
 /// Round `size` down to the nearest multiple of `page_size`.
 fn round_down_to_page_size(size: usize, page_size: usize) -> usize {
+    assert!(page_size.is_power_of_two());
     size & !(page_size - 1)
 }
