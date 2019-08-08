@@ -4639,6 +4639,10 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             self.intrinsics.as_ref().unwrap(),
         );
 
+        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.pre_opt_ir } {
+            self.module.print_to_file(path).unwrap();
+        }
+
         let pass_manager = PassManager::create(());
         if cfg!(test) {
             pass_manager.add_verifier_pass();
@@ -4658,7 +4662,9 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         pass_manager.add_slp_vectorize_pass();
         pass_manager.run_on(&self.module);
 
-        // self.module.print_to_stderr();
+        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.post_opt_ir } {
+            self.module.print_to_file(path).unwrap();
+        }
 
         let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics.take().unwrap());
         Ok((backend, Box::new(cache_gen)))

@@ -155,6 +155,10 @@ struct Run {
     #[structopt(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
 
+    #[cfg(feature = "backend-llvm")]
+    #[structopt(flatten)]
+    backend_llvm_options: wasmer_llvm_backend::CLIOptions,
+
     #[structopt(flatten)]
     features: PrestandardFeatures,
 
@@ -354,6 +358,15 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         }
         wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
+    }
+
+    #[cfg(feature = "backend-llvm")]
+    {
+        if options.backend == Backend::LLVM {
+            unsafe {
+                wasmer_llvm_backend::GLOBAL_OPTIONS = options.backend_llvm_options.clone();
+            }
+        }
     }
 
     let compiler: Box<dyn Compiler> = match options.backend {
