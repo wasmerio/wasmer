@@ -148,7 +148,7 @@ release-llvm:
 bench-singlepass:
 	cargo bench --all --no-default-features --features "backend-singlepass"
 bench-clif:
-	cargo bench --all --no-default-features --features "backend-clif"
+	cargo bench --all --no-default-features --features "backend-cranelift"
 bench-llvm:
 	cargo bench --all --no-default-features --features "backend-llvm"
 
@@ -156,7 +156,7 @@ bench-llvm:
 compile-bench-singlepass:
 	cargo bench --all --no-run --no-default-features --features "backend-singlepass"
 compile-bench-clif:
-	cargo bench --all --no-run --no-default-features --features "backend-clif"
+	cargo bench --all --no-run --no-default-features --features "backend-cranelift"
 compile-bench-llvm:
 	cargo bench --all --no-run --no-default-features --features "backend-llvm"
 
