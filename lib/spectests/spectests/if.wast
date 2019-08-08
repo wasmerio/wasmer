@@ -7,41 +7,41 @@
   (func $dummy)
 
   (func (export "empty") (param i32)
-    (if (get_local 0) (then))
-    (if (get_local 0) (then) (else))
-    (if $l (get_local 0) (then))
-    (if $l (get_local 0) (then) (else))
+    (if (local.get 0) (then))
+    (if (local.get 0) (then) (else))
+    (if $l (local.get 0) (then))
+    (if $l (local.get 0) (then) (else))
   )
 
   (func (export "singular") (param i32) (result i32)
-    (if (get_local 0) (then (nop)))
-    (if (get_local 0) (then (nop)) (else (nop)))
-    (if (result i32) (get_local 0) (then (i32.const 7)) (else (i32.const 8)))
+    (if (local.get 0) (then (nop)))
+    (if (local.get 0) (then (nop)) (else (nop)))
+    (if (result i32) (local.get 0) (then (i32.const 7)) (else (i32.const 8)))
   )
 
   (func (export "multi") (param i32) (result i32)
-    (if (get_local 0) (then (call $dummy) (call $dummy) (call $dummy)))
-    (if (get_local 0) (then) (else (call $dummy) (call $dummy) (call $dummy)))
-    (if (result i32) (get_local 0)
+    (if (local.get 0) (then (call $dummy) (call $dummy) (call $dummy)))
+    (if (local.get 0) (then) (else (call $dummy) (call $dummy) (call $dummy)))
+    (if (result i32) (local.get 0)
       (then (call $dummy) (call $dummy) (i32.const 8))
       (else (call $dummy) (call $dummy) (i32.const 9))
     )
   )
 
   (func (export "nested") (param i32 i32) (result i32)
-    (if (result i32) (get_local 0)
+    (if (result i32) (local.get 0)
       (then
-        (if (get_local 1) (then (call $dummy) (block) (nop)))
-        (if (get_local 1) (then) (else (call $dummy) (block) (nop)))
-        (if (result i32) (get_local 1)
+        (if (local.get 1) (then (call $dummy) (block) (nop)))
+        (if (local.get 1) (then) (else (call $dummy) (block) (nop)))
+        (if (result i32) (local.get 1)
           (then (call $dummy) (i32.const 9))
           (else (call $dummy) (i32.const 10))
         )
       )
       (else
-        (if (get_local 1) (then (call $dummy) (block) (nop)))
-        (if (get_local 1) (then) (else (call $dummy) (block) (nop)))
-        (if (result i32) (get_local 1)
+        (if (local.get 1) (then (call $dummy) (block) (nop)))
+        (if (local.get 1) (then) (else (call $dummy) (block) (nop)))
+        (if (result i32) (local.get 1)
           (then (call $dummy) (i32.const 10))
           (else (call $dummy) (i32.const 11))
         )
@@ -51,7 +51,7 @@
 
   (func (export "as-select-first") (param i32) (result i32)
     (select
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 1))
         (else (call $dummy) (i32.const 0))
       )
@@ -61,7 +61,7 @@
   (func (export "as-select-mid") (param i32) (result i32)
     (select
       (i32.const 2)
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 1))
         (else (call $dummy) (i32.const 0))
       )
@@ -71,7 +71,7 @@
   (func (export "as-select-last") (param i32) (result i32)
     (select
       (i32.const 2) (i32.const 3)
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 1))
         (else (call $dummy) (i32.const 0))
       )
@@ -80,7 +80,7 @@
 
   (func (export "as-loop-first") (param i32) (result i32)
     (loop (result i32)
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 1))
         (else (call $dummy) (i32.const 0))
       )
@@ -90,7 +90,7 @@
   (func (export "as-loop-mid") (param i32) (result i32)
     (loop (result i32)
       (call $dummy)
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 1))
         (else (call $dummy) (i32.const 0))
       )
@@ -100,7 +100,7 @@
   (func (export "as-loop-last") (param i32) (result i32)
     (loop (result i32)
       (call $dummy) (call $dummy)
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 1))
         (else (call $dummy) (i32.const 0))
       )
@@ -109,7 +109,7 @@
 
   (func (export "as-if-condition") (param i32) (result i32)
     (if (result i32)
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (i32.const 1)) (else (i32.const 0))
       )
       (then (call $dummy) (i32.const 2))
@@ -120,7 +120,7 @@
   (func (export "as-br_if-first") (param i32) (result i32)
     (block (result i32)
       (br_if 0
-        (if (result i32) (get_local 0)
+        (if (result i32) (local.get 0)
           (then (call $dummy) (i32.const 1))
           (else (call $dummy) (i32.const 0))
         )
@@ -133,7 +133,7 @@
     (block (result i32)
       (br_if 0
         (i32.const 2)
-        (if (result i32) (get_local 0)
+        (if (result i32) (local.get 0)
           (then (call $dummy) (i32.const 1))
           (else (call $dummy) (i32.const 0))
         )
@@ -144,7 +144,7 @@
 
   (func (export "as-br_table-first") (param i32) (result i32)
     (block (result i32)
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 1))
         (else (call $dummy) (i32.const 0))
       )
@@ -155,7 +155,7 @@
   (func (export "as-br_table-last") (param i32) (result i32)
     (block (result i32)
       (i32.const 2)
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 1))
         (else (call $dummy) (i32.const 0))
       )
@@ -163,13 +163,13 @@
     )
   )
 
-  (func $func (param i32 i32) (result i32) (get_local 0))
+  (func $func (param i32 i32) (result i32) (local.get 0))
   (type $check (func (param i32 i32) (result i32)))
-  (table anyfunc (elem $func))
+  (table funcref (elem $func))
   (func (export "as-call_indirect-first") (param i32) (result i32)
     (block (result i32)
       (call_indirect (type $check)
-        (if (result i32) (get_local 0)
+        (if (result i32) (local.get 0)
           (then (call $dummy) (i32.const 1))
           (else (call $dummy) (i32.const 0))
         )
@@ -181,7 +181,7 @@
     (block (result i32)
       (call_indirect (type $check)
         (i32.const 2)
-        (if (result i32) (get_local 0)
+        (if (result i32) (local.get 0)
           (then (call $dummy) (i32.const 1))
           (else (call $dummy) (i32.const 0))
         )
@@ -193,7 +193,7 @@
     (block (result i32)
       (call_indirect (type $check)
         (i32.const 2) (i32.const 0)
-        (if (result i32) (get_local 0)
+        (if (result i32) (local.get 0)
           (then (call $dummy) (i32.const 1))
           (else (call $dummy) (i32.const 0))
         )
@@ -202,7 +202,7 @@
   )
 
   (func (export "as-store-first") (param i32)
-    (if (result i32) (get_local 0)
+    (if (result i32) (local.get 0)
       (then (call $dummy) (i32.const 1))
       (else (call $dummy) (i32.const 0))
     )
@@ -211,7 +211,7 @@
   )
   (func (export "as-store-last") (param i32)
     (i32.const 2)
-    (if (result i32) (get_local 0)
+    (if (result i32) (local.get 0)
       (then (call $dummy) (i32.const 1))
       (else (call $dummy) (i32.const 0))
     )
@@ -220,32 +220,32 @@
 
   (func (export "as-memory.grow-value") (param i32) (result i32)
     (memory.grow
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (i32.const 1))
         (else (i32.const 0))
       )
     )
   )
 
-  (func $f (param i32) (result i32) (get_local 0))
+  (func $f (param i32) (result i32) (local.get 0))
 
   (func (export "as-call-value") (param i32) (result i32)
     (call $f
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (i32.const 1))
         (else (i32.const 0))
       )
     )
   )
   (func (export "as-return-value") (param i32) (result i32)
-    (if (result i32) (get_local 0)
+    (if (result i32) (local.get 0)
       (then (i32.const 1))
       (else (i32.const 0)))
     (return)
   )
   (func (export "as-drop-operand") (param i32)
     (drop
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (i32.const 1))
         (else (i32.const 0))
       )
@@ -254,43 +254,43 @@
   (func (export "as-br-value") (param i32) (result i32)
     (block (result i32)
       (br 0
-        (if (result i32) (get_local 0)
+        (if (result i32) (local.get 0)
           (then (i32.const 1))
           (else (i32.const 0))
         )
       )
     )
   )
-  (func (export "as-set_local-value") (param i32) (result i32)
+  (func (export "as-local.set-value") (param i32) (result i32)
     (local i32)
-    (set_local 0
-      (if (result i32) (get_local 0)
+    (local.set 0
+      (if (result i32) (local.get 0)
         (then (i32.const 1))
         (else (i32.const 0))
       )
     )
-    (get_local 0)
+    (local.get 0)
   )
-  (func (export "as-tee_local-value") (param i32) (result i32)
-    (tee_local 0
-      (if (result i32) (get_local 0)
+  (func (export "as-local.tee-value") (param i32) (result i32)
+    (local.tee 0
+      (if (result i32) (local.get 0)
         (then (i32.const 1))
         (else (i32.const 0))
       )
     )
   )
   (global $a (mut i32) (i32.const 10))
-  (func (export "as-set_global-value") (param i32) (result i32)
-    (set_global $a
-      (if (result i32) (get_local 0)
+  (func (export "as-global.set-value") (param i32) (result i32)
+    (global.set $a
+      (if (result i32) (local.get 0)
         (then (i32.const 1))
         (else (i32.const 0))
       )
-    ) (get_global $a)
+    ) (global.get $a)
   )
   (func (export "as-load-operand") (param i32) (result i32)
     (i32.load
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (i32.const 11))
         (else (i32.const 10))
       )
@@ -299,7 +299,7 @@
 
   (func (export "as-unary-operand") (param i32) (result i32)
     (i32.ctz
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 13))
         (else (call $dummy) (i32.const -13))
       )
@@ -307,11 +307,11 @@
   )
   (func (export "as-binary-operand") (param i32 i32) (result i32)
     (i32.mul
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 3))
         (else (call $dummy) (i32.const -3))
       )
-      (if (result i32) (get_local 1)
+      (if (result i32) (local.get 1)
         (then (call $dummy) (i32.const 4))
         (else (call $dummy) (i32.const -5))
       )
@@ -319,7 +319,7 @@
   )
   (func (export "as-test-operand") (param i32) (result i32)
     (i32.eqz
-      (if (result i32) (get_local 0)
+      (if (result i32) (local.get 0)
         (then (call $dummy) (i32.const 13))
         (else (call $dummy) (i32.const 0))
       )
@@ -327,11 +327,11 @@
   )
   (func (export "as-compare-operand") (param i32 i32) (result i32)
     (f32.gt
-      (if (result f32) (get_local 0)
+      (if (result f32) (local.get 0)
         (then (call $dummy) (f32.const 3))
         (else (call $dummy) (f32.const -3))
       )
-      (if (result f32) (get_local 1)
+      (if (result f32) (local.get 1)
         (then (call $dummy) (f32.const 4))
         (else (call $dummy) (f32.const -4))
       )
@@ -352,7 +352,7 @@
   )
 
   (func (export "break-value") (param i32) (result i32)
-    (if (result i32) (get_local 0)
+    (if (result i32) (local.get 0)
       (then (br 0 (i32.const 18)) (i32.const 19))
       (else (br 0 (i32.const 21)) (i32.const 20))
     )
@@ -361,23 +361,23 @@
   (func (export "effects") (param i32) (result i32)
     (local i32)
     (if
-      (block (result i32) (set_local 1 (i32.const 1)) (get_local 0))
+      (block (result i32) (local.set 1 (i32.const 1)) (local.get 0))
       (then
-        (set_local 1 (i32.mul (get_local 1) (i32.const 3)))
-        (set_local 1 (i32.sub (get_local 1) (i32.const 5)))
-        (set_local 1 (i32.mul (get_local 1) (i32.const 7)))
+        (local.set 1 (i32.mul (local.get 1) (i32.const 3)))
+        (local.set 1 (i32.sub (local.get 1) (i32.const 5)))
+        (local.set 1 (i32.mul (local.get 1) (i32.const 7)))
         (br 0)
-        (set_local 1 (i32.mul (get_local 1) (i32.const 100)))
+        (local.set 1 (i32.mul (local.get 1) (i32.const 100)))
       )
       (else
-        (set_local 1 (i32.mul (get_local 1) (i32.const 5)))
-        (set_local 1 (i32.sub (get_local 1) (i32.const 7)))
-        (set_local 1 (i32.mul (get_local 1) (i32.const 3)))
+        (local.set 1 (i32.mul (local.get 1) (i32.const 5)))
+        (local.set 1 (i32.sub (local.get 1) (i32.const 7)))
+        (local.set 1 (i32.mul (local.get 1) (i32.const 3)))
         (br 0)
-        (set_local 1 (i32.mul (get_local 1) (i32.const 1000)))
+        (local.set 1 (i32.mul (local.get 1) (i32.const 1000)))
       )
     )
-    (get_local 1)
+    (local.get 1)
   )
 )
 
@@ -459,14 +459,14 @@
 (assert_return (invoke "as-br-value" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "as-br-value" (i32.const 1)) (i32.const 1))
 
-(assert_return (invoke "as-set_local-value" (i32.const 0)) (i32.const 0))
-(assert_return (invoke "as-set_local-value" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "as-local.set-value" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-local.set-value" (i32.const 1)) (i32.const 1))
 
-(assert_return (invoke "as-tee_local-value" (i32.const 0)) (i32.const 0))
-(assert_return (invoke "as-tee_local-value" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "as-local.tee-value" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-local.tee-value" (i32.const 1)) (i32.const 1))
 
-(assert_return (invoke "as-set_global-value" (i32.const 0)) (i32.const 0))
-(assert_return (invoke "as-set_global-value" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "as-global.set-value" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-global.set-value" (i32.const 1)) (i32.const 1))
 
 (assert_return (invoke "as-load-operand" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "as-load-operand" (i32.const 1)) (i32.const 0))
@@ -719,6 +719,174 @@
       (else (br 0 (i64.const 1)) (i32.const 1))
     )
   ))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module
+    (func $type-condition-empty
+      (if (then))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-block
+      (i32.const 0)
+      (block (if (then)))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-loop
+      (i32.const 0)
+      (loop (if (then)))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-then
+      (i32.const 0) (i32.const 0)
+      (if (then (if (then))))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-else
+      (i32.const 0) (i32.const 0)
+      (if (result i32) (then (i32.const 0)) (else (if (then)) (i32.const 0)))
+      (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-br
+      (i32.const 0)
+      (block (br 0 (if(then))) (drop))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-br_if
+      (i32.const 0)
+      (block (br_if 0 (if(then)) (i32.const 1)) (drop))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-br_table
+      (i32.const 0)
+      (block (br_table 0 (if(then))) (drop))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-return
+      (return (if(then))) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-select
+      (select (if(then)) (i32.const 1) (i32.const 2)) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-call
+      (call 1 (if(then))) (drop)
+    )
+    (func (param i32) (result i32) (local.get 0))
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $f (param i32) (result i32) (local.get 0))
+    (type $sig (func (param i32) (result i32)))
+    (table funcref (elem $f))
+    (func $type-condition-empty-in-call_indirect
+      (block (result i32)
+        (call_indirect (type $sig)
+          (if(then)) (i32.const 0)
+        )
+        (drop)
+      )
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-local.set
+      (local i32)
+      (local.set 0 (if(then))) (local.get 0) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-local.tee
+      (local i32)
+      (local.tee 0 (if(then))) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (global $x (mut i32) (i32.const 0))
+    (func $type-condition-empty-in-global.set
+      (global.set $x (if(then))) (global.get $x) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (memory 0)
+    (func $type-condition-empty-in-memory.grow
+      (memory.grow (if(then))) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (memory 0)
+    (func $type-condition-empty-in-load
+      (i32.load (if(then))) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (memory 1)
+    (func $type-condition-empty-in-store
+      (i32.store (if(then)) (i32.const 1))
+    )
+  )
   "type mismatch"
 )
 

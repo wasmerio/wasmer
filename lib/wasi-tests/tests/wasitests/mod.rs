@@ -7,11 +7,15 @@
 mod _common;
 mod create_dir;
 mod envvar;
+mod fd_allocate;
+mod fd_pread;
+mod fd_sync;
 mod file_metadata;
 mod fs_sandbox_test;
 mod fseek;
 mod hello;
 mod mapdir;
+mod path_link;
 mod quine;
 mod readlink;
 mod wasi_sees_virtual_root;

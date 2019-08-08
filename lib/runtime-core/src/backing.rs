@@ -55,19 +55,23 @@ pub struct LocalBacking {
 }
 
 impl LocalBacking {
-    pub(crate) fn new(module: &ModuleInner, imports: &ImportBacking, vmctx: *mut vm::Ctx) -> Self {
+    pub(crate) fn new(
+        module: &ModuleInner,
+        imports: &ImportBacking,
+        vmctx: *mut vm::Ctx,
+    ) -> LinkResult<Self> {
         let mut memories = Self::generate_memories(module);
         let mut tables = Self::generate_tables(module);
         let mut globals = Self::generate_globals(module, imports);
 
-        let vm_memories = Self::finalize_memories(module, imports, &mut memories);
+        let vm_memories = Self::finalize_memories(module, imports, &mut memories)?;
         let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx);
         let vm_globals = Self::finalize_globals(&mut globals);
 
         let dynamic_sigindices = Self::generate_sigindices(&module.info);
         let local_functions = Self::generate_local_functions(module);
 
-        Self {
+        Ok(Self {
             memories,
             tables,
             globals,
@@ -80,7 +84,7 @@ impl LocalBacking {
             local_functions,
 
             internals: Internals([0; INTERNALS_SIZE]),
-        }
+        })
     }
 
     fn generate_local_functions(module: &ModuleInner) -> BoxedMap<LocalFuncIndex, *const vm::Func> {
@@ -124,7 +128,7 @@ impl LocalBacking {
         module: &ModuleInner,
         imports: &ImportBacking,
         memories: &mut SliceMap<LocalMemoryIndex, Memory>,
-    ) -> BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory> {
+    ) -> LinkResult<BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory>> {
         // For each init that has some data...
         for init in module
             .info
@@ -148,7 +152,12 @@ impl LocalBacking {
                 LocalOrImport::Local(local_memory_index) => {
                     let memory_desc = module.info.memories[local_memory_index];
                     let data_top = init_base + init.data.len();
-                    assert!(memory_desc.minimum.bytes().0 >= data_top);
+
+                    if memory_desc.minimum.bytes().0 < data_top || data_top < init_base {
+                        return Err(vec![LinkError::Generic {
+                            message: "data segment does not fit".to_string(),
+                        }]);
+                    }
 
                     let mem = &memories[local_memory_index];
                     for (mem_byte, data_byte) in mem.view()[init_base..init_base + init.data.len()]
@@ -163,6 +172,14 @@ impl LocalBacking {
                     // we think the imported memory is.
                     unsafe {
                         let local_memory = &*imports.vm_memories[imported_memory_index];
+
+                        let data_top = init_base + init.data.len();
+                        if local_memory.bound < data_top || data_top < init_base {
+                            return Err(vec![LinkError::Generic {
+                                message: "data segment does not fit".to_string(),
+                            }]);
+                        }
+
                         let memory_slice =
                             slice::from_raw_parts_mut(local_memory.base, local_memory.bound);
 
@@ -174,11 +191,11 @@ impl LocalBacking {
             }
         }
 
-        memories
+        Ok(memories
             .iter_mut()
             .map(|(_, mem)| mem.vm_local_memory())
             .collect::<Map<_, _>>()
-            .into_boxed_map()
+            .into_boxed_map())
     }
 
     fn generate_tables(module: &ModuleInner) -> BoxedMap<LocalTableIndex, Table> {

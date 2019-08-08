@@ -80,6 +80,9 @@ pub enum LinkError {
         expected: GlobalDescriptor,
         found: GlobalDescriptor,
     },
+    Generic {
+        message: String,
+    },
 }
 
 impl PartialEq for LinkError {
@@ -106,6 +109,9 @@ impl std::fmt::Display for LinkError {
             },
             LinkError::IncorrectTableDescriptor{namespace, name,expected,found} => {
                 write!(f, "Incorrect table descriptor, namespace: {}, name: {}, expected table descriptor: {:?}, found table descriptor: {:?}", namespace, name, expected, found)
+            },
+            LinkError::Generic { message } => {
+                write!(f, "{}", message)
             },
         }
     }
