@@ -335,6 +335,10 @@ fn emit_stack_map(
     params.extend_from_slice(&state.stack);
     value_semantics.extend((0..state.stack.len()).map(ValueSemantic::WasmStack));
 
+    // FIXME: Information below is needed for Abstract -> Runtime state transform.
+    // Commented out to accelerate compilation and reduce memory usage.
+    // Check this again when we support "full" LLVM OSR.
+    /*
     params.push(ctx.basic());
     value_semantics.push(ValueSemantic::Ctx);
 
@@ -402,6 +406,7 @@ fn emit_stack_map(
     value_semantics.push(ValueSemantic::SignalMem);
 
     // TODO: sigindices
+    */
 
     assert_eq!(params.len(), value_semantics.len() + 2);
 
