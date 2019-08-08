@@ -393,8 +393,11 @@ impl WasiFs {
         let path: &Path = Path::new(path);
 
         let mut cur_inode = base_dir.inode;
+        let n_components = path.components().count();
         // TODO: rights checks
-        'path_iter: for component in path.components() {
+        'path_iter: for (i, component) in path.components().enumerate() {
+            // used to terminate symlink resolution properly
+            let last_component = i + 1 == n_components;
             // for each component traverse file structure
             // loading inodes as necessary
             'symlink_resolution: while symlink_count < MAX_SYMLINKS {
@@ -430,7 +433,6 @@ impl WasiFs {
                                 cd.push(component);
                                 cd
                             };
-                            // TODO: verify this returns successfully when given a non-symlink
                             let metadata = file.symlink_metadata().ok().ok_or(__WASI_EINVAL)?;
                             let file_type = metadata.file_type();
                             // we want to insert newly opened dirs and files, but not transient symlinks
@@ -488,6 +490,7 @@ impl WasiFs {
                             cur_inode = new_inode;
 
                             if loop_for_symlink && follow_symlinks {
+                                debug!("Following symlink to {:?}", cur_inode);
                                 continue 'symlink_resolution;
                             }
                         }
@@ -530,6 +533,7 @@ impl WasiFs {
                             base.push(relative_path);
                             base.to_string_lossy().to_string()
                         };
+                        debug!("Following symlink recursively");
                         let symlink_inode = self.get_inode_at_path_inner(
                             new_base_dir,
                             &new_path,
@@ -537,7 +541,15 @@ impl WasiFs {
                             follow_symlinks,
                         )?;
                         cur_inode = symlink_inode;
-                        //continue 'symlink_resolution;
+                        // if we're at the very end and we found a file, then we're done
+                        // TODO: figure out if this should also happen for directories?
+                        if let Kind::File { .. } = &self.inodes[cur_inode].kind {
+                            // check if on last step
+                            if last_component {
+                                break 'symlink_resolution;
+                            }
+                        }
+                        continue 'symlink_resolution;
                     }
                 }
                 break 'symlink_resolution;
@@ -569,6 +581,64 @@ impl WasiFs {
             }
         }
         Err(__WASI_EINVAL) // this may not make sense
+    }
+
+    // if this is still dead code and the year is 2020 or later, please delete this function
+    #[allow(dead_code)]
+    pub(crate) fn path_relative_to_fd(
+        &self,
+        fd: __wasi_fd_t,
+        inode: Inode,
+    ) -> Result<PathBuf, __wasi_errno_t> {
+        let mut stack = vec![];
+        let base_fd = self.get_fd(fd)?;
+        let base_inode = base_fd.inode;
+        let mut cur_inode = inode;
+
+        while cur_inode != base_inode {
+            stack.push(self.inodes[cur_inode].name.clone());
+            match &self.inodes[cur_inode].kind {
+                Kind::Dir { parent, .. } => {
+                    if let Some(p) = parent {
+                        cur_inode = *p;
+                    }
+                }
+                _ => return Err(__WASI_EINVAL),
+            }
+        }
+
+        let mut out = PathBuf::new();
+        for p in stack.iter().rev() {
+            out.push(p);
+        }
+        Ok(out)
+    }
+
+    /// finds the number of directories between the fd and the inode if they're connected
+    /// expects inode to point to a directory
+    pub(crate) fn path_depth_from_fd(
+        &self,
+        fd: __wasi_fd_t,
+        inode: Inode,
+    ) -> Result<usize, __wasi_errno_t> {
+        let mut counter = 0;
+        let base_fd = self.get_fd(fd)?;
+        let base_inode = base_fd.inode;
+        let mut cur_inode = inode;
+
+        while cur_inode != base_inode {
+            counter += 1;
+            match &self.inodes[cur_inode].kind {
+                Kind::Dir { parent, .. } => {
+                    if let Some(p) = parent {
+                        cur_inode = *p;
+                    }
+                }
+                _ => return Err(__WASI_EINVAL),
+            }
+        }
+
+        Ok(counter)
     }
 
     /// gets a host file from a base directory and a path
@@ -702,6 +772,24 @@ impl WasiFs {
             name,
             kind,
         }))
+    }
+
+    /// creates an inode and inserts it given a Kind, does not assume the file exists to
+    pub fn create_inode_with_default_stat(
+        &mut self,
+        kind: Kind,
+        is_preopened: bool,
+        name: String,
+    ) -> Inode {
+        let mut stat = __wasi_filestat_t::default();
+        stat.st_ino = self.get_next_inode_index();
+
+        self.inodes.insert(InodeVal {
+            stat,
+            is_preopened,
+            name,
+            kind,
+        })
     }
 
     pub fn create_fd(

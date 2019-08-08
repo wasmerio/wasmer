@@ -1679,6 +1679,10 @@ pub fn path_open(
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     );
 
+    if let Ok(m) = maybe_inode {
+        dbg!(&state.fs.inodes[m]);
+    }
+
     // TODO: traverse rights of dirs properly
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
     //              TODO: look into this; file a bug report if this is a bug
@@ -1973,6 +1977,56 @@ pub fn path_symlink(
         return __WASI_EACCES;
     }
 
+    // get the depth of the parent + 1 (UNDER INVESTIGATION HMMMMMMMM THINK FISH ^ THINK FISH)
+    let old_path_path = std::path::Path::new(old_path_str);
+    let (source_inode, _) = wasi_try!(state.fs.get_parent_inode_at_path(fd, old_path_path, true));
+    let depth = wasi_try!(state.fs.path_depth_from_fd(fd, source_inode)) - 1;
+
+    let new_path_path = std::path::Path::new(new_path_str);
+    let (target_parent_inode, entry_name) =
+        wasi_try!(state.fs.get_parent_inode_at_path(fd, new_path_path, true));
+
+    // short circuit if anything is wrong, before we create an inode
+    match &state.fs.inodes[target_parent_inode].kind {
+        Kind::Dir { entries, .. } => {
+            if entries.contains_key(&entry_name) {
+                return __WASI_EEXIST;
+            }
+        }
+        Kind::Root { .. } => return __WASI_ENOTCAPABLE,
+        Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => {
+            unreachable!("get_parent_inode_at_path returned something other than a Dir or Root")
+        }
+    }
+
+    let mut source_path = std::path::Path::new(old_path_str);
+    let mut relative_path = std::path::PathBuf::new();
+    for _ in 0..depth {
+        relative_path.push("..");
+    }
+    relative_path.push(source_path);
+    debug!(
+        "Symlinking {} to {}",
+        new_path_str,
+        relative_path.to_string_lossy()
+    );
+
+    let kind = Kind::Symlink {
+        base_po_dir: fd,
+        path_to_symlink: std::path::PathBuf::from(new_path_str),
+        relative_path,
+    };
+    let new_inode = state
+        .fs
+        .create_inode_with_default_stat(kind, false, entry_name.clone());
+
+    if let Kind::Dir {
+        ref mut entries, ..
+    } = &mut state.fs.inodes[target_parent_inode].kind
+    {
+        entries.insert(entry_name, new_inode);
+    }
+
     __WASI_ESUCCESS
 }
 
@@ -2038,7 +2092,10 @@ pub fn path_unlink_file(
                 }
             }
             Kind::Dir { .. } | Kind::Root { .. } => return __WASI_EISDIR,
-            _ => unimplemented!("wasi::path_unlink_file for non-files"),
+            Kind::Symlink { .. } => {
+                // TODO: actually delete real symlinks and do nothing for virtual symlinks
+            }
+            _ => unimplemented!("wasi::path_unlink_file for Buffer"),
         }
         let inode_was_removed = unsafe { state.fs.remove_inode(removed_inode) };
         assert!(
