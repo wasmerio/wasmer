@@ -7,7 +7,7 @@
     (func (export "load_at_page_size") (result i32) (i32.load (i32.const 0x10000)))
     (func (export "store_at_page_size") (i32.store (i32.const 0x10000) (i32.const 3)))
 
-    (func (export "grow") (param $sz i32) (result i32) (memory.grow (get_local $sz)))
+    (func (export "grow") (param $sz i32) (result i32) (memory.grow (local.get $sz)))
     (func (export "size") (result i32) (memory.size))
 )
 
@@ -35,7 +35,7 @@
 
 (module
   (memory 0)
-  (func (export "grow") (param i32) (result i32) (memory.grow (get_local 0)))
+  (func (export "grow") (param i32) (result i32) (memory.grow (local.get 0)))
 )
 
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 0))
@@ -49,7 +49,7 @@
 
 (module
   (memory 0 10)
-  (func (export "grow") (param i32) (result i32) (memory.grow (get_local 0)))
+  (func (export "grow") (param i32) (result i32) (memory.grow (local.get 0)))
 )
 
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 0))
@@ -66,21 +66,21 @@
 (module
   (memory 1)
   (func (export "grow") (param i32) (result i32)
-    (memory.grow (get_local 0))
+    (memory.grow (local.get 0))
   )
   (func (export "check-memory-zero") (param i32 i32) (result i32)
     (local i32)
-    (set_local 2 (i32.const 1))
+    (local.set 2 (i32.const 1))
     (block
       (loop
-        (set_local 2 (i32.load8_u (get_local 0)))
-        (br_if 1 (i32.ne (get_local 2) (i32.const 0)))
-        (br_if 1 (i32.ge_u (get_local 0) (get_local 1)))
-        (set_local 0 (i32.add (get_local 0) (i32.const 1)))
-        (br_if 0 (i32.le_u (get_local 0) (get_local 1)))
+        (local.set 2 (i32.load8_u (local.get 0)))
+        (br_if 1 (i32.ne (local.get 2) (i32.const 0)))
+        (br_if 1 (i32.ge_u (local.get 0) (local.get 1)))
+        (local.set 0 (i32.add (local.get 0) (i32.const 1)))
+        (br_if 0 (i32.le_u (local.get 0) (local.get 1)))
       )
     )
-    (get_local 2)
+    (local.get 2)
   )
 )
 
@@ -154,10 +154,10 @@
   )
 
   (func (export "as-select-first") (param i32 i32) (result i32)
-    (select (memory.grow (i32.const 0)) (get_local 0) (get_local 1))
+    (select (memory.grow (i32.const 0)) (local.get 0) (local.get 1))
   )
   (func (export "as-select-second") (param i32 i32) (result i32)
-    (select (get_local 0) (memory.grow (i32.const 0)) (get_local 1))
+    (select (local.get 0) (memory.grow (i32.const 0)) (local.get 1))
   )
   (func (export "as-select-cond") (result i32)
     (select (i32.const 0) (i32.const 1) (memory.grow (i32.const 0)))
@@ -175,7 +175,7 @@
   )
 
   (type $sig (func (param i32 i32 i32) (result i32)))
-  (table anyfunc (elem $f))
+  (table funcref (elem $f))
   (func (export "as-call_indirect-first") (result i32)
     (call_indirect (type $sig)
       (memory.grow (i32.const 0)) (i32.const 2) (i32.const 3) (i32.const 0)
@@ -197,15 +197,15 @@
     )
   )
 
-  (func (export "as-set_local-value") (local i32)
-    (set_local 0 (memory.grow (i32.const 0)))
+  (func (export "as-local.set-value") (local i32)
+    (local.set 0 (memory.grow (i32.const 0)))
   )
-  (func (export "as-tee_local-value") (result i32) (local i32)
-    (tee_local 0 (memory.grow (i32.const 0)))
+  (func (export "as-local.tee-value") (result i32) (local i32)
+    (local.tee 0 (memory.grow (i32.const 0)))
   )
   (global $g (mut i32) (i32.const 0))
-  (func (export "as-set_global-value") (local i32)
-    (set_global $g (memory.grow (i32.const 0)))
+  (func (export "as-global.set-value") (local i32)
+    (global.set $g (memory.grow (i32.const 0)))
   )
 
   (func (export "as-load-address") (result i32)
@@ -285,9 +285,9 @@
 (assert_return (invoke "as-call_indirect-last") (i32.const -1))
 (assert_trap (invoke "as-call_indirect-index") "undefined element")
 
-(assert_return (invoke "as-set_local-value"))
-(assert_return (invoke "as-tee_local-value") (i32.const 1))
-(assert_return (invoke "as-set_global-value"))
+(assert_return (invoke "as-local.set-value"))
+(assert_return (invoke "as-local.tee-value") (i32.const 1))
+(assert_return (invoke "as-global.set-value"))
 
 (assert_return (invoke "as-load-address") (i32.const 0))
 (assert_return (invoke "as-loadN-address") (i32.const 0))
@@ -296,8 +296,7 @@
 (assert_return (invoke "as-storeN-address"))
 (assert_return (invoke "as-storeN-value"))
 
-;; SKIP_UNARY_OPERATION
-;; (assert_return (invoke "as-unary-operand") (i32.const 31))
+(assert_return (invoke "as-unary-operand") (i32.const 31))
 
 (assert_return (invoke "as-binary-left") (i32.const 11))
 (assert_return (invoke "as-binary-right") (i32.const 9))
@@ -308,3 +307,49 @@
 (assert_return (invoke "as-compare-right") (i32.const 1))
 
 (assert_return (invoke "as-memory.grow-size") (i32.const 1))
+
+
+(assert_invalid
+  (module
+    (memory 0)
+    (func $type-size-empty
+      (memory.grow) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (memory 0)
+    (func $type-size-empty-in-block
+      (i32.const 0)
+      (block (memory.grow) (drop))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (memory 0)
+    (func $type-size-empty-in-loop
+      (i32.const 0)
+      (loop (memory.grow) (drop))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (memory 0)
+    (func $type-size-empty-in-then
+      (i32.const 0) (i32.const 0)
+      (if (then (memory.grow) (drop)))
+    )
+  )
+  "type mismatch"
+)
+
+
+;; Type check
+
+(assert_invalid (module (memory 1) (func (result i32) (memory.grow (f32.const 0)))) "type mismatch")
