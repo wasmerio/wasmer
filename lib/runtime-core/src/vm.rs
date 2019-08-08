@@ -763,7 +763,7 @@ mod vm_ctx_tests {
         x: u32,
         y: bool,
         str: String,
-        finalizer: Box<FnMut()>,
+        finalizer: Box<dyn FnMut()>,
     }
 
     impl Drop for TestData {
