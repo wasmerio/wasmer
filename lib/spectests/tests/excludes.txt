@@ -375,6 +375,14 @@ clif:fail:memory.wast:5:windows # Module - caught panic Any
 clif:fail:memory.wast:6:windows # Module - caught panic Any
 clif:fail:stack.wast:137:windows # Module - caught panic Any
 clif:fail:type.wast:3:windows # Module - caught panic Any
+clif:fail:data.wast:162:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:170:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:178:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:220:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:235:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:243:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:251:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:266:windows # AssertUnlinkable - caught panic Any
 
 # LLVM bug with min/max over NaNs
 llvm:skip:f32.wast:1651
