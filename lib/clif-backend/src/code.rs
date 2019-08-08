@@ -33,7 +33,7 @@ use wasmer_runtime_core::{
 use wasmparser::Type as WpType;
 
 pub struct CraneliftModuleCodeGenerator {
-    isa: Box<isa::TargetIsa>,
+    isa: Box<dyn isa::TargetIsa>,
     signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
     pub clif_signatures: Map<SigIndex, ir::Signature>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
