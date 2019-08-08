@@ -19,7 +19,7 @@ use wasmer_runtime_core::{
     module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type, ImportedFuncIndex,
+        FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
     },
 };
 use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
@@ -303,7 +303,7 @@ fn resolve_memory_ptr(
 }
 
 fn emit_stack_map(
-    module_info: &ModuleInfo,
+    _module_info: &ModuleInfo,
     intrinsics: &Intrinsics,
     builder: &Builder,
     local_function_id: usize,
@@ -311,7 +311,7 @@ fn emit_stack_map(
     kind: StackmapEntryKind,
     locals: &[PointerValue],
     state: &State,
-    ctx: &mut CtxType,
+    _ctx: &mut CtxType,
     opcode_offset: usize,
 ) {
     let stackmap_id = target.entries.len();

@@ -20,6 +20,7 @@ use wasmer_runtime_core::{
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
+    loader::CodeMemory,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
@@ -172,7 +173,7 @@ unsafe impl Sync for FuncPtr {}
 
 pub struct X64ExecutionContext {
     #[allow(dead_code)]
-    code: ExecutableBuffer,
+    code: CodeMemory,
     #[allow(dead_code)]
     functions: Vec<X64FunctionCode>,
     function_pointers: Vec<FuncPtr>,
@@ -218,6 +219,30 @@ impl RunnableModule for X64ExecutionContext {
 
     fn get_breakpoints(&self) -> Option<BreakpointMap> {
         Some(self.breakpoints.clone())
+    }
+
+    unsafe fn patch_local_function(&self, idx: usize, target_address: usize) -> bool {
+        // movabsq ?, %rax;
+        // jmpq *%rax;
+        #[repr(packed)]
+        struct Trampoline {
+            movabsq: [u8; 2],
+            addr: u64,
+            jmpq: [u8; 2],
+        }
+
+        self.code.make_writable();
+
+        let trampoline = &mut *(self.function_pointers[self.func_import_count + idx].0
+            as *const Trampoline as *mut Trampoline);
+        trampoline.movabsq[0] = 0x48;
+        trampoline.movabsq[1] = 0xb8;
+        trampoline.addr = target_address as u64;
+        trampoline.jmpq[0] = 0xff;
+        trampoline.jmpq[1] = 0xe0;
+
+        self.code.make_executable();
+        true
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
@@ -305,6 +330,15 @@ impl RunnableModule for X64ExecutionContext {
 
     fn get_offsets(&self) -> Option<Vec<usize>> {
         Some(self.function_offsets.iter().map(|x| x.0).collect())
+    }
+
+    fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
+        Some(
+            self.function_offsets[self.func_import_count..]
+                .iter()
+                .map(|x| x.0)
+                .collect(),
+        )
     }
 }
 
@@ -413,7 +447,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             }
         };
         let total_size = assembler.get_offset().0;
-        let output = assembler.finalize().unwrap();
+        let _output = assembler.finalize().unwrap();
+        let mut output = CodeMemory::new(_output.len());
+        output[0.._output.len()].copy_from_slice(&_output);
+        output.make_executable();
 
         let function_labels = if let Some(x) = self.functions.last() {
             x.function_labels.as_ref().unwrap()
@@ -440,14 +477,21 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                     });
                 }
             };
-            out_labels.push(FuncPtr(output.ptr(*offset) as _));
+            out_labels.push(FuncPtr(
+                unsafe { output.as_ptr().offset(offset.0 as isize) } as _,
+            ));
             out_offsets.push(*offset);
         }
 
         let breakpoints: Arc<HashMap<_, _>> = Arc::new(
             breakpoints
                 .into_iter()
-                .map(|(offset, f)| (output.ptr(offset) as usize, f))
+                .map(|(offset, f)| {
+                    (
+                        unsafe { output.as_ptr().offset(offset.0 as isize) } as usize,
+                        f,
+                    )
+                })
                 .collect(),
         );
 
@@ -1634,6 +1678,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
     fn begin_body(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
+        let start_label = a.get_label();
+        // patchpoint of 16 bytes
+        for _ in 0..16 {
+            a.emit_nop();
+        }
+        a.emit_label(start_label);
         a.emit_push(Size::S64, Location::GPR(GPR::RBP));
         a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
 

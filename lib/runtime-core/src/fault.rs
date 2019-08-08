@@ -17,7 +17,7 @@ use nix::sys::signal::{
     SIGSEGV, SIGTRAP,
 };
 use std::any::Any;
-use std::cell::UnsafeCell;
+use std::cell::{Cell, UnsafeCell};
 use std::ffi::c_void;
 use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,6 +41,7 @@ struct UnwindInfo {
 thread_local! {
     static UNWIND: UnsafeCell<Option<UnwindInfo>> = UnsafeCell::new(None);
     static CURRENT_CTX: UnsafeCell<*mut vm::Ctx> = UnsafeCell::new(::std::ptr::null_mut());
+    static WAS_SIGINT_TRIGGERED: Cell<bool> = Cell::new(false);
 }
 
 struct InterruptSignalMem(*mut u8);
@@ -69,6 +70,10 @@ lazy_static! {
 }
 static INTERRUPT_SIGNAL_DELIVERED: AtomicBool = AtomicBool::new(false);
 
+pub fn was_sigint_triggered_fault() -> bool {
+    WAS_SIGINT_TRIGGERED.with(|x| x.get())
+}
+
 pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
     let addr = CURRENT_CTX.with(|x| x.get());
     let old = *addr;
@@ -80,6 +85,17 @@ pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
 
 pub unsafe fn get_wasm_interrupt_signal_mem() -> *mut u8 {
     INTERRUPT_SIGNAL_MEM.0
+}
+
+pub unsafe fn set_wasm_interrupt_on_ctx(ctx: *mut vm::Ctx) {
+    if mprotect(
+        (&*ctx).internal.interrupt_signal_mem as _,
+        INTERRUPT_SIGNAL_MEM_SIZE,
+        PROT_NONE,
+    ) < 0
+    {
+        panic!("cannot set PROT_NONE on signal mem");
+    }
 }
 
 pub unsafe fn set_wasm_interrupt() {
@@ -188,7 +204,7 @@ extern "C" fn signal_trap_handler(
         let should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
             let mut is_suspend_signal = false;
 
-            println!("SIGNAL: {:?} {:?}", Signal::from_c_int(signum), fault.faulting_addr);
+            WAS_SIGINT_TRIGGERED.with(|x| x.set(false));
 
             match Signal::from_c_int(signum) {
                 Ok(SIGTRAP) => {
@@ -215,7 +231,9 @@ extern "C" fn signal_trap_handler(
                     if fault.faulting_addr as usize == get_wasm_interrupt_signal_mem() as usize {
                         is_suspend_signal = true;
                         clear_wasm_interrupt();
-                        INTERRUPT_SIGNAL_DELIVERED.store(false, Ordering::SeqCst);
+                        if INTERRUPT_SIGNAL_DELIVERED.swap(false, Ordering::SeqCst) {
+                            WAS_SIGINT_TRIGGERED.with(|x| x.set(true));
+                        }
                     }
                 }
                 _ => {}

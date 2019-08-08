@@ -11,8 +11,8 @@ use wasmer_runtime_core::state::{
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::{
     module::ModuleInfo,
-    types::{GlobalIndex, TableIndex, LocalOrImport},
     structures::TypedIndex,
+    types::{GlobalIndex, LocalOrImport, TableIndex},
     vm,
 };
 
@@ -154,30 +154,48 @@ impl StackmapEntry {
                     MachineValue::WasmStack(x)
                 }
                 ValueSemantic::Ctx => MachineValue::Vmctx,
-                ValueSemantic::SignalMem => MachineValue::VmctxDeref(vec![Ctx::offset_interrupt_signal_mem() as usize, 0]),
-                ValueSemantic::PointerToMemoryBase => MachineValue::VmctxDeref(vec![Ctx::offset_memory_base() as usize]),
-                ValueSemantic::PointerToMemoryBound => MachineValue::VmctxDeref(vec![Ctx::offset_memory_bound() as usize]),
-                ValueSemantic::MemoryBase => MachineValue::VmctxDeref(vec![Ctx::offset_memory_base() as usize, 0]),
-                ValueSemantic::MemoryBound => MachineValue::VmctxDeref(vec![Ctx::offset_memory_bound() as usize, 0]),
-                ValueSemantic::PointerToGlobal(idx) => MachineValue::VmctxDeref(deref_global(module_info, idx, false)),
-                ValueSemantic::Global(idx) => MachineValue::VmctxDeref(deref_global(module_info, idx, true)),
-                ValueSemantic::PointerToTableBase => MachineValue::VmctxDeref(deref_table_base(module_info, 0, false)),
-                ValueSemantic::PointerToTableBound => MachineValue::VmctxDeref(deref_table_bound(module_info, 0, false)),
+                ValueSemantic::SignalMem => {
+                    MachineValue::VmctxDeref(vec![Ctx::offset_interrupt_signal_mem() as usize, 0])
+                }
+                ValueSemantic::PointerToMemoryBase => {
+                    MachineValue::VmctxDeref(vec![Ctx::offset_memory_base() as usize])
+                }
+                ValueSemantic::PointerToMemoryBound => {
+                    MachineValue::VmctxDeref(vec![Ctx::offset_memory_bound() as usize])
+                }
+                ValueSemantic::MemoryBase => {
+                    MachineValue::VmctxDeref(vec![Ctx::offset_memory_base() as usize, 0])
+                }
+                ValueSemantic::MemoryBound => {
+                    MachineValue::VmctxDeref(vec![Ctx::offset_memory_bound() as usize, 0])
+                }
+                ValueSemantic::PointerToGlobal(idx) => {
+                    MachineValue::VmctxDeref(deref_global(module_info, idx, false))
+                }
+                ValueSemantic::Global(idx) => {
+                    MachineValue::VmctxDeref(deref_global(module_info, idx, true))
+                }
+                ValueSemantic::PointerToTableBase => {
+                    MachineValue::VmctxDeref(deref_table_base(module_info, 0, false))
+                }
+                ValueSemantic::PointerToTableBound => {
+                    MachineValue::VmctxDeref(deref_table_bound(module_info, 0, false))
+                }
                 ValueSemantic::ImportedFuncPointer(idx) => MachineValue::VmctxDeref(vec![
                     Ctx::offset_imported_funcs() as usize,
-                    vm::ImportedFunc::size() as usize * idx + vm::ImportedFunc::offset_func() as usize,
+                    vm::ImportedFunc::size() as usize * idx
+                        + vm::ImportedFunc::offset_func() as usize,
                     0,
                 ]),
                 ValueSemantic::ImportedFuncCtx(idx) => MachineValue::VmctxDeref(vec![
                     Ctx::offset_imported_funcs() as usize,
-                    vm::ImportedFunc::size() as usize * idx + vm::ImportedFunc::offset_vmctx() as usize,
+                    vm::ImportedFunc::size() as usize * idx
+                        + vm::ImportedFunc::offset_vmctx() as usize,
                     0,
                 ]),
-                ValueSemantic::DynamicSigindice(idx) => MachineValue::VmctxDeref(vec![
-                    Ctx::offset_signatures() as usize,
-                    idx * 4,
-                    0,
-                ]),
+                ValueSemantic::DynamicSigindice(idx) => {
+                    MachineValue::VmctxDeref(vec![Ctx::offset_signatures() as usize, idx * 4, 0])
+                }
             };
             match loc.ty {
                 LocationType::Register => {
@@ -538,16 +556,10 @@ impl StackMap {
 
 fn deref_global(info: &ModuleInfo, idx: usize, deref_into_value: bool) -> Vec<usize> {
     let mut x: Vec<usize> = match GlobalIndex::new(idx).local_or_import(info) {
-        LocalOrImport::Local(idx) => vec![
-            Ctx::offset_globals() as usize,
-            idx.index() * 8,
-            0,
-        ],
-        LocalOrImport::Import(idx) => vec![
-            Ctx::offset_imported_globals() as usize,
-            idx.index() * 8,
-            0,
-        ],
+        LocalOrImport::Local(idx) => vec![Ctx::offset_globals() as usize, idx.index() * 8, 0],
+        LocalOrImport::Import(idx) => {
+            vec![Ctx::offset_imported_globals() as usize, idx.index() * 8, 0]
+        }
     };
     if deref_into_value {
         x.push(0);
@@ -557,16 +569,10 @@ fn deref_global(info: &ModuleInfo, idx: usize, deref_into_value: bool) -> Vec<us
 
 fn deref_table_base(info: &ModuleInfo, idx: usize, deref_into_value: bool) -> Vec<usize> {
     let mut x: Vec<usize> = match TableIndex::new(idx).local_or_import(info) {
-        LocalOrImport::Local(idx) => vec![
-            Ctx::offset_tables() as usize,
-            idx.index() * 8,
-            0,
-        ],
-        LocalOrImport::Import(idx) => vec![
-            Ctx::offset_imported_tables() as usize,
-            idx.index() * 8,
-            0,
-        ],
+        LocalOrImport::Local(idx) => vec![Ctx::offset_tables() as usize, idx.index() * 8, 0],
+        LocalOrImport::Import(idx) => {
+            vec![Ctx::offset_imported_tables() as usize, idx.index() * 8, 0]
+        }
     };
     if deref_into_value {
         x.push(0);
@@ -576,16 +582,10 @@ fn deref_table_base(info: &ModuleInfo, idx: usize, deref_into_value: bool) -> Ve
 
 fn deref_table_bound(info: &ModuleInfo, idx: usize, deref_into_value: bool) -> Vec<usize> {
     let mut x: Vec<usize> = match TableIndex::new(idx).local_or_import(info) {
-        LocalOrImport::Local(idx) => vec![
-            Ctx::offset_tables() as usize,
-            idx.index() * 8,
-            8,
-        ],
-        LocalOrImport::Import(idx) => vec![
-            Ctx::offset_imported_tables() as usize,
-            idx.index() * 8,
-            8,
-        ],
+        LocalOrImport::Local(idx) => vec![Ctx::offset_tables() as usize, idx.index() * 8, 8],
+        LocalOrImport::Import(idx) => {
+            vec![Ctx::offset_imported_tables() as usize, idx.index() * 8, 8]
+        }
     };
     if deref_into_value {
         x.push(0);

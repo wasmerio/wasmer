@@ -9,6 +9,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 use hashbrown::HashMap;
 use structopt::StructOpt;
@@ -25,7 +26,9 @@ use wasmer_runtime_core::{
     self,
     backend::{Backend, Compiler, CompilerConfig, MemoryBoundCheckMode},
     debug,
+    fault::{set_wasm_interrupt_on_ctx, was_sigint_triggered_fault},
     loader::{Instance as LoadedInstance, LocalLoader},
+    Instance, Module,
 };
 #[cfg(feature = "backend-singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
@@ -113,7 +116,7 @@ struct Run {
     loader: Option<LoaderName>,
 
     /// Path to previously saved instance image to resume.
-    #[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
+    #[cfg(feature = "managed")]
     #[structopt(long = "resume")]
     resume: Option<String>,
 
@@ -185,6 +188,55 @@ struct Validate {
     /// Input file
     #[structopt(parse(from_os_str))]
     path: PathBuf,
+}
+
+struct OptimizationState {
+    outcome: Mutex<Option<OptimizationOutcome>>,
+}
+
+struct OptimizationOutcome {
+    module: Module,
+}
+
+struct Defer<F: FnOnce()>(Option<F>);
+impl<F: FnOnce()> Drop for Defer<F> {
+    fn drop(&mut self) {
+        if let Some(f) = self.0.take() {
+            f();
+        }
+    }
+}
+
+#[repr(transparent)]
+struct CtxWrapper(*mut wasmer_runtime_core::vm::Ctx);
+unsafe impl Send for CtxWrapper {}
+unsafe impl Sync for CtxWrapper {}
+
+#[cfg(feature = "managed")]
+unsafe fn begin_optimize(
+    binary: Vec<u8>,
+    compiler: Box<dyn Compiler>,
+    ctx: Arc<Mutex<CtxWrapper>>,
+    state: Arc<OptimizationState>,
+) {
+    let module = match webassembly::compile_with_config_with(
+        &binary[..],
+        CompilerConfig {
+            symbol_map: None,
+            track_state: true,
+            ..Default::default()
+        },
+        &*compiler,
+    ) {
+        Ok(x) => x,
+        Err(_) => return,
+    };
+
+    let ctx_inner = ctx.lock().unwrap();
+    if !ctx_inner.0.is_null() {
+        *state.outcome.lock().unwrap() = Some(OptimizationOutcome { module });
+        set_wasm_interrupt_on_ctx(ctx_inner.0);
+    }
 }
 
 /// Read the contents of a file
@@ -505,9 +557,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
-            #[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
+            #[cfg(feature = "managed")]
             unsafe {
-                if options.backend == Backend::Singlepass || options.backend == Backend::LLVM {
+                if options.backend == Backend::Singlepass {
                     use wasmer_runtime_core::fault::{
                         catch_unsafe_unwind, ensure_sighandler, with_ctx,
                     };
@@ -530,7 +582,86 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         None
                     };
 
+                    let ctx_box =
+                        Arc::new(Mutex::new(CtxWrapper(instance.context_mut() as *mut _)));
+                    // Ensure that the ctx pointer's lifetime is not longer than Instance's.
+                    let _deferred_ctx_box_cleanup: Defer<_> = {
+                        let ctx_box = ctx_box.clone();
+                        Defer(Some(move || {
+                            ctx_box.lock().unwrap().0 = ::std::ptr::null_mut();
+                        }))
+                    };
+                    let opt_state = Arc::new(OptimizationState {
+                        outcome: Mutex::new(None),
+                    });
+
+                    {
+                        let wasm_binary = wasm_binary.to_vec();
+                        let ctx_box = ctx_box.clone();
+                        let opt_state = opt_state.clone();
+                        ::std::thread::spawn(move || {
+                            // TODO: CLI option for optimized backend
+                            begin_optimize(
+                                wasm_binary,
+                                get_compiler_by_backend(Backend::LLVM).unwrap(),
+                                ctx_box,
+                                opt_state,
+                            );
+                        });
+                    }
+
+                    let mut patched = false;
+                    let mut optimized_instance: Option<Instance> = None;
+
                     loop {
+                        let optimized: Option<&mut Instance> =
+                            if let Some(ref mut x) = optimized_instance {
+                                Some(x)
+                            } else {
+                                let mut outcome = opt_state.outcome.lock().unwrap();
+                                if let Some(x) = outcome.take() {
+                                    let instance =
+                                        x.module.instantiate(&import_object).map_err(|e| {
+                                            format!("Can't instantiate module: {:?}", e)
+                                        })?;
+                                    optimized_instance = Some(instance);
+                                    optimized_instance.as_mut()
+                                } else {
+                                    None
+                                }
+                            };
+                        if !patched && false {
+                            if let Some(optimized) = optimized {
+                                let base = module.info().imported_functions.len();
+                                let code_ptr = optimized
+                                    .module
+                                    .runnable_module
+                                    .get_code()
+                                    .unwrap()
+                                    .as_ptr()
+                                    as usize;
+                                let target_addresses: Vec<usize> = optimized
+                                    .module
+                                    .runnable_module
+                                    .get_local_function_offsets()
+                                    .unwrap()
+                                    .into_iter()
+                                    .map(|x| code_ptr + x)
+                                    .collect();
+                                assert_eq!(
+                                    target_addresses.len(),
+                                    module.info().func_assoc.len() - base
+                                );
+                                for i in base..module.info().func_assoc.len() {
+                                    instance
+                                        .module
+                                        .runnable_module
+                                        .patch_local_function(i - base, target_addresses[i - base]);
+                                }
+                                patched = true;
+                                eprintln!("Patched");
+                            }
+                        }
                         let breakpoints = instance.module.runnable_module.get_breakpoints();
                         let ctx = instance.context_mut() as *mut _;
                         let ret = with_ctx(ctx, || {
@@ -560,6 +691,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         });
                         if let Err(e) = ret {
                             if let Some(new_image) = e.downcast_ref::<InstanceImage>() {
+                                // Tier switch event
+                                if !was_sigint_triggered_fault()
+                                    && optimized_instance.is_none()
+                                    && opt_state.outcome.lock().unwrap().is_some()
+                                {
+                                    image = Some(new_image.clone());
+                                    continue;
+                                }
                                 let op = interactive_shell(InteractiveShellContext {
                                     image: Some(new_image.clone()),
                                 });
@@ -644,18 +783,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
+#[cfg(feature = "managed")]
 struct InteractiveShellContext {
     image: Option<wasmer_runtime_core::state::InstanceImage>,
 }
 
-#[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
+#[cfg(feature = "managed")]
 #[derive(Debug)]
 enum ShellExitOperation {
     ContinueWith(wasmer_runtime_core::state::InstanceImage, Option<Backend>),
 }
 
-#[cfg(any(feature = "backend-singlepass", feature = "backend-llvm"))]
+#[cfg(feature = "managed")]
 fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     use std::io::Write;
 
@@ -710,6 +849,8 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
                     println!("Program state not available, cannot continue execution");
                 }
             }
+            // Disabled due to unsafety.
+            /*
             "switch_backend" => {
                 let backend_name = parts.next();
                 if backend_name.is_none() {
@@ -731,6 +872,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
                     println!("Program state not available, cannot continue execution");
                 }
             }
+            */
             "backtrace" | "bt" => {
                 if let Some(ref image) = ctx.image {
                     println!("{}", image.execution_state.colored_output());

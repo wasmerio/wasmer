@@ -239,6 +239,7 @@ pub struct LLVMBackend {
     #[allow(dead_code)]
     buffer: Arc<Buffer>,
     msm: Option<ModuleStateMap>,
+    local_func_id_to_offset: Vec<usize>,
 }
 
 impl LLVMBackend {
@@ -380,6 +381,17 @@ impl LLVMBackend {
                 }
             }
 
+            let code_ptr = unsafe { llvm_backend_get_code_ptr(module) } as usize;
+            let code_len = unsafe { llvm_backend_get_code_size(module) } as usize;
+
+            let local_func_id_to_offset: Vec<usize> = local_func_id_to_addr
+                .iter()
+                .map(|&x| {
+                    assert!(x >= code_ptr && x < code_ptr + code_len);
+                    x - code_ptr
+                })
+                .collect();
+
             //println!("MSM: {:?}", msm);
 
             (
@@ -387,6 +399,7 @@ impl LLVMBackend {
                     module,
                     buffer: Arc::clone(&buffer),
                     msm: Some(msm),
+                    local_func_id_to_offset,
                 },
                 LLVMCache { buffer },
             )
@@ -397,6 +410,7 @@ impl LLVMBackend {
                     module,
                     buffer: Arc::clone(&buffer),
                     msm: None,
+                    local_func_id_to_offset: vec![],
                 },
                 LLVMCache { buffer },
             )
@@ -428,6 +442,7 @@ impl LLVMBackend {
                 module,
                 buffer: Arc::clone(&buffer),
                 msm: None,
+                local_func_id_to_offset: vec![],
             },
             LLVMCache { buffer },
         ))
@@ -489,6 +504,10 @@ impl RunnableModule for LLVMBackend {
                 llvm_backend_get_code_size(self.module),
             )
         })
+    }
+
+    fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
+        Some(self.local_func_id_to_offset.clone())
     }
 
     fn get_module_state_map(&self) -> Option<ModuleStateMap> {

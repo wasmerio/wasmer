@@ -102,13 +102,20 @@ pub struct CodeMemory {
     size: usize,
 }
 
+unsafe impl Send for CodeMemory {}
+unsafe impl Sync for CodeMemory {}
+
 #[cfg(not(unix))]
 impl CodeMemory {
     pub fn new(_size: usize) -> CodeMemory {
         unimplemented!();
     }
 
-    pub fn make_executable(&mut self) {
+    pub fn make_executable(&self) {
+        unimplemented!();
+    }
+
+    pub fn make_writable(&self) {
         unimplemented!();
     }
 }
@@ -139,9 +146,15 @@ impl CodeMemory {
         }
     }
 
-    pub fn make_executable(&mut self) {
+    pub fn make_executable(&self) {
         if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_EXEC) } != 0 {
             panic!("cannot set code memory to executable");
+        }
+    }
+
+    pub fn make_writable(&self) {
+        if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_WRITE) } != 0 {
+            panic!("cannot set code memory to writable");
         }
     }
 }
