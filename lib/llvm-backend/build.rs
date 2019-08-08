@@ -19,7 +19,7 @@ const LLVM_SYS_MINOR_VERSION: &str = "0";
 // When adding new ones, they should also be added to main() to force a
 // rebuild if they are changed.
 lazy_static! {
-    
+
     /// A single path to search for LLVM in (containing bin/llvm-config)
     static ref ENV_LLVM_PREFIX: String =
         format!("LLVM_SYS_{}_PREFIX", LLVM_SYS_MAJOR_VERSION);
@@ -179,7 +179,8 @@ fn is_compatible_llvm(llvm_version: &Version) -> bool {
         return false;
     }
 
-    let strict = env::var_os(&*ENV_STRICT_VERSIONING).is_some() || cfg!(feature = "strict-versioning");
+    let strict =
+        env::var_os(&*ENV_STRICT_VERSIONING).is_some() || cfg!(feature = "strict-versioning");
     if strict {
         llvm_version.major == CRATE_VERSION.major && llvm_version.minor == CRATE_VERSION.minor
     } else {
