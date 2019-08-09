@@ -9,7 +9,6 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
 
 use hashbrown::HashMap;
 use structopt::StructOpt;
@@ -26,14 +25,14 @@ use wasmer_runtime_core::{
     self,
     backend::{Backend, Compiler, CompilerConfig, MemoryBoundCheckMode},
     debug,
-    fault::{set_wasm_interrupt_on_ctx, was_sigint_triggered_fault},
     loader::{Instance as LoadedInstance, LocalLoader},
-    Instance, Module,
 };
 #[cfg(feature = "backend-singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
+#[cfg(feature = "managed")]
+use wasmer_runtime_core::tiering::{InteractiveShellContext, ShellExitOperation, run_tiering};
 
 // stub module to make conditional compilation happy
 #[cfg(not(feature = "wasi"))]
@@ -188,55 +187,6 @@ struct Validate {
     /// Input file
     #[structopt(parse(from_os_str))]
     path: PathBuf,
-}
-
-struct OptimizationState {
-    outcome: Mutex<Option<OptimizationOutcome>>,
-}
-
-struct OptimizationOutcome {
-    module: Module,
-}
-
-struct Defer<F: FnOnce()>(Option<F>);
-impl<F: FnOnce()> Drop for Defer<F> {
-    fn drop(&mut self) {
-        if let Some(f) = self.0.take() {
-            f();
-        }
-    }
-}
-
-#[repr(transparent)]
-struct CtxWrapper(*mut wasmer_runtime_core::vm::Ctx);
-unsafe impl Send for CtxWrapper {}
-unsafe impl Sync for CtxWrapper {}
-
-#[cfg(feature = "managed")]
-unsafe fn begin_optimize(
-    binary: Vec<u8>,
-    compiler: Box<dyn Compiler>,
-    ctx: Arc<Mutex<CtxWrapper>>,
-    state: Arc<OptimizationState>,
-) {
-    let module = match webassembly::compile_with_config_with(
-        &binary[..],
-        CompilerConfig {
-            symbol_map: None,
-            track_state: true,
-            ..Default::default()
-        },
-        &*compiler,
-    ) {
-        Ok(x) => x,
-        Err(_) => return,
-    };
-
-    let ctx_inner = ctx.lock().unwrap();
-    if !ctx_inner.0.is_null() {
-        *state.outcome.lock().unwrap() = Some(OptimizationOutcome { module });
-        set_wasm_interrupt_on_ctx(ctx_inner.0);
-    }
 }
 
 /// Read the contents of a file
@@ -556,194 +506,32 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
+            let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) = unsafe {
+                ::std::mem::transmute(start.get_vm_func())
+            };
 
             #[cfg(feature = "managed")]
-            unsafe {
-                if options.backend == Backend::Singlepass {
-                    use wasmer_runtime_core::fault::{
-                        catch_unsafe_unwind, ensure_sighandler, with_ctx,
-                    };
-                    use wasmer_runtime_core::state::{
-                        x64::invoke_call_return_on_stack, InstanceImage,
-                    };
-                    use wasmer_runtime_core::vm::Ctx;
+            run_tiering(
+                module.info(),
+                &wasm_binary,
+                if let Some(ref path) = options.resume {
+                    let mut f = File::open(path).unwrap();
+                    let mut out: Vec<u8> = vec![];
+                    f.read_to_end(&mut out).unwrap();
+                    Some(wasmer_runtime_core::state::InstanceImage::from_bytes(&out).expect("failed to decode image"))
+                } else {
+                    None
+                },
+                &import_object,
+                start_raw,
+                &mut instance,
+                vec![
+                    Box::new(|| get_compiler_by_backend(Backend::LLVM).unwrap()),
+                ],
+                interactive_shell,
+            )?;
 
-                    ensure_sighandler();
-
-                    let start_raw: extern "C" fn(&mut Ctx) =
-                        ::std::mem::transmute(start.get_vm_func());
-
-                    let mut image: Option<InstanceImage> = if let Some(ref path) = options.resume {
-                        let mut f = File::open(path).unwrap();
-                        let mut out: Vec<u8> = vec![];
-                        f.read_to_end(&mut out).unwrap();
-                        Some(InstanceImage::from_bytes(&out).expect("failed to decode image"))
-                    } else {
-                        None
-                    };
-
-                    let ctx_box =
-                        Arc::new(Mutex::new(CtxWrapper(instance.context_mut() as *mut _)));
-                    // Ensure that the ctx pointer's lifetime is not longer than Instance's.
-                    let _deferred_ctx_box_cleanup: Defer<_> = {
-                        let ctx_box = ctx_box.clone();
-                        Defer(Some(move || {
-                            ctx_box.lock().unwrap().0 = ::std::ptr::null_mut();
-                        }))
-                    };
-                    let opt_state = Arc::new(OptimizationState {
-                        outcome: Mutex::new(None),
-                    });
-
-                    {
-                        let wasm_binary = wasm_binary.to_vec();
-                        let ctx_box = ctx_box.clone();
-                        let opt_state = opt_state.clone();
-                        ::std::thread::spawn(move || {
-                            // TODO: CLI option for optimized backend
-                            begin_optimize(
-                                wasm_binary,
-                                get_compiler_by_backend(Backend::LLVM).unwrap(),
-                                ctx_box,
-                                opt_state,
-                            );
-                        });
-                    }
-
-                    let mut patched = false;
-                    let mut optimized_instance: Option<Instance> = None;
-
-                    loop {
-                        let optimized: Option<&mut Instance> =
-                            if let Some(ref mut x) = optimized_instance {
-                                Some(x)
-                            } else {
-                                let mut outcome = opt_state.outcome.lock().unwrap();
-                                if let Some(x) = outcome.take() {
-                                    let instance =
-                                        x.module.instantiate(&import_object).map_err(|e| {
-                                            format!("Can't instantiate module: {:?}", e)
-                                        })?;
-                                    optimized_instance = Some(instance);
-                                    optimized_instance.as_mut()
-                                } else {
-                                    None
-                                }
-                            };
-                        if !patched && false {
-                            if let Some(optimized) = optimized {
-                                let base = module.info().imported_functions.len();
-                                let code_ptr = optimized
-                                    .module
-                                    .runnable_module
-                                    .get_code()
-                                    .unwrap()
-                                    .as_ptr()
-                                    as usize;
-                                let target_addresses: Vec<usize> = optimized
-                                    .module
-                                    .runnable_module
-                                    .get_local_function_offsets()
-                                    .unwrap()
-                                    .into_iter()
-                                    .map(|x| code_ptr + x)
-                                    .collect();
-                                assert_eq!(
-                                    target_addresses.len(),
-                                    module.info().func_assoc.len() - base
-                                );
-                                for i in base..module.info().func_assoc.len() {
-                                    instance
-                                        .module
-                                        .runnable_module
-                                        .patch_local_function(i - base, target_addresses[i - base]);
-                                }
-                                patched = true;
-                                eprintln!("Patched");
-                            }
-                        }
-                        let breakpoints = instance.module.runnable_module.get_breakpoints();
-                        let ctx = instance.context_mut() as *mut _;
-                        let ret = with_ctx(ctx, || {
-                            if let Some(image) = image.take() {
-                                let msm = instance
-                                    .module
-                                    .runnable_module
-                                    .get_module_state_map()
-                                    .unwrap();
-                                let code_base =
-                                    instance.module.runnable_module.get_code().unwrap().as_ptr()
-                                        as usize;
-                                invoke_call_return_on_stack(
-                                    &msm,
-                                    code_base,
-                                    image,
-                                    instance.context_mut(),
-                                    breakpoints.clone(),
-                                )
-                                .map(|_| ())
-                            } else {
-                                catch_unsafe_unwind(
-                                    || start_raw(instance.context_mut()),
-                                    breakpoints.clone(),
-                                )
-                            }
-                        });
-                        if let Err(e) = ret {
-                            if let Some(new_image) = e.downcast_ref::<InstanceImage>() {
-                                // Tier switch event
-                                if !was_sigint_triggered_fault()
-                                    && optimized_instance.is_none()
-                                    && opt_state.outcome.lock().unwrap().is_some()
-                                {
-                                    image = Some(new_image.clone());
-                                    continue;
-                                }
-                                let op = interactive_shell(InteractiveShellContext {
-                                    image: Some(new_image.clone()),
-                                });
-                                match op {
-                                    ShellExitOperation::ContinueWith(new_image, new_backend) => {
-                                        image = Some(new_image);
-                                        if let Some(new_backend) = new_backend {
-                                            let compiler =
-                                                match get_compiler_by_backend(new_backend) {
-                                                    Some(x) => x,
-                                                    None => {
-                                                        return Err(
-                                                            "the requested backend is not enabled"
-                                                                .into(),
-                                                        )
-                                                    }
-                                                };
-                                            let module = webassembly::compile_with_config_with(
-                                                &wasm_binary[..],
-                                                CompilerConfig {
-                                                    symbol_map: em_symbol_map.clone(),
-                                                    track_state,
-                                                    ..Default::default()
-                                                },
-                                                &*compiler,
-                                            )
-                                            .map_err(|e| {
-                                                format!("Can't compile module: {:?}", e)
-                                            })?;
-                                            instance = module.instantiate(&import_object).map_err(
-                                                |e| format!("Can't instantiate module: {:?}", e),
-                                            )?;
-                                        }
-                                    }
-                                }
-                            } else {
-                                return Err("Error while executing WebAssembly".into());
-                            }
-                        } else {
-                            return Ok(());
-                        }
-                    }
-                }
-            }
-
+            #[cfg(not(feature = "managed"))]
             {
                 use wasmer_runtime::error::RuntimeError;
                 let result = start.call();
@@ -781,17 +569,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     Ok(())
-}
-
-#[cfg(feature = "managed")]
-struct InteractiveShellContext {
-    image: Option<wasmer_runtime_core::state::InstanceImage>,
-}
-
-#[cfg(feature = "managed")]
-#[derive(Debug)]
-enum ShellExitOperation {
-    ContinueWith(wasmer_runtime_core::state::InstanceImage, Option<Backend>),
 }
 
 #[cfg(feature = "managed")]
@@ -844,7 +621,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
             }
             "continue" | "c" => {
                 if let Some(image) = ctx.image.take() {
-                    return ShellExitOperation::ContinueWith(image, None);
+                    return ShellExitOperation::ContinueWith(image);
                 } else {
                     println!("Program state not available, cannot continue execution");
                 }

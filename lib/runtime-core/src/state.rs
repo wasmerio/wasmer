@@ -102,6 +102,12 @@ pub struct InstanceImage {
     pub execution_state: ExecutionStateImage,
 }
 
+#[derive(Debug, Clone)]
+pub struct CodeVersion {
+    pub msm: ModuleStateMap,
+    pub base: usize,
+}
+
 impl ModuleStateMap {
     fn lookup_ip<F: FnOnce(&FunctionStateMap) -> &BTreeMap<usize, OffsetInfo>>(
         &self,
@@ -739,9 +745,8 @@ pub mod x64 {
     }
 
     #[warn(unused_variables)]
-    pub unsafe fn read_stack(
-        msm: &ModuleStateMap,
-        code_base: usize,
+    pub unsafe fn read_stack<'a, I: Iterator<Item = &'a CodeVersion>, F: Fn() -> I + 'a>(
+        versions: F,
         mut stack: *const u64,
         initially_known_registers: [Option<u64>; 24],
         mut initial_address: Option<u64>,
@@ -755,13 +760,27 @@ pub mod x64 {
                 stack = stack.offset(1);
                 x
             });
-            let (fsm, state) = match msm
-                .lookup_call_ip(ret_addr as usize, code_base)
-                .or_else(|| msm.lookup_trappable_ip(ret_addr as usize, code_base))
-                .or_else(|| msm.lookup_loop_ip(ret_addr as usize, code_base))
-            {
-                Some(x) => x,
-                _ => return ExecutionStateImage { frames: results },
+
+            let mut fsm_state: Option<(&FunctionStateMap, MachineState)> = None;
+
+            for version in versions() {
+                match version.msm
+                    .lookup_call_ip(ret_addr as usize, version.base)
+                    .or_else(|| version.msm.lookup_trappable_ip(ret_addr as usize, version.base))
+                    .or_else(|| version.msm.lookup_loop_ip(ret_addr as usize, version.base))
+                {
+                    Some(x) => {
+                        fsm_state = Some(x);
+                        break;
+                    },
+                    None => {},
+                };
+            }
+
+            let (fsm, state) = if let Some(x) = fsm_state {
+                x
+            } else {
+                return ExecutionStateImage { frames: results };
             };
 
             let mut wasm_stack: Vec<Option<u64>> = state

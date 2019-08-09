@@ -9,6 +9,7 @@ mod raw {
 }
 
 use crate::codegen::{BreakpointInfo, BreakpointMap};
+use crate::state::CodeVersion;
 use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR, XMM};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
@@ -17,7 +18,7 @@ use nix::sys::signal::{
     SIGSEGV, SIGTRAP,
 };
 use std::any::Any;
-use std::cell::{Cell, UnsafeCell};
+use std::cell::{Cell, UnsafeCell, RefCell};
 use std::ffi::c_void;
 use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,6 +42,7 @@ struct UnwindInfo {
 thread_local! {
     static UNWIND: UnsafeCell<Option<UnwindInfo>> = UnsafeCell::new(None);
     static CURRENT_CTX: UnsafeCell<*mut vm::Ctx> = UnsafeCell::new(::std::ptr::null_mut());
+    static CURRENT_CODE_VERSIONS: RefCell<Vec<CodeVersion>> = RefCell::new(vec![]);
     static WAS_SIGINT_TRIGGERED: Cell<bool> = Cell::new(false);
 }
 
@@ -81,6 +83,14 @@ pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
     let ret = cb();
     *addr = old;
     ret
+}
+
+pub fn push_code_version(version: CodeVersion) {
+    CURRENT_CODE_VERSIONS.with(|x| x.borrow_mut().push(version));
+}
+
+pub fn pop_code_version() -> Option<CodeVersion> {
+    CURRENT_CODE_VERSIONS.with(|x| x.borrow_mut().pop())
 }
 
 pub unsafe fn get_wasm_interrupt_signal_mem() -> *mut u8 {
@@ -242,18 +252,15 @@ extern "C" fn signal_trap_handler(
             let ctx: &mut vm::Ctx = &mut **CURRENT_CTX.with(|x| x.get());
             let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
 
-            let msm = (*ctx.module)
-                .runnable_module
-                .get_module_state_map()
-                .unwrap();
-            let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
-            let es_image = read_stack(
-                &msm,
-                code_base,
-                rsp as usize as *const u64,
-                fault.known_registers,
-                Some(fault.ip as usize as u64),
-            );
+            let es_image = CURRENT_CODE_VERSIONS.with(|versions| {
+                let versions = versions.borrow();
+                read_stack(
+                    || versions.iter(),
+                    rsp as usize as *const u64,
+                    fault.known_registers,
+                    Some(fault.ip as usize as u64),
+                )
+            });
 
             if is_suspend_signal {
                 let image = build_instance_image(ctx, es_image);

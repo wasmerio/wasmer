@@ -57,3 +57,4 @@ trace = ["debug"]
 # backend flags used in conditional compilation of Backend::variants
 "backend-singlepass" = []
 "backend-llvm" = []
+managed = []
