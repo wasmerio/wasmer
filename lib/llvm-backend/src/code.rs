@@ -316,7 +316,7 @@ fn emit_stack_map(
 ) {
     let stackmap_id = target.entries.len();
 
-    let mut params = vec![];
+    let mut params = Vec::with_capacity(2 + locals.len() + state.stack.len());
 
     params.push(
         intrinsics
@@ -327,7 +327,8 @@ fn emit_stack_map(
     params.push(intrinsics.i32_ty.const_int(0, false).as_basic_value_enum());
 
     let locals: Vec<_> = locals.iter().map(|x| x.as_basic_value_enum()).collect();
-    let mut value_semantics: Vec<ValueSemantic> = vec![];
+    let mut value_semantics: Vec<ValueSemantic> =
+        Vec::with_capacity(locals.len() + state.stack.len());
 
     params.extend_from_slice(&locals);
     value_semantics.extend((0..locals.len()).map(ValueSemantic::WasmLocal));

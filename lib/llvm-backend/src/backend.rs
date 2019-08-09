@@ -321,7 +321,9 @@ impl LLVMBackend {
                 total_size: code_size,
             };
 
-            let mut local_func_id_to_addr: Vec<usize> = Vec::new();
+            let num_local_functions =
+                module_info.func_assoc.len() - module_info.imported_functions.len();
+            let mut local_func_id_to_addr: Vec<usize> = Vec::with_capacity(num_local_functions);
 
             // All local functions.
             for index in module_info.imported_functions.len()..module_info.func_assoc.len() {
