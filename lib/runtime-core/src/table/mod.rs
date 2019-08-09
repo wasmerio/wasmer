@@ -5,7 +5,8 @@ use crate::{
     types::{ElementType, TableDescriptor},
     vm,
 };
-use std::{cell::RefCell, fmt, ptr, rc::Rc};
+use std::sync::Arc;
+use std::{cell::RefCell, fmt, ptr};
 
 mod anyfunc;
 
@@ -25,7 +26,7 @@ pub enum TableStorage {
 
 pub struct Table {
     desc: TableDescriptor,
-    storage: Rc<RefCell<(TableStorage, vm::LocalTable)>>,
+    storage: Arc<RefCell<(TableStorage, vm::LocalTable)>>,
 }
 
 impl Table {
@@ -71,7 +72,7 @@ impl Table {
 
         Ok(Self {
             desc,
-            storage: Rc::new(RefCell::new((storage, local))),
+            storage: Arc::new(RefCell::new((storage, local))),
         })
     }
 
@@ -136,7 +137,7 @@ impl Clone for Table {
     fn clone(&self) -> Self {
         Self {
             desc: self.desc,
-            storage: Rc::clone(&self.storage),
+            storage: Arc::clone(&self.storage),
         }
     }
 }

@@ -4,11 +4,12 @@ use crate::{
     types::{GlobalDescriptor, Type, Value},
     vm,
 };
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::sync::Arc;
+use std::{cell::RefCell, fmt};
 
 pub struct Global {
     desc: GlobalDescriptor,
-    storage: Rc<RefCell<vm::LocalGlobal>>,
+    storage: Arc<RefCell<vm::LocalGlobal>>,
 }
 
 impl Global {
@@ -56,7 +57,7 @@ impl Global {
 
         Self {
             desc,
-            storage: Rc::new(RefCell::new(local_global)),
+            storage: Arc::new(RefCell::new(local_global)),
         }
     }
 
@@ -120,7 +121,7 @@ impl Clone for Global {
     fn clone(&self) -> Self {
         Self {
             desc: self.desc,
-            storage: Rc::clone(&self.storage),
+            storage: Arc::clone(&self.storage),
         }
     }
 }

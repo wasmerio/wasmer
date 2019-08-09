@@ -1,10 +1,10 @@
 use crate::export::Export;
 use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
+use std::sync::Arc;
 use std::{
     cell::{Ref, RefCell},
     ffi::c_void,
-    rc::Rc,
 };
 
 pub trait LikeNamespace {
@@ -45,8 +45,8 @@ impl IsExport for Export {
 /// }
 /// ```
 pub struct ImportObject {
-    map: Rc<RefCell<HashMap<String, Box<dyn LikeNamespace>>>>,
-    pub(crate) state_creator: Option<Rc<dyn Fn() -> (*mut c_void, fn(*mut c_void))>>,
+    map: Arc<RefCell<HashMap<String, Box<dyn LikeNamespace>>>>,
+    pub(crate) state_creator: Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void))>>,
     pub allow_missing_functions: bool,
 }
 
@@ -54,7 +54,7 @@ impl ImportObject {
     /// Create a new `ImportObject`.
     pub fn new() -> Self {
         Self {
-            map: Rc::new(RefCell::new(HashMap::new())),
+            map: Arc::new(RefCell::new(HashMap::new())),
             state_creator: None,
             allow_missing_functions: false,
         }
@@ -65,8 +65,8 @@ impl ImportObject {
         F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static,
     {
         Self {
-            map: Rc::new(RefCell::new(HashMap::new())),
-            state_creator: Some(Rc::new(state_creator)),
+            map: Arc::new(RefCell::new(HashMap::new())),
+            state_creator: Some(Arc::new(state_creator)),
             allow_missing_functions: false,
         }
     }
@@ -117,7 +117,7 @@ impl ImportObject {
 
     pub fn clone_ref(&self) -> Self {
         Self {
-            map: Rc::clone(&self.map),
+            map: Arc::clone(&self.map),
             state_creator: self.state_creator.clone(),
             allow_missing_functions: false,
         }
