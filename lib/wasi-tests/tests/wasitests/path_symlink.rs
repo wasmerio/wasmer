@@ -1,0 +1,20 @@
+#[test]
+fn test_path_symlink() {
+    assert_wasi_output!(
+        "../../wasitests/path_symlink.wasm",
+        "path_symlink",
+        vec![],
+        vec![
+            (
+                "temp".to_string(),
+                ::std::path::PathBuf::from("wasitests/test_fs/temp")
+            ),
+            (
+                "hamlet".to_string(),
+                ::std::path::PathBuf::from("wasitests/test_fs/hamlet")
+            ),
+        ],
+        vec![],
+        "../../wasitests/path_symlink.out"
+    );
+}

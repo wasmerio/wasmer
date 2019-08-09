@@ -16,6 +16,7 @@ mod fseek;
 mod hello;
 mod mapdir;
 mod path_link;
+mod path_symlink;
 mod quine;
 mod readlink;
 mod wasi_sees_virtual_root;
