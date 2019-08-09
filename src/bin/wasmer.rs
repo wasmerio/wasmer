@@ -635,37 +635,21 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
                 }
             }
             "continue" | "c" => {
-                if let Some(image) = ctx.image.take() {
-                    return ShellExitOperation::ContinueWith(image);
+                if ctx.patched {
+                    println!("Error: Continueing execution is not yet supported on patched code.");
                 } else {
-                    println!("Program state not available, cannot continue execution");
-                }
-            }
-            // Disabled due to unsafety.
-            /*
-            "switch_backend" => {
-                let backend_name = parts.next();
-                if backend_name.is_none() {
-                    println!("Usage: switch_backend [backend_name]");
-                    continue;
-                }
-                let backend_name = backend_name.unwrap();
-                let backend = match backend_name {
-                    "singlepass" => Backend::Singlepass,
-                    "llvm" => Backend::LLVM,
-                    _ => {
-                        println!("unknown backend");
-                        continue;
+                    if let Some(image) = ctx.image.take() {
+                        return ShellExitOperation::ContinueWith(image);
+                    } else {
+                        println!("Program state not available, cannot continue execution");
                     }
-                };
-                if let Some(image) = ctx.image.take() {
-                    return ShellExitOperation::ContinueWith(image, Some(backend));
-                } else {
-                    println!("Program state not available, cannot continue execution");
                 }
             }
-            */
             "backtrace" | "bt" => {
+                if ctx.patched {
+                    println!("Warning: Backtrace on patched code might be inaccurate.");
+                }
+
                 if let Some(ref image) = ctx.image {
                     println!("{}", image.execution_state.colored_output());
                 } else {

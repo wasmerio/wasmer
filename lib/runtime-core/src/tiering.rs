@@ -28,6 +28,7 @@ pub enum ShellExitOperation {
 
 pub struct InteractiveShellContext {
     pub image: Option<InstanceImage>,
+    pub patched: bool,
 }
 
 struct OptimizationState {
@@ -178,8 +179,6 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                         .as_ptr() as usize,
                 });
                 n_versions.set(n_versions.get() + 1);
-
-                eprintln!("Patched");
             }
             // TODO: Fix this for optimized version.
             let breakpoints = baseline.module.runnable_module.get_breakpoints();
@@ -215,6 +214,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     }
                     let op = interactive_shell(InteractiveShellContext {
                         image: Some(new_image.clone()),
+                        patched: n_versions.get() > 1,
                     });
                     match op {
                         ShellExitOperation::ContinueWith(new_image) => {
