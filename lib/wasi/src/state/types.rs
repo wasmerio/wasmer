@@ -158,6 +158,13 @@ pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     fn sync_to_disk(&self) -> Result<(), WasiFsError> {
         panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::sync_to_disk for your type before then");
     }
+
+    /// Moves the file to a new location
+    /// NOTE: the signature of this function will change before stabilization
+    // TODO: stablizie this in 0.7.0 or 0.8.0 by removing default impl
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), WasiFsError> {
+        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0 or 0.8.0.  Please implement WasiFile::rename_file for your type before then");
+    }
 }
 
 pub trait WasiPath {}
@@ -270,6 +277,10 @@ impl WasiFile for HostFile {
     }
     fn sync_to_disk(&self) -> Result<(), WasiFsError> {
         self.inner.sync_all().map_err(Into::into)
+    }
+
+    fn rename_file(&self, new_name: &std::path::Path) -> Result<(), WasiFsError> {
+        std::fs::rename(&self.host_path, new_name).map_err(Into::into)
     }
 }
 
