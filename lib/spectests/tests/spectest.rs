@@ -795,7 +795,9 @@ mod tests {
                     }
                 }
                 CommandKind::AssertUnlinkable { module, message: _ } => {
-                    let result = panic::catch_unwind(|| {
+                    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                        let spectest_import_object =
+                            get_spectest_import_object(&registered_modules);
                         let config = CompilerConfig {
                             features: Features { simd: true },
                             ..Default::default()
@@ -806,8 +808,8 @@ mod tests {
                             config,
                         )
                         .expect("WASM can't be compiled");
-                        module.instantiate(&ImportObject::new())
-                    });
+                        module.instantiate(&spectest_import_object)
+                    }));
                     match result {
                         Err(e) => {
                             test_report.add_failure(
@@ -985,6 +987,10 @@ mod tests {
         }
     }
 
+    fn print(_ctx: &mut Ctx) {
+        println!("");
+    }
+
     fn print_i32(_ctx: &mut Ctx, val: i32) {
         println!("{}", val);
     }
@@ -1025,6 +1031,7 @@ mod tests {
         .unwrap();
         let mut import_object = imports! {
             "spectest" => {
+                "print" => func!(print),
                 "print_i32" => func!(print_i32),
                 "print_f32" => func!(print_f32),
                 "print_f64" => func!(print_f64),
@@ -1041,7 +1048,7 @@ mod tests {
 
         for (name, module) in registered_modules.iter() {
             let i = module
-                .instantiate(&ImportObject::new())
+                .instantiate(&import_object)
                 .expect("Registered WASM can't be instantiated");
             import_object.register(name.clone(), i);
         }

@@ -98,7 +98,6 @@ pub fn read_module<
         use wasmparser::ParserState;
         let state = parser.read();
         match *state {
-            ParserState::EndWasm => break,
             ParserState::Error(err) => Err(LoadError::Parse(err))?,
             ParserState::TypeSectionEntry(ref ty) => {
                 info.write()
@@ -369,7 +368,16 @@ pub fn read_module<
 
                 info.write().unwrap().globals.push(global_init);
             }
-
+            ParserState::EndWasm => {
+                if namespace_builder.is_some() {
+                    info.write().unwrap().namespace_table =
+                        namespace_builder.take().unwrap().finish();
+                }
+                if name_builder.is_some() {
+                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
+                }
+                break;
+            }
             _ => {}
         }
     }
