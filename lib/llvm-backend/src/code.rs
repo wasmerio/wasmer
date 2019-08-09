@@ -360,45 +360,6 @@ fn trap_if_zero(
     builder.position_at_end(&shouldnt_trap_block);
 }
 
-// Replaces any NaN with the canonical QNaN, otherwise leaves the value alone.
-fn canonicalize_nans(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
-) -> BasicValueEnum {
-    let f_ty = value.get_type();
-    let canonicalized = if f_ty.is_vector_type() {
-        let value = value.into_vector_value();
-        let f_ty = f_ty.into_vector_type();
-        let zero = f_ty.const_zero();
-        let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
-        let canonical_qnan = f_ty
-            .get_element_type()
-            .into_float_type()
-            .const_float(std::f64::NAN);
-        let canonical_qnan = splat_vector(
-            builder,
-            intrinsics,
-            canonical_qnan.as_basic_value_enum(),
-            f_ty,
-            "",
-        );
-        builder
-            .build_select(nan_cmp, canonical_qnan, value, "")
-            .as_basic_value_enum()
-    } else {
-        let value = value.into_float_value();
-        let f_ty = f_ty.into_float_type();
-        let zero = f_ty.const_zero();
-        let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
-        let canonical_qnan = f_ty.const_float(std::f64::NAN);
-        builder
-            .build_select(nan_cmp, canonical_qnan, value, "")
-            .as_basic_value_enum()
-    };
-    canonicalized
-}
-
 fn resolve_memory_ptr(
     builder: &Builder,
     intrinsics: &Intrinsics,
@@ -2163,120 +2124,120 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
              ***************************/
             Operator::F32Add | Operator::F64Add => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::F32x4Add => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F64x2Add => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Sub | Operator::F64Sub => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::F32x4Sub => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F64x2Sub => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Mul | Operator::F64Mul => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::F32x4Mul => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F64x2Mul => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Div | Operator::F64Div => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_div(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::F32x4Div => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
                 let res = builder.build_float_div(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F64x2Div => {
                 let (v1, v2) = state.pop2()?;
-                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
                 let res = builder.build_float_div(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
@@ -3446,14 +3407,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(res);
             }
             Operator::F32DemoteF64 => {
-                let v1 = state.pop1()?;
-                let v1 = canonicalize_nans(builder, intrinsics, v1).into_float_value();
+                let v1 = state.pop1()?.into_float_value();
                 let res = builder.build_float_trunc(v1, intrinsics.f32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::F64PromoteF32 => {
-                let v1 = state.pop1()?;
-                let v1 = canonicalize_nans(builder, intrinsics, v1).into_float_value();
+                let v1 = state.pop1()?.into_float_value();
                 let res = builder.build_float_ext(v1, intrinsics.f64_ty, &state.var_name());
                 state.push1(res);
             }
