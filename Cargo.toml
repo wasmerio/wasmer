@@ -76,6 +76,7 @@ fast-tests = []
 "backend-llvm" = ["wasmer-llvm-backend", "wasmer-runtime-core/backend-llvm"]
 "backend-singlepass" = ["wasmer-singlepass-backend", "wasmer-runtime-core/backend-singlepass"]
 wasi = ["wasmer-wasi"]
+managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
 # vfs = ["wasmer-runtime-abi"]
 
 [[example]]
