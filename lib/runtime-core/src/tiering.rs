@@ -1,19 +1,17 @@
 use crate::backend::{Compiler, CompilerConfig};
-use crate::import::ImportObject;
-use crate::fault::{
-    catch_unsafe_unwind, ensure_sighandler, with_ctx, push_code_version, pop_code_version,
-};
-use crate::state::{
-    x64::invoke_call_return_on_stack, InstanceImage, CodeVersion
-};
-use crate::vm::Ctx;
 use crate::compile_with_config;
-use crate::instance::Instance;
+use crate::fault::{
+    catch_unsafe_unwind, ensure_sighandler, pop_code_version, push_code_version, with_ctx,
+};
 use crate::fault::{set_wasm_interrupt_on_ctx, was_sigint_triggered_fault};
+use crate::import::ImportObject;
+use crate::instance::Instance;
 use crate::module::{Module, ModuleInfo};
+use crate::state::{x64::invoke_call_return_on_stack, CodeVersion, InstanceImage};
+use crate::vm::Ctx;
 
-use std::sync::{Arc, Mutex};
 use std::cell::Cell;
+use std::sync::{Arc, Mutex};
 
 struct Defer<F: FnOnce()>(Option<F>);
 impl<F: FnOnce()> Drop for Defer<F> {
@@ -84,8 +82,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     unsafe {
         ensure_sighandler();
 
-        let ctx_box =
-            Arc::new(Mutex::new(CtxWrapper(baseline.context_mut() as *mut _)));
+        let ctx_box = Arc::new(Mutex::new(CtxWrapper(baseline.context_mut() as *mut _)));
         // Ensure that the ctx pointer's lifetime is not longer than Instance's.
         let _deferred_ctx_box_cleanup: Defer<_> = {
             let ctx_box = ctx_box.clone();
@@ -104,12 +101,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             ::std::thread::spawn(move || {
                 for backend in optimized_backends {
                     if !ctx_box.lock().unwrap().0.is_null() {
-                        do_optimize(
-                            &wasm_binary,
-                            backend(),
-                            &ctx_box,
-                            &opt_state,
-                        );
+                        do_optimize(&wasm_binary, backend(), &ctx_box, &opt_state);
                     }
                 }
             });
@@ -118,7 +110,11 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
         let mut optimized_instances: Vec<Instance> = vec![];
 
         push_code_version(CodeVersion {
-            msm: baseline.module.runnable_module.get_module_state_map().unwrap(),
+            msm: baseline
+                .module
+                .runnable_module
+                .get_module_state_map()
+                .unwrap(),
             base: baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize,
         });
         let n_versions: Cell<usize> = Cell::new(1);
@@ -133,10 +129,10 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             let new_optimized: Option<&mut Instance> = {
                 let mut outcome = opt_state.outcome.lock().unwrap();
                 if let Some(x) = outcome.take() {
-                    let instance =
-                        x.module.instantiate(&import_object).map_err(|e| {
-                            format!("Can't instantiate module: {:?}", e)
-                        })?;
+                    let instance = x
+                        .module
+                        .instantiate(&import_object)
+                        .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
                     // Keep the optimized code alive.
                     optimized_instances.push(instance);
                     optimized_instances.last_mut()
@@ -151,8 +147,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     .runnable_module
                     .get_code()
                     .unwrap()
-                    .as_ptr()
-                    as usize;
+                    .as_ptr() as usize;
                 let target_addresses: Vec<usize> = optimized
                     .module
                     .runnable_module
@@ -161,10 +156,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     .into_iter()
                     .map(|x| code_ptr + x)
                     .collect();
-                assert_eq!(
-                    target_addresses.len(),
-                    module_info.func_assoc.len() - base
-                );
+                assert_eq!(target_addresses.len(), module_info.func_assoc.len() - base);
                 for i in base..module_info.func_assoc.len() {
                     baseline
                         .module
@@ -173,8 +165,17 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                 }
 
                 push_code_version(CodeVersion {
-                    msm: optimized.module.runnable_module.get_module_state_map().unwrap(),
-                    base: optimized.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                    msm: optimized
+                        .module
+                        .runnable_module
+                        .get_module_state_map()
+                        .unwrap(),
+                    base: optimized
+                        .module
+                        .runnable_module
+                        .get_code()
+                        .unwrap()
+                        .as_ptr() as usize,
                 });
                 n_versions.set(n_versions.get() + 1);
 
@@ -191,8 +192,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                         .get_module_state_map()
                         .unwrap();
                     let code_base =
-                        baseline.module.runnable_module.get_code().unwrap().as_ptr()
-                            as usize;
+                        baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize;
                     invoke_call_return_on_stack(
                         &msm,
                         code_base,
@@ -202,17 +202,13 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     )
                     .map(|_| ())
                 } else {
-                    catch_unsafe_unwind(
-                        || start_raw(baseline.context_mut()),
-                        breakpoints.clone(),
-                    )
+                    catch_unsafe_unwind(|| start_raw(baseline.context_mut()), breakpoints.clone())
                 }
             });
             if let Err(e) = ret {
                 if let Some(new_image) = e.downcast_ref::<InstanceImage>() {
                     // Tier switch event
-                    if !was_sigint_triggered_fault()
-                        && opt_state.outcome.lock().unwrap().is_some()
+                    if !was_sigint_triggered_fault() && opt_state.outcome.lock().unwrap().is_some()
                     {
                         resume_image = Some(new_image.clone());
                         continue;

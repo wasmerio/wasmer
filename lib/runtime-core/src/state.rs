@@ -764,16 +764,21 @@ pub mod x64 {
             let mut fsm_state: Option<(&FunctionStateMap, MachineState)> = None;
 
             for version in versions() {
-                match version.msm
+                match version
+                    .msm
                     .lookup_call_ip(ret_addr as usize, version.base)
-                    .or_else(|| version.msm.lookup_trappable_ip(ret_addr as usize, version.base))
+                    .or_else(|| {
+                        version
+                            .msm
+                            .lookup_trappable_ip(ret_addr as usize, version.base)
+                    })
                     .or_else(|| version.msm.lookup_loop_ip(ret_addr as usize, version.base))
                 {
                     Some(x) => {
                         fsm_state = Some(x);
                         break;
-                    },
-                    None => {},
+                    }
+                    None => {}
                 };
             }
 

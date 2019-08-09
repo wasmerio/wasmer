@@ -9,8 +9,8 @@ mod raw {
 }
 
 use crate::codegen::{BreakpointInfo, BreakpointMap};
-use crate::state::CodeVersion;
 use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR, XMM};
+use crate::state::CodeVersion;
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use nix::sys::signal::{
@@ -18,7 +18,7 @@ use nix::sys::signal::{
     SIGSEGV, SIGTRAP,
 };
 use std::any::Any;
-use std::cell::{Cell, UnsafeCell, RefCell};
+use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::c_void;
 use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};

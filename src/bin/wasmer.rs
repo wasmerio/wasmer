@@ -21,6 +21,8 @@ use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
     Func, Value,
 };
+#[cfg(feature = "managed")]
+use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
 use wasmer_runtime_core::{
     self,
     backend::{Backend, Compiler, CompilerConfig, MemoryBoundCheckMode},
@@ -31,8 +33,6 @@ use wasmer_runtime_core::{
 use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
-#[cfg(feature = "managed")]
-use wasmer_runtime_core::tiering::{InteractiveShellContext, ShellExitOperation, run_tiering};
 
 // stub module to make conditional compilation happy
 #[cfg(not(feature = "wasi"))]
@@ -515,9 +515,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
-            let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) = unsafe {
-                ::std::mem::transmute(start.get_vm_func())
-            };
+            let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =
+                unsafe { ::std::mem::transmute(start.get_vm_func()) };
 
             #[cfg(feature = "managed")]
             run_tiering(
@@ -527,16 +526,23 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     let mut f = File::open(path).unwrap();
                     let mut out: Vec<u8> = vec![];
                     f.read_to_end(&mut out).unwrap();
-                    Some(wasmer_runtime_core::state::InstanceImage::from_bytes(&out).expect("failed to decode image"))
+                    Some(
+                        wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
+                            .expect("failed to decode image"),
+                    )
                 } else {
                     None
                 },
                 &import_object,
                 start_raw,
                 &mut instance,
-                options.optimized_backends.iter().map(|&backend| -> Box<dyn Fn() -> Box<dyn Compiler> + Send> {
-                    Box::new(move || get_compiler_by_backend(backend).unwrap())
-                }).collect(),
+                options
+                    .optimized_backends
+                    .iter()
+                    .map(|&backend| -> Box<dyn Fn() -> Box<dyn Compiler> + Send> {
+                        Box::new(move || get_compiler_by_backend(backend).unwrap())
+                    })
+                    .collect(),
                 interactive_shell,
             )?;
 
