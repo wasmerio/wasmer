@@ -119,6 +119,15 @@ struct Run {
     #[structopt(long = "resume")]
     resume: Option<String>,
 
+    /// Optimized backends for higher tiers.
+    #[cfg(feature = "managed")]
+    #[structopt(
+        long = "optimized-backends",
+        multiple = true,
+        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+    )]
+    optimized_backends: Vec<Backend>,
+
     /// Whether or not state tracking should be disabled during compilation.
     /// State tracking is necessary for tier switching and backtracing.
     #[structopt(long = "no-track-state")]
@@ -525,9 +534,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 &import_object,
                 start_raw,
                 &mut instance,
-                vec![
-                    Box::new(|| get_compiler_by_backend(Backend::LLVM).unwrap()),
-                ],
+                options.optimized_backends.iter().map(|&backend| -> Box<dyn Fn() -> Box<dyn Compiler> + Send> {
+                    Box::new(move || get_compiler_by_backend(backend).unwrap())
+                }).collect(),
                 interactive_shell,
             )?;
 
