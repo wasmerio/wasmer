@@ -1679,6 +1679,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
     fn begin_body(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
         let start_label = a.get_label();
+        a.emit_jmp(Condition::None, start_label);
         // patchpoint of 16 bytes
         for _ in 0..16 {
             a.emit_nop();
