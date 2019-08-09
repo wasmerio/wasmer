@@ -7,7 +7,7 @@ generate-spectests:
 generate-emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release
 
-generate-wasitests:
+generate-wasitests: wasitests-setup
 	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
 	&& echo "formatting" \
 	&& cargo fmt

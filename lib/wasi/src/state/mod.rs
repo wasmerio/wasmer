@@ -106,7 +106,7 @@ pub enum Kind {
     },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Fd {
     pub rights: __wasi_rights_t,
     pub rights_inheriting: __wasi_rights_t,
@@ -126,6 +126,8 @@ pub struct WasiFs {
     pub fd_map: HashMap<u32, Fd>,
     pub next_fd: Cell<u32>,
     inode_counter: Cell<u64>,
+    /// for fds still open after the file has been deleted
+    pub orphan_fds: HashMap<Inode, InodeVal>,
 
     pub stdout: Box<dyn WasiFile>,
     pub stderr: Box<dyn WasiFile>,
@@ -146,6 +148,7 @@ impl WasiFs {
             fd_map: HashMap::new(),
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1024),
+            orphan_fds: HashMap::new(),
 
             stdin: Box::new(Stdin(io::stdin())),
             stdout: Box::new(Stdout(io::stdout())),
@@ -683,6 +686,16 @@ impl WasiFs {
         self.fd_map.get(&fd).ok_or(__WASI_EBADF)
     }
 
+    /// gets either a normal inode or an orphaned inode
+    pub fn get_inodeval_mut(&mut self, fd: __wasi_fd_t) -> Result<&mut InodeVal, __wasi_errno_t> {
+        let inode = self.get_fd(fd)?.inode;
+        if let Some(iv) = self.inodes.get_mut(inode) {
+            Ok(iv)
+        } else {
+            self.orphan_fds.get_mut(&inode).ok_or(__WASI_EBADF)
+        }
+    }
+
     pub fn filestat_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_filestat_t, __wasi_errno_t> {
         let fd = self.get_fd(fd)?;
 
@@ -818,8 +831,8 @@ impl WasiFs {
     /// all refences to the given inode have been removed from the filesystem
     ///
     /// returns true if the inode existed and was removed
-    pub unsafe fn remove_inode(&mut self, inode: Inode) -> bool {
-        self.inodes.remove(inode).is_some()
+    pub unsafe fn remove_inode(&mut self, inode: Inode) -> Option<InodeVal> {
+        self.inodes.remove(inode)
     }
 
     fn create_virtual_root(&mut self) -> Inode {

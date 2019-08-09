@@ -1516,6 +1516,7 @@ dependencies = [
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "semver 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "structopt 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.6.0",
  "wasmparser 0.35.1 (registry+https://github.com/rust-lang/crates.io-index)",

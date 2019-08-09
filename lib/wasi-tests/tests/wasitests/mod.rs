@@ -16,6 +16,7 @@ mod fseek;
 mod hello;
 mod mapdir;
 mod path_link;
+mod path_rename;
 mod path_symlink;
 mod quine;
 mod readlink;
