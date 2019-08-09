@@ -364,15 +364,14 @@ pub fn fd_allocate(
 /// - `__WASI_EISDIR`
 ///     If `fd` is a directory
 /// - `__WASI_EBADF`
-///     If `fd` is invalid or not open (TODO: consider __WASI_EINVAL)
+///     If `fd` is invalid or not open
 pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_close");
 
     let memory = ctx.memory(0);
     let state = get_wasi_state(ctx);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let inode_val = wasi_try!(state.fs.get_inodeval_mut(fd));
 
-    let inode_val = &mut state.fs.inodes[fd_entry.inode];
     if inode_val.is_preopened {
         return __WASI_EACCES;
     }
@@ -1303,7 +1302,7 @@ pub fn path_create_directory(
     if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_CREATE_DIRECTORY) {
         return __WASI_EACCES;
     }
-    let path_string = wasi_try!(path.get_utf8_string(memory, path_len), __WASI_EINVAL);
+    let path_string = get_input_str!(memory, path, path_len);
     debug!("=> fd: {}, path: {}", fd, &path_string);
 
     let path = std::path::PathBuf::from(path_string);
@@ -1407,8 +1406,7 @@ pub fn path_filestat_get(
     if !has_rights(root_dir.rights, __WASI_RIGHT_PATH_FILESTAT_GET) {
         return __WASI_EACCES;
     }
-
-    let path_string = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let path_string = get_input_str!(memory, path, path_len);
 
     debug!("=> base_fd: {}, path: {}", fd, &path_string);
 
@@ -1459,6 +1457,7 @@ pub fn path_filestat_set_times(
     let memory = ctx.memory(0);
     let state = get_wasi_state(ctx);
     let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_inode = fd_entry.inode;
     if !has_rights(fd_entry.rights, __WASI_RIGHT_PATH_FILESTAT_SET_TIMES) {
         return __WASI_EACCES;
     }
@@ -1469,7 +1468,7 @@ pub fn path_filestat_set_times(
         return __WASI_EINVAL;
     }
 
-    let path_string = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let path_string = get_input_str!(memory, path, path_len);
     debug!("=> base_fd: {}, path: {}", fd, &path_string);
 
     let file_inode = wasi_try!(state.fs.get_inode_at_path(
@@ -1482,7 +1481,7 @@ pub fn path_filestat_set_times(
         .get_stat_for_kind(&state.fs.inodes[file_inode].kind)
         .ok_or(__WASI_EIO));
 
-    let inode = &mut state.fs.inodes[fd_entry.inode];
+    let inode = &mut state.fs.inodes[fd_inode];
 
     if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 || fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
         let time_to_set = if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 {
@@ -1555,15 +1554,8 @@ pub fn path_link(
     }
     let memory = ctx.memory(0);
     let state = get_wasi_state(ctx);
-    let old_path_str = wasi_try!(
-        old_path.get_utf8_string(memory, old_path_len),
-        __WASI_EINVAL
-    );
-    let new_path_str = wasi_try!(
-        new_path.get_utf8_string(memory, new_path_len),
-        __WASI_EINVAL
-    );
-
+    let old_path_str = get_input_str!(memory, old_path, old_path_len);
+    let new_path_str = get_input_str!(memory, new_path, new_path_len);
     let source_fd = wasi_try!(state.fs.get_fd(old_fd));
     let target_fd = wasi_try!(state.fs.get_fd(new_fd));
     debug!(
@@ -1661,14 +1653,14 @@ pub fn path_open(
     // - __WASI_O_EXCL (fail if file exists)
     // - __WASI_O_TRUNC (truncate size to 0)
 
-    let working_dir = wasi_try!(state.fs.get_fd(dirfd)).clone();
+    let working_dir = wasi_try!(state.fs.get_fd(dirfd));
+    let working_dir_rights_inheriting = working_dir.rights_inheriting;
 
     // ASSUMPTION: open rights apply recursively
     if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_OPEN) {
         return __WASI_EACCES;
     }
-
-    let path_string = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let path_string = get_input_str!(memory, path, path_len);
 
     debug!("=> fd: {}, path: {}", dirfd, &path_string);
 
@@ -1680,13 +1672,13 @@ pub fn path_open(
     );
 
     if let Ok(m) = maybe_inode {
-        dbg!(&state.fs.inodes[m]);
+        &state.fs.inodes[m];
     }
 
     // TODO: traverse rights of dirs properly
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
     //              TODO: look into this; file a bug report if this is a bug
-    let adjusted_rights = /*fs_rights_base &*/ working_dir.rights_inheriting;
+    let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         match &mut state.fs.inodes[inode].kind {
@@ -1817,6 +1809,22 @@ pub fn path_open(
     __WASI_ESUCCESS
 }
 
+/// ### `path_readlink()`
+/// Read the value of a symlink
+/// Inputs:
+/// - `__wasi_fd_t dir_fd`
+///     The base directory from which `path` is understood
+/// - `const char *path`
+///     Pointer to UTF-8 bytes that make up the path to the symlink
+/// - `u32 path_len`
+///     The number of bytes to read from `path`
+/// - `u32 buf_len`
+///     Space available pointed to by `buf`
+/// Outputs:
+/// - `char *buf`
+///     Pointer to characters containing the path that the symlink points to
+/// - `u32 buf_used`
+///     The number of bytes written to `buf`
 pub fn path_readlink(
     ctx: &mut Ctx,
     dir_fd: __wasi_fd_t,
@@ -1834,7 +1842,7 @@ pub fn path_readlink(
     if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_READLINK) {
         return __WASI_EACCES;
     }
-    let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let path_str = get_input_str!(memory, path, path_len);
     let inode = wasi_try!(state.fs.get_inode_at_path(dir_fd, path_str, false));
 
     if let Kind::Symlink { relative_path, .. } = &state.fs.inodes[inode].kind {
@@ -1875,7 +1883,7 @@ pub fn path_remove_directory(
     let memory = ctx.memory(0);
 
     let base_dir = wasi_try!(state.fs.fd_map.get(&fd), __WASI_EBADF);
-    let path_str = wasi_try!(path.get_utf8_string(memory, path_len), __WASI_EINVAL);
+    let path_str = get_input_str!(memory, path, path_len);
 
     let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));
     let (parent_inode, childs_name) =
@@ -1927,6 +1935,21 @@ pub fn path_remove_directory(
     __WASI_ESUCCESS
 }
 
+/// ### `path_rename()`
+/// Rename a file or directory
+/// Inputs:
+/// - `__wasi_fd_t old_fd`
+///     The base directory for `old_path`
+/// - `const char* old_path`
+///     Pointer to UTF8 bytes, the file to be renamed
+/// - `u32 old_path_len`
+///     The number of bytes to read from `old_path`
+/// - `__wasi_fd_t new_fd`
+///     The base directory for `new_path`
+/// - `const char* new_path`
+///     Pointer to UTF8 bytes, the new file name
+/// - `u32 new_path_len`
+///     The number of bytes to read from `new_path`
 pub fn path_rename(
     ctx: &mut Ctx,
     old_fd: __wasi_fd_t,
@@ -1937,7 +1960,90 @@ pub fn path_rename(
     new_path_len: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::path_rename");
-    unimplemented!("wasi::path_rename")
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let source_str = get_input_str!(memory, old_path, old_path_len);
+    let source_path = std::path::Path::new(source_str);
+    let target_str = get_input_str!(memory, new_path, new_path_len);
+    let target_path = std::path::Path::new(target_str);
+
+    {
+        let source_fd = wasi_try!(state.fs.get_fd(old_fd));
+        if !has_rights(source_fd.rights, __WASI_RIGHT_PATH_RENAME_SOURCE) {
+            return __WASI_EACCES;
+        }
+        let target_fd = wasi_try!(state.fs.get_fd(new_fd));
+        if !has_rights(target_fd.rights, __WASI_RIGHT_PATH_RENAME_TARGET) {
+            return __WASI_EACCES;
+        }
+    }
+
+    let (source_parent_inode, source_entry_name) =
+        wasi_try!(state.fs.get_parent_inode_at_path(old_fd, source_path, true));
+    let (target_parent_inode, target_entry_name) =
+        wasi_try!(state.fs.get_parent_inode_at_path(new_fd, target_path, true));
+
+    let host_adjusted_target_path = match &state.fs.inodes[target_parent_inode].kind {
+        Kind::Dir { entries, path, .. } => {
+            if entries.contains_key(&target_entry_name) {
+                return __WASI_EEXIST;
+            }
+            let mut out_path = path.clone();
+            // remove fd's own name which will be double counted
+            out_path.pop();
+            out_path.push(target_path);
+            out_path
+        }
+        Kind::Root { .. } => return __WASI_ENOTCAPABLE,
+        Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
+            unreachable!("Fatal internal logic error: parent of inode is not a directory")
+        }
+    };
+    let source_entry = match &mut state.fs.inodes[source_parent_inode].kind {
+        Kind::Dir { entries, .. } => wasi_try!(entries.remove(&source_entry_name), __WASI_EINVAL),
+        Kind::Root { .. } => return __WASI_ENOTCAPABLE,
+        Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
+            unreachable!("Fatal internal logic error: parent of inode is not a directory")
+        }
+    };
+
+    match &mut state.fs.inodes[source_entry].kind {
+        Kind::File {
+            handle,
+            ref mut path,
+        } => {
+            let result = if let Some(h) = handle {
+                h.rename_file(&host_adjusted_target_path)
+                    .map_err(|e| e.into_wasi_err())
+            } else {
+                let out =
+                    std::fs::rename(&path, &host_adjusted_target_path).map_err(|_| __WASI_EIO);
+                *path = host_adjusted_target_path;
+                out
+            };
+            // if the above operation failed we have to revert the previous change and then fail
+            if let Err(e) = result {
+                if let Kind::Dir { entries, .. } = &mut state.fs.inodes[source_parent_inode].kind {
+                    entries.insert(source_entry_name, source_entry);
+                    return e;
+                }
+            }
+        }
+        Kind::Dir { path, .. } => unimplemented!("wasi::path_rename on Directories"),
+        Kind::Buffer { .. } => {}
+        Kind::Symlink { .. } => {}
+        Kind::Root { .. } => unreachable!("The root can not be moved"),
+    }
+
+    if let Kind::Dir { entries, .. } = &mut state.fs.inodes[target_parent_inode].kind {
+        let result = entries.insert(target_entry_name, source_entry);
+        assert!(
+            result.is_none(),
+            "Fatal error: race condition on filesystem detected or internal logic error"
+        );
+    }
+
+    __WASI_ESUCCESS
 }
 
 /// ### `path_symlink()`
@@ -1964,14 +2070,8 @@ pub fn path_symlink(
     debug!("wasi::path_symlink");
     let state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
-    let old_path_str = wasi_try!(
-        old_path.get_utf8_string(memory, old_path_len),
-        __WASI_EINVAL
-    );
-    let new_path_str = wasi_try!(
-        new_path.get_utf8_string(memory, new_path_len),
-        __WASI_EINVAL
-    );
+    let old_path_str = get_input_str!(memory, old_path, old_path_len);
+    let new_path_str = get_input_str!(memory, new_path, new_path_len);
     let base_fd = wasi_try!(state.fs.get_fd(fd));
     if !has_rights(base_fd.rights, __WASI_RIGHT_PATH_SYMLINK) {
         return __WASI_EACCES;
@@ -2053,7 +2153,7 @@ pub fn path_unlink_file(
     if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_UNLINK_FILE) {
         return __WASI_EACCES;
     }
-    let path_str = wasi_try!(path.get_utf8_string(memory, path_len).ok_or(__WASI_EINVAL));
+    let path_str = get_input_str!(memory, path, path_len);
     debug!("Requested file: {}", path_str);
 
     let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));
@@ -2097,16 +2197,43 @@ pub fn path_unlink_file(
             }
             _ => unimplemented!("wasi::path_unlink_file for Buffer"),
         }
-        let inode_was_removed = unsafe { state.fs.remove_inode(removed_inode) };
+        // TODO: test this on Windows and actually make it portable
+        // make the file an orphan fd if the fd is still open
+        let fd_is_orphaned = if let Kind::File { handle, .. } = &state.fs.inodes[removed_inode].kind
+        {
+            handle.is_some()
+        } else {
+            false
+        };
+        let removed_inode_val = unsafe { state.fs.remove_inode(removed_inode) };
         assert!(
-            inode_was_removed,
+            removed_inode_val.is_some(),
             "Inode could not be removed because it doesn't exist"
         );
+
+        if fd_is_orphaned {
+            state
+                .fs
+                .orphan_fds
+                .insert(removed_inode, removed_inode_val.unwrap());
+        }
     }
 
     __WASI_ESUCCESS
 }
 
+/// ### `poll_oneoff()`
+/// Concurrently poll for a set of events
+/// Inputs:
+/// - `const __wasi_subscription_t *in`
+///     The events to subscribe to
+/// - `__wasi_event_t *out`
+///     The events that have occured
+/// - `u32 nsubscriptions`
+///     The number of subscriptions and the number of events
+/// Output:
+/// - `u32 nevents`
+///     The number of events seen
 pub fn poll_oneoff(
     ctx: &mut Ctx,
     in_: WasmPtr<__wasi_subscription_t, Array>,
@@ -2117,6 +2244,7 @@ pub fn poll_oneoff(
     debug!("wasi::poll_oneoff");
     unimplemented!("wasi::poll_oneoff")
 }
+
 pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<Infallible, ExitCode> {
     debug!("wasi::proc_exit, {}", code);
     Err(ExitCode { code })
