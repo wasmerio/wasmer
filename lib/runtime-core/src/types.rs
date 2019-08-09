@@ -12,6 +12,8 @@ pub enum Type {
     F32,
     /// The `f64` type.
     F64,
+    /// The `v128` type.
+    V128,
 }
 
 impl std::fmt::Display for Type {
@@ -34,6 +36,8 @@ pub enum Value {
     F32(f32),
     /// The `f64` type.
     F64(f64),
+    /// The `v128` type.
+    V128(u128),
 }
 
 impl Value {
@@ -43,15 +47,17 @@ impl Value {
             Value::I64(_) => Type::I64,
             Value::F32(_) => Type::F32,
             Value::F64(_) => Type::F64,
+            Value::V128(_) => Type::V128,
         }
     }
 
-    pub fn to_u64(&self) -> u64 {
+    pub fn to_u128(&self) -> u128 {
         match *self {
-            Value::I32(x) => x as u32 as u64,
-            Value::I64(x) => x as u64,
-            Value::F32(x) => f32::to_bits(x) as u64,
-            Value::F64(x) => f64::to_bits(x),
+            Value::I32(x) => x as u128,
+            Value::I64(x) => x as u128,
+            Value::F32(x) => f32::to_bits(x) as u128,
+            Value::F64(x) => f64::to_bits(x) as u128,
+            Value::V128(x) => x,
         }
     }
 }
@@ -77,6 +83,12 @@ impl From<f32> for Value {
 impl From<f64> for Value {
     fn from(f: f64) -> Self {
         Value::F64(f)
+    }
+}
+
+impl From<u128> for Value {
+    fn from(v: u128) -> Self {
+        Value::V128(v)
     }
 }
 

@@ -402,6 +402,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
                         tag: wasmer_value_tag::WASM_F64,
                         value: wasmer_value { F64: x },
                     },
+                    Value::V128(_) => unimplemented!("returning V128 type"),
                 };
                 results[0] = ret;
             }

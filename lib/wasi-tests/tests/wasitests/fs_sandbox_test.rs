@@ -5,6 +5,7 @@ fn test_fs_sandbox_test() {
         "fs_sandbox_test",
         vec![],
         vec![],
+        vec![],
         "../../wasitests/fs_sandbox_test.out"
     );
 }

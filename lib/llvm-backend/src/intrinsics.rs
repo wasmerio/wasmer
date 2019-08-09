@@ -1,12 +1,14 @@
-use hashbrown::HashMap;
 use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    types::{BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VoidType},
+    types::{
+        BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VectorType, VoidType,
+    },
     values::{BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use wasmer_runtime_core::{
     memory::MemoryType,
@@ -16,7 +18,7 @@ use wasmer_runtime_core::{
         GlobalIndex, ImportedFuncIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
-    vm::Ctx,
+    vm::{Ctx, INTERNALS_SIZE},
 };
 
 fn type_to_llvm_ptr(intrinsics: &Intrinsics, ty: Type) -> PointerType {
@@ -25,6 +27,7 @@ fn type_to_llvm_ptr(intrinsics: &Intrinsics, ty: Type) -> PointerType {
         Type::I64 => intrinsics.i64_ptr_ty,
         Type::F32 => intrinsics.f32_ptr_ty,
         Type::F64 => intrinsics.f64_ptr_ty,
+        Type::V128 => intrinsics.i128_ptr_ty,
     }
 }
 
@@ -40,12 +43,18 @@ pub struct Intrinsics {
 
     pub sqrt_f32: FunctionValue,
     pub sqrt_f64: FunctionValue,
+    pub sqrt_f32x4: FunctionValue,
+    pub sqrt_f64x2: FunctionValue,
 
     pub minimum_f32: FunctionValue,
     pub minimum_f64: FunctionValue,
+    pub minimum_f32x4: FunctionValue,
+    pub minimum_f64x2: FunctionValue,
 
     pub maximum_f32: FunctionValue,
     pub maximum_f64: FunctionValue,
+    pub maximum_f32x4: FunctionValue,
+    pub maximum_f64x2: FunctionValue,
 
     pub ceil_f32: FunctionValue,
     pub ceil_f64: FunctionValue,
@@ -61,9 +70,21 @@ pub struct Intrinsics {
 
     pub fabs_f32: FunctionValue,
     pub fabs_f64: FunctionValue,
+    pub fabs_f32x4: FunctionValue,
+    pub fabs_f64x2: FunctionValue,
 
     pub copysign_f32: FunctionValue,
     pub copysign_f64: FunctionValue,
+
+    pub sadd_sat_i8x16: FunctionValue,
+    pub sadd_sat_i16x8: FunctionValue,
+    pub uadd_sat_i8x16: FunctionValue,
+    pub uadd_sat_i16x8: FunctionValue,
+
+    pub ssub_sat_i8x16: FunctionValue,
+    pub ssub_sat_i16x8: FunctionValue,
+    pub usub_sat_i8x16: FunctionValue,
+    pub usub_sat_i16x8: FunctionValue,
 
     pub expect_i1: FunctionValue,
     pub trap: FunctionValue,
@@ -74,21 +95,33 @@ pub struct Intrinsics {
     pub i16_ty: IntType,
     pub i32_ty: IntType,
     pub i64_ty: IntType,
+    pub i128_ty: IntType,
     pub f32_ty: FloatType,
     pub f64_ty: FloatType,
+
+    pub i1x128_ty: VectorType,
+    pub i8x16_ty: VectorType,
+    pub i16x8_ty: VectorType,
+    pub i32x4_ty: VectorType,
+    pub i64x2_ty: VectorType,
+    pub f32x4_ty: VectorType,
+    pub f64x2_ty: VectorType,
 
     pub i8_ptr_ty: PointerType,
     pub i16_ptr_ty: PointerType,
     pub i32_ptr_ty: PointerType,
     pub i64_ptr_ty: PointerType,
+    pub i128_ptr_ty: PointerType,
     pub f32_ptr_ty: PointerType,
     pub f64_ptr_ty: PointerType,
 
     pub anyfunc_ty: StructType,
 
     pub i1_zero: IntValue,
+    pub i8_zero: IntValue,
     pub i32_zero: IntValue,
     pub i64_zero: IntValue,
+    pub i128_zero: IntValue,
     pub f32_zero: FloatValue,
     pub f64_zero: FloatValue,
 
@@ -114,6 +147,7 @@ pub struct Intrinsics {
     pub memory_size_shared_import: FunctionValue,
 
     pub throw_trap: FunctionValue,
+    pub throw_breakpoint: FunctionValue,
 
     pub ctx_ptr_ty: PointerType,
 }
@@ -126,19 +160,31 @@ impl Intrinsics {
         let i16_ty = context.i16_type();
         let i32_ty = context.i32_type();
         let i64_ty = context.i64_type();
+        let i128_ty = context.i128_type();
         let f32_ty = context.f32_type();
         let f64_ty = context.f64_type();
+
+        let i1x128_ty = i1_ty.vec_type(128);
+        let i8x16_ty = i8_ty.vec_type(16);
+        let i16x8_ty = i16_ty.vec_type(8);
+        let i32x4_ty = i32_ty.vec_type(4);
+        let i64x2_ty = i64_ty.vec_type(2);
+        let f32x4_ty = f32_ty.vec_type(4);
+        let f64x2_ty = f64_ty.vec_type(2);
 
         let i8_ptr_ty = i8_ty.ptr_type(AddressSpace::Generic);
         let i16_ptr_ty = i16_ty.ptr_type(AddressSpace::Generic);
         let i32_ptr_ty = i32_ty.ptr_type(AddressSpace::Generic);
         let i64_ptr_ty = i64_ty.ptr_type(AddressSpace::Generic);
+        let i128_ptr_ty = i128_ty.ptr_type(AddressSpace::Generic);
         let f32_ptr_ty = f32_ty.ptr_type(AddressSpace::Generic);
         let f64_ptr_ty = f64_ty.ptr_type(AddressSpace::Generic);
 
         let i1_zero = i1_ty.const_int(0, false);
+        let i8_zero = i8_ty.const_int(0, false);
         let i32_zero = i32_ty.const_int(0, false);
         let i64_zero = i64_ty.const_int(0, false);
+        let i128_zero = i128_ty.const_int(0, false);
         let f32_zero = f32_ty.const_float(0.0);
         let f64_zero = f64_ty.const_float(0.0);
 
@@ -147,6 +193,10 @@ impl Intrinsics {
         let i64_ty_basic = i64_ty.as_basic_type_enum();
         let f32_ty_basic = f32_ty.as_basic_type_enum();
         let f64_ty_basic = f64_ty.as_basic_type_enum();
+        let i8x16_ty_basic = i8x16_ty.as_basic_type_enum();
+        let i16x8_ty_basic = i16x8_ty.as_basic_type_enum();
+        let f32x4_ty_basic = f32x4_ty.as_basic_type_enum();
+        let f64x2_ty_basic = f64x2_ty.as_basic_type_enum();
         let i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
 
         let ctx_ty = context.opaque_struct_type("ctx");
@@ -233,6 +283,9 @@ impl Intrinsics {
             false,
         );
 
+        let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
+        let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
+
         let ret_i32_take_i32_i1 = i32_ty.fn_type(&[i32_ty_basic, i1_ty_basic], false);
         let ret_i64_take_i64_i1 = i64_ty.fn_type(&[i64_ty_basic, i1_ty_basic], false);
 
@@ -241,9 +294,13 @@ impl Intrinsics {
 
         let ret_f32_take_f32 = f32_ty.fn_type(&[f32_ty_basic], false);
         let ret_f64_take_f64 = f64_ty.fn_type(&[f64_ty_basic], false);
+        let ret_f32x4_take_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic], false);
+        let ret_f64x2_take_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic], false);
 
         let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
         let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
+        let ret_f32x4_take_f32x4_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic, f32x4_ty_basic], false);
+        let ret_f64x2_take_f64x2_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic, f64x2_ty_basic], false);
 
         let ret_i32_take_ctx_i32_i32 = i32_ty.fn_type(
             &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
@@ -253,7 +310,6 @@ impl Intrinsics {
             i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false);
 
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
-
         Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
             ctlz_i64: module.add_function("llvm.ctlz.i64", ret_i64_take_i64_i1, None),
@@ -266,12 +322,34 @@ impl Intrinsics {
 
             sqrt_f32: module.add_function("llvm.sqrt.f32", ret_f32_take_f32, None),
             sqrt_f64: module.add_function("llvm.sqrt.f64", ret_f64_take_f64, None),
+            sqrt_f32x4: module.add_function("llvm.sqrt.v4f32", ret_f32x4_take_f32x4, None),
+            sqrt_f64x2: module.add_function("llvm.sqrt.v2f64", ret_f64x2_take_f64x2, None),
 
             minimum_f32: module.add_function("llvm.minnum.f32", ret_f32_take_f32_f32, None),
             minimum_f64: module.add_function("llvm.minnum.f64", ret_f64_take_f64_f64, None),
+            minimum_f32x4: module.add_function(
+                "llvm.minnum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            minimum_f64x2: module.add_function(
+                "llvm.minnum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
 
             maximum_f32: module.add_function("llvm.maxnum.f32", ret_f32_take_f32_f32, None),
             maximum_f64: module.add_function("llvm.maxnum.f64", ret_f64_take_f64_f64, None),
+            maximum_f32x4: module.add_function(
+                "llvm.maxnum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            maximum_f64x2: module.add_function(
+                "llvm.maxnum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
 
             ceil_f32: module.add_function("llvm.ceil.f32", ret_f32_take_f32, None),
             ceil_f64: module.add_function("llvm.ceil.f64", ret_f64_take_f64, None),
@@ -287,9 +365,53 @@ impl Intrinsics {
 
             fabs_f32: module.add_function("llvm.fabs.f32", ret_f32_take_f32, None),
             fabs_f64: module.add_function("llvm.fabs.f64", ret_f64_take_f64, None),
+            fabs_f32x4: module.add_function("llvm.fabs.v4f32", ret_f32x4_take_f32x4, None),
+            fabs_f64x2: module.add_function("llvm.fabs.v2f64", ret_f64x2_take_f64x2, None),
 
             copysign_f32: module.add_function("llvm.copysign.f32", ret_f32_take_f32_f32, None),
             copysign_f64: module.add_function("llvm.copysign.f64", ret_f64_take_f64_f64, None),
+
+            sadd_sat_i8x16: module.add_function(
+                "llvm.sadd.sat.v16i8",
+                ret_i8x16_take_i8x16_i8x16,
+                None,
+            ),
+            sadd_sat_i16x8: module.add_function(
+                "llvm.sadd.sat.v8i16",
+                ret_i16x8_take_i16x8_i16x8,
+                None,
+            ),
+            uadd_sat_i8x16: module.add_function(
+                "llvm.uadd.sat.v16i8",
+                ret_i8x16_take_i8x16_i8x16,
+                None,
+            ),
+            uadd_sat_i16x8: module.add_function(
+                "llvm.uadd.sat.v8i16",
+                ret_i16x8_take_i16x8_i16x8,
+                None,
+            ),
+
+            ssub_sat_i8x16: module.add_function(
+                "llvm.ssub.sat.v16i8",
+                ret_i8x16_take_i8x16_i8x16,
+                None,
+            ),
+            ssub_sat_i16x8: module.add_function(
+                "llvm.ssub.sat.v8i16",
+                ret_i16x8_take_i16x8_i16x8,
+                None,
+            ),
+            usub_sat_i8x16: module.add_function(
+                "llvm.usub.sat.v16i8",
+                ret_i8x16_take_i8x16_i8x16,
+                None,
+            ),
+            usub_sat_i16x8: module.add_function(
+                "llvm.usub.sat.v8i16",
+                ret_i16x8_take_i16x8_i16x8,
+                None,
+            ),
 
             expect_i1: module.add_function("llvm.expect.i1", ret_i1_take_i1_i1, None),
             trap: module.add_function("llvm.trap", void_ty.fn_type(&[], false), None),
@@ -300,21 +422,33 @@ impl Intrinsics {
             i16_ty,
             i32_ty,
             i64_ty,
+            i128_ty,
             f32_ty,
             f64_ty,
+
+            i1x128_ty,
+            i8x16_ty,
+            i16x8_ty,
+            i32x4_ty,
+            i64x2_ty,
+            f32x4_ty,
+            f64x2_ty,
 
             i8_ptr_ty,
             i16_ptr_ty,
             i32_ptr_ty,
             i64_ptr_ty,
+            i128_ptr_ty,
             f32_ptr_ty,
             f64_ptr_ty,
 
             anyfunc_ty,
 
             i1_zero,
+            i8_zero,
             i32_zero,
             i64_zero,
+            i128_zero,
             f32_zero,
             f64_zero,
 
@@ -389,6 +523,11 @@ impl Intrinsics {
             throw_trap: module.add_function(
                 "vm.exception.trap",
                 void_ty.fn_type(&[i32_ty_basic], false),
+                None,
+            ),
+            throw_breakpoint: module.add_function(
+                "vm.breakpoint",
+                void_ty.fn_type(&[i64_ty_basic], false),
                 None,
             ),
             ctx_ptr_ty,
@@ -807,5 +946,32 @@ impl<'a> CtxType<'a> {
         });
 
         (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr)
+    }
+
+    pub fn internal_field(
+        &mut self,
+        index: usize,
+        intrinsics: &Intrinsics,
+        builder: &Builder,
+    ) -> PointerValue {
+        assert!(index < INTERNALS_SIZE);
+
+        let local_internals_ptr_ptr = unsafe {
+            builder.build_struct_gep(
+                self.ctx_ptr_value,
+                offset_to_index(Ctx::offset_internals()),
+                "local_internals_ptr_ptr",
+            )
+        };
+        let local_internals_ptr = builder
+            .build_load(local_internals_ptr_ptr, "local_internals_ptr")
+            .into_pointer_value();
+        unsafe {
+            builder.build_in_bounds_gep(
+                local_internals_ptr,
+                &[intrinsics.i32_ty.const_int(index as u64, false)],
+                "local_internal_field_ptr",
+            )
+        }
     }
 }

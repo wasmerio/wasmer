@@ -75,4 +75,9 @@ impl<T: Copy + ValueType> WasmPtr<T, ptr::Array> {
     ) -> Result<&'a [Cell<T>], __wasi_errno_t> {
         self.0.deref(memory, index, length).ok_or(__WASI_EFAULT)
     }
+
+    #[inline(always)]
+    pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+        self.0.get_utf8_string(memory, str_len)
+    }
 }

@@ -6,26 +6,63 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
-## 0.5.6
+Special thanks to @YaronWittenstein @penberg for their contributions.
+
+- [#643](https://github.com/wasmerio/wasmer/issues/643) Implement `wasi::path_symlink` and improve WASI FS public api IO error reporting
+- [#608](https://github.com/wasmerio/wasmer/issues/608) Implement wasi syscalls `fd_allocate`, `fd_sync`, `fd_pread`, `path_link`, `path_filestat_set_times`; update WASI fs API in a WIP way; reduce coupling of WASI code to host filesystem; make debug messages from WASI more readable; improve rights-checking when calling syscalls; implement reference counting on inodes; misc bug fixes and improvements
+- [#616](https://github.com/wasmerio/wasmer/issues/616) Create the import object separately from instance instantiation in `runtime-c-api`
+- [#620](https://github.com/wasmerio/wasmer/issues/620) Replace one `throw()` with `noexcept` in llvm backend
+- [#618](https://github.com/wasmerio/wasmer/issues/618) Implement `InternalEvent::Breakpoint` in the llvm backend to allow metering in llvm
+- [#615](https://github.com/wasmerio/wasmer/issues/615) Eliminate `FunctionEnvironment` construction in `feed_event()` speeding up to 70% of compilation in clif
+- [#609](https://github.com/wasmerio/wasmer/issues/609) Update dependencies
+- [#602](https://github.com/wasmerio/wasmer/issues/602) C api extract instance context from instance
+- [#590](https://github.com/wasmerio/wasmer/issues/590) Error visibility changes in wasmer-c-api
+- [#589](https://github.com/wasmerio/wasmer/issues/589) Make `wasmer_byte_array` fields `public` in wasmer-c-api
+
+## 0.6.0 - 2019-07-31
+- [#603](https://github.com/wasmerio/wasmer/pull/603) Update Wapm-cli, bump version numbers
+- [#595](https://github.com/wasmerio/wasmer/pull/595) Add unstable public API for interfacing with the WASI file system in plugin-like usecases
+- [#598](https://github.com/wasmerio/wasmer/pull/598) LLVM Backend is now supported in Windows
+- [#599](https://github.com/wasmerio/wasmer/pull/599) Fix llvm backend failures in fat spec tests and simd_binaryen spec test.
+- [#579](https://github.com/wasmerio/wasmer/pull/579) Fix bug in caching with LLVM and Singlepass backends.
+  Add `default-backend-singlepass`, `default-backend-llvm`, and `default-backend-cranelift` features to `wasmer-runtime`
+  to control the `default_compiler()` function (this is a breaking change).  Add `compiler_for_backend` function in `wasmer-runtime`
+- [#561](https://github.com/wasmerio/wasmer/pull/561) Call the `data_finalizer` field on the `Ctx`
+- [#576](https://github.com/wasmerio/wasmer/pull/576) fix `Drop` of uninit `Ctx`
+- [#542](https://github.com/wasmerio/wasmer/pull/542) Add SIMD support to Wasmer (LLVM backend only)
+  - Updates LLVM to version 8.0
+
+## 0.5.7 - 2019-07-23
+- [#575](https://github.com/wasmerio/wasmer/pull/575) Prepare for release; update wapm to 0.3.6
+- [#555](https://github.com/wasmerio/wasmer/pull/555) WASI filesystem rewrite.  Major improvements
+  - adds virtual root showing all preopened directories
+  - improved sandboxing and code-reuse
+  - symlinks work in a lot more situations
+  - many misc. improvements to most syscalls touching the filesystem
+
+## 0.5.6 - 2019-07-16
 - [#565](https://github.com/wasmerio/wasmer/pull/565) Update wapm and bump version to 0.5.6
 - [#563](https://github.com/wasmerio/wasmer/pull/563) Improve wasi testing infrastructure
   - fixes arg parsing from comments & fixes the mapdir test to have the native code doing the same thing as the WASI code
   - makes wasitests-generate output stdout/stderr by default & adds function to print stdout and stderr for a command if it fails
   - compiles wasm with size optimizations & strips generated wasm with wasm-strip
 - [#554](https://github.com/wasmerio/wasmer/pull/554) Finish implementation of `wasi::fd_seek`, fix bug in filestat
+- [#550](https://github.com/wasmerio/wasmer/pull/550) Fix singlepass compilation error with `imul` instruction
 
-## 0.5.5
+
+## 0.5.5 - 2019-07-10
 - [#541](https://github.com/wasmerio/wasmer/pull/541) Fix dependency graph by making separate test crates; ABI implementations should not depend on compilers. Add Cranelift fork as git submodule of clif-backend
 - [#537](https://github.com/wasmerio/wasmer/pull/537) Add hidden flag (`--cache-key`) to use prehashed key into the compiled wasm cache and change compiler backend-specific caching to use directories
 - [#536](https://github.com/wasmerio/wasmer/pull/536) ~Update cache to use compiler backend name in cache key~
 
-## 0.5.4
+## 0.5.4 - 2019-07-06
 - [#529](https://github.com/wasmerio/wasmer/pull/529) Updates the Wasm Interface library, which is used by wapm, with bug fixes and error message improvements
 
-## 0.5.3
+## 0.5.3 - 2019-07-03
 - [#523](https://github.com/wasmerio/wasmer/pull/523) Update wapm version to fix bug related to signed packages in the global namespace and locally-stored public keys
 
 ## 0.5.2 - 2019-07-02
+- [#516](https://github.com/wasmerio/wasmer/pull/516) Add workaround for singlepass miscompilation on GetLocal
 - [#521](https://github.com/wasmerio/wasmer/pull/521) Update Wapm-cli, bump version numbers
 - [#518](https://github.com/wasmerio/wasmer/pull/518) Update Cranelift and WasmParser
 - [#514](https://github.com/wasmerio/wasmer/pull/514) [#519](https://github.com/wasmerio/wasmer/pull/519) Improved Emscripten network related calls, added a null check to `WasmPtr`

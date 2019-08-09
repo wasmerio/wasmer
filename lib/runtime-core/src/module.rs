@@ -14,8 +14,8 @@ use crate::{
 };
 
 use crate::backend::CacheGen;
-use hashbrown::HashMap;
 use indexmap::IndexMap;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// This is used to instantiate a new WebAssembly module.
@@ -40,7 +40,7 @@ pub struct ModuleInfo {
     pub imported_tables: Map<ImportedTableIndex, (ImportName, TableDescriptor)>,
     pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDescriptor)>,
 
-    pub exports: HashMap<String, ExportIndex>,
+    pub exports: IndexMap<String, ExportIndex>,
 
     pub data_initializers: Vec<DataInitializer>,
     pub elem_initializers: Vec<TableInitializer>,

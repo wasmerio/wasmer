@@ -88,7 +88,7 @@ impl FuncResolverBuilder {
     }
 
     pub fn new(
-        isa: &isa::TargetIsa,
+        isa: &dyn isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
         info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {

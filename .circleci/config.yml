@@ -1,14 +1,14 @@
 run_with_build_env_vars: &run_with_build_env_vars
   environment:
-    LLVM_SYS_70_PREFIX: /home/circleci/project/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/
+    LLVM_SYS_80_PREFIX: /home/circleci/project/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04/
 
 run_install_dependencies: &run_install_dependencies
   run:
     name: install dependencies
     command: |
       sudo apt-get install -y cmake
-      curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      curl -O https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      tar xf clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
 
 version: 2
 jobs:
@@ -76,9 +76,6 @@ jobs:
             make llvm
             make test-rest
       - run:
-          name: Release
-          command: make release-fast
-      - run:
           name: Integration Tests
           command: make integration-tests
       - save_cache:
@@ -115,9 +112,9 @@ jobs:
           name: Check
           command: |
             make check
-      - run:
-          name: Release
-          command: make release-fast
+            make compile-bench-singlepass
+            make compile-bench-llvm
+            # TODO: add compile-bench-clif when it works
       - run:
           name: Integration Tests
           command: make integration-tests
@@ -128,6 +125,26 @@ jobs:
             - target/release/build
             - target/release/deps
           key: v8-test-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
+
+  test-rust-example:
+    docker:
+      - image: circleci/rust:latest
+    <<: *run_with_build_env_vars
+    steps:
+      - checkout
+      - run:
+          name: "Check Wasmer Rust example"
+          command: |
+            git clone https://github.com/wasmerio/wasmer-rust-example
+            rustup default stable
+            rustup target add wasm32-unknown-unknown
+            cd wasmer-rust-example
+            cd wasm-sample-app
+            cargo build --release
+            cd ..
+            sed -i 's/wasmer-runtime.*/wasmer-runtime = \{ path  = "..\/lib\/runtime" \}/g' Cargo.toml
+            cargo run
+            cargo test
 
   test-macos:
     macos:
@@ -149,8 +166,8 @@ jobs:
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             # Installing LLVM outside of brew
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            curl -O https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz
+            tar xf clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz
       - run:
           name: Install Rust
           command: |
@@ -162,7 +179,7 @@ jobs:
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
@@ -171,18 +188,14 @@ jobs:
           name: Check
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             make check
-      - run:
-          name: Release
-          command: |
-            export PATH="$HOME/.cargo/bin:$PATH"
-            make release-fast
       - run:
           name: Integration Tests
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             make integration-tests
       - save_cache:
           paths:
@@ -213,27 +226,27 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            curl -O https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            tar xf clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       - run: rustup default nightly-2019-06-10
       - run:
           name: Tests
           command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make test
       - run:
           name: Release Build
           command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make release
-            cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
+            cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # GIT_VERSION=$(git describe --exact-match --tags)
             echo "${VERSION}" >> artifacts/version
             echo "${CIRCLE_TAG}" >> artifacts/git_version
             make build-install
-            cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
+            cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
       - run:
           name: Dynamic library
           command: |
@@ -275,8 +288,8 @@ jobs:
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             # Installing LLVM outside of brew
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            curl -O https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz
+            tar xf clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz
       - run:
           name: Install Rust
           command: |
@@ -288,7 +301,7 @@ jobs:
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
@@ -299,12 +312,12 @@ jobs:
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export LLVM_SYS_80_PREFIX="`pwd`/clang+llvm-8.0.0-x86_64-apple-darwin/"
             make release
-            cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry
+            cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
             mkdir -p artifacts
             make build-install
-            cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
+            cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
             # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # echo "${VERSION}" >> artifacts/version
       - run:
@@ -344,6 +357,8 @@ jobs:
             VERSION=$(cat ./artifacts/version)
             # VERSION_TAG=${CIRCLE_TAG}
             VERSION_TAG=$(cat ./artifacts/git_version)
+            LATEST_VERSION_PUBLISHED_ON_CRATES=$(curl -s https://raw.githubusercontent.com/rust-lang/crates.io-index/master/wa/sm/wasmer-runtime | tail -n 1 | sed 's/.*"vers":"\([^"]*\)".*/\1/')
+            if ( [ $VERSION_TAG -ne $LATEST_VERSION_PUBLISHED_ON_CRATES ] ) then { echo "Could not detect version published to crates.io; make sure we've published the crates before publishing the Wasmer binary"; exit 1; } else { true; } fi
             rm ./artifacts/version
             rm ./artifacts/git_version
             # VERSION_TAG=$(git describe --exact-match --tags)
@@ -377,6 +392,12 @@ workflows:
       - changelog
       - lint
       - test:
+          filters:
+            branches:
+              only:
+                - trying
+                - staging
+      - test-rust-example:
           filters:
             branches:
               only:

@@ -34,11 +34,19 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 }
 
 pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
+    assert!(
+        module.info().imported_tables.len() > 0,
+        "Emscripten requires at least one imported table"
+    );
     let (_, table) = &module.info().imported_tables[ImportedTableIndex::new(0)];
     (table.minimum, table.maximum)
 }
 
 pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>, bool) {
+    assert!(
+        module.info().imported_tables.len() > 0,
+        "Emscripten requires at least one imported memory"
+    );
     let (_, memory) = &module.info().imported_memories[ImportedMemoryIndex::new(0)];
     (memory.minimum, memory.maximum, memory.shared)
 }

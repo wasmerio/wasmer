@@ -1,3 +1,6 @@
+// Args:
+// dir: .
+
 use std::fs;
 use std::io::Read;
 

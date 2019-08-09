@@ -1,4 +1,10 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
+#![deny(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
 #[cfg(test)]
@@ -117,8 +123,26 @@ pub fn validate(wasm: &[u8]) -> bool {
 
 /// The same as `validate` but with an Error message on failure
 pub fn validate_and_report_errors(wasm: &[u8]) -> ::std::result::Result<(), String> {
+    validate_and_report_errors_with_features(wasm, Default::default())
+}
+
+/// The same as `validate_and_report_errors` but with a Features.
+pub fn validate_and_report_errors_with_features(
+    wasm: &[u8],
+    features: backend::Features,
+) -> ::std::result::Result<(), String> {
     use wasmparser::WasmDecoder;
-    let mut parser = wasmparser::ValidatingParser::new(wasm, None);
+    let config = wasmparser::ValidatingParserConfig {
+        operator_config: wasmparser::OperatorValidatorConfig {
+            enable_simd: features.simd,
+            enable_bulk_memory: false,
+            enable_multi_value: false,
+            enable_reference_types: false,
+            enable_threads: false,
+        },
+        mutable_global_imports: true,
+    };
+    let mut parser = wasmparser::ValidatingParser::new(wasm, Some(config));
     loop {
         let state = parser.read();
         match *state {

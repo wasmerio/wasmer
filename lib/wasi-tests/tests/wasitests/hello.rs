@@ -5,6 +5,7 @@ fn test_hello() {
         "hello",
         vec![],
         vec![],
+        vec![],
         "../../wasitests/hello.out"
     );
 }
