@@ -10,6 +10,8 @@ use libc::c_char;
 use std::{
     any::Any,
     ffi::{c_void, CString},
+    fs::File,
+    io::Write,
     mem,
     ops::Deref,
     ptr::{self, NonNull},
@@ -176,6 +178,14 @@ impl LLVMBackend {
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
         let mem_buf_slice = memory_buffer.as_slice();
+
+        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.obj_file } {
+            let mut file = File::create(path).unwrap();
+            let mut pos = 0;
+            while pos < mem_buf_slice.len() {
+                pos += file.write(&mem_buf_slice[pos..]).unwrap();
+            }
+        }
 
         let callbacks = get_callbacks();
         let mut module: *mut LLVMModule = ptr::null_mut();

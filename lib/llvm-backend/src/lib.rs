@@ -16,6 +16,8 @@ mod state;
 mod structs;
 mod trampolines;
 
+use std::path::PathBuf;
+
 pub use code::LLVMFunctionCodeGenerator as FunctionCodeGenerator;
 pub use code::LLVMModuleCodeGenerator as ModuleCodeGenerator;
 
@@ -27,3 +29,22 @@ pub type LLVMCompiler = SimpleStreamingCompilerGen<
     backend::LLVMBackend,
     code::CodegenError,
 >;
+
+#[derive(Debug, Clone)]
+/// LLVM backend flags.
+pub struct LLVMOptions {
+    /// Emit LLVM IR before optimization pipeline.
+    pub pre_opt_ir: Option<PathBuf>,
+
+    /// Emit LLVM IR after optimization pipeline.
+    pub post_opt_ir: Option<PathBuf>,
+
+    /// Emit LLVM generated native code object file.
+    pub obj_file: Option<PathBuf>,
+}
+
+pub static mut GLOBAL_OPTIONS: LLVMOptions = LLVMOptions {
+    pre_opt_ir: None,
+    post_opt_ir: None,
+    obj_file: None,
+};

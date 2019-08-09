@@ -66,7 +66,7 @@ impl Trampolines {
         }
     }
 
-    pub fn new(isa: &isa::TargetIsa, module: &ModuleInfo) -> Self {
+    pub fn new(isa: &dyn isa::TargetIsa, module: &ModuleInfo) -> Self {
         let func_index_iter = module
             .exports
             .values()

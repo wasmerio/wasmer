@@ -21,7 +21,7 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
-use wasmer_llvm_backend::LLVMCompiler;
+use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
     Func, Value, VERSION,
@@ -86,6 +86,23 @@ struct PrestandardFeatures {
     /// Enable support for all pre-standard proposals.
     #[structopt(long = "enable-all")]
     all: bool,
+}
+
+#[cfg(feature = "backend-llvm")]
+#[derive(Debug, StructOpt, Clone)]
+/// LLVM backend flags.
+pub struct LLVMCLIOptions {
+    /// Emit LLVM IR before optimization pipeline.
+    #[structopt(long = "llvm-pre-opt-ir", parse(from_os_str))]
+    pre_opt_ir: Option<PathBuf>,
+
+    /// Emit LLVM IR after optimization pipeline.
+    #[structopt(long = "llvm-post-opt-ir", parse(from_os_str))]
+    post_opt_ir: Option<PathBuf>,
+
+    /// Emit LLVM generated native code object file.
+    #[structopt(long = "backend-llvm-object-file", parse(from_os_str))]
+    obj_file: Option<PathBuf>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -154,6 +171,10 @@ struct Run {
     /// as if no `cache-key` argument was passed.
     #[structopt(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
+
+    #[cfg(feature = "backend-llvm")]
+    #[structopt(flatten)]
+    backend_llvm_options: LLVMCLIOptions,
 
     #[structopt(flatten)]
     features: PrestandardFeatures,
@@ -356,6 +377,20 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
+    #[cfg(feature = "backend-llvm")]
+    {
+        if options.backend == Backend::LLVM {
+            let options = options.backend_llvm_options.clone();
+            unsafe {
+                wasmer_llvm_backend::GLOBAL_OPTIONS = LLVMOptions {
+                    pre_opt_ir: options.pre_opt_ir,
+                    post_opt_ir: options.post_opt_ir,
+                    obj_file: options.obj_file,
+                }
+            }
+        }
+    }
+
     let compiler: Box<dyn Compiler> = match options.backend {
         #[cfg(feature = "backend-singlepass")]
         Backend::Singlepass => Box::new(SinglePassCompiler::new()),
@@ -488,7 +523,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let index = instance
             .resolve_func("_start")
             .expect("The loader requires a _start function to be present in the module");
-        let mut ins: Box<LoadedInstance<Error = String>> = match loader {
+        let mut ins: Box<dyn LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(
                 instance
                     .load(LocalLoader)
