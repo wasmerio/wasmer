@@ -134,7 +134,6 @@ impl LocalBacking {
             .info
             .data_initializers
             .iter()
-            .filter(|init| init.data.len() > 0)
         {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
