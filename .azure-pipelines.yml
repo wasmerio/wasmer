@@ -1,0 +1,79 @@
+name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
+
+# The Different jobs (lint, test, build to run)
+jobs:
+- job: lint
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - checkout: self
+    submodules: true
+  - template: .azure/install-rust.yml
+  - displayName: Lint dependencies
+    script: |
+      rustup component add rustfmt
+      rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+  - displayName: Lint
+    script: cargo fmt --all -- --check
+
+  variables:
+    rust_toolchain: stable
+
+- job: Test
+  strategy:
+    matrix:
+      linux:
+        imageName: 'ubuntu-16.04'
+      mac:
+        imageName: 'macos-10.14'
+      windows:
+        imageName: 'vs2017-win2016'
+
+  variables:
+    rust_toolchain: nightly-2019-06-10
+
+  pool:
+    vmImage: $(imageName)
+
+  steps:
+    - checkout: self
+      submodules: true
+    - template: .azure/install-rust.yml
+    - displayName: Check with Flags
+      bash: make check
+    - displayName: Tests
+      bash: make test
+    - displayName: Integration Tests
+      bash: make integration-tests
+
+# - job: Build
+#   strategy:
+#     matrix:
+#       linux:
+#         imageName: 'ubuntu-16.04'
+#       mac:
+#         imageName: 'macos-10.14'
+#         MACOSX_DEPLOYMENT_TARGET: 10.10
+#       windows:
+#         imageName: 'vs2017-win2016'
+#         RUSTFLAGS: -Ctarget-feature=+crt-static
+
+#   variables:
+#     rust_toolchain: nightly-2019-06-10
+
+#   pool:
+#     vmImage: $(imageName)
+
+#   steps:
+#     - checkout: self
+#       submodules: true
+#     - template: .azure/install-rust.yml
+#     - displayName: Tests
+#       bash: make test
+
+
+trigger:
+  branches:
+    include:
+    - '*'
+

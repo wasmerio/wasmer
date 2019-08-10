@@ -112,9 +112,6 @@ jobs:
           name: Check
           command: |
             make check
-            make compile-bench-singlepass
-            make compile-bench-llvm
-            # TODO: add compile-bench-clif when it works
       - run:
           name: Integration Tests
           command: make integration-tests
