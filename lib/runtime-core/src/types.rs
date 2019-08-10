@@ -326,7 +326,7 @@ pub struct GlobalInit {
     pub init: Initializer,
 }
 
-/// A wasm memory.
+/// A wasm memory descriptor.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemoryDescriptor {
     /// The minimum number of allowed pages.
@@ -337,17 +337,52 @@ pub struct MemoryDescriptor {
     pub shared: bool,
 }
 
-impl MemoryDescriptor {
-    pub fn memory_type(self) -> MemoryType {
-        match (self.maximum.is_some(), self.shared) {
+/// A wasm memory descriptor for internal usage.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MemoryDescriptorInternal {
+    /// The minimum number of allowed pages.
+    pub minimum: Pages,
+    /// The maximum number of allowed pages.
+    pub maximum: Option<Pages>,
+    /// This memory can be shared between wasm threads.
+    pub shared: bool,
+
+    pub memory_type: MemoryType,
+}
+
+impl From<MemoryDescriptorInternal> for MemoryDescriptor {
+    fn from(internal: MemoryDescriptorInternal) -> Self {
+        Self {
+            minimum: internal.minimum,
+            maximum: internal.maximum,
+            shared: internal.shared,
+        }
+    }
+}
+
+impl MemoryDescriptorInternal {
+    pub fn new(minimum: Pages, maximum: Option<Pages>, shared: bool) -> Result<Self, String> {
+        let memory_type = match (maximum.is_some(), shared) {
             (true, true) => MemoryType::SharedStatic,
             (true, false) => MemoryType::Static,
             (false, false) => MemoryType::Dynamic,
-            (false, true) => panic!("shared memory without a max is not allowed"),
-        }
+            (false, true) => {
+                return Err("Max number of pages is required for shared memory".to_string());
+            }
+        };
+        Ok(MemoryDescriptorInternal {
+            minimum,
+            maximum,
+            shared,
+            memory_type,
+        })
     }
 
-    pub(crate) fn fits_in_imported(&self, imported: MemoryDescriptor) -> bool {
+    pub fn memory_type(self) -> MemoryType {
+        self.memory_type
+    }
+
+    pub(crate) fn fits_in_imported(&self, imported: MemoryDescriptorInternal) -> bool {
         let imported_max = imported.maximum.unwrap_or(Pages(65_536));
         let self_max = self.maximum.unwrap_or(Pages(65_536));
 

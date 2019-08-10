@@ -7,7 +7,7 @@ use crate::{
     types::{
         FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
         ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
-        LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor, MemoryIndex,
+        LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptorInternal, MemoryIndex,
         SigIndex, TableDescriptor, TableIndex,
     },
     Instance,
@@ -30,13 +30,13 @@ pub struct ModuleInner {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleInfo {
     // This are strictly local and the typsystem ensures that.
-    pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,
+    pub memories: Map<LocalMemoryIndex, MemoryDescriptorInternal>,
     pub globals: Map<LocalGlobalIndex, GlobalInit>,
     pub tables: Map<LocalTableIndex, TableDescriptor>,
 
     // These are strictly imported and the typesystem ensures that.
     pub imported_functions: Map<ImportedFuncIndex, ImportName>,
-    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, MemoryDescriptor)>,
+    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, MemoryDescriptorInternal)>,
     pub imported_tables: Map<ImportedTableIndex, (ImportName, TableDescriptor)>,
     pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDescriptor)>,
 

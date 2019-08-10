@@ -115,7 +115,7 @@ impl LocalBacking {
     fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, Memory> {
         let mut memories = Map::with_capacity(module.info.memories.len());
         for (_, &desc) in &module.info.memories {
-            memories.push(Memory::new(desc).expect("unable to create memory"));
+            memories.push(Memory::new(desc.into()).expect("unable to create memory"));
         }
 
         memories.into_boxed_map()
@@ -538,14 +538,14 @@ fn import_memories(
             .and_then(|namespace| namespace.get_export(&name));
         match memory_import {
             Some(Export::Memory(memory)) => {
-                if expected_memory_desc.fits_in_imported(memory.descriptor()) {
+                if expected_memory_desc.fits_in_imported(memory.desc) {
                     memories.push(memory.clone());
                     vm_memories.push(memory.vm_local_memory());
                 } else {
                     link_errors.push(LinkError::IncorrectMemoryDescriptor {
                         namespace: namespace.to_string(),
                         name: name.to_string(),
-                        expected: *expected_memory_desc,
+                        expected: (*expected_memory_desc).into(),
                         found: memory.descriptor(),
                     });
                 }

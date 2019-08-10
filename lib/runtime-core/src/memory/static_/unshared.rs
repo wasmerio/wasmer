@@ -3,7 +3,7 @@ use crate::{
     error::CreationError,
     memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
     sys,
-    types::MemoryDescriptor,
+    types::MemoryDescriptorInternal,
     units::Pages,
     vm,
 };
@@ -27,7 +27,7 @@ pub struct StaticMemory {
 
 impl StaticMemory {
     pub(in crate::memory) fn new(
-        desc: MemoryDescriptor,
+        desc: MemoryDescriptorInternal,
         local: &mut vm::LocalMemory,
     ) -> Result<Box<Self>, CreationError> {
         let memory = {

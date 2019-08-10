@@ -18,6 +18,7 @@ pub use self::atomic::Atomic;
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
 pub use self::view::{Atomically, MemoryView};
+use crate::types::MemoryDescriptorInternal;
 
 mod atomic;
 mod dynamic;
@@ -36,7 +37,7 @@ enum MemoryVariant {
 /// A `Memory` represents the memory used by a wasm instance.
 #[derive(Clone)]
 pub struct Memory {
-    desc: MemoryDescriptor,
+    pub(crate) desc: MemoryDescriptorInternal,
     variant: MemoryVariant,
 }
 
@@ -73,13 +74,20 @@ impl Memory {
             }
         }
 
+        let internal_descriptor =
+            MemoryDescriptorInternal::new(desc.minimum, desc.maximum, desc.shared)
+                .map_err(|e| CreationError::InvalidDescriptor(format!("{}", e)))?;
+
         let variant = if !desc.shared {
-            MemoryVariant::Unshared(UnsharedMemory::new(desc)?)
+            MemoryVariant::Unshared(UnsharedMemory::new(internal_descriptor)?)
         } else {
-            MemoryVariant::Shared(SharedMemory::new(desc)?)
+            MemoryVariant::Shared(SharedMemory::new(internal_descriptor)?)
         };
 
-        Ok(Memory { desc, variant })
+        Ok(Memory {
+            desc: internal_descriptor,
+            variant,
+        })
     }
 
     /// Return the [`MemoryDescriptor`] that this memory
@@ -87,7 +95,11 @@ impl Memory {
     ///
     /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
     pub fn descriptor(&self) -> MemoryDescriptor {
-        self.desc
+        MemoryDescriptor {
+            minimum: self.desc.minimum,
+            maximum: self.desc.maximum,
+            shared: self.desc.shared,
+        }
     }
 
     /// Grow this memory by the specified number of pages.
@@ -180,7 +192,7 @@ impl fmt::Debug for Memory {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryType {
     Dynamic,
     Static,
@@ -220,7 +232,7 @@ struct UnsharedMemoryInternal {
 }
 
 impl UnsharedMemory {
-    pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+    pub fn new(desc: MemoryDescriptorInternal) -> Result<Self, CreationError> {
         let mut local = vm::LocalMemory {
             base: std::ptr::null_mut(),
             bound: 0,
@@ -286,11 +298,11 @@ impl Clone for UnsharedMemory {
 
 pub struct SharedMemory {
     #[allow(dead_code)]
-    desc: MemoryDescriptor,
+    desc: MemoryDescriptorInternal,
 }
 
 impl SharedMemory {
-    fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+    fn new(desc: MemoryDescriptorInternal) -> Result<Self, CreationError> {
         Ok(Self { desc })
     }
 
@@ -312,11 +324,11 @@ impl Clone for SharedMemory {
 #[cfg(test)]
 mod memory_tests {
 
-    use super::{Memory, MemoryDescriptor, Pages};
+    use super::{Memory, MemoryDescriptorInternal, Pages};
 
     #[test]
     fn test_initial_memory_size() {
-        let unshared_memory = Memory::new(MemoryDescriptor {
+        let unshared_memory = Memory::new(MemoryDescriptorInternal {
             minimum: Pages(10),
             maximum: Some(Pages(20)),
             shared: false,

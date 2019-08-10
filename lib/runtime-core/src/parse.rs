@@ -9,8 +9,8 @@ use crate::{
     structures::{Map, TypedIndex},
     types::{
         ElementType, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
-        ImportedGlobalIndex, Initializer, MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor,
-        TableIndex, Type, Value,
+        ImportedGlobalIndex, Initializer, MemoryDescriptorInternal, MemoryIndex, SigIndex,
+        TableDescriptor, TableIndex, Type, Value,
     },
     units::Pages,
 };
@@ -135,11 +135,12 @@ pub fn read_module<
                             .push((import_name, table_desc));
                     }
                     ImportSectionEntryType::Memory(memory_ty) => {
-                        let mem_desc = MemoryDescriptor {
-                            minimum: Pages(memory_ty.limits.initial),
-                            maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
-                            shared: memory_ty.shared,
-                        };
+                        let mem_desc = MemoryDescriptorInternal::new(
+                            Pages(memory_ty.limits.initial),
+                            memory_ty.limits.maximum.map(|max| Pages(max)),
+                            memory_ty.shared,
+                        )
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                         info.write()
                             .unwrap()
                             .imported_memories
@@ -171,11 +172,12 @@ pub fn read_module<
                 info.write().unwrap().tables.push(table_desc);
             }
             ParserState::MemorySectionEntry(memory_ty) => {
-                let mem_desc = MemoryDescriptor {
-                    minimum: Pages(memory_ty.limits.initial),
-                    maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
-                    shared: memory_ty.shared,
-                };
+                let mem_desc = MemoryDescriptorInternal::new(
+                    Pages(memory_ty.limits.initial),
+                    memory_ty.limits.maximum.map(|max| Pages(max)),
+                    memory_ty.shared,
+                )
+                .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
 
                 info.write().unwrap().memories.push(mem_desc);
             }
