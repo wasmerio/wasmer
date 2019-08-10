@@ -159,14 +159,12 @@ impl LocalBacking {
                 LocalOrImport::Import(imported_memory_index) => {
                     // Write the initialization data to the memory that
                     // we think the imported memory is.
-                    unsafe {
-                        let local_memory = &*imports.vm_memories[imported_memory_index];
-                        let data_top = init_base + init.data.len();
-                        if local_memory.bound < data_top || data_top < init_base {
-                            return Err(vec![LinkError::Generic {
-                                message: "data segment does not fit".to_string(),
-                            }]);
-                        }
+                    let local_memory = unsafe { &*imports.vm_memories[imported_memory_index] };
+                    let data_top = init_base + init.data.len();
+                    if local_memory.bound < data_top || data_top < init_base {
+                        return Err(vec![LinkError::Generic {
+                            message: "data segment does not fit".to_string(),
+                        }]);
                     }
                 }
             }
@@ -199,15 +197,13 @@ impl LocalBacking {
                 LocalOrImport::Import(imported_memory_index) => {
                     // Write the initialization data to the memory that
                     // we think the imported memory is.
-                    unsafe {
+                    let memory_slice = unsafe {
                         let local_memory = &*imports.vm_memories[imported_memory_index];
-                        let memory_slice =
-                            slice::from_raw_parts_mut(local_memory.base, local_memory.bound);
+                        slice::from_raw_parts_mut(local_memory.base, local_memory.bound)
+                    };
 
-                        let mem_init_view =
-                            &mut memory_slice[init_base..init_base + init.data.len()];
-                        mem_init_view.copy_from_slice(&init.data);
-                    }
+                    let mem_init_view = &mut memory_slice[init_base..init_base + init.data.len()];
+                    mem_init_view.copy_from_slice(&init.data);
                 }
             }
         }
