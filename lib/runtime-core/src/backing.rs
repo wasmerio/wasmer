@@ -65,7 +65,7 @@ impl LocalBacking {
         let mut globals = Self::generate_globals(module, imports);
 
         let vm_memories = Self::finalize_memories(module, imports, &mut memories)?;
-        let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx);
+        let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx)?;
         let vm_globals = Self::finalize_globals(&mut globals);
 
         let dynamic_sigindices = Self::generate_sigindices(&module.info);
@@ -218,7 +218,7 @@ impl LocalBacking {
         imports: &ImportBacking,
         tables: &mut SliceMap<LocalTableIndex, Table>,
         vmctx: *mut vm::Ctx,
-    ) -> BoxedMap<LocalTableIndex, *mut vm::LocalTable> {
+    ) -> LinkResult<BoxedMap<LocalTableIndex, *mut vm::LocalTable>> {
         for init in &module.info.elem_initializers {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
@@ -237,9 +237,9 @@ impl LocalBacking {
                     let table = &tables[local_table_index];
 
                     if (table.size() as usize) < init_base + init.elements.len() {
-                        let delta = (init_base + init.elements.len()) - table.size() as usize;
-                        // Grow the table if it's too small.
-                        table.grow(delta as u32).expect("couldn't grow table");
+                        return Err(vec![LinkError::Generic {
+                            message: "elements segment does not fit".to_string(),
+                        }]);
                     }
 
                     table.anyfunc_direct_access_mut(|elements| {
@@ -276,9 +276,9 @@ impl LocalBacking {
                     let table = &imports.tables[import_table_index];
 
                     if (table.size() as usize) < init_base + init.elements.len() {
-                        let delta = (init_base + init.elements.len()) - table.size() as usize;
-                        // Grow the table if it's too small.
-                        table.grow(delta as u32).expect("couldn't grow table");
+                        return Err(vec![LinkError::Generic {
+                            message: "elements segment does not fit".to_string(),
+                        }]);
                     }
 
                     table.anyfunc_direct_access_mut(|elements| {
@@ -314,11 +314,11 @@ impl LocalBacking {
             }
         }
 
-        tables
+        Ok(tables
             .iter_mut()
             .map(|(_, table)| table.vm_local_table())
             .collect::<Map<_, _>>()
-            .into_boxed_map()
+            .into_boxed_map())
     }
 
     fn generate_globals(
