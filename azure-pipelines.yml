@@ -49,14 +49,15 @@ jobs:
           $(Build.SourcesDirectory)/Cargo.lock
         path: $(Build.SourcesDirectory)/target
       displayName: Cache Cargo Target
-    - bash: make check
-      displayName: Check with Flags
     - bash: make test
       displayName: Tests (*nix)
       condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
     - bash: make spectests-cranelift
       displayName: Tests (Windows)
       condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+    - bash: make check
+      displayName: Check with Flags
+      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
 
     # - bash: make integration-tests
     #   displayName: Integration Tests
