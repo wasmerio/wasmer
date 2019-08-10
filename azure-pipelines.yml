@@ -9,12 +9,12 @@ jobs:
   - checkout: self
     submodules: true
   - template: .azure/install-rust.yml
-  - displayName: Lint dependencies
-    script: |
+  - script: |
       rustup component add rustfmt
       rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
-  - displayName: Lint
-    script: cargo fmt --all -- --check
+    displayName: Lint dependencies
+  - script: cargo fmt --all -- --check
+    displayName: Lint
 
   variables:
     rust_toolchain: stable
@@ -39,12 +39,12 @@ jobs:
     - checkout: self
       submodules: true
     - template: .azure/install-rust.yml
-    - displayName: Check with Flags
-      bash: make check
-    - displayName: Tests
-      bash: make test
-    - displayName: Integration Tests
-      bash: make integration-tests
+    - bash: make check
+      displayName: Check with Flags
+    - bash: make test
+      displayName: Tests
+    - bash: make integration-tests
+      displayName: Integration Tests
 
 # - job: Build
 #   strategy:
@@ -68,8 +68,8 @@ jobs:
 #     - checkout: self
 #       submodules: true
 #     - template: .azure/install-rust.yml
-#     - displayName: Tests
-#       bash: make test
+#     - bash: make test
+#       displayName: Tests
 
 
 trigger:
