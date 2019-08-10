@@ -130,11 +130,7 @@ impl LocalBacking {
         memories: &mut SliceMap<LocalMemoryIndex, Memory>,
     ) -> LinkResult<BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory>> {
         // For each init that has some data...
-        for init in module
-            .info
-            .data_initializers
-            .iter()
-        {
+        for init in module.info.data_initializers.iter() {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
