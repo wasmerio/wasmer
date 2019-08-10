@@ -24,13 +24,13 @@ jobs:
     matrix:
       linux:
         imageName: 'ubuntu-16.04'
+        rust_toolchain: nightly-2019-06-10
       mac:
         imageName: 'macos-10.14'
+        rust_toolchain: nightly-2019-06-10
       windows:
         imageName: 'vs2017-win2016'
-
-  variables:
-    rust_toolchain: nightly-2019-06-10
+        rust_toolchain: stable
 
   pool:
     vmImage: $(imageName)
@@ -52,7 +52,12 @@ jobs:
     - bash: make check
       displayName: Check with Flags
     - bash: make test
-      displayName: Tests
+      displayName: Tests (*nix)
+      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+    - bash: make spectests-cranelift
+      displayName: Tests (Windows)
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
     # - bash: make integration-tests
     #   displayName: Integration Tests
 
