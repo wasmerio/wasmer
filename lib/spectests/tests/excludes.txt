@@ -39,7 +39,7 @@ clif:fail:linking.wast:354 # AssertReturn - result I32(97) ("0x61") does not mat
 clif:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 clif:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
 
-clif:skip:skip-stack-guard-page.wast:2 # Slow test
+# clif:skip:skip-stack-guard-page.wast:2 # Slow test
 
 # Cranelift Windows
 clif:skip:address.wast:*:windows
