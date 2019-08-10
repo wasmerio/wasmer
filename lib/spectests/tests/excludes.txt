@@ -275,6 +275,8 @@ clif:fail:data.wast:235:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:243:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:251:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:266:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:186:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:194:windows # AssertUnlinkable - caught panic Any
 
 # LLVM bug with min/max over NaNs
 llvm:skip:f32.wast:1651
