@@ -185,7 +185,7 @@ mod tests {
             let test_key = format!("{}:{}:{}", backend, filename, line);
             let test_platform_key = format!("{}:{}:{}:{}", backend, filename, line, platform);
             // Use this line to debug which test is running
-            //println!("Running test: {}", test_key);
+            println!("Running test: {}", test_key);
 
             if (excludes.contains_key(&test_key)
                 && *excludes.get(&test_key).unwrap() == Exclude::Skip)
