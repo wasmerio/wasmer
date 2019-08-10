@@ -53,8 +53,8 @@ jobs:
       displayName: Check with Flags
     - bash: make test
       displayName: Tests
-    - bash: make integration-tests
-      displayName: Integration Tests
+    # - bash: make integration-tests
+    #   displayName: Integration Tests
 
 # - job: Build
 #   strategy:
