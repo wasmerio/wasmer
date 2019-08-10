@@ -22,30 +22,19 @@ clif:skip:names.wast:*         # Names file has parsing error?
 clif:skip:simd.wast:*          # SIMD not implemented
 clif:skip:simd_binaryen.wast:* # SIMD not implemented
 
-clif:fail:elem.wast:366 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
-clif:fail:elem.wast:367 # AssertReturn - result I32(65) ("0x41") does not match expected I32(68) ("0x44")
-clif:fail:elem.wast:379 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
-clif:fail:elem.wast:380 # AssertReturn - result I32(65) ("0x41") does not match expected I32(69) ("0x45")
-clif:fail:elem.wast:381 # AssertReturn - result I32(66) ("0x42") does not match expected I32(70) ("0x46")
 clif:fail:globals.wast:243 # AssertInvalid - Should be invalid
-clif:fail:linking.wast:81 # AssertReturn Get - Expected Global I32(241) got: I32(142)
-clif:fail:linking.wast:83 # AssertReturn - result I32(142) ("0x8e") does not match expected I32(241) ("0xf1")
-clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108b99062 - illegal instruction"
-clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108b99062 - illegal instruction"
-clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108b99062 - illegal instruction"
-clif:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108b99062 - illegal instruction"
-clif:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108b99037 - illegal instruction"
-clif:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108b99037 - illegal instruction"
-clif:fail:linking.wast:172 # AssertReturn - result I32(4) ("0x4") does not match expected I32(-4) ("0xfffffffc")
-clif:fail:linking.wast:173 # AssertReturn - result I32(4) ("0x4") does not match expected I32(-4) ("0xfffffffc")
-clif:fail:linking.wast:175 # AssertReturn - result I32(4) ("0x4") does not match expected I32(-4) ("0xfffffffc")
-clif:fail:linking.wast:178 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
-clif:fail:linking.wast:179 # AssertReturn - Call failed RuntimeError: "unknown trap at 0x108b99062 - illegal instruction"
-clif:fail:linking.wast:181 # AssertReturn - Call failed RuntimeError: "unknown trap at 0x108b99062 - illegal instruction"
-clif:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108b99062 - illegal instruction"
-clif:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108b99062 - illegal instruction"
-clif:fail:linking.wast:288 # AssertReturn - result I32(2) ("0x2") does not match expected I32(167) ("0xa7")
-clif:fail:linking.wast:289 # AssertReturn - result I32(2) ("0x2") does not match expected I32(167) ("0xa7")
+clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
+clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
+clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
+clif:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
+clif:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837037 - illegal instruction"
+clif:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837037 - illegal instruction"
+clif:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
+clif:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
+clif:fail:linking.wast:236 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x10883d000 - segmentation violation"
+clif:fail:linking.wast:248 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x10883d000 - segmentation violation"
+clif:fail:linking.wast:342 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
+clif:fail:linking.wast:354 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
 clif:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 clif:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
 
@@ -839,6 +828,8 @@ llvm:skip:call_indirect.wast:556 # Spec running forever
 llvm:skip:call_indirect.wast:557 # Spec running forever
 llvm:skip:fac.wast:89 # Spec running forever
 llvm:skip:skip-stack-guard-page.wast:* # Spec running forever or (signal: 4, SIGILL: illegal instruction)
+llvm:skip:linking.wast:236 # terminating with uncaught exception of type WasmTrap
+llvm:skip:linking.wast:248 # terminating with uncaught exception of type WasmTrap
 
 llvm:fail:binary-leb128.wast:56 # Module - caught panic Any
 llvm:fail:binary-leb128.wast:65 # Module - caught panic Any
@@ -846,16 +837,11 @@ llvm:fail:binary-leb128.wast:74 # Module - caught panic Any
 llvm:fail:binary-leb128.wast:86 # Module - caught panic Any
 llvm:fail:binary-leb128.wast:98 # Module - caught panic Any
 llvm:fail:binary.wast:446 # Module - caught panic Any
-llvm:fail:elem.wast:366 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:elem.wast:367 # AssertReturn - result I32(65) ("0x41") does not match expected I32(68) ("0x44")
-llvm:fail:elem.wast:379 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:elem.wast:380 # AssertReturn - result I32(65) ("0x41") does not match expected I32(69) ("0x45")
-llvm:fail:elem.wast:381 # AssertReturn - result I32(66) ("0x42") does not match expected I32(70) ("0x46")
 llvm:fail:globals.wast:243 # AssertInvalid - caught panic Any
-llvm:fail:i32.wast:243 # AssertReturn - result I32(278753615) ("0x109d714f") does not match expected I32(32) ("0x20")
-llvm:fail:i32.wast:252 # AssertReturn - result I32(278753632) ("0x109d7160") does not match expected I32(32) ("0x20")
-llvm:fail:i64.wast:243 # AssertReturn - result I64(4573721071) ("0x1109d71ef") does not match expected I64(64) ("0x40")
-llvm:fail:i64.wast:252 # AssertReturn - result I64(4573721056) ("0x1109d71e0") does not match expected I64(64) ("0x40")
+llvm:fail:i32.wast:243 # AssertReturn - result I32(115568975) ("0x6e3714f") does not match expected I32(32) ("0x20")
+llvm:fail:i32.wast:252 # AssertReturn - result I32(115568992) ("0x6e37160") does not match expected I32(32) ("0x20")
+llvm:fail:i64.wast:243 # AssertReturn - result I64(4410536431) ("0x106e371ef") does not match expected I64(64) ("0x40")
+llvm:fail:i64.wast:252 # AssertReturn - result I64(4410536416) ("0x106e371e0") does not match expected I64(64) ("0x40")
 llvm:fail:imports.wast:98 # Module - caught panic Any
 llvm:fail:imports.wast:99 # Module - caught panic Any
 llvm:fail:imports.wast:100 # Module - caught panic Any
@@ -897,16 +883,6 @@ llvm:fail:linking.wast:22 # Module - caught panic Any
 llvm:fail:linking.wast:26 # Register - No instance available
 llvm:fail:linking.wast:28 # AssertUnlinkable - caught panic Any
 llvm:fail:linking.wast:32 # AssertUnlinkable - caught panic Any
-llvm:fail:linking.wast:81 # AssertReturn Get - Expected Global I32(241) got: I32(142)
-llvm:fail:linking.wast:83 # AssertReturn - result I32(142) ("0x8e") does not match expected I32(241) ("0xf1")
-llvm:fail:linking.wast:172 # AssertReturn - result I32(4) ("0x4") does not match expected I32(-4) ("0xfffffffc")
-llvm:fail:linking.wast:173 # AssertReturn - result I32(4) ("0x4") does not match expected I32(-4) ("0xfffffffc")
-llvm:fail:linking.wast:175 # AssertReturn - result I32(4) ("0x4") does not match expected I32(-4) ("0xfffffffc")
-llvm:fail:linking.wast:178 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:linking.wast:179 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:linking.wast:181 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:linking.wast:288 # AssertReturn - result I32(2) ("0x2") does not match expected I32(167) ("0xa7")
-llvm:fail:linking.wast:289 # AssertReturn - result I32(2) ("0x2") does not match expected I32(167) ("0xa7")
 llvm:fail:linking.wast:314 # AssertReturn - No instance available: Some("$Pm")
 llvm:fail:linking.wast:315 # AssertReturn - No instance available: Some("$Pm")
 llvm:fail:linking.wast:316 # AssertReturn - No instance available: Some("$Pm")
@@ -916,12 +892,13 @@ llvm:fail:linking.wast:319 # AssertReturn - No instance available: Some("$Pm")
 llvm:fail:linking.wast:320 # AssertReturn - No instance available: Some("$Pm")
 llvm:fail:linking.wast:321 # AssertReturn - No instance available: Some("$Pm")
 llvm:fail:linking.wast:324 # AssertUnlinkable - caught panic Any
+llvm:fail:linking.wast:342 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
+llvm:fail:linking.wast:354 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
 llvm:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:load.wast:201 # AssertReturn - result I32(327991327) ("0x138cc01f") does not match expected I32(32) ("0x20")
+llvm:fail:load.wast:201 # AssertReturn - result I32(118083615) ("0x709d01f") does not match expected I32(32) ("0x20")
 llvm:fail:start.wast:92 # Module - caught panic Any
 llvm:fail:type.wast:3 # Module - caught panic Any
-
 
 # LLVM Windows
 llvm:skip:address.wast:*:windows
@@ -1151,11 +1128,6 @@ singlepass:fail:elem.wast:106 # Module - caught panic Any
 singlepass:fail:elem.wast:111 # Module - caught panic Any
 singlepass:fail:elem.wast:170 # AssertUnlinkable - caught panic Any
 singlepass:fail:elem.wast:353 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:elem.wast:366 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:elem.wast:367 # AssertReturn - result I32(65) ("0x41") does not match expected I32(68) ("0x44")
-singlepass:fail:elem.wast:379 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:elem.wast:380 # AssertReturn - result I32(65) ("0x41") does not match expected I32(69) ("0x45")
-singlepass:fail:elem.wast:381 # AssertReturn - result I32(66) ("0x42") does not match expected I32(70) ("0x46")
 singlepass:fail:exports.wast:24 # Module - caught panic Any
 singlepass:fail:exports.wast:25 # Module - caught panic Any
 singlepass:fail:exports.wast:56 # Module - caught panic Any
@@ -1780,8 +1752,6 @@ singlepass:fail:linking.wast:22 # Module - caught panic Any
 singlepass:fail:linking.wast:26 # Register - No instance available
 singlepass:fail:linking.wast:28 # AssertUnlinkable - caught panic Any
 singlepass:fail:linking.wast:32 # AssertUnlinkable - caught panic Any
-singlepass:fail:linking.wast:81 # AssertReturn Get - Expected Global I32(241) got: I32(142)
-singlepass:fail:linking.wast:83 # AssertReturn - result I32(142) ("0x8e") does not match expected I32(241) ("0xf1")
 singlepass:fail:linking.wast:87 # AssertUnlinkable - caught panic Any
 singlepass:fail:linking.wast:91 # AssertUnlinkable - caught panic Any
 singlepass:fail:linking.wast:134 # AssertReturn - Call failed RuntimeError: unknown error
@@ -1797,11 +1767,7 @@ singlepass:fail:linking.wast:148 # AssertTrap - expected trap, got Runtime:Error
 singlepass:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:152 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:169 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:172 # AssertReturn - result I32(4) ("0x4") does not match expected I32(-4) ("0xfffffffc")
-singlepass:fail:linking.wast:173 # AssertReturn - result I32(4) ("0x4") does not match expected I32(-4) ("0xfffffffc")
 singlepass:fail:linking.wast:175 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:178 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:179 # AssertReturn - Call failed RuntimeError: unknown error
 singlepass:fail:linking.wast:181 # AssertReturn - Call failed RuntimeError: unknown error
 singlepass:fail:linking.wast:184 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -1815,12 +1781,11 @@ singlepass:fail:linking.wast:204 # AssertReturn Get - No instance available Some
 singlepass:fail:linking.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:288 # AssertReturn - result I32(2) ("0x2") does not match expected I32(167) ("0xa7")
-singlepass:fail:linking.wast:289 # AssertReturn - result I32(2) ("0x2") does not match expected I32(167) ("0xa7")
 singlepass:fail:linking.wast:293 # Module - caught panic Any
 singlepass:fail:linking.wast:299 # AssertUnlinkable - caught panic Any
 singlepass:fail:linking.wast:324 # AssertUnlinkable - caught panic Any
 singlepass:fail:linking.wast:335 # AssertUnlinkable - caught panic Any
+singlepass:fail:linking.wast:354 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
 singlepass:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 singlepass:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: unknown error
 singlepass:fail:load.wast:201 # AssertReturn - result I32(0) ("0x0") does not match expected I32(32) ("0x20")

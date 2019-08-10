@@ -500,6 +500,23 @@ impl LikeNamespace for Instance {
     }
 }
 
+use std::rc::Rc;
+impl LikeNamespace for Rc<Instance> {
+    fn get_export(&self, name: &str) -> Option<Export> {
+        let export_index = self.module.info.exports.get(name)?;
+
+        Some(self.inner.get_export_from_index(&self.module, export_index))
+    }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        unimplemented!("Use the exports method instead");
+    }
+
+    fn maybe_insert(&mut self, _name: &str, _export: Export) -> Option<()> {
+        None
+    }
+}
+
 #[must_use]
 fn call_func_with_index(
     info: &ModuleInfo,
