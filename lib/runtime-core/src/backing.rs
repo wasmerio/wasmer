@@ -130,6 +130,49 @@ impl LocalBacking {
         memories: &mut SliceMap<LocalMemoryIndex, Memory>,
     ) -> LinkResult<BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory>> {
         // For each init that has some data...
+
+        // Validate data size fits
+        for init in module.info.data_initializers.iter() {
+            let init_base = match init.base {
+                Initializer::Const(Value::I32(offset)) => offset as u32,
+                Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
+                Initializer::GetGlobal(import_global_index) => {
+                    if let Value::I32(x) = imports.globals[import_global_index].get() {
+                        x as u32
+                    } else {
+                        panic!("unsupported global type for initializer")
+                    }
+                }
+            } as usize;
+
+            // Validate data size fits
+            match init.memory_index.local_or_import(&module.info) {
+                LocalOrImport::Local(local_memory_index) => {
+                    let memory_desc = module.info.memories[local_memory_index];
+                    let data_top = init_base + init.data.len();
+                    if memory_desc.minimum.bytes().0 < data_top || data_top < init_base {
+                        return Err(vec![LinkError::Generic {
+                            message: "data segment does not fit".to_string(),
+                        }]);
+                    }
+                }
+                LocalOrImport::Import(imported_memory_index) => {
+                    // Write the initialization data to the memory that
+                    // we think the imported memory is.
+                    unsafe {
+                        let local_memory = &*imports.vm_memories[imported_memory_index];
+                        let data_top = init_base + init.data.len();
+                        if local_memory.bound < data_top || data_top < init_base {
+                            return Err(vec![LinkError::Generic {
+                                message: "data segment does not fit".to_string(),
+                            }]);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Initialize data
         for init in module.info.data_initializers.iter() {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
@@ -145,15 +188,6 @@ impl LocalBacking {
 
             match init.memory_index.local_or_import(&module.info) {
                 LocalOrImport::Local(local_memory_index) => {
-                    let memory_desc = module.info.memories[local_memory_index];
-                    let data_top = init_base + init.data.len();
-
-                    if memory_desc.minimum.bytes().0 < data_top || data_top < init_base {
-                        return Err(vec![LinkError::Generic {
-                            message: "data segment does not fit".to_string(),
-                        }]);
-                    }
-
                     let mem = &memories[local_memory_index];
                     for (mem_byte, data_byte) in mem.view()[init_base..init_base + init.data.len()]
                         .iter()
@@ -167,14 +201,6 @@ impl LocalBacking {
                     // we think the imported memory is.
                     unsafe {
                         let local_memory = &*imports.vm_memories[imported_memory_index];
-
-                        let data_top = init_base + init.data.len();
-                        if local_memory.bound < data_top || data_top < init_base {
-                            return Err(vec![LinkError::Generic {
-                                message: "data segment does not fit".to_string(),
-                            }]);
-                        }
-
                         let memory_slice =
                             slice::from_raw_parts_mut(local_memory.base, local_memory.bound);
 
