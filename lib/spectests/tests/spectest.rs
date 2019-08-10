@@ -18,6 +18,8 @@ mod tests {
     // TODO Files could be run with multiple threads
     // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
 
+    use std::rc::Rc;
+
     struct SpecFailure {
         file: String,
         line: u64,
@@ -135,7 +137,6 @@ mod tests {
         table::Table,
         types::{ElementType, MemoryDescriptor, TableDescriptor},
         units::Pages,
-        Module,
     };
     use wasmer_runtime_core::{func, imports, vm::Ctx};
 
@@ -172,11 +173,10 @@ mod tests {
 
         use std::panic;
         let mut instance: Option<Rc<Instance>> = None;
-        use std::rc::Rc;
 
         let mut named_modules: HashMap<String, Rc<Instance>> = HashMap::new();
 
-        let mut registered_modules: HashMap<String, Module> = HashMap::new();
+        let mut registered_modules: HashMap<String, Rc<Instance>> = HashMap::new();
         //
 
         while let Some(Command { kind, line }) =
@@ -859,20 +859,23 @@ mod tests {
                     }
                 }
                 CommandKind::Register { name, as_name } => {
-                    let instance: Option<&Instance> = match name {
+                    let instance: Option<Rc<Instance>> = match name {
                         Some(ref name) => {
                             let i = named_modules.get(name);
                             match i {
-                                Some(ins) => Some(ins.borrow()),
+                                Some(ins) => Some(Rc::clone(ins)),
                                 None => None,
                             }
                         }
                         None => match instance {
-                            Some(ref i) => Some(i.borrow()),
+                            Some(ref i) => Some(Rc::clone(i)),
                             None => None,
                         },
                     };
-                    if instance.is_none() {
+
+                    if let Some(ins) = instance {
+                        registered_modules.insert(as_name, ins);
+                    } else {
                         test_report.add_failure(
                             SpecFailure {
                                 file: filename.to_string(),
@@ -883,8 +886,6 @@ mod tests {
                             &test_key,
                             excludes,
                         );
-                    } else {
-                        registered_modules.insert(as_name, instance.unwrap().module());
                     }
                 }
                 CommandKind::PerformAction(ref action) => match action {
@@ -1011,7 +1012,9 @@ mod tests {
         println!("{} {}", val, val2);
     }
 
-    fn get_spectest_import_object(registered_modules: &HashMap<String, Module>) -> ImportObject {
+    fn get_spectest_import_object(
+        registered_modules: &HashMap<String, Rc<Instance>>,
+    ) -> ImportObject {
         let memory = Memory::new(MemoryDescriptor {
             minimum: Pages(1),
             maximum: Some(Pages(2)),
@@ -1046,11 +1049,8 @@ mod tests {
             },
         };
 
-        for (name, module) in registered_modules.iter() {
-            let i = module
-                .instantiate(&import_object)
-                .expect("Registered WASM can't be instantiated");
-            import_object.register(name.clone(), i);
+        for (name, instance) in registered_modules.iter() {
+            import_object.register(name.clone(), Rc::clone(instance));
         }
         import_object
     }
