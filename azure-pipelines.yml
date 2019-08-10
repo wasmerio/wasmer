@@ -39,6 +39,8 @@ jobs:
     - checkout: self
       submodules: true
     - template: .azure/install-rust.yml
+    - template: .azure/install-cmake.yml
+    - template: .azure/install-llvm.yml
     - bash: make check
       displayName: Check with Flags
     - bash: make test
