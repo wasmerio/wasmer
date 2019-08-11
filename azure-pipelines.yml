@@ -48,10 +48,10 @@ jobs:
     - task: CacheBeta@0
       inputs:
         key: |
-          cargo
+          sccache
           $(Agent.OS)
           $(Build.SourcesDirectory)/Cargo.lock
-        path: $(Build.SourcesDirectory)/target
+        path: $(SCCACHE_DIR)
       displayName: Cache Cargo Target
     - bash: make test
       displayName: Tests (*nix)
