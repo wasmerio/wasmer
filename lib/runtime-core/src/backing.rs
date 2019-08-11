@@ -64,6 +64,7 @@ impl LocalBacking {
         let mut tables = Self::generate_tables(module);
         let mut globals = Self::generate_globals(module, imports);
 
+        // Ensure all initializers are valid before running finalizers
         Self::validate_memories(module, imports)?;
         Self::validate_tables(module, imports, &mut tables)?;
 
