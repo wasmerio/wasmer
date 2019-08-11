@@ -32,6 +32,9 @@ jobs:
         imageName: 'vs2017-win2016'
         rust_toolchain: stable
 
+  variables:
+    SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
+
   pool:
     vmImage: $(imageName)
 
