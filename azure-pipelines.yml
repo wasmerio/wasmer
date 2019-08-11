@@ -42,9 +42,9 @@ jobs:
     - checkout: self
       submodules: true
     - template: .azure/install-rust.yml
+    - template: .azure/install-sccache.yml
     - template: .azure/install-cmake.yml
     - template: .azure/install-llvm.yml
-    - template: .azure/install-sccache.yml
     - task: CacheBeta@0
       inputs:
         key: |
