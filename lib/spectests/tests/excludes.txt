@@ -22,18 +22,19 @@ clif:skip:names.wast:*         # Names file has parsing error?
 clif:skip:simd.wast:*          # SIMD not implemented
 clif:skip:simd_binaryen.wast:* # SIMD not implemented
 
+# linking.wast:387,388 appear to be related to WABT issue: https://github.com/pepyakin/wabt-rs/issues/51
+
 clif:fail:globals.wast:243 # AssertInvalid - Should be invalid
-clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
-clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
-clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
-clif:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
-clif:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837037 - illegal instruction"
-clif:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837037 - illegal instruction"
-clif:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
-clif:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x108837062 - illegal instruction"
-clif:fail:linking.wast:236 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x10883d000 - segmentation violation"
-clif:fail:linking.wast:248 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x10883d000 - segmentation violation"
-clif:fail:linking.wast:342 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
+clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x109635062 - illegal instruction"
+clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x109635062 - illegal instruction"
+clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x109635062 - illegal instruction"
+clif:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x109635062 - illegal instruction"
+clif:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x109635037 - illegal instruction"
+clif:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x109635037 - illegal instruction"
+clif:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x109635062 - illegal instruction"
+clif:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x109635062 - illegal instruction"
+clif:fail:linking.wast:236 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x10963b000 - segmentation violation"
+clif:fail:linking.wast:248 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x10963b000 - segmentation violation"
 clif:fail:linking.wast:354 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
 clif:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 clif:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
@@ -838,10 +839,10 @@ llvm:fail:binary-leb128.wast:86 # Module - caught panic Any
 llvm:fail:binary-leb128.wast:98 # Module - caught panic Any
 llvm:fail:binary.wast:446 # Module - caught panic Any
 llvm:fail:globals.wast:243 # AssertInvalid - caught panic Any
-llvm:fail:i32.wast:243 # AssertReturn - result I32(115568975) ("0x6e3714f") does not match expected I32(32) ("0x20")
-llvm:fail:i32.wast:252 # AssertReturn - result I32(115568992) ("0x6e37160") does not match expected I32(32) ("0x20")
-llvm:fail:i64.wast:243 # AssertReturn - result I64(4410536431) ("0x106e371ef") does not match expected I64(64) ("0x40")
-llvm:fail:i64.wast:252 # AssertReturn - result I64(4410536416) ("0x106e371e0") does not match expected I64(64) ("0x40")
+llvm:fail:i32.wast:243 # AssertReturn - result I32(305467727) ("0x1235114f") does not match expected I32(32) ("0x20")
+llvm:fail:i32.wast:252 # AssertReturn - result I32(305467744) ("0x12351160") does not match expected I32(32) ("0x20")
+llvm:fail:i64.wast:243 # AssertReturn - result I64(4600435183) ("0x1123511ef") does not match expected I64(64) ("0x40")
+llvm:fail:i64.wast:252 # AssertReturn - result I64(4600435168) ("0x1123511e0") does not match expected I64(64) ("0x40")
 llvm:fail:imports.wast:98 # Module - caught panic Any
 llvm:fail:imports.wast:99 # Module - caught panic Any
 llvm:fail:imports.wast:100 # Module - caught panic Any
@@ -892,11 +893,10 @@ llvm:fail:linking.wast:319 # AssertReturn - No instance available: Some("$Pm")
 llvm:fail:linking.wast:320 # AssertReturn - No instance available: Some("$Pm")
 llvm:fail:linking.wast:321 # AssertReturn - No instance available: Some("$Pm")
 llvm:fail:linking.wast:324 # AssertUnlinkable - caught panic Any
-llvm:fail:linking.wast:342 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
 llvm:fail:linking.wast:354 # AssertReturn - result I32(97) ("0x61") does not match expected I32(0) ("0x0")
 llvm:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:load.wast:201 # AssertReturn - result I32(118083615) ("0x709d01f") does not match expected I32(32) ("0x20")
+llvm:fail:load.wast:201 # AssertReturn - result I32(305745951) ("0x1239501f") does not match expected I32(32) ("0x20")
 llvm:fail:start.wast:92 # Module - caught panic Any
 llvm:fail:type.wast:3 # Module - caught panic Any
 
