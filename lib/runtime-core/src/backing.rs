@@ -64,8 +64,12 @@ impl LocalBacking {
         let mut tables = Self::generate_tables(module);
         let mut globals = Self::generate_globals(module, imports);
 
-        let vm_memories = Self::finalize_memories(module, imports, &mut memories)?;
-        let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx)?;
+        // Ensure all initializers are valid before running finalizers
+        Self::validate_memories(module, imports)?;
+        Self::validate_tables(module, imports, &mut tables)?;
+
+        let vm_memories = Self::finalize_memories(module, imports, &mut memories);
+        let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx);
         let vm_globals = Self::finalize_globals(&mut globals);
 
         let dynamic_sigindices = Self::generate_sigindices(&module.info);
@@ -121,16 +125,10 @@ impl LocalBacking {
         memories.into_boxed_map()
     }
 
-    /// Initialize each locally-defined memory in the Module.
+    /// Validate each locally-defined memory in the Module.
     ///
     /// This involves copying in the data initializers.
-    fn finalize_memories(
-        module: &ModuleInner,
-        imports: &ImportBacking,
-        memories: &mut SliceMap<LocalMemoryIndex, Memory>,
-    ) -> LinkResult<BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory>> {
-        // For each init that has some data...
-
+    fn validate_memories(module: &ModuleInner, imports: &ImportBacking) -> LinkResult<()> {
         // Validate data size fits
         for init in module.info.data_initializers.iter() {
             let init_base = match init.base {
@@ -169,7 +167,18 @@ impl LocalBacking {
                 }
             }
         }
+        Ok(())
+    }
 
+    /// Initialize each locally-defined memory in the Module.
+    ///
+    /// This involves copying in the data initializers.
+    fn finalize_memories(
+        module: &ModuleInner,
+        imports: &ImportBacking,
+        memories: &mut SliceMap<LocalMemoryIndex, Memory>,
+    ) -> BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory> {
+        // For each init that has some data...
         // Initialize data
         for init in module.info.data_initializers.iter() {
             let init_base = match init.base {
@@ -208,11 +217,11 @@ impl LocalBacking {
             }
         }
 
-        Ok(memories
+        memories
             .iter_mut()
             .map(|(_, mem)| mem.vm_local_memory())
             .collect::<Map<_, _>>()
-            .into_boxed_map())
+            .into_boxed_map()
     }
 
     fn generate_tables(module: &ModuleInner) -> BoxedMap<LocalTableIndex, Table> {
@@ -226,16 +235,13 @@ impl LocalBacking {
         tables.into_boxed_map()
     }
 
-    /// This initializes all of the locally-defined tables in the Module, e.g.
-    /// putting all the table elements (function pointers)
-    /// in the right places.
+    /// This validates all of the locally-defined tables in the Module.
     #[allow(clippy::cast_ptr_alignment)]
-    fn finalize_tables(
+    fn validate_tables(
         module: &ModuleInner,
         imports: &ImportBacking,
         tables: &mut SliceMap<LocalTableIndex, Table>,
-        vmctx: *mut vm::Ctx,
-    ) -> LinkResult<BoxedMap<LocalTableIndex, *mut vm::LocalTable>> {
+    ) -> LinkResult<()> {
         for init in &module.info.elem_initializers {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
@@ -258,7 +264,47 @@ impl LocalBacking {
                             message: "elements segment does not fit".to_string(),
                         }]);
                     }
+                }
+                LocalOrImport::Import(import_table_index) => {
+                    let table = &imports.tables[import_table_index];
 
+                    if (table.size() as usize) < init_base + init.elements.len() {
+                        return Err(vec![LinkError::Generic {
+                            message: "elements segment does not fit".to_string(),
+                        }]);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// This initializes all of the locally-defined tables in the Module, e.g.
+    /// putting all the table elements (function pointers)
+    /// in the right places.
+    #[allow(clippy::cast_ptr_alignment)]
+    fn finalize_tables(
+        module: &ModuleInner,
+        imports: &ImportBacking,
+        tables: &mut SliceMap<LocalTableIndex, Table>,
+        vmctx: *mut vm::Ctx,
+    ) -> BoxedMap<LocalTableIndex, *mut vm::LocalTable> {
+        for init in &module.info.elem_initializers {
+            let init_base = match init.base {
+                Initializer::Const(Value::I32(offset)) => offset as u32,
+                Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
+                Initializer::GetGlobal(import_global_index) => {
+                    if let Value::I32(x) = imports.globals[import_global_index].get() {
+                        x as u32
+                    } else {
+                        panic!("unsupported global type for initializer")
+                    }
+                }
+            } as usize;
+
+            match init.table_index.local_or_import(&module.info) {
+                LocalOrImport::Local(local_table_index) => {
+                    let table = &tables[local_table_index];
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
                             let sig_index = module.info.func_assoc[func_index];
@@ -291,12 +337,6 @@ impl LocalBacking {
                 }
                 LocalOrImport::Import(import_table_index) => {
                     let table = &imports.tables[import_table_index];
-
-                    if (table.size() as usize) < init_base + init.elements.len() {
-                        return Err(vec![LinkError::Generic {
-                            message: "elements segment does not fit".to_string(),
-                        }]);
-                    }
 
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
@@ -331,11 +371,11 @@ impl LocalBacking {
             }
         }
 
-        Ok(tables
+        tables
             .iter_mut()
             .map(|(_, table)| table.vm_local_table())
             .collect::<Map<_, _>>()
-            .into_boxed_map())
+            .into_boxed_map()
     }
 
     fn generate_globals(
