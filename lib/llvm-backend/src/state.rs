@@ -1,6 +1,6 @@
 use inkwell::{
     basic_block::BasicBlock,
-    values::{BasicValue, BasicValueEnum, PhiValue},
+    values::{BasicValueEnum, PhiValue},
 };
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -67,9 +67,18 @@ impl ControlFrame {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct StackEntry {
+    pub value: BasicValueEnum,
+
+    // These are stored separately because a v128 may be used as f32x4 or f64x2.
+    pub no_f32_ncnan: bool,
+    pub no_f64_ncnan: bool,
+}
+
 #[derive(Debug)]
 pub struct State {
-    stack: Vec<BasicValueEnum>,
+    stack: Vec<StackEntry>,
     control_stack: Vec<ControlFrame>,
     value_counter: Cell<usize>,
 
@@ -144,33 +153,31 @@ impl State {
         s
     }
 
-    pub fn push1<T: BasicValue>(&mut self, value: T) {
-        self.stack.push(value.as_basic_value_enum())
+    pub fn push1(&mut self, value: StackEntry) {
+        self.stack.push(value)
     }
 
-    pub fn pop1(&mut self) -> Result<BasicValueEnum, BinaryReaderError> {
+    pub fn pop1(&mut self) -> Result<StackEntry, BinaryReaderError> {
         self.stack.pop().ok_or(BinaryReaderError {
             message: "invalid value stack",
             offset: -1isize as usize,
         })
     }
 
-    pub fn pop2(&mut self) -> Result<(BasicValueEnum, BasicValueEnum), BinaryReaderError> {
+    pub fn pop2(&mut self) -> Result<(StackEntry, StackEntry), BinaryReaderError> {
         let v2 = self.pop1()?;
         let v1 = self.pop1()?;
         Ok((v1, v2))
     }
 
-    pub fn pop3(
-        &mut self,
-    ) -> Result<(BasicValueEnum, BasicValueEnum, BasicValueEnum), BinaryReaderError> {
+    pub fn pop3(&mut self) -> Result<(StackEntry, StackEntry, StackEntry), BinaryReaderError> {
         let v3 = self.pop1()?;
         let v2 = self.pop1()?;
         let v1 = self.pop1()?;
         Ok((v1, v2, v3))
     }
 
-    pub fn peek1(&self) -> Result<BasicValueEnum, BinaryReaderError> {
+    pub fn peek1(&self) -> Result<StackEntry, BinaryReaderError> {
         self.stack
             .get(self.stack.len() - 1)
             .ok_or(BinaryReaderError {
@@ -180,7 +187,7 @@ impl State {
             .map(|v| *v)
     }
 
-    pub fn peekn(&self, n: usize) -> Result<&[BasicValueEnum], BinaryReaderError> {
+    pub fn peekn(&self, n: usize) -> Result<&[StackEntry], BinaryReaderError> {
         self.stack
             .get(self.stack.len() - n..)
             .ok_or(BinaryReaderError {
@@ -189,7 +196,7 @@ impl State {
             })
     }
 
-    pub fn popn_save(&mut self, n: usize) -> Result<Vec<BasicValueEnum>, BinaryReaderError> {
+    pub fn popn_save(&mut self, n: usize) -> Result<Vec<StackEntry>, BinaryReaderError> {
         let v = self.peekn(n)?.to_vec();
         self.popn(n)?;
         Ok(v)
