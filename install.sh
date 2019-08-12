@@ -252,10 +252,11 @@ wasmer_install() {
   magenta3=""
 
   if which wasmer >/dev/null; then
-    printf "${reset}Updating wasmer$reset\n"
+    printf "${reset}Updating Wasmer and WAPM$reset\n"
   else
-    printf "${reset}Installing Wasmer!$reset\n"
-    printf "
+    printf "${reset}Installing Wasmer and WAPM!$reset\n"
+    if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+      printf "
 ${magenta1}               ww            
 ${magenta1}               wwwww         
 ${magenta1}        ww     wwwwww  w     
@@ -274,7 +275,9 @@ ${magenta1}       wwwwwwww
 ${magenta1}           wwww              
 ${reset}
 "
+    fi
   fi
+
 #   if [ -d "$INSTALL_DIRECTORY" ]; then
 #     if which wasmer; then
 #       local latest_url
