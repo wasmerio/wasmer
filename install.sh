@@ -35,6 +35,11 @@ dim="\e[2m"
 # Warning: Remove this on the public repo
 RELEASES_URL="https://github.com/wasmerio/wasmer/releases"
 
+WASMER_VERBOSE="verbose"
+if [ -z "$WASMER_INSTALL_LOG" ]; then
+  WASMER_INSTALL_LOG="$WASMER_VERBOSE"
+fi
+
 wasmer_download_json() {
     url="$2"
 
@@ -66,9 +71,19 @@ wasmer_download_file() {
 
     # echo "Fetching $url.."
     if test -x "$(command -v curl)"; then
-        code=$(curl --progress-bar -w '%{http_code}' -L "$url" -o "$destination")
+        if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+          code=$(curl --progress-bar -w '%{http_code}' -L "$url" -o "$destination")
+          printf "\033[K\n\033[1A"
+        else
+          code=$(curl -s -w '%{http_code}' -L "$url" -o "$destination")
+        fi
     elif test -x "$(command -v wget)"; then
-        code=$(wget --show-progress --progress=bar:force:noscroll -q -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
+        if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+          code=$(wget --show-progress --progress=bar:force:noscroll -q -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
+          printf "\033[K\n\033[1A";
+        else
+          code=$(wget --quiet -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
+        fi
     else
         printf "$red> Neither curl nor wget was available to perform http requests.$reset\n"
         exit 1
@@ -152,18 +167,22 @@ wasmer_link() {
       # fi
     fi
     printf "\033[1A$cyan> Adding to bash profile... ✓$reset\n"
-    printf "${dim}Note: We've added the following to your $WASMER_PROFILE\n"
-    echo "If you have a different profile please add the following:"
-    printf "$LOAD_STR$reset\n"
+    if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+      printf "${dim}Note: We've added the following to your $WASMER_PROFILE\n"
+      echo "If you have a different profile please add the following:"
+      printf "$LOAD_STR$reset\n"
+    fi
 
     version=`$INSTALL_DIRECTORY/bin/wasmer --version` || (
       printf "$red> wasmer was installed, but doesn't seem to be working :($reset\n"
       exit 1;
     )
 
-    printf "$green> Successfully installed $version!"
-    printf "\n${reset}${dim}wasmer & wapm will be available the next time you open the terminal."
-    printf "\n${reset}${dim}If you want to have the commands available now please execute:\n${reset}source $INSTALL_DIRECTORY/wasmer.sh$reset\n"
+    printf "$green> Successfully installed $version!\n"
+    if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+      printf "${reset}${dim}wasmer & wapm will be available the next time you open the terminal.\n"
+      printf "${reset}${dim}If you want to have the commands available now please execute:\n${reset}source $INSTALL_DIRECTORY/wasmer.sh$reset\n"
+    fi
   fi
 }
 
@@ -418,7 +437,7 @@ wasmer_download() {
   printf "$cyan> Downloading $WASMER_RELEASE_TAG release...$reset\n"
   wasmer_download_file "$BINARY_URL" "$DOWNLOAD_FILE"
   # echo -en "\b\b"
-  printf "\033[2A$cyan> Downloading $WASMER_RELEASE_TAG release... ✓$reset\033[K\n"
+  printf "\033[1A$cyan> Downloading $WASMER_RELEASE_TAG release... ✓$reset\n"
   printf "\033[K\n\033[1A"
   # printf "\033[1A$cyan> Downloaded$reset\033[K\n"
   # echo "Setting executable permissions."
