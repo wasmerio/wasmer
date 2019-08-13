@@ -9,15 +9,15 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
-        self, host_file_type_to_wasi_file_type, Fd, HostFile, Inode, InodeVal, Kind, WasiFile,
-        WasiFsError, WasiState, MAX_SYMLINKS,
+        self, host_file_type_to_wasi_file_type, AsyncReadState, Fd, HostFile, Inode, InodeVal,
+        Kind, WasiFile, WasiFsError, WasiState, MAX_SYMLINKS,
     },
     ExitCode,
 };
 use rand::{thread_rng, Rng};
 use std::borrow::Borrow;
 use std::cell::Cell;
-use std::convert::Infallible;
+use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
 use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
@@ -2242,7 +2242,83 @@ pub fn poll_oneoff(
     nevents: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::poll_oneoff");
-    unimplemented!("wasi::poll_oneoff")
+    debug!("  => nsubscriptions = {}", nsubscriptions);
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+
+    let subscription_array = wasi_try!(in_.deref(memory, 0, nsubscriptions));
+    let event_array = wasi_try!(out_.deref(memory, 0, nsubscriptions));
+    let mut events_seen = 0;
+    let out_ptr = wasi_try!(nevents.deref(memory));
+
+    /*dbg!(&event_array
+    .iter()
+    .map(|e| e.get().tagged())
+    .collect::<Option<Vec<EventEnum>>>());*/
+
+    for sub in subscription_array.iter() {
+        let s: WasiSubscription = wasi_try!(sub.get().try_into());
+        match s.event_type {
+            EventType::Read(__wasi_subscription_fs_readwrite_t { fd }) => {
+                let fd_entry = wasi_try!(state.fs.get_fd(fd));
+                let inode = fd_entry.inode;
+                if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ) {
+                    return __WASI_EACCES;
+                }
+                let mut async_reader_state = state.fs.async_readers.entry(fd).or_default();
+                debug!("Calling fd_read directly");
+                let size = async_reader_state.buffer.len();
+                if size < AsyncReadState::MAX_SIZE {
+                    async_reader_state.buffer.reserve_exact(
+                        AsyncReadState::MAX_SIZE - async_reader_state.buffer.capacity(),
+                    );
+                    match &mut state.fs.inodes[inode].kind {
+                        Kind::File { handle, .. } => {
+                            if let Some(h) = handle {
+                                let (slice_1, slice_2) = async_reader_state.buffer.as_mut_slices();
+                                h.read(&mut slice_1[size..]);
+                                h.read(&mut slice_2[(size - slice_1.len())..]);
+                            } else {
+                                return __WASI_EBADF;
+                            }
+                        }
+                        Kind::Dir { .. }
+                        | Kind::Root { .. }
+                        | Kind::Buffer { .. }
+                        | Kind::Symlink { .. } => {
+                            unimplemented!("polling read on non-files not yet supported")
+                        }
+                    }
+                }
+                //fd_read(ctx, fd, ${3:iovs: WasmPtr<__wasi_iovec_t, Array>}, ${4:iovs_len: u32}, ${5:nread: WasmPtr<u32>})
+                //read_bytes(${1:mut reader: T}, ${2:memory: &Memory}, ${3:iovs_arr_cell: &[Cell<__wasi_iovec_t>]})
+                let event = __wasi_event_t {
+                    userdata: s.user_data,
+                    error: __WASI_ESUCCESS,
+                    type_: s.event_type.raw_tag(),
+                    u: unsafe {
+                        __wasi_event_u {
+                            fd_readwrite: __wasi_event_fd_readwrite_t {
+                                nbytes: async_reader_state.nbytes_read,
+                                flags: if async_reader_state.closed {
+                                    __WASI_EVENT_FD_READWRITE_HANGUP
+                                } else {
+                                    0
+                                },
+                            },
+                        }
+                    },
+                };
+                event_array[events_seen].set(event);
+                events_seen += 1;
+            }
+            _ => unimplemented!("Clock or write eventtypes in wasi::poll_oneoff"),
+        }
+        //dbg!(s);
+    }
+    out_ptr.set(events_seen as u32);
+    __WASI_ESUCCESS
+    //unimplemented!("wasi::poll_oneoff")
 }
 
 pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<Infallible, ExitCode> {
