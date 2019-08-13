@@ -1063,8 +1063,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let i = intrinsics.i64_ty.const_int(value as u64, false);
                 state.push1(StackEntry {
                     value: i.as_basic_value_enum(),
-                    no_f64_ncnan: !is_f64bits_noncanonical_nan(value as u64),
                     no_f32_ncnan: false,
+                    no_f64_ncnan: !is_f64bits_noncanonical_nan(value as u64),
                 });
             }
             Operator::F32Const { value } => {
@@ -1081,8 +1081,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let f = builder.build_bitcast(bits, intrinsics.f64_ty, "f");
                 state.push1(StackEntry {
                     value: f.as_basic_value_enum(),
-                    no_f64_ncnan: !is_f64bits_noncanonical_nan(value.bits() as u64),
                     no_f32_ncnan: false,
+                    no_f64_ncnan: !is_f64bits_noncanonical_nan(value.bits() as u64),
                 });
             }
             Operator::V128Const { value } => {
@@ -1170,8 +1170,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(StackEntry {
                     value: res,
-                    no_f64_ncnan: e.no_f64_ncnan,
                     no_f32_ncnan: false,
+                    no_f64_ncnan: e.no_f64_ncnan,
                 });
             }
             Operator::F32x4Splat => {
@@ -1202,8 +1202,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(StackEntry {
                     value: res,
-                    no_f64_ncnan: e.no_f64_ncnan,
                     no_f32_ncnan: false,
+                    no_f64_ncnan: e.no_f64_ncnan,
                 });
             }
 
@@ -2782,8 +2782,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(StackEntry {
                     value: res,
-                    no_f64_ncnan: entry.no_f64_ncnan,
                     no_f32_ncnan: false,
+                    no_f64_ncnan: entry.no_f64_ncnan,
                 });
             }
             Operator::F32x4Abs => {
@@ -4588,8 +4588,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(StackEntry {
                     value: res,
-                    no_f64_ncnan: e1.no_f64_ncnan && e2.no_f64_ncnan,
                     no_f32_ncnan: false,
+                    no_f64_ncnan: e1.no_f64_ncnan && e2.no_f64_ncnan,
                 });
             }
             Operator::F32x4ReplaceLane { lane } => {
@@ -4618,8 +4618,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(StackEntry {
                     value: res,
-                    no_f64_ncnan: e1.no_f64_ncnan && e2.no_f64_ncnan,
                     no_f32_ncnan: false,
+                    no_f64_ncnan: e1.no_f64_ncnan && e2.no_f64_ncnan,
                 });
             }
             Operator::V8x16Swizzle => {
