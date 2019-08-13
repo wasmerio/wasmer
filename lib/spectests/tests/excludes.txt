@@ -833,32 +833,40 @@ llvm:fail:binary-leb128.wast:74 # Module - caught panic Any
 llvm:fail:binary-leb128.wast:86 # Module - caught panic Any
 llvm:fail:binary-leb128.wast:98 # Module - caught panic Any
 llvm:fail:binary.wast:446 # Module - caught panic Any
-llvm:fail:float_exprs.wast:75 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-llvm:fail:float_exprs.wast:76 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-llvm:fail:float_exprs.wast:106 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-llvm:fail:float_exprs.wast:107 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-llvm:fail:float_exprs.wast:136 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-llvm:fail:float_exprs.wast:137 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-llvm:fail:float_exprs.wast:148 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-llvm:fail:float_exprs.wast:149 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-llvm:fail:float_exprs.wast:160 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-llvm:fail:float_exprs.wast:161 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-llvm:fail:float_exprs.wast:172 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-llvm:fail:float_exprs.wast:173 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-llvm:fail:float_exprs.wast:638 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-llvm:fail:float_exprs.wast:2349 # AssertReturn - result I32(2139095040) ("0x7f800000") does not match expected I32(2143289344) ("0x7fc00000")
-llvm:fail:float_exprs.wast:2350 # AssertReturn - result I32(2139095040) ("0x7f800000") does not match expected I32(2143289344) ("0x7fc00000")
-llvm:fail:float_exprs.wast:2351 # AssertReturn - result I32(2139095040) ("0x7f800000") does not match expected I32(2143289344) ("0x7fc00000")
-llvm:fail:float_exprs.wast:2352 # AssertReturn - result I32(2139095040) ("0x7f800000") does not match expected I32(2143289344) ("0x7fc00000")
-llvm:fail:float_exprs.wast:2353 # AssertReturn - result I32(2139095040) ("0x7f800000") does not match expected I32(2143289344) ("0x7fc00000")
-llvm:fail:float_exprs.wast:2354 # AssertReturn - result I32(2139095040) ("0x7f800000") does not match expected I32(2143289344) ("0x7fc00000")
-llvm:fail:float_exprs.wast:2355 # AssertReturn - result I64(9218868437227405312) ("0x7ff0000000000000") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
-llvm:fail:float_exprs.wast:2356 # AssertReturn - result I64(9218868437227405312) ("0x7ff0000000000000") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
-llvm:fail:float_exprs.wast:2357 # AssertReturn - result I64(9218868437227405312) ("0x7ff0000000000000") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
-llvm:fail:float_exprs.wast:2358 # AssertReturn - result I64(9218868437227405312) ("0x7ff0000000000000") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
-llvm:fail:float_exprs.wast:2359 # AssertReturn - result I64(9218868437227405312) ("0x7ff0000000000000") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
-llvm:fail:float_exprs.wast:2360 # AssertReturn - result I64(9218868437227405312) ("0x7ff0000000000000") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
-llvm:fail:float_exprs.wast:2361 # AssertReturn - result I32(2139095040) ("0x7f800000") does not match expected I32(2143289344) ("0x7fc00000")
+llvm:fail:data.wast:27 # Module - caught panic Any
+llvm:fail:data.wast:40 # Module - caught panic Any
+llvm:fail:data.wast:50 # Module - caught panic Any
+llvm:fail:data.wast:55 # Module - caught panic Any
+llvm:fail:data.wast:61 # Module - caught panic Any
+llvm:fail:data.wast:66 # Module - caught panic Any
+llvm:fail:data.wast:83 # Module - caught panic Any
+llvm:fail:data.wast:98 # Module - caught panic Any
+llvm:fail:data.wast:117 # Module - caught panic Any
+llvm:fail:data.wast:127 # Module - caught panic Any
+llvm:fail:data.wast:132 # Module - caught panic Any
+llvm:fail:data.wast:137 # Module - caught panic Any
+llvm:fail:data.wast:143 # Module - caught panic Any
+llvm:fail:data.wast:149 # Module - caught panic Any
+llvm:fail:data.wast:154 # Module - caught panic Any
+llvm:fail:data.wast:186 # AssertUnlinkable - instantiate successful, expected unlinkable
+llvm:fail:data.wast:194 # AssertUnlinkable - instantiate successful, expected unlinkable
+llvm:fail:data.wast:211 # AssertUnlinkable - caught panic Any
+llvm:fail:data.wast:227 # AssertUnlinkable - caught panic Any
+llvm:fail:data.wast:258 # AssertUnlinkable - caught panic Any
+llvm:fail:data.wast:273 # AssertUnlinkable - caught panic Any
+llvm:fail:elem.wast:101 # Module - caught panic Any
+llvm:fail:elem.wast:143 # AssertUnlinkable - instantiate successful, expected unlinkable
+llvm:fail:elem.wast:152 # AssertUnlinkable - caught panic Any
+llvm:fail:elem.wast:161 # AssertUnlinkable - instantiate successful, expected unlinkable
+llvm:fail:elem.wast:170 # AssertUnlinkable - instantiate successful, expected unlinkable
+llvm:fail:elem.wast:178 # AssertUnlinkable - instantiate successful, expected unlinkable
+llvm:fail:elem.wast:195 # AssertUnlinkable - instantiate successful, expected unlinkable
+llvm:fail:elem.wast:212 # AssertUnlinkable - caught panic Any
+llvm:fail:elem.wast:366 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
+llvm:fail:elem.wast:367 # AssertReturn - result I32(65) ("0x41") does not match expected I32(68) ("0x44")
+llvm:fail:elem.wast:379 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
+llvm:fail:elem.wast:380 # AssertReturn - result I32(65) ("0x41") does not match expected I32(69) ("0x45")
+llvm:fail:elem.wast:381 # AssertReturn - result I32(66) ("0x42") does not match expected I32(70) ("0x46")
 llvm:fail:globals.wast:243 # AssertInvalid - caught panic Any
 llvm:fail:i32.wast:243 # AssertReturn - result I32(205242703) ("0xc3bc14f") does not match expected I32(32) ("0x20")
 llvm:fail:i32.wast:252 # AssertReturn - result I32(205242720) ("0xc3bc160") does not match expected I32(32) ("0x20")
@@ -917,14 +925,6 @@ llvm:fail:linking.wast:324 # AssertUnlinkable - caught panic Any
 llvm:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
 llvm:fail:load.wast:201 # AssertReturn - result I32(80568351) ("0x4cd601f") does not match expected I32(32) ("0x20")
-llvm:fail:simd_binaryen.wast:643 # AssertReturn - result V128(87957508823039318797956833756741369856) ("0x422c00007f800000ffc000007fc00000") does not match expected V128(87957508823039318788733461719886594048) ("0x422c00007f8000007fc000007fc00000")
-llvm:fail:simd_binaryen.wast:644 # AssertReturn - result V128(87915970448171040176928589786107609088) ("0x422400007f800000ffc000007fc00000") does not match expected V128(87915970448171040167705217749252833280) ("0x422400007f8000007fc000007fc00000")
-llvm:fail:simd_binaryen.wast:645 # AssertReturn - result V128(88601353633497637423894615301564661760) ("0x42a800007f800000ffc000007fc00000") does not match expected V128(88601353633497637414671243264709885952) ("0x42a800007f8000007fc000007fc00000")
-llvm:fail:simd_binaryen.wast:646 # AssertReturn - result V128(87272125637712721550990808241284317184) ("0x41a800007f800000ffc000007fc00000") does not match expected V128(87272125637712721541767436204429541376) ("0x41a800007f8000007fc000007fc00000")
-llvm:fail:simd_binaryen.wast:658 # AssertReturn - result V128(340240828546070184851567483698175541248) ("0xfff80000000000007ff8000000000000") does not match expected V128(170099645085600953119880179982291435520) ("0x7ff80000000000007ff8000000000000")
-llvm:fail:simd_binaryen.wast:660 # AssertReturn - result V128(340240828546070184851567483698175541248) ("0xfff80000000000007ff8000000000000") does not match expected V128(170099645085600953119880179982291435520) ("0x7ff80000000000007ff8000000000000")
-llvm:fail:simd_binaryen.wast:662 # AssertReturn - result V128(340240828546070184851567483698175541248) ("0xfff80000000000007ff8000000000000") does not match expected V128(170099645085600953119880179982291435520) ("0x7ff80000000000007ff8000000000000")
-llvm:fail:simd_binaryen.wast:664 # AssertReturn - result V128(340240828546070184851567483698175541248) ("0xfff80000000000007ff8000000000000") does not match expected V128(170099645085600953119880179982291435520) ("0x7ff80000000000007ff8000000000000")
 llvm:fail:start.wast:92 # Module - caught panic Any
 llvm:fail:type.wast:3 # Module - caught panic Any
 
