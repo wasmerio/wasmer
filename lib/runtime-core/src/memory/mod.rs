@@ -73,6 +73,12 @@ impl Memory {
             }
         }
 
+        if desc.shared && desc.maximum.is_none() {
+            return Err(CreationError::InvalidDescriptor(
+                "Max number of pages is required for shared memory".to_string(),
+            ));
+        }
+
         let variant = if !desc.shared {
             MemoryVariant::Unshared(UnsharedMemory::new(desc)?)
         } else {
@@ -323,6 +329,19 @@ mod memory_tests {
         })
         .unwrap();
         assert_eq!(unshared_memory.size(), Pages(10));
+    }
+
+    #[test]
+    fn test_invalid_descriptor_returns_error() {
+        let result = Memory::new(MemoryDescriptor {
+            minimum: Pages(10),
+            maximum: None,
+            shared: true,
+        });
+        assert!(
+            result.is_err(),
+            "Max number of pages is required for shared memory"
+        )
     }
 
 }
