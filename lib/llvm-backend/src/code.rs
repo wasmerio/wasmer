@@ -2769,8 +2769,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(StackEntry {
                     value: res,
-                    no_f32_ncnan: entry.no_f32_ncnan,
-                    no_f64_ncnan: false,
+                    ..entry
                 });
             }
             Operator::F64Abs => {
@@ -2782,8 +2781,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(StackEntry {
                     value: res,
-                    no_f32_ncnan: false,
-                    no_f64_ncnan: entry.no_f64_ncnan,
+                    ..entry
                 });
             }
             Operator::F32x4Abs => {
