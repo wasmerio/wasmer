@@ -17,7 +17,6 @@
 #
 
 # Cranelift
-clif:skip:names.wast:*         # Names file has parsing error?
 clif:skip:simd.wast:*          # SIMD not implemented
 clif:skip:simd_binaryen.wast:* # SIMD not implemented
 
@@ -818,7 +817,6 @@ llvm:skip:imports.wast:391 # Running forever
 llvm:skip:imports.wast:402 # Running forever
 llvm:skip:imports.wast:487 # LLVM ERROR: Program used external function '_vm.memory.grow.static.import' which could not be resolved!
 llvm:skip:linking.wast:306 # LLVM ERROR: Program used external function '_vm.memory.grow.static.import' which could not be resolved!
-llvm:skip:names.wast:*     # Names file has parsing error?
 llvm:skip:call.wast:273    # Spec running forever
 llvm:skip:call_indirect.wast:556 # Spec running forever
 llvm:skip:call_indirect.wast:557 # Spec running forever
@@ -875,7 +873,6 @@ llvm:skip:unreachable.wast:*:windows
 llvm:skip:unwind.wast:*:windows
 
 # Singlepass
-singlepass:skip:names.wast:*         # Names file has parsing error?
 singlepass:skip:simd.wast:*          # SIMD not implemented
 singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
