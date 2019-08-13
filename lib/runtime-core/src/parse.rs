@@ -369,12 +369,17 @@ pub fn read_module<
                 info.write().unwrap().globals.push(global_init);
             }
             ParserState::EndWasm => {
-                if namespace_builder.is_some() {
+                // TODO Consolidate with BeginFunction body if possible
+                if func_count == ::std::usize::MAX {
                     info.write().unwrap().namespace_table =
                         namespace_builder.take().unwrap().finish();
-                }
-                if name_builder.is_some() {
                     info.write().unwrap().name_table = name_builder.take().unwrap().finish();
+                    mcg.feed_signatures(info.read().unwrap().signatures.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.check_precondition(&info.read().unwrap())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
                 break;
             }
