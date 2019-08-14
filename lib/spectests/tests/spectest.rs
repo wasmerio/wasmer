@@ -291,10 +291,9 @@ mod tests {
                                     Ok(values) => {
                                         for (i, v) in values.iter().enumerate() {
                                             let expected_value =
-                                                convert_value(*expected.get(i).unwrap());
-                                            if *v != expected_value
-                                                && !(*v != *v && expected_value != expected_value)
-                                            {
+                                                convert_wabt_value(*expected.get(i).unwrap());
+                                            let v = convert_wasmer_value(v.clone());
+                                            if v != expected_value {
                                                 test_report.add_failure(SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
@@ -968,6 +967,35 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Clone, Eq, PartialEq)]
+    pub enum SpectestValue {
+        I32(i32),
+        I64(i64),
+        F32(u32),
+        F64(u64),
+        V128(u128),
+    }
+
+    fn convert_wasmer_value(other: wasmer_runtime_core::types::Value) -> SpectestValue {
+        match other {
+            wasmer_runtime_core::types::Value::I32(v) => SpectestValue::I32(v),
+            wasmer_runtime_core::types::Value::I64(v) => SpectestValue::I64(v),
+            wasmer_runtime_core::types::Value::F32(v) => SpectestValue::F32(v.to_bits()),
+            wasmer_runtime_core::types::Value::F64(v) => SpectestValue::F64(v.to_bits()),
+            wasmer_runtime_core::types::Value::V128(v) => SpectestValue::V128(v),
+        }
+    }
+
+    fn convert_wabt_value(other: Value<f32, f64>) -> SpectestValue {
+        match other {
+            Value::I32(v) => SpectestValue::I32(v),
+            Value::I64(v) => SpectestValue::I64(v),
+            Value::F32(v) => SpectestValue::F32(v.to_bits()),
+            Value::F64(v) => SpectestValue::F64(v.to_bits()),
+            Value::V128(v) => SpectestValue::V128(v),
+        }
+    }
+
     fn convert_value(other: Value<f32, f64>) -> wasmer_runtime_core::types::Value {
         match other {
             Value::I32(v) => wasmer_runtime_core::types::Value::I32(v),
@@ -978,13 +1006,13 @@ mod tests {
         }
     }
 
-    fn to_hex(v: wasmer_runtime_core::types::Value) -> String {
+    fn to_hex(v: SpectestValue) -> String {
         match v {
-            wasmer_runtime_core::types::Value::I32(v) => format!("{:#x}", v),
-            wasmer_runtime_core::types::Value::I64(v) => format!("{:#x}", v),
-            wasmer_runtime_core::types::Value::F32(v) => format!("{:#x}", v.to_bits()),
-            wasmer_runtime_core::types::Value::F64(v) => format!("{:#x}", v.to_bits()),
-            wasmer_runtime_core::types::Value::V128(v) => format!("{:#x}", v),
+            SpectestValue::I32(v) => format!("{:#x}", v),
+            SpectestValue::I64(v) => format!("{:#x}", v),
+            SpectestValue::F32(v) => format!("{:#x}", v),
+            SpectestValue::F64(v) => format!("{:#x}", v),
+            SpectestValue::V128(v) => format!("{:#x}", v),
         }
     }
 
