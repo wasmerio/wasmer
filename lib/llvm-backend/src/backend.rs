@@ -105,6 +105,11 @@ fn get_callbacks() -> Callbacks {
             fn_name!("vm.memory.grow.static.local") => vmcalls::local_static_memory_grow as _,
             fn_name!("vm.memory.size.static.local") => vmcalls::local_static_memory_size as _,
 
+            fn_name!("vm.memory.grow.dynamic.import") => vmcalls::imported_dynamic_memory_grow as _,
+            fn_name!("vm.memory.size.dynamic.import") => vmcalls::imported_dynamic_memory_size as _,
+            fn_name!("vm.memory.grow.static.import") => vmcalls::imported_static_memory_grow as _,
+            fn_name!("vm.memory.size.static.import") => vmcalls::imported_static_memory_size as _,
+
             fn_name!("vm.exception.trap") => throw_trap as _,
             fn_name!("vm.breakpoint") => throw_breakpoint as _,
 
