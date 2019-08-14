@@ -14,7 +14,7 @@ use crate::{
     },
     units::Pages,
 };
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use wasmparser::{
@@ -87,27 +87,18 @@ pub fn read_module<
 
     let mut parser = wasmparser::ValidatingParser::new(
         wasm,
-        Some(wasmparser::ValidatingParserConfig {
-            operator_config: wasmparser::OperatorValidatorConfig {
-                enable_threads: false,
-                enable_reference_types: false,
-                enable_simd: false,
-                enable_bulk_memory: false,
-                enable_multi_value: false,
-            },
-            mutable_global_imports: false,
-        }),
+        Some(validating_parser_config(&compiler_config.features)),
     );
 
     let mut namespace_builder = Some(StringTableBuilder::new());
     let mut name_builder = Some(StringTableBuilder::new());
-    let mut func_count: usize = ::std::usize::MAX;
+    let mut func_count: usize = 0;
+    let mut mcg_info_fed = false;
 
     loop {
         use wasmparser::ParserState;
         let state = parser.read();
         match *state {
-            ParserState::EndWasm => break,
             ParserState::Error(err) => Err(LoadError::Parse(err))?,
             ParserState::TypeSectionEntry(ref ty) => {
                 info.write()
@@ -206,9 +197,9 @@ pub fn read_module<
                 info.write().unwrap().start_func = Some(FuncIndex::new(start_index as usize));
             }
             ParserState::BeginFunctionBody { .. } => {
-                let id = func_count.wrapping_add(1);
-                func_count = id;
-                if func_count == 0 {
+                let id = func_count;
+                if !mcg_info_fed {
+                    mcg_info_fed = true;
                     info.write().unwrap().namespace_table =
                         namespace_builder.take().unwrap().finish();
                     info.write().unwrap().name_table = name_builder.take().unwrap().finish();
@@ -289,6 +280,7 @@ pub fn read_module<
                     .map_err(|x| LoadError::Codegen(x))?;
                 fcg.finalize()
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                func_count = func_count.wrapping_add(1);
             }
             ParserState::BeginActiveElementSectionEntry(table_index) => {
                 let table_index = TableIndex::new(table_index as usize);
@@ -378,7 +370,21 @@ pub fn read_module<
 
                 info.write().unwrap().globals.push(global_init);
             }
-
+            ParserState::EndWasm => {
+                // TODO Consolidate with BeginFunction body if possible
+                if !mcg_info_fed {
+                    info.write().unwrap().namespace_table =
+                        namespace_builder.take().unwrap().finish();
+                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
+                    mcg.feed_signatures(info.read().unwrap().signatures.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.check_precondition(&info.read().unwrap())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                }
+                break;
+            }
             _ => {}
         }
     }
@@ -391,12 +397,7 @@ pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
         WpType::I64 => Type::I64,
         WpType::F32 => Type::F32,
         WpType::F64 => Type::F64,
-        WpType::V128 => {
-            return Err(BinaryReaderError {
-                message: "the wasmer llvm backend does not yet support the simd extension",
-                offset: -1isize as usize,
-            });
-        }
+        WpType::V128 => Type::V128,
         _ => panic!("broken invariant, invalid type"),
     })
 }
@@ -407,6 +408,7 @@ pub fn type_to_wp_type(ty: Type) -> WpType {
         Type::I64 => WpType::I64,
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
+        Type::V128 => WpType::V128,
     }
 }
 
@@ -441,6 +443,9 @@ fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
         }
         Operator::F64Const { value } => {
             Initializer::Const(Value::F64(f64::from_bits(value.bits())))
+        }
+        Operator::V128Const { value } => {
+            Initializer::Const(Value::V128(u128::from_le_bytes(*value.bytes())))
         }
         _ => {
             return Err(BinaryReaderError {

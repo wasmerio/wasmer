@@ -2,128 +2,128 @@
   (func (export "fac-expr") (param $n i64) (result i64)
     (local $i i64)
     (local $res i64)
-    (set_local $i (get_local $n))
-    (set_local $res (i64.const 1))
+    (local.set $i (local.get $n))
+    (local.set $res (i64.const 1))
     (block $done
       (loop $loop
         (if
-          (i64.eq (get_local $i) (i64.const 0))
+          (i64.eq (local.get $i) (i64.const 0))
           (then (br $done))
           (else
-            (set_local $res (i64.mul (get_local $i) (get_local $res)))
-            (set_local $i (i64.sub (get_local $i) (i64.const 1)))
+            (local.set $res (i64.mul (local.get $i) (local.get $res)))
+            (local.set $i (i64.sub (local.get $i) (i64.const 1)))
           )
         )
         (br $loop)
       )
     )
-    (get_local $res)
+    (local.get $res)
   )
 
   (func (export "fac-stack") (param $n i64) (result i64)
     (local $i i64)
     (local $res i64)
-    (get_local $n)
-    (set_local $i)
+    (local.get $n)
+    (local.set $i)
     (i64.const 1)
-    (set_local $res)
+    (local.set $res)
     (block $done
       (loop $loop
-        (get_local $i)
+        (local.get $i)
         (i64.const 0)
         (i64.eq)
         (if
           (then (br $done))
           (else
-            (get_local $i)
-            (get_local $res)
+            (local.get $i)
+            (local.get $res)
             (i64.mul)
-            (set_local $res)
-            (get_local $i)
+            (local.set $res)
+            (local.get $i)
             (i64.const 1)
             (i64.sub)
-            (set_local $i)
+            (local.set $i)
           )
         )
         (br $loop)
       )
     )
-    (get_local $res)
+    (local.get $res)
   )
 
   (func (export "fac-stack-raw") (param $n i64) (result i64)
     (local $i i64)
     (local $res i64)
-    get_local $n
-    set_local $i
+    local.get $n
+    local.set $i
     i64.const 1
-    set_local $res
+    local.set $res
     block $done
       loop $loop
-        get_local $i
+        local.get $i
         i64.const 0
         i64.eq
         if $body
           br $done
         else $body
-          get_local $i
-          get_local $res
+          local.get $i
+          local.get $res
           i64.mul
-          set_local $res
-          get_local $i
+          local.set $res
+          local.get $i
           i64.const 1
           i64.sub
-          set_local $i
+          local.set $i
         end $body
         br $loop
       end $loop
     end $done
-    get_local $res
+    local.get $res
   )
 
   (func (export "fac-mixed") (param $n i64) (result i64)
     (local $i i64)
     (local $res i64)
-    (set_local $i (get_local $n))
-    (set_local $res (i64.const 1))
+    (local.set $i (local.get $n))
+    (local.set $res (i64.const 1))
     (block $done
       (loop $loop
-        (i64.eq (get_local $i) (i64.const 0))
+        (i64.eq (local.get $i) (i64.const 0))
         (if
           (then (br $done))
           (else
-            (i64.mul (get_local $i) (get_local $res))
-            (set_local $res)
-            (i64.sub (get_local $i) (i64.const 1))
-            (set_local $i)
+            (i64.mul (local.get $i) (local.get $res))
+            (local.set $res)
+            (i64.sub (local.get $i) (i64.const 1))
+            (local.set $i)
           )
         )
         (br $loop)
       )
     )
-    (get_local $res)
+    (local.get $res)
   )
 
   (func (export "fac-mixed-raw") (param $n i64) (result i64)
     (local $i i64)
     (local $res i64)
-    (set_local $i (get_local $n))
-    (set_local $res (i64.const 1))
+    (local.set $i (local.get $n))
+    (local.set $res (i64.const 1))
     block $done
       loop $loop
-        (i64.eq (get_local $i) (i64.const 0))
+        (i64.eq (local.get $i) (i64.const 0))
         if
           br $done
         else
-          (i64.mul (get_local $i) (get_local $res))
-          set_local $res
-          (i64.sub (get_local $i) (i64.const 1))
-          set_local $i
+          (i64.mul (local.get $i) (local.get $res))
+          local.set $res
+          (i64.sub (local.get $i) (i64.const 1))
+          local.set $i
         end
         br $loop
       end
     end
-    get_local $res
+    local.get $res
   )
 )
 
@@ -136,7 +136,7 @@
 
 (module
   (type $proc (func))
-  (table 1 anyfunc)
+  (table 1 funcref)
 
   (func
     (block i32.const 0 call_indirect)

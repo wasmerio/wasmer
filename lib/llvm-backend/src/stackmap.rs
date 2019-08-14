@@ -97,12 +97,6 @@ impl StackmapEntry {
         end: Option<(&StackmapEntry, &StkMapRecord)>,
         msm: &mut ModuleStateMap,
     ) {
-        #[derive(Clone, Debug)]
-        enum RuntimeOrConstant {
-            Runtime(MachineValue),
-            Constant(u64),
-        }
-
         let func_base_addr = (size_record.function_address as usize)
             .checked_sub(code_addr)
             .unwrap();

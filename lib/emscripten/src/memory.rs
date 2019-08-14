@@ -71,7 +71,7 @@ pub fn sbrk(ctx: &mut Ctx, increment: i32) -> i32 {
     debug!("emscripten::sbrk");
     // let old_dynamic_top = 0;
     // let new_dynamic_top = 0;
-    let mut globals = get_emscripten_data(ctx).globals;
+    let globals = get_emscripten_data(ctx).globals;
     let dynamictop_ptr = (globals.dynamictop_ptr) as usize;
     let old_dynamic_top = ctx.memory(0).view::<u32>()[dynamictop_ptr].get() as i32;
     let new_dynamic_top: i32 = old_dynamic_top + increment;

@@ -1,5 +1,10 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
-
+#![deny(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 extern crate structopt;
 
 use std::env;
@@ -10,7 +15,7 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use structopt::StructOpt;
 
 use wasmer::*;
@@ -18,14 +23,14 @@ use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
-    cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH},
-    Func, Value,
+    cache::{Cache as BaseCache, FileSystemCache, WasmHash},
+    Func, Value, VERSION,
 };
 #[cfg(feature = "managed")]
 use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
 use wasmer_runtime_core::{
     self,
-    backend::{Backend, Compiler, CompilerConfig, MemoryBoundCheckMode},
+    backend::{Backend, Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
     debug,
     loader::{Instance as LoadedInstance, LocalLoader},
 };
@@ -43,7 +48,12 @@ mod wasmer_wasi {
         false
     }
 
-    pub fn generate_import_object(_args: Vec<Vec<u8>>, _envs: Vec<Vec<u8>>) -> ImportObject {
+    pub fn generate_import_object(
+        _args: Vec<Vec<u8>>,
+        _envs: Vec<Vec<u8>>,
+        _preopened_files: Vec<String>,
+        _mapped_dirs: Vec<(String, std::path::PathBuf)>,
+    ) -> ImportObject {
         unimplemented!()
     }
 }
@@ -67,6 +77,34 @@ enum CLIOptions {
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
     SelfUpdate,
+}
+
+#[derive(Debug, StructOpt)]
+struct PrestandardFeatures {
+    /// Enable support for the SIMD proposal.
+    #[structopt(long = "enable-simd")]
+    simd: bool,
+
+    /// Enable support for all pre-standard proposals.
+    #[structopt(long = "enable-all")]
+    all: bool,
+}
+
+#[cfg(feature = "backend-llvm")]
+#[derive(Debug, StructOpt, Clone)]
+/// LLVM backend flags.
+pub struct LLVMCLIOptions {
+    /// Emit LLVM IR before optimization pipeline.
+    #[structopt(long = "llvm-pre-opt-ir", parse(from_os_str))]
+    pre_opt_ir: Option<PathBuf>,
+
+    /// Emit LLVM IR after optimization pipeline.
+    #[structopt(long = "llvm-post-opt-ir", parse(from_os_str))]
+    post_opt_ir: Option<PathBuf>,
+
+    /// Emit LLVM generated native code object file.
+    #[structopt(long = "backend-llvm-object-file", parse(from_os_str))]
+    obj_file: Option<PathBuf>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -145,6 +183,13 @@ struct Run {
     #[structopt(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
 
+    #[cfg(feature = "backend-llvm")]
+    #[structopt(flatten)]
+    backend_llvm_options: LLVMCLIOptions,
+
+    #[structopt(flatten)]
+    features: PrestandardFeatures,
+
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
@@ -196,6 +241,9 @@ struct Validate {
     /// Input file
     #[structopt(parse(from_os_str))]
     path: PathBuf,
+
+    #[structopt(flatten)]
+    features: PrestandardFeatures,
 }
 
 /// Read the contents of a file
@@ -210,12 +258,16 @@ fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
 
 fn get_cache_dir() -> PathBuf {
     match env::var("WASMER_CACHE_DIR") {
-        Ok(dir) => PathBuf::from(dir),
+        Ok(dir) => {
+            let mut path = PathBuf::from(dir);
+            path.push(VERSION);
+            path
+        }
         Err(_) => {
             // We use a temporal directory for saving cache files
             let mut temp_dir = env::temp_dir();
             temp_dir.push("wasmer");
-            temp_dir.push(WASMER_VERSION_HASH);
+            temp_dir.push(VERSION);
             temp_dir
         }
     }
@@ -264,10 +316,6 @@ fn get_env_var_args(input: &[String]) -> Result<Vec<(&str, &str)>, String> {
 
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
-    // force disable caching on windows
-    #[cfg(target_os = "windows")]
-    let disable_cache = true;
-    #[cfg(not(target_os = "windows"))]
     let disable_cache = options.disable_cache;
 
     let mapped_dirs = get_mapped_dirs(&options.mapped_dirs[..])?;
@@ -326,8 +374,17 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         None
     };
 
+    // Don't error on --enable-all for other backends.
+    if options.features.simd && options.backend != Backend::LLVM {
+        return Err("SIMD is only supported in the LLVM backend for now".to_string());
+    }
+
     if !utils::is_wasm_binary(&wasm_binary) {
-        wasm_binary = wabt::wat2wasm(wasm_binary)
+        let mut features = wabt::Features::new();
+        if options.features.simd || options.features.all {
+            features.enable_simd();
+        }
+        wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
@@ -356,6 +413,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
                 track_state,
+                features: Features {
+                    simd: options.features.simd || options.features.all,
+                },
             },
             &*compiler,
         )
@@ -366,6 +426,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             CompilerConfig {
                 symbol_map: em_symbol_map.clone(),
                 track_state,
+                features: Features {
+                    simd: options.features.simd || options.features.all,
+                },
                 ..Default::default()
             },
             &*compiler,
@@ -373,7 +436,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     } else {
         // If we have cache enabled
-
         let wasmer_cache_dir = get_cache_dir();
 
         // We create a new cache instance.
@@ -393,7 +455,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     return Ok(module);
                 }
             }
-
             // We generate a hash for the given binary, so we can use it as key
             // for the Filesystem cache
             let hash = WasmHash::generate(&wasm_binary);
@@ -412,6 +473,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         CompilerConfig {
                             symbol_map: em_symbol_map.clone(),
                             track_state,
+                            features: Features {
+                                simd: options.features.simd || options.features.all,
+                            },
                             ..Default::default()
                         },
                         &*compiler,
@@ -449,7 +513,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let index = instance
             .resolve_func("_start")
             .expect("The loader requires a _start function to be present in the module");
-        let mut ins: Box<LoadedInstance<Error = String>> = match loader {
+        let mut ins: Box<dyn LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(
                 instance
                     .load(LocalLoader)
@@ -515,36 +579,39 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
-            let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =
-                unsafe { ::std::mem::transmute(start.get_vm_func()) };
-
+            
             #[cfg(feature = "managed")]
-            run_tiering(
-                module.info(),
-                &wasm_binary,
-                if let Some(ref path) = options.resume {
-                    let mut f = File::open(path).unwrap();
-                    let mut out: Vec<u8> = vec![];
-                    f.read_to_end(&mut out).unwrap();
-                    Some(
-                        wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
-                            .expect("failed to decode image"),
-                    )
-                } else {
-                    None
-                },
-                &import_object,
-                start_raw,
-                &mut instance,
-                options
-                    .optimized_backends
-                    .iter()
-                    .map(|&backend| -> Box<dyn Fn() -> Box<dyn Compiler> + Send> {
-                        Box::new(move || get_compiler_by_backend(backend).unwrap())
-                    })
-                    .collect(),
-                interactive_shell,
-            )?;
+            {
+                let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =
+                    unsafe { ::std::mem::transmute(start.get_vm_func()) };
+
+                run_tiering(
+                    module.info(),
+                    &wasm_binary,
+                    if let Some(ref path) = options.resume {
+                        let mut f = File::open(path).unwrap();
+                        let mut out: Vec<u8> = vec![];
+                        f.read_to_end(&mut out).unwrap();
+                        Some(
+                            wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
+                                .expect("failed to decode image"),
+                        )
+                    } else {
+                        None
+                    },
+                    &import_object,
+                    start_raw,
+                    &mut instance,
+                    options
+                        .optimized_backends
+                        .iter()
+                        .map(|&backend| -> Box<dyn Fn() -> Box<dyn Compiler> + Send> {
+                            Box::new(move || get_compiler_by_backend(backend).unwrap())
+                        })
+                        .collect(),
+                    interactive_shell,
+                )?;
+            }
 
             #[cfg(not(feature = "managed"))]
             {
@@ -554,11 +621,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 if let Err(ref err) = result {
                     match err {
                         RuntimeError::Trap { msg } => panic!("wasm trap occured: {}", msg),
+                        #[cfg(feature = "wasi")]
                         RuntimeError::Error { data } => {
                             if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
                                 std::process::exit(error_code.code as i32)
                             }
                         }
+                        #[cfg(not(feature = "wasi"))]
+                        RuntimeError::Error { .. } => (),
                     }
                     panic!("error: {:?}", err)
                 }
@@ -696,8 +766,13 @@ fn validate_wasm(validate: Validate) -> Result<(), String> {
         ));
     }
 
-    wasmer_runtime_core::validate_and_report_errors(&wasm_binary)
-        .map_err(|err| format!("Validation failed: {}", err))?;
+    wasmer_runtime_core::validate_and_report_errors_with_features(
+        &wasm_binary,
+        Features {
+            simd: validate.features.simd || validate.features.all,
+        },
+    )
+    .map_err(|err| format!("Validation failed: {}", err))?;
 
     Ok(())
 }
@@ -737,7 +812,6 @@ fn main() {
         CLIOptions::SelfUpdate => {
             println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
         }
-        #[cfg(not(target_os = "windows"))]
         CLIOptions::Cache(cache) => match cache {
             Cache::Clean => {
                 use std::fs;
@@ -754,9 +828,14 @@ fn main() {
         CLIOptions::Validate(validate_options) => {
             validate(validate_options);
         }
-        #[cfg(target_os = "windows")]
-        CLIOptions::Cache(_) => {
-            println!("Caching is disabled for Windows.");
-        }
     }
+}
+
+#[test]
+fn filesystem_cache_should_work() -> Result<(), String> {
+    let wasmer_cache_dir = get_cache_dir();
+
+    unsafe { FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))? };
+
+    Ok(())
 }

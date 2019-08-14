@@ -8,17 +8,17 @@ use std::ptr;
 use std::slice;
 
 thread_local! {
-    static LAST_ERROR: RefCell<Option<Box<Error>>> = RefCell::new(None);
+    static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);
 }
 
-pub(crate) fn update_last_error<E: Error + 'static>(err: E) {
+pub fn update_last_error<E: Error + 'static>(err: E) {
     LAST_ERROR.with(|prev| {
         *prev.borrow_mut() = Some(Box::new(err));
     });
 }
 
 /// Retrieve the most recent error, clearing it in the process.
-pub(crate) fn take_last_error() -> Option<Box<Error>> {
+pub(crate) fn take_last_error() -> Option<Box<dyn Error>> {
     LAST_ERROR.with(|prev| prev.borrow_mut().take())
 }
 
@@ -89,8 +89,8 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
 }
 
 #[derive(Debug)]
-pub(crate) struct CApiError {
-    pub(crate) msg: String,
+pub struct CApiError {
+    pub msg: String,
 }
 
 impl Display for CApiError {

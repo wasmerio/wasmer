@@ -28,4 +28,26 @@ Wasmer is a standalone JIT WebAssembly runtime, aiming to be fully
 compatible with Emscripten, Rust and Go. [Learn
 more](https://github.com/wasmerio/wasmer).
 
-This crate represents the LLVM backend.
+This crate represents the LLVM backend integration for Wasmer.
+
+## Usage
+
+### Usage in Wasmer Standalone
+
+If you are using the `wasmer` CLI, you can specify the backend with:
+
+```bash
+wasmer run program.wasm --backend=llvm
+```
+
+### Usage in Wasmer Embedded
+
+If you are using Wasmer Embedded, you can specify
+the LLVM backend to the [`compile_with` function](https://docs.rs/wasmer-runtime-core/*/wasmer_runtime_core/fn.compile_with.html):
+
+```rust
+use wasmer_llvm_backend::LLVMCompiler;
+
+// ...
+let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &LLVMCompiler::new());
+```

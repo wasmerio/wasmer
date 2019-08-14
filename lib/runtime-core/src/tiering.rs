@@ -77,7 +77,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     import_object: &ImportObject,
     start_raw: extern "C" fn(&mut Ctx),
     baseline: &mut Instance,
-    optimized_backends: Vec<Box<Fn() -> Box<dyn Compiler> + Send>>,
+    optimized_backends: Vec<Box<dyn Fn() -> Box<dyn Compiler> + Send>>,
     interactive_shell: F,
 ) -> Result<(), String> {
     unsafe {

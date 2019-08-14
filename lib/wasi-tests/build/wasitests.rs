@@ -63,6 +63,22 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     std::fs::remove_file(&normalized_name).expect("could not delete executable");
     let wasm_out_name = format!("{}.wasm", &normalized_name);
 
+    let mut file_contents = String::new();
+    {
+        let mut file = std::fs::File::open(file).unwrap();
+        file.read_to_string(&mut file_contents).unwrap();
+    }
+    {
+        let mut actual_file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(file)
+            .unwrap();
+        actual_file
+            .write_all(format!("#![feature(wasi_ext)]\n{}", &file_contents).as_bytes())
+            .unwrap();
+    }
+
     let wasm_compilation_out = Command::new("rustc")
         .arg("+nightly")
         .arg("--target=wasm32-wasi")
@@ -74,6 +90,14 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         .output()
         .expect("Failed to compile program to native code");
     print_info_on_error(&wasm_compilation_out, "WASM COMPILATION");
+    {
+        let mut actual_file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(file)
+            .unwrap();
+        actual_file.write_all(file_contents.as_bytes()).unwrap();
+    }
 
     // to prevent commiting huge binary blobs forever
     let wasm_strip_out = Command::new("wasm-strip")
@@ -89,7 +113,7 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     };
 
     let src_code = fs::read_to_string(file).expect("read src file");
-    let args = extract_args_from_source_file(&src_code).unwrap_or_default();
+    let args: Args = extract_args_from_source_file(&src_code).unwrap_or_default();
 
     let mapdir_args = {
         let mut out_str = String::new();
@@ -116,12 +140,25 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         out_str
     };
 
+    let dir_args = {
+        let mut out_str = String::new();
+        out_str.push_str("vec![");
+
+        for entry in args.po_dirs {
+            out_str.push_str(&format!("\"{}\".to_string(),", entry));
+        }
+
+        out_str.push_str("]");
+        out_str
+    };
+
     let contents = format!(
         "#[test]{ignore}
 fn test_{rs_module_name}() {{
     assert_wasi_output!(
         \"../../{module_path}\",
         \"{rs_module_name}\",
+        {dir_args},
         {mapdir_args},
         {envvar_args},
         \"../../{test_output_path}\"
@@ -132,6 +169,7 @@ fn test_{rs_module_name}() {{
         module_path = wasm_out_name,
         rs_module_name = rs_module_name,
         test_output_path = format!("{}.out", normalized_name),
+        dir_args = dir_args,
         mapdir_args = mapdir_args,
         envvar_args = envvar_args
     );
@@ -192,6 +230,8 @@ fn read_ignore_list() -> HashSet<String> {
 struct Args {
     pub mapdir: Vec<(String, String)>,
     pub envvars: Vec<(String, String)>,
+    /// pre-opened directories
+    pub po_dirs: Vec<String>,
 }
 
 /// Pulls args to the program out of a comment at the top of the file starting with "// Args:"
@@ -236,6 +276,9 @@ fn extract_args_from_source_file(source_code: &str) -> Option<Args> {
                     } else {
                         eprintln!("Parse error in env {} not parsed correctly", &tokenized[1]);
                     }
+                }
+                "dir" => {
+                    args.po_dirs.push(tokenized[1].to_string());
                 }
                 e => {
                     eprintln!("WARN: comment arg: {} is not supported", e);

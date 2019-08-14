@@ -93,62 +93,76 @@ public:
         readwrite_bump_ptr = (uintptr_t)readwrite_ptr_out;
     }
 
-    /* Turn on the `reserveAllocationSpace` callback. */
-    virtual bool needsToReserveAllocationSpace() override {
-        return true;
+  /* Turn on the `reserveAllocationSpace` callback. */
+  virtual bool needsToReserveAllocationSpace() override { return true; }
+
+  virtual void registerEHFrames(uint8_t *addr, uint64_t LoadAddr,
+                                size_t size) override {
+// We don't know yet how to do this on Windows, so we hide this on compilation
+// so we can compile and pass spectests on unix systems
+#ifndef _WIN32
+    eh_frame_ptr = addr;
+    eh_frame_size = size;
+    eh_frames_registered = true;
+    callbacks.visit_fde(addr, size, __register_frame);
+#endif
+  }
+
+  virtual void deregisterEHFrames() override {
+// We don't know yet how to do this on Windows, so we hide this on compilation
+// so we can compile and pass spectests on unix systems
+#ifndef _WIN32
+    if (eh_frames_registered) {
+      callbacks.visit_fde(eh_frame_ptr, eh_frame_size, __deregister_frame);
+    }
+#endif
+  }
+
+  virtual bool finalizeMemory(std::string *ErrMsg = nullptr) override {
+    auto code_result =
+        callbacks.protect_memory(code_section.base, code_section.size,
+                                 mem_protect_t::PROTECT_READ_EXECUTE);
+    if (code_result != RESULT_OK) {
+      return false;
     }
 
-    virtual void registerEHFrames(uint8_t* addr, uint64_t LoadAddr, size_t size) override {
-        eh_frame_ptr = addr;
-        eh_frame_size = size;
-        eh_frames_registered = true;
-        callbacks.visit_fde(addr, size, __register_frame);
+    auto read_result = callbacks.protect_memory(
+        read_section.base, read_section.size, mem_protect_t::PROTECT_READ);
+    if (read_result != RESULT_OK) {
+      return false;
     }
 
-    virtual void deregisterEHFrames() override {
-        if (eh_frames_registered) {
-            callbacks.visit_fde(eh_frame_ptr, eh_frame_size, __deregister_frame);
-        }
-    }
+    // The readwrite section is already mapped as read-write.
 
-    virtual bool finalizeMemory(std::string *ErrMsg = nullptr) override {
-        auto code_result = callbacks.protect_memory(code_section.base, code_section.size, mem_protect_t::PROTECT_READ_EXECUTE);
-        if (code_result != RESULT_OK) {
-            return false;
-        }
+    return false;
+  }
 
-        auto read_result = callbacks.protect_memory(read_section.base, read_section.size, mem_protect_t::PROTECT_READ);
-        if (read_result != RESULT_OK) {
-            return false;
-        }
+  virtual void
+  notifyObjectLoaded(llvm::RuntimeDyld &RTDyld,
+                     const llvm::object::ObjectFile &Obj) override {}
 
-        // The readwrite section is already mapped as read-write.
-
-        return false;
-    }
-
-    virtual void notifyObjectLoaded(llvm::RuntimeDyld &RTDyld, const llvm::object::ObjectFile &Obj) override {}
 private:
-    struct Section {
-        uint8_t* base;
-        size_t size;
+  struct Section {
+    uint8_t *base;
+    size_t size;
+  };
+
+  uint8_t *allocate_bump(Section &section, uintptr_t &bump_ptr, size_t size,
+                         size_t align) {
+    auto aligner = [](uintptr_t &ptr, size_t align) {
+      ptr = (ptr + align - 1) & ~(align - 1);
     };
 
-    uint8_t* allocate_bump(Section& section, uintptr_t& bump_ptr, size_t size, size_t align) {
-        auto aligner = [](uintptr_t& ptr, size_t align) {
-            ptr = (ptr + align - 1) & ~(align - 1);
-        };
+    // Align the bump pointer to the requires alignment.
+    aligner(bump_ptr, align);
 
-        // Align the bump pointer to the requires alignment.
-        aligner(bump_ptr, align);
+    auto ret_ptr = bump_ptr;
+    bump_ptr += size;
 
-        auto ret_ptr = bump_ptr;
-        bump_ptr += size;
+    assert(bump_ptr <= (uintptr_t)section.base + section.size);
 
-        assert(bump_ptr <= (uintptr_t)section.base + section.size);
-
-        return (uint8_t*)ret_ptr;
-    }
+    return (uint8_t *)ret_ptr;
+  }
 
     Section code_section, read_section, readwrite_section;
     uintptr_t code_start_ptr;
@@ -166,65 +180,59 @@ private:
 
 struct SymbolLookup : llvm::JITSymbolResolver {
 public:
-    SymbolLookup(callbacks_t callbacks) : callbacks(callbacks) {}
+  SymbolLookup(callbacks_t callbacks) : callbacks(callbacks) {}
 
-    virtual llvm::Expected<LookupResult> lookup(const LookupSet& symbols) override {
-        LookupResult result;
+  void lookup(const LookupSet &symbols, OnResolvedFunction OnResolved) {
+    LookupResult result;
 
-        for (auto symbol : symbols) {
-            result.emplace(symbol, symbol_lookup(symbol));
-        }
-
-        return result;
+    for (auto symbol : symbols) {
+      result.emplace(symbol, symbol_lookup(symbol));
     }
 
-    virtual llvm::Expected<LookupFlagsResult> lookupFlags(const LookupSet& symbols) override {
-        LookupFlagsResult result;
+    OnResolved(result);
+  }
 
-        for (auto symbol : symbols) {
-            result.emplace(symbol, symbol_lookup(symbol).getFlags());
-        }
-
-        return result;
-    }
+  llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet &Symbols) {
+    const std::set<llvm::StringRef> empty;
+    return empty;
+  }
 
 private:
-    llvm::JITEvaluatedSymbol symbol_lookup(llvm::StringRef name) {
-        uint64_t addr = callbacks.lookup_vm_symbol(name.data(), name.size());
+  llvm::JITEvaluatedSymbol symbol_lookup(llvm::StringRef name) {
+    uint64_t addr = callbacks.lookup_vm_symbol(name.data(), name.size());
 
-        return llvm::JITEvaluatedSymbol(addr, llvm::JITSymbolFlags::None);
-    }
+    return llvm::JITEvaluatedSymbol(addr, llvm::JITSymbolFlags::None);
+  }
 
-    callbacks_t callbacks;
+  callbacks_t callbacks;
 };
 
-WasmModule::WasmModule(
-        const uint8_t *object_start,
-        size_t object_size,
-        callbacks_t callbacks
-) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks)))
-{
-    
+WasmModule::WasmModule(const uint8_t *object_start, size_t object_size,
+                       callbacks_t callbacks)
+    : memory_manager(
+          std::unique_ptr<MemoryManager>(new MemoryManager(callbacks))) {
 
-    if (auto created_object_file = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
-        llvm::StringRef((const char *)object_start, object_size), "object"
-    ))) {
-        object_file = cantFail(std::move(created_object_file));
-        SymbolLookup symbol_resolver(callbacks);
-        runtime_dyld = std::unique_ptr<llvm::RuntimeDyld>(new llvm::RuntimeDyld(*memory_manager, symbol_resolver));
+  if (auto created_object_file =
+          llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
+              llvm::StringRef((const char *)object_start, object_size),
+              "object"))) {
+    object_file = cantFail(std::move(created_object_file));
+    SymbolLookup symbol_resolver(callbacks);
+    runtime_dyld = std::unique_ptr<llvm::RuntimeDyld>(
+        new llvm::RuntimeDyld(*memory_manager, symbol_resolver));
 
-        runtime_dyld->setProcessAllSections(true);
+    runtime_dyld->setProcessAllSections(true);
 
-        runtime_dyld->loadObject(*object_file);
-        runtime_dyld->finalizeWithMemoryManagerLocking();
+    runtime_dyld->loadObject(*object_file);
+    runtime_dyld->finalizeWithMemoryManagerLocking();
 
-        if (runtime_dyld->hasError()) {
-            _init_failed = true;
-            return;
-        }
-    } else {
-        _init_failed = true;
+    if (runtime_dyld->hasError()) {
+      _init_failed = true;
+      return;
     }
+  } else {
+    _init_failed = true;
+  }
 }
 
 void* WasmModule::get_func(llvm::StringRef name) const {

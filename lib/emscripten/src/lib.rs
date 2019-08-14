@@ -1,11 +1,16 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
-
+#![deny(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 #[macro_use]
 extern crate wasmer_runtime_core;
 
-use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
@@ -25,11 +30,11 @@ use wasmer_runtime_core::{
 };
 
 #[cfg(unix)]
-use ::libc::DIR as libcDIR;
+use ::libc::DIR as LibcDir;
 
 // We use a placeholder for windows
 #[cfg(not(unix))]
-type libcDIR = u8;
+type LibcDir = u8;
 
 #[macro_use]
 mod macros;
@@ -93,7 +98,7 @@ pub struct EmscriptenData<'a> {
     pub memset: Option<Func<'a, (u32, u32, u32), u32>>,
     pub stack_alloc: Option<Func<'a, u32, u32>>,
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
-    pub opened_dirs: HashMap<i32, Box<*mut libcDIR>>,
+    pub opened_dirs: HashMap<i32, Box<*mut LibcDir>>,
 
     pub dyn_call_i: Option<Func<'a, i32, i32>>,
     pub dyn_call_ii: Option<Func<'a, (i32, i32), i32>>,

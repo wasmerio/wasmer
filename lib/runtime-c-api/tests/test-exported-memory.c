@@ -42,8 +42,9 @@ int main()
     assert(export_length == 5);
 
     // Get the `memory` export.
-    wasmer_export_t *export = wasmer_exports_get(exports, 1);
+    wasmer_export_t *export = wasmer_exports_get(exports, 0);
     wasmer_import_export_kind kind = wasmer_export_kind(export);
+    printf("Wasmer import export kind: %d (Memory is %d)\n", kind, WASM_MEMORY);
     assert(kind == WASM_MEMORY);
 
     wasmer_byte_array export_name = wasmer_export_name(export);

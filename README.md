@@ -14,6 +14,9 @@
   <a href="https://spectrum.chat/wasmer">
     <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
   </a>
+  <a href="https://twitter.com/wasmerio">
+    <img alt="Follow @wasmerio on Twitter" src="https://img.shields.io/twitter/follow/wasmerio?label=%40wasmerio&style=social">
+  </a>
 </p>
 
 ## Introduction
@@ -26,10 +29,13 @@ Install Wasmer with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
+> Note: *Wasmer is also available on Windows. Download the [`WasmerInstaller.exe` from the Github Releases](https://github.com/wasmerio/wasmer/releases) page.*
+
 Wasmer runtime can also be embedded in different languages, so you can use WebAssembly anywhere ✨:
 
-* [🦀 **Rust**](https://github.com/wasmerio/wasmer-rust-example)
-* [**C/C++**](https://github.com/wasmerio/wasmer-c-api)
+* [**🦀 Rust**](https://github.com/wasmerio/wasmer-rust-example)
+* [**🔗 C/C++**](https://github.com/wasmerio/wasmer-c-api)
+* [**#️⃣ C#**](https://github.com/migueldeicaza/WasmerSharp)
 * [**🐘 PHP**](https://github.com/wasmerio/php-ext-wasm)
 * [**🐍 Python**](https://github.com/wasmerio/python-ext-wasm)
 * [**💎 Ruby**](https://github.com/wasmerio/ruby-ext-wasm)
@@ -45,21 +51,14 @@ Once installed, you will be able to run any WebAssembly files (_including Lua, P
 ```sh
 # Run Lua
 wasmer run examples/lua.wasm
-
-# Run PHP
-wasmer run examples/php.wasm
-
-# Run SQLite
-wasmer run examples/sqlite.wasm
-
-# Run nginx
-wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 ```
+
+*You can find more `wasm/wat` examples in the [examples](./examples) directory.*
 
 #### With WAPM
 
 Installing Wasmer through `wasmer.io` includes
-[wapm](https://github.com/wasmerio/wapm-cli), the WebAssembly package manager.
+[`wapm`](https://github.com/wasmerio/wapm-cli), the [WebAssembly Package Manager](https://wapm.io/).
 
 Wapm allows you to easily download, run, and distribute WebAssembly binaries.
 
@@ -86,7 +85,7 @@ Wasmer is structured into different directories:
 
 Building Wasmer requires [rustup](https://rustup.rs/).
 
-To build on Windows, download and run [`rustup-init.exe`](https://win.rustup.rs/)
+To build Wasmer on Windows, download and run [`rustup-init.exe`](https://win.rustup.rs/)
 then follow the onscreen instructions.
 
 To build on other systems, run:
@@ -99,10 +98,9 @@ curl https://sh.rustup.rs -sSf | sh
 
 Please select your operating system:
 
-- [macOS](#macos)
-- [Debian-based Linuxes](#debian-based-linuxes)
-- [FreeBSD](#freebsd)
-- [Microsoft Windows](#windows-msvc)
+<details>
+  <summary><b>macOS</b></summary>
+  <p>
 
 #### macOS
 
@@ -118,22 +116,41 @@ Or, in case you have [MacPorts](https://www.macports.org/install.php):
 sudo port install cmake
 ```
 
+  </p>
+</details>
+
+<details>
+  <summary><b>Debian-based Linuxes</b></summary>
+  <p>
+
 #### Debian-based Linuxes
 
 ```sh
 sudo apt install cmake pkg-config libssl-dev
 ```
+  </p>
+</details>
+
+<details>
+  <summary><b>FreeBSD</b></summary>
+  <p>
 
 #### FreeBSD
 
 ```sh
 pkg install cmake
 ```
+  </p>
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+  <p>
 
 #### Windows (MSVC)
 
-Windows support is _highly experimental_. Only simple Wasm programs may be run, and no syscalls are allowed. This means
-nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmerio/wasmer/issues/176) regarding Emscripten syscall polyfills for Windows.
+Windows support is _experimental_. WASI is fully supported, but Emscripten support is on the works (this means
+nginx and Lua do not work on Windows - you can track the progress on [this issue](https://github.com/wasmerio/wasmer/issues/176)).
 
 1. Install [Visual Studio](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=15)
 
@@ -147,7 +164,9 @@ nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmer
 
 5. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
 
-6. Install [LLVM 7.0](https://prereleases.llvm.org/win-snapshots/LLVM-7.0.0-r336178-win64.exe)
+6. Install [LLVM 8.0](https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe)
+  </p>
+</details>
 
 ## Building
 
@@ -165,8 +184,14 @@ git clone https://github.com/wasmerio/wasmer.git
 cd wasmer
 
 # install tools
-# make sure that `python` is accessible.
-make install
+make release-clif # To build with cranelift (default)
+
+make release-llvm # To build with llvm support
+
+make release-singlepass # To build with singlepass support
+
+# or
+make release # To build with singlepass, cranelift and llvm support
 ```
 
 ## Testing
@@ -204,7 +229,10 @@ Each integration can be tested separately:
 Benchmarks can be run with:
 
 ```sh
-make bench
+make bench-[backend]
+
+# for example
+make bench-singlepass
 ```
 
 ## Roadmap
@@ -216,13 +244,12 @@ Below are some of the goals of this project (in order of priority):
 - [x] It should be 100% compatible with the [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests)
 - [x] It should be fast _(partially achieved)_
 - [x] Support WASI - released in [0.3.0](https://github.com/wasmerio/wasmer/releases/tag/0.3.0)
-- [ ] Support Emscripten calls _(in the works)_
-- [ ] Support Rust ABI calls
-- [ ] Support Go ABI calls
+- [x] Support Emscripten calls _(in the works)_
+- [ ] Support Go js ABI calls
 
 ## Architecture
 
-If you would like to know how Wasmer works under the hood, please see [ARCHITECTURE.md](./ARCHITECTURE.md).
+If you would like to know how Wasmer works under the hood, please see [docs/architecture.md](./docs/architecture.md).
 
 ## License
 

@@ -5,7 +5,7 @@ use crate::emitter_x64::*;
 use crate::machine::*;
 use crate::protect_unix;
 use dynasmrt::{
-    x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
+    x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
 };
 use smallvec::SmallVec;
 use std::ptr::NonNull;
@@ -149,7 +149,7 @@ pub struct X64FunctionCode {
     breakpoints: Option<
         HashMap<
             AssemblyOffset,
-            Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
+            Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
         >,
     >,
     returns: SmallVec<[WpType; 1]>,
@@ -319,7 +319,7 @@ impl RunnableModule for X64ExecutionContext {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
         protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
         protect_unix::trigger_trap();
     }
@@ -4969,6 +4969,7 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::I64 => WpType::I64,
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
+        Type::V128 => WpType::V128,
     }
 }
 
