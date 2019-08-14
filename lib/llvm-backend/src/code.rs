@@ -1151,7 +1151,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         builder.build_store(ptr_to_value, value);
                     }
                     GlobalCache::Const { value: _ } => {
-                        unreachable!("cannot set non-mutable globals")
+                        return Err(CodegenError {
+                            message: "global is immutable".to_string(),
+                        });
                     }
                 }
             }
