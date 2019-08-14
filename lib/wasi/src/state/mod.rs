@@ -8,7 +8,7 @@ pub use self::types::*;
 use crate::syscalls::types::*;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::{
     borrow::Borrow,
     cell::Cell,
@@ -115,26 +115,6 @@ pub struct Fd {
     pub inode: Inode,
 }
 
-#[derive(Default)]
-pub(crate) struct AsyncReadState {
-    pub(crate) closed: bool,
-    pub(crate) nbytes_read: __wasi_filesize_t,
-    pub(crate) buffer: VecDeque<u8>,
-}
-
-impl AsyncReadState {
-    pub const MAX_SIZE: usize = 1024;
-}
-
-impl std::fmt::Debug for AsyncReadState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AsyncReadState")
-            .field("closed", &self.closed)
-            .field("nbytes_read", &self.nbytes_read)
-            .finish()
-    }
-}
-
 #[derive(Debug)]
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
@@ -152,8 +132,6 @@ pub struct WasiFs {
     pub stdout: Box<dyn WasiFile>,
     pub stderr: Box<dyn WasiFile>,
     pub stdin: Box<dyn WasiFile>,
-
-    pub(crate) async_readers: HashMap<u32, AsyncReadState>,
 }
 
 impl WasiFs {
@@ -175,8 +153,6 @@ impl WasiFs {
             stdin: Box::new(Stdin(io::stdin())),
             stdout: Box::new(Stdout(io::stdout())),
             stderr: Box::new(Stderr(io::stderr())),
-
-            async_readers: HashMap::new(),
         };
         // create virtual root
         let root_inode = {

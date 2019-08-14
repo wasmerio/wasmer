@@ -1,8 +1,8 @@
 use crate::state::{Kind, WasiFile, WasiFs};
 use crate::syscalls::types::*;
 use libc::{
-    c_int, clock_getres, clock_gettime, nfds_t, poll, timespec, CLOCK_MONOTONIC,
-    CLOCK_PROCESS_CPUTIME_ID, CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
+    clock_getres, clock_gettime, timespec, CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID,
+    CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
 };
 use std::cell::Cell;
 use std::mem;
@@ -63,35 +63,4 @@ pub fn platform_clock_time_get(
 
     // TODO: map output of clock_gettime to __wasi_errno_t
     __WASI_ESUCCESS
-}
-
-pub fn poll_for_fds() -> Result<(), __wasi_errno_t> {
-    //let result = unsafe { poll( , libc::POLLIN, 0 as c_int) };
-    unimplemented!()
-}
-
-pub fn read_from_fd(
-    wasi_fs: &mut WasiFs,
-    fd: __wasi_fd_t,
-    buffer: &mut [u8],
-) -> Result<(), __wasi_errno_t> {
-    let fd_entry = wasi_fs.get_fd(fd)?;
-    let inode = fd_entry.inode;
-    match &mut wasi_fs.inodes[inode].kind {
-        Kind::File { handle, .. } => {
-            if let Some(h) = handle {
-
-            } else {
-                return Err(__WASI_EINVAL);
-            }
-            unimplemented!()
-        }
-        Kind::Dir { .. } | Kind::Root { .. } | Kind::Buffer { .. } | Kind::Symlink { .. } => {
-            return Err(__WASI_EINVAL)
-        }
-    }
-    let host_fd = unimplemented!();
-
-    let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, buffer) };
-    unimplemented!()
 }
