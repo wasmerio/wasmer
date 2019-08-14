@@ -1,4 +1,5 @@
 use inkwell::{
+    attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     module::Module,
@@ -310,7 +311,7 @@ impl Intrinsics {
             i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false);
 
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
-        Self {
+        let intrinsics = Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
             ctlz_i64: module.add_function("llvm.ctlz.i64", ret_i64_take_i64_i1, None),
 
@@ -531,7 +532,39 @@ impl Intrinsics {
                 None,
             ),
             ctx_ptr_ty,
-        }
+        };
+
+        let readonly =
+            context.create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0);
+        intrinsics
+            .memory_size_dynamic_local
+            .add_attribute(AttributeLoc::Function, readonly);
+        intrinsics
+            .memory_size_static_local
+            .add_attribute(AttributeLoc::Function, readonly);
+        intrinsics
+            .memory_size_shared_local
+            .add_attribute(AttributeLoc::Function, readonly);
+        intrinsics
+            .memory_size_dynamic_import
+            .add_attribute(AttributeLoc::Function, readonly);
+        intrinsics
+            .memory_size_static_import
+            .add_attribute(AttributeLoc::Function, readonly);
+        intrinsics
+            .memory_size_shared_import
+            .add_attribute(AttributeLoc::Function, readonly);
+
+        let noreturn =
+            context.create_enum_attribute(Attribute::get_named_enum_kind_id("noreturn"), 0);
+        intrinsics
+            .throw_trap
+            .add_attribute(AttributeLoc::Function, noreturn);
+        intrinsics
+            .throw_breakpoint
+            .add_attribute(AttributeLoc::Function, noreturn);
+
+        intrinsics
     }
 }
 
