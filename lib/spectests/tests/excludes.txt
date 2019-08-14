@@ -17,21 +17,20 @@
 #
 
 # Cranelift
-clif:skip:names.wast:*         # Names file has parsing error?
 clif:skip:simd.wast:*          # SIMD not implemented
 clif:skip:simd_binaryen.wast:* # SIMD not implemented
 
 # linking.wast:387,388 appear to be related to WABT issue: https://github.com/pepyakin/wabt-rs/issues/51
 
 clif:fail:globals.wast:243 # AssertInvalid - Should be invalid
-clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x1069f3062 - illegal instruction"
-clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x1069f3062 - illegal instruction"
-clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x1069f3062 - illegal instruction"
-clif:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x1069f3062 - illegal instruction"
-clif:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x1069f3037 - illegal instruction"
-clif:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x1069f3037 - illegal instruction"
-clif:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x1069f3062 - illegal instruction"
-clif:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x1069f3062 - illegal instruction"
+clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883037 - illegal instruction"
+clif:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883037 - illegal instruction"
+clif:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
 clif:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 clif:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
 
@@ -816,9 +815,6 @@ llvm:skip:f64.wast:2418
 llvm:skip:br_table.wast:1255
 llvm:skip:imports.wast:391 # Running forever
 llvm:skip:imports.wast:402 # Running forever
-llvm:skip:imports.wast:487 # LLVM ERROR: Program used external function '_vm.memory.grow.static.import' which could not be resolved!
-llvm:skip:linking.wast:306 # LLVM ERROR: Program used external function '_vm.memory.grow.static.import' which could not be resolved!
-llvm:skip:names.wast:*     # Names file has parsing error?
 llvm:skip:call.wast:273    # Spec running forever
 llvm:skip:call_indirect.wast:556 # Spec running forever
 llvm:skip:call_indirect.wast:557 # Spec running forever
@@ -827,72 +823,17 @@ llvm:skip:skip-stack-guard-page.wast:* # Spec running forever or (signal: 4, SIG
 llvm:skip:linking.wast:236 # terminating with uncaught exception of type WasmTrap
 llvm:skip:linking.wast:248 # terminating with uncaught exception of type WasmTrap
 
-llvm:fail:binary-leb128.wast:56 # Module - caught panic Any
-llvm:fail:binary-leb128.wast:65 # Module - caught panic Any
-llvm:fail:binary-leb128.wast:74 # Module - caught panic Any
-llvm:fail:binary-leb128.wast:86 # Module - caught panic Any
-llvm:fail:binary-leb128.wast:98 # Module - caught panic Any
-llvm:fail:binary.wast:446 # Module - caught panic Any
-llvm:fail:globals.wast:243 # AssertInvalid - caught panic Any
-llvm:fail:i32.wast:243 # AssertReturn - result I32(205242703) ("0xc3bc14f") does not match expected I32(32) ("0x20")
-llvm:fail:i32.wast:252 # AssertReturn - result I32(205242720) ("0xc3bc160") does not match expected I32(32) ("0x20")
-llvm:fail:i64.wast:243 # AssertReturn - result I64(4500210159) ("0x10c3bc1ef") does not match expected I64(64) ("0x40")
-llvm:fail:i64.wast:252 # AssertReturn - result I64(4500210144) ("0x10c3bc1e0") does not match expected I64(64) ("0x40")
-llvm:fail:imports.wast:98 # Module - caught panic Any
-llvm:fail:imports.wast:99 # Module - caught panic Any
-llvm:fail:imports.wast:100 # Module - caught panic Any
-llvm:fail:imports.wast:101 # Module - caught panic Any
-llvm:fail:imports.wast:102 # Module - caught panic Any
-llvm:fail:imports.wast:103 # Module - caught panic Any
-llvm:fail:imports.wast:104 # Module - caught panic Any
-llvm:fail:imports.wast:107 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:111 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:116 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:120 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:124 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:128 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:132 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:136 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:140 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:144 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:148 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:152 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:156 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:160 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:164 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:168 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:172 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:176 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:181 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:185 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:189 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:193 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:197 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:201 # AssertUnlinkable - caught panic Any
-llvm:fail:imports.wast:491 # AssertReturn - Call failed ResolveError: ExportNotFound { name: "grow" }
-llvm:fail:imports.wast:492 # AssertReturn - Call failed ResolveError: ExportNotFound { name: "grow" }
-llvm:fail:imports.wast:493 # AssertReturn - Call failed ResolveError: ExportNotFound { name: "grow" }
-llvm:fail:imports.wast:494 # AssertReturn - Call failed ResolveError: ExportNotFound { name: "grow" }
-llvm:fail:imports.wast:495 # AssertReturn - Call failed ResolveError: ExportNotFound { name: "grow" }
-llvm:fail:imports.wast:574 # AssertUnlinkable - caught panic Any
-llvm:fail:linking.wast:22 # Module - caught panic Any
-llvm:fail:linking.wast:26 # Register - No instance available
-llvm:fail:linking.wast:28 # AssertUnlinkable - caught panic Any
-llvm:fail:linking.wast:32 # AssertUnlinkable - caught panic Any
-llvm:fail:linking.wast:314 # AssertReturn - No instance available: Some("$Pm")
-llvm:fail:linking.wast:315 # AssertReturn - No instance available: Some("$Pm")
-llvm:fail:linking.wast:316 # AssertReturn - No instance available: Some("$Pm")
-llvm:fail:linking.wast:317 # AssertReturn - No instance available: Some("$Pm")
-llvm:fail:linking.wast:318 # AssertReturn - No instance available: Some("$Pm")
-llvm:fail:linking.wast:319 # AssertReturn - No instance available: Some("$Pm")
-llvm:fail:linking.wast:320 # AssertReturn - No instance available: Some("$Pm")
-llvm:fail:linking.wast:321 # AssertReturn - No instance available: Some("$Pm")
-llvm:fail:linking.wast:324 # AssertUnlinkable - caught panic Any
+llvm:fail:f32.wast:1621 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
+llvm:fail:f32.wast:2020 # AssertReturn - result F32(2147483648) ("0x80000000") does not match expected F32(0) ("0x0")
+llvm:fail:f64.wast:1621 # AssertReturn - result F64(0) ("0x0") does not match expected F64(9223372036854775808) ("0x8000000000000000")
+llvm:fail:f64.wast:2020 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
+llvm:fail:i32.wast:243 # AssertReturn - result I32(283816271) ("0x10eab14f") does not match expected I32(32) ("0x20")
+llvm:fail:i32.wast:252 # AssertReturn - result I32(283816288) ("0x10eab160") does not match expected I32(32) ("0x20")
+llvm:fail:i64.wast:243 # AssertReturn - result I64(4578783727) ("0x110eab1ef") does not match expected I64(64) ("0x40")
+llvm:fail:i64.wast:252 # AssertReturn - result I64(4578783712) ("0x110eab1e0") does not match expected I64(64) ("0x40")
 llvm:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:load.wast:201 # AssertReturn - result I32(205795359) ("0xc44301f") does not match expected I32(32) ("0x20")
-llvm:fail:start.wast:92 # Module - caught panic Any
-llvm:fail:type.wast:3 # Module - caught panic Any
+llvm:fail:load.wast:201 # AssertReturn - result I32(285315103) ("0x1101901f") does not match expected I32(32) ("0x20")
 
 # LLVM Windows
 llvm:skip:address.wast:*:windows
@@ -919,7 +860,6 @@ llvm:skip:unreachable.wast:*:windows
 llvm:skip:unwind.wast:*:windows
 
 # Singlepass
-singlepass:skip:names.wast:*         # Names file has parsing error?
 singlepass:skip:simd.wast:*          # SIMD not implemented
 singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
@@ -1166,6 +1106,7 @@ singlepass:fail:exports.wast:167 # Module - caught panic Any
 singlepass:fail:exports.wast:168 # Module - caught panic Any
 singlepass:fail:exports.wast:169 # Module - caught panic Any
 singlepass:fail:exports.wast:170 # Module - caught panic Any
+singlepass:fail:f32.wast:1620 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
 singlepass:fail:f32.wast:1652 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:1654 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:1656 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
@@ -1270,6 +1211,7 @@ singlepass:fail:f32.wast:2013 # "AssertReturnArithmeticNan" - value is not arith
 singlepass:fail:f32.wast:2014 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:2017 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:2018 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2021 # AssertReturn - result F32(2147483648) ("0x80000000") does not match expected F32(0) ("0x0")
 singlepass:fail:f32.wast:2052 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:2054 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:2056 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
@@ -1374,6 +1316,7 @@ singlepass:fail:f32.wast:2413 # "AssertReturnArithmeticNan" - value is not arith
 singlepass:fail:f32.wast:2414 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:2417 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:2418 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f64.wast:1620 # AssertReturn - result F64(0) ("0x0") does not match expected F64(9223372036854775808) ("0x8000000000000000")
 singlepass:fail:f64.wast:1652 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 singlepass:fail:f64.wast:1654 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 singlepass:fail:f64.wast:1656 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
@@ -1478,6 +1421,7 @@ singlepass:fail:f64.wast:2013 # "AssertReturnArithmeticNan" - value is not arith
 singlepass:fail:f64.wast:2014 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 singlepass:fail:f64.wast:2017 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 singlepass:fail:f64.wast:2018 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2021 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
 singlepass:fail:f64.wast:2052 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 singlepass:fail:f64.wast:2054 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 singlepass:fail:f64.wast:2056 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
