@@ -83,25 +83,23 @@ public:
   uintptr_t callback;
 };
 
-struct WasmModule
-{
-  public:
-    WasmModule(
-        const uint8_t *object_start,
-        size_t object_size,
-        callbacks_t callbacks);
+struct WasmModule {
+public:
+  WasmModule(const uint8_t *object_start, size_t object_size,
+             callbacks_t callbacks);
 
-    void *get_func(llvm::StringRef name) const;
-    uint8_t *get_stack_map_ptr() const;
-    size_t get_stack_map_size() const;
-    uint8_t *get_code_ptr() const;
-    size_t get_code_size() const;
+  void *get_func(llvm::StringRef name) const;
+  uint8_t *get_stack_map_ptr() const;
+  size_t get_stack_map_size() const;
+  uint8_t *get_code_ptr() const;
+  size_t get_code_size() const;
 
-    bool _init_failed = false;
-  private:
-    std::unique_ptr<llvm::RuntimeDyld::MemoryManager> memory_manager;
-    std::unique_ptr<llvm::object::ObjectFile> object_file;
-    std::unique_ptr<llvm::RuntimeDyld> runtime_dyld;
+  bool _init_failed = false;
+
+private:
+  std::unique_ptr<llvm::RuntimeDyld::MemoryManager> memory_manager;
+  std::unique_ptr<llvm::object::ObjectFile> object_file;
+  std::unique_ptr<llvm::RuntimeDyld> runtime_dyld;
 };
 
 struct WasmTrap : UncatchableException {
@@ -225,18 +223,18 @@ void *get_func_symbol(WasmModule *module, const char *name) {
 }
 
 const uint8_t *llvm_backend_get_stack_map_ptr(const WasmModule *module) {
-        return module->get_stack_map_ptr();
-    }
+  return module->get_stack_map_ptr();
+}
 
-    size_t llvm_backend_get_stack_map_size(const WasmModule *module) {
-        return module->get_stack_map_size();
-    }
+size_t llvm_backend_get_stack_map_size(const WasmModule *module) {
+  return module->get_stack_map_size();
+}
 
-    const uint8_t *llvm_backend_get_code_ptr(const WasmModule *module) {
-        return module->get_code_ptr();
-    }
+const uint8_t *llvm_backend_get_code_ptr(const WasmModule *module) {
+  return module->get_code_ptr();
+}
 
-    size_t llvm_backend_get_code_size(const WasmModule *module) {
-        return module->get_code_size();
-    }
+size_t llvm_backend_get_code_size(const WasmModule *module) {
+  return module->get_code_size();
+}
 }

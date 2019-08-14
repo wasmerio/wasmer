@@ -579,7 +579,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
-            
+
             #[cfg(feature = "managed")]
             {
                 let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =

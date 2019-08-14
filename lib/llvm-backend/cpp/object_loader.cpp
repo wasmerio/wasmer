@@ -7,91 +7,92 @@ extern "C" void __deregister_frame(uint8_t *);
 
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager {
 public:
-    MemoryManager(callbacks_t callbacks) : callbacks(callbacks) {}
+  MemoryManager(callbacks_t callbacks) : callbacks(callbacks) {}
 
-    uint8_t * get_stack_map_ptr() const {
-        return stack_map_ptr;
+  uint8_t *get_stack_map_ptr() const { return stack_map_ptr; }
+
+  size_t get_stack_map_size() const { return stack_map_size; }
+
+  uint8_t *get_code_ptr() const { return (uint8_t *)code_start_ptr; }
+
+  size_t get_code_size() const { return code_size; }
+
+  virtual ~MemoryManager() override {
+    deregisterEHFrames();
+    // Deallocate all of the allocated memory.
+    callbacks.dealloc_memory(code_section.base, code_section.size);
+    callbacks.dealloc_memory(read_section.base, read_section.size);
+    callbacks.dealloc_memory(readwrite_section.base, readwrite_section.size);
+  }
+
+  virtual uint8_t *allocateCodeSection(uintptr_t size, unsigned alignment,
+                                       unsigned section_id,
+                                       llvm::StringRef section_name) override {
+    return allocate_bump(code_section, code_bump_ptr, size, alignment);
+  }
+
+  virtual uint8_t *allocateDataSection(uintptr_t size, unsigned alignment,
+                                       unsigned section_id,
+                                       llvm::StringRef section_name,
+                                       bool read_only) override {
+    // Allocate from the read-only section or the read-write section, depending
+    // on if this allocation should be read-only or not.
+    uint8_t *ret;
+    if (read_only) {
+      ret = allocate_bump(read_section, read_bump_ptr, size, alignment);
+    } else {
+      ret =
+          allocate_bump(readwrite_section, readwrite_bump_ptr, size, alignment);
     }
-
-    size_t get_stack_map_size() const {
-        return stack_map_size;
+    if (section_name.equals(llvm::StringRef("__llvm_stackmaps")) ||
+        section_name.equals(llvm::StringRef(".llvm_stackmaps"))) {
+      stack_map_ptr = ret;
+      stack_map_size = size;
     }
+    return ret;
+  }
 
-    uint8_t * get_code_ptr() const {
-        return (uint8_t *) code_start_ptr;
-    }
+  virtual void reserveAllocationSpace(uintptr_t code_size, uint32_t code_align,
+                                      uintptr_t read_data_size,
+                                      uint32_t read_data_align,
+                                      uintptr_t read_write_data_size,
+                                      uint32_t read_write_data_align) override {
+    auto aligner = [](uintptr_t ptr, size_t align) {
+      if (ptr == 0) {
+        return align;
+      }
+      return (ptr + align - 1) & ~(align - 1);
+    };
 
-    size_t get_code_size() const {
-        return code_size;
-    }
+    uint8_t *code_ptr_out = nullptr;
+    size_t code_size_out = 0;
+    auto code_result =
+        callbacks.alloc_memory(aligner(code_size, 4096), PROTECT_READ_WRITE,
+                               &code_ptr_out, &code_size_out);
+    assert(code_result == RESULT_OK);
+    code_section = Section{code_ptr_out, code_size_out};
+    code_bump_ptr = (uintptr_t)code_ptr_out;
+    code_start_ptr = (uintptr_t)code_ptr_out;
+    this->code_size = code_size;
 
-    virtual ~MemoryManager() override {
-        deregisterEHFrames();
-        // Deallocate all of the allocated memory.
-        callbacks.dealloc_memory(code_section.base, code_section.size);
-        callbacks.dealloc_memory(read_section.base, read_section.size);
-        callbacks.dealloc_memory(readwrite_section.base, readwrite_section.size);
-    }
+    uint8_t *read_ptr_out = nullptr;
+    size_t read_size_out = 0;
+    auto read_result = callbacks.alloc_memory(aligner(read_data_size, 4096),
+                                              PROTECT_READ_WRITE, &read_ptr_out,
+                                              &read_size_out);
+    assert(read_result == RESULT_OK);
+    read_section = Section{read_ptr_out, read_size_out};
+    read_bump_ptr = (uintptr_t)read_ptr_out;
 
-    virtual uint8_t* allocateCodeSection(uintptr_t size, unsigned alignment, unsigned section_id, llvm::StringRef section_name) override {
-        return allocate_bump(code_section, code_bump_ptr, size, alignment);
-    }
-
-    virtual uint8_t* allocateDataSection(uintptr_t size, unsigned alignment, unsigned section_id, llvm::StringRef section_name, bool read_only) override {
-        // Allocate from the read-only section or the read-write section, depending on if this allocation
-        // should be read-only or not.
-        uint8_t *ret;
-        if (read_only) {
-            ret = allocate_bump(read_section, read_bump_ptr, size, alignment);
-        } else {
-            ret = allocate_bump(readwrite_section, readwrite_bump_ptr, size, alignment);
-        }
-        if(section_name.equals(llvm::StringRef("__llvm_stackmaps")) || section_name.equals(llvm::StringRef(".llvm_stackmaps"))) {
-            stack_map_ptr = ret;
-            stack_map_size = size;
-        }
-        return ret;
-    }
-
-    virtual void reserveAllocationSpace(
-        uintptr_t code_size,
-        uint32_t code_align,
-        uintptr_t read_data_size,
-        uint32_t read_data_align,
-        uintptr_t read_write_data_size,
-        uint32_t read_write_data_align
-    ) override {
-        auto aligner = [](uintptr_t ptr, size_t align) {
-            if (ptr == 0) {
-                return align;
-            }
-            return (ptr + align - 1) & ~(align - 1);
-        };
-
-
-        uint8_t *code_ptr_out = nullptr;
-        size_t code_size_out = 0;
-        auto code_result = callbacks.alloc_memory(aligner(code_size, 4096), PROTECT_READ_WRITE, &code_ptr_out, &code_size_out);
-        assert(code_result == RESULT_OK);
-        code_section = Section { code_ptr_out, code_size_out };
-        code_bump_ptr = (uintptr_t)code_ptr_out;
-        code_start_ptr = (uintptr_t)code_ptr_out;
-        this->code_size = code_size;
-
-        uint8_t *read_ptr_out = nullptr;
-        size_t read_size_out = 0;
-        auto read_result = callbacks.alloc_memory(aligner(read_data_size, 4096), PROTECT_READ_WRITE, &read_ptr_out, &read_size_out);
-        assert(read_result == RESULT_OK);
-        read_section = Section { read_ptr_out, read_size_out };
-        read_bump_ptr = (uintptr_t)read_ptr_out;
-
-        uint8_t *readwrite_ptr_out = nullptr;
-        size_t readwrite_size_out = 0;
-        auto readwrite_result = callbacks.alloc_memory(aligner(read_write_data_size, 4096), PROTECT_READ_WRITE, &readwrite_ptr_out, &readwrite_size_out);
-        assert(readwrite_result == RESULT_OK);
-        readwrite_section = Section { readwrite_ptr_out, readwrite_size_out };
-        readwrite_bump_ptr = (uintptr_t)readwrite_ptr_out;
-    }
+    uint8_t *readwrite_ptr_out = nullptr;
+    size_t readwrite_size_out = 0;
+    auto readwrite_result = callbacks.alloc_memory(
+        aligner(read_write_data_size, 4096), PROTECT_READ_WRITE,
+        &readwrite_ptr_out, &readwrite_size_out);
+    assert(readwrite_result == RESULT_OK);
+    readwrite_section = Section{readwrite_ptr_out, readwrite_size_out};
+    readwrite_bump_ptr = (uintptr_t)readwrite_ptr_out;
+  }
 
   /* Turn on the `reserveAllocationSpace` callback. */
   virtual bool needsToReserveAllocationSpace() override { return true; }
@@ -164,18 +165,18 @@ private:
     return (uint8_t *)ret_ptr;
   }
 
-    Section code_section, read_section, readwrite_section;
-    uintptr_t code_start_ptr;
-    size_t code_size;
-    uintptr_t code_bump_ptr, read_bump_ptr, readwrite_bump_ptr;
-    uint8_t* eh_frame_ptr;
-    size_t eh_frame_size;
-    bool eh_frames_registered = false;
+  Section code_section, read_section, readwrite_section;
+  uintptr_t code_start_ptr;
+  size_t code_size;
+  uintptr_t code_bump_ptr, read_bump_ptr, readwrite_bump_ptr;
+  uint8_t *eh_frame_ptr;
+  size_t eh_frame_size;
+  bool eh_frames_registered = false;
 
-    callbacks_t callbacks;
+  callbacks_t callbacks;
 
-    uint8_t *stack_map_ptr = nullptr;
-    size_t stack_map_size = 0;
+  uint8_t *stack_map_ptr = nullptr;
+  size_t stack_map_size = 0;
 };
 
 struct SymbolLookup : llvm::JITSymbolResolver {
@@ -235,32 +236,31 @@ WasmModule::WasmModule(const uint8_t *object_start, size_t object_size,
   }
 }
 
-void* WasmModule::get_func(llvm::StringRef name) const {
-    auto symbol = runtime_dyld->getSymbol(name);
-    return (void*)symbol.getAddress();
+void *WasmModule::get_func(llvm::StringRef name) const {
+  auto symbol = runtime_dyld->getSymbol(name);
+  return (void *)symbol.getAddress();
 }
 
-uint8_t * WasmModule::get_stack_map_ptr() const {
-    llvm::RuntimeDyld::MemoryManager& mm = *memory_manager;
-    MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
-    return local_mm->get_stack_map_ptr();
+uint8_t *WasmModule::get_stack_map_ptr() const {
+  llvm::RuntimeDyld::MemoryManager &mm = *memory_manager;
+  MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
+  return local_mm->get_stack_map_ptr();
 }
 
 size_t WasmModule::get_stack_map_size() const {
-    llvm::RuntimeDyld::MemoryManager& mm = *memory_manager;
-    MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
-    return local_mm->get_stack_map_size();
+  llvm::RuntimeDyld::MemoryManager &mm = *memory_manager;
+  MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
+  return local_mm->get_stack_map_size();
 }
 
-
-uint8_t * WasmModule::get_code_ptr() const {
-    llvm::RuntimeDyld::MemoryManager& mm = *memory_manager;
-    MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
-    return local_mm->get_code_ptr();
+uint8_t *WasmModule::get_code_ptr() const {
+  llvm::RuntimeDyld::MemoryManager &mm = *memory_manager;
+  MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
+  return local_mm->get_code_ptr();
 }
 
 size_t WasmModule::get_code_size() const {
-    llvm::RuntimeDyld::MemoryManager& mm = *memory_manager;
-    MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
-    return local_mm->get_code_size();
+  llvm::RuntimeDyld::MemoryManager &mm = *memory_manager;
+  MemoryManager *local_mm = dynamic_cast<MemoryManager *>(&mm);
+  return local_mm->get_code_size();
 }

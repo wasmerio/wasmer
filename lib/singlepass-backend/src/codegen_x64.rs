@@ -4,9 +4,7 @@
 use crate::emitter_x64::*;
 use crate::machine::*;
 use crate::protect_unix;
-use dynasmrt::{
-    x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
-};
+use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{
