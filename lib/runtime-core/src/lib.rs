@@ -6,7 +6,6 @@
     unreachable_patterns
 )]
 #![cfg_attr(nightly, feature(unwind_attributes))]
-#![feature(core_intrinsics)]
 
 #[cfg(test)]
 #[macro_use]
