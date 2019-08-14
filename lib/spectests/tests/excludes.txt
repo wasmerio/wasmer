@@ -825,7 +825,6 @@ llvm:skip:skip-stack-guard-page.wast:* # Spec running forever or (signal: 4, SIG
 llvm:skip:linking.wast:236 # terminating with uncaught exception of type WasmTrap
 llvm:skip:linking.wast:248 # terminating with uncaught exception of type WasmTrap
 
-llvm:fail:globals.wast:243 # AssertInvalid - caught panic Any
 llvm:fail:i32.wast:243 # AssertReturn - result I32(61374799) ("0x3a8814f") does not match expected I32(32) ("0x20")
 llvm:fail:i32.wast:252 # AssertReturn - result I32(61374816) ("0x3a88160") does not match expected I32(32) ("0x20")
 llvm:fail:i64.wast:243 # AssertReturn - result I64(4356342255) ("0x103a881ef") does not match expected I64(64) ("0x40")
