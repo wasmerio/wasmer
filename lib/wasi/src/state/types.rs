@@ -1,5 +1,7 @@
 /// types for use in the WASI filesystem
 use crate::syscalls::types::*;
+#[cfg(unix)]
+use std::convert::TryInto;
 use std::{
     fs,
     io::{self, Read, Seek, Write},
@@ -297,7 +299,7 @@ pub(crate) fn poll(
     selfs: &[&dyn WasiFile],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
-) -> Result<(), WasiFsError> {
+) -> Result<u32, WasiFsError> {
     if !(selfs.len() == events.len() && events.len() == seen_events.len()) {
         return Err(WasiFsError::InvalidInput);
     }
@@ -313,7 +315,7 @@ pub(crate) fn poll(
         .collect::<Vec<_>>();
     let result = unsafe { libc::poll(fds.as_mut_ptr(), selfs.len() as _, 1) };
 
-    if result != 0 {
+    if result < 0 {
         // TODO: check errno and return value
         return Err(WasiFsError::IOError);
     }
@@ -321,7 +323,8 @@ pub(crate) fn poll(
     for (i, fd) in fds.into_iter().enumerate() {
         seen_events[i] = platform_poll_events_to_pollevent_set(fd.revents);
     }
-    Ok(())
+    // unwrap is safe because we check the error above
+    Ok(result.try_into().unwrap())
 }
 
 #[cfg(not(unix))]
@@ -451,7 +454,6 @@ impl WasiFile for HostFile {
 
     #[cfg(unix)]
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        use std::convert::TryInto;
         use std::os::unix::io::AsRawFd;
         let host_fd = self.inner.as_raw_fd();
 
@@ -737,7 +739,6 @@ impl WasiFile for Stdin {
 
     #[cfg(unix)]
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        use std::convert::TryInto;
         use std::os::unix::io::AsRawFd;
         let host_fd = self.0.as_raw_fd();
 

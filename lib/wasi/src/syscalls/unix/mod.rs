@@ -1,4 +1,3 @@
-use crate::state::{Kind, WasiFile, WasiFs};
 use crate::syscalls::types::*;
 use libc::{
     clock_getres, clock_gettime, timespec, CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID,
