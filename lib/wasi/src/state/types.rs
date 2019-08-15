@@ -1,5 +1,7 @@
 /// types for use in the WASI filesystem
 use crate::syscalls::types::*;
+#[cfg(unix)]
+use std::convert::TryInto;
 use std::{
     fs,
     io::{self, Read, Seek, Write},
@@ -165,6 +167,173 @@ pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), WasiFsError> {
         panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0 or 0.8.0.  Please implement WasiFile::rename_file for your type before then");
     }
+
+    /// Returns the number of bytes available.  This function must not block
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0 or 0.8.0.  Please implement WasiFile::bytes_available for your type before then");
+    }
+
+    /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
+    /// Returns the underlying host fd
+    fn get_raw_fd(&self) -> Option<i32> {
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum PollEvent {
+    /// Data available to read
+    PollIn = 1,
+    /// Data available to write (will still block if data is greater than space available unless
+    /// the fd is configured to not block)
+    PollOut = 2,
+    /// Something didn't work. ignored as input
+    PollError = 4,
+    /// Connection closed. ignored as input
+    PollHangUp = 8,
+    /// Invalid request. ignored as input
+    PollInvalid = 16,
+}
+
+impl PollEvent {
+    fn from_i16(raw_num: i16) -> Option<PollEvent> {
+        Some(match raw_num {
+            1 => PollEvent::PollIn,
+            2 => PollEvent::PollOut,
+            4 => PollEvent::PollError,
+            8 => PollEvent::PollHangUp,
+            16 => PollEvent::PollInvalid,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PollEventBuilder {
+    inner: PollEventSet,
+}
+
+pub type PollEventSet = i16;
+
+#[derive(Debug)]
+pub struct PollEventIter {
+    pes: PollEventSet,
+    i: usize,
+}
+
+impl Iterator for PollEventIter {
+    type Item = PollEvent;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pes == 0 || self.i > 15 {
+            None
+        } else {
+            while self.i < 16 {
+                let result = PollEvent::from_i16(self.pes & (1 << self.i));
+                self.pes &= !(1 << self.i);
+                self.i += 1;
+                if let Some(r) = result {
+                    return Some(r);
+                }
+            }
+            unreachable!("Internal logic error in PollEventIter");
+        }
+    }
+}
+
+pub fn iterate_poll_events(pes: PollEventSet) -> PollEventIter {
+    PollEventIter { pes, i: 0 }
+}
+
+#[cfg(unix)]
+fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
+    let mut out = 0;
+    for i in 0..16 {
+        out |= match PollEvent::from_i16(pes & (1 << i)) {
+            Some(PollEvent::PollIn) => libc::POLLIN,
+            Some(PollEvent::PollOut) => libc::POLLOUT,
+            Some(PollEvent::PollError) => libc::POLLERR,
+            Some(PollEvent::PollHangUp) => libc::POLLHUP,
+            Some(PollEvent::PollInvalid) => libc::POLLNVAL,
+            _ => 0,
+        };
+        pes &= !(1 << i);
+    }
+    out
+}
+
+#[cfg(unix)]
+fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
+    let mut peb = PollEventBuilder::new();
+    for i in 0..16 {
+        peb = match num & (1 << i) {
+            libc::POLLIN => peb.add(PollEvent::PollIn),
+            libc::POLLOUT => peb.add(PollEvent::PollOut),
+            libc::POLLERR => peb.add(PollEvent::PollError),
+            libc::POLLHUP => peb.add(PollEvent::PollHangUp),
+            libc::POLLNVAL => peb.add(PollEvent::PollInvalid),
+            _ => peb,
+        };
+        num &= !(1 << i);
+    }
+    peb.build()
+}
+
+impl PollEventBuilder {
+    pub fn new() -> PollEventBuilder {
+        PollEventBuilder { inner: 0 }
+    }
+
+    pub fn add(mut self, event: PollEvent) -> PollEventBuilder {
+        self.inner |= event as PollEventSet;
+        self
+    }
+
+    pub fn build(self) -> PollEventSet {
+        self.inner
+    }
+}
+
+#[cfg(unix)]
+pub(crate) fn poll(
+    selfs: &[&dyn WasiFile],
+    events: &[PollEventSet],
+    seen_events: &mut [PollEventSet],
+) -> Result<u32, WasiFsError> {
+    if !(selfs.len() == events.len() && events.len() == seen_events.len()) {
+        return Err(WasiFsError::InvalidInput);
+    }
+    let mut fds = selfs
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| s.get_raw_fd().map(|rfd| (i, rfd)))
+        .map(|(i, host_fd)| libc::pollfd {
+            fd: host_fd,
+            events: poll_event_set_to_platform_poll_events(events[i]),
+            revents: 0,
+        })
+        .collect::<Vec<_>>();
+    let result = unsafe { libc::poll(fds.as_mut_ptr(), selfs.len() as _, 1) };
+
+    if result < 0 {
+        // TODO: check errno and return value
+        return Err(WasiFsError::IOError);
+    }
+    // convert result and write back values
+    for (i, fd) in fds.into_iter().enumerate() {
+        seen_events[i] = platform_poll_events_to_pollevent_set(fd.revents);
+    }
+    // unwrap is safe because we check for negative values above
+    Ok(result.try_into().unwrap())
+}
+
+#[cfg(not(unix))]
+pub(crate) fn poll(
+    _selfs: &[&dyn WasiFile],
+    _events: &[PollEventSet],
+    _seen_events: &mut [PollEventSet],
+) -> Result<(), WasiFsError> {
+    unimplemented!("HostFile::poll in WasiFile is not implemented for non-Unix-like targets yet");
 }
 
 pub trait WasiPath {}
@@ -282,6 +451,40 @@ impl WasiFile for HostFile {
     fn rename_file(&self, new_name: &std::path::Path) -> Result<(), WasiFsError> {
         std::fs::rename(&self.host_path, new_name).map_err(Into::into)
     }
+
+    #[cfg(unix)]
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        use std::os::unix::io::AsRawFd;
+        let host_fd = self.inner.as_raw_fd();
+
+        let mut bytes_found = 0 as libc::c_int;
+        let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
+
+        match result {
+            // success
+            0 => Ok(bytes_found.try_into().unwrap_or(0)),
+            libc::EBADF => Err(WasiFsError::InvalidFd),
+            libc::EFAULT => Err(WasiFsError::InvalidData),
+            libc::EINVAL => Err(WasiFsError::InvalidInput),
+            _ => Err(WasiFsError::IOError),
+        }
+    }
+    #[cfg(not(unix))]
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        unimplemented!("HostFile::bytes_available in WasiFile is not implemented for non-Unix-like targets yet");
+    }
+
+    #[cfg(unix)]
+    fn get_raw_fd(&self) -> Option<i32> {
+        use std::os::unix::io::AsRawFd;
+        Some(self.inner.as_raw_fd())
+    }
+    #[cfg(not(unix))]
+    fn get_raw_fd(&self) -> Option<i32> {
+        unimplemented!(
+            "HostFile::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
+        );
+    }
 }
 
 impl From<io::Error> for WasiFsError {
@@ -375,6 +578,19 @@ impl WasiFile for Stdout {
     fn size(&self) -> u64 {
         0
     }
+
+    #[cfg(unix)]
+    fn get_raw_fd(&self) -> Option<i32> {
+        use std::os::unix::io::AsRawFd;
+        Some(self.0.as_raw_fd())
+    }
+
+    #[cfg(not(unix))]
+    fn get_raw_fd(&self) -> Option<i32> {
+        unimplemented!(
+            "Stdout::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
+        );
+    }
 }
 
 #[derive(Debug)]
@@ -441,6 +657,19 @@ impl WasiFile for Stderr {
     fn size(&self) -> u64 {
         0
     }
+
+    #[cfg(unix)]
+    fn get_raw_fd(&self) -> Option<i32> {
+        use std::os::unix::io::AsRawFd;
+        Some(self.0.as_raw_fd())
+    }
+
+    #[cfg(not(unix))]
+    fn get_raw_fd(&self) -> Option<i32> {
+        unimplemented!(
+            "Stderr::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
+        );
+    }
 }
 
 #[derive(Debug)]
@@ -506,6 +735,43 @@ impl WasiFile for Stdin {
     }
     fn size(&self) -> u64 {
         0
+    }
+
+    #[cfg(unix)]
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        use std::os::unix::io::AsRawFd;
+        let host_fd = self.0.as_raw_fd();
+
+        let mut bytes_found = 0 as libc::c_int;
+        let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
+
+        match result {
+            // success
+            0 => Ok(bytes_found.try_into().unwrap_or(0)),
+            libc::EBADF => Err(WasiFsError::InvalidFd),
+            libc::EFAULT => Err(WasiFsError::InvalidData),
+            libc::EINVAL => Err(WasiFsError::InvalidInput),
+            _ => Err(WasiFsError::IOError),
+        }
+    }
+    #[cfg(not(unix))]
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        unimplemented!(
+            "Stdin::bytes_available in WasiFile is not implemented for non-Unix-like targets yet"
+        );
+    }
+
+    #[cfg(unix)]
+    fn get_raw_fd(&self) -> Option<i32> {
+        use std::os::unix::io::AsRawFd;
+        Some(self.0.as_raw_fd())
+    }
+
+    #[cfg(not(unix))]
+    fn get_raw_fd(&self) -> Option<i32> {
+        unimplemented!(
+            "Stdin::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
+        );
     }
 }
 
