@@ -323,7 +323,7 @@ pub(crate) fn poll(
     for (i, fd) in fds.into_iter().enumerate() {
         seen_events[i] = platform_poll_events_to_pollevent_set(fd.revents);
     }
-    // unwrap is safe because we check the error above
+    // unwrap is safe because we check for negative values above
     Ok(result.try_into().unwrap())
 }
 

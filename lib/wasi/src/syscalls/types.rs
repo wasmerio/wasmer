@@ -160,6 +160,15 @@ pub union __wasi_event_u {
     pub fd_readwrite: __wasi_event_fd_readwrite_t,
 }
 
+// TODO: remove this implementation of Debug when `__wasi_event_u` gets more than 1 variant
+impl std::fmt::Debug for __wasi_event_u {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("__wasi_event_u")
+            .field("fd_readwrite", unsafe { &self.fd_readwrite })
+            .finish()
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum EventEnum {
     FdReadWrite {
@@ -178,7 +187,7 @@ impl EventEnum {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct __wasi_event_t {
     pub userdata: __wasi_userdata_t,

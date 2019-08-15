@@ -4,10 +4,16 @@ fn test_poll_oneoff() {
         "../../wasitests/poll_oneoff.wasm",
         "poll_oneoff",
         vec![],
-        vec![(
-            "hamlet".to_string(),
-            ::std::path::PathBuf::from("wasitests/test_fs/hamlet")
-        ),],
+        vec![
+            (
+                "hamlet".to_string(),
+                ::std::path::PathBuf::from("wasitests/test_fs/hamlet")
+            ),
+            (
+                "temp".to_string(),
+                ::std::path::PathBuf::from("wasitests/test_fs/temp")
+            ),
+        ],
         vec![],
         "../../wasitests/poll_oneoff.out"
     );

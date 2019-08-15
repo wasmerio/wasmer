@@ -1,5 +1,6 @@
 // Args:
 // mapdir: hamlet:wasitests/test_fs/hamlet
+// mapdir: temp:wasitests/test_fs/temp
 
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
@@ -95,15 +96,27 @@ pub struct __wasi_subscription_t {
 }
 
 #[cfg(target_os = "wasi")]
-fn poll_read(fds: &[u32]) -> Result<Vec<__wasi_event_t>, u16> {
+fn poll(fds: &[u32], read: &[bool], write: &[bool]) -> Result<Vec<__wasi_event_t>, u16> {
+    assert!(fds.len() == read.len() && read.len() == write.len());
+
     let mut in_ = fds
         .iter()
-        .map(|n| __wasi_subscription_t {
-            userdata: 0x123456,
-            type_: __WASI_EVENTTYPE_FD_READ,
-            u: __wasi_subscription_u {
-                fd_readwrite: __wasi_subscription_fs_readwrite_t { fd: *n as u32 },
-            },
+        .enumerate()
+        .map(|(i, n)| {
+            let mut type_ = 0;
+            if read[i] {
+                type_ |= __WASI_EVENTTYPE_FD_READ;
+            }
+            if write[i] {
+                type_ |= __WASI_EVENTTYPE_FD_WRITE;
+            }
+            __wasi_subscription_t {
+                userdata: 0x123456,
+                type_,
+                u: __wasi_subscription_u {
+                    fd_readwrite: __wasi_subscription_fs_readwrite_t { fd: *n as u32 },
+                },
+            }
         })
         .collect::<Vec<_>>();
     let mut out_ = vec![Default::default(); in_.len()];
@@ -131,20 +144,40 @@ fn main() {
     let mut base = PathBuf::from("/");
 
     let path = base.join("hamlet/act4/scene1.txt");
-    let mut file = fs::File::open(&path).expect("Could not open file");
-    let mut buffer = [0u8; 64];
+    let path2 = base.join("temp/poll_oneoff_write.txt");
+    {
+        let mut file = fs::File::open(&path).expect("Could not open file");
+        let mut file2 = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&path2)
+            .expect("Could not open file");
+        file2.set_len(1234).unwrap();
 
-    #[cfg(target_os = "wasi")]
-    {
-        let fds = vec![file.as_raw_fd()];
-        let mut result = poll_read(fds.as_slice()).expect("First poll");
-        while result[0].error != 0 {
-            result = poll_read(fds.as_slice()).expect("subsequent polls");
+        #[cfg(target_os = "wasi")]
+        {
+            let fds = vec![file.as_raw_fd()];
+            let mut result = poll(fds.as_slice(), &[true], &[false]).expect("First poll");
+            while result[0].error != 0 {
+                result = poll(fds.as_slice(), &[true], &[false]).expect("subsequent polls");
+            }
+            println!("{:?}", result[0]);
+
+            let fds = vec![file.as_raw_fd(), file2.as_raw_fd()];
+            result = poll(fds.as_slice(), &[true, false], &[false, true]).expect("First poll");
+            while result[0].error != 0 {
+                result =
+                    poll(fds.as_slice(), &[true, false], &[false, true]).expect("subsequent polls");
+            }
+            println!("{:?}", result);
         }
-        println!("{:?}", result[0]);
+        #[cfg(not(target_os = "wasi"))]
+        {
+            println!("{}", "__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }");
+            println!("{}", "[__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }, __wasi_event_t { userdata: 1193046, error: 0, type_: 2, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 1234, flags: 0 } } }]");
+        }
     }
-    #[cfg(not(target_os = "wasi"))]
-    {
-        println!("{}", "__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }");
-    }
+
+    std::fs::remove_file(path2).unwrap();
 }
