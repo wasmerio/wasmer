@@ -109,7 +109,7 @@ pub struct CodeVersion {
 }
 
 impl ModuleStateMap {
-    fn lookup_ip<F: FnOnce(&FunctionStateMap) -> &BTreeMap<usize, OffsetInfo>>(
+    pub fn lookup_ip<F: FnOnce(&FunctionStateMap) -> &BTreeMap<usize, OffsetInfo>>(
         &self,
         ip: usize,
         base: usize,
@@ -141,12 +141,12 @@ impl ModuleStateMap {
             }
         }
     }
-    fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
+    pub fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
         self.lookup_ip(ip, base, |fsm| &fsm.call_offsets)
     }
 
     #[warn(dead_code)]
-    fn lookup_trappable_ip(
+    pub fn lookup_trappable_ip(
         &self,
         ip: usize,
         base: usize,
@@ -155,7 +155,7 @@ impl ModuleStateMap {
     }
 
     #[warn(dead_code)]
-    fn lookup_loop_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
+    pub fn lookup_loop_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
         self.lookup_ip(ip, base, |fsm| &fsm.loop_offsets)
     }
 }
