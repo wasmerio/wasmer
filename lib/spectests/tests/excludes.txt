@@ -896,39 +896,6 @@ singlepass:fail:address.wast:586 # AssertTrap - expected trap, got Runtime:Error
 singlepass:fail:address.wast:588 # AssertTrap - expected trap, got []
 singlepass:fail:address.wast:589 # AssertTrap - expected trap, got []
 singlepass:fail:align.wast:864 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:binary-leb128.wast:2 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:7 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:12 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:18 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:24 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:32 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:40 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:48 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:56 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:65 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:74 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:86 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:98 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:157 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:164 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:171 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:178 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:186 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:193 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:200 # Module - caught panic Any
-singlepass:fail:binary-leb128.wast:207 # Module - caught panic Any
-singlepass:fail:binary.wast:1 # Module - caught panic Any
-singlepass:fail:binary.wast:2 # Module - caught panic Any
-singlepass:fail:binary.wast:3 # Module - caught panic Any
-singlepass:fail:binary.wast:4 # Module - caught panic Any
-singlepass:fail:binary.wast:406 # Module - caught panic Any
-singlepass:fail:binary.wast:412 # Module - caught panic Any
-singlepass:fail:binary.wast:418 # Module - caught panic Any
-singlepass:fail:binary.wast:446 # Module - caught panic Any
-singlepass:fail:binary.wast:498 # Module - caught panic Any
-singlepass:fail:binary.wast:514 # Module - caught panic Any
-singlepass:fail:binary.wast:530 # Module - caught panic Any
-singlepass:fail:binary.wast:661 # Module - caught panic Any
 singlepass:fail:call.wast:289 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call_indirect.wast:469 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call_indirect.wast:470 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -943,10 +910,6 @@ singlepass:fail:call_indirect.wast:493 # AssertTrap - expected trap, got Runtime
 singlepass:fail:call_indirect.wast:494 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call_indirect.wast:500 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call_indirect.wast:501 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:comments.wast:10 # Module - caught panic Any
-singlepass:fail:comments.wast:52 # Module - caught panic Any
-singlepass:fail:comments.wast:62 # Module - caught panic Any
-singlepass:fail:comments.wast:71 # Module - caught panic Any
 singlepass:fail:conversions.wast:70 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:71 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:72 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -1014,98 +977,7 @@ singlepass:fail:conversions.wast:239 # AssertTrap - expected trap, got Runtime:E
 singlepass:fail:conversions.wast:240 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:241 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:242 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:custom.wast:1 # Module - caught panic Any
-singlepass:fail:custom.wast:14 # Module - caught panic Any
-singlepass:fail:data.wast:5 # Module - caught panic Any
-singlepass:fail:data.wast:23 # Module - caught panic Any
-singlepass:fail:data.wast:27 # Module - caught panic Any
-singlepass:fail:data.wast:32 # Module - caught panic Any
-singlepass:fail:data.wast:40 # Module - caught panic Any
-singlepass:fail:data.wast:50 # Module - caught panic Any
-singlepass:fail:data.wast:55 # Module - caught panic Any
-singlepass:fail:data.wast:61 # Module - caught panic Any
-singlepass:fail:data.wast:66 # Module - caught panic Any
-singlepass:fail:data.wast:78 # Module - caught panic Any
-singlepass:fail:data.wast:83 # Module - caught panic Any
-singlepass:fail:data.wast:89 # Module - caught panic Any
-singlepass:fail:data.wast:94 # Module - caught panic Any
-singlepass:fail:data.wast:98 # Module - caught panic Any
-singlepass:fail:data.wast:103 # Module - caught panic Any
-singlepass:fail:data.wast:108 # Module - caught panic Any
-singlepass:fail:data.wast:113 # Module - caught panic Any
-singlepass:fail:data.wast:117 # Module - caught panic Any
-singlepass:fail:data.wast:122 # Module - caught panic Any
-singlepass:fail:data.wast:127 # Module - caught panic Any
-singlepass:fail:data.wast:132 # Module - caught panic Any
-singlepass:fail:data.wast:137 # Module - caught panic Any
-singlepass:fail:data.wast:143 # Module - caught panic Any
-singlepass:fail:data.wast:149 # Module - caught panic Any
-singlepass:fail:data.wast:154 # Module - caught panic Any
-singlepass:fail:data.wast:162 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:170 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:178 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:186 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:194 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:211 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:220 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:227 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:235 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:243 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:251 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:258 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:266 # AssertUnlinkable - caught panic Any
-singlepass:fail:data.wast:273 # AssertUnlinkable - caught panic Any
-singlepass:fail:elem.wast:97 # Module - caught panic Any
-singlepass:fail:elem.wast:101 # Module - caught panic Any
-singlepass:fail:elem.wast:106 # Module - caught panic Any
-singlepass:fail:elem.wast:111 # Module - caught panic Any
-singlepass:fail:elem.wast:170 # AssertUnlinkable - caught panic Any
 singlepass:fail:elem.wast:353 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:exports.wast:24 # Module - caught panic Any
-singlepass:fail:exports.wast:25 # Module - caught panic Any
-singlepass:fail:exports.wast:56 # Module - caught panic Any
-singlepass:fail:exports.wast:57 # Module - caught panic Any
-singlepass:fail:exports.wast:58 # Module - caught panic Any
-singlepass:fail:exports.wast:60 # Module - caught panic Any
-singlepass:fail:exports.wast:61 # Module - caught panic Any
-singlepass:fail:exports.wast:62 # Module - caught panic Any
-singlepass:fail:exports.wast:63 # Module - caught panic Any
-singlepass:fail:exports.wast:64 # Module - caught panic Any
-singlepass:fail:exports.wast:65 # Module - caught panic Any
-singlepass:fail:exports.wast:67 # Module - caught panic Any
-singlepass:fail:exports.wast:71 # AssertReturn Get - No instance available None
-singlepass:fail:exports.wast:72 # AssertReturn Get - No instance available Some("$Global")
-singlepass:fail:exports.wast:73 # Module - caught panic Any
-singlepass:fail:exports.wast:74 # Module - caught panic Any
-singlepass:fail:exports.wast:75 # AssertReturn Get - No instance available Some("$Global")
-singlepass:fail:exports.wast:105 # Module - caught panic Any
-singlepass:fail:exports.wast:106 # Module - caught panic Any
-singlepass:fail:exports.wast:110 # Module - caught panic Any
-singlepass:fail:exports.wast:111 # Module - caught panic Any
-singlepass:fail:exports.wast:112 # Module - caught panic Any
-singlepass:fail:exports.wast:113 # Module - caught panic Any
-singlepass:fail:exports.wast:114 # Module - caught panic Any
-singlepass:fail:exports.wast:115 # Module - caught panic Any
-singlepass:fail:exports.wast:116 # Module - caught panic Any
-singlepass:fail:exports.wast:117 # Module - caught panic Any
-singlepass:fail:exports.wast:118 # Module - caught panic Any
-singlepass:fail:exports.wast:119 # Module - caught panic Any
-singlepass:fail:exports.wast:120 # Module - caught panic Any
-singlepass:fail:exports.wast:121 # Module - caught panic Any
-singlepass:fail:exports.wast:154 # Module - caught panic Any
-singlepass:fail:exports.wast:155 # Module - caught panic Any
-singlepass:fail:exports.wast:159 # Module - caught panic Any
-singlepass:fail:exports.wast:160 # Module - caught panic Any
-singlepass:fail:exports.wast:161 # Module - caught panic Any
-singlepass:fail:exports.wast:162 # Module - caught panic Any
-singlepass:fail:exports.wast:163 # Module - caught panic Any
-singlepass:fail:exports.wast:164 # Module - caught panic Any
-singlepass:fail:exports.wast:165 # Module - caught panic Any
-singlepass:fail:exports.wast:166 # Module - caught panic Any
-singlepass:fail:exports.wast:167 # Module - caught panic Any
-singlepass:fail:exports.wast:168 # Module - caught panic Any
-singlepass:fail:exports.wast:169 # Module - caught panic Any
-singlepass:fail:exports.wast:170 # Module - caught panic Any
 singlepass:fail:f32.wast:1620 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
 singlepass:fail:f32.wast:1652 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:1654 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
@@ -1534,10 +1406,6 @@ singlepass:fail:func_ptrs.wast:90 # AssertTrap - expected trap, got Runtime:Erro
 singlepass:fail:func_ptrs.wast:91 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:globals.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:globals.wast:243 # AssertInvalid - Should be invalid
-singlepass:fail:globals.wast:248 # Module - caught panic Any
-singlepass:fail:globals.wast:249 # Module - caught panic Any
-singlepass:fail:globals.wast:301 # Module - caught panic Any
-singlepass:fail:globals.wast:331 # Module - caught panic Any
 singlepass:fail:i32.wast:62 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:i32.wast:63 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:i32.wast:64 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -1575,102 +1443,14 @@ singlepass:fail:i64.wast:248 # AssertReturn - result I64(1) ("0x1") does not mat
 singlepass:fail:i64.wast:249 # AssertReturn - result I64(62) ("0x3e") does not match expected I64(1) ("0x1")
 singlepass:fail:i64.wast:252 # AssertReturn - result I64(0) ("0x0") does not match expected I64(64) ("0x40")
 singlepass:fail:if.wast:440 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:98 # Module - caught panic Any
-singlepass:fail:imports.wast:99 # Module - caught panic Any
-singlepass:fail:imports.wast:100 # Module - caught panic Any
-singlepass:fail:imports.wast:101 # Module - caught panic Any
-singlepass:fail:imports.wast:102 # Module - caught panic Any
-singlepass:fail:imports.wast:103 # Module - caught panic Any
-singlepass:fail:imports.wast:104 # Module - caught panic Any
-singlepass:fail:imports.wast:107 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:111 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:116 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:120 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:124 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:128 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:132 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:136 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:140 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:144 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:148 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:152 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:156 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:160 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:164 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:168 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:172 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:176 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:181 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:185 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:189 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:193 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:197 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:201 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:231 # Module - caught panic Any
-singlepass:fail:imports.wast:232 # Module - caught panic Any
-singlepass:fail:imports.wast:235 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:239 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:244 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:248 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:252 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:256 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:260 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:264 # AssertUnlinkable - caught panic Any
 singlepass:fail:imports.wast:283 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:imports.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:imports.wast:287 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:imports.wast:302 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:imports.wast:305 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:imports.wast:306 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:322 # Module - caught panic Any
-singlepass:fail:imports.wast:323 # Module - caught panic Any
-singlepass:fail:imports.wast:324 # Module - caught panic Any
-singlepass:fail:imports.wast:325 # Module - caught panic Any
-singlepass:fail:imports.wast:326 # Module - caught panic Any
-singlepass:fail:imports.wast:327 # Module - caught panic Any
-singlepass:fail:imports.wast:328 # Module - caught panic Any
-singlepass:fail:imports.wast:329 # Module - caught panic Any
-singlepass:fail:imports.wast:330 # Module - caught panic Any
-singlepass:fail:imports.wast:331 # Module - caught panic Any
-singlepass:fail:imports.wast:332 # Module - caught panic Any
-singlepass:fail:imports.wast:335 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:339 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:344 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:348 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:352 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:356 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:361 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:365 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:369 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:373 # AssertUnlinkable - caught panic Any
 singlepass:fail:imports.wast:391 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:imports.wast:402 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:417 # Module - caught panic Any
-singlepass:fail:imports.wast:418 # Module - caught panic Any
-singlepass:fail:imports.wast:419 # Module - caught panic Any
-singlepass:fail:imports.wast:420 # Module - caught panic Any
-singlepass:fail:imports.wast:421 # Module - caught panic Any
-singlepass:fail:imports.wast:422 # Module - caught panic Any
-singlepass:fail:imports.wast:423 # Module - caught panic Any
-singlepass:fail:imports.wast:424 # Module - caught panic Any
-singlepass:fail:imports.wast:425 # Module - caught panic Any
-singlepass:fail:imports.wast:428 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:432 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:437 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:441 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:445 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:449 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:454 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:458 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:462 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:466 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:470 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:474 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:479 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:483 # AssertUnlinkable - caught panic Any
-singlepass:fail:imports.wast:571 # Module - caught panic Any
-singlepass:fail:imports.wast:572 # Register - No instance available
-singlepass:fail:imports.wast:574 # AssertUnlinkable - caught panic Any
 singlepass:fail:int_exprs.wast:113 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:int_exprs.wast:114 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:int_exprs.wast:115 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -1685,12 +1465,6 @@ singlepass:fail:int_exprs.wast:198 # AssertTrap - expected trap, got Runtime:Err
 singlepass:fail:int_exprs.wast:199 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:int_exprs.wast:349 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:int_exprs.wast:350 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:22 # Module - caught panic Any
-singlepass:fail:linking.wast:26 # Register - No instance available
-singlepass:fail:linking.wast:28 # AssertUnlinkable - caught panic Any
-singlepass:fail:linking.wast:32 # AssertUnlinkable - caught panic Any
-singlepass:fail:linking.wast:87 # AssertUnlinkable - caught panic Any
-singlepass:fail:linking.wast:91 # AssertUnlinkable - caught panic Any
 singlepass:fail:linking.wast:134 # AssertReturn - Call failed RuntimeError: unknown error
 singlepass:fail:linking.wast:136 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -1711,24 +1485,12 @@ singlepass:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error
 singlepass:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:188 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:190 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:198 # Module - caught panic Any
-singlepass:fail:linking.wast:199 # Register - No instance available
-singlepass:fail:linking.wast:200 # Module - caught panic Any
-singlepass:fail:linking.wast:204 # AssertReturn Get - No instance available Some("$G2")
 singlepass:fail:linking.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:293 # Module - caught panic Any
-singlepass:fail:linking.wast:299 # AssertUnlinkable - caught panic Any
-singlepass:fail:linking.wast:324 # AssertUnlinkable - caught panic Any
-singlepass:fail:linking.wast:335 # AssertUnlinkable - caught panic Any
 singlepass:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 singlepass:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: unknown error
 singlepass:fail:load.wast:201 # AssertReturn - result I32(0) ("0x0") does not match expected I32(32) ("0x20")
-singlepass:fail:memory.wast:3 # Module - caught panic Any
-singlepass:fail:memory.wast:4 # Module - caught panic Any
-singlepass:fail:memory.wast:5 # Module - caught panic Any
-singlepass:fail:memory.wast:6 # Module - caught panic Any
 singlepass:fail:memory_grow.wast:15 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:memory_grow.wast:16 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:memory_grow.wast:17 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -1909,7 +1671,6 @@ singlepass:fail:select.wast:210 # AssertTrap - expected trap, got Runtime:Error 
 singlepass:fail:select.wast:211 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:select.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:select.wast:249 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:start.wast:92 # Module - caught panic Any
 singlepass:fail:traps.wast:16 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:traps.wast:17 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:traps.wast:18 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -1942,7 +1703,6 @@ singlepass:fail:traps.wast:88 # AssertTrap - expected trap, got Runtime:Error un
 singlepass:fail:traps.wast:89 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:traps.wast:90 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:traps.wast:91 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:type.wast:3 # Module - caught panic Any
 singlepass:fail:unreachable.wast:218 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:unreachable.wast:219 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:unreachable.wast:220 # AssertTrap - expected trap, got Runtime:Error unknown error
