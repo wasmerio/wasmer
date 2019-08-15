@@ -141,7 +141,11 @@ impl ModuleStateMap {
             }
         }
     }
-    pub fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
+    pub fn lookup_call_ip(
+        &self,
+        ip: usize,
+        base: usize,
+    ) -> Option<(&FunctionStateMap, MachineState)> {
         self.lookup_ip(ip, base, |fsm| &fsm.call_offsets)
     }
 
@@ -155,7 +159,11 @@ impl ModuleStateMap {
     }
 
     #[warn(dead_code)]
-    pub fn lookup_loop_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
+    pub fn lookup_loop_ip(
+        &self,
+        ip: usize,
+        base: usize,
+    ) -> Option<(&FunctionStateMap, MachineState)> {
         self.lookup_ip(ip, base, |fsm| &fsm.loop_offsets)
     }
 }
