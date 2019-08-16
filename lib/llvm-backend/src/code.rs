@@ -4447,18 +4447,24 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(res);
             }
             /*
-                        Operator::Wake { ref memarg: _ } => {
-                            unimplemented!();
-                        }
-                        Operator::I32Wait { ref memarg: _ } => {
-                            unimplemented!();
-                        }
-                        Operator::I64Wait { ref memarg: _ } => {
-                            unimplemented!();
-                        }
+            Operator::Wake { ref memarg: _ } => {
+                unimplemented!();
+            }
+            Operator::I32Wait { ref memarg: _ } => {
+                unimplemented!();
+            }
+            Operator::I64Wait { ref memarg: _ } => {
+                unimplemented!();
+            }
             */
             Operator::Fence { flags: _ } => {
-                // fence is a no-op
+                // Fence is a nop.
+                //
+                // Fence was added to preserve information about fences from
+                // source languages. If in the future Wasm extends the memory
+                // model, and if we hadn't recorded what fences used to be there,
+                // it would lead to data races that weren't present in the
+                // original source language.
             }
             Operator::I32AtomicLoad { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
