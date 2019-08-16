@@ -459,7 +459,7 @@ impl EmscriptenGlobals {
         }
 
         let (table_min, table_max) = get_emscripten_table_size(&module)?;
-        let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module);
+        let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
 
         // Memory initialization
         let memory_type = MemoryDescriptor {
