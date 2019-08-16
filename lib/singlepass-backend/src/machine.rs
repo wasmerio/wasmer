@@ -500,5 +500,4 @@ mod test {
 
         machine.release_locations_keep_state(&mut assembler, &locs);
     }
-
 }

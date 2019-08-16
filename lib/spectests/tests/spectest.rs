@@ -1252,5 +1252,4 @@ mod tests {
             self.to_bits() == 0x7FF8_0000_0000_0000 || self.to_bits() == 0xFFF8_0000_0000_0000
         }
     }
-
 }

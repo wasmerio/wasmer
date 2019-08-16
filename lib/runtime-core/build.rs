@@ -38,6 +38,5 @@ fn main() {
             .file("image-loading-macos-x86-64.s")
             .compile("image-loading");
     } else {
-
     }
 }
