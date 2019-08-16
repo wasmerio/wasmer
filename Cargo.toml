@@ -17,6 +17,7 @@ include = [
     "/README.md",
     "rustfmt.toml"
 ]
+default-run = "wasmer"
 
 [dependencies]
 byteorder = "1.3.2"
