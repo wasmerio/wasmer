@@ -218,6 +218,8 @@ impl LLVMBackend {
             )
         };
 
+        // Uncomment this to make spectests pass.
+        // TODO: fix this
         /*
 
         static SIGNAL_HANDLER_INSTALLED: Once = Once::new();

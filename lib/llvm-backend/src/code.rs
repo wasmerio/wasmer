@@ -34,7 +34,7 @@ use crate::stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueS
 use crate::state::{ControlFrame, IfElseState, State};
 use crate::trampolines::generate_trampolines;
 
-fn func_sig_to_llvm(context: &Context, intrinsics: &Intrinsics, sig: &FuncSig) -> FunctionType {
+fn func_sig_to_llvm(context: &Context, intrinsics: &Intrinsics, sig: &FuncSig, type_to_llvm: fn(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum) -> FunctionType {
     let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
     let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
@@ -63,6 +63,14 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
         Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
         Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
         Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
+        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
+    }
+}
+
+fn type_to_llvm_int_only(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
+    match ty {
+        Type::I32 | Type::F32 => intrinsics.i32_ty.as_basic_type_enum(),
+        Type::I64 | Type::F64 => intrinsics.i64_ty.as_basic_type_enum(),
         Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
     }
 }
@@ -1210,6 +1218,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 // If llvm cannot prove that this is never touched,
                 // it will emit a `ud2` instruction on x86_64 arches.
 
+                // Comment out this `if` block to allow spectests to pass.
+                // TODO: fix this
                 if let Some(offset) = opcode_offset {
                     let mut stackmaps = self.stackmaps.borrow_mut();
                     emit_stack_map(
@@ -1425,10 +1435,15 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
                 let (params, func_ptr) = match func_index.local_or_import(info) {
                     LocalOrImport::Local(local_func_index) => {
-                        let params: Vec<_> = [ctx.basic()]
-                            .iter()
-                            .chain(state.peekn(func_sig.params().len())?.iter())
-                            .map(|v| *v)
+                        let params: Vec<_> = std::iter::once(ctx.basic())
+                            .chain(
+                                state.peekn(func_sig.params().len())?.iter().enumerate()
+                                    .map(|(i, &v)| match func_sig.params()[i] {
+                                        Type::F32 => builder.build_bitcast(v, intrinsics.i32_ty, &state.var_name()),
+                                        Type::F64 => builder.build_bitcast(v, intrinsics.i64_ty, &state.var_name()),
+                                        _ => v
+                                    })
+                            )
                             .collect();
 
                         let func_ptr =
@@ -1439,10 +1454,16 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     LocalOrImport::Import(import_func_index) => {
                         let (func_ptr_untyped, ctx_ptr) =
                             ctx.imported_func(import_func_index, intrinsics);
-                        let params: Vec<_> = [ctx_ptr.as_basic_value_enum()]
-                            .iter()
-                            .chain(state.peekn(func_sig.params().len())?.iter())
-                            .map(|v| *v)
+
+                        let params: Vec<_> = std::iter::once(ctx_ptr.as_basic_value_enum())
+                            .chain(
+                                state.peekn(func_sig.params().len())?.iter().enumerate()
+                                    .map(|(i, &v)| match func_sig.params()[i] {
+                                        Type::F32 => builder.build_bitcast(v, intrinsics.i32_ty, &state.var_name()),
+                                        Type::F64 => builder.build_bitcast(v, intrinsics.i64_ty, &state.var_name()),
+                                        _ => v
+                                    })
+                            )
                             .collect();
 
                         let func_ptr_ty = llvm_sig.ptr_type(AddressSpace::Generic);
@@ -1488,7 +1509,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
                 if let Some(basic_value) = call_site.try_as_basic_value().left() {
                     match func_sig.returns().len() {
-                        1 => state.push1(basic_value),
+                        1 => state.push1(match func_sig.returns()[0] {
+                            Type::F32 => builder.build_bitcast(basic_value, intrinsics.f32_ty, "ret_cast"),
+                            Type::F64 => builder.build_bitcast(basic_value, intrinsics.f64_ty, "ret_cast"),
+                            _ => basic_value,
+                        }),
                         count @ _ => {
                             // This is a multi-value return.
                             let struct_value = basic_value.into_struct_value();
@@ -1640,8 +1665,15 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let pushed_args = state.popn_save(wasmer_fn_sig.params().len())?;
 
                 let args: Vec<_> = std::iter::once(ctx_ptr)
-                    .chain(pushed_args.into_iter())
-                    .collect();
+                        .chain(
+                            pushed_args.into_iter().enumerate()
+                                .map(|(i, v)| match wasmer_fn_sig.params()[i] {
+                                    Type::F32 => builder.build_bitcast(v, intrinsics.i32_ty, &state.var_name()),
+                                    Type::F64 => builder.build_bitcast(v, intrinsics.i64_ty, &state.var_name()),
+                                    _ => v
+                                })
+                        )
+                        .collect();
 
                 let typed_func_ptr = builder.build_pointer_cast(
                     func_ptr,
@@ -1681,7 +1713,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     [] => {}
                     [_] => {
                         let value = call_site.try_as_basic_value().left().unwrap();
-                        state.push1(value);
+                        state.push1(match wasmer_fn_sig.returns()[0] {
+                            Type::F32 => builder.build_bitcast(value, intrinsics.f32_ty, "ret_cast"),
+                            Type::F64 => builder.build_bitcast(value, intrinsics.f64_ty, "ret_cast"),
+                            _ => value,
+                        });
                     }
                     _ => unimplemented!("multi-value returns"),
                 }
@@ -4779,7 +4815,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 self.builder.as_ref().unwrap().build_return(None);
             }
             [one_value] => {
-                self.builder.as_ref().unwrap().build_return(Some(one_value));
+                let builder = self.builder.as_ref().unwrap();
+                let intrinsics = self.intrinsics.as_ref().unwrap();
+                builder.build_return(Some(
+                    &builder.build_bitcast(one_value.as_basic_value_enum(), type_to_llvm_int_only(intrinsics, self.func_sig.returns()[0]), "return")
+                ));
             }
             _ => unimplemented!("multi-value returns not yet implemented"),
         }
@@ -4888,10 +4928,17 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
                 .skip(1)
                 .enumerate()
                 .map(|(index, param)| {
-                    let ty = param.get_type();
+                    //let ty = param.get_type();
+                    let real_ty = func_sig.params()[index];
+                    let real_ty_llvm = type_to_llvm(&intrinsics, real_ty);
 
-                    let alloca = builder.build_alloca(ty, &format!("local{}", index));
-                    builder.build_store(alloca, param);
+                    let alloca = builder.build_alloca(real_ty_llvm, &format!("local{}", index));
+
+                    //if real_ty_llvm != ty {
+                        builder.build_store(alloca, builder.build_bitcast(param, real_ty_llvm, &state.var_name()));
+                    /*} else {
+                        builder.build_store(alloca, param);
+                    }*/
                     alloca
                 }),
         );
@@ -4994,6 +5041,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
                     self.context.as_ref().unwrap(),
                     self.intrinsics.as_ref().unwrap(),
                     sig,
+                    type_to_llvm_int_only,
                 )
             })
             .collect();

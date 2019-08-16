@@ -228,7 +228,6 @@ impl StackmapEntry {
                         );
                         if loc.offset_or_small_constant >= 0 {
                             // FIXME: parameters passed on stack?
-                            //eprintln!("XXX: {}", loc.offset_or_small_constant);
                         } else {
                             let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
                             assert!(
