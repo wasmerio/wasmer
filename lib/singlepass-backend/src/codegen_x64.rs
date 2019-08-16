@@ -32,6 +32,7 @@ use wasmer_runtime_core::{
         TableIndex, Type,
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
+    fault::raw::register_preservation_trampoline,
 };
 use wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 
@@ -220,24 +221,34 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     unsafe fn patch_local_function(&self, idx: usize, target_address: usize) -> bool {
-        // movabsq ?, %rax;
-        // jmpq *%rax;
+
+        /*
+        0:       48 b8 42 42 42 42 42 42 42 42   movabsq $4774451407313060418, %rax
+        a:       49 bb 43 43 43 43 43 43 43 43   movabsq $4846791580151137091, %r11
+        14:      41 ff e3        jmpq    *%r11
+        */
         #[repr(packed)]
         struct Trampoline {
-            movabsq: [u8; 2],
-            addr: u64,
-            jmpq: [u8; 2],
+            movabsq_rax: [u8; 2],
+            addr_rax: u64,
+            movabsq_r11: [u8; 2],
+            addr_r11: u64,
+            jmpq_r11: [u8; 3],
         }
 
         self.code.make_writable();
 
         let trampoline = &mut *(self.function_pointers[self.func_import_count + idx].0
             as *const Trampoline as *mut Trampoline);
-        trampoline.movabsq[0] = 0x48;
-        trampoline.movabsq[1] = 0xb8;
-        trampoline.addr = target_address as u64;
-        trampoline.jmpq[0] = 0xff;
-        trampoline.jmpq[1] = 0xe0;
+        trampoline.movabsq_rax[0] = 0x48;
+        trampoline.movabsq_rax[1] = 0xb8;
+        trampoline.addr_rax = target_address as u64;
+        trampoline.movabsq_r11[0] = 0x49;
+        trampoline.movabsq_r11[1] = 0xbb;
+        trampoline.addr_r11 = register_preservation_trampoline as unsafe extern "C" fn() as usize as u64;
+        trampoline.jmpq_r11[0] = 0x41;
+        trampoline.jmpq_r11[1] = 0xff;
+        trampoline.jmpq_r11[2] = 0xe3;
 
         self.code.make_executable();
         true
@@ -1677,9 +1688,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
     fn begin_body(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
         let start_label = a.get_label();
+        // skip the patchpoint during normal execution
         a.emit_jmp(Condition::None, start_label);
-        // patchpoint of 16 bytes
-        for _ in 0..16 {
+        // patchpoint of 32 bytes
+        for _ in 0..32 {
             a.emit_nop();
         }
         a.emit_label(start_label);

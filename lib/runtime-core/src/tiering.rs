@@ -111,6 +111,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
         let mut optimized_instances: Vec<Instance> = vec![];
 
         push_code_version(CodeVersion {
+            baseline: true,
             msm: baseline
                 .module
                 .runnable_module
@@ -166,6 +167,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                 }
 
                 push_code_version(CodeVersion {
+                    baseline: false,
                     msm: optimized
                         .module
                         .runnable_module
@@ -179,6 +181,8 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                         .as_ptr() as usize,
                 });
                 n_versions.set(n_versions.get() + 1);
+
+                baseline.context_mut().local_functions = optimized.context_mut().local_functions;
             }
             // TODO: Fix this for optimized version.
             let breakpoints = baseline.module.runnable_module.get_breakpoints();

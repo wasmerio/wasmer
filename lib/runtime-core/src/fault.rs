@@ -1,8 +1,9 @@
-mod raw {
+pub mod raw {
     use std::ffi::c_void;
 
     extern "C" {
         pub fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64;
+        pub fn register_preservation_trampoline(); // NOT safe to call directly
         pub fn setjmp(env: *mut c_void) -> i32;
         pub fn longjmp(env: *mut c_void, val: i32) -> !;
     }
@@ -39,11 +40,27 @@ struct UnwindInfo {
     payload: Option<Box<dyn Any>>, // out
 }
 
+#[repr(packed)]
+#[derive(Default, Copy, Clone)]
+pub struct BoundaryRegisterPreservation {
+    pub r15: u64,
+    pub r14: u64,
+    pub r13: u64,
+    pub r12: u64,
+    pub rbx: u64,
+}
+
 thread_local! {
     static UNWIND: UnsafeCell<Option<UnwindInfo>> = UnsafeCell::new(None);
     static CURRENT_CTX: UnsafeCell<*mut vm::Ctx> = UnsafeCell::new(::std::ptr::null_mut());
     static CURRENT_CODE_VERSIONS: RefCell<Vec<CodeVersion>> = RefCell::new(vec![]);
     static WAS_SIGINT_TRIGGERED: Cell<bool> = Cell::new(false);
+    static BOUNDARY_REGISTER_PRESERVATION: UnsafeCell<BoundaryRegisterPreservation> = UnsafeCell::new(BoundaryRegisterPreservation::default());
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn get_boundary_register_preservation() -> *mut BoundaryRegisterPreservation {
+    BOUNDARY_REGISTER_PRESERVATION.with(|x| x.get())
 }
 
 struct InterruptSignalMem(*mut u8);
