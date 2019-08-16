@@ -404,7 +404,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         mut self,
         _: &ModuleInfo,
     ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
-        let (mut assembler, function_labels, breakpoints) = match self.functions.last_mut() {
+        let (assembler, function_labels, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
                 x.function_labels.take().unwrap(),
