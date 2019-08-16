@@ -7,6 +7,7 @@ fn main() {
 
     let mut last_millis: u128 = 0;
     let mut round_count: usize = 0;
+    let mut record_count: usize = 0;
 
     for i in 0.. {
         let mut hasher = Blake2b::new();
@@ -14,11 +15,15 @@ fn main() {
         let out = hasher.result();
         data = out.to_vec();
 
-        if i != 0 && i % 100000 == 0 {
+        if i != 0 && i % 1000 == 0 {
             let millis = now.elapsed().unwrap().as_millis();
-            println!("{} rounds in last second", (i - round_count) as f64 / (millis - last_millis) as f64);
-            last_millis = millis;
-            round_count = i;
+            let diff = millis - last_millis;
+            if diff >= 100 {
+                record_count += 1;
+                println!("{}", (i - round_count) as f64 / diff as f64);
+                last_millis = millis;
+                round_count = i;
+            }
         }
     }
 }
