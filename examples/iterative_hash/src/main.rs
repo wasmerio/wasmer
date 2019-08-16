@@ -14,7 +14,7 @@ fn main() {
         let out = hasher.result();
         data = out.to_vec();
 
-        if i % 100000 == 0 {
+        if i != 0 && i % 100000 == 0 {
             let millis = now.elapsed().unwrap().as_millis();
             println!("{} rounds in last second", (i - round_count) as f64 / (millis - last_millis) as f64);
             last_millis = millis;
