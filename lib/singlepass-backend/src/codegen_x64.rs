@@ -18,6 +18,7 @@ use wasmer_runtime_core::{
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
+    fault::raw::register_preservation_trampoline,
     loader::CodeMemory,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
@@ -32,7 +33,6 @@ use wasmer_runtime_core::{
         TableIndex, Type,
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
-    fault::raw::register_preservation_trampoline,
 };
 use wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 
@@ -221,7 +221,6 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     unsafe fn patch_local_function(&self, idx: usize, target_address: usize) -> bool {
-
         /*
         0:       48 b8 42 42 42 42 42 42 42 42   movabsq $4774451407313060418, %rax
         a:       49 bb 43 43 43 43 43 43 43 43   movabsq $4846791580151137091, %r11
@@ -245,7 +244,8 @@ impl RunnableModule for X64ExecutionContext {
         trampoline.addr_rax = target_address as u64;
         trampoline.movabsq_r11[0] = 0x49;
         trampoline.movabsq_r11[1] = 0xbb;
-        trampoline.addr_r11 = register_preservation_trampoline as unsafe extern "C" fn() as usize as u64;
+        trampoline.addr_r11 =
+            register_preservation_trampoline as unsafe extern "C" fn() as usize as u64;
         trampoline.jmpq_r11[0] = 0x41;
         trampoline.jmpq_r11[1] = 0xff;
         trampoline.jmpq_r11[2] = 0xe3;

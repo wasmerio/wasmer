@@ -373,7 +373,9 @@ impl InstanceImage {
 pub mod x64 {
     use super::*;
     use crate::codegen::BreakpointMap;
-    use crate::fault::{catch_unsafe_unwind, run_on_alternative_stack, get_boundary_register_preservation};
+    use crate::fault::{
+        catch_unsafe_unwind, get_boundary_register_preservation, run_on_alternative_stack,
+    };
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
@@ -808,11 +810,16 @@ pub mod x64 {
                 // Are we unwinding through an optimized/baseline boundary?
                 if is_baseline && !was_baseline {
                     let callee_saved = &*get_boundary_register_preservation();
-                    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(callee_saved.r15);
-                    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(callee_saved.r14);
-                    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(callee_saved.r13);
-                    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(callee_saved.r12);
-                    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(callee_saved.rbx);
+                    known_registers[X64Register::GPR(GPR::R15).to_index().0] =
+                        Some(callee_saved.r15);
+                    known_registers[X64Register::GPR(GPR::R14).to_index().0] =
+                        Some(callee_saved.r14);
+                    known_registers[X64Register::GPR(GPR::R13).to_index().0] =
+                        Some(callee_saved.r13);
+                    known_registers[X64Register::GPR(GPR::R12).to_index().0] =
+                        Some(callee_saved.r12);
+                    known_registers[X64Register::GPR(GPR::RBX).to_index().0] =
+                        Some(callee_saved.rbx);
                 }
 
                 was_baseline = is_baseline;
