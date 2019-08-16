@@ -705,21 +705,13 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
                 }
             }
             "continue" | "c" => {
-                if ctx.patched {
-                    println!("Error: Continueing execution is not yet supported on patched code.");
+                if let Some(image) = ctx.image.take() {
+                    return ShellExitOperation::ContinueWith(image);
                 } else {
-                    if let Some(image) = ctx.image.take() {
-                        return ShellExitOperation::ContinueWith(image);
-                    } else {
-                        println!("Program state not available, cannot continue execution");
-                    }
+                    println!("Program state not available, cannot continue execution");
                 }
             }
             "backtrace" | "bt" => {
-                if ctx.patched {
-                    println!("Warning: Backtrace on patched code might be inaccurate.");
-                }
-
                 if let Some(ref image) = ctx.image {
                     println!("{}", image.execution_state.colored_output());
                 } else {

@@ -768,7 +768,7 @@ pub mod x64 {
         let mut results: Vec<WasmFunctionStateDump> = vec![];
         let mut was_baseline = true;
 
-        for i in 0.. {
+        for _ in 0.. {
             let ret_addr = initial_address.take().unwrap_or_else(|| {
                 let x = *stack;
                 stack = stack.offset(1);

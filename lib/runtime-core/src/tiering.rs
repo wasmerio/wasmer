@@ -184,7 +184,7 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
 
                 baseline.context_mut().local_functions = optimized.context_mut().local_functions;
             }
-            // TODO: Fix this for optimized version.
+            // Assuming we do not want to do breakpoint-based debugging on optimized backends.
             let breakpoints = baseline.module.runnable_module.get_breakpoints();
             let ctx = baseline.context_mut() as *mut _;
             let ret = with_ctx(ctx, || {
@@ -209,15 +209,15 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                 }
             });
             if let Err(e) = ret {
-                if let Some(new_image) = e.downcast_ref::<InstanceImage>() {
+                if let Ok(new_image) = e.downcast::<InstanceImage>() {
                     // Tier switch event
                     if !was_sigint_triggered_fault() && opt_state.outcome.lock().unwrap().is_some()
                     {
-                        resume_image = Some(new_image.clone());
+                        resume_image = Some(*new_image);
                         continue;
                     }
                     let op = interactive_shell(InteractiveShellContext {
-                        image: Some(new_image.clone()),
+                        image: Some(*new_image),
                         patched: n_versions.get() > 1,
                     });
                     match op {
