@@ -37,6 +37,5 @@ fn main() {
         cc::Build::new()
             .file("image-loading-macos-x86-64.s")
             .compile("image-loading");
-    } else {
     }
 }
