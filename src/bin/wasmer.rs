@@ -544,7 +544,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     // TODO: refactor this
     if wasmer_emscripten::is_emscripten_module(&module) {
-        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
+        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module)?;
         let import_object = wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals);
         let mut instance = module
             .instantiate(&import_object)

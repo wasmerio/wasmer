@@ -436,7 +436,7 @@ pub struct EmscriptenGlobals {
 }
 
 impl EmscriptenGlobals {
-    pub fn new(module: &Module /*, static_bump: u32 */) -> Self {
+    pub fn new(module: &Module /*, static_bump: u32 */) -> Result<Self, String> {
         let mut use_old_abort_on_cannot_grow_memory = false;
         for (
             index,
@@ -458,7 +458,7 @@ impl EmscriptenGlobals {
             }
         }
 
-        let (table_min, table_max) = get_emscripten_table_size(&module);
+        let (table_min, table_max) = get_emscripten_table_size(&module)?;
         let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module);
 
         // Memory initialization
@@ -530,14 +530,14 @@ impl EmscriptenGlobals {
             }
         }
 
-        Self {
+        Ok(Self {
             data,
             memory,
             table,
             memory_min,
             memory_max,
             null_func_names,
-        }
+        })
     }
 }
 
