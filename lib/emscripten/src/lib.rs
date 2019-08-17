@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
-    error::CallResult,
+    error::{CallError, CallResult, ResolveError},
     export::Export,
     func,
     global::Global,
@@ -373,10 +373,11 @@ pub fn run_emscripten_instance(
             0 => {
                 instance.call(func_name, &[])?;
             }
-            _ => panic!(
-                "The emscripten main function has received an incorrect number of params {}",
-                num_params
-            ),
+            _ => {
+                return Err(CallError::Resolve(ResolveError::ExportWrongType {
+                    name: "main".to_string(),
+                }))
+            }
         };
     }
 
