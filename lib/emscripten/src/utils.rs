@@ -33,22 +33,20 @@ pub fn is_emscripten_module(module: &Module) -> bool {
     false
 }
 
-pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
-    assert!(
-        module.info().imported_tables.len() > 0,
-        "Emscripten requires at least one imported table"
-    );
+pub fn get_emscripten_table_size(module: &Module) -> Result<(u32, Option<u32>), String> {
+    if module.info().imported_tables.len() == 0 {
+        return Err("Emscripten requires at least one imported table".to_string());
+    }
     let (_, table) = &module.info().imported_tables[ImportedTableIndex::new(0)];
-    (table.minimum, table.maximum)
+    Ok((table.minimum, table.maximum))
 }
 
-pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>, bool) {
-    assert!(
-        module.info().imported_tables.len() > 0,
-        "Emscripten requires at least one imported memory"
-    );
+pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Pages>, bool), String> {
+    if module.info().imported_memories.len() == 0 {
+        return Err("Emscripten requires at least one imported memory".to_string());
+    }
     let (_, memory) = &module.info().imported_memories[ImportedMemoryIndex::new(0)];
-    (memory.minimum, memory.maximum, memory.shared)
+    Ok((memory.minimum, memory.maximum, memory.shared))
 }
 
 /// Reads values written by `-s EMIT_EMSCRIPTEN_METADATA=1`

@@ -1,6 +1,8 @@
 #![deny(
     dead_code,
+    nonstandard_style,
     unused_imports,
+    unused_mut,
     unused_variables,
     unused_unsafe,
     unreachable_patterns
@@ -14,7 +16,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
-    error::CallResult,
+    error::{CallError, CallResult, ResolveError},
     export::Export,
     func,
     global::Global,
@@ -371,10 +373,11 @@ pub fn run_emscripten_instance(
             0 => {
                 instance.call(func_name, &[])?;
             }
-            _ => panic!(
-                "The emscripten main function has received an incorrect number of params {}",
-                num_params
-            ),
+            _ => {
+                return Err(CallError::Resolve(ResolveError::ExportWrongType {
+                    name: "main".to_string(),
+                }))
+            }
         };
     }
 
@@ -434,7 +437,7 @@ pub struct EmscriptenGlobals {
 }
 
 impl EmscriptenGlobals {
-    pub fn new(module: &Module /*, static_bump: u32 */) -> Self {
+    pub fn new(module: &Module /*, static_bump: u32 */) -> Result<Self, String> {
         let mut use_old_abort_on_cannot_grow_memory = false;
         for (
             index,
@@ -456,8 +459,8 @@ impl EmscriptenGlobals {
             }
         }
 
-        let (table_min, table_max) = get_emscripten_table_size(&module);
-        let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module);
+        let (table_min, table_max) = get_emscripten_table_size(&module)?;
+        let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
 
         // Memory initialization
         let memory_type = MemoryDescriptor {
@@ -528,14 +531,14 @@ impl EmscriptenGlobals {
             }
         }
 
-        Self {
+        Ok(Self {
             data,
             memory,
             table,
             memory_min,
             memory_max,
             null_func_names,
-        }
+        })
     }
 }
 
