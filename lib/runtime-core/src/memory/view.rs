@@ -1,19 +1,43 @@
 use crate::types::ValueType;
 
+use std::sync::atomic::{
+    AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
+};
 use std::{cell::Cell, marker::PhantomData, ops::Deref, slice};
-use std::sync::atomic::{AtomicI8, AtomicI16, AtomicI32, AtomicI64, AtomicU8, AtomicU16, AtomicU32, AtomicU64};
 
-pub trait Atomic { type Output; }
-impl Atomic for i8 { type Output = AtomicI8; }
-impl Atomic for i16 { type Output = AtomicI16; }
-impl Atomic for i32 { type Output = AtomicI32; }
-impl Atomic for i64 { type Output = AtomicI64; }
-impl Atomic for u8 { type Output = AtomicU8; }
-impl Atomic for u16 { type Output = AtomicU16; }
-impl Atomic for u32 { type Output = AtomicU32; }
-impl Atomic for u64 { type Output = AtomicU64; }
-impl Atomic for f32 { type Output = AtomicU32; }
-impl Atomic for f64 { type Output = AtomicU64; }
+pub trait Atomic {
+    type Output;
+}
+impl Atomic for i8 {
+    type Output = AtomicI8;
+}
+impl Atomic for i16 {
+    type Output = AtomicI16;
+}
+impl Atomic for i32 {
+    type Output = AtomicI32;
+}
+impl Atomic for i64 {
+    type Output = AtomicI64;
+}
+impl Atomic for u8 {
+    type Output = AtomicU8;
+}
+impl Atomic for u16 {
+    type Output = AtomicU16;
+}
+impl Atomic for u32 {
+    type Output = AtomicU32;
+}
+impl Atomic for u64 {
+    type Output = AtomicU64;
+}
+impl Atomic for f32 {
+    type Output = AtomicU32;
+}
+impl Atomic for f64 {
+    type Output = AtomicU64;
+}
 
 pub trait Atomicity {}
 pub struct Atomically;
