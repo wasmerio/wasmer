@@ -14,12 +14,10 @@ use std::{
     rc::Rc,
 };
 
-pub use self::atomic::Atomic;
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
 pub use self::view::{Atomically, MemoryView};
 
-mod atomic;
 mod dynamic;
 pub mod ptr;
 mod static_;

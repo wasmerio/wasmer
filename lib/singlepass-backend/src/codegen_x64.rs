@@ -447,25 +447,25 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         mut self,
         _: &ModuleInfo,
     ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
-        let (assembler, breakpoints) = match self.functions.last_mut() {
-            Some(x) => (x.assembler.take().unwrap(), x.breakpoints.take().unwrap()),
-            None => {
-                return Err(CodegenError {
-                    message: "no function",
-                });
-            }
+        let (assembler, function_labels, breakpoints) = match self.functions.last_mut() {
+            Some(x) => (
+                x.assembler.take().unwrap(),
+                x.function_labels.take().unwrap(),
+                x.breakpoints.take().unwrap(),
+            ),
+            None => (
+                self.assembler.take().unwrap(),
+                self.function_labels.take().unwrap(),
+                HashMap::new(),
+            ),
         };
+
         let total_size = assembler.get_offset().0;
         let _output = assembler.finalize().unwrap();
         let mut output = CodeMemory::new(_output.len());
         output[0.._output.len()].copy_from_slice(&_output);
         output.make_executable();
 
-        let function_labels = if let Some(x) = self.functions.last() {
-            x.function_labels.as_ref().unwrap()
-        } else {
-            self.function_labels.as_ref().unwrap()
-        };
         let mut out_labels: Vec<FuncPtr> = vec![];
         let mut out_offsets: Vec<AssemblyOffset> = vec![];
 
