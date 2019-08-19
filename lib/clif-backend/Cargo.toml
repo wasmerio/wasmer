@@ -24,7 +24,7 @@ rayon = "1.1.0"
 
 # Dependencies for caching.
 [dependencies.serde]
-version = "1.0.98"
+version = "1.0.99"
 features = ["rc"]
 [dependencies.serde_derive]
 version = "1.0.98"

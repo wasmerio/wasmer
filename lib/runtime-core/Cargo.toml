@@ -26,7 +26,7 @@ features = ["serde-1"]
 
 # Dependencies for caching.
 [dependencies.serde]
-version = "1.0.98"
+version = "1.0.99"
 # This feature is required for serde to support serializing/deserializing reference counted pointers (e.g. Rc and Arc).
 features = ["rc"]
 [dependencies.serde_derive]
