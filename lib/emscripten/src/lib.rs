@@ -405,11 +405,18 @@ fn store_module_arguments(ctx: &mut Ctx, args: Vec<&str>) -> (u32, u32) {
     (argc as u32 - 1, argv_offset)
 }
 
-pub fn emscripten_set_up_memory(memory: &Memory, globals: &EmscriptenGlobalsData) {
+pub fn emscripten_set_up_memory(
+    memory: &Memory,
+    globals: &EmscriptenGlobalsData,
+) -> Result<(), String> {
     let dynamictop_ptr = globals.dynamictop_ptr;
     let dynamic_base = globals.dynamic_base;
 
+    if (dynamictop_ptr / 4) as usize >= memory.view::<u32>().len() {
+        return Err("dynamictop_ptr beyond memory len".to_string());
+    }
     memory.view::<u32>()[(dynamictop_ptr / 4) as usize].set(dynamic_base);
+    Ok(())
 }
 
 pub struct EmscriptenGlobalsData {
@@ -489,7 +496,7 @@ impl EmscriptenGlobals {
             static_top += 16;
 
             let (dynamic_base, dynamictop_ptr) =
-                get_emscripten_metadata(&module).unwrap_or_else(|| {
+                get_emscripten_metadata(&module)?.unwrap_or_else(|| {
                     let dynamictop_ptr = static_alloc(&mut static_top, 4);
                     (
                         align_memory(align_memory(static_top) + TOTAL_STACK),
@@ -513,7 +520,7 @@ impl EmscriptenGlobals {
             }
         };
 
-        emscripten_set_up_memory(&memory, &data);
+        emscripten_set_up_memory(&memory, &data)?;
 
         let mut null_func_names = vec![];
         for (

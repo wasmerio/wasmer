@@ -53,15 +53,23 @@ pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Page
 /// Assumes values start from the end in this order:
 /// Last export: Dynamic Base
 /// Second-to-Last export: Dynamic top pointer
-pub fn get_emscripten_metadata(module: &Module) -> Option<(u32, u32)> {
-    let max_idx = &module.info().globals.iter().map(|(k, _)| k).max()?;
-    let snd_max_idx = &module
+pub fn get_emscripten_metadata(module: &Module) -> Result<Option<(u32, u32)>, String> {
+    let max_idx = match module.info().globals.iter().map(|(k, _)| k).max() {
+        Some(x) => x,
+        None => return Ok(None),
+    };
+
+    let snd_max_idx = match module
         .info()
         .globals
         .iter()
         .map(|(k, _)| k)
-        .filter(|k| k != max_idx)
-        .max()?;
+        .filter(|k| *k != max_idx)
+        .max()
+    {
+        Some(x) => x,
+        None => return Ok(None),
+    };
 
     use wasmer_runtime_core::types::{GlobalInit, Initializer::Const, Value::I32};
     if let (
@@ -74,15 +82,23 @@ pub fn get_emscripten_metadata(module: &Module) -> Option<(u32, u32)> {
             ..
         },
     ) = (
-        &module.info().globals[*max_idx],
-        &module.info().globals[*snd_max_idx],
+        &module.info().globals[max_idx],
+        &module.info().globals[snd_max_idx],
     ) {
-        Some((
-            align_memory(*dynamic_base as u32 - 32),
-            align_memory(*dynamictop_ptr as u32 - 32),
-        ))
+        let dynamic_base = (*dynamic_base as u32).checked_sub(32).ok_or(format!(
+            "emscripten unexpected dynamic_base {}",
+            *dynamic_base as u32
+        ))?;
+        let dynamictop_ptr = (*dynamictop_ptr as u32).checked_sub(32).ok_or(format!(
+            "emscripten unexpected dynamictop_ptr {}",
+            *dynamictop_ptr as u32
+        ))?;
+        Ok(Some((
+            align_memory(dynamic_base),
+            align_memory(dynamictop_ptr),
+        )))
     } else {
-        None
+        Ok(None)
     }
 }
 
