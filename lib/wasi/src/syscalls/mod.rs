@@ -10,8 +10,8 @@ use crate::{
     ptr::{Array, WasmPtr},
     state::{
         self, host_file_type_to_wasi_file_type, iterate_poll_events, poll, Fd, HostFile, Inode,
-        InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, WasiState,
-        MAX_SYMLINKS,
+        InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, WasiPath,
+        WasiPathOpenOptions, WasiState, MAX_SYMLINKS,
     },
     ExitCode,
 };
@@ -1691,22 +1691,20 @@ pub fn path_open(
                     return __WASI_ENOTDIR;
                 }
                 if o_flags & __WASI_O_EXCL != 0 {
-                    if path.exists() {
+                    if path.path_exists() {
                         return __WASI_EEXIST;
                     }
                 }
-                let mut open_options = std::fs::OpenOptions::new();
-                let open_options = open_options
+                let open_options = WasiPathOpenOptions::new()
                     .read(true)
                     // TODO: ensure these rights are actually valid given parent, etc.
                     .write(adjusted_rights & __WASI_RIGHT_FD_WRITE != 0)
                     .create(o_flags & __WASI_O_CREAT != 0)
                     .truncate(o_flags & __WASI_O_TRUNC != 0);
 
-                *handle = Some(Box::new(HostFile::new(
-                    wasi_try!(open_options.open(&path).map_err(|_| __WASI_EIO)),
-                    path.to_path_buf(),
-                )));
+                *handle = Some(wasi_try!(open_options
+                    .open(path.as_ref())
+                    .map_err(|e| e.into_wasi_err())));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Dir { .. } | Kind::Root { .. } => {
@@ -1755,27 +1753,25 @@ pub fn path_open(
             // once we got the data we need from the parent, we lookup the host file
             // todo: extra check that opening with write access is okay
             let handle = {
-                let mut open_options = std::fs::OpenOptions::new();
-                let open_options = open_options
+                let open_options = WasiPathOpenOptions::new()
                     .read(true)
                     // TODO: ensure these rights are actually valid given parent, etc.
                     // write access is required for creating a file
                     .write(true)
                     .create_new(true);
 
-                Some(Box::new(HostFile::new(
-                    wasi_try!(open_options.open(&new_file_host_path).map_err(|e| {
-                        debug!("Error opening file {}", e);
+                Some(wasi_try!(open_options.open(&new_file_host_path).map_err(
+                    |e| {
+                        debug!("Error opening file {:?}", e);
                         __WASI_EIO
-                    })),
-                    new_file_host_path.clone(),
-                )) as Box<dyn WasiFile>)
+                    }
+                )))
             };
 
             let new_inode = {
                 let kind = Kind::File {
                     handle,
-                    path: new_file_host_path,
+                    path: Box::new(new_file_host_path),
                 };
                 wasi_try!(state.fs.create_inode(kind, false, new_entity_name.clone()))
             };
@@ -2013,15 +2009,11 @@ pub fn path_rename(
             handle,
             ref mut path,
         } => {
-            let result = if let Some(h) = handle {
-                h.rename_file(&host_adjusted_target_path)
-                    .map_err(|e| e.into_wasi_err())
-            } else {
-                let out =
-                    std::fs::rename(&path, &host_adjusted_target_path).map_err(|_| __WASI_EIO);
-                *path = host_adjusted_target_path;
-                out
-            };
+            let result = path
+                .rename(&host_adjusted_target_path as &dyn WasiPath)
+                .map_err(|e| e.into_wasi_err());
+            // TODO: double check the rollback code
+            *path = Box::new(host_adjusted_target_path) as Box<dyn WasiPath>;
             // if the above operation failed we have to revert the previous change and then fail
             if let Err(e) = result {
                 if let Kind::Dir { entries, .. } = &mut state.fs.inodes[source_parent_inode].kind {
@@ -2182,15 +2174,8 @@ pub fn path_unlink_file(
     state.fs.inodes[removed_inode].stat.st_nlink -= 1;
     if state.fs.inodes[removed_inode].stat.st_nlink == 0 {
         match &mut state.fs.inodes[removed_inode].kind {
-            Kind::File { handle, path } => {
-                if let Some(h) = handle {
-                    wasi_try!(h.unlink().map_err(WasiFsError::into_wasi_err));
-                } else {
-                    // File is closed
-                    // problem with the abstraction, we can't call unlink because there's no handle
-                    // TODO: replace this code in 0.7.0
-                    wasi_try!(std::fs::remove_file(path).map_err(|_| __WASI_EIO));
-                }
+            Kind::File { path, .. } => {
+                wasi_try!(path.remove_file().map_err(WasiFsError::into_wasi_err))
             }
             Kind::Dir { .. } | Kind::Root { .. } => return __WASI_EISDIR,
             Kind::Symlink { .. } => {

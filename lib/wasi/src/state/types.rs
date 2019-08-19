@@ -148,24 +148,10 @@ pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
         panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::allocate for your type before then");
     }
 
-    /// Request deletion of the file
-    // TODO: break this out into a WasiPath trait which is dynamically in Kind::File
-    // this change can't be done until before release
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::unlink for your type before then");
-    }
-
     /// Store file contents and metadata to disk
     // TODO: stablize this in 0.7.0 by removing default impl
     fn sync_to_disk(&self) -> Result<(), WasiFsError> {
         panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::sync_to_disk for your type before then");
-    }
-
-    /// Moves the file to a new location
-    /// NOTE: the signature of this function will change before stabilization
-    // TODO: stablizie this in 0.7.0 or 0.8.0 by removing default impl
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0 or 0.8.0.  Please implement WasiFile::rename_file for your type before then");
     }
 
     /// Returns the number of bytes available.  This function must not block
@@ -336,22 +322,167 @@ pub(crate) fn poll(
     unimplemented!("HostFile::poll in WasiFile is not implemented for non-Unix-like targets yet");
 }
 
-pub trait WasiPath {}
+#[derive(Debug)]
+pub struct WasiPathOpenOptions {
+    read: bool,
+    write: bool,
+    truncate: bool,
+    create: bool,
+    create_new: bool,
+}
+
+impl WasiPathOpenOptions {
+    pub fn new() -> Self {
+        Self {
+            read: true,
+            write: false,
+            truncate: false,
+            create: false,
+            create_new: false,
+        }
+    }
+
+    pub fn read(mut self, toggle: bool) -> Self {
+        self.read = toggle;
+        self
+    }
+
+    pub fn write(mut self, toggle: bool) -> Self {
+        self.write = toggle;
+        self
+    }
+
+    pub fn truncate(mut self, toggle: bool) -> Self {
+        self.truncate = toggle;
+        self
+    }
+
+    pub fn create(mut self, toggle: bool) -> Self {
+        self.create = toggle;
+        self
+    }
+
+    pub fn create_new(mut self, toggle: bool) -> Self {
+        self.create_new = toggle;
+        self
+    }
+
+    pub fn open(self, wasi_path: &dyn WasiPath) -> Result<Box<dyn WasiFile>, WasiFsError> {
+        wasi_path.open_with_options(
+            self.read,
+            self.write,
+            self.truncate,
+            self.create,
+            self.create_new,
+        )
+    }
+}
+
+pub trait WasiPath: std::fmt::Debug {
+    /// Get all entries in a directory.  Non-directories should return `WasiFsError::BaseNotDirectory`
+    fn read_dir(&self) -> Result<(), WasiFsError> {
+        Err(WasiFsError::BaseNotDirectory)
+    }
+
+    /// Create a directory at the given path
+    fn create_directory(&self) -> Result<(), WasiFsError>;
+
+    fn open_with_options(
+        &self,
+        read: bool,
+        write: bool,
+        truncate: bool,
+        create: bool,
+        create_new: bool,
+    ) -> Result<Box<dyn WasiFile>, WasiFsError>;
+
+    fn rename(&mut self, other: &dyn WasiPath) -> Result<(), WasiFsError>;
+
+    /// because issue with infinite recursion
+    fn path_exists(&self) -> bool;
+    fn as_string(&self) -> String;
+
+    fn remove_file(&self) -> Result<(), WasiFsError>;
+    fn remove_dir(&self) -> Result<(), WasiFsError>;
+
+    fn len(&self) -> Result<u64, WasiFsError>;
+    fn accessed(&self) -> Result<std::time::SystemTime, WasiFsError>;
+    fn modified(&self) -> Result<std::time::SystemTime, WasiFsError>;
+    fn created(&self) -> Result<std::time::SystemTime, WasiFsError>;
+}
+
+impl WasiPath for PathBuf {
+    fn create_directory(&self) -> Result<(), WasiFsError> {
+        std::fs::create_dir(self).map_err(Into::into)
+    }
+
+    fn open_with_options(
+        &self,
+        read: bool,
+        write: bool,
+        truncate: bool,
+        create: bool,
+        create_new: bool,
+    ) -> Result<Box<dyn WasiFile>, WasiFsError> {
+        std::fs::OpenOptions::new()
+            .read(read)
+            .write(write)
+            .truncate(truncate)
+            .create(create)
+            .create_new(create_new)
+            .open(&self)
+            .map_err(Into::into)
+            .map(|f| Box::new(HostFile::new(f)) as Box<dyn WasiFile>)
+    }
+
+    fn path_exists(&self) -> bool {
+        self.exists()
+    }
+
+    fn as_string(&self) -> String {
+        self.to_string_lossy().to_string()
+    }
+
+    fn rename(&mut self, other: &dyn WasiPath) -> Result<(), WasiFsError> {
+        std::fs::rename(self, other.as_string()).map_err(Into::into)
+    }
+
+    fn remove_file(&self) -> Result<(), WasiFsError> {
+        std::fs::remove_file(self).map_err(Into::into)
+    }
+    fn remove_dir(&self) -> Result<(), WasiFsError> {
+        std::fs::remove_dir(self).map_err(Into::into)
+    }
+    fn len(&self) -> Result<u64, WasiFsError> {
+        self.metadata().map(|md| md.len()).map_err(Into::into)
+    }
+    fn accessed(&self) -> Result<std::time::SystemTime, WasiFsError> {
+        self.metadata()
+            .and_then(|md| md.accessed())
+            .map_err(Into::into)
+    }
+    fn modified(&self) -> Result<std::time::SystemTime, WasiFsError> {
+        self.metadata()
+            .and_then(|md| md.modified())
+            .map_err(Into::into)
+    }
+    fn created(&self) -> Result<std::time::SystemTime, WasiFsError> {
+        self.metadata()
+            .and_then(|md| md.created())
+            .map_err(Into::into)
+    }
+}
 
 /// A thin wrapper around `std::fs::File`
 #[derive(Debug)]
 pub struct HostFile {
     pub inner: fs::File,
-    pub host_path: PathBuf,
 }
 
 impl HostFile {
     /// creates a new host file from a `std::fs::File` and a path
-    pub fn new(file: fs::File, host_path: PathBuf) -> Self {
-        Self {
-            inner: file,
-            host_path,
-        }
+    pub fn new(file: fs::File) -> Self {
+        Self { inner: file }
     }
 
     pub fn metadata(&self) -> fs::Metadata {
@@ -441,15 +572,8 @@ impl WasiFile for HostFile {
         fs::File::set_len(&self.inner, new_size).map_err(Into::into)
     }
 
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
-        std::fs::remove_file(&self.host_path).map_err(Into::into)
-    }
     fn sync_to_disk(&self) -> Result<(), WasiFsError> {
         self.inner.sync_all().map_err(Into::into)
-    }
-
-    fn rename_file(&self, new_name: &std::path::Path) -> Result<(), WasiFsError> {
-        std::fs::rename(&self.host_path, new_name).map_err(Into::into)
     }
 
     #[cfg(unix)]

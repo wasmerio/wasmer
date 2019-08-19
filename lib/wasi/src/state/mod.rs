@@ -69,7 +69,7 @@ pub enum Kind {
         handle: Option<Box<dyn WasiFile>>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed in 0.7.0 or a shortly thereafter
-        path: PathBuf,
+        path: Box<dyn WasiPath>,
     },
     Dir {
         /// Parent directory
@@ -295,7 +295,7 @@ impl WasiFs {
 
                 let kind = Kind::File {
                     handle: Some(file),
-                    path: PathBuf::from(""),
+                    path: Box::new(PathBuf::from("")),
                 };
 
                 let inode = self
@@ -455,7 +455,7 @@ impl WasiFs {
                                 // load file
                                 Kind::File {
                                     handle: None,
-                                    path: file.clone(),
+                                    path: Box::new(file.clone()),
                                 }
                             } else if file_type.is_symlink() {
                                 let link_value = file.read_link().ok().ok_or(__WASI_EIO)?;
@@ -855,20 +855,31 @@ impl WasiFs {
 
     pub fn get_stat_for_kind(&self, kind: &Kind) -> Option<__wasi_filestat_t> {
         let md = match kind {
-            Kind::File { handle, path } => match handle {
-                Some(wf) => {
-                    return Some(__wasi_filestat_t {
-                        st_filetype: __WASI_FILETYPE_REGULAR_FILE,
-                        st_size: wf.size(),
-                        st_atim: wf.last_accessed(),
-                        st_mtim: wf.last_modified(),
-                        st_ctim: wf.created_time(),
-
-                        ..__wasi_filestat_t::default()
-                    })
-                }
-                None => path.metadata().ok()?,
-            },
+            Kind::File { path, .. } => {
+                return Some(__wasi_filestat_t {
+                    st_filetype: __WASI_FILETYPE_REGULAR_FILE,
+                    st_size: path.len().ok()?,
+                    st_atim: path
+                        .accessed()
+                        .ok()
+                        .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+                        .map(|t| t.as_nanos() as u64)
+                        .unwrap_or_default(),
+                    st_mtim: path
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+                        .map(|t| t.as_nanos() as u64)
+                        .unwrap_or_default(),
+                    st_ctim: path
+                        .created()
+                        .ok()
+                        .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+                        .map(|t| t.as_nanos() as u64)
+                        .unwrap_or_default(),
+                    ..__wasi_filestat_t::default()
+                })
+            }
             Kind::Dir { path, .. } => path.metadata().ok()?,
             Kind::Symlink {
                 base_po_dir,
