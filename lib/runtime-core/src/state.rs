@@ -217,17 +217,19 @@ impl MachineState {
         let prev_frame_diff: BTreeMap<usize, Option<MachineValue>> = self
             .prev_frame
             .iter()
-            .filter(|(k, v)| if let Some(ref old_v) = old.prev_frame.get(k) {
-                v != old_v
-            } else {
-                true
+            .filter(|(k, v)| {
+                if let Some(ref old_v) = old.prev_frame.get(k) {
+                    v != old_v
+                } else {
+                    true
+                }
             })
             .map(|(&k, v)| (k, Some(v.clone())))
             .chain(
                 old.prev_frame
                     .iter()
                     .filter(|(k, _)| self.prev_frame.get(k).is_none())
-                    .map(|(&k, _)| (k, None))
+                    .map(|(&k, _)| (k, None)),
             )
             .collect();
         let first_diff_wasm_stack_depth: usize = self
@@ -978,7 +980,7 @@ pub mod x64 {
                     MachineValue::WasmLocal(idx) => {
                         wasm_locals[idx] = Some(*stack.offset(offset));
                     }
-                    _ => unreachable!("values in prev frame can only be stack/local")
+                    _ => unreachable!("values in prev frame can only be stack/local"),
                 }
             }
             stack = stack.offset(1); // saved_rbp
