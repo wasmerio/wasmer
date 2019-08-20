@@ -17,6 +17,7 @@
 #
 
 # Cranelift
+clif:skip:atomic.wast:*        # Threads not implemented
 clif:skip:simd.wast:*          # SIMD not implemented
 clif:skip:simd_binaryen.wast:* # SIMD not implemented
 
@@ -860,6 +861,7 @@ llvm:skip:unreachable.wast:*:windows
 llvm:skip:unwind.wast:*:windows
 
 # Singlepass
+singlepass:skip:atomic.wast:*        # Threads not implemented
 singlepass:skip:simd.wast:*          # SIMD not implemented
 singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
