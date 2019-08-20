@@ -76,8 +76,7 @@ pub extern "C" fn nearbyintf64(x: f64) -> f64 {
     }
 }
 
-/// A declaration for the stack probe function in Rust's standard library, for
-/// catching callstack overflow.
-extern "C" {
-    pub fn __rust_probestack();
-}
+// FIXME: Is there a replacement on AArch64?
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+#[no_mangle]
+pub extern "C" fn __rust_probestack() {}

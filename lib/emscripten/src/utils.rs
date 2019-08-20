@@ -236,7 +236,8 @@ pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
 pub fn get_cstr_path(ctx: &mut Ctx, path: *const i8) -> Option<std::ffi::CString> {
     use std::collections::VecDeque;
 
-    let path_str = unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() }.to_string();
+    let path_str =
+        unsafe { std::ffi::CStr::from_ptr(path as *const _).to_str().unwrap() }.to_string();
     let data = get_emscripten_data(ctx);
     let path = PathBuf::from(path_str);
     let mut prefix_added = false;
