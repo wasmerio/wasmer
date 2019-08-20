@@ -512,13 +512,13 @@ fn trap_if_misaligned(
         intrinsics.i64_ty.const_int(align - 1, false),
         "misaligncheck",
     );
-    let misaligned = builder.build_int_compare(IntPredicate::NE, and, intrinsics.i64_zero, "");
-    let misaligned = builder
+    let aligned = builder.build_int_compare(IntPredicate::EQ, and, intrinsics.i64_zero, "");
+    let aligned = builder
         .build_call(
             intrinsics.expect_i1,
             &[
-                misaligned.as_basic_value_enum(),
-                intrinsics.i1_zero.as_basic_value_enum(),
+                aligned.as_basic_value_enum(),
+                intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
             ],
             "",
         )
@@ -529,7 +529,7 @@ fn trap_if_misaligned(
 
     let continue_block = context.append_basic_block(function, "aligned_access_continue_block");
     let not_aligned_block = context.append_basic_block(function, "misaligned_trap_block");
-    builder.build_conditional_branch(misaligned, &continue_block, &not_aligned_block);
+    builder.build_conditional_branch(aligned, &continue_block, &not_aligned_block);
 
     builder.position_at_end(&not_aligned_block);
     builder.build_call(
