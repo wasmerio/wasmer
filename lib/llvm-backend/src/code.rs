@@ -500,7 +500,9 @@ fn trap_if_misaligned(
     ptr: PointerValue,
 ) {
     let align = match memarg.flags & 3 {
-        0 => 1,
+        0 => {
+            return; /* No alignment to check. */
+        }
         1 => 2,
         2 => 4,
         3 => 8,
