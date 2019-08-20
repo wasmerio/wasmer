@@ -208,7 +208,7 @@ fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
                 match mem_desc.memory_type() {
                     MemoryType::Dynamic => &INTRINSICS_LOCAL_DYNAMIC_MEMORY,
                     MemoryType::Static => &INTRINSICS_LOCAL_STATIC_MEMORY,
-                    MemoryType::SharedStatic => unimplemented!(),
+                    MemoryType::SharedStatic => &INTRINSICS_LOCAL_STATIC_MEMORY,
                 }
             }
             LocalOrImport::Import(import_mem_index) => {
@@ -216,7 +216,7 @@ fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
                 match mem_desc.memory_type() {
                     MemoryType::Dynamic => &INTRINSICS_IMPORTED_DYNAMIC_MEMORY,
                     MemoryType::Static => &INTRINSICS_IMPORTED_STATIC_MEMORY,
-                    MemoryType::SharedStatic => unimplemented!(),
+                    MemoryType::SharedStatic => &INTRINSICS_IMPORTED_STATIC_MEMORY,
                 }
             }
         }
