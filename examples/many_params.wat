@@ -1,6 +1,7 @@
 ;; Test case for correctness of reading state with the presence of parameters passed on (machine) stack.
 ;; Usage: Run with a backend with support for OSR. Interrupt execution randomly.
 ;; Should see the stack frame for `$foo` to have locals `[0] = 1, [1] = 2, [2] = 3, [3] = 4, [4] = 5, [5] = 6, [6] = 7, [7] = 8` with high probability.
+;; If the logic for reading stack parameters is broken, it's likely to see `[0] = 1, [1] = 2, [2] = 3, [3] = 4, [4] = 5, [5] = ?, [6] = ?, [7] = ?`.
 
 (module
     (import "wasi_unstable" "proc_exit" (func $__wasi_proc_exit (param i32)))
