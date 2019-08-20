@@ -499,7 +499,7 @@ fn trap_if_misaligned(
     memarg: &MemoryImmediate,
     ptr: PointerValue,
 ) {
-    let align = match memarg.flags & 2 {
+    let align = match memarg.flags & 3 {
         0 => 1,
         1 => 2,
         2 => 4,
@@ -4641,7 +4641,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     &mut state,
                     &mut ctx,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    intrinsics.i32_ptr_ty,
                     4,
                 )?;
                 trap_if_misaligned(
