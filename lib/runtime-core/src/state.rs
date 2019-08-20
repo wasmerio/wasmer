@@ -15,6 +15,8 @@ pub struct MachineState {
     pub stack_values: Vec<MachineValue>,
     pub register_values: Vec<MachineValue>,
 
+    pub prev_frame: BTreeMap<usize, MachineValue>,
+
     pub wasm_stack: Vec<WasmAbstractValue>,
     pub wasm_stack_private_depth: usize,
 
@@ -27,6 +29,8 @@ pub struct MachineStateDiff {
     pub stack_push: Vec<MachineValue>,
     pub stack_pop: usize,
     pub reg_diff: Vec<(RegisterIndex, MachineValue)>,
+
+    pub prev_frame_diff: BTreeMap<usize, Option<MachineValue>>, // None for removal
 
     pub wasm_stack_push: Vec<WasmAbstractValue>,
     pub wasm_stack_pop: usize,
@@ -210,6 +214,22 @@ impl MachineState {
             .filter(|&(_, (a, b))| a != b)
             .map(|(i, (a, _))| (RegisterIndex(i), a.clone()))
             .collect();
+        let prev_frame_diff: BTreeMap<usize, Option<MachineValue>> = self
+            .prev_frame
+            .iter()
+            .filter(|(k, v)| if let Some(ref old_v) = old.prev_frame.get(k) {
+                v != old_v
+            } else {
+                true
+            })
+            .map(|(&k, v)| (k, Some(v.clone())))
+            .chain(
+                old.prev_frame
+                    .iter()
+                    .filter(|(k, _)| self.prev_frame.get(k).is_none())
+                    .map(|(&k, _)| (k, None))
+            )
+            .collect();
         let first_diff_wasm_stack_depth: usize = self
             .wasm_stack
             .iter()
@@ -222,7 +242,9 @@ impl MachineState {
             last: None,
             stack_push: self.stack_values[first_diff_stack_depth..].to_vec(),
             stack_pop: old.stack_values.len() - first_diff_stack_depth,
-            reg_diff: reg_diff,
+            reg_diff,
+
+            prev_frame_diff,
 
             wasm_stack_push: self.wasm_stack[first_diff_wasm_stack_depth..].to_vec(),
             wasm_stack_pop: old.wasm_stack.len() - first_diff_wasm_stack_depth,
@@ -254,6 +276,13 @@ impl MachineStateDiff {
             }
             for &(index, ref v) in &x.reg_diff {
                 state.register_values[index.0] = v.clone();
+            }
+            for (index, ref v) in &x.prev_frame_diff {
+                if let Some(ref x) = v {
+                    state.prev_frame.insert(*index, x.clone());
+                } else {
+                    state.prev_frame.remove(index).unwrap();
+                }
             }
             for _ in 0..x.wasm_stack_pop {
                 state.wasm_stack.pop().unwrap();
@@ -393,6 +422,7 @@ pub mod x64 {
         MachineState {
             stack_values: vec![],
             register_values: vec![MachineValue::Undefined; 16 + 8],
+            prev_frame: BTreeMap::new(),
             wasm_stack: vec![],
             wasm_stack_private_depth: 0,
             wasm_inst_offset: ::std::usize::MAX,
@@ -938,7 +968,20 @@ pub mod x64 {
                     }
                 }
             }
-            stack = stack.offset(1); // RBP
+
+            for (offset, v) in state.prev_frame.iter() {
+                let offset = (*offset + 2) as isize; // (saved_rbp, return_address)
+                match *v {
+                    MachineValue::WasmStack(idx) => {
+                        wasm_stack[idx] = Some(*stack.offset(offset));
+                    }
+                    MachineValue::WasmLocal(idx) => {
+                        wasm_locals[idx] = Some(*stack.offset(offset));
+                    }
+                    _ => unreachable!("values in prev frame can only be stack/local")
+                }
+            }
+            stack = stack.offset(1); // saved_rbp
 
             wasm_stack.truncate(
                 wasm_stack

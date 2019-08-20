@@ -1,7 +1,7 @@
 // https://llvm.org/docs/StackMaps.html#stackmap-section
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::io::{self, Cursor};
 use wasmer_runtime_core::state::{
     x64::{new_machine_state, X64Register, GPR},
@@ -128,6 +128,8 @@ impl StackmapEntry {
         let mut regs: Vec<(RegisterIndex, MachineValue)> = vec![];
         let mut stack_constants: HashMap<usize, u64> = HashMap::new();
 
+        let mut prev_frame_diff: BTreeMap<usize, Option<MachineValue>> = BTreeMap::new();
+
         let mut wasm_locals: Vec<WasmAbstractValue> = vec![];
         let mut wasm_stack: Vec<WasmAbstractValue> = vec![];
 
@@ -227,7 +229,9 @@ impl StackmapEntry {
                                 == X64Register::GPR(GPR::RBP)
                         );
                         if loc.offset_or_small_constant >= 0 {
-                            // FIXME: parameters passed on stack?
+                            assert!(loc.offset_or_small_constant >= 16); // (saved_rbp, return_address)
+                            assert!(loc.offset_or_small_constant % 8 == 0);
+                            prev_frame_diff.insert(((loc.offset_or_small_constant as usize - 16) / 8), Some(mv));
                         } else {
                             let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
                             assert!(
@@ -280,6 +284,7 @@ impl StackmapEntry {
             last: None,
             stack_push: machine_stack_layout,
             stack_pop: 0,
+            prev_frame_diff,
             reg_diff: regs,
             wasm_stack_push: wasm_stack,
             wasm_stack_pop: 0,
