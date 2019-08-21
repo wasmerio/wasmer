@@ -140,7 +140,7 @@ impl<
 pub fn validating_parser_config(features: &Features) -> wasmparser::ValidatingParserConfig {
     wasmparser::ValidatingParserConfig {
         operator_config: wasmparser::OperatorValidatorConfig {
-            enable_threads: false,
+            enable_threads: features.threads,
             enable_reference_types: false,
             enable_simd: features.simd,
             enable_bulk_memory: false,

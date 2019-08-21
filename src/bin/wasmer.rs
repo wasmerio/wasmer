@@ -85,6 +85,10 @@ struct PrestandardFeatures {
     #[structopt(long = "enable-simd")]
     simd: bool,
 
+    /// Enable support for the threads proposal.
+    #[structopt(long = "enable-threads")]
+    threads: bool,
+
     /// Enable support for all pre-standard proposals.
     #[structopt(long = "enable-all")]
     all: bool,
@@ -375,6 +379,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         if options.features.simd || options.features.all {
             features.enable_simd();
         }
+        if options.features.threads || options.features.all {
+            features.enable_threads();
+        }
         wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
@@ -427,6 +434,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 track_state,
                 features: Features {
                     simd: options.features.simd || options.features.all,
+                    threads: options.features.threads || options.features.all,
                 },
             },
             &*compiler,
@@ -440,6 +448,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 track_state,
                 features: Features {
                     simd: options.features.simd || options.features.all,
+                    threads: options.features.threads || options.features.all,
                 },
                 ..Default::default()
             },
@@ -487,6 +496,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                             track_state,
                             features: Features {
                                 simd: options.features.simd || options.features.all,
+                                threads: options.features.threads || options.features.all,
                             },
                             ..Default::default()
                         },
@@ -819,6 +829,7 @@ fn validate_wasm(validate: Validate) -> Result<(), String> {
         &wasm_binary,
         Features {
             simd: validate.features.simd || validate.features.all,
+            threads: validate.features.threads || validate.features.all,
         },
     )
     .map_err(|err| format!("Validation failed: {}", err))?;

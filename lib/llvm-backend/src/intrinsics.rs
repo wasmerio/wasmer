@@ -131,6 +131,7 @@ pub struct Intrinsics {
     pub trap_call_indirect_oob: BasicValueEnum,
     pub trap_memory_oob: BasicValueEnum,
     pub trap_illegal_arithmetic: BasicValueEnum,
+    pub trap_misaligned_atomic: BasicValueEnum,
 
     // VM intrinsics.
     pub memory_grow_dynamic_local: FunctionValue,
@@ -458,6 +459,7 @@ impl Intrinsics {
             trap_call_indirect_oob: i32_ty.const_int(3, false).as_basic_value_enum(),
             trap_memory_oob: i32_ty.const_int(2, false).as_basic_value_enum(),
             trap_illegal_arithmetic: i32_ty.const_int(4, false).as_basic_value_enum(),
+            trap_misaligned_atomic: i32_ty.const_int(5, false).as_basic_value_enum(),
 
             // VM intrinsics.
             memory_grow_dynamic_local: module.add_function(
