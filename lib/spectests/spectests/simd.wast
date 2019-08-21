@@ -589,9 +589,7 @@
 ;; Test that LLVM undef isn't introduced by SIMD shifts greater than the scalar width.
 
 (module
-;; wabt says "memories may not be shared"
-;;	(memory 1 1 shared)
-	(memory 1 1)
+	(memory 1 1 shared)
 	(func (export "test-simd-shift-mask") (param $v v128) (result i32)
 		(block $0
 			(block $1

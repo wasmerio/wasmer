@@ -138,6 +138,14 @@ pub unsafe fn do_unwind(signum: i32, siginfo: *const c_void, ucontext: *const c_
     longjmp(jmp_buf as *mut ::nix::libc::c_void, signum)
 }
 
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+unsafe fn get_faulting_addr_and_ip(
+    _siginfo: *const c_void,
+    _ucontext: *const c_void,
+) -> (*const c_void, *const c_void) {
+    (::std::ptr::null(), ::std::ptr::null())
+}
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 unsafe fn get_faulting_addr_and_ip(
     siginfo: *const c_void,
@@ -230,5 +238,6 @@ unsafe fn get_faulting_addr_and_ip(
 #[cfg(not(any(
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "x86_64"),
+    all(target_os = "linux", target_arch = "aarch64"),
 )))]
 compile_error!("This crate doesn't yet support compiling on operating systems other than linux and macos and architectures other than x86_64");

@@ -142,7 +142,7 @@ pub fn validate_and_report_errors_with_features(
             enable_bulk_memory: false,
             enable_multi_value: false,
             enable_reference_types: false,
-            enable_threads: false,
+            enable_threads: features.threads,
         },
         mutable_global_imports: true,
     };

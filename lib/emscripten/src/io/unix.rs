@@ -23,7 +23,7 @@ pub fn printf(ctx: &mut Ctx, memory_offset: i32, extra: i32) -> i32 {
 pub fn chroot(ctx: &mut Ctx, name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
     let name = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const i8;
-    unsafe { _chroot(name) }
+    unsafe { _chroot(name as *const _) }
 }
 
 /// getpwuid

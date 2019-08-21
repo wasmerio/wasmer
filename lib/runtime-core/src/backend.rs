@@ -114,6 +114,7 @@ impl Default for MemoryBoundCheckMode {
 #[derive(Debug, Default)]
 pub struct Features {
     pub simd: bool,
+    pub threads: bool,
 }
 
 /// Configuration data for the compiler
