@@ -331,7 +331,7 @@ impl LLVMBackend {
                         local_func_id_to_offset,
                     },
                     LLVMCache { buffer },
-                )
+                );
             }
         }
 

@@ -232,10 +232,8 @@ impl StackmapEntry {
                         if loc.offset_or_small_constant >= 0 {
                             assert!(loc.offset_or_small_constant >= 16); // (saved_rbp, return_address)
                             assert!(loc.offset_or_small_constant % 8 == 0);
-                            prev_frame_diff.insert(
-                                (loc.offset_or_small_constant as usize - 16) / 8,
-                                Some(mv),
-                            );
+                            prev_frame_diff
+                                .insert((loc.offset_or_small_constant as usize - 16) / 8, Some(mv));
                         } else {
                             let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
                             assert!(

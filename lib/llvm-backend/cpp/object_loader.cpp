@@ -6,7 +6,7 @@
 extern "C" void __register_frame(uint8_t *);
 extern "C" void __deregister_frame(uint8_t *);
 
-MemoryManager::~MemoryManager()  {
+MemoryManager::~MemoryManager() {
   deregisterEHFrames();
   // Deallocate all of the allocated memory.
   callbacks.dealloc_memory(code_section.base, code_section.size);
@@ -14,72 +14,68 @@ MemoryManager::~MemoryManager()  {
   callbacks.dealloc_memory(readwrite_section.base, readwrite_section.size);
 }
 void unwinding_setjmp(jmp_buf stack_out, void (*func)(void *), void *userdata) {
-  if(setjmp(stack_out)) {
+  if (setjmp(stack_out)) {
 
   } else {
     func(userdata);
   }
 }
 
-[[noreturn]]
-void unwinding_longjmp(jmp_buf stack_in) {
-  longjmp(stack_in, 42);
-}
+[[noreturn]] void unwinding_longjmp(jmp_buf stack_in) { longjmp(stack_in, 42); }
 
 struct UnwindPoint {
-    UnwindPoint *prev;
-    jmp_buf stack;
-    std::function<void()> *f;
-    std::unique_ptr<std::exception> exception;
+  UnwindPoint *prev;
+  jmp_buf stack;
+  std::function<void()> *f;
+  std::unique_ptr<std::exception> exception;
 };
 
 static thread_local UnwindPoint *unwind_state = nullptr;
 
 static void unwind_payload(void *_point) {
-    UnwindPoint *point = (UnwindPoint *) _point;
-    (*point->f)();
+  UnwindPoint *point = (UnwindPoint *)_point;
+  (*point->f)();
 }
 
-void catch_unwind(std::function<void()>&& f) {
-    UnwindPoint current;
-    current.prev = unwind_state;
-    current.f = &f;
-    unwind_state = &current;
+void catch_unwind(std::function<void()> &&f) {
+  UnwindPoint current;
+  current.prev = unwind_state;
+  current.f = &f;
+  unwind_state = &current;
 
-    unwinding_setjmp(current.stack, unwind_payload, (void *) &current);
-    if(current.exception) {
-        throw *current.exception;
-    }
+  unwinding_setjmp(current.stack, unwind_payload, (void *)&current);
+  if (current.exception) {
+    throw *current.exception;
+  }
 }
 
 void unsafe_unwind(std::exception *exception) {
-    UnwindPoint *state = unwind_state;
-    if(state) {
-        state->exception.reset(exception);
-        unwinding_longjmp(state->stack);
-    } else {
-        abort();
-    }
+  UnwindPoint *state = unwind_state;
+  if (state) {
+    state->exception.reset(exception);
+    unwinding_longjmp(state->stack);
+  } else {
+    abort();
+  }
 }
 
 uint8_t *MemoryManager::allocateCodeSection(uintptr_t size, unsigned alignment,
-                                      unsigned section_id,
-                                      llvm::StringRef section_name) {
+                                            unsigned section_id,
+                                            llvm::StringRef section_name) {
   return allocate_bump(code_section, code_bump_ptr, size, alignment);
 }
 
 uint8_t *MemoryManager::allocateDataSection(uintptr_t size, unsigned alignment,
-                                      unsigned section_id,
-                                      llvm::StringRef section_name,
-                                      bool read_only) {
+                                            unsigned section_id,
+                                            llvm::StringRef section_name,
+                                            bool read_only) {
   // Allocate from the read-only section or the read-write section, depending
   // on if this allocation should be read-only or not.
   uint8_t *ret;
   if (read_only) {
     ret = allocate_bump(read_section, read_bump_ptr, size, alignment);
   } else {
-    ret =
-        allocate_bump(readwrite_section, readwrite_bump_ptr, size, alignment);
+    ret = allocate_bump(readwrite_section, readwrite_bump_ptr, size, alignment);
   }
   if (section_name.equals(llvm::StringRef("__llvm_stackmaps")) ||
       section_name.equals(llvm::StringRef(".llvm_stackmaps"))) {
@@ -89,11 +85,12 @@ uint8_t *MemoryManager::allocateDataSection(uintptr_t size, unsigned alignment,
   return ret;
 }
 
-void MemoryManager::reserveAllocationSpace(uintptr_t code_size, uint32_t code_align,
-                                      uintptr_t read_data_size,
-                                      uint32_t read_data_align,
-                                      uintptr_t read_write_data_size,
-                                      uint32_t read_write_data_align) {
+void MemoryManager::reserveAllocationSpace(uintptr_t code_size,
+                                           uint32_t code_align,
+                                           uintptr_t read_data_size,
+                                           uint32_t read_data_align,
+                                           uintptr_t read_write_data_size,
+                                           uint32_t read_write_data_align) {
   auto aligner = [](uintptr_t ptr, size_t align) {
     if (ptr == 0) {
       return align;
@@ -104,7 +101,7 @@ void MemoryManager::reserveAllocationSpace(uintptr_t code_size, uint32_t code_al
   size_t code_size_out = 0;
   auto code_result =
       callbacks.alloc_memory(aligner(code_size, 4096), PROTECT_READ_WRITE,
-                              &code_ptr_out, &code_size_out);
+                             &code_ptr_out, &code_size_out);
   assert(code_result == RESULT_OK);
   code_section = Section{code_ptr_out, code_size_out};
   code_bump_ptr = (uintptr_t)code_ptr_out;
@@ -113,9 +110,9 @@ void MemoryManager::reserveAllocationSpace(uintptr_t code_size, uint32_t code_al
 
   uint8_t *read_ptr_out = nullptr;
   size_t read_size_out = 0;
-  auto read_result = callbacks.alloc_memory(aligner(read_data_size, 4096),
-                                            PROTECT_READ_WRITE, &read_ptr_out,
-                                            &read_size_out);
+  auto read_result =
+      callbacks.alloc_memory(aligner(read_data_size, 4096), PROTECT_READ_WRITE,
+                             &read_ptr_out, &read_size_out);
   assert(read_result == RESULT_OK);
   read_section = Section{read_ptr_out, read_size_out};
   read_bump_ptr = (uintptr_t)read_ptr_out;
@@ -133,7 +130,7 @@ void MemoryManager::reserveAllocationSpace(uintptr_t code_size, uint32_t code_al
 bool MemoryManager::needsToReserveAllocationSpace() { return true; }
 
 void MemoryManager::registerEHFrames(uint8_t *addr, uint64_t LoadAddr,
-                                size_t size) {
+                                     size_t size) {
 // We don't know yet how to do this on Windows, so we hide this on compilation
 // so we can compile and pass spectests on unix systems
 #ifndef _WIN32
@@ -157,7 +154,7 @@ void MemoryManager::deregisterEHFrames() {
 bool MemoryManager::finalizeMemory(std::string *ErrMsg) {
   auto code_result =
       callbacks.protect_memory(code_section.base, code_section.size,
-                                mem_protect_t::PROTECT_READ_EXECUTE);
+                               mem_protect_t::PROTECT_READ_EXECUTE);
   if (code_result != RESULT_OK) {
     return false;
   }
@@ -174,10 +171,10 @@ bool MemoryManager::finalizeMemory(std::string *ErrMsg) {
 }
 
 void MemoryManager::notifyObjectLoaded(llvm::RuntimeDyld &RTDyld,
-                     const llvm::object::ObjectFile &Obj) {}
+                                       const llvm::object::ObjectFile &Obj) {}
 
-uint8_t *MemoryManager::allocate_bump(Section &section, uintptr_t &bump_ptr, size_t size,
-                         size_t align) {
+uint8_t *MemoryManager::allocate_bump(Section &section, uintptr_t &bump_ptr,
+                                      size_t size, size_t align) {
   auto aligner = [](uintptr_t &ptr, size_t align) {
     ptr = (ptr + align - 1) & ~(align - 1);
   };

@@ -210,8 +210,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
         if let Err(e) = ret {
             if let Ok(new_image) = e.downcast::<InstanceImage>() {
                 // Tier switch event
-                if !was_sigint_triggered_fault() && opt_state.outcome.lock().unwrap().is_some()
-                {
+                if !was_sigint_triggered_fault() && opt_state.outcome.lock().unwrap().is_some() {
                     resume_image = Some(*new_image);
                     continue;
                 }

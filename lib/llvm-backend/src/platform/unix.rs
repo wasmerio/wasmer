@@ -4,7 +4,9 @@ use libc::{
     c_void, mmap, mprotect, munmap, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE,
     PROT_READ, PROT_WRITE,
 };
-use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGSEGV, SIGILL};
+use nix::sys::signal::{
+    sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGILL, SIGSEGV,
+};
 use std::ptr;
 
 /// `__register_frame` and `__deregister_frame` on macos take a single fde as an

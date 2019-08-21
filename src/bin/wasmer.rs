@@ -587,32 +587,34 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =
                     unsafe { ::std::mem::transmute(start.get_vm_func()) };
 
-                unsafe { run_tiering(
-                    module.info(),
-                    &wasm_binary,
-                    if let Some(ref path) = options.resume {
-                        let mut f = File::open(path).unwrap();
-                        let mut out: Vec<u8> = vec![];
-                        f.read_to_end(&mut out).unwrap();
-                        Some(
-                            wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
-                                .expect("failed to decode image"),
-                        )
-                    } else {
-                        None
-                    },
-                    &import_object,
-                    start_raw,
-                    &mut instance,
-                    options
-                        .optimized_backends
-                        .iter()
-                        .map(|&backend| -> Box<dyn Fn() -> Box<dyn Compiler> + Send> {
-                            Box::new(move || get_compiler_by_backend(backend).unwrap())
-                        })
-                        .collect(),
-                    interactive_shell,
-                )? };
+                unsafe {
+                    run_tiering(
+                        module.info(),
+                        &wasm_binary,
+                        if let Some(ref path) = options.resume {
+                            let mut f = File::open(path).unwrap();
+                            let mut out: Vec<u8> = vec![];
+                            f.read_to_end(&mut out).unwrap();
+                            Some(
+                                wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
+                                    .expect("failed to decode image"),
+                            )
+                        } else {
+                            None
+                        },
+                        &import_object,
+                        start_raw,
+                        &mut instance,
+                        options
+                            .optimized_backends
+                            .iter()
+                            .map(|&backend| -> Box<dyn Fn() -> Box<dyn Compiler> + Send> {
+                                Box::new(move || get_compiler_by_backend(backend).unwrap())
+                            })
+                            .collect(),
+                        interactive_shell,
+                    )?
+                };
             }
 
             #[cfg(not(feature = "managed"))]

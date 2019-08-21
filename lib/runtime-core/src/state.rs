@@ -726,11 +726,8 @@ pub mod x64 {
                 assert_eq!(vmctx.internal.memory_bound, memory.len());
             }
 
-            std::slice::from_raw_parts_mut(
-                vmctx.internal.memory_base,
-                vmctx.internal.memory_bound,
-            )
-            .copy_from_slice(memory);
+            std::slice::from_raw_parts_mut(vmctx.internal.memory_base, vmctx.internal.memory_bound)
+                .copy_from_slice(memory);
         }
 
         let globals_len = (*vmctx.module).info.globals.len();

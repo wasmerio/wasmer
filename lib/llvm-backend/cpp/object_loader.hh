@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
-#include <iostream>
-#include <sstream>
-#include <setjmp.h>
 #include <functional>
+#include <iostream>
+#include <setjmp.h>
+#include <sstream>
 
 #include <llvm/ExecutionEngine/RuntimeDyld.h>
 
@@ -81,7 +81,7 @@ public:
   virtual void deregisterEHFrames() override;
   virtual bool finalizeMemory(std::string *ErrMsg = nullptr) override;
   virtual void notifyObjectLoaded(llvm::RuntimeDyld &RTDyld,
-                     const llvm::object::ObjectFile &Obj) override;
+                                  const llvm::object::ObjectFile &Obj) override;
 
 private:
   struct Section {
@@ -106,12 +106,12 @@ private:
   size_t stack_map_size = 0;
 };
 
-struct WasmException: std::exception {
+struct WasmException : std::exception {
 public:
   virtual std::string description() const noexcept = 0;
 };
 
-void catch_unwind(std::function<void()>&& f);
+void catch_unwind(std::function<void()> &&f);
 [[noreturn]] void unsafe_unwind(std::exception *exception);
 
 struct UncatchableException : WasmException {
@@ -239,7 +239,9 @@ result_t module_load(const uint8_t *mem_ptr, size_t mem_size,
   return RESULT_OK;
 }
 
-[[noreturn]] void throw_trap(WasmTrap::Type ty) { unsafe_unwind(new WasmTrap(ty)); }
+[[noreturn]] void throw_trap(WasmTrap::Type ty) {
+  unsafe_unwind(new WasmTrap(ty));
+}
 
 void module_delete(WasmModule *module) { delete module; }
 
@@ -260,7 +262,7 @@ bool invoke_trampoline(trampoline_t trampoline, void *ctx, void *func,
                        box_any_t *user_error, void *invoke_env) noexcept {
   try {
     catch_unwind([trampoline, ctx, func, params, results]() {
-        trampoline(ctx, func, params, results);
+      trampoline(ctx, func, params, results);
     });
     return true;
   } catch (const WasmTrap &e) {
