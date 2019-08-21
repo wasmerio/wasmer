@@ -5,6 +5,8 @@
 #include <exception>
 #include <iostream>
 #include <sstream>
+#include <setjmp.h>
+#include <functional>
 
 #include <llvm/ExecutionEngine/RuntimeDyld.h>
 
@@ -104,10 +106,13 @@ private:
   size_t stack_map_size = 0;
 };
 
-struct WasmException {
+struct WasmException: std::exception {
 public:
   virtual std::string description() const noexcept = 0;
 };
+
+void catch_unwind(std::function<void()>&& f);
+[[noreturn]] void unsafe_unwind(std::exception *exception);
 
 struct UncatchableException : WasmException {
 public:
@@ -234,27 +239,29 @@ result_t module_load(const uint8_t *mem_ptr, size_t mem_size,
   return RESULT_OK;
 }
 
-[[noreturn]] void throw_trap(WasmTrap::Type ty) { throw WasmTrap(ty); }
+[[noreturn]] void throw_trap(WasmTrap::Type ty) { unsafe_unwind(new WasmTrap(ty)); }
 
 void module_delete(WasmModule *module) { delete module; }
 
 // Throw a fat pointer that's assumed to be `*mut dyn Any` on the rust
 // side.
 [[noreturn]] void throw_any(size_t data, size_t vtable) {
-  throw UserException(data, vtable);
+  unsafe_unwind(new UserException(data, vtable));
 }
 
 // Throw a pointer that's assumed to be codegen::BreakpointHandler on the
 // rust side.
 [[noreturn]] void throw_breakpoint(uintptr_t callback) {
-  throw BreakpointException(callback);
+  unsafe_unwind(new BreakpointException(callback));
 }
 
 bool invoke_trampoline(trampoline_t trampoline, void *ctx, void *func,
                        void *params, void *results, WasmTrap::Type *trap_out,
                        box_any_t *user_error, void *invoke_env) noexcept {
   try {
-    trampoline(ctx, func, params, results);
+    catch_unwind([trampoline, ctx, func, params, results]() {
+        trampoline(ctx, func, params, results);
+    });
     return true;
   } catch (const WasmTrap &e) {
     *trap_out = e.type;
