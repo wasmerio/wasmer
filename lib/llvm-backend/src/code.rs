@@ -4448,17 +4448,6 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
-            /*
-            Operator::Wake { ref memarg: _ } => {
-                unimplemented!();
-            }
-            Operator::I32Wait { ref memarg: _ } => {
-                unimplemented!();
-            }
-            Operator::I64Wait { ref memarg: _ } => {
-                unimplemented!();
-            }
-            */
             Operator::Fence { flags: _ } => {
                 // Fence is a nop.
                 //
