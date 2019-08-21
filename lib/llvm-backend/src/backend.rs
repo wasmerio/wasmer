@@ -226,122 +226,125 @@ impl LLVMBackend {
 
         let buffer = Arc::new(Buffer::LlvmMemory(memory_buffer));
 
-        let raw_stackmap = unsafe {
-            std::slice::from_raw_parts(
-                llvm_backend_get_stack_map_ptr(module),
-                llvm_backend_get_stack_map_size(module),
-            )
-        };
-        if raw_stackmap.len() > 0 {
-            let map = stackmap::StackMap::parse(raw_stackmap).unwrap();
-
-            let (code_ptr, code_size) = unsafe {
-                (
-                    llvm_backend_get_code_ptr(module),
-                    llvm_backend_get_code_size(module),
+        #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
+        {
+            let raw_stackmap = unsafe {
+                std::slice::from_raw_parts(
+                    llvm_backend_get_stack_map_ptr(module),
+                    llvm_backend_get_stack_map_size(module),
                 )
             };
-            let mut msm = ModuleStateMap {
-                local_functions: Default::default(),
-                total_size: code_size,
-            };
+            if raw_stackmap.len() > 0 {
+                let map = stackmap::StackMap::parse(raw_stackmap).unwrap();
 
-            let num_local_functions =
-                module_info.func_assoc.len() - module_info.imported_functions.len();
-            let mut local_func_id_to_addr: Vec<usize> = Vec::with_capacity(num_local_functions);
-
-            // All local functions.
-            for index in module_info.imported_functions.len()..module_info.func_assoc.len() {
-                let name = if cfg!(target_os = "macos") {
-                    format!("_fn{}", index)
-                } else {
-                    format!("fn{}", index)
+                let (code_ptr, code_size) = unsafe {
+                    (
+                        llvm_backend_get_code_ptr(module),
+                        llvm_backend_get_code_size(module),
+                    )
+                };
+                let mut msm = ModuleStateMap {
+                    local_functions: Default::default(),
+                    total_size: code_size,
                 };
 
-                let c_str = CString::new(name).unwrap();
-                let ptr = unsafe { get_func_symbol(module, c_str.as_ptr()) };
+                let num_local_functions =
+                    module_info.func_assoc.len() - module_info.imported_functions.len();
+                let mut local_func_id_to_addr: Vec<usize> = Vec::with_capacity(num_local_functions);
 
-                assert!(!ptr.is_null());
-                local_func_id_to_addr.push(ptr as usize);
-            }
+                // All local functions.
+                for index in module_info.imported_functions.len()..module_info.func_assoc.len() {
+                    let name = if cfg!(target_os = "macos") {
+                        format!("_fn{}", index)
+                    } else {
+                        format!("fn{}", index)
+                    };
 
-            let mut addr_to_size_record: BTreeMap<usize, &StkSizeRecord> = BTreeMap::new();
+                    let c_str = CString::new(name).unwrap();
+                    let ptr = unsafe { get_func_symbol(module, c_str.as_ptr()) };
 
-            for record in &map.stk_size_records {
-                addr_to_size_record.insert(record.function_address as usize, record);
-            }
-
-            let mut map_records: BTreeMap<usize, &StkMapRecord> = BTreeMap::new();
-
-            for record in &map.stk_map_records {
-                map_records.insert(record.patchpoint_id as usize, record);
-            }
-
-            for ((start_id, start_entry), (end_id, end_entry)) in stackmaps
-                .entries
-                .iter()
-                .enumerate()
-                .step_by(2)
-                .zip(stackmaps.entries.iter().enumerate().skip(1).step_by(2))
-            {
-                if let Some(map_record) = map_records.get(&start_id) {
-                    assert_eq!(start_id, map_record.patchpoint_id as usize);
-                    assert!(start_entry.is_start);
-                    assert!(!end_entry.is_start);
-
-                    let end_record = map_records.get(&end_id);
-
-                    let addr = local_func_id_to_addr[start_entry.local_function_id];
-                    let size_record = *addr_to_size_record
-                        .get(&addr)
-                        .expect("size_record not found");
-
-                    start_entry.populate_msm(
-                        module_info,
-                        code_ptr as usize,
-                        &map,
-                        size_record,
-                        map_record,
-                        end_record.map(|x| (end_entry, *x)),
-                        &mut msm,
-                    );
-                } else {
-                    // The record is optimized out.
+                    assert!(!ptr.is_null());
+                    local_func_id_to_addr.push(ptr as usize);
                 }
+
+                let mut addr_to_size_record: BTreeMap<usize, &StkSizeRecord> = BTreeMap::new();
+
+                for record in &map.stk_size_records {
+                    addr_to_size_record.insert(record.function_address as usize, record);
+                }
+
+                let mut map_records: BTreeMap<usize, &StkMapRecord> = BTreeMap::new();
+
+                for record in &map.stk_map_records {
+                    map_records.insert(record.patchpoint_id as usize, record);
+                }
+
+                for ((start_id, start_entry), (end_id, end_entry)) in stackmaps
+                    .entries
+                    .iter()
+                    .enumerate()
+                    .step_by(2)
+                    .zip(stackmaps.entries.iter().enumerate().skip(1).step_by(2))
+                {
+                    if let Some(map_record) = map_records.get(&start_id) {
+                        assert_eq!(start_id, map_record.patchpoint_id as usize);
+                        assert!(start_entry.is_start);
+                        assert!(!end_entry.is_start);
+
+                        let end_record = map_records.get(&end_id);
+
+                        let addr = local_func_id_to_addr[start_entry.local_function_id];
+                        let size_record = *addr_to_size_record
+                            .get(&addr)
+                            .expect("size_record not found");
+
+                        start_entry.populate_msm(
+                            module_info,
+                            code_ptr as usize,
+                            &map,
+                            size_record,
+                            map_record,
+                            end_record.map(|x| (end_entry, *x)),
+                            &mut msm,
+                        );
+                    } else {
+                        // The record is optimized out.
+                    }
+                }
+
+                let code_ptr = unsafe { llvm_backend_get_code_ptr(module) } as usize;
+                let code_len = unsafe { llvm_backend_get_code_size(module) } as usize;
+
+                let local_func_id_to_offset: Vec<usize> = local_func_id_to_addr
+                    .iter()
+                    .map(|&x| {
+                        assert!(x >= code_ptr && x < code_ptr + code_len);
+                        x - code_ptr
+                    })
+                    .collect();
+
+                return (
+                    Self {
+                        module,
+                        buffer: Arc::clone(&buffer),
+                        msm: Some(msm),
+                        local_func_id_to_offset,
+                    },
+                    LLVMCache { buffer },
+                )
             }
-
-            let code_ptr = unsafe { llvm_backend_get_code_ptr(module) } as usize;
-            let code_len = unsafe { llvm_backend_get_code_size(module) } as usize;
-
-            let local_func_id_to_offset: Vec<usize> = local_func_id_to_addr
-                .iter()
-                .map(|&x| {
-                    assert!(x >= code_ptr && x < code_ptr + code_len);
-                    x - code_ptr
-                })
-                .collect();
-
-            (
-                Self {
-                    module,
-                    buffer: Arc::clone(&buffer),
-                    msm: Some(msm),
-                    local_func_id_to_offset,
-                },
-                LLVMCache { buffer },
-            )
-        } else {
-            // This module contains no functions so no stackmaps.
-            (
-                Self {
-                    module,
-                    buffer: Arc::clone(&buffer),
-                    msm: None,
-                    local_func_id_to_offset: vec![],
-                },
-                LLVMCache { buffer },
-            )
         }
+
+        // Stackmap is not supported on this platform, or this module contains no functions so no stackmaps.
+        (
+            Self {
+                module,
+                buffer: Arc::clone(&buffer),
+                msm: None,
+                local_func_id_to_offset: vec![],
+            },
+            LLVMCache { buffer },
+        )
     }
 
     pub unsafe fn from_buffer(memory: Memory) -> Result<(Self, LLVMCache), String> {

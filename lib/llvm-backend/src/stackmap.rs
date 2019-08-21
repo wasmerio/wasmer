@@ -3,11 +3,6 @@
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::collections::{BTreeMap, HashMap};
 use std::io::{self, Cursor};
-use wasmer_runtime_core::state::{
-    x64::{new_machine_state, X64Register, GPR},
-    FunctionStateMap, MachineStateDiff, MachineValue, ModuleStateMap, OffsetInfo, RegisterIndex,
-    SuspendOffset, WasmAbstractValue,
-};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::{
     module::ModuleInfo,
@@ -87,6 +82,7 @@ pub struct MachineStateDiff {
 */
 
 impl StackmapEntry {
+    #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
     pub fn populate_msm(
         &self,
         module_info: &ModuleInfo,
@@ -95,8 +91,13 @@ impl StackmapEntry {
         size_record: &StkSizeRecord,
         map_record: &StkMapRecord,
         end: Option<(&StackmapEntry, &StkMapRecord)>,
-        msm: &mut ModuleStateMap,
+        msm: &mut wasmer_runtime_core::state::ModuleStateMap,
     ) {
+        use wasmer_runtime_core::state::{
+            x64::{new_machine_state, X64Register, GPR},
+            FunctionStateMap, MachineStateDiff, MachineValue, OffsetInfo, RegisterIndex,
+            SuspendOffset, WasmAbstractValue,
+        };
         let func_base_addr = (size_record.function_address as usize)
             .checked_sub(code_addr)
             .unwrap();
@@ -232,7 +233,7 @@ impl StackmapEntry {
                             assert!(loc.offset_or_small_constant >= 16); // (saved_rbp, return_address)
                             assert!(loc.offset_or_small_constant % 8 == 0);
                             prev_frame_diff.insert(
-                                ((loc.offset_or_small_constant as usize - 16) / 8),
+                                (loc.offset_or_small_constant as usize - 16) / 8,
                                 Some(mv),
                             );
                         } else {
