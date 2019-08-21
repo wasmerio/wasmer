@@ -70,7 +70,7 @@ unsafe fn do_optimize(
     }
 }
 
-pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
+pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     module_info: &ModuleInfo,
     wasm_binary: &[u8],
     mut resume_image: Option<InstanceImage>,
@@ -80,157 +80,155 @@ pub fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     optimized_backends: Vec<Box<dyn Fn() -> Box<dyn Compiler> + Send>>,
     interactive_shell: F,
 ) -> Result<(), String> {
-    unsafe {
-        ensure_sighandler();
+    ensure_sighandler();
 
-        let ctx_box = Arc::new(Mutex::new(CtxWrapper(baseline.context_mut() as *mut _)));
-        // Ensure that the ctx pointer's lifetime is not longer than Instance's.
-        let _deferred_ctx_box_cleanup: Defer<_> = {
-            let ctx_box = ctx_box.clone();
-            Defer(Some(move || {
-                ctx_box.lock().unwrap().0 = ::std::ptr::null_mut();
-            }))
-        };
-        let opt_state = Arc::new(OptimizationState {
-            outcome: Mutex::new(None),
-        });
+    let ctx_box = Arc::new(Mutex::new(CtxWrapper(baseline.context_mut() as *mut _)));
+    // Ensure that the ctx pointer's lifetime is not longer than Instance's.
+    let _deferred_ctx_box_cleanup: Defer<_> = {
+        let ctx_box = ctx_box.clone();
+        Defer(Some(move || {
+            ctx_box.lock().unwrap().0 = ::std::ptr::null_mut();
+        }))
+    };
+    let opt_state = Arc::new(OptimizationState {
+        outcome: Mutex::new(None),
+    });
 
-        {
-            let wasm_binary = wasm_binary.to_vec();
-            let ctx_box = ctx_box.clone();
-            let opt_state = opt_state.clone();
-            ::std::thread::spawn(move || {
-                for backend in optimized_backends {
-                    if !ctx_box.lock().unwrap().0.is_null() {
-                        do_optimize(&wasm_binary, backend(), &ctx_box, &opt_state);
-                    }
+    {
+        let wasm_binary = wasm_binary.to_vec();
+        let ctx_box = ctx_box.clone();
+        let opt_state = opt_state.clone();
+        ::std::thread::spawn(move || {
+            for backend in optimized_backends {
+                if !ctx_box.lock().unwrap().0.is_null() {
+                    do_optimize(&wasm_binary, backend(), &ctx_box, &opt_state);
                 }
-            });
+            }
+        });
+    }
+
+    let mut optimized_instances: Vec<Instance> = vec![];
+
+    push_code_version(CodeVersion {
+        baseline: true,
+        msm: baseline
+            .module
+            .runnable_module
+            .get_module_state_map()
+            .unwrap(),
+        base: baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+    });
+    let n_versions: Cell<usize> = Cell::new(1);
+
+    let _deferred_pop_versions = Defer(Some(|| {
+        for _ in 0..n_versions.get() {
+            pop_code_version().unwrap();
         }
+    }));
 
-        let mut optimized_instances: Vec<Instance> = vec![];
-
-        push_code_version(CodeVersion {
-            baseline: true,
-            msm: baseline
+    loop {
+        let new_optimized: Option<&mut Instance> = {
+            let mut outcome = opt_state.outcome.lock().unwrap();
+            if let Some(x) = outcome.take() {
+                let instance = x
+                    .module
+                    .instantiate(&import_object)
+                    .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+                // Keep the optimized code alive.
+                optimized_instances.push(instance);
+                optimized_instances.last_mut()
+            } else {
+                None
+            }
+        };
+        if let Some(optimized) = new_optimized {
+            let base = module_info.imported_functions.len();
+            let code_ptr = optimized
                 .module
                 .runnable_module
-                .get_module_state_map()
-                .unwrap(),
-            base: baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-        });
-        let n_versions: Cell<usize> = Cell::new(1);
-
-        let _deferred_pop_versions = Defer(Some(|| {
-            for _ in 0..n_versions.get() {
-                pop_code_version().unwrap();
+                .get_code()
+                .unwrap()
+                .as_ptr() as usize;
+            let target_addresses: Vec<usize> = optimized
+                .module
+                .runnable_module
+                .get_local_function_offsets()
+                .unwrap()
+                .into_iter()
+                .map(|x| code_ptr + x)
+                .collect();
+            assert_eq!(target_addresses.len(), module_info.func_assoc.len() - base);
+            for i in base..module_info.func_assoc.len() {
+                baseline
+                    .module
+                    .runnable_module
+                    .patch_local_function(i - base, target_addresses[i - base]);
             }
-        }));
 
-        loop {
-            let new_optimized: Option<&mut Instance> = {
-                let mut outcome = opt_state.outcome.lock().unwrap();
-                if let Some(x) = outcome.take() {
-                    let instance = x
-                        .module
-                        .instantiate(&import_object)
-                        .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
-                    // Keep the optimized code alive.
-                    optimized_instances.push(instance);
-                    optimized_instances.last_mut()
-                } else {
-                    None
-                }
-            };
-            if let Some(optimized) = new_optimized {
-                let base = module_info.imported_functions.len();
-                let code_ptr = optimized
+            push_code_version(CodeVersion {
+                baseline: false,
+                msm: optimized
+                    .module
+                    .runnable_module
+                    .get_module_state_map()
+                    .unwrap(),
+                base: optimized
                     .module
                     .runnable_module
                     .get_code()
                     .unwrap()
-                    .as_ptr() as usize;
-                let target_addresses: Vec<usize> = optimized
+                    .as_ptr() as usize,
+            });
+            n_versions.set(n_versions.get() + 1);
+
+            baseline.context_mut().local_functions = optimized.context_mut().local_functions;
+        }
+        // Assuming we do not want to do breakpoint-based debugging on optimized backends.
+        let breakpoints = baseline.module.runnable_module.get_breakpoints();
+        let ctx = baseline.context_mut() as *mut _;
+        let ret = with_ctx(ctx, || {
+            if let Some(image) = resume_image.take() {
+                let msm = baseline
                     .module
                     .runnable_module
-                    .get_local_function_offsets()
-                    .unwrap()
-                    .into_iter()
-                    .map(|x| code_ptr + x)
-                    .collect();
-                assert_eq!(target_addresses.len(), module_info.func_assoc.len() - base);
-                for i in base..module_info.func_assoc.len() {
-                    baseline
-                        .module
-                        .runnable_module
-                        .patch_local_function(i - base, target_addresses[i - base]);
-                }
-
-                push_code_version(CodeVersion {
-                    baseline: false,
-                    msm: optimized
-                        .module
-                        .runnable_module
-                        .get_module_state_map()
-                        .unwrap(),
-                    base: optimized
-                        .module
-                        .runnable_module
-                        .get_code()
-                        .unwrap()
-                        .as_ptr() as usize,
-                });
-                n_versions.set(n_versions.get() + 1);
-
-                baseline.context_mut().local_functions = optimized.context_mut().local_functions;
+                    .get_module_state_map()
+                    .unwrap();
+                let code_base =
+                    baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize;
+                invoke_call_return_on_stack(
+                    &msm,
+                    code_base,
+                    image,
+                    baseline.context_mut(),
+                    breakpoints.clone(),
+                )
+                .map(|_| ())
+            } else {
+                catch_unsafe_unwind(|| start_raw(baseline.context_mut()), breakpoints.clone())
             }
-            // Assuming we do not want to do breakpoint-based debugging on optimized backends.
-            let breakpoints = baseline.module.runnable_module.get_breakpoints();
-            let ctx = baseline.context_mut() as *mut _;
-            let ret = with_ctx(ctx, || {
-                if let Some(image) = resume_image.take() {
-                    let msm = baseline
-                        .module
-                        .runnable_module
-                        .get_module_state_map()
-                        .unwrap();
-                    let code_base =
-                        baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize;
-                    invoke_call_return_on_stack(
-                        &msm,
-                        code_base,
-                        image,
-                        baseline.context_mut(),
-                        breakpoints.clone(),
-                    )
-                    .map(|_| ())
-                } else {
-                    catch_unsafe_unwind(|| start_raw(baseline.context_mut()), breakpoints.clone())
+        });
+        if let Err(e) = ret {
+            if let Ok(new_image) = e.downcast::<InstanceImage>() {
+                // Tier switch event
+                if !was_sigint_triggered_fault() && opt_state.outcome.lock().unwrap().is_some()
+                {
+                    resume_image = Some(*new_image);
+                    continue;
                 }
-            });
-            if let Err(e) = ret {
-                if let Ok(new_image) = e.downcast::<InstanceImage>() {
-                    // Tier switch event
-                    if !was_sigint_triggered_fault() && opt_state.outcome.lock().unwrap().is_some()
-                    {
-                        resume_image = Some(*new_image);
-                        continue;
+                let op = interactive_shell(InteractiveShellContext {
+                    image: Some(*new_image),
+                    patched: n_versions.get() > 1,
+                });
+                match op {
+                    ShellExitOperation::ContinueWith(new_image) => {
+                        resume_image = Some(new_image);
                     }
-                    let op = interactive_shell(InteractiveShellContext {
-                        image: Some(*new_image),
-                        patched: n_versions.get() > 1,
-                    });
-                    match op {
-                        ShellExitOperation::ContinueWith(new_image) => {
-                            resume_image = Some(new_image);
-                        }
-                    }
-                } else {
-                    return Err("Error while executing WebAssembly".into());
                 }
             } else {
-                return Ok(());
+                return Err("Error while executing WebAssembly".into());
             }
+        } else {
+            return Ok(());
         }
     }
 }

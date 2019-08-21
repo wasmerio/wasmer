@@ -70,6 +70,8 @@ extern "C" {
     ) -> bool;
 }
 
+static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
+
 fn get_callbacks() -> Callbacks {
     extern "C" fn alloc_memory(
         size: usize,
@@ -218,16 +220,6 @@ impl LLVMBackend {
             )
         };
 
-        // Uncomment this to make spectests pass.
-        // TODO: fix this
-        /*
-
-        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
-
-        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
-            crate::platform::install_signal_handler();
-        });*/
-
         if res != LLVMResult::OK {
             panic!("failed to load object")
         }
@@ -235,7 +227,7 @@ impl LLVMBackend {
         let buffer = Arc::new(Buffer::LlvmMemory(memory_buffer));
 
         let raw_stackmap = unsafe {
-            ::std::slice::from_raw_parts(
+            std::slice::from_raw_parts(
                 llvm_backend_get_stack_map_ptr(module),
                 llvm_backend_get_stack_map_size(module),
             )
@@ -281,8 +273,8 @@ impl LLVMBackend {
 
             let mut map_records: BTreeMap<usize, &StkMapRecord> = BTreeMap::new();
 
-            for r in &map.stk_map_records {
-                map_records.insert(r.patchpoint_id as usize, r);
+            for record in &map.stk_map_records {
+                map_records.insert(record.patchpoint_id as usize, record);
             }
 
             for ((start_id, start_entry), (end_id, end_entry)) in stackmaps
@@ -314,7 +306,7 @@ impl LLVMBackend {
                         &mut msm,
                     );
                 } else {
-                    // TODO: optimized out?
+                    // The record is optimized out.
                 }
             }
 
@@ -329,8 +321,6 @@ impl LLVMBackend {
                 })
                 .collect();
 
-            //println!("MSM: {:?}", msm);
-
             (
                 Self {
                     module,
@@ -341,7 +331,7 @@ impl LLVMBackend {
                 LLVMCache { buffer },
             )
         } else {
-            eprintln!("WARNING: No stack map");
+            // This module contains no functions so no stackmaps.
             (
                 Self {
                     module,
@@ -365,8 +355,6 @@ impl LLVMBackend {
         if res != LLVMResult::OK {
             return Err("failed to load object".to_string());
         }
-
-        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
 
         SIGNAL_HANDLER_INSTALLED.call_once(|| {
             crate::platform::install_signal_handler();
@@ -431,12 +419,16 @@ impl RunnableModule for LLVMBackend {
             mem::transmute(symbol)
         };
 
+        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
+            crate::platform::install_signal_handler();
+        });
+
         Some(unsafe { Wasm::from_raw_parts(trampoline, invoke_trampoline, None) })
     }
 
     fn get_code(&self) -> Option<&[u8]> {
         Some(unsafe {
-            ::std::slice::from_raw_parts(
+            std::slice::from_raw_parts(
                 llvm_backend_get_code_ptr(self.module),
                 llvm_backend_get_code_size(self.module),
             )

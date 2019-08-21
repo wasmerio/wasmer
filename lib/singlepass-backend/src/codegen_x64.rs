@@ -277,7 +277,7 @@ impl RunnableModule for X64ExecutionContext {
             let execution_context =
                 ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
 
-            let args = ::std::slice::from_raw_parts(
+            let args = std::slice::from_raw_parts(
                 args,
                 num_params_plus_one.unwrap().as_ptr() as usize - 1,
             );
@@ -1690,7 +1690,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         let start_label = a.get_label();
         // skip the patchpoint during normal execution
         a.emit_jmp(Condition::None, start_label);
-        // patchpoint of 32 bytes
+        // patchpoint of 32 1-byte nops
         for _ in 0..32 {
             a.emit_nop();
         }

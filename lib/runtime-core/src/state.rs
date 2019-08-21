@@ -154,7 +154,6 @@ impl ModuleStateMap {
         self.lookup_ip(ip, base, |fsm| &fsm.call_offsets)
     }
 
-    #[warn(dead_code)]
     pub fn lookup_trappable_ip(
         &self,
         ip: usize,
@@ -163,7 +162,6 @@ impl ModuleStateMap {
         self.lookup_ip(ip, base, |fsm| &fsm.trappable_offsets)
     }
 
-    #[warn(dead_code)]
     pub fn lookup_loop_ip(
         &self,
         ip: usize,
@@ -535,30 +533,30 @@ pub mod x64 {
                         match inner.0 {
                             MachineValue::WasmStack(x) => match state.wasm_stack[x] {
                                 WasmAbstractValue::Const(x) => {
-                                    assert!(x <= ::std::u32::MAX as u64);
+                                    assert!(x <= std::u32::MAX as u64);
                                     stack[stack_offset] |= x;
                                 }
                                 WasmAbstractValue::Runtime => {
                                     let v = f.stack[x].unwrap();
-                                    assert!(v <= ::std::u32::MAX as u64);
+                                    assert!(v <= std::u32::MAX as u64);
                                     stack[stack_offset] |= v;
                                 }
                             },
                             MachineValue::WasmLocal(x) => match fsm.locals[x] {
                                 WasmAbstractValue::Const(x) => {
-                                    assert!(x <= ::std::u32::MAX as u64);
+                                    assert!(x <= std::u32::MAX as u64);
                                     stack[stack_offset] |= x;
                                 }
                                 WasmAbstractValue::Runtime => {
                                     let v = f.locals[x].unwrap();
-                                    assert!(v <= ::std::u32::MAX as u64);
+                                    assert!(v <= std::u32::MAX as u64);
                                     stack[stack_offset] |= v;
                                 }
                             },
                             MachineValue::VmctxDeref(ref seq) => {
                                 stack[stack_offset] |=
                                     compute_vmctx_deref(vmctx as *const Ctx, seq)
-                                        & (::std::u32::MAX as u64);
+                                        & (std::u32::MAX as u64);
                             }
                             MachineValue::Undefined => {}
                             _ => unimplemented!("TwoHalves.0"),
@@ -566,30 +564,30 @@ pub mod x64 {
                         match inner.1 {
                             MachineValue::WasmStack(x) => match state.wasm_stack[x] {
                                 WasmAbstractValue::Const(x) => {
-                                    assert!(x <= ::std::u32::MAX as u64);
+                                    assert!(x <= std::u32::MAX as u64);
                                     stack[stack_offset] |= x << 32;
                                 }
                                 WasmAbstractValue::Runtime => {
                                     let v = f.stack[x].unwrap();
-                                    assert!(v <= ::std::u32::MAX as u64);
+                                    assert!(v <= std::u32::MAX as u64);
                                     stack[stack_offset] |= v << 32;
                                 }
                             },
                             MachineValue::WasmLocal(x) => match fsm.locals[x] {
                                 WasmAbstractValue::Const(x) => {
-                                    assert!(x <= ::std::u32::MAX as u64);
+                                    assert!(x <= std::u32::MAX as u64);
                                     stack[stack_offset] |= x << 32;
                                 }
                                 WasmAbstractValue::Runtime => {
                                     let v = f.locals[x].unwrap();
-                                    assert!(v <= ::std::u32::MAX as u64);
+                                    assert!(v <= std::u32::MAX as u64);
                                     stack[stack_offset] |= v << 32;
                                 }
                             },
                             MachineValue::VmctxDeref(ref seq) => {
                                 stack[stack_offset] |=
                                     (compute_vmctx_deref(vmctx as *const Ctx, seq)
-                                        & (::std::u32::MAX as u64))
+                                        & (std::u32::MAX as u64))
                                         << 32;
                             }
                             MachineValue::Undefined => {}
@@ -728,7 +726,7 @@ pub mod x64 {
                 assert_eq!(vmctx.internal.memory_bound, memory.len());
             }
 
-            ::std::slice::from_raw_parts_mut(
+            std::slice::from_raw_parts_mut(
                 vmctx.internal.memory_base,
                 vmctx.internal.memory_bound,
             )
@@ -763,7 +761,7 @@ pub mod x64 {
                 None
             } else {
                 Some(
-                    ::std::slice::from_raw_parts(
+                    std::slice::from_raw_parts(
                         vmctx.internal.memory_base,
                         vmctx.internal.memory_bound,
                     )

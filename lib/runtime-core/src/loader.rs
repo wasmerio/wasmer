@@ -185,12 +185,12 @@ impl Drop for CodeMemory {
 impl Deref for CodeMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts(self.ptr, self.size) }
     }
 }
 
 impl DerefMut for CodeMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { ::std::slice::from_raw_parts_mut(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.size) }
     }
 }

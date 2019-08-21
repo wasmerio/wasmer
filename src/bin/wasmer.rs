@@ -587,7 +587,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =
                     unsafe { ::std::mem::transmute(start.get_vm_func()) };
 
-                run_tiering(
+                unsafe { run_tiering(
                     module.info(),
                     &wasm_binary,
                     if let Some(ref path) = options.resume {
@@ -612,7 +612,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         })
                         .collect(),
                     interactive_shell,
-                )?;
+                )? };
             }
 
             #[cfg(not(feature = "managed"))]
