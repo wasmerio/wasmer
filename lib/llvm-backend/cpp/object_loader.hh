@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -48,6 +50,60 @@ typedef struct {
   size_t data, vtable;
 } box_any_t;
 
+struct MemoryManager : llvm::RuntimeDyld::MemoryManager {
+public:
+  MemoryManager(callbacks_t callbacks) : callbacks(callbacks) {}
+  virtual ~MemoryManager() override;
+
+  inline uint8_t *get_stack_map_ptr() const { return stack_map_ptr; }
+  inline size_t get_stack_map_size() const { return stack_map_size; }
+  inline uint8_t *get_code_ptr() const { return (uint8_t *)code_start_ptr; }
+  inline size_t get_code_size() const { return code_size; }
+
+  virtual uint8_t *allocateCodeSection(uintptr_t size, unsigned alignment,
+                                       unsigned section_id,
+                                       llvm::StringRef section_name) override;
+  virtual uint8_t *allocateDataSection(uintptr_t size, unsigned alignment,
+                                       unsigned section_id,
+                                       llvm::StringRef section_name,
+                                       bool read_only) override;
+  virtual void reserveAllocationSpace(uintptr_t code_size, uint32_t code_align,
+                                      uintptr_t read_data_size,
+                                      uint32_t read_data_align,
+                                      uintptr_t read_write_data_size,
+                                      uint32_t read_write_data_align) override;
+  /* Turn on the `reserveAllocationSpace` callback. */
+  virtual bool needsToReserveAllocationSpace() override;
+  virtual void registerEHFrames(uint8_t *addr, uint64_t LoadAddr,
+                                size_t size) override;
+  virtual void deregisterEHFrames() override;
+  virtual bool finalizeMemory(std::string *ErrMsg = nullptr) override;
+  virtual void notifyObjectLoaded(llvm::RuntimeDyld &RTDyld,
+                     const llvm::object::ObjectFile &Obj) override;
+
+private:
+  struct Section {
+    uint8_t *base;
+    size_t size;
+  };
+
+  uint8_t *allocate_bump(Section &section, uintptr_t &bump_ptr, size_t size,
+                         size_t align);
+
+  Section code_section, read_section, readwrite_section;
+  uintptr_t code_start_ptr;
+  size_t code_size;
+  uintptr_t code_bump_ptr, read_bump_ptr, readwrite_bump_ptr;
+  uint8_t *eh_frame_ptr;
+  size_t eh_frame_size;
+  bool eh_frames_registered = false;
+
+  callbacks_t callbacks;
+
+  uint8_t *stack_map_ptr = nullptr;
+  size_t stack_map_size = 0;
+};
+
 struct WasmException {
 public:
   virtual std::string description() const noexcept = 0;
@@ -97,7 +153,7 @@ public:
   bool _init_failed = false;
 
 private:
-  std::unique_ptr<llvm::RuntimeDyld::MemoryManager> memory_manager;
+  std::unique_ptr<MemoryManager> memory_manager;
   std::unique_ptr<llvm::object::ObjectFile> object_file;
   std::unique_ptr<llvm::RuntimeDyld> runtime_dyld;
 };
