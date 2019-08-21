@@ -54,7 +54,7 @@ pub fn killpg(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
 pub fn pathconf(ctx: &mut Ctx, path_ptr: i32, name: i32) -> i32 {
     debug!("emscripten::pathconf");
     let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
-    unsafe { libc::pathconf(path, name).try_into().unwrap() }
+    unsafe { libc::pathconf(path as *const _, name).try_into().unwrap() }
 }
 
 #[cfg(not(unix))]
