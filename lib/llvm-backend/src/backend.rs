@@ -1,4 +1,4 @@
-use super::stackmap::{self, StackmapRegistry, StkMapRecord, StkSizeRecord};
+use super::stackmap::StackmapRegistry;
 use crate::intrinsics::Intrinsics;
 use crate::structs::{Callbacks, LLVMModule, LLVMResult, MemProtect};
 use inkwell::{
@@ -228,6 +228,7 @@ impl LLVMBackend {
 
         #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
         {
+            use super::stackmap::{self, StkMapRecord, StkSizeRecord};
             let raw_stackmap = unsafe {
                 std::slice::from_raw_parts(
                     llvm_backend_get_stack_map_ptr(module),
