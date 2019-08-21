@@ -30,7 +30,7 @@ version = "1.0.99"
 # This feature is required for serde to support serializing/deserializing reference counted pointers (e.g. Rc and Arc).
 features = ["rc"]
 [dependencies.serde_derive]
-version = "1.0.98"
+version = "1.0.99"
 [dependencies.serde_bytes]
 version = "0.11.2"
 [dependencies.serde-bench]
