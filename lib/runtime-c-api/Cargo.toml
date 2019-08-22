@@ -25,8 +25,9 @@ path = "../runtime-core"
 version = "0.6.0"
 
 [features]
-default = []
+default = ["clif"]
 debug = ["wasmer-runtime/debug"]
+clif = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift"]
 llvm = ["wasmer-runtime/llvm"]
 default-backend-singlepass = ["wasmer-runtime/default-backend-singlepass", "wasmer-runtime-core/backend-singlepass"]
 
