@@ -48,7 +48,7 @@ pub(crate) struct NamedExports(pub Vec<NamedExport>);
 #[derive(Clone)]
 pub struct wasmer_exports_t;
 
-/// Intermediate representation of an export dsscriptor that is
+/// Intermediate representation of an export descriptor that is
 /// exposed to C.
 pub(crate) struct NamedExportDescriptor {
     /// The export name.
