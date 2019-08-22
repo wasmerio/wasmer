@@ -10,7 +10,6 @@ use inkwell::{
 use libc::c_char;
 use std::{
     any::Any,
-    collections::BTreeMap,
     ffi::{c_void, CString},
     fs::File,
     io::Write,
@@ -229,6 +228,8 @@ impl LLVMBackend {
         #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
         {
             use super::stackmap::{self, StkMapRecord, StkSizeRecord};
+            use std::collections::BTreeMap;
+
             let raw_stackmap = unsafe {
                 std::slice::from_raw_parts(
                     llvm_backend_get_stack_map_ptr(module),

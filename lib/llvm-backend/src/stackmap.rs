@@ -1,7 +1,6 @@
 // https://llvm.org/docs/StackMaps.html#stackmap-section
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use std::collections::{BTreeMap, HashMap};
 use std::io::{self, Cursor};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::{
@@ -54,33 +53,6 @@ pub enum StackmapEntryKind {
     Trappable,
 }
 
-/*
-pub struct FunctionStateMap {
-    pub initial: MachineState,
-    pub local_function_id: usize,
-    pub locals: Vec<WasmAbstractValue>,
-    pub shadow_size: usize, // for single-pass backend, 32 bytes on x86-64
-    pub diffs: Vec<MachineStateDiff>,
-    pub wasm_function_header_target_offset: Option<SuspendOffset>,
-    pub wasm_offset_to_target_offset: BTreeMap<usize, SuspendOffset>,
-    pub loop_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
-    pub call_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
-    pub trappable_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
-}
-pub struct MachineStateDiff {
-    pub last: Option<usize>,
-    pub stack_push: Vec<MachineValue>,
-    pub stack_pop: usize,
-    pub reg_diff: Vec<(RegisterIndex, MachineValue)>,
-
-    pub wasm_stack_push: Vec<WasmAbstractValue>,
-    pub wasm_stack_pop: usize,
-    pub wasm_stack_private_depth: usize, // absolute value; not a diff.
-
-    pub wasm_inst_offset: usize, // absolute value; not a diff.
-}
-*/
-
 impl StackmapEntry {
     #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
     pub fn populate_msm(
@@ -93,11 +65,13 @@ impl StackmapEntry {
         end: Option<(&StackmapEntry, &StkMapRecord)>,
         msm: &mut wasmer_runtime_core::state::ModuleStateMap,
     ) {
+        use std::collections::{BTreeMap, HashMap};
         use wasmer_runtime_core::state::{
             x64::{new_machine_state, X64Register, GPR},
             FunctionStateMap, MachineStateDiff, MachineValue, OffsetInfo, RegisterIndex,
             SuspendOffset, WasmAbstractValue,
         };
+
         let func_base_addr = (size_record.function_address as usize)
             .checked_sub(code_addr)
             .unwrap();
