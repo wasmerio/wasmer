@@ -29,7 +29,7 @@ default = ["cranelift-backend"]
 debug = ["wasmer-runtime/debug"]
 cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift"]
 llvm-backend = ["wasmer-runtime/llvm"]
-singlepass-backend = ["wasmer-runtime/default-backend-singlepass", "wasmer-runtime-core/backend-singlepass"]
+singlepass-backend = ["wasmer-runtime/singlepass"]
 
 [build-dependencies]
 cbindgen = "0.9.0"
