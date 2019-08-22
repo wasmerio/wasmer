@@ -46,10 +46,11 @@ impl Global {
 
         let local_global = vm::LocalGlobal {
             data: match value {
-                Value::I32(x) => x as u64,
-                Value::I64(x) => x as u64,
-                Value::F32(x) => x.to_bits() as u64,
-                Value::F64(x) => x.to_bits(),
+                Value::I32(x) => x as u128,
+                Value::I64(x) => x as u128,
+                Value::F32(x) => x.to_bits() as u128,
+                Value::F64(x) => x.to_bits() as u128,
+                Value::V128(x) => x,
             },
         };
 
@@ -75,10 +76,11 @@ impl Global {
             if self.desc.ty == value.ty() {
                 let local_global = vm::LocalGlobal {
                     data: match value {
-                        Value::I32(x) => x as u64,
-                        Value::I64(x) => x as u64,
-                        Value::F32(x) => x.to_bits() as u64,
-                        Value::F64(x) => x.to_bits(),
+                        Value::I32(x) => x as u128,
+                        Value::I64(x) => x as u128,
+                        Value::F32(x) => x.to_bits() as u128,
+                        Value::F64(x) => x.to_bits() as u128,
+                        Value::V128(x) => x,
                     },
                 };
                 *self.storage.borrow_mut() = local_global;
@@ -98,7 +100,8 @@ impl Global {
             Type::I32 => Value::I32(data as i32),
             Type::I64 => Value::I64(data as i64),
             Type::F32 => Value::F32(f32::from_bits(data as u32)),
-            Type::F64 => Value::F64(f64::from_bits(data)),
+            Type::F64 => Value::F64(f64::from_bits(data as u64)),
+            Type::V128 => Value::V128(data),
         }
     }
 

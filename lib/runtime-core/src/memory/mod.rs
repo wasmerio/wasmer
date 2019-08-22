@@ -12,14 +12,15 @@ use std::{
     cell::{Cell, RefCell},
     fmt, mem,
     rc::Rc,
+    sync::Arc,
 };
 
-pub use self::atomic::Atomic;
 pub use self::dynamic::DynamicMemory;
-pub use self::static_::{SharedStaticMemory, StaticMemory};
+pub use self::static_::StaticMemory;
 pub use self::view::{Atomically, MemoryView};
 
-mod atomic;
+use parking_lot::Mutex;
+
 mod dynamic;
 pub mod ptr;
 mod static_;
@@ -71,6 +72,12 @@ impl Memory {
                         .to_string(),
                 ));
             }
+        }
+
+        if desc.shared && desc.maximum.is_none() {
+            return Err(CreationError::InvalidDescriptor(
+                "Max number of pages is required for shared memory".to_string(),
+            ));
         }
 
         let variant = if !desc.shared {
@@ -147,20 +154,10 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    /// Convert this memory to a shared memory if the shared flag
-    /// is present in the description used to create it.
-    pub fn shared(self) -> Option<SharedMemory> {
-        if self.desc.shared {
-            Some(SharedMemory { desc: self.desc })
-        } else {
-            None
-        }
-    }
-
     pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
         match &self.variant {
             MemoryVariant::Unshared(unshared_mem) => unshared_mem.vm_local_memory(),
-            MemoryVariant::Shared(_) => unimplemented!(),
+            MemoryVariant::Shared(shared_mem) => shared_mem.vm_local_memory(),
         }
     }
 }
@@ -237,7 +234,7 @@ impl UnsharedMemory {
             MemoryType::SharedStatic => panic!("attempting to create shared unshared memory"),
         };
 
-        Ok(UnsharedMemory {
+        Ok(Self {
             internal: Rc::new(UnsharedMemoryInternal {
                 storage: RefCell::new(storage),
                 local: Cell::new(local),
@@ -285,27 +282,56 @@ impl Clone for UnsharedMemory {
 }
 
 pub struct SharedMemory {
-    #[allow(dead_code)]
-    desc: MemoryDescriptor,
+    internal: Arc<SharedMemoryInternal>,
+}
+
+pub struct SharedMemoryInternal {
+    memory: RefCell<Box<StaticMemory>>,
+    local: Cell<vm::LocalMemory>,
+    lock: Mutex<()>,
 }
 
 impl SharedMemory {
     fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
-        Ok(Self { desc })
+        let mut local = vm::LocalMemory {
+            base: std::ptr::null_mut(),
+            bound: 0,
+            memory: std::ptr::null_mut(),
+        };
+
+        let memory = StaticMemory::new(desc, &mut local)?;
+
+        Ok(Self {
+            internal: Arc::new(SharedMemoryInternal {
+                memory: RefCell::new(memory),
+                local: Cell::new(local),
+                lock: Mutex::new(()),
+            }),
+        })
     }
 
-    pub fn grow(&self, _delta: Pages) -> Result<Pages, GrowError> {
-        unimplemented!()
+    pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
+        let _guard = self.internal.lock.lock();
+        let mut local = self.internal.local.get();
+        let pages = self.internal.memory.borrow_mut().grow(delta, &mut local);
+        pages
     }
 
     pub fn size(&self) -> Pages {
-        unimplemented!()
+        let _guard = self.internal.lock.lock();
+        self.internal.memory.borrow_mut().size()
+    }
+
+    pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
+        self.internal.local.as_ptr()
     }
 }
 
 impl Clone for SharedMemory {
     fn clone(&self) -> Self {
-        unimplemented!()
+        SharedMemory {
+            internal: Arc::clone(&self.internal),
+        }
     }
 }
 
@@ -323,6 +349,19 @@ mod memory_tests {
         })
         .unwrap();
         assert_eq!(unshared_memory.size(), Pages(10));
+    }
+
+    #[test]
+    fn test_invalid_descriptor_returns_error() {
+        let result = Memory::new(MemoryDescriptor {
+            minimum: Pages(10),
+            maximum: None,
+            shared: true,
+        });
+        assert!(
+            result.is_err(),
+            "Max number of pages is required for shared memory"
+        )
     }
 
 }

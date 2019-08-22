@@ -1,18 +1,24 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
-
-#[macro_use]
-extern crate log;
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 #[cfg(target = "windows")]
 extern crate winapi;
 
 #[macro_use]
 mod macros;
 mod ptr;
-mod state;
+pub mod state;
 mod syscalls;
 mod utils;
 
 use self::state::{WasiFs, WasiState};
+pub use self::syscalls::types;
 use self::syscalls::*;
 
 use std::ffi::c_void;

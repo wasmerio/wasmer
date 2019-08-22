@@ -1,0 +1,39 @@
+# 
+src/                        @syrusakbary @MarkMcCaskey
+
+# Backends
+lib/singlepass-backend   	@losfair @nlewycky
+lib/clif-backend   	        @nlewycky @bjfish
+lib/llvm-backend            @nlewycky @losfair
+
+# Runtime
+lib/runtime-core   	        @Hywan @bjfish
+lib/runtime-abi   	        @MarkMcCaskey
+lib/runtime        	        @MarkMcCaskey @Hywan @bjfish
+lib/runtime-c-api 	        @bjfish @Hywan
+lib/win-exception-handler   @bjfish @losfair
+lib/middleware-common       @bjfish @losfair
+
+# Frontend integrations
+
+## Emscripten
+lib/emscripten        	    @MarkMcCaskey @syrusakbary
+lib/emscripten-tests  	    @MarkMcCaskey @syrusakbary
+
+## WASI
+lib/wasi            	    @MarkMcCaskey
+lib/wasi-tests      	    @MarkMcCaskey
+
+## Spectests
+lib/spectests               @syrusakbary @MarkMcCaskey @nlewycky
+
+# Kernel
+lib/kernel-loader           @losfair
+lib/kernel-net              @losfair
+
+# Examples
+examples                    @syrusakbary
+
+# Documentation
+docs                        @syrusakbary
+

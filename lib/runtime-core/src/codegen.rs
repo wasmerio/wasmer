@@ -1,6 +1,6 @@
 use crate::{
     backend::RunnableModule,
-    backend::{Backend, CacheGen, Compiler, CompilerConfig, Token},
+    backend::{Backend, CacheGen, Compiler, CompilerConfig, Features, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
@@ -18,7 +18,7 @@ use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
 pub type BreakpointHandler =
-    Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
+    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
 pub type BreakpointMap = Arc<HashMap<usize, BreakpointHandler>>;
 
 #[derive(Debug)]
@@ -137,8 +137,22 @@ impl<
     }
 }
 
-fn validate(bytes: &[u8]) -> CompileResult<()> {
-    let mut parser = wasmparser::ValidatingParser::new(bytes, None);
+pub fn validating_parser_config(features: &Features) -> wasmparser::ValidatingParserConfig {
+    wasmparser::ValidatingParserConfig {
+        operator_config: wasmparser::OperatorValidatorConfig {
+            enable_threads: features.threads,
+            enable_reference_types: false,
+            enable_simd: features.simd,
+            enable_bulk_memory: false,
+            enable_multi_value: false,
+        },
+        mutable_global_imports: true,
+    }
+}
+
+fn validate_with_features(bytes: &[u8], features: &Features) -> CompileResult<()> {
+    let mut parser =
+        wasmparser::ValidatingParser::new(bytes, Some(validating_parser_config(features)));
     loop {
         let state = parser.read();
         match *state {
@@ -166,7 +180,7 @@ impl<
         _: Token,
     ) -> CompileResult<ModuleInner> {
         if requires_pre_validation(MCG::backend_id()) {
-            validate(wasm)?;
+            validate_with_features(wasm, &compiler_config.features)?;
         }
 
         let mut mcg = MCG::new();
@@ -218,7 +232,7 @@ impl<'a, 'b> EventSink<'a, 'b> {
 }
 
 pub struct MiddlewareChain {
-    chain: Vec<Box<GenericFunctionMiddleware>>,
+    chain: Vec<Box<dyn GenericFunctionMiddleware>>,
 }
 
 impl MiddlewareChain {

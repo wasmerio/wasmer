@@ -1,0 +1,1772 @@
+# Comment lines begin with # are ignored, empty lines are ignored
+# Exclude lines follow the format:
+#       <backend>:<exclude-kind>:<test-file-name>:<test-file-line>
+#       clif:fail:data.wast:172
+#       clif:skip:data.wast:172
+#       clif:skip:data.wast:172  # comments are allowed here
+#       clif:fail:conversions.wast:418
+#
+# Use skip when the test failure prevents the spec suite from running, otherwise use fail
+#
+# Star line allows skipping an entire wast file
+#    clif:skip:simd.wast:*
+#
+# Excludes can also contain platform
+#    clif:skip:data.wast:172:windows
+#    clif:skip:data.wast:172:unix
+#
+
+# Cranelift
+clif:skip:atomic.wast:*        # Threads not implemented
+clif:skip:simd.wast:*          # SIMD not implemented
+clif:skip:simd_binaryen.wast:* # SIMD not implemented
+
+# linking.wast:387,388 appear to be related to WABT issue: https://github.com/pepyakin/wabt-rs/issues/51
+
+clif:fail:globals.wast:243 # AssertInvalid - Should be invalid
+clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883037 - illegal instruction"
+clif:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883037 - illegal instruction"
+clif:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
+clif:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
+
+# clif:skip:skip-stack-guard-page.wast:2 # Slow test
+
+# Cranelift Windows
+clif:skip:address.wast:*:windows
+clif:skip:call.wast:*:windows
+clif:skip:call_indirect.wast:*:windows
+clif:skip:conversions.wast:*:windows
+clif:skip:elem.wast:*:windows
+clif:skip:fac.wast:*:windows
+clif:skip:func_ptrs.wast:*:windows
+clif:skip:globals.wast:*:windows
+clif:skip:i32.wast:*:windows
+clif:skip:i64.wast:*:windows
+clif:skip:if.wast:*:windows
+clif:skip:imports.wast:*:windows
+clif:skip:int_exprs.wast:*:windows
+clif:skip:linking.wast:*:windows
+clif:skip:memory_grow.wast:*:windows
+clif:skip:memory_trap.wast:*:windows
+clif:skip:select.wast:*:windows
+clif:skip:skip-stack-guard-page.wast:*:windows
+clif:skip:traps.wast:*:windows
+clif:skip:unreachable.wast:*:windows
+clif:skip:unwind.wast:*:windows
+
+clif:fail:binary-leb128.wast:74:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:86:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:98:windows # Module - caught panic Any
+clif:fail:data.wast:27:windows # Module - caught panic Any
+clif:fail:data.wast:40:windows # Module - caught panic Any
+clif:fail:data.wast:50:windows # Module - caught panic Any
+clif:fail:data.wast:55:windows # Module - caught panic Any
+clif:fail:data.wast:61:windows # Module - caught panic Any
+clif:fail:data.wast:66:windows # Module - caught panic Any
+clif:fail:data.wast:83:windows # Module - caught panic Any
+clif:fail:data.wast:98:windows # Module - caught panic Any
+clif:fail:data.wast:117:windows # Module - caught panic Any
+clif:fail:data.wast:127:windows # Module - caught panic Any
+clif:fail:data.wast:132:windows # Module - caught panic Any
+clif:fail:data.wast:137:windows # Module - caught panic Any
+clif:fail:data.wast:143:windows # Module - caught panic Any
+clif:fail:data.wast:149:windows # Module - caught panic Any
+clif:fail:data.wast:154:windows # Module - caught panic Any
+clif:fail:data.wast:211:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:227:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:258:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:273:windows # AssertUnlinkable - caught panic Any
+clif:fail:start.wast:92:windows # Module - caught panic Any
+
+clif:fail:align.wast:3:windows # Module - caught panic Any
+clif:fail:align.wast:4:windows # Module - caught panic Any
+clif:fail:align.wast:5:windows # Module - caught panic Any
+clif:fail:align.wast:6:windows # Module - caught panic Any
+clif:fail:align.wast:7:windows # Module - caught panic Any
+clif:fail:align.wast:8:windows # Module - caught panic Any
+clif:fail:align.wast:9:windows # Module - caught panic Any
+clif:fail:align.wast:10:windows # Module - caught panic Any
+clif:fail:align.wast:11:windows # Module - caught panic Any
+clif:fail:align.wast:12:windows # Module - caught panic Any
+clif:fail:align.wast:13:windows # Module - caught panic Any
+clif:fail:align.wast:14:windows # Module - caught panic Any
+clif:fail:align.wast:15:windows # Module - caught panic Any
+clif:fail:align.wast:16:windows # Module - caught panic Any
+clif:fail:align.wast:17:windows # Module - caught panic Any
+clif:fail:align.wast:18:windows # Module - caught panic Any
+clif:fail:align.wast:19:windows # Module - caught panic Any
+clif:fail:align.wast:20:windows # Module - caught panic Any
+clif:fail:align.wast:21:windows # Module - caught panic Any
+clif:fail:align.wast:22:windows # Module - caught panic Any
+clif:fail:align.wast:23:windows # Module - caught panic Any
+clif:fail:align.wast:24:windows # Module - caught panic Any
+clif:fail:align.wast:25:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:2:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:7:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:12:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:18:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:24:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:32:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:40:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:48:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:56:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:65:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:110:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:145:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:157:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:164:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:171:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:178:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:186:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:193:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:200:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:207:windows # Module - caught panic Any
+clif:fail:binary.wast:1:windows # Module - caught panic Any
+clif:fail:binary.wast:2:windows # Module - caught panic Any
+clif:fail:binary.wast:3:windows # Module - caught panic Any
+clif:fail:binary.wast:4:windows # Module - caught panic Any
+clif:fail:binary.wast:350:windows # Module - caught panic Any
+clif:fail:binary.wast:406:windows # Module - caught panic Any
+clif:fail:binary.wast:412:windows # Module - caught panic Any
+clif:fail:binary.wast:418:windows # Module - caught panic Any
+clif:fail:binary.wast:446:windows # Module - caught panic Any
+clif:fail:binary.wast:498:windows # Module - caught panic Any
+clif:fail:binary.wast:514:windows # Module - caught panic Any
+clif:fail:binary.wast:530:windows # Module - caught panic Any
+clif:fail:binary.wast:558:windows # Module - caught panic Any
+clif:fail:binary.wast:612:windows # Module - caught panic Any
+clif:fail:binary.wast:661:windows # Module - caught panic Any
+clif:fail:binary.wast:723:windows # Module - caught panic Any
+clif:fail:comments.wast:10:windows # Module - caught panic Any
+clif:fail:comments.wast:52:windows # Module - caught panic Any
+clif:fail:comments.wast:62:windows # Module - caught panic Any
+clif:fail:comments.wast:71:windows # Module - caught panic Any
+clif:fail:const.wast:5:windows # Module - caught panic Any
+clif:fail:const.wast:6:windows # Module - caught panic Any
+clif:fail:const.wast:16:windows # Module - caught panic Any
+clif:fail:const.wast:17:windows # Module - caught panic Any
+clif:fail:const.wast:27:windows # Module - caught panic Any
+clif:fail:const.wast:28:windows # Module - caught panic Any
+clif:fail:const.wast:38:windows # Module - caught panic Any
+clif:fail:const.wast:39:windows # Module - caught panic Any
+clif:fail:const.wast:49:windows # Module - caught panic Any
+clif:fail:const.wast:50:windows # Module - caught panic Any
+clif:fail:const.wast:51:windows # Module - caught panic Any
+clif:fail:const.wast:52:windows # Module - caught panic Any
+clif:fail:const.wast:53:windows # Module - caught panic Any
+clif:fail:const.wast:54:windows # Module - caught panic Any
+clif:fail:const.wast:55:windows # Module - caught panic Any
+clif:fail:const.wast:56:windows # Module - caught panic Any
+clif:fail:const.wast:57:windows # Module - caught panic Any
+clif:fail:const.wast:58:windows # Module - caught panic Any
+clif:fail:const.wast:76:windows # Module - caught panic Any
+clif:fail:const.wast:77:windows # Module - caught panic Any
+clif:fail:const.wast:87:windows # Module - caught panic Any
+clif:fail:const.wast:88:windows # Module - caught panic Any
+clif:fail:const.wast:98:windows # Module - caught panic Any
+clif:fail:const.wast:99:windows # Module - caught panic Any
+clif:fail:const.wast:100:windows # Module - caught panic Any
+clif:fail:const.wast:101:windows # Module - caught panic Any
+clif:fail:const.wast:102:windows # Module - caught panic Any
+clif:fail:const.wast:103:windows # Module - caught panic Any
+clif:fail:const.wast:104:windows # Module - caught panic Any
+clif:fail:const.wast:105:windows # Module - caught panic Any
+clif:fail:const.wast:123:windows # Module - caught panic Any
+clif:fail:const.wast:124:windows # Module - caught panic Any
+clif:fail:const.wast:134:windows # Module - caught panic Any
+clif:fail:const.wast:135:windows # Module - caught panic Any
+clif:fail:const.wast:145:windows # Module - caught panic Any
+clif:fail:const.wast:146:windows # Module - caught panic Any
+clif:fail:const.wast:147:windows # Module - caught panic Any
+clif:fail:const.wast:148:windows # Module - caught panic Any
+clif:fail:custom.wast:1:windows # Module - caught panic Any
+clif:fail:custom.wast:14:windows # Module - caught panic Any
+clif:fail:data.wast:5:windows # Module - caught panic Any
+clif:fail:data.wast:23:windows # Module - caught panic Any
+clif:fail:data.wast:32:windows # Module - caught panic Any
+clif:fail:data.wast:78:windows # Module - caught panic Any
+clif:fail:data.wast:89:windows # Module - caught panic Any
+clif:fail:data.wast:94:windows # Module - caught panic Any
+clif:fail:data.wast:103:windows # Module - caught panic Any
+clif:fail:data.wast:108:windows # Module - caught panic Any
+clif:fail:data.wast:113:windows # Module - caught panic Any
+clif:fail:data.wast:122:windows # Module - caught panic Any
+clif:fail:exports.wast:24:windows # Module - caught panic Any
+clif:fail:exports.wast:25:windows # Module - caught panic Any
+clif:fail:exports.wast:56:windows # Module - caught panic Any
+clif:fail:exports.wast:57:windows # Module - caught panic Any
+clif:fail:exports.wast:58:windows # Module - caught panic Any
+clif:fail:exports.wast:60:windows # Module - caught panic Any
+clif:fail:exports.wast:61:windows # Module - caught panic Any
+clif:fail:exports.wast:62:windows # Module - caught panic Any
+clif:fail:exports.wast:63:windows # Module - caught panic Any
+clif:fail:exports.wast:64:windows # Module - caught panic Any
+clif:fail:exports.wast:65:windows # Module - caught panic Any
+clif:fail:exports.wast:67:windows # Module - caught panic Any
+clif:fail:exports.wast:71:windows # AssertReturn Get - No instance available None
+clif:fail:exports.wast:72:windows # AssertReturn Get - No instance available Some("$Global")
+clif:fail:exports.wast:73:windows # Module - caught panic Any
+clif:fail:exports.wast:74:windows # Module - caught panic Any
+clif:fail:exports.wast:75:windows # AssertReturn Get - No instance available Some("$Global")
+clif:fail:exports.wast:105:windows # Module - caught panic Any
+clif:fail:exports.wast:106:windows # Module - caught panic Any
+clif:fail:exports.wast:110:windows # Module - caught panic Any
+clif:fail:exports.wast:111:windows # Module - caught panic Any
+clif:fail:exports.wast:112:windows # Module - caught panic Any
+clif:fail:exports.wast:113:windows # Module - caught panic Any
+clif:fail:exports.wast:114:windows # Module - caught panic Any
+clif:fail:exports.wast:115:windows # Module - caught panic Any
+clif:fail:exports.wast:116:windows # Module - caught panic Any
+clif:fail:exports.wast:117:windows # Module - caught panic Any
+clif:fail:exports.wast:118:windows # Module - caught panic Any
+clif:fail:exports.wast:119:windows # Module - caught panic Any
+clif:fail:exports.wast:120:windows # Module - caught panic Any
+clif:fail:exports.wast:121:windows # Module - caught panic Any
+clif:fail:exports.wast:154:windows # Module - caught panic Any
+clif:fail:exports.wast:155:windows # Module - caught panic Any
+clif:fail:exports.wast:159:windows # Module - caught panic Any
+clif:fail:exports.wast:160:windows # Module - caught panic Any
+clif:fail:exports.wast:161:windows # Module - caught panic Any
+clif:fail:exports.wast:162:windows # Module - caught panic Any
+clif:fail:exports.wast:163:windows # Module - caught panic Any
+clif:fail:exports.wast:164:windows # Module - caught panic Any
+clif:fail:exports.wast:165:windows # Module - caught panic Any
+clif:fail:exports.wast:166:windows # Module - caught panic Any
+clif:fail:exports.wast:167:windows # Module - caught panic Any
+clif:fail:exports.wast:168:windows # Module - caught panic Any
+clif:fail:exports.wast:169:windows # Module - caught panic Any
+clif:fail:exports.wast:170:windows # Module - caught panic Any
+clif:fail:f32.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+clif:fail:f32.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+clif:fail:f64.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+clif:fail:f64.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+clif:fail:func.wast:289:windows # Module - caught panic Any
+clif:fail:memory.wast:3:windows # Module - caught panic Any
+clif:fail:memory.wast:4:windows # Module - caught panic Any
+clif:fail:memory.wast:5:windows # Module - caught panic Any
+clif:fail:memory.wast:6:windows # Module - caught panic Any
+clif:fail:stack.wast:137:windows # Module - caught panic Any
+clif:fail:type.wast:3:windows # Module - caught panic Any
+clif:fail:data.wast:162:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:170:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:178:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:220:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:235:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:243:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:251:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:266:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:186:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:194:windows # AssertUnlinkable - caught panic Any
+
+# LLVM bug with min/max over NaNs
+llvm:skip:f32.wast:1651
+llvm:skip:f32.wast:1652
+llvm:skip:f32.wast:1653
+llvm:skip:f32.wast:1654
+llvm:skip:f32.wast:1655
+llvm:skip:f32.wast:1656
+llvm:skip:f32.wast:1657
+llvm:skip:f32.wast:1658
+llvm:skip:f32.wast:1691
+llvm:skip:f32.wast:1692
+llvm:skip:f32.wast:1693
+llvm:skip:f32.wast:1694
+llvm:skip:f32.wast:1695
+llvm:skip:f32.wast:1696
+llvm:skip:f32.wast:1697
+llvm:skip:f32.wast:1698
+llvm:skip:f32.wast:1731
+llvm:skip:f32.wast:1732
+llvm:skip:f32.wast:1733
+llvm:skip:f32.wast:1734
+llvm:skip:f32.wast:1735
+llvm:skip:f32.wast:1736
+llvm:skip:f32.wast:1737
+llvm:skip:f32.wast:1738
+llvm:skip:f32.wast:1771
+llvm:skip:f32.wast:1772
+llvm:skip:f32.wast:1773
+llvm:skip:f32.wast:1774
+llvm:skip:f32.wast:1775
+llvm:skip:f32.wast:1776
+llvm:skip:f32.wast:1777
+llvm:skip:f32.wast:1778
+llvm:skip:f32.wast:1811
+llvm:skip:f32.wast:1812
+llvm:skip:f32.wast:1813
+llvm:skip:f32.wast:1814
+llvm:skip:f32.wast:1815
+llvm:skip:f32.wast:1816
+llvm:skip:f32.wast:1817
+llvm:skip:f32.wast:1818
+llvm:skip:f32.wast:1851
+llvm:skip:f32.wast:1852
+llvm:skip:f32.wast:1853
+llvm:skip:f32.wast:1854
+llvm:skip:f32.wast:1855
+llvm:skip:f32.wast:1856
+llvm:skip:f32.wast:1857
+llvm:skip:f32.wast:1858
+llvm:skip:f32.wast:1891
+llvm:skip:f32.wast:1892
+llvm:skip:f32.wast:1893
+llvm:skip:f32.wast:1894
+llvm:skip:f32.wast:1895
+llvm:skip:f32.wast:1896
+llvm:skip:f32.wast:1897
+llvm:skip:f32.wast:1898
+llvm:skip:f32.wast:1931
+llvm:skip:f32.wast:1932
+llvm:skip:f32.wast:1933
+llvm:skip:f32.wast:1934
+llvm:skip:f32.wast:1935
+llvm:skip:f32.wast:1936
+llvm:skip:f32.wast:1937
+llvm:skip:f32.wast:1938
+llvm:skip:f32.wast:1939
+llvm:skip:f32.wast:1940
+llvm:skip:f32.wast:1941
+llvm:skip:f32.wast:1942
+llvm:skip:f32.wast:1943
+llvm:skip:f32.wast:1944
+llvm:skip:f32.wast:1945
+llvm:skip:f32.wast:1946
+llvm:skip:f32.wast:1947
+llvm:skip:f32.wast:1948
+llvm:skip:f32.wast:1949
+llvm:skip:f32.wast:1950
+llvm:skip:f32.wast:1951
+llvm:skip:f32.wast:1952
+llvm:skip:f32.wast:1953
+llvm:skip:f32.wast:1954
+llvm:skip:f32.wast:1955
+llvm:skip:f32.wast:1956
+llvm:skip:f32.wast:1957
+llvm:skip:f32.wast:1958
+llvm:skip:f32.wast:1959
+llvm:skip:f32.wast:1960
+llvm:skip:f32.wast:1961
+llvm:skip:f32.wast:1962
+llvm:skip:f32.wast:1963
+llvm:skip:f32.wast:1964
+llvm:skip:f32.wast:1965
+llvm:skip:f32.wast:1966
+llvm:skip:f32.wast:1967
+llvm:skip:f32.wast:1968
+llvm:skip:f32.wast:1969
+llvm:skip:f32.wast:1970
+llvm:skip:f32.wast:1971
+llvm:skip:f32.wast:1972
+llvm:skip:f32.wast:1973
+llvm:skip:f32.wast:1974
+llvm:skip:f32.wast:1975
+llvm:skip:f32.wast:1976
+llvm:skip:f32.wast:1977
+llvm:skip:f32.wast:1978
+llvm:skip:f32.wast:1979
+llvm:skip:f32.wast:1980
+llvm:skip:f32.wast:1981
+llvm:skip:f32.wast:1982
+llvm:skip:f32.wast:1983
+llvm:skip:f32.wast:1984
+llvm:skip:f32.wast:1985
+llvm:skip:f32.wast:1986
+llvm:skip:f32.wast:1987
+llvm:skip:f32.wast:1988
+llvm:skip:f32.wast:1989
+llvm:skip:f32.wast:1990
+llvm:skip:f32.wast:1991
+llvm:skip:f32.wast:1992
+llvm:skip:f32.wast:1993
+llvm:skip:f32.wast:1994
+llvm:skip:f32.wast:1995
+llvm:skip:f32.wast:1996
+llvm:skip:f32.wast:1997
+llvm:skip:f32.wast:1998
+llvm:skip:f32.wast:1999
+llvm:skip:f32.wast:2000
+llvm:skip:f32.wast:2001
+llvm:skip:f32.wast:2002
+llvm:skip:f32.wast:2005
+llvm:skip:f32.wast:2006
+llvm:skip:f32.wast:2009
+llvm:skip:f32.wast:2010
+llvm:skip:f32.wast:2013
+llvm:skip:f32.wast:2014
+llvm:skip:f32.wast:2017
+llvm:skip:f32.wast:2018
+llvm:skip:f32.wast:2051
+llvm:skip:f32.wast:2052
+llvm:skip:f32.wast:2053
+llvm:skip:f32.wast:2054
+llvm:skip:f32.wast:2055
+llvm:skip:f32.wast:2056
+llvm:skip:f32.wast:2057
+llvm:skip:f32.wast:2058
+llvm:skip:f32.wast:2091
+llvm:skip:f32.wast:2092
+llvm:skip:f32.wast:2093
+llvm:skip:f32.wast:2094
+llvm:skip:f32.wast:2095
+llvm:skip:f32.wast:2096
+llvm:skip:f32.wast:2097
+llvm:skip:f32.wast:2098
+llvm:skip:f32.wast:2131
+llvm:skip:f32.wast:2132
+llvm:skip:f32.wast:2133
+llvm:skip:f32.wast:2134
+llvm:skip:f32.wast:2135
+llvm:skip:f32.wast:2136
+llvm:skip:f32.wast:2137
+llvm:skip:f32.wast:2138
+llvm:skip:f32.wast:2171
+llvm:skip:f32.wast:2172
+llvm:skip:f32.wast:2173
+llvm:skip:f32.wast:2174
+llvm:skip:f32.wast:2175
+llvm:skip:f32.wast:2176
+llvm:skip:f32.wast:2177
+llvm:skip:f32.wast:2178
+llvm:skip:f32.wast:2211
+llvm:skip:f32.wast:2212
+llvm:skip:f32.wast:2213
+llvm:skip:f32.wast:2214
+llvm:skip:f32.wast:2215
+llvm:skip:f32.wast:2216
+llvm:skip:f32.wast:2217
+llvm:skip:f32.wast:2218
+llvm:skip:f32.wast:2251
+llvm:skip:f32.wast:2252
+llvm:skip:f32.wast:2253
+llvm:skip:f32.wast:2254
+llvm:skip:f32.wast:2255
+llvm:skip:f32.wast:2256
+llvm:skip:f32.wast:2257
+llvm:skip:f32.wast:2258
+llvm:skip:f32.wast:2291
+llvm:skip:f32.wast:2292
+llvm:skip:f32.wast:2293
+llvm:skip:f32.wast:2294
+llvm:skip:f32.wast:2295
+llvm:skip:f32.wast:2296
+llvm:skip:f32.wast:2297
+llvm:skip:f32.wast:2298
+llvm:skip:f32.wast:2331
+llvm:skip:f32.wast:2332
+llvm:skip:f32.wast:2333
+llvm:skip:f32.wast:2334
+llvm:skip:f32.wast:2335
+llvm:skip:f32.wast:2336
+llvm:skip:f32.wast:2337
+llvm:skip:f32.wast:2338
+llvm:skip:f32.wast:2339
+llvm:skip:f32.wast:2340
+llvm:skip:f32.wast:2341
+llvm:skip:f32.wast:2342
+llvm:skip:f32.wast:2343
+llvm:skip:f32.wast:2344
+llvm:skip:f32.wast:2345
+llvm:skip:f32.wast:2346
+llvm:skip:f32.wast:2347
+llvm:skip:f32.wast:2348
+llvm:skip:f32.wast:2349
+llvm:skip:f32.wast:2350
+llvm:skip:f32.wast:2351
+llvm:skip:f32.wast:2352
+llvm:skip:f32.wast:2353
+llvm:skip:f32.wast:2354
+llvm:skip:f32.wast:2355
+llvm:skip:f32.wast:2356
+llvm:skip:f32.wast:2357
+llvm:skip:f32.wast:2358
+llvm:skip:f32.wast:2359
+llvm:skip:f32.wast:2360
+llvm:skip:f32.wast:2361
+llvm:skip:f32.wast:2362
+llvm:skip:f32.wast:2363
+llvm:skip:f32.wast:2364
+llvm:skip:f32.wast:2365
+llvm:skip:f32.wast:2366
+llvm:skip:f32.wast:2367
+llvm:skip:f32.wast:2368
+llvm:skip:f32.wast:2369
+llvm:skip:f32.wast:2370
+llvm:skip:f32.wast:2371
+llvm:skip:f32.wast:2372
+llvm:skip:f32.wast:2373
+llvm:skip:f32.wast:2374
+llvm:skip:f32.wast:2375
+llvm:skip:f32.wast:2376
+llvm:skip:f32.wast:2377
+llvm:skip:f32.wast:2378
+llvm:skip:f32.wast:2379
+llvm:skip:f32.wast:2380
+llvm:skip:f32.wast:2381
+llvm:skip:f32.wast:2382
+llvm:skip:f32.wast:2383
+llvm:skip:f32.wast:2384
+llvm:skip:f32.wast:2385
+llvm:skip:f32.wast:2386
+llvm:skip:f32.wast:2387
+llvm:skip:f32.wast:2388
+llvm:skip:f32.wast:2389
+llvm:skip:f32.wast:2390
+llvm:skip:f32.wast:2391
+llvm:skip:f32.wast:2392
+llvm:skip:f32.wast:2393
+llvm:skip:f32.wast:2394
+llvm:skip:f32.wast:2395
+llvm:skip:f32.wast:2396
+llvm:skip:f32.wast:2397
+llvm:skip:f32.wast:2398
+llvm:skip:f32.wast:2399
+llvm:skip:f32.wast:2400
+llvm:skip:f32.wast:2401
+llvm:skip:f32.wast:2402
+llvm:skip:f32.wast:2403
+llvm:skip:f32.wast:2404
+llvm:skip:f32.wast:2405
+llvm:skip:f32.wast:2406
+llvm:skip:f32.wast:2409
+llvm:skip:f32.wast:2410
+llvm:skip:f32.wast:2413
+llvm:skip:f32.wast:2414
+llvm:skip:f32.wast:2417
+llvm:skip:f32.wast:2418
+llvm:skip:f64.wast:1651
+llvm:skip:f64.wast:1652
+llvm:skip:f64.wast:1653
+llvm:skip:f64.wast:1654
+llvm:skip:f64.wast:1655
+llvm:skip:f64.wast:1656
+llvm:skip:f64.wast:1657
+llvm:skip:f64.wast:1658
+llvm:skip:f64.wast:1691
+llvm:skip:f64.wast:1692
+llvm:skip:f64.wast:1693
+llvm:skip:f64.wast:1694
+llvm:skip:f64.wast:1695
+llvm:skip:f64.wast:1696
+llvm:skip:f64.wast:1697
+llvm:skip:f64.wast:1698
+llvm:skip:f64.wast:1731
+llvm:skip:f64.wast:1732
+llvm:skip:f64.wast:1733
+llvm:skip:f64.wast:1734
+llvm:skip:f64.wast:1735
+llvm:skip:f64.wast:1736
+llvm:skip:f64.wast:1737
+llvm:skip:f64.wast:1738
+llvm:skip:f64.wast:1771
+llvm:skip:f64.wast:1772
+llvm:skip:f64.wast:1773
+llvm:skip:f64.wast:1774
+llvm:skip:f64.wast:1775
+llvm:skip:f64.wast:1776
+llvm:skip:f64.wast:1777
+llvm:skip:f64.wast:1778
+llvm:skip:f64.wast:1811
+llvm:skip:f64.wast:1812
+llvm:skip:f64.wast:1813
+llvm:skip:f64.wast:1814
+llvm:skip:f64.wast:1815
+llvm:skip:f64.wast:1816
+llvm:skip:f64.wast:1817
+llvm:skip:f64.wast:1818
+llvm:skip:f64.wast:1851
+llvm:skip:f64.wast:1852
+llvm:skip:f64.wast:1853
+llvm:skip:f64.wast:1854
+llvm:skip:f64.wast:1855
+llvm:skip:f64.wast:1856
+llvm:skip:f64.wast:1857
+llvm:skip:f64.wast:1858
+llvm:skip:f64.wast:1891
+llvm:skip:f64.wast:1892
+llvm:skip:f64.wast:1893
+llvm:skip:f64.wast:1894
+llvm:skip:f64.wast:1895
+llvm:skip:f64.wast:1896
+llvm:skip:f64.wast:1897
+llvm:skip:f64.wast:1898
+llvm:skip:f64.wast:1931
+llvm:skip:f64.wast:1932
+llvm:skip:f64.wast:1933
+llvm:skip:f64.wast:1934
+llvm:skip:f64.wast:1935
+llvm:skip:f64.wast:1936
+llvm:skip:f64.wast:1937
+llvm:skip:f64.wast:1938
+llvm:skip:f64.wast:1939
+llvm:skip:f64.wast:1940
+llvm:skip:f64.wast:1941
+llvm:skip:f64.wast:1942
+llvm:skip:f64.wast:1943
+llvm:skip:f64.wast:1944
+llvm:skip:f64.wast:1945
+llvm:skip:f64.wast:1946
+llvm:skip:f64.wast:1947
+llvm:skip:f64.wast:1948
+llvm:skip:f64.wast:1949
+llvm:skip:f64.wast:1950
+llvm:skip:f64.wast:1951
+llvm:skip:f64.wast:1952
+llvm:skip:f64.wast:1953
+llvm:skip:f64.wast:1954
+llvm:skip:f64.wast:1955
+llvm:skip:f64.wast:1956
+llvm:skip:f64.wast:1957
+llvm:skip:f64.wast:1958
+llvm:skip:f64.wast:1959
+llvm:skip:f64.wast:1960
+llvm:skip:f64.wast:1961
+llvm:skip:f64.wast:1962
+llvm:skip:f64.wast:1963
+llvm:skip:f64.wast:1964
+llvm:skip:f64.wast:1965
+llvm:skip:f64.wast:1966
+llvm:skip:f64.wast:1967
+llvm:skip:f64.wast:1968
+llvm:skip:f64.wast:1969
+llvm:skip:f64.wast:1970
+llvm:skip:f64.wast:1971
+llvm:skip:f64.wast:1972
+llvm:skip:f64.wast:1973
+llvm:skip:f64.wast:1974
+llvm:skip:f64.wast:1975
+llvm:skip:f64.wast:1976
+llvm:skip:f64.wast:1977
+llvm:skip:f64.wast:1978
+llvm:skip:f64.wast:1979
+llvm:skip:f64.wast:1980
+llvm:skip:f64.wast:1981
+llvm:skip:f64.wast:1982
+llvm:skip:f64.wast:1983
+llvm:skip:f64.wast:1984
+llvm:skip:f64.wast:1985
+llvm:skip:f64.wast:1986
+llvm:skip:f64.wast:1987
+llvm:skip:f64.wast:1988
+llvm:skip:f64.wast:1989
+llvm:skip:f64.wast:1990
+llvm:skip:f64.wast:1991
+llvm:skip:f64.wast:1992
+llvm:skip:f64.wast:1993
+llvm:skip:f64.wast:1994
+llvm:skip:f64.wast:1995
+llvm:skip:f64.wast:1996
+llvm:skip:f64.wast:1997
+llvm:skip:f64.wast:1998
+llvm:skip:f64.wast:1999
+llvm:skip:f64.wast:2000
+llvm:skip:f64.wast:2001
+llvm:skip:f64.wast:2002
+llvm:skip:f64.wast:2005
+llvm:skip:f64.wast:2006
+llvm:skip:f64.wast:2009
+llvm:skip:f64.wast:2010
+llvm:skip:f64.wast:2013
+llvm:skip:f64.wast:2014
+llvm:skip:f64.wast:2017
+llvm:skip:f64.wast:2018
+llvm:skip:f64.wast:2051
+llvm:skip:f64.wast:2052
+llvm:skip:f64.wast:2053
+llvm:skip:f64.wast:2054
+llvm:skip:f64.wast:2055
+llvm:skip:f64.wast:2056
+llvm:skip:f64.wast:2057
+llvm:skip:f64.wast:2058
+llvm:skip:f64.wast:2091
+llvm:skip:f64.wast:2092
+llvm:skip:f64.wast:2093
+llvm:skip:f64.wast:2094
+llvm:skip:f64.wast:2095
+llvm:skip:f64.wast:2096
+llvm:skip:f64.wast:2097
+llvm:skip:f64.wast:2098
+llvm:skip:f64.wast:2131
+llvm:skip:f64.wast:2132
+llvm:skip:f64.wast:2133
+llvm:skip:f64.wast:2134
+llvm:skip:f64.wast:2135
+llvm:skip:f64.wast:2136
+llvm:skip:f64.wast:2137
+llvm:skip:f64.wast:2138
+llvm:skip:f64.wast:2171
+llvm:skip:f64.wast:2172
+llvm:skip:f64.wast:2173
+llvm:skip:f64.wast:2174
+llvm:skip:f64.wast:2175
+llvm:skip:f64.wast:2176
+llvm:skip:f64.wast:2177
+llvm:skip:f64.wast:2178
+llvm:skip:f64.wast:2211
+llvm:skip:f64.wast:2212
+llvm:skip:f64.wast:2213
+llvm:skip:f64.wast:2214
+llvm:skip:f64.wast:2215
+llvm:skip:f64.wast:2216
+llvm:skip:f64.wast:2217
+llvm:skip:f64.wast:2218
+llvm:skip:f64.wast:2251
+llvm:skip:f64.wast:2252
+llvm:skip:f64.wast:2253
+llvm:skip:f64.wast:2254
+llvm:skip:f64.wast:2255
+llvm:skip:f64.wast:2256
+llvm:skip:f64.wast:2257
+llvm:skip:f64.wast:2258
+llvm:skip:f64.wast:2291
+llvm:skip:f64.wast:2292
+llvm:skip:f64.wast:2293
+llvm:skip:f64.wast:2294
+llvm:skip:f64.wast:2295
+llvm:skip:f64.wast:2296
+llvm:skip:f64.wast:2297
+llvm:skip:f64.wast:2298
+llvm:skip:f64.wast:2331
+llvm:skip:f64.wast:2332
+llvm:skip:f64.wast:2333
+llvm:skip:f64.wast:2334
+llvm:skip:f64.wast:2335
+llvm:skip:f64.wast:2336
+llvm:skip:f64.wast:2337
+llvm:skip:f64.wast:2338
+llvm:skip:f64.wast:2339
+llvm:skip:f64.wast:2340
+llvm:skip:f64.wast:2341
+llvm:skip:f64.wast:2342
+llvm:skip:f64.wast:2343
+llvm:skip:f64.wast:2344
+llvm:skip:f64.wast:2345
+llvm:skip:f64.wast:2346
+llvm:skip:f64.wast:2347
+llvm:skip:f64.wast:2348
+llvm:skip:f64.wast:2349
+llvm:skip:f64.wast:2350
+llvm:skip:f64.wast:2351
+llvm:skip:f64.wast:2352
+llvm:skip:f64.wast:2353
+llvm:skip:f64.wast:2354
+llvm:skip:f64.wast:2355
+llvm:skip:f64.wast:2356
+llvm:skip:f64.wast:2357
+llvm:skip:f64.wast:2358
+llvm:skip:f64.wast:2359
+llvm:skip:f64.wast:2360
+llvm:skip:f64.wast:2361
+llvm:skip:f64.wast:2362
+llvm:skip:f64.wast:2363
+llvm:skip:f64.wast:2364
+llvm:skip:f64.wast:2365
+llvm:skip:f64.wast:2366
+llvm:skip:f64.wast:2367
+llvm:skip:f64.wast:2368
+llvm:skip:f64.wast:2369
+llvm:skip:f64.wast:2370
+llvm:skip:f64.wast:2371
+llvm:skip:f64.wast:2372
+llvm:skip:f64.wast:2373
+llvm:skip:f64.wast:2374
+llvm:skip:f64.wast:2375
+llvm:skip:f64.wast:2376
+llvm:skip:f64.wast:2377
+llvm:skip:f64.wast:2378
+llvm:skip:f64.wast:2379
+llvm:skip:f64.wast:2380
+llvm:skip:f64.wast:2381
+llvm:skip:f64.wast:2382
+llvm:skip:f64.wast:2383
+llvm:skip:f64.wast:2384
+llvm:skip:f64.wast:2385
+llvm:skip:f64.wast:2386
+llvm:skip:f64.wast:2387
+llvm:skip:f64.wast:2388
+llvm:skip:f64.wast:2389
+llvm:skip:f64.wast:2390
+llvm:skip:f64.wast:2391
+llvm:skip:f64.wast:2392
+llvm:skip:f64.wast:2393
+llvm:skip:f64.wast:2394
+llvm:skip:f64.wast:2395
+llvm:skip:f64.wast:2396
+llvm:skip:f64.wast:2397
+llvm:skip:f64.wast:2398
+llvm:skip:f64.wast:2399
+llvm:skip:f64.wast:2400
+llvm:skip:f64.wast:2401
+llvm:skip:f64.wast:2402
+llvm:skip:f64.wast:2405
+llvm:skip:f64.wast:2406
+llvm:skip:f64.wast:2409
+llvm:skip:f64.wast:2410
+llvm:skip:f64.wast:2413
+llvm:skip:f64.wast:2414
+llvm:skip:f64.wast:2417
+llvm:skip:f64.wast:2418
+
+# LLVM
+llvm:skip:br_table.wast:1255
+llvm:skip:imports.wast:391 # Running forever
+llvm:skip:imports.wast:402 # Running forever
+llvm:skip:call.wast:273    # Spec running forever
+llvm:skip:call_indirect.wast:556 # Spec running forever
+llvm:skip:call_indirect.wast:557 # Spec running forever
+llvm:skip:fac.wast:89 # Spec running forever
+llvm:skip:skip-stack-guard-page.wast:* # Spec running forever or (signal: 4, SIGILL: illegal instruction)
+llvm:skip:linking.wast:236 # terminating with uncaught exception of type WasmTrap
+llvm:skip:linking.wast:248 # terminating with uncaught exception of type WasmTrap
+
+llvm:fail:f32.wast:1621 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
+llvm:fail:f32.wast:2020 # AssertReturn - result F32(2147483648) ("0x80000000") does not match expected F32(0) ("0x0")
+llvm:fail:f64.wast:1621 # AssertReturn - result F64(0) ("0x0") does not match expected F64(9223372036854775808) ("0x8000000000000000")
+llvm:fail:f64.wast:2020 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
+llvm:fail:i32.wast:243 # AssertReturn - result I32(283816271) ("0x10eab14f") does not match expected I32(32) ("0x20")
+llvm:fail:i32.wast:252 # AssertReturn - result I32(283816288) ("0x10eab160") does not match expected I32(32) ("0x20")
+llvm:fail:i64.wast:243 # AssertReturn - result I64(4578783727) ("0x110eab1ef") does not match expected I64(64) ("0x40")
+llvm:fail:i64.wast:252 # AssertReturn - result I64(4578783712) ("0x110eab1e0") does not match expected I64(64) ("0x40")
+llvm:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
+llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
+llvm:fail:load.wast:201 # AssertReturn - result I32(285315103) ("0x1101901f") does not match expected I32(32) ("0x20")
+
+# LLVM Windows
+llvm:skip:address.wast:*:windows
+llvm:skip:align.wast:*:windows
+llvm:skip:call.wast:*:windows
+llvm:skip:br_table.wast:*:windows
+llvm:skip:call_indirect.wast:*:windows
+llvm:skip:conversions.wast:*:windows
+llvm:skip:elem.wast:*:windows
+llvm:skip:func_ptrs.wast:*:windows
+llvm:skip:const.wast:*:windows
+llvm:skip:globals.wast:*:windows
+llvm:skip:i32.wast:*:windows
+llvm:skip:i64.wast:*:windows
+llvm:skip:if.wast:*:windows
+llvm:skip:imports.wast:*:windows
+llvm:skip:int_exprs.wast:*:windows
+llvm:skip:linking.wast:*:windows
+llvm:skip:memory_grow.wast:*:windows
+llvm:skip:memory_trap.wast:*:windows
+llvm:skip:select.wast:*:windows
+llvm:skip:traps.wast:*:windows
+llvm:skip:unreachable.wast:*:windows
+llvm:skip:unwind.wast:*:windows
+
+# Singlepass
+singlepass:skip:atomic.wast:*        # Threads not implemented
+singlepass:skip:simd.wast:*          # SIMD not implemented
+singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
+
+singlepass:fail:address.wast:192 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:address.wast:194 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:195 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:196 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:197 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:198 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:200 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:479 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:address.wast:481 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:482 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:483 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:484 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:485 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:486 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:487 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:493 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:494 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:539 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:address.wast:541 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:586 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:address.wast:588 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589 # AssertTrap - expected trap, got []
+singlepass:fail:align.wast:864 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call.wast:289 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:469 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:470 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:471 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:472 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:473 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:479 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:480 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:486 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:487 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:493 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:494 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:500 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:call_indirect.wast:501 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:70 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:71 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:72 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:73 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:74 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:75 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:76 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:77 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:92 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:93 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:94 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:95 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:96 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:97 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:98 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:99 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:115 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:116 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:117 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:118 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:119 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:122 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:138 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:139 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:140 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:141 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:142 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:143 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:144 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:145 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:146 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:147 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:148 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:166 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:167 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:168 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:169 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:170 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:171 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:172 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:173 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:186 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:187 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:188 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:189 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:190 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:191 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:192 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:193 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:211 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:212 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:213 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:214 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:215 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:216 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:217 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:218 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:235 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:237 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:238 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:239 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:240 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:241 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:242 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:elem.wast:353 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:f32.wast:1620 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
+singlepass:fail:f32.wast:1652 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1654 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1656 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1658 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1692 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1694 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1696 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1698 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1732 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1734 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1736 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1738 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1772 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1774 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1776 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1778 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1812 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1814 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1816 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1818 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1852 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1854 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1856 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1858 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1892 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1894 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1896 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1898 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1932 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1934 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1936 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1938 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:1939 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.0)
+singlepass:fail:f32.wast:1940 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.0)
+singlepass:fail:f32.wast:1941 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.0)
+singlepass:fail:f32.wast:1942 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.0)
+singlepass:fail:f32.wast:1943 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.0)
+singlepass:fail:f32.wast:1944 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.0)
+singlepass:fail:f32.wast:1945 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.0)
+singlepass:fail:f32.wast:1946 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.0)
+singlepass:fail:f32.wast:1947 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:1948 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:1949 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:1950 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:1951 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:1952 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:1953 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:1954 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:1955 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:1956 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:1957 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:1958 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:1959 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:1960 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:1961 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:1962 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:1963 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.5)
+singlepass:fail:f32.wast:1964 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.5)
+singlepass:fail:f32.wast:1965 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.5)
+singlepass:fail:f32.wast:1966 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.5)
+singlepass:fail:f32.wast:1967 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.5)
+singlepass:fail:f32.wast:1968 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.5)
+singlepass:fail:f32.wast:1969 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.5)
+singlepass:fail:f32.wast:1970 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.5)
+singlepass:fail:f32.wast:1971 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-1.0)
+singlepass:fail:f32.wast:1972 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-1.0)
+singlepass:fail:f32.wast:1973 # "AssertReturnCanonicalNan" - value is not canonical nan F32(1.0)
+singlepass:fail:f32.wast:1974 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(1.0)
+singlepass:fail:f32.wast:1975 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-1.0)
+singlepass:fail:f32.wast:1976 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-1.0)
+singlepass:fail:f32.wast:1977 # "AssertReturnCanonicalNan" - value is not canonical nan F32(1.0)
+singlepass:fail:f32.wast:1978 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(1.0)
+singlepass:fail:f32.wast:1979 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-6.2831855)
+singlepass:fail:f32.wast:1980 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-6.2831855)
+singlepass:fail:f32.wast:1981 # "AssertReturnCanonicalNan" - value is not canonical nan F32(6.2831855)
+singlepass:fail:f32.wast:1982 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(6.2831855)
+singlepass:fail:f32.wast:1983 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-6.2831855)
+singlepass:fail:f32.wast:1984 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-6.2831855)
+singlepass:fail:f32.wast:1985 # "AssertReturnCanonicalNan" - value is not canonical nan F32(6.2831855)
+singlepass:fail:f32.wast:1986 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(6.2831855)
+singlepass:fail:f32.wast:1987 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:1988 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:1989 # "AssertReturnCanonicalNan" - value is not canonical nan F32(340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:1990 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:1991 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:1992 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:1993 # "AssertReturnCanonicalNan" - value is not canonical nan F32(340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:1994 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:1995 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-inf)
+singlepass:fail:f32.wast:1996 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-inf)
+singlepass:fail:f32.wast:1997 # "AssertReturnCanonicalNan" - value is not canonical nan F32(inf)
+singlepass:fail:f32.wast:1998 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(inf)
+singlepass:fail:f32.wast:1999 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-inf)
+singlepass:fail:f32.wast:2000 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-inf)
+singlepass:fail:f32.wast:2001 # "AssertReturnCanonicalNan" - value is not canonical nan F32(inf)
+singlepass:fail:f32.wast:2002 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(inf)
+singlepass:fail:f32.wast:2005 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2006 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2009 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2010 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2013 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2014 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2017 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2018 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2021 # AssertReturn - result F32(2147483648) ("0x80000000") does not match expected F32(0) ("0x0")
+singlepass:fail:f32.wast:2052 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2054 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2056 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2058 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2092 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2094 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2096 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2098 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2132 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2134 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2136 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2138 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2172 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2174 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2176 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2178 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2212 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2214 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2216 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2218 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2252 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2254 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2256 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2258 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2292 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2294 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2296 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2298 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2332 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2334 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2336 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2338 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2339 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.0)
+singlepass:fail:f32.wast:2340 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.0)
+singlepass:fail:f32.wast:2341 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.0)
+singlepass:fail:f32.wast:2342 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.0)
+singlepass:fail:f32.wast:2343 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.0)
+singlepass:fail:f32.wast:2344 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.0)
+singlepass:fail:f32.wast:2345 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.0)
+singlepass:fail:f32.wast:2346 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.0)
+singlepass:fail:f32.wast:2347 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:2348 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:2349 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:2350 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:2351 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:2352 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:2353 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:2354 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.000000000000000000000000000000000000000000001)
+singlepass:fail:f32.wast:2355 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:2356 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:2357 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:2358 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:2359 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:2360 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:2361 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:2362 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.000000000000000000000000000000000000011754944)
+singlepass:fail:f32.wast:2363 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.5)
+singlepass:fail:f32.wast:2364 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.5)
+singlepass:fail:f32.wast:2365 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.5)
+singlepass:fail:f32.wast:2366 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.5)
+singlepass:fail:f32.wast:2367 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-0.5)
+singlepass:fail:f32.wast:2368 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-0.5)
+singlepass:fail:f32.wast:2369 # "AssertReturnCanonicalNan" - value is not canonical nan F32(0.5)
+singlepass:fail:f32.wast:2370 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(0.5)
+singlepass:fail:f32.wast:2371 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-1.0)
+singlepass:fail:f32.wast:2372 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-1.0)
+singlepass:fail:f32.wast:2373 # "AssertReturnCanonicalNan" - value is not canonical nan F32(1.0)
+singlepass:fail:f32.wast:2374 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(1.0)
+singlepass:fail:f32.wast:2375 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-1.0)
+singlepass:fail:f32.wast:2376 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-1.0)
+singlepass:fail:f32.wast:2377 # "AssertReturnCanonicalNan" - value is not canonical nan F32(1.0)
+singlepass:fail:f32.wast:2378 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(1.0)
+singlepass:fail:f32.wast:2379 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-6.2831855)
+singlepass:fail:f32.wast:2380 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-6.2831855)
+singlepass:fail:f32.wast:2381 # "AssertReturnCanonicalNan" - value is not canonical nan F32(6.2831855)
+singlepass:fail:f32.wast:2382 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(6.2831855)
+singlepass:fail:f32.wast:2383 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-6.2831855)
+singlepass:fail:f32.wast:2384 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-6.2831855)
+singlepass:fail:f32.wast:2385 # "AssertReturnCanonicalNan" - value is not canonical nan F32(6.2831855)
+singlepass:fail:f32.wast:2386 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(6.2831855)
+singlepass:fail:f32.wast:2387 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:2388 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:2389 # "AssertReturnCanonicalNan" - value is not canonical nan F32(340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:2390 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:2391 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:2392 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:2393 # "AssertReturnCanonicalNan" - value is not canonical nan F32(340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:2394 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(340282350000000000000000000000000000000.0)
+singlepass:fail:f32.wast:2395 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-inf)
+singlepass:fail:f32.wast:2396 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-inf)
+singlepass:fail:f32.wast:2397 # "AssertReturnCanonicalNan" - value is not canonical nan F32(inf)
+singlepass:fail:f32.wast:2398 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(inf)
+singlepass:fail:f32.wast:2399 # "AssertReturnCanonicalNan" - value is not canonical nan F32(-inf)
+singlepass:fail:f32.wast:2400 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(-inf)
+singlepass:fail:f32.wast:2401 # "AssertReturnCanonicalNan" - value is not canonical nan F32(inf)
+singlepass:fail:f32.wast:2402 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(inf)
+singlepass:fail:f32.wast:2405 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2406 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2409 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2410 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2413 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2414 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2417 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f32.wast:2418 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+singlepass:fail:f64.wast:1620 # AssertReturn - result F64(0) ("0x0") does not match expected F64(9223372036854775808) ("0x8000000000000000")
+singlepass:fail:f64.wast:1652 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1654 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1656 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1658 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1692 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1694 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1696 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1698 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1732 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1734 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1736 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1738 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1772 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1774 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1776 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1778 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1812 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1814 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1816 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1818 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1852 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1854 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1856 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1858 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1892 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1894 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1896 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1898 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1932 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1934 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1936 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1938 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:1939 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.0)
+singlepass:fail:f64.wast:1940 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.0)
+singlepass:fail:f64.wast:1941 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.0)
+singlepass:fail:f64.wast:1942 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.0)
+singlepass:fail:f64.wast:1943 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.0)
+singlepass:fail:f64.wast:1944 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.0)
+singlepass:fail:f64.wast:1945 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.0)
+singlepass:fail:f64.wast:1946 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.0)
+singlepass:fail:f64.wast:1947 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:1948 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:1949 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:1950 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:1951 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:1952 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:1953 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:1954 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:1955 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:1956 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:1957 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:1958 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:1959 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:1960 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:1961 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:1962 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:1963 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.5)
+singlepass:fail:f64.wast:1964 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.5)
+singlepass:fail:f64.wast:1965 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.5)
+singlepass:fail:f64.wast:1966 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.5)
+singlepass:fail:f64.wast:1967 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.5)
+singlepass:fail:f64.wast:1968 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.5)
+singlepass:fail:f64.wast:1969 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.5)
+singlepass:fail:f64.wast:1970 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.5)
+singlepass:fail:f64.wast:1971 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-1.0)
+singlepass:fail:f64.wast:1972 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-1.0)
+singlepass:fail:f64.wast:1973 # "AssertReturnCanonicalNan" - value is not canonical nan F64(1.0)
+singlepass:fail:f64.wast:1974 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(1.0)
+singlepass:fail:f64.wast:1975 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-1.0)
+singlepass:fail:f64.wast:1976 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-1.0)
+singlepass:fail:f64.wast:1977 # "AssertReturnCanonicalNan" - value is not canonical nan F64(1.0)
+singlepass:fail:f64.wast:1978 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(1.0)
+singlepass:fail:f64.wast:1979 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-6.283185307179586)
+singlepass:fail:f64.wast:1980 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-6.283185307179586)
+singlepass:fail:f64.wast:1981 # "AssertReturnCanonicalNan" - value is not canonical nan F64(6.283185307179586)
+singlepass:fail:f64.wast:1982 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(6.283185307179586)
+singlepass:fail:f64.wast:1983 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-6.283185307179586)
+singlepass:fail:f64.wast:1984 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-6.283185307179586)
+singlepass:fail:f64.wast:1985 # "AssertReturnCanonicalNan" - value is not canonical nan F64(6.283185307179586)
+singlepass:fail:f64.wast:1986 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(6.283185307179586)
+singlepass:fail:f64.wast:1987 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:1988 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:1989 # "AssertReturnCanonicalNan" - value is not canonical nan F64(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:1990 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:1991 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:1992 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:1993 # "AssertReturnCanonicalNan" - value is not canonical nan F64(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:1994 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:1995 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-inf)
+singlepass:fail:f64.wast:1996 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-inf)
+singlepass:fail:f64.wast:1997 # "AssertReturnCanonicalNan" - value is not canonical nan F64(inf)
+singlepass:fail:f64.wast:1998 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(inf)
+singlepass:fail:f64.wast:1999 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-inf)
+singlepass:fail:f64.wast:2000 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-inf)
+singlepass:fail:f64.wast:2001 # "AssertReturnCanonicalNan" - value is not canonical nan F64(inf)
+singlepass:fail:f64.wast:2002 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(inf)
+singlepass:fail:f64.wast:2005 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2006 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2009 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2010 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2013 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2014 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2017 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2018 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2021 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
+singlepass:fail:f64.wast:2052 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2054 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2056 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2058 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2092 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2094 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2096 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2098 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2132 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2134 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2136 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2138 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2172 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2174 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2176 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2178 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2212 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2214 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2216 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2218 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2252 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2254 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2256 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2258 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2292 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2294 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2296 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2298 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2332 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2334 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2336 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2338 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2339 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.0)
+singlepass:fail:f64.wast:2340 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.0)
+singlepass:fail:f64.wast:2341 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.0)
+singlepass:fail:f64.wast:2342 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.0)
+singlepass:fail:f64.wast:2343 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.0)
+singlepass:fail:f64.wast:2344 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.0)
+singlepass:fail:f64.wast:2345 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.0)
+singlepass:fail:f64.wast:2346 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.0)
+singlepass:fail:f64.wast:2347 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:2348 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:2349 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:2350 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:2351 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:2352 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:2353 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:2354 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005)
+singlepass:fail:f64.wast:2355 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:2356 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:2357 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:2358 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:2359 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:2360 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:2361 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:2362 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014)
+singlepass:fail:f64.wast:2363 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.5)
+singlepass:fail:f64.wast:2364 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.5)
+singlepass:fail:f64.wast:2365 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.5)
+singlepass:fail:f64.wast:2366 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.5)
+singlepass:fail:f64.wast:2367 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-0.5)
+singlepass:fail:f64.wast:2368 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-0.5)
+singlepass:fail:f64.wast:2369 # "AssertReturnCanonicalNan" - value is not canonical nan F64(0.5)
+singlepass:fail:f64.wast:2370 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(0.5)
+singlepass:fail:f64.wast:2371 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-1.0)
+singlepass:fail:f64.wast:2372 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-1.0)
+singlepass:fail:f64.wast:2373 # "AssertReturnCanonicalNan" - value is not canonical nan F64(1.0)
+singlepass:fail:f64.wast:2374 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(1.0)
+singlepass:fail:f64.wast:2375 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-1.0)
+singlepass:fail:f64.wast:2376 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-1.0)
+singlepass:fail:f64.wast:2377 # "AssertReturnCanonicalNan" - value is not canonical nan F64(1.0)
+singlepass:fail:f64.wast:2378 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(1.0)
+singlepass:fail:f64.wast:2379 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-6.283185307179586)
+singlepass:fail:f64.wast:2380 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-6.283185307179586)
+singlepass:fail:f64.wast:2381 # "AssertReturnCanonicalNan" - value is not canonical nan F64(6.283185307179586)
+singlepass:fail:f64.wast:2382 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(6.283185307179586)
+singlepass:fail:f64.wast:2383 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-6.283185307179586)
+singlepass:fail:f64.wast:2384 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-6.283185307179586)
+singlepass:fail:f64.wast:2385 # "AssertReturnCanonicalNan" - value is not canonical nan F64(6.283185307179586)
+singlepass:fail:f64.wast:2386 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(6.283185307179586)
+singlepass:fail:f64.wast:2387 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:2388 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:2389 # "AssertReturnCanonicalNan" - value is not canonical nan F64(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:2390 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:2391 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:2392 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:2393 # "AssertReturnCanonicalNan" - value is not canonical nan F64(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:2394 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0)
+singlepass:fail:f64.wast:2395 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-inf)
+singlepass:fail:f64.wast:2396 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-inf)
+singlepass:fail:f64.wast:2397 # "AssertReturnCanonicalNan" - value is not canonical nan F64(inf)
+singlepass:fail:f64.wast:2398 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(inf)
+singlepass:fail:f64.wast:2399 # "AssertReturnCanonicalNan" - value is not canonical nan F64(-inf)
+singlepass:fail:f64.wast:2400 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(-inf)
+singlepass:fail:f64.wast:2401 # "AssertReturnCanonicalNan" - value is not canonical nan F64(inf)
+singlepass:fail:f64.wast:2402 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(inf)
+singlepass:fail:f64.wast:2405 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2406 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2409 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2410 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2413 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2414 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2417 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:f64.wast:2418 # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+singlepass:fail:func_ptrs.wast:78 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:func_ptrs.wast:79 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:func_ptrs.wast:80 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:func_ptrs.wast:89 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:func_ptrs.wast:90 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:func_ptrs.wast:91 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:globals.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:globals.wast:243 # AssertInvalid - Should be invalid
+singlepass:fail:i32.wast:62 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:63 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:64 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:82 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:83 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:99 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:100 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i32.wast:242 # AssertReturn - result I32(31) ("0x1f") does not match expected I32(0) ("0x0")
+singlepass:fail:i32.wast:243 # AssertReturn - result I32(0) ("0x0") does not match expected I32(32) ("0x20")
+singlepass:fail:i32.wast:244 # AssertReturn - result I32(15) ("0xf") does not match expected I32(16) ("0x10")
+singlepass:fail:i32.wast:245 # AssertReturn - result I32(7) ("0x7") does not match expected I32(24) ("0x18")
+singlepass:fail:i32.wast:246 # AssertReturn - result I32(31) ("0x1f") does not match expected I32(0) ("0x0")
+singlepass:fail:i32.wast:247 # AssertReturn - result I32(0) ("0x0") does not match expected I32(31) ("0x1f")
+singlepass:fail:i32.wast:248 # AssertReturn - result I32(1) ("0x1") does not match expected I32(30) ("0x1e")
+singlepass:fail:i32.wast:249 # AssertReturn - result I32(30) ("0x1e") does not match expected I32(1) ("0x1")
+singlepass:fail:i32.wast:252 # AssertReturn - result I32(0) ("0x0") does not match expected I32(32) ("0x20")
+singlepass:fail:i64.wast:62 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:63 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:64 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:82 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:83 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:99 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:100 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:i64.wast:242 # AssertReturn - result I64(63) ("0x3f") does not match expected I64(0) ("0x0")
+singlepass:fail:i64.wast:243 # AssertReturn - result I64(0) ("0x0") does not match expected I64(64) ("0x40")
+singlepass:fail:i64.wast:244 # AssertReturn - result I64(15) ("0xf") does not match expected I64(48) ("0x30")
+singlepass:fail:i64.wast:245 # AssertReturn - result I64(7) ("0x7") does not match expected I64(56) ("0x38")
+singlepass:fail:i64.wast:246 # AssertReturn - result I64(63) ("0x3f") does not match expected I64(0) ("0x0")
+singlepass:fail:i64.wast:247 # AssertReturn - result I64(0) ("0x0") does not match expected I64(63) ("0x3f")
+singlepass:fail:i64.wast:248 # AssertReturn - result I64(1) ("0x1") does not match expected I64(62) ("0x3e")
+singlepass:fail:i64.wast:249 # AssertReturn - result I64(62) ("0x3e") does not match expected I64(1) ("0x1")
+singlepass:fail:i64.wast:252 # AssertReturn - result I64(0) ("0x0") does not match expected I64(64) ("0x40")
+singlepass:fail:if.wast:440 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:imports.wast:283 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:imports.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:imports.wast:287 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:imports.wast:302 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:imports.wast:305 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:imports.wast:306 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:imports.wast:391 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:imports.wast:402 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:113 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:114 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:115 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:116 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:132 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:133 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:134 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:135 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:196 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:197 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:198 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:199 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:349 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:int_exprs.wast:350 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:134 # AssertReturn - Call failed RuntimeError: unknown error
+singlepass:fail:linking.wast:136 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:141 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:146 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:148 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:152 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:169 # AssertReturn - Call failed RuntimeError: unknown error
+singlepass:fail:linking.wast:175 # AssertReturn - Call failed RuntimeError: unknown error
+singlepass:fail:linking.wast:181 # AssertReturn - Call failed RuntimeError: unknown error
+singlepass:fail:linking.wast:184 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:188 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:190 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
+singlepass:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: unknown error
+singlepass:fail:load.wast:201 # AssertReturn - result I32(0) ("0x0") does not match expected I32(32) ("0x20")
+singlepass:fail:memory_grow.wast:15 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_grow.wast:16 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_grow.wast:17 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_grow.wast:18 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_grow.wast:24 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_grow.wast:25 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_grow.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_grow.wast:299 # AssertReturn - result I32(0) ("0x0") does not match expected I32(31) ("0x1f")
+singlepass:fail:memory_trap.wast:23 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:24 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:25 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:26 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:27 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:28 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:29 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:30 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:31 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:32 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:111 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:112 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:113 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:114 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:115 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:116 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:117 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:118 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:119 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:122 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:123 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:124 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:125 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:126 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:127 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:128 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:129 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:130 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:131 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:132 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:133 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:134 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:135 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:136 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:137 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:138 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:139 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:140 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:141 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:142 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:143 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:144 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:145 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:146 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:147 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:148 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:149 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:150 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:151 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:152 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:153 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:154 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:155 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:156 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:157 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:158 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:159 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:160 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:161 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:162 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:163 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:164 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:165 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:166 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:167 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:168 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:169 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:170 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:171 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:172 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:173 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:174 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:175 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:176 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:177 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:178 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:179 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:180 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:181 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:182 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:183 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:184 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:185 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:186 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:187 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:188 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:189 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:190 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:191 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:192 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:193 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:194 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:195 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:196 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:197 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:198 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:199 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:200 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:201 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:202 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:203 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:204 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:205 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:206 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:207 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:208 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:209 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:210 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:211 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:212 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:213 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:214 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:215 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:216 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:217 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:218 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:219 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:220 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:222 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:223 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:224 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:226 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:227 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:228 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:229 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:230 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:231 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:232 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:233 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:234 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:235 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:237 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:238 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:239 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:240 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:241 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:242 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:243 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:244 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:245 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:246 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:247 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:249 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:250 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:251 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:252 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:253 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:254 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:255 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:256 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:257 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:258 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:259 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:260 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:261 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:262 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:263 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:264 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:265 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:memory_trap.wast:266 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:select.wast:208 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:select.wast:209 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:select.wast:210 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:select.wast:211 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:select.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:select.wast:249 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:16 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:17 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:18 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:19 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:20 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:21 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:34 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:35 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:36 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:37 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:50 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:51 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:52 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:53 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:54 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:55 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:56 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:57 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:78 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:79 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:80 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:81 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:82 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:83 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:84 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:85 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:86 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:87 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:88 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:89 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:90 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:traps.wast:91 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:218 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:219 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:220 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:223 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:224 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:226 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:228 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:229 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:230 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:231 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:234 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:235 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:239 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:241 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:242 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:243 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:245 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:246 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:247 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:249 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:251 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:253 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:254 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:256 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:259 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:260 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:261 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:262 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:263 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:265 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:266 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:267 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:269 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:270 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:271 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:272 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:274 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:275 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:276 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:278 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:279 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:281 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:282 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:283 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:284 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:288 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:289 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:291 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:293 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:294 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:296 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unreachable.wast:298 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unwind.wast:212 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unwind.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unwind.wast:230 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unwind.wast:239 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unwind.wast:245 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unwind.wast:251 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unwind.wast:257 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:unwind.wast:263 # AssertTrap - expected trap, got Runtime:Error unknown error

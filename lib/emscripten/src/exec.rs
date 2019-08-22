@@ -37,7 +37,7 @@ pub fn execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32 
     // construct raw pointers and hand them to `execvp`
     let command_pointer = command_name_string.as_ptr() as *const i8;
     let args_pointer = argv.as_ptr();
-    unsafe { libc_execvp(command_pointer, args_pointer) }
+    unsafe { libc_execvp(command_pointer as *const _, args_pointer as *const *const _) }
 }
 
 /// execl

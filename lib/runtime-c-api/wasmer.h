@@ -95,11 +95,7 @@ typedef struct {
 
 typedef struct {
 
-} wasmer_instance_t;
-
-typedef struct {
-
-} wasmer_instance_context_t;
+} wasmer_import_object_t;
 
 typedef struct {
 
@@ -118,6 +114,14 @@ typedef struct {
   wasmer_import_export_kind tag;
   wasmer_import_export_value value;
 } wasmer_import_t;
+
+typedef struct {
+
+} wasmer_instance_t;
+
+typedef struct {
+
+} wasmer_instance_context_t;
 
 typedef struct {
   bool has_some;
@@ -393,6 +397,24 @@ wasmer_result_t wasmer_import_func_returns_arity(const wasmer_import_func_t *fun
                                                  uint32_t *result);
 
 /**
+ * Frees memory of the given ImportObject
+ */
+void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
+
+/**
+ * Extends an existing import object with new imports
+ */
+wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_object,
+                                            wasmer_import_t *imports,
+                                            unsigned int imports_len);
+
+/**
+ * Creates a new empty import object.
+ * See also `wasmer_import_object_append`
+ */
+wasmer_import_object_t *wasmer_import_object_new(void);
+
+/**
  * Calls an instances exported function by `name` with the provided parameters.
  * Results are set using the provided `results` pointer.
  * Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -416,6 +438,11 @@ void *wasmer_instance_context_data_get(const wasmer_instance_context_t *ctx);
  * passed to all imported function for instance.
  */
 void wasmer_instance_context_data_set(wasmer_instance_t *instance, void *data_ptr);
+
+/**
+ * Extracts the instance's context and returns it.
+ */
+const wasmer_instance_context_t *wasmer_instance_context_get(wasmer_instance_t *instance);
 
 /**
  * Gets the memory within the context at the index `memory_idx`.
@@ -525,6 +552,16 @@ wasmer_result_t wasmer_module_deserialize(wasmer_module_t **module,
  * Frees memory for the given Module
  */
 void wasmer_module_destroy(wasmer_module_t *module);
+
+/**
+ * Given:
+ *  A prepared `wasmer` import-object
+ *  A compiled wasmer module
+ * Instantiates a wasmer instance
+ */
+wasmer_result_t wasmer_module_import_instantiate(wasmer_instance_t **instance,
+                                                 const wasmer_module_t *module,
+                                                 const wasmer_import_object_t *import_object);
 
 /**
  * Creates a new Instance from the given module and imports.

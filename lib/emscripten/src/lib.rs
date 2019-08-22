@@ -1,15 +1,22 @@
-#![deny(unused_imports, unused_variables, unused_unsafe, unreachable_patterns)]
-
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
 #[macro_use]
 extern crate wasmer_runtime_core;
 
-use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
-    error::CallResult,
+    error::{CallError, CallResult, ResolveError},
     export::Export,
     func,
     global::Global,
@@ -25,11 +32,11 @@ use wasmer_runtime_core::{
 };
 
 #[cfg(unix)]
-use ::libc::DIR as libcDIR;
+use ::libc::DIR as LibcDir;
 
 // We use a placeholder for windows
 #[cfg(not(unix))]
-type libcDIR = u8;
+type LibcDir = u8;
 
 #[macro_use]
 mod macros;
@@ -93,7 +100,7 @@ pub struct EmscriptenData<'a> {
     pub memset: Option<Func<'a, (u32, u32, u32), u32>>,
     pub stack_alloc: Option<Func<'a, u32, u32>>,
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
-    pub opened_dirs: HashMap<i32, Box<*mut libcDIR>>,
+    pub opened_dirs: HashMap<i32, Box<*mut LibcDir>>,
 
     pub dyn_call_i: Option<Func<'a, i32, i32>>,
     pub dyn_call_ii: Option<Func<'a, (i32, i32), i32>>,
@@ -366,10 +373,11 @@ pub fn run_emscripten_instance(
             0 => {
                 instance.call(func_name, &[])?;
             }
-            _ => panic!(
-                "The emscripten main function has received an incorrect number of params {}",
-                num_params
-            ),
+            _ => {
+                return Err(CallError::Resolve(ResolveError::ExportWrongType {
+                    name: "main".to_string(),
+                }))
+            }
         };
     }
 
@@ -397,11 +405,18 @@ fn store_module_arguments(ctx: &mut Ctx, args: Vec<&str>) -> (u32, u32) {
     (argc as u32 - 1, argv_offset)
 }
 
-pub fn emscripten_set_up_memory(memory: &Memory, globals: &EmscriptenGlobalsData) {
+pub fn emscripten_set_up_memory(
+    memory: &Memory,
+    globals: &EmscriptenGlobalsData,
+) -> Result<(), String> {
     let dynamictop_ptr = globals.dynamictop_ptr;
     let dynamic_base = globals.dynamic_base;
 
+    if (dynamictop_ptr / 4) as usize >= memory.view::<u32>().len() {
+        return Err("dynamictop_ptr beyond memory len".to_string());
+    }
     memory.view::<u32>()[(dynamictop_ptr / 4) as usize].set(dynamic_base);
+    Ok(())
 }
 
 pub struct EmscriptenGlobalsData {
@@ -429,7 +444,7 @@ pub struct EmscriptenGlobals {
 }
 
 impl EmscriptenGlobals {
-    pub fn new(module: &Module /*, static_bump: u32 */) -> Self {
+    pub fn new(module: &Module /*, static_bump: u32 */) -> Result<Self, String> {
         let mut use_old_abort_on_cannot_grow_memory = false;
         for (
             index,
@@ -451,8 +466,8 @@ impl EmscriptenGlobals {
             }
         }
 
-        let (table_min, table_max) = get_emscripten_table_size(&module);
-        let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module);
+        let (table_min, table_max) = get_emscripten_table_size(&module)?;
+        let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
 
         // Memory initialization
         let memory_type = MemoryDescriptor {
@@ -481,7 +496,7 @@ impl EmscriptenGlobals {
             static_top += 16;
 
             let (dynamic_base, dynamictop_ptr) =
-                get_emscripten_metadata(&module).unwrap_or_else(|| {
+                get_emscripten_metadata(&module)?.unwrap_or_else(|| {
                     let dynamictop_ptr = static_alloc(&mut static_top, 4);
                     (
                         align_memory(align_memory(static_top) + TOTAL_STACK),
@@ -505,7 +520,7 @@ impl EmscriptenGlobals {
             }
         };
 
-        emscripten_set_up_memory(&memory, &data);
+        emscripten_set_up_memory(&memory, &data)?;
 
         let mut null_func_names = vec![];
         for (
@@ -523,14 +538,14 @@ impl EmscriptenGlobals {
             }
         }
 
-        Self {
+        Ok(Self {
             data,
             memory,
             table,
             memory_min,
             memory_max,
             null_func_names,
-        }
+        })
     }
 }
 

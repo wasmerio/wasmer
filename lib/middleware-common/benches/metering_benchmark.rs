@@ -135,16 +135,15 @@ static WAT_GAS: &'static str = r#"
 
 #[cfg(feature = "llvm")]
 fn get_compiler(limit: u64, metering: bool) -> impl Compiler {
-    use wasmer_llvm_backend::code::LLVMModuleCodeGenerator;
+    use wasmer_llvm_backend::ModuleCodeGenerator;
     use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
-    let c: StreamingCompiler<LLVMModuleCodeGenerator, _, _, _, _> =
-        StreamingCompiler::new(move || {
-            let mut chain = MiddlewareChain::new();
-            if metering {
-                chain.push(Metering::new(limit));
-            }
-            chain
-        });
+    let c: StreamingCompiler<ModuleCodeGenerator, _, _, _, _> = StreamingCompiler::new(move || {
+        let mut chain = MiddlewareChain::new();
+        if metering {
+            chain.push(Metering::new(limit));
+        }
+        chain
+    });
 
     c
 }
@@ -164,15 +163,11 @@ fn get_compiler(limit: u64, metering: bool) -> impl Compiler {
 }
 
 #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
-fn get_compiler(_limit: u64, metering: bool) -> impl Compiler {
-    panic!("compiler not specified, activate a compiler via features");
-    use wasmer_clif_backend::CraneliftCompiler;
-    CraneliftCompiler::new()
-}
+compile_error!("compiler not specified, activate a compiler via features");
 
 #[cfg(feature = "clif")]
 fn get_compiler(_limit: u64, metering: bool) -> impl Compiler {
-    panic!("cranelift does not implement metering");
+    compile_error!("cranelift does not implement metering");
     use wasmer_clif_backend::CraneliftCompiler;
     CraneliftCompiler::new()
 }

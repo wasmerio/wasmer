@@ -30,6 +30,7 @@ pub fn call_malloc(ctx: &mut Ctx, size: u32) -> u32 {
         .unwrap()
 }
 
+#[warn(dead_code)]
 pub fn call_malloc_with_cast<T: Copy, Ty>(ctx: &mut Ctx, size: u32) -> WasmPtr<T, Ty> {
     WasmPtr::new(call_malloc(ctx, size))
 }

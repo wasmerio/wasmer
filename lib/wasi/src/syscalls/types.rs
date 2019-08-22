@@ -157,10 +157,19 @@ pub struct __wasi_event_fd_readwrite_t {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union __wasi_event_u {
-    fd_readwrite: __wasi_event_fd_readwrite_t,
+    pub fd_readwrite: __wasi_event_fd_readwrite_t,
 }
 
-#[derive(Copy, Clone)]
+// TODO: remove this implementation of Debug when `__wasi_event_u` gets more than 1 variant
+impl std::fmt::Debug for __wasi_event_u {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("__wasi_event_u")
+            .field("fd_readwrite", unsafe { &self.fd_readwrite })
+            .finish()
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 pub enum EventEnum {
     FdReadWrite {
         nbytes: __wasi_filesize_t,
@@ -178,7 +187,7 @@ impl EventEnum {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct __wasi_event_t {
     pub userdata: __wasi_userdata_t,
@@ -199,6 +208,8 @@ impl __wasi_event_t {
     }
 }
 
+unsafe impl ValueType for __wasi_event_t {}
+
 pub type __wasi_eventrwflags_t = u16;
 pub const __WASI_EVENT_FD_READWRITE_HANGUP: u16 = 1 << 0;
 
@@ -206,6 +217,15 @@ pub type __wasi_eventtype_t = u8;
 pub const __WASI_EVENTTYPE_CLOCK: u8 = 0;
 pub const __WASI_EVENTTYPE_FD_READ: u8 = 1;
 pub const __WASI_EVENTTYPE_FD_WRITE: u8 = 2;
+
+pub fn eventtype_to_str(event_type: __wasi_eventtype_t) -> &'static str {
+    match event_type {
+        __WASI_EVENTTYPE_CLOCK => "__WASI_EVENTTYPE_CLOCK",
+        __WASI_EVENTTYPE_FD_READ => "__WASI_EVENTTYPE_FD_READ",
+        __WASI_EVENTTYPE_FD_WRITE => "__WASI_EVENTTYPE_FD_WRITE",
+        _ => "INVALID EVENTTYPE",
+    }
+}
 
 pub type __wasi_exitcode_t = u32;
 
@@ -296,7 +316,7 @@ pub type __wasi_filedelta_t = i64;
 
 pub type __wasi_filesize_t = u64;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,
@@ -309,7 +329,64 @@ pub struct __wasi_filestat_t {
     pub st_ctim: __wasi_timestamp_t,
 }
 
+impl Default for __wasi_filestat_t {
+    fn default() -> Self {
+        __wasi_filestat_t {
+            st_dev: Default::default(),
+            st_ino: Default::default(),
+            st_filetype: __WASI_FILETYPE_UNKNOWN,
+            st_nlink: 1,
+            st_size: Default::default(),
+            st_atim: Default::default(),
+            st_mtim: Default::default(),
+            st_ctim: Default::default(),
+        }
+    }
+}
+
+impl std::fmt::Debug for __wasi_filestat_t {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let convert_ts_into_time_string = |ts| {
+            let tspec = time::Timespec::new(ts as i64 / 1_000_000_000, (ts % 1_000_000_000) as i32);
+            let tm = time::at(tspec);
+            let out_time = tm.rfc822();
+            format!("{} ({})", out_time, ts)
+        };
+        f.debug_struct("__wasi_filestat_t")
+            .field("st_dev", &self.st_dev)
+            .field("st_ino", &self.st_ino)
+            .field(
+                "st_filetype",
+                &format!(
+                    "{} ({})",
+                    wasi_filetype_to_name(self.st_filetype),
+                    self.st_filetype,
+                ),
+            )
+            .field("st_nlink", &self.st_nlink)
+            .field("st_size", &self.st_size)
+            .field("st_atim", &convert_ts_into_time_string(self.st_atim))
+            .field("st_mtim", &convert_ts_into_time_string(self.st_mtim))
+            .field("st_ctim", &convert_ts_into_time_string(self.st_ctim))
+            .finish()
+    }
+}
+
 unsafe impl ValueType for __wasi_filestat_t {}
+
+pub fn wasi_filetype_to_name(ft: __wasi_filetype_t) -> &'static str {
+    match ft {
+        __WASI_FILETYPE_UNKNOWN => "Unknown",
+        __WASI_FILETYPE_BLOCK_DEVICE => "Block device",
+        __WASI_FILETYPE_CHARACTER_DEVICE => "Character device",
+        __WASI_FILETYPE_DIRECTORY => "Directory",
+        __WASI_FILETYPE_REGULAR_FILE => "Regular file",
+        __WASI_FILETYPE_SOCKET_DGRAM => "Socket dgram",
+        __WASI_FILETYPE_SOCKET_STREAM => "Socket stream",
+        __WASI_FILETYPE_SYMBOLIC_LINK => "Symbolic link",
+        _ => "Invalid",
+    }
+}
 
 pub type __wasi_filetype_t = u8;
 pub const __WASI_FILETYPE_UNKNOWN: u8 = 0;
@@ -384,6 +461,56 @@ pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: u64 = 1 << 26;
 pub const __WASI_RIGHT_POLL_FD_READWRITE: u64 = 1 << 27;
 pub const __WASI_RIGHT_SOCK_SHUTDOWN: u64 = 1 << 28;
 
+/// function for debugging rights issues
+#[allow(dead_code)]
+pub fn print_right_set(rights: __wasi_rights_t) {
+    // BTreeSet for consistent order
+    let mut right_set = std::collections::BTreeSet::new();
+    for i in 0..28 {
+        let cur_right = rights & (1 << i);
+        if cur_right != 0 {
+            right_set.insert(right_to_string(cur_right).unwrap_or("INVALID RIGHT"));
+        }
+    }
+    println!("{:#?}", right_set);
+}
+
+/// expects a single right, returns None if out of bounds or > 1 bit set
+pub fn right_to_string(right: __wasi_rights_t) -> Option<&'static str> {
+    Some(match right {
+        __WASI_RIGHT_FD_DATASYNC => "__WASI_RIGHT_FD_DATASYNC",
+        __WASI_RIGHT_FD_READ => "__WASI_RIGHT_FD_READ",
+        __WASI_RIGHT_FD_SEEK => "__WASI_RIGHT_FD_SEEK",
+        __WASI_RIGHT_FD_FDSTAT_SET_FLAGS => "__WASI_RIGHT_FD_FDSTAT_SET_FLAGS",
+        __WASI_RIGHT_FD_SYNC => "__WASI_RIGHT_FD_SYNC",
+        __WASI_RIGHT_FD_TELL => "__WASI_RIGHT_FD_TELL",
+        __WASI_RIGHT_FD_WRITE => "__WASI_RIGHT_FD_WRITE",
+        __WASI_RIGHT_FD_ADVISE => "__WASI_RIGHT_FD_ADVISE",
+        __WASI_RIGHT_FD_ALLOCATE => "__WASI_RIGHT_FD_ALLOCATE",
+        __WASI_RIGHT_PATH_CREATE_DIRECTORY => "__WASI_RIGHT_PATH_CREATE_DIRECTORY",
+        __WASI_RIGHT_PATH_CREATE_FILE => "__WASI_RIGHT_PATH_CREATE_FILE",
+        __WASI_RIGHT_PATH_LINK_SOURCE => "__WASI_RIGHT_PATH_LINK_SOURCE",
+        __WASI_RIGHT_PATH_LINK_TARGET => "__WASI_RIGHT_PATH_LINK_TARGET",
+        __WASI_RIGHT_PATH_OPEN => "__WASI_RIGHT_PATH_OPEN",
+        __WASI_RIGHT_FD_READDIR => "__WASI_RIGHT_FD_READDIR",
+        __WASI_RIGHT_PATH_READLINK => "__WASI_RIGHT_PATH_READLINK",
+        __WASI_RIGHT_PATH_RENAME_SOURCE => "__WASI_RIGHT_PATH_RENAME_SOURCE",
+        __WASI_RIGHT_PATH_RENAME_TARGET => "__WASI_RIGHT_PATH_RENAME_TARGET",
+        __WASI_RIGHT_PATH_FILESTAT_GET => "__WASI_RIGHT_PATH_FILESTAT_GET",
+        __WASI_RIGHT_PATH_FILESTAT_SET_SIZE => "__WASI_RIGHT_PATH_FILESTAT_SET_SIZE",
+        __WASI_RIGHT_PATH_FILESTAT_SET_TIMES => "__WASI_RIGHT_PATH_FILESTAT_SET_TIMES",
+        __WASI_RIGHT_FD_FILESTAT_GET => "__WASI_RIGHT_FD_FILESTAT_GET",
+        __WASI_RIGHT_FD_FILESTAT_SET_SIZE => "__WASI_RIGHT_FD_FILESTAT_SET_SIZE",
+        __WASI_RIGHT_FD_FILESTAT_SET_TIMES => "__WASI_RIGHT_FD_FILESTAT_SET_TIMES",
+        __WASI_RIGHT_PATH_SYMLINK => "__WASI_RIGHT_PATH_SYMLINK",
+        __WASI_RIGHT_PATH_UNLINK_FILE => "__WASI_RIGHT_PATH_UNLINK_FILE",
+        __WASI_RIGHT_PATH_REMOVE_DIRECTORY => "__WASI_RIGHT_PATH_REMOVE_DIRECTORY",
+        __WASI_RIGHT_POLL_FD_READWRITE => "__WASI_RIGHT_POLL_FD_READWRITE",
+        __WASI_RIGHT_SOCK_SHUTDOWN => "__WASI_RIGHT_SOCK_SHUTDOWN",
+        _ => return None,
+    })
+}
+
 pub type __wasi_roflags_t = u16;
 pub const __WASI_SOCK_RECV_DATA_TRUNCATED: u16 = 1 << 0;
 
@@ -454,6 +581,93 @@ pub struct __wasi_subscription_t {
     pub type_: __wasi_eventtype_t,
     pub u: __wasi_subscription_u,
 }
+
+/// Safe Rust wrapper around `__wasi_subscription_t::type_` and `__wasi_subscription_t::u`
+#[derive(Debug, Clone)]
+pub enum EventType {
+    Clock(__wasi_subscription_clock_t),
+    Read(__wasi_subscription_fs_readwrite_t),
+    Write(__wasi_subscription_fs_readwrite_t),
+}
+
+impl EventType {
+    pub fn raw_tag(&self) -> __wasi_eventtype_t {
+        match self {
+            EventType::Clock(_) => __WASI_EVENTTYPE_CLOCK,
+            EventType::Read(_) => __WASI_EVENTTYPE_FD_READ,
+            EventType::Write(_) => __WASI_EVENTTYPE_FD_WRITE,
+        }
+    }
+}
+
+/// Safe Rust wrapper around `__wasi_subscription_t`
+#[derive(Debug, Clone)]
+pub struct WasiSubscription {
+    pub user_data: __wasi_userdata_t,
+    pub event_type: EventType,
+}
+
+impl std::convert::TryFrom<__wasi_subscription_t> for WasiSubscription {
+    type Error = __wasi_errno_t;
+
+    fn try_from(ws: __wasi_subscription_t) -> Result<Self, Self::Error> {
+        Ok(Self {
+            user_data: ws.userdata,
+            event_type: match ws.type_ {
+                __WASI_EVENTTYPE_CLOCK => EventType::Clock(unsafe { ws.u.clock }),
+                __WASI_EVENTTYPE_FD_READ => EventType::Read(unsafe { ws.u.fd_readwrite }),
+                __WASI_EVENTTYPE_FD_WRITE => EventType::Write(unsafe { ws.u.fd_readwrite }),
+                _ => return Err(__WASI_EINVAL),
+            },
+        })
+    }
+}
+
+impl std::convert::TryFrom<WasiSubscription> for __wasi_subscription_t {
+    type Error = __wasi_errno_t;
+
+    fn try_from(ws: WasiSubscription) -> Result<Self, Self::Error> {
+        let (type_, u) = match ws.event_type {
+            EventType::Clock(c) => (__WASI_EVENTTYPE_CLOCK, __wasi_subscription_u { clock: c }),
+            EventType::Read(rw) => (
+                __WASI_EVENTTYPE_FD_READ,
+                __wasi_subscription_u { fd_readwrite: rw },
+            ),
+            EventType::Write(rw) => (
+                __WASI_EVENTTYPE_FD_WRITE,
+                __wasi_subscription_u { fd_readwrite: rw },
+            ),
+            _ => return Err(__WASI_EINVAL),
+        };
+
+        Ok(Self {
+            userdata: ws.user_data,
+            type_,
+            u,
+        })
+    }
+}
+
+impl std::fmt::Debug for __wasi_subscription_t {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("__wasi_subscription_t")
+            .field("userdata", &self.userdata)
+            .field("type", &eventtype_to_str(self.type_))
+            .field(
+                "u",
+                match self.type_ {
+                    __WASI_EVENTTYPE_CLOCK => unsafe { &self.u.clock },
+                    __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => unsafe {
+                        &self.u.fd_readwrite
+                    },
+                    _ => &"INVALID EVENTTYPE",
+                },
+            )
+            .finish()
+    }
+}
+
+unsafe impl ValueType for __wasi_subscription_t {}
 
 pub enum SubscriptionEnum {
     Clock(__wasi_subscription_clock_t),

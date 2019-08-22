@@ -10,9 +10,10 @@ use crate::{
 };
 use libc::c_uint;
 use std::{ffi::c_void, ptr, slice, sync::Arc};
-use wasmer_runtime::Module;
+use wasmer_runtime::{Global, Memory, Module, Table};
 use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer},
+    import::ImportObject,
     module::ImportName,
     types::{FuncSig, Type},
 };
@@ -26,6 +27,9 @@ pub struct wasmer_import_t {
 }
 
 #[repr(C)]
+pub struct wasmer_import_object_t;
+
+#[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_import_func_t;
 
@@ -36,6 +40,83 @@ pub struct wasmer_import_descriptor_t;
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_import_descriptors_t;
+
+/// Creates a new empty import object.
+/// See also `wasmer_import_object_append`
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_import_object_new() -> *mut wasmer_import_object_t {
+    let import_object = Box::new(ImportObject::new());
+
+    Box::into_raw(import_object) as *mut wasmer_import_object_t
+}
+
+/// Extends an existing import object with new imports
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_import_object_extend(
+    import_object: *mut wasmer_import_object_t,
+    imports: *mut wasmer_import_t,
+    imports_len: c_uint,
+) -> wasmer_result_t {
+    let import_object: &mut ImportObject = &mut *(import_object as *mut ImportObject);
+
+    let mut extensions: Vec<(String, String, Export)> = Vec::new();
+
+    let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
+    for import in imports {
+        let module_name = slice::from_raw_parts(
+            import.module_name.bytes,
+            import.module_name.bytes_len as usize,
+        );
+        let module_name = if let Ok(s) = std::str::from_utf8(module_name) {
+            s
+        } else {
+            update_last_error(CApiError {
+                msg: "error converting module name to string".to_string(),
+            });
+            return wasmer_result_t::WASMER_ERROR;
+        };
+        let import_name = slice::from_raw_parts(
+            import.import_name.bytes,
+            import.import_name.bytes_len as usize,
+        );
+        let import_name = if let Ok(s) = std::str::from_utf8(import_name) {
+            s
+        } else {
+            update_last_error(CApiError {
+                msg: "error converting import_name to string".to_string(),
+            });
+            return wasmer_result_t::WASMER_ERROR;
+        };
+
+        let export = match import.tag {
+            wasmer_import_export_kind::WASM_MEMORY => {
+                let mem = import.value.memory as *mut Memory;
+                Export::Memory((&*mem).clone())
+            }
+            wasmer_import_export_kind::WASM_FUNCTION => {
+                let func_export = import.value.func as *mut Export;
+                (&*func_export).clone()
+            }
+            wasmer_import_export_kind::WASM_GLOBAL => {
+                let global = import.value.global as *mut Global;
+                Export::Global((&*global).clone())
+            }
+            wasmer_import_export_kind::WASM_TABLE => {
+                let table = import.value.table as *mut Table;
+                Export::Table((&*table).clone())
+            }
+        };
+
+        let extension = (module_name.to_string(), import_name.to_string(), export);
+        extensions.push(extension)
+    }
+
+    import_object.extend(extensions);
+
+    return wasmer_result_t::WASMER_OK;
+}
 
 /// Gets import descriptors for the given module
 ///
@@ -349,6 +430,14 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
     if !func.is_null() {
         unsafe { Box::from_raw(func as *mut Export) };
+    }
+}
+
+/// Frees memory of the given ImportObject
+#[no_mangle]
+pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import_object_t) {
+    if !import_object.is_null() {
+        unsafe { Box::from_raw(import_object as *mut ImportObject) };
     }
 }
 

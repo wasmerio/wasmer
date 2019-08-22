@@ -3,9 +3,12 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
-    values::{BasicValue, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue},
-    AddressSpace, FloatPredicate, IntPredicate,
+    types::{BasicType, BasicTypeEnum, FunctionType, PointerType, VectorType},
+    values::{
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
+        VectorValue,
+    },
+    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 use std::sync::{Arc, RwLock};
@@ -57,7 +60,148 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
         Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
         Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
         Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
+        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
     }
+}
+
+// Create a vector where each lane contains the same value.
+fn splat_vector(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    value: BasicValueEnum,
+    vec_ty: VectorType,
+    name: &str,
+) -> VectorValue {
+    // Use insert_element to insert the element into an undef vector, then use
+    // shuffle vector to copy that lane to all lanes.
+    builder.build_shuffle_vector(
+        builder.build_insert_element(vec_ty.get_undef(), value, intrinsics.i32_zero, ""),
+        vec_ty.get_undef(),
+        intrinsics.i32_ty.vec_type(vec_ty.get_size()).const_zero(),
+        name,
+    )
+}
+
+// Convert floating point vector to integer and saturate when out of range.
+// TODO: generalize to non-vectors using FloatMathType, IntMathType, etc. for
+// https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
+fn trunc_sat(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    fvec_ty: VectorType,
+    ivec_ty: VectorType,
+    lower_bound: u64, // Exclusive (lowest representable value)
+    upper_bound: u64, // Exclusive (greatest representable value)
+    int_min_value: u64,
+    int_max_value: u64,
+    value: IntValue,
+    name: &str,
+) -> IntValue {
+    // a) Compare vector with itself to identify NaN lanes.
+    // b) Compare vector with splat of inttofp(upper_bound) to identify
+    //    lanes that need to saturate to max.
+    // c) Compare vector with splat of inttofp(lower_bound) to identify
+    //    lanes that need to saturate to min.
+    // d) Use vector select (not shuffle) to pick from either the
+    //    splat vector or the input vector depending on whether the
+    //    comparison indicates that we have an unrepresentable value. Replace
+    //    unrepresentable values with zero.
+    // e) Now that the value is safe, fpto[su]i it.
+    // f) Use our previous comparison results to replace certain zeros with
+    //    int_min or int_max.
+
+    let is_signed = int_min_value != 0;
+    let ivec_element_ty = ivec_ty.get_element_type().into_int_type();
+    let int_min_value = splat_vector(
+        builder,
+        intrinsics,
+        ivec_element_ty
+            .const_int(int_min_value, is_signed)
+            .as_basic_value_enum(),
+        ivec_ty,
+        "",
+    );
+    let int_max_value = splat_vector(
+        builder,
+        intrinsics,
+        ivec_element_ty
+            .const_int(int_max_value, is_signed)
+            .as_basic_value_enum(),
+        ivec_ty,
+        "",
+    );
+    let lower_bound = if is_signed {
+        builder.build_signed_int_to_float(
+            ivec_element_ty.const_int(lower_bound, is_signed),
+            fvec_ty.get_element_type().into_float_type(),
+            "",
+        )
+    } else {
+        builder.build_unsigned_int_to_float(
+            ivec_element_ty.const_int(lower_bound, is_signed),
+            fvec_ty.get_element_type().into_float_type(),
+            "",
+        )
+    };
+    let upper_bound = if is_signed {
+        builder.build_signed_int_to_float(
+            ivec_element_ty.const_int(upper_bound, is_signed),
+            fvec_ty.get_element_type().into_float_type(),
+            "",
+        )
+    } else {
+        builder.build_unsigned_int_to_float(
+            ivec_element_ty.const_int(upper_bound, is_signed),
+            fvec_ty.get_element_type().into_float_type(),
+            "",
+        )
+    };
+
+    let value = builder
+        .build_bitcast(value, fvec_ty, "")
+        .into_vector_value();
+    let zero = fvec_ty.const_zero();
+    let lower_bound = splat_vector(
+        builder,
+        intrinsics,
+        lower_bound.as_basic_value_enum(),
+        fvec_ty,
+        "",
+    );
+    let upper_bound = splat_vector(
+        builder,
+        intrinsics,
+        upper_bound.as_basic_value_enum(),
+        fvec_ty,
+        "",
+    );
+    let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+    let above_upper_bound_cmp =
+        builder.build_float_compare(FloatPredicate::OGT, value, upper_bound, "above_upper_bound");
+    let below_lower_bound_cmp =
+        builder.build_float_compare(FloatPredicate::OLT, value, lower_bound, "below_lower_bound");
+    let not_representable = builder.build_or(
+        builder.build_or(nan_cmp, above_upper_bound_cmp, ""),
+        below_lower_bound_cmp,
+        "not_representable_as_int",
+    );
+    let value = builder
+        .build_select(not_representable, zero, value, "safe_to_convert")
+        .into_vector_value();
+    let value = if is_signed {
+        builder.build_float_to_signed_int(value, ivec_ty, "as_int")
+    } else {
+        builder.build_float_to_unsigned_int(value, ivec_ty, "as_int")
+    };
+    let value = builder
+        .build_select(above_upper_bound_cmp, int_max_value, value, "")
+        .into_vector_value();
+    let res = builder
+        .build_select(below_lower_bound_cmp, int_min_value, value, name)
+        .into_vector_value();
+    builder
+        .build_bitcast(res, intrinsics.i128_ty, "")
+        .into_int_value()
 }
 
 fn trap_if_not_representable_as_int(
@@ -65,14 +209,23 @@ fn trap_if_not_representable_as_int(
     intrinsics: &Intrinsics,
     context: &Context,
     function: &FunctionValue,
-    lower_bound: f64,
-    upper_bound: f64,
+    lower_bound: u64, // Inclusive (not a trapping value)
+    upper_bound: u64, // Inclusive (not a trapping value)
     value: FloatValue,
 ) {
     let float_ty = value.get_type();
+    let int_ty = if float_ty == intrinsics.f32_ty {
+        intrinsics.i32_ty
+    } else {
+        intrinsics.i64_ty
+    };
 
-    let lower_bound = float_ty.const_float(lower_bound);
-    let upper_bound = float_ty.const_float(upper_bound);
+    let lower_bound = builder
+        .build_bitcast(int_ty.const_int(lower_bound, false), float_ty, "")
+        .into_float_value();
+    let upper_bound = builder
+        .build_bitcast(int_ty.const_int(upper_bound, false), float_ty, "")
+        .into_float_value();
 
     // The 'U' in the float predicate is short for "unordered" which means that
     // the comparison will compare true if either operand is a NaN. Thus, NaNs
@@ -207,6 +360,45 @@ fn trap_if_zero(
     builder.position_at_end(&shouldnt_trap_block);
 }
 
+// Replaces any NaN with the canonical QNaN, otherwise leaves the value alone.
+fn canonicalize_nans(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    value: BasicValueEnum,
+) -> BasicValueEnum {
+    let f_ty = value.get_type();
+    let canonicalized = if f_ty.is_vector_type() {
+        let value = value.into_vector_value();
+        let f_ty = f_ty.into_vector_type();
+        let zero = f_ty.const_zero();
+        let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+        let canonical_qnan = f_ty
+            .get_element_type()
+            .into_float_type()
+            .const_float(std::f64::NAN);
+        let canonical_qnan = splat_vector(
+            builder,
+            intrinsics,
+            canonical_qnan.as_basic_value_enum(),
+            f_ty,
+            "",
+        );
+        builder
+            .build_select(nan_cmp, canonical_qnan, value, "")
+            .as_basic_value_enum()
+    } else {
+        let value = value.into_float_value();
+        let f_ty = f_ty.into_float_type();
+        let zero = f_ty.const_zero();
+        let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+        let canonical_qnan = f_ty.const_float(std::f64::NAN);
+        builder
+            .build_select(nan_cmp, canonical_qnan, value, "")
+            .as_basic_value_enum()
+    };
+    canonicalized
+}
+
 fn resolve_memory_ptr(
     builder: &Builder,
     intrinsics: &Intrinsics,
@@ -299,9 +491,77 @@ fn resolve_memory_ptr(
     Ok(builder.build_int_to_ptr(effective_address_int, ptr_ty, &state.var_name()))
 }
 
+fn trap_if_misaligned(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    context: &Context,
+    function: &FunctionValue,
+    memarg: &MemoryImmediate,
+    ptr: PointerValue,
+) {
+    let align = match memarg.flags & 3 {
+        0 => {
+            return; /* No alignment to check. */
+        }
+        1 => 2,
+        2 => 4,
+        3 => 8,
+        _ => unreachable!("this match is fully covered"),
+    };
+    let value = builder.build_ptr_to_int(ptr, intrinsics.i64_ty, "");
+    let and = builder.build_and(
+        value,
+        intrinsics.i64_ty.const_int(align - 1, false),
+        "misaligncheck",
+    );
+    let aligned = builder.build_int_compare(IntPredicate::EQ, and, intrinsics.i64_zero, "");
+    let aligned = builder
+        .build_call(
+            intrinsics.expect_i1,
+            &[
+                aligned.as_basic_value_enum(),
+                intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+            ],
+            "",
+        )
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .into_int_value();
+
+    let continue_block = context.append_basic_block(function, "aligned_access_continue_block");
+    let not_aligned_block = context.append_basic_block(function, "misaligned_trap_block");
+    builder.build_conditional_branch(aligned, &continue_block, &not_aligned_block);
+
+    builder.position_at_end(&not_aligned_block);
+    builder.build_call(
+        intrinsics.throw_trap,
+        &[intrinsics.trap_misaligned_atomic],
+        "throw",
+    );
+    builder.build_unreachable();
+
+    builder.position_at_end(&continue_block);
+}
+
 #[derive(Debug)]
 pub struct CodegenError {
     pub message: String,
+}
+
+// This is only called by C++ code, the 'pub' + '#[no_mangle]' combination
+// prevents unused function elimination.
+#[no_mangle]
+pub unsafe extern "C" fn callback_trampoline(
+    b: *mut Option<Box<dyn std::any::Any>>,
+    callback: *mut BreakpointHandler,
+) {
+    let callback = Box::from_raw(callback);
+    let result: Result<(), Box<dyn std::any::Any>> = callback(BreakpointInfo { fault: None });
+    match result {
+        Ok(()) => *b = None,
+        Err(e) => *b = Some(e),
+    }
 }
 
 pub struct LLVMModuleCodeGenerator {
@@ -356,6 +616,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Type::I64 => intrinsics.i64_zero.as_basic_value_enum(),
             Type::F32 => intrinsics.f32_zero.as_basic_value_enum(),
             Type::F64 => intrinsics.f64_zero.as_basic_value_enum(),
+            Type::V128 => intrinsics.i128_zero.as_basic_value_enum(),
         };
 
         let builder = self.builder.as_ref().unwrap();
@@ -401,14 +662,6 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
     }
 
     fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        let op = match event {
-            Event::Wasm(x) => x,
-            Event::Internal(_x) => {
-                return Ok(());
-            }
-            Event::WasmOwned(ref x) => x,
-        };
-
         let mut state = &mut self.state;
         let builder = self.builder.as_ref().unwrap();
         let context = self.context.as_ref().unwrap();
@@ -418,6 +671,45 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         let info = module_info;
         let signatures = &self.signatures;
         let mut ctx = self.ctx.as_mut().unwrap();
+
+        let op = match event {
+            Event::Wasm(x) => x,
+            Event::WasmOwned(ref x) => x,
+            Event::Internal(x) => {
+                match x {
+                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {
+                        return Ok(());
+                    }
+                    InternalEvent::Breakpoint(callback) => {
+                        let raw = Box::into_raw(Box::new(callback)) as u64;
+                        let callback = intrinsics.i64_ty.const_int(raw, false);
+                        builder.build_call(
+                            intrinsics.throw_breakpoint,
+                            &[callback.as_basic_value_enum()],
+                            "",
+                        );
+                        return Ok(());
+                    }
+                    InternalEvent::GetInternal(idx) => {
+                        if state.reachable {
+                            let idx = idx as usize;
+                            let field_ptr = ctx.internal_field(idx, intrinsics, builder);
+                            let result = builder.build_load(field_ptr, "get_internal");
+                            state.push1(result);
+                        }
+                    }
+                    InternalEvent::SetInternal(idx) => {
+                        if state.reachable {
+                            let idx = idx as usize;
+                            let field_ptr = ctx.internal_field(idx, intrinsics, builder);
+                            let v = state.pop1()?;
+                            builder.build_store(field_ptr, v);
+                        }
+                    }
+                }
+                return Ok(());
+            }
+        };
 
         if !state.reachable {
             match *op {
@@ -788,6 +1080,90 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let f = builder.build_bitcast(bits, intrinsics.f64_ty, "f");
                 state.push1(f);
             }
+            Operator::V128Const { value } => {
+                let mut hi: [u8; 8] = Default::default();
+                let mut lo: [u8; 8] = Default::default();
+                hi.copy_from_slice(&value.bytes()[0..8]);
+                lo.copy_from_slice(&value.bytes()[8..16]);
+                let packed = [u64::from_le_bytes(hi), u64::from_le_bytes(lo)];
+                let i = intrinsics.i128_ty.const_int_arbitrary_precision(&packed);
+                state.push1(i);
+            }
+
+            Operator::I8x16Splat => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder.build_int_truncate(v, intrinsics.i8_ty, "");
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Splat => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder.build_int_truncate(v, intrinsics.i16_ty, "");
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Splat => {
+                let v = state.pop1()?;
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v,
+                    intrinsics.i32x4_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Splat => {
+                let v = state.pop1()?;
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v,
+                    intrinsics.i64x2_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F32x4Splat => {
+                let v = state.pop1()?;
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v,
+                    intrinsics.f32x4_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Splat => {
+                let v = state.pop1()?;
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    v,
+                    intrinsics.f64x2_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
 
             // Operate on locals.
             Operator::GetLocal { local_index } => {
@@ -828,7 +1204,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         builder.build_store(ptr_to_value, value);
                     }
                     GlobalCache::Const { value: _ } => {
-                        unreachable!("cannot set non-mutable globals")
+                        return Err(CodegenError {
+                            message: "global is immutable".to_string(),
+                        });
                     }
                 }
             }
@@ -1071,16 +1449,260 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_add(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Add => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16AddSaturateS => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
+                let res = builder
+                    .build_call(intrinsics.sadd_sat_i8x16, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8AddSaturateS => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
+                let res = builder
+                    .build_call(intrinsics.sadd_sat_i16x8, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16AddSaturateU => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
+                let res = builder
+                    .build_call(intrinsics.uadd_sat_i8x16, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8AddSaturateU => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
+                let res = builder
+                    .build_call(intrinsics.uadd_sat_i16x8, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32Sub | Operator::I64Sub => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_int_sub(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16Sub => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Sub => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Sub => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Sub => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16SubSaturateS => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
+                let res = builder
+                    .build_call(intrinsics.ssub_sat_i8x16, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8SubSaturateS => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
+                let res = builder
+                    .build_call(intrinsics.ssub_sat_i16x8, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16SubSaturateU => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i8x16_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i8x16_ty, "");
+                let res = builder
+                    .build_call(intrinsics.usub_sat_i8x16, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8SubSaturateU => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder.build_bitcast(v1, intrinsics.i16x8_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i16x8_ty, "");
+                let res = builder
+                    .build_call(intrinsics.usub_sat_i16x8, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32Mul | Operator::I64Mul => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_int_mul(v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16Mul => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Mul => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Mul => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32DivS | Operator::I64DivS => {
@@ -1104,9 +1726,45 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I32RemS | Operator::I64RemS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let int_type = v1.get_type();
+                let (min_value, neg_one_value) = if int_type == intrinsics.i32_ty {
+                    let min_value = int_type.const_int(i32::min_value() as u64, false);
+                    let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
+                    (min_value, neg_one_value)
+                } else if int_type == intrinsics.i64_ty {
+                    let min_value = int_type.const_int(i64::min_value() as u64, false);
+                    let neg_one_value = int_type.const_int(-1i64 as u64, false);
+                    (min_value, neg_one_value)
+                } else {
+                    unreachable!()
+                };
 
                 trap_if_zero(builder, intrinsics, context, &function, v2);
 
+                // "Overflow also leads to undefined behavior; this is a rare
+                // case, but can occur, for example, by taking the remainder of
+                // a 32-bit division of -2147483648 by -1. (The remainder
+                // doesn’t actually overflow, but this rule lets srem be
+                // implemented using instructions that return both the result
+                // of the division and the remainder.)"
+                //   -- https://llvm.org/docs/LangRef.html#srem-instruction
+                //
+                // In Wasm, the i32.rem_s i32.const -2147483648 i32.const -1 is
+                // i32.const 0. We implement this by swapping out the left value
+                // for 0 in this case.
+                let will_overflow = builder.build_and(
+                    builder.build_int_compare(IntPredicate::EQ, v1, min_value, "left_is_min"),
+                    builder.build_int_compare(
+                        IntPredicate::EQ,
+                        v2,
+                        neg_one_value,
+                        "right_is_neg_one",
+                    ),
+                    "srem_will_overflow",
+                );
+                let v1 = builder
+                    .build_select(will_overflow, int_type.const_zero(), v1, "")
+                    .into_int_value();
                 let res = builder.build_int_signed_rem(v1, v2, &state.var_name());
                 state.push1(res);
             }
@@ -1119,40 +1777,282 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_unsigned_rem(v1, v2, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32And | Operator::I64And => {
+            Operator::I32And | Operator::I64And | Operator::V128And => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_and(v1, v2, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32Or | Operator::I64Or => {
+            Operator::I32Or | Operator::I64Or | Operator::V128Or => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_or(v1, v2, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32Xor | Operator::I64Xor => {
+            Operator::I32Xor | Operator::I64Xor | Operator::V128Xor => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_xor(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::V128Bitselect => {
+                let (v1, v2, cond) = state.pop3()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i1x128_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i1x128_ty, "")
+                    .into_vector_value();
+                let cond = builder
+                    .build_bitcast(cond, intrinsics.i1x128_ty, "")
+                    .into_vector_value();
+                let res = builder.build_select(cond, v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32Shl | Operator::I64Shl => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                // TODO: missing 'and' of v2?
                 let res = builder.build_left_shift(v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16Shl => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    "",
+                );
+                let res = builder.build_left_shift(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Shl => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    "",
+                );
+                let res = builder.build_left_shift(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Shl => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i32x4_ty,
+                    "",
+                );
+                let res = builder.build_left_shift(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Shl => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i64x2_ty,
+                    "",
+                );
+                let res = builder.build_left_shift(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32ShrS | Operator::I64ShrS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                // TODO: check wasm spec, is this missing v2 mod LaneBits?
                 let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16ShrS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ShrS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4ShrS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i32x4_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2ShrS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i64x2_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, true, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32ShrU | Operator::I64ShrU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16ShrU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ShrU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4ShrU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i32x4_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2ShrU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 = splat_vector(
+                    builder,
+                    intrinsics,
+                    v2.as_basic_value_enum(),
+                    intrinsics.i64x2_ty,
+                    "",
+                );
+                let res = builder.build_right_shift(v1, v2, false, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32Rotl => {
@@ -1318,26 +2218,122 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
              ***************************/
             Operator::F32Add | Operator::F64Add => {
                 let (v1, v2) = state.pop2()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let res = builder.build_float_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Add => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let res = builder.build_float_add(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Sub | Operator::F64Sub => {
                 let (v1, v2) = state.pop2()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Sub => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let res = builder.build_float_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Sub => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let res = builder.build_float_sub(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Mul | Operator::F64Mul => {
                 let (v1, v2) = state.pop2()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Mul => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let res = builder.build_float_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Mul => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let res = builder.build_float_mul(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Div | Operator::F64Div => {
                 let (v1, v2) = state.pop2()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_div(v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Div => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let res = builder.build_float_div(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Div => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let res = builder.build_float_div(v1, v2, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Sqrt => {
@@ -1358,6 +2354,28 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(res);
             }
+            Operator::F32x4Sqrt => {
+                let input = state.pop1()?.into_int_value();
+                let float = builder.build_bitcast(input, intrinsics.f32x4_ty, "float");
+                let res = builder
+                    .build_call(intrinsics.sqrt_f32x4, &[float], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let bits = builder.build_bitcast(res, intrinsics.i128_ty, "bits");
+                state.push1(bits);
+            }
+            Operator::F64x2Sqrt => {
+                let input = state.pop1()?.into_int_value();
+                let float = builder.build_bitcast(input, intrinsics.f64x2_ty, "float");
+                let res = builder
+                    .build_call(intrinsics.sqrt_f64x2, &[float], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let bits = builder.build_bitcast(res, intrinsics.i128_ty, "bits");
+                state.push1(bits);
+            }
             Operator::F32Min => {
                 let (v1, v2) = state.pop2()?;
                 let res = builder
@@ -1376,6 +2394,30 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(res);
             }
+            Operator::F32x4Min => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let res = builder
+                    .build_call(intrinsics.minimum_f32x4, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Min => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let res = builder
+                    .build_call(intrinsics.minimum_f64x2, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Max => {
                 let (v1, v2) = state.pop2()?;
                 let res = builder
@@ -1392,6 +2434,30 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .try_as_basic_value()
                     .left()
                     .unwrap();
+                state.push1(res);
+            }
+            Operator::F32x4Max => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
+                let res = builder
+                    .build_call(intrinsics.maximum_f32x4, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Max => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
+                let res = builder
+                    .build_call(intrinsics.maximum_f64x2, &[v1, v2], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Ceil => {
@@ -1484,6 +2550,46 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap();
                 state.push1(res);
             }
+            Operator::F32x4Abs => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder.build_bitcast(v, intrinsics.f32x4_ty, "");
+                let res = builder
+                    .build_call(intrinsics.fabs_f32x4, &[v], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Abs => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder.build_bitcast(v, intrinsics.f64x2_ty, "");
+                let res = builder
+                    .build_call(intrinsics.fabs_f64x2, &[v], &state.var_name())
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F32x4Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_neg(v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_neg(v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Neg | Operator::F64Neg => {
                 let input = state.pop1()?.into_float_value();
                 let res = builder.build_float_neg(input, &state.var_name());
@@ -1519,11 +2625,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32Ne | Operator::I64Ne => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::NE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32LtS | Operator::I64LtS => {
@@ -1533,11 +2717,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16LtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32LtU | Operator::I64LtU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::ULT, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16LtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32LeS | Operator::I64LeS => {
@@ -1547,11 +2809,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16LeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32LeU | Operator::I64LeU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::ULE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16LeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32GtS | Operator::I64GtS => {
@@ -1561,11 +2901,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16GtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8GtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4GtS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32GtU | Operator::I64GtU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::UGT, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16GtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8GtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4GtU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32GeS | Operator::I64GeS => {
@@ -1575,11 +2993,89 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I8x16GeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8GeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4GeS => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::I32GeU | Operator::I64GeU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let cond = builder.build_int_compare(IntPredicate::UGE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16GeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8GeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4GeU => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
 
@@ -1595,12 +3091,64 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Eq => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Ne | Operator::F64Ne => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let cond =
                     builder.build_float_compare(FloatPredicate::UNE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::UNE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Ne => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::UNE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Lt | Operator::F64Lt => {
@@ -1611,12 +3159,64 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Lt => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Lt => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Le | Operator::F64Le => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let cond =
                     builder.build_float_compare(FloatPredicate::OLE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Le => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Le => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OLE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Gt | Operator::F64Gt => {
@@ -1627,12 +3227,64 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::F32x4Gt => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Gt => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
             Operator::F32Ge | Operator::F64Ge => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let cond =
                     builder.build_float_compare(FloatPredicate::OGE, v1, v2, &state.var_name());
                 let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4Ge => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2Ge => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_float_compare(FloatPredicate::OGE, v1, v2, "");
+                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
 
@@ -1655,15 +3307,75 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let res = builder.build_int_z_extend(v1, intrinsics.i64_ty, &state.var_name());
                 state.push1(res);
             }
+            Operator::I32x4TruncSF32x4Sat => {
+                let v = state.pop1()?.into_int_value();
+                let res = trunc_sat(
+                    builder,
+                    intrinsics,
+                    intrinsics.f32x4_ty,
+                    intrinsics.i32x4_ty,
+                    -2147480000i32 as u32 as u64,
+                    2147480000,
+                    std::i32::MIN as u64,
+                    std::i32::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I32x4TruncUF32x4Sat => {
+                let v = state.pop1()?.into_int_value();
+                let res = trunc_sat(
+                    builder,
+                    intrinsics,
+                    intrinsics.f32x4_ty,
+                    intrinsics.i32x4_ty,
+                    0,
+                    4294960000,
+                    std::u32::MIN as u64,
+                    std::u32::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I64x2TruncSF64x2Sat => {
+                let v = state.pop1()?.into_int_value();
+                let res = trunc_sat(
+                    builder,
+                    intrinsics,
+                    intrinsics.f64x2_ty,
+                    intrinsics.i64x2_ty,
+                    std::i64::MIN as u64,
+                    std::i64::MAX as u64,
+                    std::i64::MIN as u64,
+                    std::i64::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I64x2TruncUF64x2Sat => {
+                let v = state.pop1()?.into_int_value();
+                let res = trunc_sat(
+                    builder,
+                    intrinsics,
+                    intrinsics.f64x2_ty,
+                    intrinsics.i64x2_ty,
+                    std::u64::MIN,
+                    std::u64::MAX,
+                    std::u64::MIN,
+                    std::u64::MAX,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
             Operator::I32TruncSF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -2147483904.0,
-                    2147483648.0,
+                    builder, intrinsics, context, &function, 0xcf000000, // -2147483600.0
+                    0x4effffff, // 2147483500.0
                     v1,
                 );
                 let res =
@@ -1677,8 +3389,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -2147483649.0,
-                    2147483648.0,
+                    0xc1e00000001fffff, // -2147483648.9999995
+                    0x41dfffffffffffff, // 2147483647.9999998
                     v1,
                 );
                 let res =
@@ -1694,12 +3406,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I64TruncSF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -9223373136366403584.0,
-                    9223372036854775808.0,
+                    builder, intrinsics, context, &function,
+                    0xdf000000, // -9223372000000000000.0
+                    0x5effffff, // 9223371500000000000.0
                     v1,
                 );
                 let res =
@@ -1713,8 +3422,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -9223372036854777856.0,
-                    9223372036854775808.0,
+                    0xc3e0000000000000, // -9223372036854776000.0
+                    0x43dfffffffffffff, // 9223372036854775000.0
                     v1,
                 );
                 let res =
@@ -1730,12 +3439,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I32TruncUF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -1.0,
-                    4294967296.0,
+                    builder, intrinsics, context, &function, 0xbf7fffff, // -0.99999994
+                    0x4f7fffff, // 4294967000.0
                     v1,
                 );
                 let res =
@@ -1749,8 +3454,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -1.0,
-                    4294967296.0,
+                    0xbfefffffffffffff, // -0.9999999999999999
+                    0x41efffffffffffff, // 4294967295.9999995
                     v1,
                 );
                 let res =
@@ -1766,12 +3471,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::I64TruncUF32 => {
                 let v1 = state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
-                    -1.0,
-                    18446744073709551616.0,
+                    builder, intrinsics, context, &function, 0xbf7fffff, // -0.99999994
+                    0x5f7fffff, // 18446743000000000000.0
                     v1,
                 );
                 let res =
@@ -1785,8 +3486,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics,
                     context,
                     &function,
-                    -1.0,
-                    18446744073709551616.0,
+                    0xbfefffffffffffff, // -0.9999999999999999
+                    0x43efffffffffffff, // 18446744073709550000.0
                     v1,
                 );
                 let res =
@@ -1800,12 +3501,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(res);
             }
             Operator::F32DemoteF64 => {
-                let v1 = state.pop1()?.into_float_value();
+                let v1 = state.pop1()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1).into_float_value();
                 let res = builder.build_float_trunc(v1, intrinsics.f32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::F64PromoteF32 => {
-                let v1 = state.pop1()?.into_float_value();
+                let v1 = state.pop1()?;
+                let v1 = canonicalize_nans(builder, intrinsics, v1).into_float_value();
                 let res = builder.build_float_ext(v1, intrinsics.f64_ty, &state.var_name());
                 state.push1(res);
             }
@@ -1831,6 +3534,46 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let v1 = state.pop1()?.into_int_value();
                 let res =
                     builder.build_unsigned_int_to_float(v1, intrinsics.f64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4ConvertSI32x4 => {
+                let v = state.pop1()?;
+                let v = builder
+                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res =
+                    builder.build_signed_int_to_float(v, intrinsics.f32x4_ty, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F32x4ConvertUI32x4 => {
+                let v = state.pop1()?;
+                let v = builder
+                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res =
+                    builder.build_unsigned_int_to_float(v, intrinsics.f32x4_ty, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2ConvertSI64x2 => {
+                let v = state.pop1()?;
+                let v = builder
+                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res =
+                    builder.build_signed_int_to_float(v, intrinsics.f64x2_ty, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2ConvertUI64x2 => {
+                let v = state.pop1()?;
+                let v = builder
+                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res =
+                    builder.build_unsigned_int_to_float(v, intrinsics.f64x2_ty, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::I32ReinterpretF32 => {
@@ -1963,6 +3706,21 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);
             }
+            Operator::V128Load { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i128_ptr_ty,
+                    16,
+                )?;
+                let result = builder.build_load(effective_address, &state.var_name());
+                state.push1(result);
+            }
 
             Operator::I32Store { ref memarg } => {
                 let value = state.pop1()?;
@@ -2021,6 +3779,21 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.f64_ptr_ty,
                     8,
+                )?;
+                builder.build_store(effective_address, value);
+            }
+            Operator::V128Store { ref memarg } => {
+                let value = state.pop1()?;
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i128_ptr_ty,
+                    16,
                 )?;
                 builder.build_store(effective_address, value);
             }
@@ -2268,6 +4041,2420 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
                 builder.build_store(effective_address, narrow_value);
             }
+            Operator::I8x16Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v.get_type().const_zero(), v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v.get_type().const_zero(), v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v.get_type().const_zero(), v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2Neg => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let res = builder.build_int_sub(v.get_type().const_zero(), v, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::V128Not => {
+                let v = state.pop1()?.into_int_value();
+                let res = builder.build_not(v, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16AnyTrue
+            | Operator::I16x8AnyTrue
+            | Operator::I32x4AnyTrue
+            | Operator::I64x2AnyTrue => {
+                let v = state.pop1()?.into_int_value();
+                let res = builder.build_int_compare(
+                    IntPredicate::NE,
+                    v,
+                    v.get_type().const_zero(),
+                    &state.var_name(),
+                );
+                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16AllTrue
+            | Operator::I16x8AllTrue
+            | Operator::I32x4AllTrue
+            | Operator::I64x2AllTrue => {
+                let vec_ty = match *op {
+                    Operator::I8x16AllTrue => intrinsics.i8x16_ty,
+                    Operator::I16x8AllTrue => intrinsics.i16x8_ty,
+                    Operator::I32x4AllTrue => intrinsics.i32x4_ty,
+                    Operator::I64x2AllTrue => intrinsics.i64x2_ty,
+                    _ => unreachable!(),
+                };
+                let v = state.pop1()?.into_int_value();
+                let lane_int_ty = context.custom_width_int_type(vec_ty.get_size());
+                let vec = builder.build_bitcast(v, vec_ty, "vec").into_vector_value();
+                let mask =
+                    builder.build_int_compare(IntPredicate::NE, vec, vec_ty.const_zero(), "mask");
+                let cmask = builder
+                    .build_bitcast(mask, lane_int_ty, "cmask")
+                    .into_int_value();
+                let res = builder.build_int_compare(
+                    IntPredicate::EQ,
+                    cmask,
+                    lane_int_ty.const_int(std::u64::MAX, true),
+                    &state.var_name(),
+                );
+                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16ExtractLaneS { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder
+                    .build_extract_element(v, idx, &state.var_name())
+                    .into_int_value();
+                let res = builder.build_int_s_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16ExtractLaneU { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder
+                    .build_extract_element(v, idx, &state.var_name())
+                    .into_int_value();
+                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ExtractLaneS { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder
+                    .build_extract_element(v, idx, &state.var_name())
+                    .into_int_value();
+                let res = builder.build_int_s_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ExtractLaneU { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder
+                    .build_extract_element(v, idx, &state.var_name())
+                    .into_int_value();
+                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4ExtractLane { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_extract_element(v, idx, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64x2ExtractLane { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_extract_element(v, idx, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32x4ExtractLane { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_extract_element(v, idx, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F64x2ExtractLane { lane } => {
+                let v = state.pop1()?.into_int_value();
+                let v = builder
+                    .build_bitcast(v, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_extract_element(v, idx, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I8x16ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_int_cast(v2, intrinsics.i8_ty, "");
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i16x8_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let v2 = builder.build_int_cast(v2, intrinsics.i16_ty, "");
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_int_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F32x4ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f32x4_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_float_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::F64x2ReplaceLane { lane } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.f64x2_ty, "")
+                    .into_vector_value();
+                let v2 = v2.into_float_value();
+                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = builder.build_insert_element(v1, v2, idx, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::V8x16Swizzle => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let lanes = intrinsics.i8_ty.const_int(16, false);
+                let lanes = splat_vector(
+                    builder,
+                    intrinsics,
+                    lanes.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    "",
+                );
+                let mut res = intrinsics.i8x16_ty.get_undef();
+                let idx_out_of_range =
+                    builder.build_int_compare(IntPredicate::UGE, v2, lanes, "idx_out_of_range");
+                let idx_clamped = builder
+                    .build_select(
+                        idx_out_of_range,
+                        intrinsics.i8x16_ty.const_zero(),
+                        v2,
+                        "idx_clamped",
+                    )
+                    .into_vector_value();
+                for i in 0..16 {
+                    let idx = builder
+                        .build_extract_element(
+                            idx_clamped,
+                            intrinsics.i32_ty.const_int(i, false),
+                            "idx",
+                        )
+                        .into_int_value();
+                    let replace_with_zero = builder
+                        .build_extract_element(
+                            idx_out_of_range,
+                            intrinsics.i32_ty.const_int(i, false),
+                            "replace_with_zero",
+                        )
+                        .into_int_value();
+                    let elem = builder
+                        .build_extract_element(v1, idx, "elem")
+                        .into_int_value();
+                    let elem_or_zero = builder.build_select(
+                        replace_with_zero,
+                        intrinsics.i8_zero,
+                        elem,
+                        "elem_or_zero",
+                    );
+                    res = builder.build_insert_element(
+                        res,
+                        elem_or_zero,
+                        intrinsics.i32_ty.const_int(i, false),
+                        "",
+                    );
+                }
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::V8x16Shuffle { lanes } => {
+                let (v1, v2) = state.pop2()?;
+                let v1 = builder
+                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let v2 = builder
+                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                    .into_vector_value();
+                let mask = VectorType::const_vector(
+                    lanes
+                        .iter()
+                        .map(|l| intrinsics.i32_ty.const_int((*l).into(), false))
+                        .collect::<Vec<IntValue>>()
+                        .as_slice(),
+                );
+                let res = builder.build_shuffle_vector(v1, v2, mask, &state.var_name());
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I8x16LoadSplat { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                let elem = builder.build_load(effective_address, "").into_int_value();
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    elem.as_basic_value_enum(),
+                    intrinsics.i8x16_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I16x8LoadSplat { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                let elem = builder.build_load(effective_address, "").into_int_value();
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    elem.as_basic_value_enum(),
+                    intrinsics.i16x8_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I32x4LoadSplat { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                let elem = builder.build_load(effective_address, "").into_int_value();
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    elem.as_basic_value_enum(),
+                    intrinsics.i32x4_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::I64x2LoadSplat { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                let elem = builder.build_load(effective_address, "").into_int_value();
+                let res = splat_vector(
+                    builder,
+                    intrinsics,
+                    elem.as_basic_value_enum(),
+                    intrinsics.i64x2_ty,
+                    &state.var_name(),
+                );
+                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                state.push1(res);
+            }
+            Operator::Fence { flags: _ } => {
+                // Fence is a nop.
+                //
+                // Fence was added to preserve information about fences from
+                // source languages. If in the future Wasm extends the memory
+                // model, and if we hadn't recorded what fences used to be there,
+                // it would lead to data races that weren't present in the
+                // original source language.
+            }
+            Operator::I32AtomicLoad { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let result = builder.build_load(effective_address, &state.var_name());
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 4);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                state.push1(result);
+            }
+            Operator::I64AtomicLoad { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let result = builder.build_load(effective_address, &state.var_name());
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 8);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                state.push1(result);
+            }
+            Operator::I32AtomicLoad8U { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 1);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I32AtomicLoad16U { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 2);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64AtomicLoad8U { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 1);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64AtomicLoad16U { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 2);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64AtomicLoad32U { ref memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 4);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I32AtomicStore { ref memarg } => {
+                let value = state.pop1()?;
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                builder.build_store(effective_address, value);
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 4);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+            }
+            Operator::I64AtomicStore { ref memarg } => {
+                let value = state.pop1()?;
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                builder.build_store(effective_address, value);
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 8);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+            }
+            Operator::I32AtomicStore8 { ref memarg } | Operator::I64AtomicStore8 { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                builder.build_store(effective_address, narrow_value);
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 1);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+            }
+            Operator::I32AtomicStore16 { ref memarg }
+            | Operator::I64AtomicStore16 { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                builder.build_store(effective_address, narrow_value);
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 2);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+            }
+            Operator::I64AtomicStore32 { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                builder.build_store(effective_address, narrow_value);
+                // TODO: LLVMSetAlignment(result.as_value_ref(), 4);
+                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+            }
+            Operator::I32AtomicRmw8UAdd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Add,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw16UAdd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Add,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmwAdd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Add,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw8UAdd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Add,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw16UAdd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Add,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw32UAdd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Add,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmwAdd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Add,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw8USub { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Sub,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw16USub { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Sub,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmwSub { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Sub,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw8USub { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Sub,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw16USub { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Sub,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw32USub { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Sub,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmwSub { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Sub,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw8UAnd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::And,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw16UAnd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::And,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmwAnd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::And,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw8UAnd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::And,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw16UAnd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::And,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw32UAnd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::And,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmwAnd { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::And,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw8UOr { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Or,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw16UOr { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Or,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmwOr { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Or,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw8UOr { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Or,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw16UOr { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Or,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw32UOr { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Or,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmwOr { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Or,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw8UXor { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xor,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw16UXor { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xor,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmwXor { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xor,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw8UXor { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xor,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw16UXor { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xor,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw32UXor { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xor,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmwXor { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xor,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw8UXchg { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xchg,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw16UXchg { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xchg,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmwXchg { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xchg,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw8UXchg { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xchg,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw16UXchg { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xchg,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw32UXchg { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xchg,
+                        effective_address,
+                        narrow_value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmwXchg { ref memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_atomicrmw(
+                        AtomicRMWBinOp::Xchg,
+                        effective_address,
+                        value,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw8UCmpxchg { ref memarg } => {
+                let (cmp, new) = state.pop2()?;
+                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_cmp =
+                    builder.build_int_truncate(cmp, intrinsics.i8_ty, &state.var_name());
+                let narrow_new =
+                    builder.build_int_truncate(new, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_cmpxchg(
+                        effective_address,
+                        narrow_cmp,
+                        narrow_new,
+                        AtomicOrdering::SequentiallyConsistent,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder
+                    .build_extract_value(old, 0, "")
+                    .unwrap()
+                    .into_int_value();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmw16UCmpxchg { ref memarg } => {
+                let (cmp, new) = state.pop2()?;
+                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_cmp =
+                    builder.build_int_truncate(cmp, intrinsics.i16_ty, &state.var_name());
+                let narrow_new =
+                    builder.build_int_truncate(new, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_cmpxchg(
+                        effective_address,
+                        narrow_cmp,
+                        narrow_new,
+                        AtomicOrdering::SequentiallyConsistent,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder
+                    .build_extract_value(old, 0, "")
+                    .unwrap()
+                    .into_int_value();
+                let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I32AtomicRmwCmpxchg { ref memarg } => {
+                let (cmp, new) = state.pop2()?;
+                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_cmpxchg(
+                        effective_address,
+                        cmp,
+                        new,
+                        AtomicOrdering::SequentiallyConsistent,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_extract_value(old, 0, "").unwrap();
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw8UCmpxchg { ref memarg } => {
+                let (cmp, new) = state.pop2()?;
+                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                    1,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_cmp =
+                    builder.build_int_truncate(cmp, intrinsics.i8_ty, &state.var_name());
+                let narrow_new =
+                    builder.build_int_truncate(new, intrinsics.i8_ty, &state.var_name());
+                let old = builder
+                    .build_cmpxchg(
+                        effective_address,
+                        narrow_cmp,
+                        narrow_new,
+                        AtomicOrdering::SequentiallyConsistent,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder
+                    .build_extract_value(old, 0, "")
+                    .unwrap()
+                    .into_int_value();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw16UCmpxchg { ref memarg } => {
+                let (cmp, new) = state.pop2()?;
+                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                    2,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_cmp =
+                    builder.build_int_truncate(cmp, intrinsics.i16_ty, &state.var_name());
+                let narrow_new =
+                    builder.build_int_truncate(new, intrinsics.i16_ty, &state.var_name());
+                let old = builder
+                    .build_cmpxchg(
+                        effective_address,
+                        narrow_cmp,
+                        narrow_new,
+                        AtomicOrdering::SequentiallyConsistent,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder
+                    .build_extract_value(old, 0, "")
+                    .unwrap()
+                    .into_int_value();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmw32UCmpxchg { ref memarg } => {
+                let (cmp, new) = state.pop2()?;
+                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                    4,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let narrow_cmp =
+                    builder.build_int_truncate(cmp, intrinsics.i32_ty, &state.var_name());
+                let narrow_new =
+                    builder.build_int_truncate(new, intrinsics.i32_ty, &state.var_name());
+                let old = builder
+                    .build_cmpxchg(
+                        effective_address,
+                        narrow_cmp,
+                        narrow_new,
+                        AtomicOrdering::SequentiallyConsistent,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder
+                    .build_extract_value(old, 0, "")
+                    .unwrap()
+                    .into_int_value();
+                let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
+                state.push1(old);
+            }
+            Operator::I64AtomicRmwCmpxchg { ref memarg } => {
+                let (cmp, new) = state.pop2()?;
+                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                    8,
+                )?;
+                trap_if_misaligned(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    memarg,
+                    effective_address,
+                );
+                let old = builder
+                    .build_cmpxchg(
+                        effective_address,
+                        cmp,
+                        new,
+                        AtomicOrdering::SequentiallyConsistent,
+                        AtomicOrdering::SequentiallyConsistent,
+                    )
+                    .unwrap();
+                let old = builder.build_extract_value(old, 0, "").unwrap();
+                state.push1(old);
+            }
 
             Operator::MemoryGrow { reserved } => {
                 let memory_index = MemoryIndex::new(reserved as usize);
@@ -2514,7 +6701,11 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             self.intrinsics.as_ref().unwrap(),
         );
 
-        let pass_manager = PassManager::create_for_module();
+        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.pre_opt_ir } {
+            self.module.print_to_file(path).unwrap();
+        }
+
+        let pass_manager = PassManager::create(());
         if cfg!(test) {
             pass_manager.add_verifier_pass();
         }
@@ -2531,9 +6722,11 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         pass_manager.add_cfg_simplification_pass();
         pass_manager.add_bit_tracking_dce_pass();
         pass_manager.add_slp_vectorize_pass();
-        pass_manager.run_on_module(&self.module);
+        pass_manager.run_on(&self.module);
 
-        // self.module.print_to_stderr();
+        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.post_opt_ir } {
+            self.module.print_to_file(path).unwrap();
+        }
 
         let (backend, cache_gen) = LLVMBackend::new(self.module, self.intrinsics.take().unwrap());
         Ok((backend, Box::new(cache_gen)))

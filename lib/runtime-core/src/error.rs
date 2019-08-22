@@ -80,6 +80,9 @@ pub enum LinkError {
         expected: GlobalDescriptor,
         found: GlobalDescriptor,
     },
+    Generic {
+        message: String,
+    },
 }
 
 impl PartialEq for LinkError {
@@ -106,6 +109,9 @@ impl std::fmt::Display for LinkError {
             },
             LinkError::IncorrectTableDescriptor{namespace, name,expected,found} => {
                 write!(f, "Incorrect table descriptor, namespace: {}, name: {}, expected table descriptor: {:?}, found table descriptor: {:?}", namespace, name, expected, found)
+            },
+            LinkError::Generic { message } => {
+                write!(f, "{}", message)
             },
         }
     }
@@ -134,7 +140,7 @@ impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             RuntimeError::Trap { ref msg } => {
-                write!(f, "WebAssembly trap occured during runtime: {}", msg)
+                write!(f, "WebAssembly trap occurred during runtime: {}", msg)
             }
             RuntimeError::Error { data } => {
                 if let Some(s) = data.downcast_ref::<String>() {

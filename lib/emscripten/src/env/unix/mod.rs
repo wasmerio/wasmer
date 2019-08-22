@@ -159,7 +159,7 @@ pub fn _gai_strerror(ctx: &mut Ctx, ecode: i32) -> i32 {
             .unwrap()
     };
     for (i, byte) in bytes.iter().enumerate() {
-        writer[i].set(*byte as i8);
+        writer[i].set(*byte as _);
     }
 
     string_on_guest.offset() as _
@@ -196,18 +196,15 @@ pub fn _getaddrinfo(
 
     let hints = hints_ptr.deref(memory).map(|hints_memory| {
         let hints_guest = hints_memory.get();
-        unsafe {
-            let mut hints_native: addrinfo = std::mem::uninitialized();
-            hints_native.ai_flags = hints_guest.ai_flags;
-            hints_native.ai_family = hints_guest.ai_family;
-            hints_native.ai_socktype = hints_guest.ai_socktype;
-            hints_native.ai_protocol = hints_guest.ai_protocol;
-            hints_native.ai_addrlen = 0;
-            hints_native.ai_addr = std::ptr::null_mut();
-            hints_native.ai_canonname = std::ptr::null_mut();
-            hints_native.ai_next = std::ptr::null_mut();
-
-            hints_native
+        addrinfo {
+            ai_flags: hints_guest.ai_flags,
+            ai_family: hints_guest.ai_family,
+            ai_socktype: hints_guest.ai_socktype,
+            ai_protocol: hints_guest.ai_protocol,
+            ai_addrlen: 0,
+            ai_addr: std::ptr::null_mut(),
+            ai_canonname: std::ptr::null_mut(),
+            ai_next: std::ptr::null_mut(),
         }
     });
 
@@ -286,7 +283,7 @@ pub fn _getaddrinfo(
                         .deref(ctx.memory(0), 0, str_size as _)
                         .unwrap();
                     for (i, b) in canonname_bytes.into_iter().enumerate() {
-                        guest_canonname_writer[i].set(*b as i8)
+                        guest_canonname_writer[i].set(*b as _)
                     }
 
                     guest_canonname
