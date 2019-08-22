@@ -7,7 +7,6 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     structures::TypedIndex,
     types::{GlobalIndex, LocalOrImport, TableIndex},
-    vm,
 };
 
 #[derive(Default, Debug, Clone)]
@@ -71,6 +70,7 @@ impl StackmapEntry {
             FunctionStateMap, MachineStateDiff, MachineValue, OffsetInfo, RegisterIndex,
             SuspendOffset, WasmAbstractValue,
         };
+        use wasmer_runtime_core::vm;
 
         let func_base_addr = (size_record.function_address as usize)
             .checked_sub(code_addr)
