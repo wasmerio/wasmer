@@ -159,7 +159,7 @@ pub fn _gai_strerror(ctx: &mut Ctx, ecode: i32) -> i32 {
             .unwrap()
     };
     for (i, byte) in bytes.iter().enumerate() {
-        writer[i].set(*byte as i8);
+        writer[i].set(*byte as _);
     }
 
     string_on_guest.offset() as _
@@ -283,7 +283,7 @@ pub fn _getaddrinfo(
                         .deref(ctx.memory(0), 0, str_size as _)
                         .unwrap();
                     for (i, b) in canonname_bytes.into_iter().enumerate() {
-                        guest_canonname_writer[i].set(*b as i8)
+                        guest_canonname_writer[i].set(*b as _)
                     }
 
                     guest_canonname

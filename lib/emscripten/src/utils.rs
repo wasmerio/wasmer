@@ -33,37 +33,43 @@ pub fn is_emscripten_module(module: &Module) -> bool {
     false
 }
 
-pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
-    assert!(
-        module.info().imported_tables.len() > 0,
-        "Emscripten requires at least one imported table"
-    );
+pub fn get_emscripten_table_size(module: &Module) -> Result<(u32, Option<u32>), String> {
+    if module.info().imported_tables.len() == 0 {
+        return Err("Emscripten requires at least one imported table".to_string());
+    }
     let (_, table) = &module.info().imported_tables[ImportedTableIndex::new(0)];
-    (table.minimum, table.maximum)
+    Ok((table.minimum, table.maximum))
 }
 
-pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>, bool) {
-    assert!(
-        module.info().imported_tables.len() > 0,
-        "Emscripten requires at least one imported memory"
-    );
+pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Pages>, bool), String> {
+    if module.info().imported_memories.len() == 0 {
+        return Err("Emscripten requires at least one imported memory".to_string());
+    }
     let (_, memory) = &module.info().imported_memories[ImportedMemoryIndex::new(0)];
-    (memory.minimum, memory.maximum, memory.shared)
+    Ok((memory.minimum, memory.maximum, memory.shared))
 }
 
 /// Reads values written by `-s EMIT_EMSCRIPTEN_METADATA=1`
 /// Assumes values start from the end in this order:
 /// Last export: Dynamic Base
 /// Second-to-Last export: Dynamic top pointer
-pub fn get_emscripten_metadata(module: &Module) -> Option<(u32, u32)> {
-    let max_idx = &module.info().globals.iter().map(|(k, _)| k).max()?;
-    let snd_max_idx = &module
+pub fn get_emscripten_metadata(module: &Module) -> Result<Option<(u32, u32)>, String> {
+    let max_idx = match module.info().globals.iter().map(|(k, _)| k).max() {
+        Some(x) => x,
+        None => return Ok(None),
+    };
+
+    let snd_max_idx = match module
         .info()
         .globals
         .iter()
         .map(|(k, _)| k)
-        .filter(|k| k != max_idx)
-        .max()?;
+        .filter(|k| *k != max_idx)
+        .max()
+    {
+        Some(x) => x,
+        None => return Ok(None),
+    };
 
     use wasmer_runtime_core::types::{GlobalInit, Initializer::Const, Value::I32};
     if let (
@@ -76,15 +82,23 @@ pub fn get_emscripten_metadata(module: &Module) -> Option<(u32, u32)> {
             ..
         },
     ) = (
-        &module.info().globals[*max_idx],
-        &module.info().globals[*snd_max_idx],
+        &module.info().globals[max_idx],
+        &module.info().globals[snd_max_idx],
     ) {
-        Some((
-            align_memory(*dynamic_base as u32 - 32),
-            align_memory(*dynamictop_ptr as u32 - 32),
-        ))
+        let dynamic_base = (*dynamic_base as u32).checked_sub(32).ok_or(format!(
+            "emscripten unexpected dynamic_base {}",
+            *dynamic_base as u32
+        ))?;
+        let dynamictop_ptr = (*dynamictop_ptr as u32).checked_sub(32).ok_or(format!(
+            "emscripten unexpected dynamictop_ptr {}",
+            *dynamictop_ptr as u32
+        ))?;
+        Ok(Some((
+            align_memory(dynamic_base),
+            align_memory(dynamictop_ptr),
+        )))
     } else {
-        None
+        Ok(None)
     }
 }
 
@@ -222,7 +236,8 @@ pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
 pub fn get_cstr_path(ctx: &mut Ctx, path: *const i8) -> Option<std::ffi::CString> {
     use std::collections::VecDeque;
 
-    let path_str = unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() }.to_string();
+    let path_str =
+        unsafe { std::ffi::CStr::from_ptr(path as *const _).to_str().unwrap() }.to_string();
     let data = get_emscripten_data(ctx);
     let path = PathBuf::from(path_str);
     let mut prefix_added = false;
