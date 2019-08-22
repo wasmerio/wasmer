@@ -25,11 +25,11 @@ path = "../runtime-core"
 version = "0.6.0"
 
 [features]
-default = ["clif"]
+default = ["cranelift-backend"]
 debug = ["wasmer-runtime/debug"]
-clif = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift"]
-llvm = ["wasmer-runtime/llvm"]
-singlepass = ["wasmer-runtime/default-backend-singlepass", "wasmer-runtime-core/backend-singlepass"]
+cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift"]
+llvm-backend = ["wasmer-runtime/llvm"]
+singlepass-backend = ["wasmer-runtime/default-backend-singlepass", "wasmer-runtime-core/backend-singlepass"]
 
 [build-dependencies]
 cbindgen = "0.9.0"
