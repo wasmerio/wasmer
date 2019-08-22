@@ -17,3 +17,9 @@ macro_rules! wasi_try {
         wasi_try!(opt.ok_or($e))
     }};
 }
+
+macro_rules! get_input_str {
+    ($memory:expr, $data:expr, $len:expr) => {{
+        wasi_try!($data.get_utf8_string($memory, $len), __WASI_EINVAL)
+    }};
+}

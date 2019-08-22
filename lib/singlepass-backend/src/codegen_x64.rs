@@ -148,7 +148,7 @@ pub struct X64FunctionCode {
     breakpoints: Option<
         HashMap<
             AssemblyOffset,
-            Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
+            Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
         >,
     >,
     returns: SmallVec<[WpType; 1]>,
@@ -294,7 +294,7 @@ impl RunnableModule for X64ExecutionContext {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
         protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
         protect_unix::trigger_trap();
     }
@@ -404,22 +404,22 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         mut self,
         _: &ModuleInfo,
     ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
-        let (assembler, breakpoints) = match self.functions.last_mut() {
-            Some(x) => (x.assembler.take().unwrap(), x.breakpoints.take().unwrap()),
-            None => {
-                return Err(CodegenError {
-                    message: "no function",
-                });
-            }
+        let (assembler, function_labels, breakpoints) = match self.functions.last_mut() {
+            Some(x) => (
+                x.assembler.take().unwrap(),
+                x.function_labels.take().unwrap(),
+                x.breakpoints.take().unwrap(),
+            ),
+            None => (
+                self.assembler.take().unwrap(),
+                self.function_labels.take().unwrap(),
+                HashMap::new(),
+            ),
         };
+
         let total_size = assembler.get_offset().0;
         let output = assembler.finalize().unwrap();
 
-        let function_labels = if let Some(x) = self.functions.last() {
-            x.function_labels.as_ref().unwrap()
-        } else {
-            self.function_labels.as_ref().unwrap()
-        };
         let mut out_labels: Vec<FuncPtr> = vec![];
         let mut out_offsets: Vec<AssemblyOffset> = vec![];
 

@@ -10,6 +10,8 @@ use libc::c_char;
 use std::{
     any::Any,
     ffi::{c_void, CString},
+    fs::File,
+    io::Write,
     mem,
     ops::Deref,
     ptr::{self, NonNull},
@@ -103,6 +105,11 @@ fn get_callbacks() -> Callbacks {
             fn_name!("vm.memory.grow.static.local") => vmcalls::local_static_memory_grow as _,
             fn_name!("vm.memory.size.static.local") => vmcalls::local_static_memory_size as _,
 
+            fn_name!("vm.memory.grow.dynamic.import") => vmcalls::imported_dynamic_memory_grow as _,
+            fn_name!("vm.memory.size.dynamic.import") => vmcalls::imported_dynamic_memory_size as _,
+            fn_name!("vm.memory.grow.static.import") => vmcalls::imported_static_memory_grow as _,
+            fn_name!("vm.memory.size.static.import") => vmcalls::imported_static_memory_size as _,
+
             fn_name!("vm.exception.trap") => throw_trap as _,
             fn_name!("vm.breakpoint") => throw_breakpoint as _,
 
@@ -176,6 +183,14 @@ impl LLVMBackend {
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
         let mem_buf_slice = memory_buffer.as_slice();
+
+        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.obj_file } {
+            let mut file = File::create(path).unwrap();
+            let mut pos = 0;
+            while pos < mem_buf_slice.len() {
+                pos += file.write(&mem_buf_slice[pos..]).unwrap();
+            }
+        }
 
         let callbacks = get_callbacks();
         let mut module: *mut LLVMModule = ptr::null_mut();

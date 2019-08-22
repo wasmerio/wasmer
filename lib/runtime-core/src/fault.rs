@@ -35,7 +35,7 @@ type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 struct UnwindInfo {
     jmpbuf: SetJmpBuffer, // in
     breakpoints: Option<BreakpointMap>,
-    payload: Option<Box<Any>>, // out
+    payload: Option<Box<dyn Any>>, // out
 }
 
 thread_local! {
@@ -89,7 +89,7 @@ pub unsafe fn clear_wasm_interrupt() {
 pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     f: F,
     breakpoints: Option<BreakpointMap>,
-) -> Result<R, Box<Any>> {
+) -> Result<R, Box<dyn Any>> {
     let unwind = UNWIND.with(|x| x.get());
     let old = (*unwind).take();
     *unwind = Some(UnwindInfo {
@@ -111,7 +111,7 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     }
 }
 
-pub unsafe fn begin_unsafe_unwind(e: Box<Any>) -> ! {
+pub unsafe fn begin_unsafe_unwind(e: Box<dyn Any>) -> ! {
     let unwind = UNWIND.with(|x| x.get());
     let inner = (*unwind)
         .as_mut()

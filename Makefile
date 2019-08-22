@@ -7,7 +7,7 @@ generate-spectests:
 generate-emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release
 
-generate-wasitests:
+generate-wasitests: wasitests-setup
 	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
 	&& echo "formatting" \
 	&& cargo fmt
@@ -21,13 +21,13 @@ generate: generate-spectests generate-emtests generate-wasitests
 
 # Spectests
 spectests-singlepass:
-	cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass
+	cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture
 
 spectests-cranelift:
-	cargo test --manifest-path lib/spectests/Cargo.toml --release --features clif
+	cargo test --manifest-path lib/spectests/Cargo.toml --release --features clif -- --nocapture
 
 spectests-llvm:
-	cargo test --manifest-path lib/spectests/Cargo.toml --release --features llvm
+	cargo test --manifest-path lib/spectests/Cargo.toml --release --features llvm -- --nocapture
 
 spectests: spectests-singlepass spectests-cranelift spectests-llvm
 
@@ -62,13 +62,17 @@ middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
 
 # Wasitests
-wasitests-singlepass:
+wasitests-setup:
+	rm -rf lib/wasi-tests/wasitests/test_fs/temp
+	mkdir -p lib/wasi-tests/wasitests/test_fs/temp
+
+wasitests-singlepass: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features singlepass -- --test-threads=1
 
-wasitests-cranelift:
+wasitests-cranelift: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1
 
-wasitests-llvm:
+wasitests-llvm: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features llvm -- --test-threads=1
 
 wasitests-unit:
@@ -144,7 +148,7 @@ release-llvm:
 bench-singlepass:
 	cargo bench --all --no-default-features --features "backend-singlepass"
 bench-clif:
-	cargo bench --all --no-default-features --features "backend-clif"
+	cargo bench --all --no-default-features --features "backend-cranelift"
 bench-llvm:
 	cargo bench --all --no-default-features --features "backend-llvm"
 
@@ -152,7 +156,7 @@ bench-llvm:
 compile-bench-singlepass:
 	cargo bench --all --no-run --no-default-features --features "backend-singlepass"
 compile-bench-clif:
-	cargo bench --all --no-run --no-default-features --features "backend-clif"
+	cargo bench --all --no-run --no-default-features --features "backend-cranelift"
 compile-bench-llvm:
 	cargo bench --all --no-run --no-default-features --features "backend-llvm"
 

@@ -92,13 +92,13 @@ pub fn read_module<
 
     let mut namespace_builder = Some(StringTableBuilder::new());
     let mut name_builder = Some(StringTableBuilder::new());
-    let mut func_count: usize = ::std::usize::MAX;
+    let mut func_count: usize = 0;
+    let mut mcg_info_fed = false;
 
     loop {
         use wasmparser::ParserState;
         let state = parser.read();
         match *state {
-            ParserState::EndWasm => break,
             ParserState::Error(err) => Err(LoadError::Parse(err))?,
             ParserState::TypeSectionEntry(ref ty) => {
                 info.write()
@@ -197,9 +197,9 @@ pub fn read_module<
                 info.write().unwrap().start_func = Some(FuncIndex::new(start_index as usize));
             }
             ParserState::BeginFunctionBody { .. } => {
-                let id = func_count.wrapping_add(1);
-                func_count = id;
-                if func_count == 0 {
+                let id = func_count;
+                if !mcg_info_fed {
+                    mcg_info_fed = true;
                     info.write().unwrap().namespace_table =
                         namespace_builder.take().unwrap().finish();
                     info.write().unwrap().name_table = name_builder.take().unwrap().finish();
@@ -280,6 +280,7 @@ pub fn read_module<
                     .map_err(|x| LoadError::Codegen(x))?;
                 fcg.finalize()
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                func_count = func_count.wrapping_add(1);
             }
             ParserState::BeginActiveElementSectionEntry(table_index) => {
                 let table_index = TableIndex::new(table_index as usize);
@@ -369,7 +370,21 @@ pub fn read_module<
 
                 info.write().unwrap().globals.push(global_init);
             }
-
+            ParserState::EndWasm => {
+                // TODO Consolidate with BeginFunction body if possible
+                if !mcg_info_fed {
+                    info.write().unwrap().namespace_table =
+                        namespace_builder.take().unwrap().finish();
+                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
+                    mcg.feed_signatures(info.read().unwrap().signatures.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.check_precondition(&info.read().unwrap())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                }
+                break;
+            }
             _ => {}
         }
     }

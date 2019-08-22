@@ -14,12 +14,10 @@ use std::{
     rc::Rc,
 };
 
-pub use self::atomic::Atomic;
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
 pub use self::view::{Atomically, MemoryView};
 
-mod atomic;
 mod dynamic;
 pub mod ptr;
 mod static_;
@@ -71,6 +69,12 @@ impl Memory {
                         .to_string(),
                 ));
             }
+        }
+
+        if desc.shared && desc.maximum.is_none() {
+            return Err(CreationError::InvalidDescriptor(
+                "Max number of pages is required for shared memory".to_string(),
+            ));
         }
 
         let variant = if !desc.shared {
@@ -323,6 +327,19 @@ mod memory_tests {
         })
         .unwrap();
         assert_eq!(unshared_memory.size(), Pages(10));
+    }
+
+    #[test]
+    fn test_invalid_descriptor_returns_error() {
+        let result = Memory::new(MemoryDescriptor {
+            minimum: Pages(10),
+            maximum: None,
+            shared: true,
+        });
+        assert!(
+            result.is_err(),
+            "Max number of pages is required for shared memory"
+        )
     }
 
 }

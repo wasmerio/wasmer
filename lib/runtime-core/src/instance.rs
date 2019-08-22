@@ -55,7 +55,7 @@ impl Instance {
             Box::new(mem::MaybeUninit::<vm::Ctx>::zeroed());
 
         let import_backing = ImportBacking::new(&module, &imports, vmctx.as_mut_ptr())?;
-        let backing = LocalBacking::new(&module, &import_backing, vmctx.as_mut_ptr());
+        let backing = LocalBacking::new(&module, &import_backing, vmctx.as_mut_ptr())?;
 
         let mut inner = Box::pin(InstanceInner {
             backing,
@@ -485,6 +485,23 @@ impl InstanceInner {
 }
 
 impl LikeNamespace for Instance {
+    fn get_export(&self, name: &str) -> Option<Export> {
+        let export_index = self.module.info.exports.get(name)?;
+
+        Some(self.inner.get_export_from_index(&self.module, export_index))
+    }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        unimplemented!("Use the exports method instead");
+    }
+
+    fn maybe_insert(&mut self, _name: &str, _export: Export) -> Option<()> {
+        None
+    }
+}
+
+use std::rc::Rc;
+impl LikeNamespace for Rc<Instance> {
     fn get_export(&self, name: &str) -> Option<Export> {
         let export_index = self.module.info.exports.get(name)?;
 

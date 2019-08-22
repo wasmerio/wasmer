@@ -51,7 +51,7 @@ build_script:
   - cargo build --release --manifest-path lib/runtime-c-api/Cargo.toml
 
 test_script:
-  - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
+  - cargo test --manifest-path lib/spectests/Cargo.toml --release --features clif -- --nocapture
 
 before_deploy:
   - appveyor PushArtifact target\release\wasmer_runtime_c_api.dll

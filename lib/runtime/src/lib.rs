@@ -1,6 +1,8 @@
 #![deny(
     dead_code,
+    nonstandard_style,
     unused_imports,
+    unused_mut,
     unused_variables,
     unused_unsafe,
     unreachable_patterns
@@ -98,7 +100,7 @@ pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::{func, imports};
 
 pub mod memory {
-    pub use wasmer_runtime_core::memory::{Atomic, Atomically, Memory, MemoryView};
+    pub use wasmer_runtime_core::memory::{Atomically, Memory, MemoryView};
 }
 
 pub mod wasm {

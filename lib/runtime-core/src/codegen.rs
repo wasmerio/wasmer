@@ -18,7 +18,7 @@ use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
 pub type BreakpointHandler =
-    Box<Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
+    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
 pub type BreakpointMap = Arc<HashMap<usize, BreakpointHandler>>;
 
 #[derive(Debug)]
@@ -232,7 +232,7 @@ impl<'a, 'b> EventSink<'a, 'b> {
 }
 
 pub struct MiddlewareChain {
-    chain: Vec<Box<GenericFunctionMiddleware>>,
+    chain: Vec<Box<dyn GenericFunctionMiddleware>>,
 }
 
 impl MiddlewareChain {
