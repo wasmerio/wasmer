@@ -6,6 +6,7 @@
     unused_unsafe,
     unreachable_patterns
 )]
+#![cfg_attr(not(target_os = "windows"), deny(dead_code))]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
 mod backend;
