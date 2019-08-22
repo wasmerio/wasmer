@@ -275,7 +275,7 @@ pub unsafe extern "C" fn wasmer_export_func_params(
     }
 }
 
-/// Sets the returns buffer to the parameter types of the given wasmer_xport_func_t
+/// Sets the returns buffer to the parameter types of the given wasmer_export_func_t
 ///
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
 ///
