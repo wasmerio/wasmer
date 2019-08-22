@@ -137,13 +137,20 @@ impl CodeMemory {
 #[cfg(unix)]
 impl CodeMemory {
     pub fn new(size: usize) -> CodeMemory {
+        if size == 0 {
+            return CodeMemory {
+                ptr: std::ptr::null_mut(),
+                size: 0,
+            };
+        }
+
         fn round_up_to_page_size(size: usize) -> usize {
             (size + (4096 - 1)) & !(4096 - 1)
         }
         let size = round_up_to_page_size(size);
         let ptr = unsafe {
             mmap(
-                ::std::ptr::null_mut(),
+                std::ptr::null_mut(),
                 size,
                 PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANON,
