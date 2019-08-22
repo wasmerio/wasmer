@@ -1,12 +1,10 @@
 use crate::error::GrowError;
-use crate::{
-    error::CreationError,
-    memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
-    sys,
-    types::MemoryDescriptor,
-    units::Pages,
-    vm,
-};
+use crate::{error::CreationError, sys, types::MemoryDescriptor, units::Pages, vm};
+
+#[doc(hidden)]
+pub const SAFE_STATIC_HEAP_SIZE: usize = 1 << 32; // 4 GiB
+#[doc(hidden)]
+pub const SAFE_STATIC_GUARD_SIZE: usize = 1 << 31; // 2 GiB
 
 /// This is an internal-only api.
 ///
