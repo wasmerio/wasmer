@@ -170,8 +170,8 @@ impl LLVMBackend {
     pub fn new(
         module: Module,
         _intrinsics: Intrinsics,
-        stackmaps: &StackmapRegistry,
-        module_info: &ModuleInfo,
+        _stackmaps: &StackmapRegistry,
+        _module_info: &ModuleInfo,
     ) -> (Self, LLVMCache) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
@@ -229,6 +229,9 @@ impl LLVMBackend {
         {
             use super::stackmap::{self, StkMapRecord, StkSizeRecord};
             use std::collections::BTreeMap;
+
+            let stackmaps = _stackmaps;
+            let module_info = _module_info;
 
             let raw_stackmap = unsafe {
                 std::slice::from_raw_parts(
