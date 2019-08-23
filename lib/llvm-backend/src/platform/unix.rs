@@ -69,6 +69,9 @@ extern "C" fn signal_trap_handler(
     _ucontext: *mut c_void,
 ) {
     unsafe {
+        if SigSet::all().thread_unblock().is_err() {
+            std::process::abort();
+        }
         // Apparently, we can unwind from arbitary instructions, as long
         // as we don't need to catch the exception inside the function that
         // was interrupted.
