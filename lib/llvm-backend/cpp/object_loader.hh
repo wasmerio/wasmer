@@ -5,6 +5,7 @@
 #include <exception>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <setjmp.h>
 #include <sstream>
 
@@ -51,6 +52,17 @@ typedef struct {
 typedef struct {
   size_t data, vtable;
 } box_any_t;
+
+enum WasmTrapType {
+  Unreachable = 0,
+  IncorrectCallIndirectSignature = 1,
+  MemoryOutOfBounds = 2,
+  CallIndirectOOB = 3,
+  IllegalArithmetic = 4,
+  Unknown,
+};
+
+extern "C" void callback_trampoline(void *, void *);
 
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager {
 public:
@@ -106,13 +118,26 @@ private:
   size_t stack_map_size = 0;
 };
 
+struct WasmErrorSink {
+  WasmTrapType *trap_out;
+  box_any_t *user_error;
+};
+
 struct WasmException : std::exception {
 public:
-  virtual std::string description() const noexcept = 0;
+  virtual std::string description() const noexcept { return "unknown"; }
+
+  virtual const char *what() const noexcept override {
+    return "wasm exception";
+  }
+
+  virtual void write_error(WasmErrorSink &out) const noexcept {
+    *out.trap_out = WasmTrapType::Unknown;
+  }
 };
 
 void catch_unwind(std::function<void()> &&f);
-[[noreturn]] void unsafe_unwind(std::exception *exception);
+[[noreturn]] void unsafe_unwind(WasmException *exception);
 
 struct UncatchableException : WasmException {
 public:
@@ -131,6 +156,10 @@ public:
 
   // The parts of a `Box<dyn Any>`.
   box_any_t error_data;
+
+  virtual void write_error(WasmErrorSink &out) const noexcept override {
+    *out.user_error = error_data;
+  }
 };
 
 struct BreakpointException : UncatchableException {
@@ -142,6 +171,11 @@ public:
   }
 
   uintptr_t callback;
+
+  virtual void write_error(WasmErrorSink &out) const noexcept override {
+    puts("CB TRAMPOLINE");
+    callback_trampoline(out.user_error, (void *)callback);
+  }
 };
 
 struct WasmModule {
@@ -165,16 +199,7 @@ private:
 
 struct WasmTrap : UncatchableException {
 public:
-  enum Type {
-    Unreachable = 0,
-    IncorrectCallIndirectSignature = 1,
-    MemoryOutOfBounds = 2,
-    CallIndirectOOB = 3,
-    IllegalArithmetic = 4,
-    Unknown,
-  };
-
-  WasmTrap(Type type) : type(type) {}
+  WasmTrap(WasmTrapType type) : type(type) {}
 
   virtual std::string description() const noexcept override {
     std::ostringstream ss;
@@ -183,27 +208,31 @@ public:
     return ss.str();
   }
 
-  Type type;
+  WasmTrapType type;
+
+  virtual void write_error(WasmErrorSink &out) const noexcept override {
+    *out.trap_out = type;
+  }
 
 private:
-  friend std::ostream &operator<<(std::ostream &out, const Type &ty) {
+  friend std::ostream &operator<<(std::ostream &out, const WasmTrapType &ty) {
     switch (ty) {
-    case Type::Unreachable:
+    case WasmTrapType::Unreachable:
       out << "unreachable";
       break;
-    case Type::IncorrectCallIndirectSignature:
+    case WasmTrapType::IncorrectCallIndirectSignature:
       out << "incorrect call_indirect signature";
       break;
-    case Type::MemoryOutOfBounds:
+    case WasmTrapType::MemoryOutOfBounds:
       out << "memory access out-of-bounds";
       break;
-    case Type::CallIndirectOOB:
+    case WasmTrapType::CallIndirectOOB:
       out << "call_indirect out-of-bounds";
       break;
-    case Type::IllegalArithmetic:
+    case WasmTrapType::IllegalArithmetic:
       out << "illegal arithmetic operation";
       break;
-    case Type::Unknown:
+    case WasmTrapType::Unknown:
     default:
       out << "unknown";
       break;
@@ -226,7 +255,6 @@ public:
 };
 
 extern "C" {
-void callback_trampoline(void *, void *);
 
 result_t module_load(const uint8_t *mem_ptr, size_t mem_size,
                      callbacks_t callbacks, WasmModule **module_out) {
@@ -239,7 +267,7 @@ result_t module_load(const uint8_t *mem_ptr, size_t mem_size,
   return RESULT_OK;
 }
 
-[[noreturn]] void throw_trap(WasmTrap::Type ty) {
+[[noreturn]] void throw_trap(WasmTrapType ty) {
   unsafe_unwind(new WasmTrap(ty));
 }
 
@@ -258,27 +286,21 @@ void module_delete(WasmModule *module) { delete module; }
 }
 
 bool invoke_trampoline(trampoline_t trampoline, void *ctx, void *func,
-                       void *params, void *results, WasmTrap::Type *trap_out,
+                       void *params, void *results, WasmTrapType *trap_out,
                        box_any_t *user_error, void *invoke_env) noexcept {
   try {
     catch_unwind([trampoline, ctx, func, params, results]() {
       trampoline(ctx, func, params, results);
     });
     return true;
-  } catch (const WasmTrap &e) {
-    *trap_out = e.type;
-    return false;
-  } catch (const UserException &e) {
-    *user_error = e.error_data;
-    return false;
-  } catch (const BreakpointException &e) {
-    callback_trampoline(user_error, (void *)e.callback);
-    return false;
-  } catch (const WasmException &e) {
-    *trap_out = WasmTrap::Type::Unknown;
+  } catch (std::unique_ptr<WasmException> &e) {
+    WasmErrorSink sink;
+    sink.trap_out = trap_out;
+    sink.user_error = user_error;
+    e->write_error(sink);
     return false;
   } catch (...) {
-    *trap_out = WasmTrap::Type::Unknown;
+    *trap_out = WasmTrapType::Unknown;
     return false;
   }
 }

@@ -253,6 +253,7 @@ fn get_llvm_cxxflags() -> String {
         .split(&[' ', '\n'][..])
         .filter(|word| !word.starts_with("-W"))
         .filter(|word| word != &"-fno-exceptions")
+        .filter(|word| word != &"-fno-rtti")
         .collect::<Vec<_>>()
         .join(" ")
 }

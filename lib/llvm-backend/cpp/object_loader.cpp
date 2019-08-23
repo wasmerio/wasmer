@@ -27,7 +27,7 @@ struct UnwindPoint {
   UnwindPoint *prev;
   jmp_buf stack;
   std::function<void()> *f;
-  std::unique_ptr<std::exception> exception;
+  std::unique_ptr<WasmException> exception;
 };
 
 static thread_local UnwindPoint *unwind_state = nullptr;
@@ -47,11 +47,11 @@ void catch_unwind(std::function<void()> &&f) {
 
   unwind_state = current.prev;
   if (current.exception) {
-    throw *current.exception;
+    throw std::move(current.exception);
   }
 }
 
-void unsafe_unwind(std::exception *exception) {
+void unsafe_unwind(WasmException *exception) {
   UnwindPoint *state = unwind_state;
   if (state) {
     state->exception.reset(exception);
