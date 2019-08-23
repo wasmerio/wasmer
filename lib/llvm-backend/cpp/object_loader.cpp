@@ -44,6 +44,8 @@ void catch_unwind(std::function<void()> &&f) {
   unwind_state = &current;
 
   unwinding_setjmp(current.stack, unwind_payload, (void *)&current);
+
+  unwind_state = current.prev;
   if (current.exception) {
     throw *current.exception;
   }
