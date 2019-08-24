@@ -8,7 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-nix = "0.14.1"
+nix = "0.15.0"
 page_size = "0.4.1"
 wasmparser = "0.35.1"
 parking_lot = "0.9.0"
@@ -26,13 +26,13 @@ features = ["serde-1"]
 
 # Dependencies for caching.
 [dependencies.serde]
-version = "1.0.98"
+version = "1.0.99"
 # This feature is required for serde to support serializing/deserializing reference counted pointers (e.g. Rc and Arc).
 features = ["rc"]
 [dependencies.serde_derive]
 version = "1.0.98"
 [dependencies.serde_bytes]
-version = "0.11.1"
+version = "0.11.2"
 [dependencies.serde-bench]
 version = "0.0.7"
 [dependencies.blake2b_simd]

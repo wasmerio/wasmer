@@ -23,6 +23,7 @@ pub enum WasmTrapInfo {
     MemoryOutOfBounds = 2,
     CallIndirectOOB = 3,
     IllegalArithmetic = 4,
+    MisalignedAtomicAccess = 5,
     Unknown,
 }
 
@@ -39,6 +40,7 @@ impl fmt::Display for WasmTrapInfo {
                 WasmTrapInfo::MemoryOutOfBounds => "memory out-of-bounds access",
                 WasmTrapInfo::CallIndirectOOB => "`call_indirect` out-of-bounds",
                 WasmTrapInfo::IllegalArithmetic => "illegal arithmetic operation",
+                WasmTrapInfo::MisalignedAtomicAccess => "misaligned atomic access",
                 WasmTrapInfo::Unknown => "unknown",
             }
         )

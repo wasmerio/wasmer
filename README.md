@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="400" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
+    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
   </a>
 </p>
 
@@ -169,13 +169,18 @@ nginx and Lua do not work on Windows - you can track the progress on [this issue
 </details>
 
 ## Building
+[![Rustc Version 1.36+](https://img.shields.io/badge/rustc-1.36+-red.svg)](https://blog.rust-lang.org/2019/07/04/Rust-1.36.0.html)
 
 Wasmer is built with [Cargo](https://crates.io/), the Rust package manager.
+
+The Singlepass backend requires nightly, so if you want to use it,
 
 Set Rust Nightly:
 ```
 rustup default nightly
 ```
+
+Otherwise an up to date (see badge above) verison of stable Rust will work.
 
 And install Wasmer
 ```sh

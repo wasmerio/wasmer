@@ -8,7 +8,7 @@ use std::ptr;
 use std::slice;
 
 thread_local! {
-    static LAST_ERROR: RefCell<Option<Box<Error>>> = RefCell::new(None);
+    static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);
 }
 
 pub fn update_last_error<E: Error + 'static>(err: E) {
@@ -18,7 +18,7 @@ pub fn update_last_error<E: Error + 'static>(err: E) {
 }
 
 /// Retrieve the most recent error, clearing it in the process.
-pub(crate) fn take_last_error() -> Option<Box<Error>> {
+pub(crate) fn take_last_error() -> Option<Box<dyn Error>> {
     LAST_ERROR.with(|prev| prev.borrow_mut().take())
 }
 

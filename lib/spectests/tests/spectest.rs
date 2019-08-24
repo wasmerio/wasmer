@@ -18,6 +18,8 @@ mod tests {
     // TODO Files could be run with multiple threads
     // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
 
+    use std::rc::Rc;
+
     struct SpecFailure {
         file: String,
         line: u64,
@@ -135,7 +137,6 @@ mod tests {
         table::Table,
         types::{ElementType, MemoryDescriptor, TableDescriptor},
         units::Pages,
-        Module,
     };
     use wasmer_runtime_core::{func, imports, vm::Ctx};
 
@@ -166,17 +167,17 @@ mod tests {
 
         let mut features = wabt::Features::new();
         features.enable_simd();
+        features.enable_threads();
         let mut parser: ScriptParser =
             ScriptParser::from_source_and_name_with_features(&source, filename, features)
                 .expect(&format!("Failed to parse script {}", &filename));
 
         use std::panic;
         let mut instance: Option<Rc<Instance>> = None;
-        use std::rc::Rc;
 
         let mut named_modules: HashMap<String, Rc<Instance>> = HashMap::new();
 
-        let mut registered_modules: HashMap<String, Module> = HashMap::new();
+        let mut registered_modules: HashMap<String, Rc<Instance>> = HashMap::new();
         //
 
         while let Some(Command { kind, line }) =
@@ -185,7 +186,7 @@ mod tests {
             let test_key = format!("{}:{}:{}", backend, filename, line);
             let test_platform_key = format!("{}:{}:{}:{}", backend, filename, line, platform);
             // Use this line to debug which test is running
-            //println!("Running test: {}", test_key);
+            println!("Running test: {}", test_key);
 
             if (excludes.contains_key(&test_key)
                 && *excludes.get(&test_key).unwrap() == Exclude::Skip)
@@ -203,7 +204,10 @@ mod tests {
                         let spectest_import_object =
                             get_spectest_import_object(&registered_modules);
                         let config = CompilerConfig {
-                            features: Features { simd: true },
+                            features: Features {
+                                simd: true,
+                                threads: true,
+                            },
                             ..Default::default()
                         };
                         let module = wasmer_runtime_core::compile_with_config(
@@ -291,10 +295,9 @@ mod tests {
                                     Ok(values) => {
                                         for (i, v) in values.iter().enumerate() {
                                             let expected_value =
-                                                convert_value(*expected.get(i).unwrap());
-                                            if *v != expected_value
-                                                && !(*v != *v && expected_value != expected_value)
-                                            {
+                                                convert_wabt_value(*expected.get(i).unwrap());
+                                            let v = convert_wasmer_value(v.clone());
+                                            if v != expected_value {
                                                 test_report.add_failure(SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
@@ -631,7 +634,10 @@ mod tests {
                     //                    println!("AssertInvalid");
                     let result = panic::catch_unwind(|| {
                         let config = CompilerConfig {
-                            features: Features { simd: true },
+                            features: Features {
+                                simd: true,
+                                threads: true,
+                            },
                             ..Default::default()
                         };
                         wasmer_runtime_core::compile_with_config(
@@ -682,7 +688,10 @@ mod tests {
 
                     let result = panic::catch_unwind(|| {
                         let config = CompilerConfig {
-                            features: Features { simd: true },
+                            features: Features {
+                                simd: true,
+                                threads: true,
+                            },
                             ..Default::default()
                         };
                         wasmer_runtime_core::compile_with_config(
@@ -799,7 +808,10 @@ mod tests {
                         let spectest_import_object =
                             get_spectest_import_object(&registered_modules);
                         let config = CompilerConfig {
-                            features: Features { simd: true },
+                            features: Features {
+                                simd: true,
+                                threads: true,
+                            },
                             ..Default::default()
                         };
                         let module = wasmer_runtime_core::compile_with_config(
@@ -859,20 +871,23 @@ mod tests {
                     }
                 }
                 CommandKind::Register { name, as_name } => {
-                    let instance: Option<&Instance> = match name {
+                    let instance: Option<Rc<Instance>> = match name {
                         Some(ref name) => {
                             let i = named_modules.get(name);
                             match i {
-                                Some(ins) => Some(ins.borrow()),
+                                Some(ins) => Some(Rc::clone(ins)),
                                 None => None,
                             }
                         }
                         None => match instance {
-                            Some(ref i) => Some(i.borrow()),
+                            Some(ref i) => Some(Rc::clone(i)),
                             None => None,
                         },
                     };
-                    if instance.is_none() {
+
+                    if let Some(ins) = instance {
+                        registered_modules.insert(as_name, ins);
+                    } else {
                         test_report.add_failure(
                             SpecFailure {
                                 file: filename.to_string(),
@@ -883,8 +898,6 @@ mod tests {
                             &test_key,
                             excludes,
                         );
-                    } else {
-                        registered_modules.insert(as_name, instance.unwrap().module());
                     }
                 }
                 CommandKind::PerformAction(ref action) => match action {
@@ -967,6 +980,35 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Clone, Eq, PartialEq)]
+    pub enum SpectestValue {
+        I32(i32),
+        I64(i64),
+        F32(u32),
+        F64(u64),
+        V128(u128),
+    }
+
+    fn convert_wasmer_value(other: wasmer_runtime_core::types::Value) -> SpectestValue {
+        match other {
+            wasmer_runtime_core::types::Value::I32(v) => SpectestValue::I32(v),
+            wasmer_runtime_core::types::Value::I64(v) => SpectestValue::I64(v),
+            wasmer_runtime_core::types::Value::F32(v) => SpectestValue::F32(v.to_bits()),
+            wasmer_runtime_core::types::Value::F64(v) => SpectestValue::F64(v.to_bits()),
+            wasmer_runtime_core::types::Value::V128(v) => SpectestValue::V128(v),
+        }
+    }
+
+    fn convert_wabt_value(other: Value<f32, f64>) -> SpectestValue {
+        match other {
+            Value::I32(v) => SpectestValue::I32(v),
+            Value::I64(v) => SpectestValue::I64(v),
+            Value::F32(v) => SpectestValue::F32(v.to_bits()),
+            Value::F64(v) => SpectestValue::F64(v.to_bits()),
+            Value::V128(v) => SpectestValue::V128(v),
+        }
+    }
+
     fn convert_value(other: Value<f32, f64>) -> wasmer_runtime_core::types::Value {
         match other {
             Value::I32(v) => wasmer_runtime_core::types::Value::I32(v),
@@ -977,13 +1019,13 @@ mod tests {
         }
     }
 
-    fn to_hex(v: wasmer_runtime_core::types::Value) -> String {
+    fn to_hex(v: SpectestValue) -> String {
         match v {
-            wasmer_runtime_core::types::Value::I32(v) => format!("{:#x}", v),
-            wasmer_runtime_core::types::Value::I64(v) => format!("{:#x}", v),
-            wasmer_runtime_core::types::Value::F32(v) => format!("{:#x}", v.to_bits()),
-            wasmer_runtime_core::types::Value::F64(v) => format!("{:#x}", v.to_bits()),
-            wasmer_runtime_core::types::Value::V128(v) => format!("{:#x}", v),
+            SpectestValue::I32(v) => format!("{:#x}", v),
+            SpectestValue::I64(v) => format!("{:#x}", v),
+            SpectestValue::F32(v) => format!("{:#x}", v),
+            SpectestValue::F64(v) => format!("{:#x}", v),
+            SpectestValue::V128(v) => format!("{:#x}", v),
         }
     }
 
@@ -1011,7 +1053,9 @@ mod tests {
         println!("{} {}", val, val2);
     }
 
-    fn get_spectest_import_object(registered_modules: &HashMap<String, Module>) -> ImportObject {
+    fn get_spectest_import_object(
+        registered_modules: &HashMap<String, Rc<Instance>>,
+    ) -> ImportObject {
         let memory = Memory::new(MemoryDescriptor {
             minimum: Pages(1),
             maximum: Some(Pages(2)),
@@ -1046,11 +1090,8 @@ mod tests {
             },
         };
 
-        for (name, module) in registered_modules.iter() {
-            let i = module
-                .instantiate(&import_object)
-                .expect("Registered WASM can't be instantiated");
-            import_object.register(name.clone(), i);
+        for (name, instance) in registered_modules.iter() {
+            import_object.register(name.clone(), Rc::clone(instance));
         }
         import_object
     }

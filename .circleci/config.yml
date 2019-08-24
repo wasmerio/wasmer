@@ -57,7 +57,7 @@ jobs:
 
   test-stable:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.36
     <<: *run_with_build_env_vars
     steps:
       - checkout
