@@ -66,31 +66,51 @@ jobs:
     # - bash: make integration-tests
     #   displayName: Integration Tests
 
-# - job: Build
-#   strategy:
-#     matrix:
-#       linux:
-#         imageName: 'ubuntu-16.04'
-#       mac:
-#         imageName: 'macos-10.14'
-#         MACOSX_DEPLOYMENT_TARGET: 10.10
-#       windows:
-#         imageName: 'vs2017-win2016'
-#         RUSTFLAGS: -Ctarget-feature=+crt-static
+- job: Build
+  strategy:
+    matrix:
+      linux:
+        imageName: 'ubuntu-16.04'
+        rust_toolchain: nightly-2019-06-10
+      mac:
+        imageName: 'macos-10.14'
+        rust_toolchain: nightly-2019-06-10
+        MACOSX_DEPLOYMENT_TARGET: 10.10
+      windows:
+        imageName: 'vs2017-win2016'
+        rust_toolchain: stable
+        RUSTFLAGS: -Ctarget-feature=+crt-static
 
-#   variables:
-#     rust_toolchain: nightly-2019-06-10
+  variables:
+    SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
 
-#   pool:
-#     vmImage: $(imageName)
+  pool:
+    vmImage: $(imageName)
 
-#   steps:
-#     - checkout: self
-#       submodules: true
-#     - template: .azure/install-rust.yml
-#     - bash: make test
-#       displayName: Tests
-
+  steps:
+    - checkout: self
+      submodules: true
+    - template: .azure/install-rust.yml
+    - template: .azure/install-sccache.yml
+    - template: .azure/install-cmake.yml
+    - template: .azure/install-llvm.yml
+    - task: CacheBeta@0
+      inputs:
+        key: |
+          sccache
+          $(Agent.OS)
+          $(Build.SourcesDirectory)/Cargo.lock
+        path: $(SCCACHE_DIR)
+      displayName: Cache Cargo Target
+    - bash: make release
+      displayName: Build Release
+      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+    - bash: release-llvm
+      displayName: Build (Windows)
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+    - bash: make capi
+      displayName: Check with Flags
+      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
 
 trigger:
   branches:
