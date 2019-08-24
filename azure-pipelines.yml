@@ -32,8 +32,8 @@ jobs:
         imageName: 'vs2017-win2016'
         rust_toolchain: stable
 
-  variables:
-    SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
+  # variables:
+  #   SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
 
   pool:
     vmImage: $(imageName)
@@ -45,11 +45,11 @@ jobs:
     - template: .azure/install-sccache.yml
     - template: .azure/install-cmake.yml
     - template: .azure/install-llvm.yml
-    - task: CacheBeta@0
-      inputs:
-        key: sccache | $(Agent.OS) | Cargo.lock
-        path: $(SCCACHE_DIR)
-      displayName: Cache Cargo Target
+    # - task: CacheBeta@0
+    #   inputs:
+    #     key: sccache | $(Agent.OS) | Cargo.lock
+    #     path: $(SCCACHE_DIR)
+    #   displayName: Cache Cargo Target
     - bash: make test
       displayName: Tests (*nix)
       condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
@@ -78,8 +78,8 @@ jobs:
         rust_toolchain: stable
         RUSTFLAGS: -Ctarget-feature=+crt-static
 
-  variables:
-    SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
+  # variables:
+  #   SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
 
   pool:
     vmImage: $(imageName)
@@ -91,11 +91,11 @@ jobs:
     - template: .azure/install-sccache.yml
     - template: .azure/install-cmake.yml
     - template: .azure/install-llvm.yml
-    - task: CacheBeta@0
-      inputs:
-        key: sccache | $(Agent.OS) | Cargo.lock
-        path: $(SCCACHE_DIR)
-      displayName: Cache Cargo Target
+    # - task: CacheBeta@0
+    #   inputs:
+    #     key: sccache | $(Agent.OS) | Cargo.lock
+    #     path: $(SCCACHE_DIR)
+    #   displayName: Cache Cargo Target
     - bash: make release
       displayName: Build Release
       condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
