@@ -47,10 +47,7 @@ jobs:
     - template: .azure/install-llvm.yml
     - task: CacheBeta@0
       inputs:
-        key: |
-          sccache
-          $(Agent.OS)
-          $(Build.SourcesDirectory)/Cargo.lock
+        key: sccache | $(Agent.OS) | Cargo.lock
         path: $(SCCACHE_DIR)
       displayName: Cache Cargo Target
     - bash: make test
@@ -96,10 +93,7 @@ jobs:
     - template: .azure/install-llvm.yml
     - task: CacheBeta@0
       inputs:
-        key: |
-          sccache
-          $(Agent.OS)
-          $(Build.SourcesDirectory)/Cargo.lock
+        key: sccache | $(Agent.OS) | Cargo.lock
         path: $(SCCACHE_DIR)
       displayName: Cache Cargo Target
     - bash: make release
