@@ -51,6 +51,8 @@ jobs:
     - bash: make check
       displayName: Check with Flags
       condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+    - script: "%RUSTC_WRAPPER% -s"
+    - script: cat sccache.log
 
     # - bash: make integration-tests
     #   displayName: Integration Tests
@@ -92,6 +94,8 @@ jobs:
         install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
       displayName: Build c-api (Darwin fix)
       condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+    - script: "%RUSTC_WRAPPER% -s"
+    - script: cat sccache.log
 
 trigger:
   branches:
