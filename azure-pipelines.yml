@@ -105,7 +105,7 @@ jobs:
     - bash: make release
       displayName: Build Release
       condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-    - bash: release-llvm
+    - bash: make release-llvm
       displayName: Build (Windows)
       condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
     - bash: make capi
