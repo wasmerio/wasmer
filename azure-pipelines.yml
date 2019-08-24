@@ -4,7 +4,7 @@ name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
 jobs:
 - job: lint
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'macos-10.14'
   steps:
   - checkout: self
     submodules: true
