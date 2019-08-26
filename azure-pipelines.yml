@@ -48,12 +48,21 @@ jobs:
     - bash: make spectests-cranelift
       displayName: Tests (Windows)
       condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+- job: Check
+  pool:
+    vmImage: 'macos-10.14'
+
+  steps:
+    - checkout: self
+      submodules: true
+    - template: .azure/install-rust.yml
+    - template: .azure/install-sccache.yml
+    - template: .azure/install-cmake.yml
+    - template: .azure/install-llvm.yml
     - bash: make check
       displayName: Check with Flags
       condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-
-    # - bash: make integration-tests
-    #   displayName: Integration Tests
 
 - job: Build
   strategy:
