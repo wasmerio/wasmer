@@ -87,7 +87,13 @@ jobs:
       displayName: Build (Windows)
       condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
     - bash: make capi
-      displayName: Build c-api
+      displayName: Build c-api (*nix)
+      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+    - bash: |
+        cargo build --release
+        cargo build -p wasmer-runtime-c-api --release
+      displayName: Build c-api (Windows)
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
     - bash: |
         install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
       displayName: Build c-api (Darwin fix)
