@@ -63,7 +63,6 @@ jobs:
     - template: .azure/install-sccache.yml
     - template: .azure/install-cmake.yml
     - template: .azure/install-llvm.yml
-    - template: .azure/install-innosetup.yml
     - bash: make check
       displayName: Check with Flags
       condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
@@ -92,6 +91,7 @@ jobs:
     - template: .azure/install-rust.yml
     - template: .azure/install-sccache.yml
     - template: .azure/install-cmake.yml
+    - template: .azure/install-innosetup.yml
     - template: .azure/install-llvm.yml
     - bash: make release
       displayName: Build (*nix)
