@@ -53,6 +53,9 @@ jobs:
   pool:
     vmImage: 'macos-10.14'
 
+  variables:
+    rust_toolchain: nightly-2019-06-10
+
   steps:
     - checkout: self
       submodules: true
