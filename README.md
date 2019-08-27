@@ -8,6 +8,9 @@
   <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
     <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
   </a>
+  <a href="https://app.fuzzit.dev/orgs/wasmerio/dashboard">
+    <img src="https://app.fuzzit.dev/badge?org_id=wasmerio">
+  </a>
   <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
     <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
   </a>

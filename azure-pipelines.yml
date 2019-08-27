@@ -57,6 +57,30 @@ jobs:
         displayName: Tests (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
 
+  - job: Fuzz_regression
+    displayName: Fuzz regression
+    pool:
+      vmImage: "ubuntu-16.04"
+    variables:
+      rust_toolchain: nightly-2019-08-15
+    steps:
+      - template: .azure/install-rust.yml
+      - bash: cargo install cargo-fuzz
+      - bash: ./fuzzit.sh local-regression
+
+  - job: Fuzz
+    condition: ne(variables['Build.Reason'], 'PullRequest')
+    pool:
+      vmImage: "ubuntu-16.04"
+    variables:
+      rust_toolchain: nightly-2019-08-15
+    steps:
+      - template: .azure/install-rust.yml
+      - bash: cargo install cargo-fuzz
+      - bash: ./fuzzit.sh fuzzing
+        env:
+          FUZZIT_API_KEY: $(FUZZIT_API_KEY)
+
   - job: Check
     pool:
       vmImage: "ubuntu-16.04"
