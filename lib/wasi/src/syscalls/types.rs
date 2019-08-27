@@ -2,6 +2,7 @@
 
 use crate::ptr::{Array, WasmPtr};
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::mem;
 use wasmer_runtime_core::types::ValueType;
@@ -316,7 +317,7 @@ pub type __wasi_filedelta_t = i64;
 
 pub type __wasi_filesize_t = u64;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,

@@ -4,7 +4,7 @@ use crate::syscalls::types::*;
 use std::convert::TryInto;
 use std::{
     fs,
-    io::{self, Read, Seek, Write},
+    io::{self, Read, Seek, SeekFrom, Write},
     path::PathBuf,
     time::SystemTime,
 };
@@ -178,6 +178,29 @@ pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     fn get_raw_fd(&self) -> Option<i32> {
         None
     }
+
+    /// Try to turn the file into bytes
+    fn to_bytes(&self) -> Option<Vec<u8>>;
+}
+
+/// Tries to read a WASI file out of bytes
+/// with default parsers for stdin/stdout/stderr and `HostFile`
+pub fn wasi_file_from_bytes(bytes: &[u8]) -> Option<Box<dyn WasiFile>> {
+    Some(if b"stdout"[..] == bytes[.."stdout".len()] {
+        Box::new(Stdout(std::io::stdout()))
+    } else if b"stderr"[..] == bytes[.."stderr".len()] {
+        Box::new(Stderr(std::io::stderr()))
+    } else if b"stdin"[..] == bytes[.."stdin".len()] {
+        Box::new(Stdin(std::io::stdin()))
+    } else if b"host_file"[..] == bytes[.."host_file".len()] {
+        unimplemented!();
+    } else {
+        return None;
+    })
+}
+
+pub(crate) fn serialize_file<E: Default>(file: Box<dyn WasiFile>) -> Result<Vec<u8>, E> {
+    file.to_bytes().ok_or_else(|| Default::default())
 }
 
 #[derive(Debug, Clone)]
@@ -485,6 +508,23 @@ impl WasiFile for HostFile {
             "HostFile::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
         );
     }
+
+    fn to_bytes(&self) -> Option<Vec<u8>> {
+        let mut out = vec![];
+        for c in "host_file".chars() {
+            out.push(c as u8);
+        }
+        let cursor = self.inner.seek(SeekFrom::Current(0)).ok()?;
+        // store r/w/append info here? or is this handeled somewhere else?
+        for b in cursor.to_le_bytes().into_iter() {
+            out.push(*b);
+        }
+        for b in self.host_path.to_string_lossy().bytes() {
+            out.push(b);
+        }
+
+        Some(out)
+    }
 }
 
 impl From<io::Error> for WasiFsError {
@@ -591,6 +631,10 @@ impl WasiFile for Stdout {
             "Stdout::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
         );
     }
+
+    fn to_bytes(&self) -> Option<Vec<u8>> {
+        Some("stdout".chars().map(|c| c as u8).collect())
+    }
 }
 
 #[derive(Debug)]
@@ -669,6 +713,10 @@ impl WasiFile for Stderr {
         unimplemented!(
             "Stderr::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
         );
+    }
+
+    fn to_bytes(&self) -> Option<Vec<u8>> {
+        Some("stderr".chars().map(|c| c as u8).collect())
     }
 }
 
@@ -772,6 +820,10 @@ impl WasiFile for Stdin {
         unimplemented!(
             "Stdin::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
         );
+    }
+
+    fn to_bytes(&self) -> Option<Vec<u8>> {
+        Some("stdin".chars().map(|c| c as u8).collect())
     }
 }
 
