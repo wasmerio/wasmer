@@ -14,7 +14,7 @@ use std::{
     borrow::Borrow,
     cell::Cell,
     fs,
-    io::{self, Write},
+    io::Write,
     path::{Path, PathBuf},
     time::SystemTime,
 };
@@ -47,7 +47,6 @@ pub struct InodeVal {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Kind {
     File {
-        #[serde(skip)]
         /// the open file, if it's open
         handle: Option<Box<dyn WasiFile>>,
         /// The path on the host system where the file is located
@@ -107,7 +106,7 @@ impl Fd {
     pub const CREATE: u16 = 16;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
 pub struct WasiFs {
@@ -142,9 +141,9 @@ impl WasiFs {
             inode_counter: Cell::new(1024),
             orphan_fds: HashMap::new(),
 
-            stdin: Box::new(Stdin(io::stdin())),
-            stdout: Box::new(Stdout(io::stdout())),
-            stderr: Box::new(Stderr(io::stderr())),
+            stdin: Box::new(Stdin),
+            stdout: Box::new(Stdout),
+            stderr: Box::new(Stderr),
         };
         // create virtual root
         let root_inode = {
@@ -932,44 +931,9 @@ impl WasiFs {
             ..__wasi_filestat_t::default()
         })
     }
-
-    pub(crate) fn unfreeze(bytes: &[u8]) -> Option<(WasiFs, &[u8])> {
-        unimplemented!()
-            Some((Self {
-                preopen_fds,
-                name_map,
-                inodes,
-                fd_map,
-                next_fd,
-                inode_counter,
-                orphan_fds,
-
-                stdout,
-                stderr,
-                stdin
-            }, unimplemented!()))
-    }
-
-    pub(crate) fn freeze(&self) -> Option<Vec<u8>> {
-        let mut out = vec![];
-        // store pointer to stdout, stderr, and stdin here I guess
-        // hmmm
-        out.append(&mut bincode::serialize(&self.preopen_fds).ok()?);
-        out.append(&mut bincode::serialize(&self.name_map).ok()?);
-        out.append(&mut bincode::serialize(&self.inodes).ok()?);
-        out.append(&mut bincode::serialize(&self.fd_map).ok()?);
-        out.append(&mut bincode::serialize(&self.next_fd).ok()?);
-        out.append(&mut bincode::serialize(&self.inode_counter).ok()?);
-        out.append(&mut bincode::serialize(&self.orphan_fds).ok()?);
-        out.append(&mut self.stdout.to_bytes()?);
-        out.append(&mut self.stderr.to_bytes()?);
-        out.append(&mut self.stdin.to_bytes()?);
-
-        Some(out)
-    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WasiState {
     pub fs: WasiFs,
     pub args: Vec<Vec<u8>>,
@@ -979,32 +943,12 @@ pub struct WasiState {
 impl WasiState {
     /// Turn the WasiState into bytes
     pub fn freeze(&self) -> Option<Vec<u8>> {
-        let wasi_fs = self.wasi_fs.freeze()?;
-        let args = bincode::serialize(&self.args).ok()?;
-        let envs = bincode::serialize(&self.envs).ok()?;
-
-        Some(
-            wasi_fs
-                .into_iter()
-                .chain(args.into_iter())
-                .chain(envs.into_iter())
-                .collect(),
-        )
+        bincode::serialize(self).ok()
     }
 
     /// Get a WasiState from bytes
-    pub fn unfreeze<F>(bytes: &[u8], deserialize_fns: Vec<Box<F>>) -> Option<Self>
-    where
-        F: Fn(&[u8]) -> Option<Box<dyn WasiFile>>,
-    {
-        let (wasi_fs, remaining_bytes) = WasiFs::unfreeze(bytes)?;
-        let (args, envs): (Vec<Vec<u8>>, Vec<Vec<u8>>) =
-            bincode::deserialize(remaining_bytes).ok()?;
-        Some(Self {
-            fs: wasi_fs,
-            args,
-            envs,
-        })
+    pub fn unfreeze(bytes: &[u8]) -> Option<Self> {
+        bincode::deserialize(bytes).ok()
     }
 }
 

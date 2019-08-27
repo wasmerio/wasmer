@@ -15,6 +15,7 @@ libc = "0.2.60"
 log = "0.4.8"
 rand = "0.7.0"
 time = "0.1.42"
+typetag = "0.1"
 serde = { version = "1", features = ["derive"] }
 # wasmer-runtime-abi = { path = "../runtime-abi" }
 wasmer-runtime-core = { path = "../runtime-core", version = "0.6.0" }

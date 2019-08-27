@@ -49,8 +49,8 @@ pub fn generate_import_object(
 
         let state = Box::new(WasiState {
             fs: WasiFs::new(&preopened_files, &mapped_dirs).unwrap(),
-            args,
-            envs,
+            args: args.clone(),
+            envs: envs.clone(),
         });
 
         (

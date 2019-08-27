@@ -1704,6 +1704,9 @@ pub fn path_open(
                 *handle = Some(Box::new(HostFile::new(
                     wasi_try!(open_options.open(&path).map_err(|_| __WASI_EIO)),
                     path.to_path_buf(),
+                    true,
+                    adjusted_rights & __WASI_RIGHT_FD_WRITE != 0,
+                    false,
                 )));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
@@ -1768,6 +1771,9 @@ pub fn path_open(
                         __WASI_EIO
                     })),
                     new_file_host_path.clone(),
+                    true,
+                    true,
+                    true,
                 )) as Box<dyn WasiFile>)
             };
 
