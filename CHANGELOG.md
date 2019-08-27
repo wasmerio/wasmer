@@ -7,6 +7,7 @@ Blocks of changes will separated by version increments.
 ## **[Unreleased]**
 
 - [#852](https://github.com/wasmerio/wasmer/pull/852) Make minor grammar/capitalization fixes to README.md
+- [#843](https://github.com/wasmerio/wasmer/pull/843) Integrate with Fuzzit
 - [#841](https://github.com/wasmerio/wasmer/pull/841) Slightly improve rustdoc documentation and small updates to outdated info in readme files
 - [#835](https://github.com/wasmerio/wasmer/pull/836) Update Cranelift fork version to `0.44.0`
 - [#836](https://github.com/wasmerio/wasmer/pull/836) Update Cranelift fork version to `0.44.0`
