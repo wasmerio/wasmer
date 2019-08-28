@@ -34,7 +34,7 @@ pub(crate) fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
     unsafe { state::get_wasi_state(&mut *(ctx as *const Ctx as *mut Ctx)) }
 }
 
-fn write_bytes<T: Write>(
+fn write_bytes_inner<T: Write>(
     mut write_loc: T,
     memory: &Memory,
     iovs_arr_cell: &[Cell<__wasi_ciovec_t>],
@@ -44,17 +44,23 @@ fn write_bytes<T: Write>(
         let iov_inner = iov.get();
         let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
         write_loc
-            .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
-            .map_err(|_| {
-                write_loc.flush();
-                __WASI_EIO
-            })?;
+            .write_all(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
+            .map_err(|_| __WASI_EIO)?;
 
         // TODO: handle failure more accurately
         bytes_written += iov_inner.buf_len;
     }
-    write_loc.flush();
     Ok(bytes_written)
+}
+
+fn write_bytes<T: Write>(
+    mut write_loc: T,
+    memory: &Memory,
+    iovs_arr_cell: &[Cell<__wasi_ciovec_t>],
+) -> Result<u32, __wasi_errno_t> {
+    let result = write_bytes_inner(&mut write_loc, memory, iovs_arr_cell);
+    write_loc.flush();
+    result
 }
 
 fn read_bytes<T: Read>(
