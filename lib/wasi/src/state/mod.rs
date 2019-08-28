@@ -168,7 +168,7 @@ impl WasiFs {
             let inode = wasi_fs.create_virtual_root();
             let fd = wasi_fs
                 .create_fd(root_rights, root_rights, 0, Fd::READ, inode)
-                .expect("Could not create root fd");
+                .map_err(|e| format!("Could not create root fd: {}", e))?;
             wasi_fs.preopen_fds.push(fd);
             inode
         };
@@ -179,7 +179,13 @@ impl WasiFs {
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
             let cur_dir = PathBuf::from(dir);
-            let cur_dir_metadata = cur_dir.metadata().expect("Could not find directory");
+            let cur_dir_metadata = cur_dir.metadata().map_err(|e| {
+                format!(
+                    "Could not get metadata for file {:?}: {}",
+                    dir,
+                    e.to_string()
+                )
+            })?;
             let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
                     parent: Some(root_inode),
@@ -209,7 +215,7 @@ impl WasiFs {
                     Fd::READ | Fd::WRITE,
                     inode,
                 )
-                .expect("Could not open fd");
+                .map_err(|e| format!("Could not open fd for file {:?}: {}", dir, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
                 // todo handle collisions
                 assert!(entries.insert(dir.to_string(), inode).is_none())
@@ -221,9 +227,13 @@ impl WasiFs {
             debug!("Attempting to open {:?} at {}", real_dir, alias);
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
-            let cur_dir_metadata = real_dir
-                .metadata()
-                .expect("mapped dir not at previously verified location");
+            let cur_dir_metadata = real_dir.metadata().map_err(|e| {
+                format!(
+                    "Could not get metadata for file {:?}: {}",
+                    &real_dir,
+                    e.to_string()
+                )
+            })?;
             let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
                     parent: Some(root_inode),
@@ -253,7 +263,7 @@ impl WasiFs {
                     Fd::READ | Fd::WRITE,
                     inode,
                 )
-                .expect("Could not open fd");
+                .map_err(|e| format!("Could not open fd for file {:?}: {}", &real_dir, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
                 // todo handle collisions
                 assert!(entries.insert(alias.clone(), inode).is_none());
