@@ -42,6 +42,8 @@ pub fn generate_import_object(
 ) -> ImportObject {
     let state_gen = move || {
         fn state_destructor(data: *mut c_void) {
+            dbg!("IN DESTRUCTOR");
+            dbg!(&data);
             unsafe {
                 drop(Box::from_raw(data as *mut WasiState));
             }
@@ -52,6 +54,7 @@ pub fn generate_import_object(
             args: args.clone(),
             envs: envs.clone(),
         });
+        dbg!("IN CONSTRUCTOR");
 
         (
             Box::into_raw(state) as *mut c_void,
