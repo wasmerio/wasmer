@@ -54,7 +54,7 @@ pub fn generate_import_object(
         });
 
         (
-            Box::leak(state) as *mut WasiState as *mut c_void,
+            Box::into_raw(state) as *mut c_void,
             state_destructor as fn(*mut c_void),
         )
     };

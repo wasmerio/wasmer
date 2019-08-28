@@ -1,6 +1,6 @@
 /// types for use in the WASI filesystem
 use crate::syscalls::types::*;
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 #[cfg(unix)]
 use std::convert::TryInto;
 use std::{
@@ -349,60 +349,92 @@ pub struct HostFile {
     flags: u16,
 }
 
-struct HostFileVisitor;
-
-impl<'de> serde::de::Visitor<'de> for HostFileVisitor {
-    type Value = HostFile;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("a HostFile struct")
-    }
-
-    /*fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> {
-        let host_path = unimplemented!();
-        let flags = unimplemented!();
-        Ok(HostFile {
-            inner,
-            host_path,
-            flags,
-        })
-    }*/
-
-    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
-        let host_path = seq
-            .next_element()?
-            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-        let flags = seq
-            .next_element()?
-            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-        let inner = std::fs::OpenOptions::new()
-            .read(flags & HostFile::READ != 0)
-            .write(flags & HostFile::WRITE != 0)
-            .append(flags & HostFile::APPEND != 0)
-            .open(&host_path)
-            .map_err(|_| serde::de::Error::custom("Could not open file on this system"))?;
-        Ok(HostFile {
-            inner,
-            host_path,
-            flags,
-        })
-    }
-}
-
 impl<'de> Deserialize<'de> for HostFile {
     fn deserialize<D>(deserializer: D) -> Result<HostFile, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_i32(HostFileVisitor)
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "snake_case")]
+        enum Field {
+            HostPath,
+            Flags,
+        }
+
+        struct HostFileVisitor;
+
+        impl<'de> de::Visitor<'de> for HostFileVisitor {
+            type Value = HostFile;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct HostFile")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::SeqAccess<'de>,
+            {
+                let host_path = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let flags = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let inner = std::fs::OpenOptions::new()
+                    .read(flags & HostFile::READ != 0)
+                    .write(flags & HostFile::WRITE != 0)
+                    .append(flags & HostFile::APPEND != 0)
+                    .open(&host_path)
+                    .map_err(|_| de::Error::custom("Could not open file on this system"))?;
+                Ok(HostFile {
+                    inner,
+                    host_path,
+                    flags,
+                })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut host_path = None;
+                let mut flags = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::HostPath => {
+                            if host_path.is_some() {
+                                return Err(de::Error::duplicate_field("host_path"));
+                            }
+                            host_path = Some(map.next_value()?);
+                        }
+                        Field::Flags => {
+                            if flags.is_some() {
+                                return Err(de::Error::duplicate_field("flags"));
+                            }
+                            flags = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let host_path = host_path.ok_or_else(|| de::Error::missing_field("host_path"))?;
+                let flags = flags.ok_or_else(|| de::Error::missing_field("flags"))?;
+                let inner = std::fs::OpenOptions::new()
+                    .read(flags & HostFile::READ != 0)
+                    .write(flags & HostFile::WRITE != 0)
+                    .append(flags & HostFile::APPEND != 0)
+                    .open(&host_path)
+                    .map_err(|_| de::Error::custom("Could not open file on this system"))?;
+                Ok(HostFile {
+                    inner,
+                    host_path,
+                    flags,
+                })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &["host_path", "flags"];
+        deserializer.deserialize_struct("HostFile", FIELDS, HostFileVisitor)
     }
 }
-
-// manually implement Deserialize here such that it uses actual data to open a file;
-// I guess we need to add r/w flags and stuff here too..
 
 impl HostFile {
     const READ: u16 = 1;

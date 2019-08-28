@@ -76,6 +76,7 @@ wasitests-llvm: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features llvm -- --test-threads=1
 
 wasitests-unit:
+	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
 wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llvm
