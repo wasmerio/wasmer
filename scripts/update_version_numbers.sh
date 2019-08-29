@@ -11,6 +11,7 @@ echo "manually check changes to wasmer.iss"
 # Order to upload packages in
 ## runtime-core
 ## win-exception-handler
+## middleware-common
 ## clif-backend
 ## llvm-backend
 ## singlepass-backend
