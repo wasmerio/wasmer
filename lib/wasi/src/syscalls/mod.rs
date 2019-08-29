@@ -2267,17 +2267,28 @@ pub fn poll_oneoff(
 
         let fd = match s.event_type {
             EventType::Read(__wasi_subscription_fs_readwrite_t { fd }) => {
-                let fd_entry = wasi_try!(state.fs.get_fd(fd));
-                if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ) {
-                    return __WASI_EACCES;
+                match fd {
+                    __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
+                    _ => {
+                        let fd_entry = wasi_try!(state.fs.get_fd(fd));
+                        if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ) {
+                            return __WASI_EACCES;
+                        }
+                    }
                 }
                 in_events.push(peb.add(PollEvent::PollIn).build());
                 Some(fd)
             }
             EventType::Write(__wasi_subscription_fs_readwrite_t { fd }) => {
-                let fd_entry = wasi_try!(state.fs.get_fd(fd));
-                if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
-                    return __WASI_EACCES;
+                match fd {
+                    __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
+                    _ => {
+                        let fd_entry = wasi_try!(state.fs.get_fd(fd));
+
+                        if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
+                            return __WASI_EACCES;
+                        }
+                    }
                 }
                 in_events.push(peb.add(PollEvent::PollOut).build());
                 Some(fd)
