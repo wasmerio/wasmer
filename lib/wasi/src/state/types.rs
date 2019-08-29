@@ -580,6 +580,31 @@ impl WasiFile for Stdout {
     }
 
     #[cfg(unix)]
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        use std::os::unix::io::AsRawFd;
+        let host_fd = self.0.as_raw_fd();
+
+        let mut bytes_found = 0 as libc::c_int;
+        // TODO: check that this makes sense
+        let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
+
+        match result {
+            // success
+            0 => Ok(bytes_found.try_into().unwrap_or(0)),
+            libc::EBADF => Err(WasiFsError::InvalidFd),
+            libc::EFAULT => Err(WasiFsError::InvalidData),
+            libc::EINVAL => Err(WasiFsError::InvalidInput),
+            _ => Err(WasiFsError::IOError),
+        }
+    }
+    #[cfg(not(unix))]
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        unimplemented!(
+            "Stdout::bytes_available in WasiFile is not implemented for non-Unix-like targets yet"
+        );
+    }
+
+    #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
         Some(self.0.as_raw_fd())
@@ -656,6 +681,31 @@ impl WasiFile for Stderr {
     }
     fn size(&self) -> u64 {
         0
+    }
+
+    #[cfg(unix)]
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        use std::os::unix::io::AsRawFd;
+        let host_fd = self.0.as_raw_fd();
+
+        let mut bytes_found = 0 as libc::c_int;
+        // TODO: check that this makes sense
+        let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
+
+        match result {
+            // success
+            0 => Ok(bytes_found.try_into().unwrap_or(0)),
+            libc::EBADF => Err(WasiFsError::InvalidFd),
+            libc::EFAULT => Err(WasiFsError::InvalidData),
+            libc::EINVAL => Err(WasiFsError::InvalidInput),
+            _ => Err(WasiFsError::IOError),
+        }
+    }
+    #[cfg(not(unix))]
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        unimplemented!(
+            "Stderr::bytes_available in WasiFile is not implemented for non-Unix-like targets yet"
+        );
     }
 
     #[cfg(unix)]
