@@ -94,6 +94,8 @@ pub trait Emitter {
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
+    fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location);
 
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR);
     fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR);
@@ -562,7 +564,7 @@ impl Emitter for Assembler {
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!(self ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
             }
-            _ => unreachable!(),
+            _ => panic!("LEA {:?} {:?} {:?}", sz, src, dst),
         }
     }
     fn emit_lea_label(&mut self, label: Self::Label, dst: Location) {
@@ -570,7 +572,7 @@ impl Emitter for Assembler {
             Location::GPR(x) => {
                 dynasm!(self ; lea Rq(x as u8), [=>label]);
             }
-            _ => unreachable!(),
+            _ => panic!("LEA label={:?} {:?}", label, dst),
         }
     }
     fn emit_cdq(&mut self) {
@@ -602,7 +604,7 @@ impl Emitter for Assembler {
         match loc {
             Location::GPR(x) => dynasm!(self ; jmp Rq(x as u8)),
             Location::Memory(base, disp) => dynasm!(self ; jmp QWORD [Rq(base as u8) + disp]),
-            _ => unreachable!(),
+            _ => panic!("JMP {:?}", loc),
         }
     }
     fn emit_conditional_trap(&mut self, condition: Condition) {
@@ -634,7 +636,7 @@ impl Emitter for Assembler {
             Condition::Equal => dynasm!(self ; sete Rb(dst as u8)),
             Condition::NotEqual => dynasm!(self ; setne Rb(dst as u8)),
             Condition::Signed => dynasm!(self ; sets Rb(dst as u8)),
-            _ => unreachable!(),
+            _ => panic!("SET {:?} {:?}", condition, dst),
         }
     }
     fn emit_push(&mut self, sz: Size, src: Location) {
@@ -644,7 +646,7 @@ impl Emitter for Assembler {
             (Size::S64, Location::Memory(src, disp)) => {
                 dynasm!(self ; push QWORD [Rq(src as u8) + disp])
             }
-            _ => panic!("push {:?} {:?}", sz, src),
+            _ => panic!("PUSH {:?} {:?}", sz, src),
         }
     }
     fn emit_pop(&mut self, sz: Size, dst: Location) {
@@ -653,12 +655,12 @@ impl Emitter for Assembler {
             (Size::S64, Location::Memory(dst, disp)) => {
                 dynasm!(self ; pop QWORD [Rq(dst as u8) + disp])
             }
-            _ => panic!("pop {:?} {:?}", sz, dst),
+            _ => panic!("POP {:?} {:?}", sz, dst),
         }
     }
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {
         binop_all_nofp!(cmp, self, sz, left, right, {
-            panic!("{:?} {:?} {:?}", sz, left, right);
+            panic!("CMP {:?} {:?} {:?}", sz, left, right);
         });
     }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
@@ -743,7 +745,7 @@ impl Emitter for Assembler {
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
             }
-            _ => unreachable!(),
+            _ => panic!("MOVZX {:?} {:?} {:?} {:?}", sz_src, src, sz_dst, dst),
         }
     }
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
@@ -778,7 +780,67 @@ impl Emitter for Assembler {
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]);
             }
-            _ => unreachable!(),
+            _ => panic!("MOVSX {:?} {:?} {:?} {:?}", sz_src, src, sz_dst, dst),
+        }
+    }
+
+    fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location) {
+        match (sz, src, dst) {
+            (Size::S8, Location::GPR(src), Location::GPR(dst)) => {
+                dynasm!(self ; xchg Rb(dst as u8), Rb(src as u8));
+            }
+            (Size::S16, Location::GPR(src), Location::GPR(dst)) => {
+                dynasm!(self ; xchg Rw(dst as u8), Rw(src as u8));
+            }
+            (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
+                dynasm!(self ; xchg Rd(dst as u8), Rd(src as u8));
+            }
+            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
+                dynasm!(self ; xchg Rq(dst as u8), Rq(src as u8));
+            }
+            (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) => {
+                dynasm!(self ; xchg Rb(dst as u8), [Rq(src as u8) + disp]);
+            }
+            (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; xchg [Rq(dst as u8) + disp], Rb(src as u8));
+            }
+            (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) => {
+                dynasm!(self ; xchg Rw(dst as u8), [Rq(src as u8) + disp]);
+            }
+            (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; xchg [Rq(dst as u8) + disp], Rw(src as u8));
+            }
+            (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
+                dynasm!(self ; xchg Rd(dst as u8), [Rq(src as u8) + disp]);
+            }
+            (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; xchg [Rq(dst as u8) + disp], Rd(src as u8));
+            }
+            (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
+                dynasm!(self ; xchg Rq(dst as u8), [Rq(src as u8) + disp]);
+            }
+            (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; xchg [Rq(dst as u8) + disp], Rq(src as u8));
+            }
+            _ => panic!("XCHG {:?} {:?} {:?}", sz, src, dst),
+        }
+    }
+
+    fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location) {
+        match (sz, src, dst) {
+            (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rb(src as u8));
+            }
+            (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rw(src as u8));
+            }
+            (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rd(src as u8));
+            }
+            (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rq(src as u8));
+            }
+            _ => panic!("LOCK XADD {:?} {:?} {:?}", sz, src, dst),
         }
     }
 
