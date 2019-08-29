@@ -21,6 +21,7 @@ test-module
 test-module-exports
 test-module-imports
 test-module-serialize
+test-module-metering-serialize
 test-tables
 test-validate
 test-context

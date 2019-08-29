@@ -32,6 +32,7 @@ pub unsafe extern "C" fn wasmer_compile(
     wasm_bytes_len: u32,
 ) -> wasmer_result_t {
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+    // TODO: this implicitly uses default_compiler() is that proper? a better way to handle metering?
     let result = compile(bytes);
     let new_module = match result {
         Ok(instance) => instance,
@@ -244,6 +245,7 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
     let serialized_module: &[u8] = &*(serialized_module as *const &[u8]);
 
     match Artifact::deserialize(serialized_module) {
+        // TODO: we need to use a different call here to support middleware (or modify wasmer-runtime)
         Ok(artifact) => match load_cache_with(artifact, &default_compiler()) {
             Ok(deserialized_module) => {
                 *module = Box::into_raw(Box::new(deserialized_module)) as _;

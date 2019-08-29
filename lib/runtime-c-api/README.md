@@ -124,6 +124,31 @@ $ make
 $ make test
 ```
 
+# Feature Flags
+
+By default this uses the cranelift compiler. You can enable a different compiler
+by using feature flags. However, make sure to disable default features, as exactly
+one default compiler must be enabled.
+
+LLVM: `cargo build --no-default-features --features llvm-backend`
+single-pass: `cargo build --no-default-features --features singlepass-backend`
+
+Note that the single-pass backend 
+[does not currently support serialization](https://github.com/wasmerio/wasmer/issues/811),
+so the serialization related tests will fail there.
+
+There is also a flag to enable gas metering which provides three new api endpoints:
+
+These are replaced with stubs of a normal compiler if the metering flag is not provided, 
+to provide a consistent API and not break upstream packages at link time.
+
+Note that the gas metering middleware is 
+[not currently compatible with the cranelift backend](https://github.com/wasmerio/wasmer/issues/819),
+so you must select a different backend (see above) if you enable metering.eg
+
+`cargo build --no-default-features --features llvm-backend,metering`
+
+Once that issue is resolved, `cargo build --features metering` will give you a useful binary.
 
 # License
 

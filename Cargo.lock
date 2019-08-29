@@ -1515,8 +1515,12 @@ version = "0.11.0"
 dependencies = [
  "cbindgen 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-clif-backend 0.11.0",
+ "wasmer-llvm-backend 0.11.0",
+ "wasmer-middleware-common 0.11.0",
  "wasmer-runtime 0.11.0",
  "wasmer-runtime-core 0.11.0",
+ "wasmer-singlepass-backend 0.11.0",
  "wasmer-wasi 0.11.0",
 ]
 

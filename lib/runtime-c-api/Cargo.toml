@@ -32,13 +32,37 @@ path = "../wasi"
 version = "0.11.0"
 optional = true
 
+[dependencies.wasmer-middleware-common]
+path = "../middleware-common"
+version = "0.11.0"
+optional = true
+
+[dependencies.wasmer-singlepass-backend]
+path = "../singlepass-backend"
+version = "0.11.0"
+optional = true
+
+[dependencies.wasmer-llvm-backend]
+path = "../llvm-backend"
+version = "0.11.0"
+optional = true
+
+[dependencies.wasmer-clif-backend]
+path = "../clif-backend"
+version = "0.11.0"
+optional = true
+
 [features]
 default = ["cranelift-backend", "wasi"]
 debug = ["wasmer-runtime/debug"]
-cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift"]
-llvm-backend = ["wasmer-runtime/llvm", "wasmer-runtime/default-backend-llvm"]
-singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass"]
+cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift", "wasmer-clif-backend"]
+# to enable any of the below, you must disable the default cranelift backend with --no-default--features flag
+# or adding default-features=false to the toml dependencies
+llvm-backend = ["wasmer-runtime/llvm", "wasmer-runtime/default-backend-llvm", "wasmer-llvm-backend"]
+singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass", "wasmer-singlepass-backend"]
 wasi = ["wasmer-wasi"]
+# you need to enable llvm or singlepass backend for this to work (middleware not supported in cranelift)
+metering = ["wasmer-middleware-common"]
 
 [build-dependencies]
 cbindgen = "0.9"
