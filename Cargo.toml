@@ -35,6 +35,7 @@ wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
+wasmer-middleware-common-tests = { path = "lib/middleware-common-tests", optional = true }
 wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
 
 [workspace]
@@ -56,6 +57,7 @@ members = [
     "lib/dev-utils",
     "lib/wasi-tests",
     "lib/emscripten-tests",
+    "lib/middleware-common-tests",
     "examples/plugin-for-example"
 ]
 
@@ -75,19 +77,22 @@ fast-tests = []
 backend-cranelift = [
     "wasmer-runtime-core/backend-cranelift",
     "wasmer-runtime/cranelift",
-    "wasmer-middleware-common/clif"
+    "wasmer-middleware-common-tests/clif",
+    "wasmer-wasi-tests/clif"
 ]
 backend-llvm = [
     "wasmer-llvm-backend",
     "wasmer-runtime-core/backend-llvm",
     "wasmer-runtime/llvm",
-    "wasmer-middleware-common/llvm"
+    "wasmer-middleware-common-tests/llvm",
+    "wasmer-wasi-tests/llvm"
 ]
 backend-singlepass = [
     "wasmer-singlepass-backend",
     "wasmer-runtime-core/backend-singlepass",
     "wasmer-runtime/singlepass",
-    "wasmer-middleware-common/singlepass"
+    "wasmer-middleware-common-tests/singlepass",
+    "wasmer-wasi-tests/singlepass"
 ]
 wasi = ["wasmer-wasi"]
 # vfs = ["wasmer-runtime-abi"]
