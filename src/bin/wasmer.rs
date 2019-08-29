@@ -1,6 +1,8 @@
 #![deny(
     dead_code,
+    nonstandard_style,
     unused_imports,
+    unused_mut,
     unused_variables,
     unused_unsafe,
     unreachable_patterns
@@ -82,6 +84,10 @@ struct PrestandardFeatures {
     /// Enable support for the SIMD proposal.
     #[structopt(long = "enable-simd")]
     simd: bool,
+
+    /// Enable support for the threads proposal.
+    #[structopt(long = "enable-threads")]
+    threads: bool,
 
     /// Enable support for all pre-standard proposals.
     #[structopt(long = "enable-all")]
@@ -373,6 +379,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         if options.features.simd || options.features.all {
             features.enable_simd();
         }
+        if options.features.threads || options.features.all {
+            features.enable_threads();
+        }
         wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
@@ -425,6 +434,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 track_state,
                 features: Features {
                     simd: options.features.simd || options.features.all,
+                    threads: options.features.threads || options.features.all,
                 },
             },
             &*compiler,
@@ -438,6 +448,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 track_state,
                 features: Features {
                     simd: options.features.simd || options.features.all,
+                    threads: options.features.threads || options.features.all,
                 },
                 ..Default::default()
             },
@@ -485,6 +496,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                             track_state,
                             features: Features {
                                 simd: options.features.simd || options.features.all,
+                                threads: options.features.threads || options.features.all,
                             },
                             ..Default::default()
                         },
@@ -542,7 +554,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     // TODO: refactor this
     if wasmer_emscripten::is_emscripten_module(&module) {
-        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
+        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module)?;
         let import_object = wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals);
         let mut instance = module
             .instantiate(&import_object)
@@ -817,6 +829,7 @@ fn validate_wasm(validate: Validate) -> Result<(), String> {
         &wasm_binary,
         Features {
             simd: validate.features.simd || validate.features.all,
+            threads: validate.features.threads || validate.features.all,
         },
     )
     .map_err(|err| format!("Validation failed: {}", err))?;

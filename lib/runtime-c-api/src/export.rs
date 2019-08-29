@@ -16,26 +16,63 @@ use std::{ptr, slice};
 use wasmer_runtime::{Instance, Memory, Module, Value};
 use wasmer_runtime_core::{export::Export, module::ExportIndex};
 
+/// Intermediate representation of an `Export` instance that is
+/// exposed to C.
+pub(crate) struct NamedExport {
+    /// The export name.
+    pub(crate) name: String,
+
+    /// The export instance.
+    pub(crate) export: Export,
+
+    /// The instance that holds the export.
+    pub(crate) instance: *mut Instance,
+}
+
+/// Opaque pointer to `NamedExport`.
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_export_t;
 
-#[repr(C)]
-#[derive(Clone)]
-pub struct wasmer_exports_t;
-
+/// Opaque pointer to `wasmer_export_t`.
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_export_func_t;
 
+/// Intermediate representation of a vector of `NamedExport` that is
+/// exposed to C.
+pub(crate) struct NamedExports(pub Vec<NamedExport>);
+
+/// Opaque pointer to `NamedExports`.
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_exports_t;
+
+/// Intermediate representation of an export descriptor that is
+/// exposed to C.
+pub(crate) struct NamedExportDescriptor {
+    /// The export name.
+    name: String,
+
+    /// The export kind.
+    kind: wasmer_import_export_kind,
+}
+
+/// Opaque pointer to `NamedExportDescriptor`.
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_export_descriptor_t;
 
+/// Intermediate representation of a vector of `NamedExportDescriptor`
+/// that is exposed to C.
+pub struct NamedExportDescriptors(Vec<NamedExportDescriptor>);
+
+/// Opaque pointer to `NamedExportDescriptors`.
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_export_descriptors_t;
 
+/// Union of import/export value.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union wasmer_import_export_value {
@@ -45,6 +82,7 @@ pub union wasmer_import_export_value {
     pub global: *const wasmer_global_t,
 }
 
+/// List of export/import kinds.
 #[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(Clone)]
@@ -72,8 +110,6 @@ pub unsafe extern "C" fn wasmer_export_descriptors(
     *export_descriptors =
         Box::into_raw(named_export_descriptors) as *mut wasmer_export_descriptors_t;
 }
-
-pub struct NamedExportDescriptors(Vec<NamedExportDescriptor>);
 
 /// Frees the memory for the given export descriptors
 #[allow(clippy::cast_ptr_alignment)]
@@ -135,8 +171,6 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
     let named_export_descriptor = &*(export as *mut NamedExportDescriptor);
     named_export_descriptor.kind.clone()
 }
-
-pub(crate) struct NamedExports(pub Vec<NamedExport>);
 
 /// Frees the memory for the given exports
 #[allow(clippy::cast_ptr_alignment)]
@@ -428,15 +462,4 @@ impl From<(&std::string::String, &ExportIndex)> for NamedExportDescriptor {
             kind,
         }
     }
-}
-
-pub(crate) struct NamedExport {
-    pub(crate) name: String,
-    pub(crate) export: Export,
-    pub(crate) instance: *mut Instance,
-}
-
-pub(crate) struct NamedExportDescriptor {
-    name: String,
-    kind: wasmer_import_export_kind,
 }
