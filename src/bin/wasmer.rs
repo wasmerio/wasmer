@@ -48,11 +48,14 @@ mod wasmer_wasi {
         false
     }
 
-    pub fn generate_import_object(
+    pub struct WasiFs;
+
+    pub fn generate_import_object_with_fs_setup(
         _args: Vec<Vec<u8>>,
         _envs: Vec<Vec<u8>>,
         _preopened_files: Vec<String>,
         _mapped_dirs: Vec<(String, std::path::PathBuf)>,
+        _setup_fs: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String>>>,
     ) -> ImportObject {
         unimplemented!()
     }
@@ -576,7 +579,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("{:?}", e))?;
     } else {
         if cfg!(feature = "wasi") && wasmer_wasi::is_wasi_module(&module) {
-            let import_object = wasmer_wasi::generate_import_object(
+            let import_object = wasmer_wasi::generate_import_object_with_fs_setup(
                 if let Some(cn) = &options.command_name {
                     [cn.clone()]
                 } else {
@@ -593,6 +596,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     .collect(),
                 options.pre_opened_directories.clone(),
                 mapped_dirs,
+                #[cfg(feature = "experimental-framebuffer")]
+                Some(Box::new(wasmer_wasi_framebuffer::initialize)),
+                #[cfg(not(feature = "experimental-framebuffer"))]
+                None,
             );
 
             #[allow(unused_mut)] // mut used in feature

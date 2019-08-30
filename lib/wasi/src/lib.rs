@@ -40,6 +40,16 @@ pub fn generate_import_object(
     preopened_files: Vec<String>,
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> ImportObject {
+    generate_import_object_with_fs_setup(args, envs, preopened_files, mapped_dirs, None)
+}
+
+pub fn generate_import_object_with_fs_setup(
+    args: Vec<Vec<u8>>,
+    envs: Vec<Vec<u8>>,
+    preopened_files: Vec<String>,
+    mapped_dirs: Vec<(String, PathBuf)>,
+    setup_fs: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String>>>,
+) -> ImportObject {
     let state_gen = move || {
         fn state_destructor(data: *mut c_void) {
             unsafe {
@@ -47,8 +57,13 @@ pub fn generate_import_object(
             }
         }
 
+        let mut fs = WasiFs::new(&preopened_files, &mapped_dirs).unwrap();
+        if let Some(sfn) = &setup_fs {
+            sfn(&mut fs).unwrap();
+        }
+
         let state = Box::new(WasiState {
-            fs: WasiFs::new(&preopened_files, &mapped_dirs).unwrap(),
+            fs,
             args: &args[..],
             envs: &envs[..],
         });

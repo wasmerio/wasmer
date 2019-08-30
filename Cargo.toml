@@ -36,6 +36,7 @@ wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
 wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
+wasmer-wasi-framebuffer = { path = "lib/wasi-framebuffer", optional = true }
 
 [workspace]
 members = [
@@ -54,6 +55,7 @@ members = [
     "lib/kernel-loader",
     "lib/kernel-net",
     "lib/dev-utils",
+    "lib/wasi-framebuffer",
     "lib/wasi-tests",
     "lib/emscripten-tests",
     "examples/plugin-for-example"
@@ -91,6 +93,7 @@ backend-singlepass = [
 ]
 wasi = ["wasmer-wasi"]
 # vfs = ["wasmer-runtime-abi"]
+experimental-framebuffer = ["wasmer-wasi-framebuffer"]
 
 [[example]]
 name = "plugin"

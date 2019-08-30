@@ -1678,6 +1678,8 @@ pub fn path_open(
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     );
 
+    dbg!(&maybe_inode);
+
     if let Ok(m) = maybe_inode {
         &state.fs.inodes[m];
     }
@@ -1692,7 +1694,14 @@ pub fn path_open(
             Kind::File {
                 ref mut handle,
                 path,
+                fd,
             } => {
+                if let Some(special_fd) = fd {
+                    // short circuit if we're dealing with a special file
+                    assert!(handle.is_some());
+                    fd_cell.set(*special_fd);
+                    return __WASI_ESUCCESS;
+                }
                 if o_flags & __WASI_O_DIRECTORY != 0 {
                     return __WASI_ENOTDIR;
                 }
@@ -1782,6 +1791,7 @@ pub fn path_open(
                 let kind = Kind::File {
                     handle,
                     path: new_file_host_path,
+                    fd: None,
                 };
                 wasi_try!(state.fs.create_inode(kind, false, new_entity_name.clone()))
             };
@@ -2018,6 +2028,7 @@ pub fn path_rename(
         Kind::File {
             handle,
             ref mut path,
+            ..
         } => {
             let result = if let Some(h) = handle {
                 h.rename_file(&host_adjusted_target_path)
@@ -2188,7 +2199,7 @@ pub fn path_unlink_file(
     state.fs.inodes[removed_inode].stat.st_nlink -= 1;
     if state.fs.inodes[removed_inode].stat.st_nlink == 0 {
         match &mut state.fs.inodes[removed_inode].kind {
-            Kind::File { handle, path } => {
+            Kind::File { handle, path, .. } => {
                 if let Some(h) = handle {
                     wasi_try!(h.unlink().map_err(WasiFsError::into_wasi_err));
                 } else {
@@ -2259,11 +2270,14 @@ pub fn poll_oneoff(
     let out_ptr = wasi_try!(nevents.deref(memory));
 
     let mut fds = vec![];
+    let mut clock_subs = vec![];
     let mut in_events = vec![];
+    let mut total_ns_slept = 0;
 
     for sub in subscription_array.iter() {
         let s: WasiSubscription = wasi_try!(sub.get().try_into());
         let mut peb = PollEventBuilder::new();
+        let mut ns_to_sleep = 0;
 
         let fd = match s.event_type {
             EventType::Read(__wasi_subscription_fs_readwrite_t { fd }) => {
@@ -2293,7 +2307,17 @@ pub fn poll_oneoff(
                 in_events.push(peb.add(PollEvent::PollOut).build());
                 Some(fd)
             }
-            _ => unimplemented!("Clock eventtypes in wasi::poll_oneoff"),
+            EventType::Clock(clock_info) => {
+                if clock_info.clock_id == __WASI_CLOCK_REALTIME {
+                    // this is a hack
+                    // TODO: do this properly
+                    ns_to_sleep = clock_info.timeout;
+                    clock_subs.push(clock_info);
+                    None
+                } else {
+                    unimplemented!("Polling not implemented for clocks yet");
+                }
+            }
         };
 
         if let Some(fd) = fd {
@@ -2327,7 +2351,13 @@ pub fn poll_oneoff(
             };
             fds.push(wasi_file_ref);
         } else {
-            unimplemented!("Clock events are not yet implemented!");
+            let remaining_ns = ns_to_sleep as i64 - total_ns_slept as i64;
+            if remaining_ns > 0 {
+                debug!("Sleeping for {} nanoseconds", remaining_ns);
+                let duration = std::time::Duration::from_nanos(remaining_ns as u64);
+                std::thread::sleep(duration);
+                total_ns_slept += remaining_ns;
+            }
         }
     }
     let mut seen_events = vec![Default::default(); in_events.len()];
@@ -2369,6 +2399,23 @@ pub fn poll_oneoff(
                     fd_readwrite: __wasi_event_fd_readwrite_t {
                         nbytes: bytes_available as u64,
                         flags,
+                    },
+                }
+            },
+        };
+        event_array[events_seen].set(event);
+        events_seen += 1;
+    }
+    for clock_info in clock_subs {
+        let event = __wasi_event_t {
+            userdata: clock_info.userdata,
+            error: __WASI_ESUCCESS,
+            type_: __WASI_EVENTTYPE_CLOCK,
+            u: unsafe {
+                __wasi_event_u {
+                    fd_readwrite: __wasi_event_fd_readwrite_t {
+                        nbytes: 0,
+                        flags: 0,
                     },
                 }
             },
