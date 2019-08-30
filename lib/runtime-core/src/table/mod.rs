@@ -165,5 +165,4 @@ mod table_tests {
         .unwrap();
         assert_eq!(table.size(), 10);
     }
-
 }

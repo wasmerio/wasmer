@@ -1262,7 +1262,8 @@ impl X64FunctionCode {
                             }
                             m.state
                                 .stack_values
-                                .push(MachineValue::CopyStackBPRelative(offset)); // TODO: Read value at this offset
+                                .push(MachineValue::CopyStackBPRelative(offset));
+                            // TODO: Read value at this offset
                         }
                         _ => {
                             m.state.stack_values.push(MachineValue::Undefined);

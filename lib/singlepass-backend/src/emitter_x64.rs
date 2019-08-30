@@ -635,18 +635,14 @@ impl Emitter for Assembler {
         match (sz, src) {
             (Size::S64, Location::Imm32(src)) => dynasm!(self ; push src as i32),
             (Size::S64, Location::GPR(src)) => dynasm!(self ; push Rq(src as u8)),
-            (Size::S64, Location::Memory(src, disp)) => {
-                dynasm!(self ; push QWORD [Rq(src as u8) + disp])
-            }
+            (Size::S64, Location::Memory(src, disp)) => dynasm!(self ; push QWORD [Rq(src as u8) + disp]),
             _ => panic!("push {:?} {:?}", sz, src),
         }
     }
     fn emit_pop(&mut self, sz: Size, dst: Location) {
         match (sz, dst) {
             (Size::S64, Location::GPR(dst)) => dynasm!(self ; pop Rq(dst as u8)),
-            (Size::S64, Location::Memory(dst, disp)) => {
-                dynasm!(self ; pop QWORD [Rq(dst as u8) + disp])
-            }
+            (Size::S64, Location::Memory(dst, disp)) => dynasm!(self ; pop QWORD [Rq(dst as u8) + disp]),
             _ => panic!("pop {:?} {:?}", sz, dst),
         }
     }
@@ -851,54 +847,42 @@ impl Emitter for Assembler {
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; ucomiss Rx(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; ucomisd Rx(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rd(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rq(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rd(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rq(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 

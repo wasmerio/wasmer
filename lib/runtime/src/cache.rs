@@ -173,5 +173,4 @@ mod tests {
         // verify it works
         assert_eq!(value, 43);
     }
-
 }
