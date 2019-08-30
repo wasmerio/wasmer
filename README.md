@@ -33,14 +33,19 @@ curl https://get.wasmer.io -sSfL | sh
 
 Wasmer runtime can also be embedded in different languages, so you can use WebAssembly anywhere ✨:
 
-* [**🦀 Rust**](https://github.com/wasmerio/wasmer-rust-example)
-* [**🔗 C/C++**](https://github.com/wasmerio/wasmer-c-api)
-* [**#️⃣ C#**](https://github.com/migueldeicaza/WasmerSharp)
-* [**🐘 PHP**](https://github.com/wasmerio/php-ext-wasm)
-* [**🐍 Python**](https://github.com/wasmerio/python-ext-wasm)
-* [**💎 Ruby**](https://github.com/wasmerio/ruby-ext-wasm)
-* [**🐹 Go**](https://github.com/wasmerio/go-ext-wasm)
-* [**R**](https://github.com/dirkschumacher/wasmr)
+| Language | Author(s) | [Maintenance](https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata) | Last release | Social |
+|-|-|-|-|-|
+| [**🦀 Rust**](https://github.com/wasmerio/wasmer-rust-example) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/wasmer) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer?style=social) |
+| [**🔗 C/C++**](https://github.com/wasmerio/wasmer-c-api) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/wasmer) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer?style=social) |
+| [**🐍 Python**](https://github.com/wasmerio/python-ext-wasm) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/python-ext-wasm) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/python-ext-wasm?style=social) |
+| [**🐹 Go**](https://github.com/wasmerio/go-ext-wasm) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/go-ext-wasm) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/go-ext-wasm?style=social) |
+| [**🐘 PHP**](https://github.com/wasmerio/php-ext-wasm) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/php-ext-wasm) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/php-ext-wasm?style=social) |
+| [**💎 Ruby**](https://github.com/wasmerio/ruby-ext-wasm) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/ruby-ext-wasm) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/ruby-ext-wasm?style=social) |
+| [**🐘 Postgres**](https://github.com/wasmerio/postgres-ext-wasm) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/postgres-ext-wasm) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/postgres-ext-wasm?style=social) |
+| [**#️⃣ C#**](https://github.com/migueldeicaza/WasmerSharp) | [Miguel de Icaza](https://github.com/migueldeicaza) | actively developed | ![last release](https://img.shields.io/github/v/release/migueldeicaza/WasmerSharp) | ![number of Github stars](https://img.shields.io/github/stars/migueldeicaza/WasmerSharp?style=social) |
+| [**⬭ R**](https://github.com/dirkschumacher/wasmr) | [Dirk Schumacher](https://github.com/dirkschumacher) | actively developed | ![last release](https://img.shields.io/github/v/release/dirkschumacher/wasmr) | ![number of Github stars](https://img.shields.io/github/stars/dirkschumacher/wasmr?style=social) |
+| [**🐦 Swift**](https://github.com/markmals/swift-ext-wasm) | [Mark Malström](https://github.com/markmals/) | passively maintened | ![last release](https://img.shields.io/github/v/release/markmals/swift-ext-wasm) | ![number of Github stars](https://img.shields.io/github/stars/markmals/swift-ext-wasm?style=social) |
+| ❓ | | [your language is missing?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=) |
 
 ### Usage
 
