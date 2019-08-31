@@ -78,6 +78,7 @@ pub trait Emitter {
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location);
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_sub(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_neg(&mut self, sz: Size, value: Location);
     fn emit_imul(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR);
     fn emit_div(&mut self, sz: Size, divisor: Location);
@@ -668,6 +669,19 @@ impl Emitter for Assembler {
     }
     fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(sub, self, sz, src, dst, { unreachable!() });
+    }
+    fn emit_neg(&mut self, sz: Size, value: Location) {
+        match (sz, value) {
+            (Size::S8, Location::GPR(value)) => { dynasm!(self ; neg Rb(value as u8)) }
+            (Size::S8, Location::Memory(value, disp)) => { dynasm!(self ; neg [Rq(value as u8) + disp]) }
+            (Size::S16, Location::GPR(value)) => { dynasm!(self ; neg Rw(value as u8)) }
+            (Size::S16, Location::Memory(value, disp)) => { dynasm!(self ; neg [Rq(value as u8) + disp]) }
+            (Size::S32, Location::GPR(value)) => { dynasm!(self ; neg Rd(value as u8)) }
+            (Size::S32, Location::Memory(value, disp)) => { dynasm!(self ; neg [Rq(value as u8) + disp]) }
+            (Size::S64, Location::GPR(value)) => { dynasm!(self ; neg Rq(value as u8)) }
+            (Size::S64, Location::Memory(value, disp)) => { dynasm!(self ; neg [Rq(value as u8) + disp]) }
+            _ => panic!("NEG {:?} {:?}", sz, value),
+        }
     }
     fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(imul, self, sz, src, dst, {

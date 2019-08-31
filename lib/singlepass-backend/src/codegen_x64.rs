@@ -5489,6 +5489,188 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     ret);
                 self.machine.release_temp_gpr(value);
             }
+            Operator::I32AtomicRmw8UAdd { ref memarg } => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_movzx(
+                    Size::S8,
+                    loc,
+                    Size::S32,
+                    Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    4,
+                    |a, _m, addr| {
+                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                    }
+                );
+                a.emit_mov(
+                    Size::S32,
+                    Location::GPR(value),
+                    ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I32AtomicRmw16UAdd { ref memarg } => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_movzx(
+                    Size::S16,
+                    loc,
+                    Size::S32,
+                    Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    4,
+                    |a, _m, addr| {
+                        a.emit_lock_xadd(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                    }
+                );
+                a.emit_mov(
+                    Size::S32,
+                    Location::GPR(value),
+                    ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I32AtomicRmwSub { ref memarg } => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(
+                    Size::S32,
+                    loc,
+                    Location::GPR(value));
+                a.emit_neg(Size::S32, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    4,
+                    |a, _m, addr| {
+                        a.emit_lock_xadd(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                    }
+                );
+                a.emit_mov(
+                    Size::S32,
+                    Location::GPR(value),
+                    ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I32AtomicRmw8USub { ref memarg } => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_movzx(
+                    Size::S8,
+                    loc,
+                    Size::S32,
+                    Location::GPR(value));
+                a.emit_neg(Size::S8, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    4,
+                    |a, _m, addr| {
+                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                    }
+                );
+                a.emit_mov(
+                    Size::S32,
+                    Location::GPR(value),
+                    ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I32AtomicRmw16USub { ref memarg } => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_movzx(
+                    Size::S16,
+                    loc,
+                    Size::S32,
+                    Location::GPR(value));
+                a.emit_neg(Size::S16, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    4,
+                    |a, _m, addr| {
+                        a.emit_lock_xadd(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                    }
+                );
+                a.emit_mov(
+                    Size::S32,
+                    Location::GPR(value),
+                    ret);
+                self.machine.release_temp_gpr(value);
+            }
             _ => {
                 return Err(CodegenError {
                     message: format!("not yet implemented: {:?}", op),
