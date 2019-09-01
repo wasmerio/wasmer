@@ -1437,6 +1437,7 @@ dependencies = [
  "wasmer-kernel-loader 0.1.0",
  "wasmer-llvm-backend 0.6.0",
  "wasmer-middleware-common 0.6.0",
+ "wasmer-middleware-common-tests 0.6.0",
  "wasmer-runtime 0.6.0",
  "wasmer-runtime-core 0.6.0",
  "wasmer-singlepass-backend 0.6.0",
@@ -1559,10 +1560,18 @@ dependencies = [
 name = "wasmer-middleware-common"
 version = "0.6.0"
 dependencies = [
+ "wasmer-runtime-core 0.6.0",
+]
+
+[[package]]
+name = "wasmer-middleware-common-tests"
+version = "0.6.0"
+dependencies = [
  "criterion 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.6.0",
  "wasmer-llvm-backend 0.6.0",
+ "wasmer-middleware-common 0.6.0",
  "wasmer-runtime-core 0.6.0",
  "wasmer-singlepass-backend 0.6.0",
 ]

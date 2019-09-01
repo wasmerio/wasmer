@@ -18,7 +18,7 @@ add_executable(test-context test-context.c)
 add_executable(test-module-import-instantiate test-module-import-instantiate.c)
 
 find_library(
-        WASMER_LIB NAMES libwasmer_runtime_c_api.dylib libwasmer_runtime_c_api.so libwasmer_runtime_c_api.dll
+        WASMER_LIB NAMES libwasmer_runtime_c_api.dylib libwasmer_runtime_c_api.so wasmer_runtime_c_api.dll
         PATHS ${CMAKE_SOURCE_DIR}/../../../target/release/
 )
 

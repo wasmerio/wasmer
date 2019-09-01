@@ -452,26 +452,11 @@ impl WasiFile for HostFile {
         std::fs::rename(&self.host_path, new_name).map_err(Into::into)
     }
 
-    #[cfg(unix)]
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        use std::os::unix::io::AsRawFd;
-        let host_fd = self.inner.as_raw_fd();
+        // unwrap is safe because of get_raw_fd implementation
+        let host_fd = self.get_raw_fd().unwrap();
 
-        let mut bytes_found = 0 as libc::c_int;
-        let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
-
-        match result {
-            // success
-            0 => Ok(bytes_found.try_into().unwrap_or(0)),
-            libc::EBADF => Err(WasiFsError::InvalidFd),
-            libc::EFAULT => Err(WasiFsError::InvalidData),
-            libc::EINVAL => Err(WasiFsError::InvalidInput),
-            _ => Err(WasiFsError::IOError),
-        }
-    }
-    #[cfg(not(unix))]
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        unimplemented!("HostFile::bytes_available in WasiFile is not implemented for non-Unix-like targets yet");
+        host_file_bytes_available(host_fd)
     }
 
     #[cfg(unix)]
@@ -512,6 +497,26 @@ impl From<io::Error> for WasiFsError {
             _ => WasiFsError::UnknownError(__WASI_EIO),
         }
     }
+}
+
+#[cfg(unix)]
+fn host_file_bytes_available(host_fd: i32) -> Result<usize, WasiFsError> {
+    let mut bytes_found = 0 as libc::c_int;
+    let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
+
+    match result {
+        // success
+        0 => Ok(bytes_found.try_into().unwrap_or(0)),
+        libc::EBADF => Err(WasiFsError::InvalidFd),
+        libc::EFAULT => Err(WasiFsError::InvalidData),
+        libc::EINVAL => Err(WasiFsError::InvalidInput),
+        _ => Err(WasiFsError::IOError),
+    }
+}
+
+#[cfg(not(unix))]
+fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, WasiFsError> {
+    unimplemented!("host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff")
 }
 
 #[derive(Debug)]
@@ -577,6 +582,13 @@ impl WasiFile for Stdout {
     }
     fn size(&self) -> u64 {
         0
+    }
+
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        // unwrap is safe because of get_raw_fd implementation
+        let host_fd = self.get_raw_fd().unwrap();
+
+        host_file_bytes_available(host_fd)
     }
 
     #[cfg(unix)]
@@ -658,6 +670,13 @@ impl WasiFile for Stderr {
         0
     }
 
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        // unwrap is safe because of get_raw_fd implementation
+        let host_fd = self.get_raw_fd().unwrap();
+
+        host_file_bytes_available(host_fd)
+    }
+
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
@@ -737,28 +756,11 @@ impl WasiFile for Stdin {
         0
     }
 
-    #[cfg(unix)]
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        use std::os::unix::io::AsRawFd;
-        let host_fd = self.0.as_raw_fd();
+        // unwrap is safe because of get_raw_fd implementation
+        let host_fd = self.get_raw_fd().unwrap();
 
-        let mut bytes_found = 0 as libc::c_int;
-        let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
-
-        match result {
-            // success
-            0 => Ok(bytes_found.try_into().unwrap_or(0)),
-            libc::EBADF => Err(WasiFsError::InvalidFd),
-            libc::EFAULT => Err(WasiFsError::InvalidData),
-            libc::EINVAL => Err(WasiFsError::InvalidInput),
-            _ => Err(WasiFsError::IOError),
-        }
-    }
-    #[cfg(not(unix))]
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        unimplemented!(
-            "Stdin::bytes_available in WasiFile is not implemented for non-Unix-like targets yet"
-        );
+        host_file_bytes_available(host_fd)
     }
 
     #[cfg(unix)]

@@ -35,6 +35,9 @@ impl From<io::Error> for Error {
 ///
 /// [`Cache`]: trait.Cache.html
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+// WasmHash is made up of two 32 byte arrays instead of a 64 byte array
+// because derive only works on fixed sized arrays size 32 or below
+// TODO: fix this when this gets fixed by improved const generics
 pub struct WasmHash([u8; 32], [u8; 32]);
 
 impl WasmHash {

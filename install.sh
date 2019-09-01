@@ -71,14 +71,14 @@ wasmer_download_file() {
 
     # echo "Fetching $url.."
     if test -x "$(command -v curl)"; then
-        if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+        if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
           code=$(curl --progress-bar -w '%{http_code}' -L "$url" -o "$destination")
           printf "\033[K\n\033[1A"
         else
           code=$(curl -s -w '%{http_code}' -L "$url" -o "$destination")
         fi
     elif test -x "$(command -v wget)"; then
-        if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+        if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
           code=$(wget --show-progress --progress=bar:force:noscroll -q -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
           printf "\033[K\n\033[1A";
         else
@@ -89,7 +89,7 @@ wasmer_download_file() {
         exit 1
     fi
 
-    if [ "$code" == 404 ]; then
+    if [ "$code" = 404 ]; then
         printf "$red> Your architecture is not yet supported ($OS-$ARCH).$reset\n"
         echo "> Please open an issue on the project if you would like to use wasmer in your project: https://github.com/wasmerio/wasmer"
         exit 1
@@ -160,14 +160,14 @@ wasmer_link() {
     command printf "${SOURCE_STR}"
   else
     if ! grep -q 'wasmer.sh' "$WASMER_PROFILE"; then
-      # if [[ $WASMER_PROFILE == *"fish"* ]]; then
+      # if [[ $WASMER_PROFILE = *"fish"* ]]; then
       #   command fish -c 'set -U fish_user_paths $fish_user_paths ~/.wasmer/bin'
       # else
       command printf "$LOAD_STR" >> "$WASMER_PROFILE"
       # fi
     fi
     printf "\033[1A$cyan> Adding to bash profile... ✓$reset\n"
-    if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+    if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
       printf "${dim}Note: We've added the following to your $WASMER_PROFILE\n"
       echo "If you have a different profile please add the following:"
       printf "$LOAD_STR$reset\n"
@@ -179,7 +179,7 @@ wasmer_link() {
     )
 
     printf "$green> Successfully installed $version!\n"
-    if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+    if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
       printf "${reset}${dim}wasmer & wapm will be available the next time you open the terminal.\n"
       printf "${reset}${dim}If you want to have the commands available now please execute:\n${reset}source $INSTALL_DIRECTORY/wasmer.sh$reset\n"
     fi
@@ -255,7 +255,7 @@ wasmer_install() {
     printf "${reset}Updating Wasmer and WAPM$reset\n"
   else
     printf "${reset}Installing Wasmer and WAPM!$reset\n"
-    if [ "$WASMER_INSTALL_LOG" == "$WASMER_VERBOSE" ]; then
+    if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
       printf "
 ${magenta1}               ww            
 ${magenta1}               wwwww         
@@ -328,7 +328,7 @@ wasmer_reset() {
 # Example taken from
 # https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
 # wasmer_compareversions () {
-#     if [[ $1 == $2 ]]
+#     if [[ $1 = $2 ]]
 #     then
 #         echo "="
 #         return 0
