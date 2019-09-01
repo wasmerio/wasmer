@@ -494,7 +494,9 @@ mod test {
         let mut assembler = Assembler::new().unwrap();
         let locs = machine.acquire_locations(
             &mut assembler,
-            &(0..10).map(|_| (WpType::I32, MachineValue::Undefined)).collect::<Vec<_>>(),
+            &(0..10)
+                .map(|_| (WpType::I32, MachineValue::Undefined))
+                .collect::<Vec<_>>(),
             false,
         );
 
