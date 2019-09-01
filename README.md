@@ -36,7 +36,7 @@ curl https://get.wasmer.io -sSfL | sh
 Wasmer runtime can also be used as a library embedded in different languages, so you can use WebAssembly anywhere ✨:
 
 | &nbsp; | Language | Author(s) | [Maintenance](https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata) | Last release | Social |
-|-|-|-|-|-|
+|-|-|-|-|-|-|
 | ![Rust logo](./docs/assets/languages/rust.svg) | [**Rust**](https://github.com/wasmerio/wasmer-rust-example) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/wasmer?style=flat-square) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer?style=flat-square) |
 | ![C logo](./docs/assets/languages/c.svg) | [**C/C++**](https://github.com/wasmerio/wasmer-c-api) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/wasmer?style=flat-square) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer?style=flat-square) |
 | ![Python logo](./docs/assets/languages/python.svg) | [**Python**](https://github.com/wasmerio/python-ext-wasm) | Wasmer | actively developed | ![last release](https://img.shields.io/github/v/release/wasmerio/python-ext-wasm?style=flat-square) | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/python-ext-wasm?style=flat-square) |
