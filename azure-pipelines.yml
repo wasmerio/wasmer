@@ -107,17 +107,28 @@ jobs:
       - bash: |
           cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
         displayName: Build WAPM
+        condition: |
+          eq(variables['Build.SourceBranch'], 'refs/heads/master')
       - bash: |
           make build-install
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
         displayName: Build Distribution (*nix)
-        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+        condition: |
+          and(
+            succeeded(),
+            not(eq(variables['Agent.OS'], 'Windows_NT'))
+          )
       - bash: |
           cd ./src/installer
           iscc wasmer.iss
           cp WasmerInstaller.exe ../../artifacts/wasmer-windows.exe
         displayName: Build Distribution (Windows)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+        condition: |
+          and(
+            succeeded(),
+            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            eq(variables['Agent.OS'], 'Windows_NT')
+          )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
         artifact: cli-$(Agent.OS)
 
@@ -172,6 +183,7 @@ jobs:
     dependsOn:
       - Build_CLI
       - Build_Library
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
     steps:
       # - download: current
       - task: DownloadPipelineArtifact@1
