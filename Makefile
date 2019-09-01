@@ -96,9 +96,11 @@ llvm: spectests-llvm emtests-llvm wasitests-llvm
 capi:
 	cargo build --release
 	cargo build -p wasmer-runtime-c-api --release
+
+test-capi: capi
 	cargo test -p wasmer-runtime-c-api --release
 
-test-rest: capi
+test-rest:
 	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-middleware-common-tests --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-wasi-tests --exclude wasmer-emscripten-tests
 
 circleci-clean:
