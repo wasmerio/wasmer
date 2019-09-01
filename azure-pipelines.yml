@@ -187,7 +187,14 @@ jobs:
           tag: dev
           assets: $(Build.ArtifactStagingDirectory)
 
+# We only run the pipelines on PRs to Master
+pr:
+  - master
+
+# Otherwise, we test in any of this branches (master or bors related)
 trigger:
   branches:
     include:
-      - "*"
+      - master
+      - staging
+      - trying
