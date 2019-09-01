@@ -1,5 +1,4 @@
 #![deny(
-    dead_code,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -7,6 +6,7 @@
     unused_unsafe,
     unreachable_patterns
 )]
+#![cfg_attr(not(target_os = "windows"), deny(dead_code))]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
 mod backend;
@@ -14,6 +14,7 @@ mod code;
 mod intrinsics;
 mod platform;
 mod read_info;
+mod stackmap;
 mod state;
 mod structs;
 mod trampolines;

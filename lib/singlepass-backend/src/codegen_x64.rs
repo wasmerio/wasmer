@@ -4,9 +4,7 @@
 use crate::emitter_x64::*;
 use crate::machine::*;
 use crate::protect_unix;
-use dynasmrt::{
-    x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
-};
+use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{
@@ -20,6 +18,8 @@ use wasmer_runtime_core::{
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
+    fault::raw::register_preservation_trampoline,
+    loader::CodeMemory,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
@@ -172,7 +172,7 @@ unsafe impl Sync for FuncPtr {}
 
 pub struct X64ExecutionContext {
     #[allow(dead_code)]
-    code: ExecutableBuffer,
+    code: CodeMemory,
     #[allow(dead_code)]
     functions: Vec<X64FunctionCode>,
     function_pointers: Vec<FuncPtr>,
@@ -220,6 +220,40 @@ impl RunnableModule for X64ExecutionContext {
         Some(self.breakpoints.clone())
     }
 
+    unsafe fn patch_local_function(&self, idx: usize, target_address: usize) -> bool {
+        /*
+        0:       48 b8 42 42 42 42 42 42 42 42   movabsq $4774451407313060418, %rax
+        a:       49 bb 43 43 43 43 43 43 43 43   movabsq $4846791580151137091, %r11
+        14:      41 ff e3        jmpq    *%r11
+        */
+        #[repr(packed)]
+        struct Trampoline {
+            movabsq_rax: [u8; 2],
+            addr_rax: u64,
+            movabsq_r11: [u8; 2],
+            addr_r11: u64,
+            jmpq_r11: [u8; 3],
+        }
+
+        self.code.make_writable();
+
+        let trampoline = &mut *(self.function_pointers[self.func_import_count + idx].0
+            as *const Trampoline as *mut Trampoline);
+        trampoline.movabsq_rax[0] = 0x48;
+        trampoline.movabsq_rax[1] = 0xb8;
+        trampoline.addr_rax = target_address as u64;
+        trampoline.movabsq_r11[0] = 0x49;
+        trampoline.movabsq_r11[1] = 0xbb;
+        trampoline.addr_r11 =
+            register_preservation_trampoline as unsafe extern "C" fn() as usize as u64;
+        trampoline.jmpq_r11[0] = 0x41;
+        trampoline.jmpq_r11[1] = 0xff;
+        trampoline.jmpq_r11[2] = 0xe3;
+
+        self.code.make_executable();
+        true
+    }
+
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         use std::ffi::c_void;
         use wasmer_runtime_core::typed_func::WasmTrapInfo;
@@ -243,7 +277,7 @@ impl RunnableModule for X64ExecutionContext {
             let execution_context =
                 ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
 
-            let args = ::std::slice::from_raw_parts(
+            let args = std::slice::from_raw_parts(
                 args,
                 num_params_plus_one.unwrap().as_ptr() as usize - 1,
             );
@@ -305,6 +339,15 @@ impl RunnableModule for X64ExecutionContext {
 
     fn get_offsets(&self) -> Option<Vec<usize>> {
         Some(self.function_offsets.iter().map(|x| x.0).collect())
+    }
+
+    fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
+        Some(
+            self.function_offsets[self.func_import_count..]
+                .iter()
+                .map(|x| x.0)
+                .collect(),
+        )
     }
 }
 
@@ -418,7 +461,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         };
 
         let total_size = assembler.get_offset().0;
-        let output = assembler.finalize().unwrap();
+        let _output = assembler.finalize().unwrap();
+        let mut output = CodeMemory::new(_output.len());
+        output[0.._output.len()].copy_from_slice(&_output);
+        output.make_executable();
 
         let mut out_labels: Vec<FuncPtr> = vec![];
         let mut out_offsets: Vec<AssemblyOffset> = vec![];
@@ -440,14 +486,21 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                     });
                 }
             };
-            out_labels.push(FuncPtr(output.ptr(*offset) as _));
+            out_labels.push(FuncPtr(
+                unsafe { output.as_ptr().offset(offset.0 as isize) } as _,
+            ));
             out_offsets.push(*offset);
         }
 
         let breakpoints: Arc<HashMap<_, _>> = Arc::new(
             breakpoints
                 .into_iter()
-                .map(|(offset, f)| (output.ptr(offset) as usize, f))
+                .map(|(offset, f)| {
+                    (
+                        unsafe { output.as_ptr().offset(offset.0 as isize) } as usize,
+                        f,
+                    )
+                })
                 .collect(),
         );
 
@@ -557,6 +610,7 @@ impl X64FunctionCode {
         fsm.trappable_offsets.insert(
             offset,
             OffsetInfo {
+                end_offset: offset + 1,
                 activate_offset: offset,
                 diff_id: state_diff_id,
             },
@@ -1179,7 +1233,7 @@ impl X64FunctionCode {
         let used_gprs = m.get_used_gprs();
         for r in used_gprs.iter() {
             a.emit_push(Size::S64, Location::GPR(*r));
-            let content = m.state.register_values[X64Register::GPR(*r).to_index().0];
+            let content = m.state.register_values[X64Register::GPR(*r).to_index().0].clone();
             assert!(content != MachineValue::Undefined);
             m.state.stack_values.push(content);
         }
@@ -1204,7 +1258,7 @@ impl X64FunctionCode {
                 );
             }
             for r in used_xmms.iter().rev() {
-                let content = m.state.register_values[X64Register::XMM(*r).to_index().0];
+                let content = m.state.register_values[X64Register::XMM(*r).to_index().0].clone();
                 assert!(content != MachineValue::Undefined);
                 m.state.stack_values.push(content);
             }
@@ -1244,7 +1298,8 @@ impl X64FunctionCode {
                 Location::Memory(_, _) => {
                     match *param {
                         Location::GPR(x) => {
-                            let content = m.state.register_values[X64Register::GPR(x).to_index().0];
+                            let content =
+                                m.state.register_values[X64Register::GPR(x).to_index().0].clone();
                             // FIXME: There might be some corner cases (release -> emit_call_sysv -> acquire?) that cause this assertion to fail.
                             // Hopefully nothing would be incorrect at runtime.
 
@@ -1252,7 +1307,8 @@ impl X64FunctionCode {
                             m.state.stack_values.push(content);
                         }
                         Location::XMM(x) => {
-                            let content = m.state.register_values[X64Register::XMM(x).to_index().0];
+                            let content =
+                                m.state.register_values[X64Register::XMM(x).to_index().0].clone();
                             //assert!(content != MachineValue::Undefined);
                             m.state.stack_values.push(content);
                         }
@@ -1335,6 +1391,7 @@ impl X64FunctionCode {
             fsm.call_offsets.insert(
                 offset,
                 OffsetInfo {
+                    end_offset: offset + 1,
                     activate_offset: offset,
                     diff_id: state_diff_id,
                 },
@@ -1630,6 +1687,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
     fn begin_body(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
+        let start_label = a.get_label();
+        // skip the patchpoint during normal execution
+        a.emit_jmp(Condition::None, start_label);
+        // patchpoint of 32 1-byte nops
+        for _ in 0..32 {
+            a.emit_nop();
+        }
+        a.emit_label(start_label);
         a.emit_push(Size::S64, Location::GPR(GPR::RBP));
         a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
 
@@ -1694,6 +1759,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         self.fsm.loop_offsets.insert(
             a.get_offset().0,
             OffsetInfo {
+                end_offset: a.get_offset().0 + 1,
                 activate_offset,
                 diff_id: state_diff_id,
             },
@@ -3958,6 +4024,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 self.fsm.loop_offsets.insert(
                     a.get_offset().0,
                     OffsetInfo {
+                        end_offset: a.get_offset().0 + 1,
                         activate_offset,
                         diff_id: state_diff_id,
                     },

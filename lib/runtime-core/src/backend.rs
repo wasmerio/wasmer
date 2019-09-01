@@ -159,6 +159,10 @@ pub trait RunnableModule: Send + Sync {
         None
     }
 
+    unsafe fn patch_local_function(&self, _idx: usize, _target_address: usize) -> bool {
+        false
+    }
+
     /// A wasm trampoline contains the necessary data to dynamically call an exported wasm function.
     /// Given a particular signature index, we are returned a trampoline that is matched with that
     /// signature and an invoke function that can call the trampoline.
@@ -173,6 +177,11 @@ pub trait RunnableModule: Send + Sync {
 
     /// Returns the beginning offsets of all functions, including import trampolines.
     fn get_offsets(&self) -> Option<Vec<usize>> {
+        None
+    }
+
+    /// Returns the beginning offsets of all local functions.
+    fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
         None
     }
 }

@@ -95,6 +95,7 @@ backend-singlepass = [
     "wasmer-wasi-tests/singlepass"
 ]
 wasi = ["wasmer-wasi"]
+managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
 # vfs = ["wasmer-runtime-abi"]
 
 [[example]]

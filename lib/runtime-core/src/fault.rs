@@ -1,8 +1,9 @@
-mod raw {
+pub mod raw {
     use std::ffi::c_void;
 
     extern "C" {
         pub fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64;
+        pub fn register_preservation_trampoline(); // NOT safe to call directly
         pub fn setjmp(env: *mut c_void) -> i32;
         pub fn longjmp(env: *mut c_void, val: i32) -> !;
     }
@@ -10,6 +11,7 @@ mod raw {
 
 use crate::codegen::{BreakpointInfo, BreakpointMap};
 use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR, XMM};
+use crate::state::CodeVersion;
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use nix::sys::signal::{
@@ -17,7 +19,7 @@ use nix::sys::signal::{
     SIGSEGV, SIGTRAP,
 };
 use std::any::Any;
-use std::cell::UnsafeCell;
+use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::c_void;
 use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -38,8 +40,27 @@ struct UnwindInfo {
     payload: Option<Box<dyn Any>>, // out
 }
 
+#[repr(packed)]
+#[derive(Default, Copy, Clone)]
+pub struct BoundaryRegisterPreservation {
+    pub r15: u64,
+    pub r14: u64,
+    pub r13: u64,
+    pub r12: u64,
+    pub rbx: u64,
+}
+
 thread_local! {
     static UNWIND: UnsafeCell<Option<UnwindInfo>> = UnsafeCell::new(None);
+    static CURRENT_CTX: UnsafeCell<*mut vm::Ctx> = UnsafeCell::new(::std::ptr::null_mut());
+    static CURRENT_CODE_VERSIONS: RefCell<Vec<CodeVersion>> = RefCell::new(vec![]);
+    static WAS_SIGINT_TRIGGERED: Cell<bool> = Cell::new(false);
+    static BOUNDARY_REGISTER_PRESERVATION: UnsafeCell<BoundaryRegisterPreservation> = UnsafeCell::new(BoundaryRegisterPreservation::default());
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn get_boundary_register_preservation() -> *mut BoundaryRegisterPreservation {
+    BOUNDARY_REGISTER_PRESERVATION.with(|x| x.get())
 }
 
 struct InterruptSignalMem(*mut u8);
@@ -68,8 +89,40 @@ lazy_static! {
 }
 static INTERRUPT_SIGNAL_DELIVERED: AtomicBool = AtomicBool::new(false);
 
+pub fn was_sigint_triggered_fault() -> bool {
+    WAS_SIGINT_TRIGGERED.with(|x| x.get())
+}
+
+pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
+    let addr = CURRENT_CTX.with(|x| x.get());
+    let old = *addr;
+    *addr = ctx;
+    let ret = cb();
+    *addr = old;
+    ret
+}
+
+pub fn push_code_version(version: CodeVersion) {
+    CURRENT_CODE_VERSIONS.with(|x| x.borrow_mut().push(version));
+}
+
+pub fn pop_code_version() -> Option<CodeVersion> {
+    CURRENT_CODE_VERSIONS.with(|x| x.borrow_mut().pop())
+}
+
 pub unsafe fn get_wasm_interrupt_signal_mem() -> *mut u8 {
     INTERRUPT_SIGNAL_MEM.0
+}
+
+pub unsafe fn set_wasm_interrupt_on_ctx(ctx: *mut vm::Ctx) {
+    if mprotect(
+        (&*ctx).internal.interrupt_signal_mem as _,
+        INTERRUPT_SIGNAL_MEM_SIZE,
+        PROT_NONE,
+    ) < 0
+    {
+        panic!("cannot set PROT_NONE on signal mem");
+    }
 }
 
 pub unsafe fn set_wasm_interrupt() {
@@ -178,6 +231,8 @@ extern "C" fn signal_trap_handler(
         let should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
             let mut is_suspend_signal = false;
 
+            WAS_SIGINT_TRIGGERED.with(|x| x.set(false));
+
             match Signal::from_c_int(signum) {
                 Ok(SIGTRAP) => {
                     // breakpoint
@@ -203,29 +258,26 @@ extern "C" fn signal_trap_handler(
                     if fault.faulting_addr as usize == get_wasm_interrupt_signal_mem() as usize {
                         is_suspend_signal = true;
                         clear_wasm_interrupt();
-                        INTERRUPT_SIGNAL_DELIVERED.store(false, Ordering::SeqCst);
+                        if INTERRUPT_SIGNAL_DELIVERED.swap(false, Ordering::SeqCst) {
+                            WAS_SIGINT_TRIGGERED.with(|x| x.set(true));
+                        }
                     }
                 }
                 _ => {}
             }
 
-            // TODO: make this safer
-            let ctx = &mut *(fault.known_registers[X64Register::GPR(GPR::R15).to_index().0].unwrap()
-                as *mut vm::Ctx);
+            let ctx: &mut vm::Ctx = &mut **CURRENT_CTX.with(|x| x.get());
             let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
 
-            let msm = (*ctx.module)
-                .runnable_module
-                .get_module_state_map()
-                .unwrap();
-            let code_base = (*ctx.module).runnable_module.get_code().unwrap().as_ptr() as usize;
-            let es_image = read_stack(
-                &msm,
-                code_base,
-                rsp as usize as *const u64,
-                fault.known_registers,
-                Some(fault.ip as usize as u64),
-            );
+            let es_image = CURRENT_CODE_VERSIONS.with(|versions| {
+                let versions = versions.borrow();
+                read_stack(
+                    || versions.iter(),
+                    rsp as usize as *const u64,
+                    fault.known_registers,
+                    Some(fault.ip as usize as u64),
+                )
+            });
 
             if is_suspend_signal {
                 let image = build_instance_image(ctx, es_image);

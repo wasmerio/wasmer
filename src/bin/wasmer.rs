@@ -23,11 +23,13 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
-use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
+use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
     Func, Value, VERSION,
 };
+#[cfg(feature = "managed")]
+use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
 use wasmer_runtime_core::{
     self,
     backend::{Backend, Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
@@ -157,9 +159,18 @@ struct Run {
     loader: Option<LoaderName>,
 
     /// Path to previously saved instance image to resume.
-    #[cfg(feature = "backend-singlepass")]
+    #[cfg(feature = "managed")]
     #[structopt(long = "resume")]
     resume: Option<String>,
+
+    /// Optimized backends for higher tiers.
+    #[cfg(feature = "managed")]
+    #[structopt(
+        long = "optimized-backends",
+        multiple = true,
+        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+    )]
+    optimized_backends: Vec<Backend>,
 
     /// Whether or not state tracking should be disabled during compilation.
     /// State tracking is necessary for tier switching and backtracing.
@@ -386,30 +397,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    #[cfg(feature = "backend-llvm")]
-    {
-        if options.backend == Backend::LLVM {
-            let options = options.backend_llvm_options.clone();
-            unsafe {
-                wasmer_llvm_backend::GLOBAL_OPTIONS = LLVMOptions {
-                    pre_opt_ir: options.pre_opt_ir,
-                    post_opt_ir: options.post_opt_ir,
-                    obj_file: options.obj_file,
-                }
-            }
-        }
-    }
-
-    let compiler: Box<dyn Compiler> = match options.backend {
-        #[cfg(feature = "backend-singlepass")]
-        Backend::Singlepass => Box::new(SinglePassCompiler::new()),
-        #[cfg(not(feature = "backend-singlepass"))]
-        Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
-        Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        #[cfg(feature = "backend-llvm")]
-        Backend::LLVM => Box::new(LLVMCompiler::new()),
-        #[cfg(not(feature = "backend-llvm"))]
-        Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
+    let compiler: Box<dyn Compiler> = match get_compiler_by_backend(options.backend) {
+        Some(x) => x,
+        None => return Err("the requested backend is not enabled".into()),
     };
 
     let track_state = !options.no_track_state;
@@ -428,7 +418,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         webassembly::compile_with_config_with(
             &wasm_binary[..],
             CompilerConfig {
-                symbol_map: em_symbol_map,
+                symbol_map: em_symbol_map.clone(),
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
                 track_state,
@@ -444,7 +434,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         webassembly::compile_with_config_with(
             &wasm_binary[..],
             CompilerConfig {
-                symbol_map: em_symbol_map,
+                symbol_map: em_symbol_map.clone(),
                 track_state,
                 features: Features {
                     simd: options.features.simd || options.features.all,
@@ -465,7 +455,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let mut cache = unsafe {
             FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
         };
-        let load_cache_key = || -> Result<_, String> {
+        let mut load_cache_key = || -> Result<_, String> {
             if let Some(ref prehashed_cache_key) = options.cache_key {
                 if let Ok(module) =
                     WasmHash::decode(prehashed_cache_key).and_then(|prehashed_key| {
@@ -492,7 +482,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     let module = webassembly::compile_with_config_with(
                         &wasm_binary[..],
                         CompilerConfig {
-                            symbol_map: em_symbol_map,
+                            symbol_map: em_symbol_map.clone(),
                             track_state,
                             features: Features {
                                 simd: options.features.simd || options.features.all,
@@ -602,74 +592,42 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
-            #[cfg(feature = "backend-singlepass")]
-            unsafe {
-                if options.backend == Backend::Singlepass {
-                    use wasmer_runtime_core::fault::{catch_unsafe_unwind, ensure_sighandler};
-                    use wasmer_runtime_core::state::{
-                        x64::invoke_call_return_on_stack, InstanceImage,
-                    };
-                    use wasmer_runtime_core::vm::Ctx;
+            #[cfg(feature = "managed")]
+            {
+                let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =
+                    unsafe { ::std::mem::transmute(start.get_vm_func()) };
 
-                    ensure_sighandler();
-
-                    let start_raw: extern "C" fn(&mut Ctx) =
-                        ::std::mem::transmute(start.get_vm_func());
-
-                    let mut image: Option<InstanceImage> = if let Some(ref path) = options.resume {
-                        let mut f = File::open(path).unwrap();
-                        let mut out: Vec<u8> = vec![];
-                        f.read_to_end(&mut out).unwrap();
-                        Some(InstanceImage::from_bytes(&out).expect("failed to decode image"))
-                    } else {
-                        None
-                    };
-                    let breakpoints = instance.module.runnable_module.get_breakpoints();
-
-                    loop {
-                        let ret = if let Some(image) = image.take() {
-                            let msm = instance
-                                .module
-                                .runnable_module
-                                .get_module_state_map()
-                                .unwrap();
-                            let code_base =
-                                instance.module.runnable_module.get_code().unwrap().as_ptr()
-                                    as usize;
-                            invoke_call_return_on_stack(
-                                &msm,
-                                code_base,
-                                image,
-                                instance.context_mut(),
-                                breakpoints.clone(),
+                unsafe {
+                    run_tiering(
+                        module.info(),
+                        &wasm_binary,
+                        if let Some(ref path) = options.resume {
+                            let mut f = File::open(path).unwrap();
+                            let mut out: Vec<u8> = vec![];
+                            f.read_to_end(&mut out).unwrap();
+                            Some(
+                                wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
+                                    .expect("failed to decode image"),
                             )
-                            .map(|_| ())
                         } else {
-                            catch_unsafe_unwind(
-                                || start_raw(instance.context_mut()),
-                                breakpoints.clone(),
-                            )
-                        };
-                        if let Err(e) = ret {
-                            if let Some(new_image) = e.downcast_ref::<InstanceImage>() {
-                                let op = interactive_shell(InteractiveShellContext {
-                                    image: Some(new_image.clone()),
-                                });
-                                match op {
-                                    ShellExitOperation::ContinueWith(new_image) => {
-                                        image = Some(new_image);
-                                    }
-                                }
-                            } else {
-                                return Err("Error while executing WebAssembly".into());
-                            }
-                        } else {
-                            return Ok(());
-                        }
-                    }
-                }
+                            None
+                        },
+                        &import_object,
+                        start_raw,
+                        &mut instance,
+                        options
+                            .optimized_backends
+                            .iter()
+                            .map(|&backend| -> Box<dyn Fn() -> Box<dyn Compiler> + Send> {
+                                Box::new(move || get_compiler_by_backend(backend).unwrap())
+                            })
+                            .collect(),
+                        interactive_shell,
+                    )?
+                };
             }
 
+            #[cfg(not(feature = "managed"))]
             {
                 use wasmer_runtime::error::RuntimeError;
                 let result = start.call();
@@ -712,18 +670,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(feature = "backend-singlepass")]
-struct InteractiveShellContext {
-    image: Option<wasmer_runtime_core::state::InstanceImage>,
-}
-
-#[cfg(feature = "backend-singlepass")]
-#[derive(Debug)]
-enum ShellExitOperation {
-    ContinueWith(wasmer_runtime_core::state::InstanceImage),
-}
-
-#[cfg(feature = "backend-singlepass")]
+#[cfg(feature = "managed")]
 fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     use std::io::Write;
 
@@ -846,6 +793,20 @@ fn validate(validate: Validate) {
         }
         _ => (),
     }
+}
+
+fn get_compiler_by_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
+    Some(match backend {
+        #[cfg(feature = "backend-singlepass")]
+        Backend::Singlepass => Box::new(SinglePassCompiler::new()),
+        #[cfg(not(feature = "backend-singlepass"))]
+        Backend::Singlepass => return None,
+        Backend::Cranelift => Box::new(CraneliftCompiler::new()),
+        #[cfg(feature = "backend-llvm")]
+        Backend::LLVM => Box::new(LLVMCompiler::new()),
+        #[cfg(not(feature = "backend-llvm"))]
+        Backend::LLVM => return None,
+    })
 }
 
 fn main() {

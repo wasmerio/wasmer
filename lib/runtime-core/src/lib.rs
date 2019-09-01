@@ -54,6 +54,8 @@ pub use trampoline_x64 as trampoline;
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub mod fault;
 pub mod state;
+#[cfg(feature = "managed")]
+pub mod tiering;
 
 use self::error::CompileResult;
 #[doc(inline)]
