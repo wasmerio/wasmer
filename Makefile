@@ -50,13 +50,13 @@ emtests: emtests-unit emtests-singlepass emtests-cranelift emtests-llvm
 
 # Middleware tests
 middleware-singlepass:
-	cargo test --manifest-path lib/middleware-common/Cargo.toml --release --features singlepass
+	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features singlepass
 
 middleware-cranelift:
-	cargo test --manifest-path lib/middleware-common/Cargo.toml --release --features clif
+	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features clif
 
 middleware-llvm:
-	cargo test --manifest-path lib/middleware-common/Cargo.toml --release --features llvm
+	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features llvm
 
 middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
@@ -100,7 +100,7 @@ capi:
 	cargo test -p wasmer-runtime-c-api --release
 
 test-rest: capi
-	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-wasi-tests --exclude wasmer-emscripten-tests
+	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-middleware-common-tests --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-wasi-tests --exclude wasmer-emscripten-tests
 
 circleci-clean:
 	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
@@ -128,9 +128,20 @@ debug:
 install:
 	cargo install --path .
 
-check:
-	cargo check --release --features backend-singlepass,backend-llvm,loader-kernel
+# Checks
+check-bench-singlepass:
+	cargo bench --all --no-run --no-default-features --features "backend-singlepass"
+check-bench-clif:
+	cargo bench --all --no-run --no-default-features --features "backend-cranelift"
+check-bench-llvm:
+	cargo bench --all --no-run --no-default-features --features "backend-llvm"
 
+check-bench: check-bench-singlepass check-bench-llvm
+
+check: check-bench
+	cargo check --release --features backend-singlepass,backend-llvm,loader-kernel,debug
+
+# Release
 release:
 	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
 
@@ -153,15 +164,6 @@ bench-clif:
 bench-llvm:
 	cargo bench --all --no-default-features --features "backend-llvm"
 
-# compile but don't run the benchmarks
-compile-bench-singlepass:
-	cargo bench --all --no-run --no-default-features --features "backend-singlepass"
-compile-bench-clif:
-	cargo bench --all --no-run --no-default-features --features "backend-cranelift"
-compile-bench-llvm:
-	cargo bench --all --no-run --no-default-features --features "backend-llvm"
-
-
 # Build utils
 build-install:
 	mkdir -p ./install/bin
@@ -179,4 +181,4 @@ publish-release:
 # cargo install cargo-deps
 # must install graphviz for `dot`
 dep-graph:
-	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
+	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
