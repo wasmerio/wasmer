@@ -2,160 +2,182 @@ name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
 
 # The Different jobs (lint, test, build to run)
 jobs:
-- job: lint
-  pool:
-    vmImage: 'macos-10.14'
-  steps:
-  - checkout: self
-    submodules: true
-  - template: .azure/install-rust.yml
-  - script: |
-      rustup component add rustfmt
-      rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
-    displayName: Lint dependencies
-  - script: cargo fmt --all -- --check
-    displayName: Lint
+  - job: lint
+    pool:
+      vmImage: "macos-10.14"
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - script: |
+          rustup component add rustfmt
+          rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+        displayName: Lint dependencies
+      - script: cargo fmt --all -- --check
+        displayName: Lint
+    variables:
+      rust_toolchain: stable
 
-  variables:
-    rust_toolchain: stable
+  - job: Test
+    strategy:
+      matrix:
+        linux:
+          imageName: "ubuntu-16.04"
+          rust_toolchain: nightly-2019-06-10
+        mac:
+          imageName: "macos-10.14"
+          rust_toolchain: nightly-2019-06-10
+        windows:
+          imageName: "vs2017-win2016"
+          rust_toolchain: stable
+    pool:
+      vmImage: $(imageName)
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - template: .azure/install-llvm.yml
+      - bash: make test
+        displayName: Tests (*nix)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: make spectests-cranelift
+        displayName: Tests (Windows)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
 
-- job: Test
-  strategy:
-    matrix:
-      linux:
-        imageName: 'ubuntu-16.04'
-        rust_toolchain: nightly-2019-06-10
-      mac:
-        imageName: 'macos-10.14'
-        rust_toolchain: nightly-2019-06-10
-      windows:
-        imageName: 'vs2017-win2016'
-        rust_toolchain: stable
+  - job: Check
+    pool:
+      vmImage: "macos-10.14"
+    variables:
+      rust_toolchain: nightly-2019-06-10
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - template: .azure/install-llvm.yml
+      - bash: make check
+        displayName: Check with Flags
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
 
-  pool:
-    vmImage: $(imageName)
+  - job: Build CLI
+    strategy:
+      matrix:
+        linux:
+          imageName: "ubuntu-16.04"
+          rust_toolchain: nightly-2019-06-10
+        mac:
+          imageName: "macos-10.14"
+          rust_toolchain: nightly-2019-06-10
+          MACOSX_DEPLOYMENT_TARGET: 10.10
+        windows:
+          imageName: "vs2017-win2016"
+          rust_toolchain: stable
+          # RUSTFLAGS: -Ctarget-feature=+crt-static
+    pool:
+      vmImage: $(imageName)
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - template: .azure/install-innosetup.yml
+      - template: .azure/install-llvm.yml
+      - bash: |
+          mkdir -p artifacts
+        displayName: Create Artifacts Dir
+      - bash: make release
+        displayName: Build (*nix)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: make release-llvm
+        displayName: Build (Windows)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+      - bash: |
+          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+        displayName: Build WAPM
+      - bash: |
+          make build-install
+          cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
+        displayName: Build Distribution (*nix)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: |
+          cd ./src/installer
+          iscc wasmer.iss
+          cp WasmerInstaller.exe ../../artifacts/wasmer-windows.exe
+        displayName: Build Distribution (Windows)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+      - publish: $(System.DefaultWorkingDirectory)/artifacts
+        artifact: release # -$(Agent.OS)
 
-  steps:
-    - checkout: self
-      submodules: true
-    - template: .azure/install-rust.yml
-    - template: .azure/install-sccache.yml
-    - template: .azure/install-cmake.yml
-    - template: .azure/install-llvm.yml
-    - bash: make test
-      displayName: Tests (*nix)
-      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-    - bash: make spectests-cranelift
-      displayName: Tests (Windows)
-      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+  - job: Build C-API
+    strategy:
+      matrix:
+        linux:
+          imageName: "ubuntu-16.04"
+          rust_toolchain: nightly-2019-06-10
+        mac:
+          imageName: "macos-10.14"
+          rust_toolchain: nightly-2019-06-10
+          MACOSX_DEPLOYMENT_TARGET: 10.10
+        windows:
+          imageName: "vs2017-win2016"
+          rust_toolchain: stable
+          # RUSTFLAGS: -Ctarget-feature=+crt-static
+    pool:
+      vmImage: $(imageName)
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      # - template: .azure/install-llvm.yml
+      - bash: |
+          mkdir -p artifacts
+        displayName: Create Artifacts Dir
+      - bash: |
+          make capi
+          cp target/release/libwasmer_runtime_c_api.so ./artifacts
+        displayName: Build c-api (Linux)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+      - bash: |
+          make capi
+          install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
+          cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
+        displayName: Build c-api (Darwin)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+      - bash: |
+          cargo build --release
+          cargo build -p wasmer-runtime-c-api --release
+          cp target/release/wasmer_runtime_c_api.dll ./artifacts
+        displayName: Build c-api (Windows)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+      - publish: $(System.DefaultWorkingDirectory)/artifacts
+        artifact: release # -$(Agent.OS)
 
-- job: Check
-  pool:
-    vmImage: 'macos-10.14'
-
-  variables:
-    rust_toolchain: nightly-2019-06-10
-
-  steps:
-    - checkout: self
-      submodules: true
-    - template: .azure/install-rust.yml
-    - template: .azure/install-sccache.yml
-    - template: .azure/install-cmake.yml
-    - template: .azure/install-llvm.yml
-    - bash: make check
-      displayName: Check with Flags
-      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-
-- job: Build
-  strategy:
-    matrix:
-      linux:
-        imageName: 'ubuntu-16.04'
-        rust_toolchain: nightly-2019-06-10
-      mac:
-        imageName: 'macos-10.14'
-        rust_toolchain: nightly-2019-06-10
-        MACOSX_DEPLOYMENT_TARGET: 10.10
-      windows:
-        imageName: 'vs2017-win2016'
-        rust_toolchain: stable
-        # RUSTFLAGS: -Ctarget-feature=+crt-static
-
-  pool:
-    vmImage: $(imageName)
-
-  steps:
-    - checkout: self
-      submodules: true
-    - template: .azure/install-rust.yml
-    - template: .azure/install-sccache.yml
-    - template: .azure/install-cmake.yml
-    - template: .azure/install-innosetup.yml
-    - template: .azure/install-llvm.yml
-    - bash: |
-        mkdir -p artifacts
-      displayName: Create Artifacts Dir
-    - bash: |
-        make capi
-        cp target/release/libwasmer_runtime_c_api.so ./artifacts
-      displayName: Build c-api (Linux)
-      condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
-    - bash: |
-        make capi
-        install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
-        cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
-      displayName: Build c-api (Darwin)
-      condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
-    - bash: |
-        cargo build --release
-        cargo build -p wasmer-runtime-c-api --release
-        cp target/release/wasmer_runtime_c_api.dll ./artifacts
-      displayName: Build c-api (Windows)
-      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
-    - bash: make release
-      displayName: Build (*nix)
-      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-    - bash: make release-llvm
-      displayName: Build (Windows)
-      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
-    - bash: |
-        cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
-      displayName: Build WAPM
-    - bash: |
-        make build-install
-        cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
-      displayName: Build Distribution (*nix)
-      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-    - bash: |
-        cd ./src/installer
-        iscc wasmer.iss
-        cp WasmerInstaller.exe ../../artifacts/wasmer-windows.exe
-      displayName: Build Distribution (Windows)
-      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
-    - publish: $(System.DefaultWorkingDirectory)/artifacts
-      artifact: release # -$(Agent.OS)
-
-- job: Publish
-  dependsOn:
-  - Build
-  steps:
-    - download: current
-      artifact: release
-    - bash: |
-        ls $PIPELINE_WORKSPACE/release
-      env: 
-        PIPELINE_WORKSPACE: $(Pipeline.Workspace)
-    - task: GithubRelease@0 
-      displayName: 'Create GitHub Release'      
-      inputs:
-        gitHubConnection: wasmerio
-        repositoryName: wasmerio/wasmer
-        tag: dev
-        assets: $(Pipeline.Workspace)/release
+  - job: Publish
+    dependsOn:
+      - Build CLI
+      - Build C-API
+    steps:
+      - download: current
+        artifact: release
+      - bash: |
+          ls $PIPELINE_WORKSPACE/release
+        env:
+          PIPELINE_WORKSPACE: $(Pipeline.Workspace)
+      - task: GithubRelease@0
+        displayName: "Create GitHub Release"
+        inputs:
+          gitHubConnection: wasmerio
+          repositoryName: wasmerio/wasmer
+          tag: dev
+          assets: $(Pipeline.Workspace)/release
 
 trigger:
   branches:
     include:
-    - '*'
-
+      - "*"
