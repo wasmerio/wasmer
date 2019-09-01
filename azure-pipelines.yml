@@ -55,7 +55,7 @@ jobs:
 
   - job: Check
     pool:
-      vmImage: "macos-10.14"
+      vmImage: "ubuntu-16.04"
     variables:
       rust_toolchain: nightly-2019-06-10
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
