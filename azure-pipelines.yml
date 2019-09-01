@@ -62,7 +62,7 @@ jobs:
         displayName: Check with Flags
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
 
-  - job: Build CLI
+  - job: Build_CLI
     strategy:
       matrix:
         linux:
@@ -112,7 +112,7 @@ jobs:
       - publish: $(System.DefaultWorkingDirectory)/artifacts
         artifact: release # -$(Agent.OS)
 
-  - job: Build C-API
+  - job: Build_Library
     strategy:
       matrix:
         linux:
@@ -160,8 +160,8 @@ jobs:
 
   - job: Publish
     dependsOn:
-      - Build CLI
-      - Build C-API
+      - Build_CLI
+      - Build_Library
     steps:
       - download: current
         artifact: release
