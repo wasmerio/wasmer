@@ -193,8 +193,6 @@ pr:
 
 # Otherwise, we test in any of this branches (master or bors related)
 trigger:
-  branches:
-    include:
-      - master
-      - staging
-      - trying
+  - master
+  - staging
+  - trying
