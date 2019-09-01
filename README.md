@@ -21,9 +21,7 @@
 
 ## Introduction
 
-[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime, for running WebAssembly [outside of the Browser](https://webassembly.org/docs/non-web/) supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
-
-Wasmer can be used as a Command Line Application or as a library embedded in different languages.
+[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime, for running WebAssembly [outside of the Browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
 
 Install the Wasmer CLI with:
 
@@ -31,11 +29,11 @@ Install the Wasmer CLI with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
-> Note: *Wasmer is also available on Windows. Download the [`WasmerInstaller.exe` from the Github Releases](https://github.com/wasmerio/wasmer/releases) page.*
+> Note: *Wasmer is also [available on Windows](https://github.com/wasmerio/wasmer/releases)*
 
 ### Languages
 
-Wasmer runtime can be used as a library embedded in different languages, so you can use WebAssembly anywhere ✨:
+Wasmer runtime can be used as a library embedded in different languages, so you can use WebAssembly anywhere:
 
 | &nbsp; | Language | Author(s) | Maintenance | Release |
 |-|-|-|-|-|
