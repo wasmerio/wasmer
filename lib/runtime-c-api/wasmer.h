@@ -6,6 +6,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/**
+ * List of export/import kinds.
+ */
 enum wasmer_import_export_kind {
   WASM_FUNCTION,
   WASM_GLOBAL,
@@ -31,6 +34,9 @@ typedef struct {
 
 } wasmer_module_t;
 
+/**
+ * Opaque pointer to `NamedExportDescriptor`.
+ */
 typedef struct {
 
 } wasmer_export_descriptor_t;
@@ -40,10 +46,16 @@ typedef struct {
   uint32_t bytes_len;
 } wasmer_byte_array;
 
+/**
+ * Opaque pointer to `NamedExportDescriptors`.
+ */
 typedef struct {
 
 } wasmer_export_descriptors_t;
 
+/**
+ * Opaque pointer to `wasmer_export_t`.
+ */
 typedef struct {
 
 } wasmer_export_func_t;
@@ -60,6 +72,9 @@ typedef struct {
   wasmer_value value;
 } wasmer_value_t;
 
+/**
+ * Opaque pointer to `NamedExport`.
+ */
 typedef struct {
 
 } wasmer_export_t;
@@ -68,6 +83,9 @@ typedef struct {
 
 } wasmer_memory_t;
 
+/**
+ * Opaque pointer to `NamedExports`.
+ */
 typedef struct {
 
 } wasmer_exports_t;
@@ -101,6 +119,9 @@ typedef struct {
 
 } wasmer_table_t;
 
+/**
+ * Union of import/export value.
+ */
 typedef union {
   const wasmer_import_func_t *func;
   const wasmer_table_t *table;
