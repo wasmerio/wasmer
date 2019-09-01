@@ -137,6 +137,8 @@ jobs:
       artifact: release # -$(Agent.OS)
 
 - job: Publish
+  dependsOn:
+  - Build
   steps:
     - download: current
       artifact: release
