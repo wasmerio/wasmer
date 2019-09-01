@@ -861,9 +861,9 @@ llvm:skip:traps.wast:*:windows
 llvm:skip:unreachable.wast:*:windows
 llvm:skip:unwind.wast:*:windows
 
-# LLVM Linux after OSR
-llvm:fail:simd.wast:355:linux # Module - caught panic Any
-llvm:fail:simd_binaryen.wast:*:linux # Module - caught panic Any
+# LLVM Linux after OSR - https://github.com/wasmerio/wasmer/pull/567
+llvm:fail:simd.wast:355:unix # Module - caught panic Any
+llvm:fail:simd_binaryen.wast:*:unix # Module - caught panic Any
 
 
 # Singlepass
