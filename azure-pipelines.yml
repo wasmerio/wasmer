@@ -110,7 +110,7 @@ jobs:
         displayName: Build Distribution (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - publish: $(System.DefaultWorkingDirectory)/artifacts
-        artifact: release # -$(Agent.OS)
+        artifact: cli-$(Agent.OS)
 
   - job: Build_Library
     strategy:
@@ -156,26 +156,28 @@ jobs:
         displayName: Build c-api (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - publish: $(System.DefaultWorkingDirectory)/artifacts
-        artifact: release # -$(Agent.OS)
+        artifact: library-$(Agent.OS)
 
   - job: Publish
     dependsOn:
       - Build_CLI
       - Build_Library
     steps:
-      - download: current
-        artifact: release
+      # - download: current
+      - task: DownloadPipelineArtifact@1
+        inputs:
+          targetPath: $(Build.ArtifactStagingDirectory)
       - bash: |
-          ls $PIPELINE_WORKSPACE/release
+          ls $ARTIFACT_STAGING_DIRECTORY
         env:
-          PIPELINE_WORKSPACE: $(Pipeline.Workspace)
+          ARTIFACT_STAGING_DIRECTORY: $(Build.ArtifactStagingDirectory)
       - task: GithubRelease@0
         displayName: "Create GitHub Release"
         inputs:
           gitHubConnection: wasmer
           repositoryName: wasmerio/wasmer
           tag: dev
-          assets: $(Pipeline.Workspace)/release
+          assets: $(Build.ArtifactStagingDirectory)
 
 trigger:
   branches:
