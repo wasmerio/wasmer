@@ -38,6 +38,7 @@ jobs:
           rust_toolchain: stable
     pool:
       vmImage: $(imageName)
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
         submodules: true
@@ -57,6 +58,7 @@ jobs:
       vmImage: "macos-10.14"
     variables:
       rust_toolchain: nightly-2019-06-10
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
         submodules: true
@@ -84,6 +86,7 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
         submodules: true
@@ -134,6 +137,7 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
         submodules: true
