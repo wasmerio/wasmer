@@ -2,6 +2,12 @@ name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
 
 # The Different jobs (lint, test, build to run)
 jobs:
+  - job: changelog
+    steps:
+      - bash: |
+          git --no-pager diff --name-only HEAD $(git merge-base HEAD master) --exit-code CHANGELOG.md
+        displayName: Changelog Updated
+
   - job: lint
     pool:
       vmImage: "macos-10.14"
@@ -169,10 +175,12 @@ jobs:
           targetPath: $(Build.ArtifactStagingDirectory)
       - bash: |
           ls $ARTIFACT_STAGING_DIRECTORY
+        displayName: List Artifacts
         env:
           ARTIFACT_STAGING_DIRECTORY: $(Build.ArtifactStagingDirectory)
       - task: GithubRelease@0
         displayName: "Create GitHub Release"
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         inputs:
           gitHubConnection: wasmer
           repositoryName: wasmerio/wasmer
