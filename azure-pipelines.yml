@@ -116,6 +116,7 @@ jobs:
         condition: |
           and(
             succeeded(),
+            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
             not(eq(variables['Agent.OS'], 'Windows_NT'))
           )
       - bash: |
