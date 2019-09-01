@@ -172,7 +172,7 @@ jobs:
       - task: GithubRelease@0
         displayName: "Create GitHub Release"
         inputs:
-          gitHubConnection: wasmerio
+          gitHubConnection: wasmer
           repositoryName: wasmerio/wasmer
           tag: dev
           assets: $(Pipeline.Workspace)/release
