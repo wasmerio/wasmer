@@ -93,12 +93,24 @@ jobs:
     - template: .azure/install-cmake.yml
     - template: .azure/install-innosetup.yml
     - template: .azure/install-llvm.yml
-    - bash: make capi
-      displayName: Build c-api (*nix)
-      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+    - bash: |
+        mkdir -p artifacts
+      displayName: Create Artifacts Dir
+    - bash: |
+        make capi
+        cp target/release/libwasmer_runtime_c_api.so ./artifacts
+      displayName: Build c-api (Linux)
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+    - bash: |
+        make capi
+        install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
+        cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
+      displayName: Build c-api (Darwin)
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
     - bash: |
         cargo build --release
         cargo build -p wasmer-runtime-c-api --release
+        cp target/release/wasmer_runtime_c_api.dll ./artifacts
       displayName: Build c-api (Windows)
       condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
     - bash: make release
@@ -111,19 +123,34 @@ jobs:
         cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
       displayName: Build WAPM
     - bash: |
-        mkdir -p artifacts
         make build-install
+        cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
       displayName: Build Distribution (*nix)
       condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
     - bash: |
         cd ./src/installer
         iscc wasmer.iss
+        cp WasmerInstaller.exe ../../artifacts/wasmer-windows.exe
       displayName: Build Distribution (Windows)
       condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+    - publish: $(System.DefaultWorkingDirectory)/artifacts
+      artifact: release # -$(Agent.OS)
+
+- job: Publish
+  steps:
+    - download: current
+      artifact: release
     - bash: |
-        install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
-      displayName: Build c-api (Darwin fix)
-      condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+        ls $PIPELINE_WORKSPACE/release
+      env: 
+        PIPELINE_WORKSPACE: $(Pipeline.Workspace)
+    - task: GithubRelease@0 
+      displayName: 'Create GitHub Release'      
+      inputs:
+        gitHubConnection: wasmerio
+        repositoryName: wasmerio/wasmer
+        tag: dev
+        assets: $(Pipeline.Workspace)/release
 
 trigger:
   branches:
