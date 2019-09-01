@@ -127,9 +127,20 @@ debug:
 install:
 	cargo install --path .
 
-check:
-	cargo check --release --features backend-singlepass,backend-llvm,loader-kernel
+# Checks
+check-bench-singlepass:
+	cargo bench --all --no-run --no-default-features --features "backend-singlepass"
+check-bench-clif:
+	cargo bench --all --no-run --no-default-features --features "backend-cranelift"
+check-bench-llvm:
+	cargo bench --all --no-run --no-default-features --features "backend-llvm"
 
+check-bench: check-bench-singlepass check-bench-llvm
+
+check: check-bench
+	cargo check --release --features backend-singlepass,backend-llvm,loader-kernel,debug
+
+# Release
 release:
 	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
 
@@ -151,15 +162,6 @@ bench-clif:
 	cargo bench --all --no-default-features --features "backend-cranelift"
 bench-llvm:
 	cargo bench --all --no-default-features --features "backend-llvm"
-
-# compile but don't run the benchmarks
-compile-bench-singlepass:
-	cargo bench --all --no-run --no-default-features --features "backend-singlepass"
-compile-bench-clif:
-	cargo bench --all --no-run --no-default-features --features "backend-cranelift"
-compile-bench-llvm:
-	cargo bench --all --no-run --no-default-features --features "backend-llvm"
-
 
 # Build utils
 build-install:

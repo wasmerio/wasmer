@@ -1,10 +1,5 @@
 status = [
-    "ci/circleci: lint",
-    "ci/circleci: test",
-    "ci/circleci: test-macos",
-    "ci/circleci: test-stable",
-    "ci/circleci: test-rust-example",
-    "continuous-integration/appveyor/branch"
+    "wasmerio.wasmer"
 ]
 required_approvals = 1
 timeout_sec = 7200
