@@ -634,7 +634,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
                 if let Err(ref err) = result {
                     match err {
-                        RuntimeError::Trap { msg } => panic!("wasm trap occured: {}", msg),
+                        RuntimeError::Trap { msg } => return Err(format!("wasm trap occured: {}", msg)),
                         #[cfg(feature = "wasi")]
                         RuntimeError::Error { data } => {
                             if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
@@ -644,7 +644,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         #[cfg(not(feature = "wasi"))]
                         RuntimeError::Error { .. } => (),
                     }
-                    panic!("error: {:?}", err)
+                    return Err(format!("error: {:?}", err))
                 }
             }
         } else {
