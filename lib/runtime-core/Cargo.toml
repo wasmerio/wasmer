@@ -41,7 +41,7 @@ version = "0.5.6"
 version = "0.8.1"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.7", features = ["memoryapi"] }
+winapi = { version = "0.3.8", features = ["memoryapi"] }
 
 [dev-dependencies]
 field-offset = "0.1.1"
