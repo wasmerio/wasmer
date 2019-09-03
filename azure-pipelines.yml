@@ -42,6 +42,8 @@ jobs:
           rust_toolchain: stable
     pool:
       vmImage: $(imageName)
+    variables:
+      SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
@@ -50,6 +52,11 @@ jobs:
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
+      - task: CacheBeta@0
+        inputs:
+          key: sccache | $(Agent.OS) | Cargo.lock
+          path: $(SCCACHE_DIR)
+        displayName: Cache Cargo Target
       - bash: make test
         displayName: Tests (*nix)
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
@@ -63,6 +70,8 @@ jobs:
     variables:
       rust_toolchain: nightly-2019-08-15
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    variables:
+      SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
     steps:
       - checkout: self
         submodules: true
@@ -70,6 +79,11 @@ jobs:
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
+      - task: CacheBeta@0
+        inputs:
+          key: sccache | $(Agent.OS) | Cargo.lock
+          path: $(SCCACHE_DIR)
+        displayName: Cache Cargo Target
       - bash: make check
         displayName: Check with Flags
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
@@ -90,6 +104,8 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
+    variables:
+      SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
@@ -99,6 +115,11 @@ jobs:
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - template: .azure/install-innosetup.yml
+      - task: CacheBeta@0
+        inputs:
+          key: sccache | $(Agent.OS) | Cargo.lock
+          path: $(SCCACHE_DIR)
+        displayName: Cache Cargo Target
       - bash: |
           mkdir -p artifacts
         displayName: Create Artifacts Dir
@@ -153,6 +174,8 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
+    variables:
+      SCCACHE_DIR: $(Pipeline.Workspace)/.sccache
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
@@ -161,6 +184,11 @@ jobs:
       # - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
+      - task: CacheBeta@0
+        inputs:
+          key: sccache | $(Agent.OS) | Cargo.lock
+          path: $(SCCACHE_DIR)
+        displayName: Cache Cargo Target
       - bash: |
           mkdir -p artifacts
         displayName: Create Artifacts Dir
