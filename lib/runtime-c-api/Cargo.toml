@@ -32,4 +32,4 @@ llvm-backend = ["wasmer-runtime/llvm", "wasmer-runtime/default-backend-llvm"]
 singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass"]
 
 [build-dependencies]
-cbindgen = "0.9.0"
+cbindgen = "0.9.1"
