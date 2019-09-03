@@ -644,7 +644,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         #[cfg(not(feature = "wasi"))]
                         RuntimeError::Error { .. } => (),
                     }
-                    return Err(format!("error: {:?}", err))
+                    return Err(format!("error: {:?}", err));
                 }
             }
         } else {
