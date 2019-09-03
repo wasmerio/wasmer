@@ -1,4 +1,4 @@
-.PHONY: spectests emtests clean build install lint precommit
+.PHONY: spectests emtests clean build install lint precommit docs
 
 # Generate files
 generate-spectests:
