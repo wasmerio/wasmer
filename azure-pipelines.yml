@@ -226,8 +226,6 @@ jobs:
       - bash: |
           make docs
         displayName: Build documentation
-    variables:
-      rust_toolchain: stable
 
 # We only run the pipelines on PRs to Master
 pr:
