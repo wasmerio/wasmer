@@ -157,12 +157,12 @@ impl Machine {
             };
             if let Location::GPR(x) = loc {
                 self.used_gprs.insert(x);
-                self.state.register_values[X64Register::GPR(x).to_index().0] = *mv;
+                self.state.register_values[X64Register::GPR(x).to_index().0] = mv.clone();
             } else if let Location::XMM(x) = loc {
                 self.used_xmms.insert(x);
-                self.state.register_values[X64Register::XMM(x).to_index().0] = *mv;
+                self.state.register_values[X64Register::XMM(x).to_index().0] = mv.clone();
             } else {
-                self.state.stack_values.push(*mv);
+                self.state.stack_values.push(mv.clone());
             }
             self.state.wasm_stack.push(WasmAbstractValue::Runtime);
             ret.push(loc);
@@ -494,11 +494,12 @@ mod test {
         let mut assembler = Assembler::new().unwrap();
         let locs = machine.acquire_locations(
             &mut assembler,
-            &[(WpType::I32, MachineValue::Undefined); 10],
+            &(0..10)
+                .map(|_| (WpType::I32, MachineValue::Undefined))
+                .collect::<Vec<_>>(),
             false,
         );
 
         machine.release_locations_keep_state(&mut assembler, &locs);
     }
-
 }

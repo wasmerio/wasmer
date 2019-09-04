@@ -7,6 +7,9 @@
     unused_unsafe,
     unreachable_patterns
 )]
+#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
+
 //! Wasmer-runtime is a library that makes embedding WebAssembly
 //! in your application easy, efficient, and safe.
 //!

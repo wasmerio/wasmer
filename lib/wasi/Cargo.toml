@@ -21,4 +21,4 @@ serde = { version = "1", features = ["derive"] }
 wasmer-runtime-core = { path = "../runtime-core", version = "0.6.0" }
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3.7"
+winapi = "0.3.8"

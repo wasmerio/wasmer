@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <new>
 
+/// List of export/import kinds.
 enum class wasmer_import_export_kind : uint32_t {
   WASM_FUNCTION,
   WASM_GLOBAL,
@@ -29,6 +30,7 @@ struct wasmer_module_t {
 
 };
 
+/// Opaque pointer to `NamedExportDescriptor`.
 struct wasmer_export_descriptor_t {
 
 };
@@ -38,10 +40,12 @@ struct wasmer_byte_array {
   uint32_t bytes_len;
 };
 
+/// Opaque pointer to `NamedExportDescriptors`.
 struct wasmer_export_descriptors_t {
 
 };
 
+/// Opaque pointer to `wasmer_export_t`.
 struct wasmer_export_func_t {
 
 };
@@ -58,6 +62,7 @@ struct wasmer_value_t {
   wasmer_value value;
 };
 
+/// Opaque pointer to `NamedExport`.
 struct wasmer_export_t {
 
 };
@@ -66,6 +71,7 @@ struct wasmer_memory_t {
 
 };
 
+/// Opaque pointer to `NamedExports`.
 struct wasmer_exports_t {
 
 };
@@ -99,6 +105,7 @@ struct wasmer_table_t {
 
 };
 
+/// Union of import/export value.
 union wasmer_import_export_value {
   const wasmer_import_func_t *func;
   const wasmer_table_t *table;

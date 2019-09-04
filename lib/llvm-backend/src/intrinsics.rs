@@ -151,6 +151,8 @@ pub struct Intrinsics {
     pub throw_trap: FunctionValue,
     pub throw_breakpoint: FunctionValue,
 
+    pub experimental_stackmap: FunctionValue,
+
     pub ctx_ptr_ty: PointerType,
 }
 
@@ -528,6 +530,17 @@ impl Intrinsics {
                 void_ty.fn_type(&[i32_ty_basic], false),
                 None,
             ),
+            experimental_stackmap: module.add_function(
+                "llvm.experimental.stackmap",
+                void_ty.fn_type(
+                    &[
+                        i64_ty_basic, /* id */
+                        i32_ty_basic, /* numShadowBytes */
+                    ],
+                    true,
+                ),
+                None,
+            ),
             throw_breakpoint: module.add_function(
                 "vm.breakpoint",
                 void_ty.fn_type(&[i64_ty_basic], false),
@@ -606,6 +619,8 @@ pub struct CtxType<'a> {
     info: &'a ModuleInfo,
     cache_builder: Builder,
 
+    cached_signal_mem: Option<PointerValue>,
+
     cached_memories: HashMap<MemoryIndex, MemoryCache>,
     cached_tables: HashMap<TableIndex, TableCache>,
     cached_sigindices: HashMap<SigIndex, IntValue>,
@@ -631,6 +646,8 @@ impl<'a> CtxType<'a> {
             info,
             cache_builder,
 
+            cached_signal_mem: None,
+
             cached_memories: HashMap::new(),
             cached_tables: HashMap::new(),
             cached_sigindices: HashMap::new(),
@@ -643,6 +660,27 @@ impl<'a> CtxType<'a> {
 
     pub fn basic(&self) -> BasicValueEnum {
         self.ctx_ptr_value.as_basic_value_enum()
+    }
+
+    pub fn signal_mem(&mut self) -> PointerValue {
+        if let Some(x) = self.cached_signal_mem {
+            return x;
+        }
+
+        let (ctx_ptr_value, cache_builder) = (self.ctx_ptr_value, &self.cache_builder);
+
+        let ptr_ptr = unsafe {
+            cache_builder.build_struct_gep(
+                ctx_ptr_value,
+                offset_to_index(Ctx::offset_interrupt_signal_mem()),
+                "interrupt_signal_mem_ptr",
+            )
+        };
+        let ptr = cache_builder
+            .build_load(ptr_ptr, "interrupt_signal_mem")
+            .into_pointer_value();
+        self.cached_signal_mem = Some(ptr);
+        ptr
     }
 
     pub fn memory(&mut self, index: MemoryIndex, intrinsics: &Intrinsics) -> MemoryCache {
@@ -718,12 +756,11 @@ impl<'a> CtxType<'a> {
         })
     }
 
-    pub fn table(
+    pub fn table_prepare(
         &mut self,
         index: TableIndex,
         intrinsics: &Intrinsics,
-        builder: &Builder,
-    ) -> (PointerValue, IntValue) {
+    ) -> (PointerValue, PointerValue) {
         let (cached_tables, info, ctx_ptr_value, cache_builder) = (
             &mut self.cached_tables,
             self.info,
@@ -782,6 +819,16 @@ impl<'a> CtxType<'a> {
             }
         });
 
+        (ptr_to_base_ptr, ptr_to_bounds)
+    }
+
+    pub fn table(
+        &mut self,
+        index: TableIndex,
+        intrinsics: &Intrinsics,
+        builder: &Builder,
+    ) -> (PointerValue, IntValue) {
+        let (ptr_to_base_ptr, ptr_to_bounds) = self.table_prepare(index, intrinsics);
         (
             builder
                 .build_load(ptr_to_base_ptr, "base_ptr")

@@ -1,4 +1,4 @@
-.PHONY: spectests emtests clean build install lint precommit
+.PHONY: spectests emtests clean build install lint precommit docs
 
 # Generate files
 generate-spectests:
@@ -97,9 +97,11 @@ llvm: spectests-llvm emtests-llvm wasitests-llvm
 capi:
 	cargo build --release
 	cargo build -p wasmer-runtime-c-api --release
+
+test-capi: capi
 	cargo test -p wasmer-runtime-c-api --release
 
-test-rest: capi
+test-rest:
 	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-middleware-common-tests --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-wasi-tests --exclude wasmer-emscripten-tests
 
 circleci-clean:
@@ -182,3 +184,6 @@ publish-release:
 # must install graphviz for `dot`
 dep-graph:
 	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
+
+docs:
+	cargo doc --features=backend-singlepass,backend-llvm,wasi,managed

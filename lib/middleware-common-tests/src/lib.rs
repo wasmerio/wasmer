@@ -148,5 +148,4 @@ mod tests {
         // verify it used the correct number of points
         assert_eq!(get_points_used(&instance), 109); // Used points will be slightly more than `limit` because of the way we do gas checking.
     }
-
 }
