@@ -1,18 +1,22 @@
-use ref_thread_local::{ref_thread_local, refmanager::RefMut, RefThreadLocal};
+use std::collections::VecDeque;
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 use wasmer_wasi::state::{WasiFile, WasiFs, ALL_RIGHTS, VIRTUAL_ROOT_FD};
 
-use minifb::{Key, Scale, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, MouseButton, Scale, Window, WindowOptions};
 
-ref_thread_local! {
-    pub(crate) static managed FRAMEBUFFER_STATE: FrameBufferState =
-        FrameBufferState::new();
+mod util;
+
+use util::*;
+
+use std::cell::RefCell;
+std::thread_local! {
+    pub(crate) static FRAMEBUFFER_STATE: RefCell<FrameBufferState> =
+        RefCell::new(FrameBufferState::new()
+);
 }
 
-fn get_fb_state<'a>() -> RefMut<'a, FrameBufferState> {
-    FRAMEBUFFER_STATE.borrow_mut()
-}
+use std::borrow::BorrowMut;
 
 pub const MAX_X: u32 = 8192;
 pub const MAX_Y: u32 = 4320;
@@ -36,9 +40,15 @@ pub(crate) struct FrameBufferState {
     pub front_buffer: bool,
 
     pub window: Window,
+
+    pub last_mouse_pos: (u32, u32),
+    pub inputs: VecDeque<InputEvent>,
 }
 
 impl FrameBufferState {
+    /// an arbitrary large number
+    const MAX_INPUTS: usize = 128;
+
     pub fn new() -> Self {
         let x = 100;
         let y = 200;
@@ -54,6 +64,8 @@ impl FrameBufferState {
             front_buffer: true,
 
             window,
+            last_mouse_pos: (0, 0),
+            inputs: VecDeque::with_capacity(Self::MAX_INPUTS),
         }
     }
 
@@ -64,7 +76,7 @@ impl FrameBufferState {
             y,
             WindowOptions {
                 resize: true,
-                scale: Scale::X1,
+                scale: Scale::X4,
                 ..WindowOptions::default()
             },
         )
@@ -83,6 +95,56 @@ impl FrameBufferState {
 
         self.window = Self::create_window(x as usize, y as usize);
 
+        Some(())
+    }
+
+    fn push_input_event(&mut self, input_event: InputEvent) -> Option<()> {
+        if self.inputs.len() >= Self::MAX_INPUTS {
+            return None;
+        }
+
+        self.inputs.push_back(input_event);
+        Some(())
+    }
+
+    pub fn fill_input_buffer(&mut self) -> Option<()> {
+        let keys = self.window.get_keys_pressed(KeyRepeat::Yes)?;
+        for key in keys {
+            self.push_input_event(InputEvent::KeyPress(key))?;
+        }
+
+        let mouse_position = self.window.get_mouse_pos(minifb::MouseMode::Clamp)?;
+        if mouse_position.0 as u32 != self.last_mouse_pos.0
+            || mouse_position.1 as u32 != self.last_mouse_pos.1
+        {
+            self.last_mouse_pos = (mouse_position.0 as u32, mouse_position.1 as u32);
+            self.push_input_event(InputEvent::MouseMoved(
+                self.last_mouse_pos.0,
+                self.last_mouse_pos.1,
+            ))?;
+        }
+
+        if self.window.get_mouse_down(MouseButton::Left) {
+            self.push_input_event(InputEvent::MouseEvent(
+                mouse_position.0 as u32,
+                mouse_position.1 as u32,
+                MouseButton::Left,
+            ))?;
+        }
+        if self.window.get_mouse_down(MouseButton::Right) {
+            self.push_input_event(InputEvent::MouseEvent(
+                mouse_position.0 as u32,
+                mouse_position.1 as u32,
+                MouseButton::Right,
+            ))?;
+        }
+        if self.window.get_mouse_down(MouseButton::Middle) {
+            self.push_input_event(InputEvent::MouseEvent(
+                mouse_position.0 as u32,
+                mouse_position.1 as u32,
+                MouseButton::Middle,
+            ))?;
+        }
         Some(())
     }
 
@@ -165,52 +227,70 @@ pub struct FrameBuffer {
 
 impl Read for FrameBuffer {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let fb_state = get_fb_state();
         let cursor = self.cursor as usize;
-        match self.fb_type {
-            FrameBufferFileType::Buffer => {
-                let mut bytes_copied = 0;
+        FRAMEBUFFER_STATE.with(|fb| {
+            let mut fb_state = fb.borrow_mut();
+            match self.fb_type {
+                FrameBufferFileType::Buffer => {
+                    let mut bytes_copied = 0;
 
-                for i in 0..buf.len() {
-                    if let Some(byte) = fb_state.get_byte(cursor + i) {
-                        buf[i] = byte;
-                        bytes_copied += 1;
+                    for i in 0..buf.len() {
+                        if let Some(byte) = fb_state.get_byte(cursor + i) {
+                            buf[i] = byte;
+                            bytes_copied += 1;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    self.cursor += bytes_copied;
+                    Ok(bytes_copied as usize)
+                }
+                FrameBufferFileType::Resolution => {
+                    let resolution_data = format!("{}x{}", fb_state.x_size, fb_state.y_size);
+
+                    let mut bytes = resolution_data.bytes().skip(cursor);
+                    let bytes_to_copy = std::cmp::min(buf.len(), bytes.clone().count());
+
+                    for i in 0..bytes_to_copy {
+                        buf[i] = bytes.next().unwrap();
+                    }
+
+                    self.cursor += bytes_to_copy as u32;
+                    Ok(bytes_to_copy)
+                }
+
+                FrameBufferFileType::IndexDisplay => {
+                    if buf.len() == 0 {
+                        Ok(0)
                     } else {
-                        break;
+                        buf[0] = fb_state.front_buffer as u8 + b'0';
+                        Ok(1)
                     }
                 }
 
-                self.cursor += bytes_copied;
-                Ok(bytes_copied as usize)
-            }
-            FrameBufferFileType::Resolution => {
-                let resolution_data = format!("{}x{}", fb_state.x_size, fb_state.y_size);
+                FrameBufferFileType::Input => {
+                    let mut idx = 0;
+                    fb_state.fill_input_buffer();
 
-                let mut bytes = resolution_data.bytes().skip(cursor);
-                let bytes_to_copy = std::cmp::min(buf.len(), bytes.clone().count());
-
-                for i in 0..bytes_to_copy {
-                    buf[i] = bytes.next().unwrap();
-                }
-
-                self.cursor += bytes_to_copy as u32;
-                Ok(bytes_to_copy)
-            }
-
-            FrameBufferFileType::IndexDisplay => {
-                if buf.len() == 0 {
-                    Ok(0)
-                } else {
-                    buf[0] = fb_state.front_buffer as u8 + b'0';
-                    Ok(1)
+                    while let Some(next_elem) = fb_state.inputs.front() {
+                        let remaining_length = buf.len() - idx;
+                        let (tag_byte, data, size) = bytes_for_input_event(*next_elem);
+                        if remaining_length > 1 + size {
+                            buf[idx] = tag_byte;
+                            for i in 0..size {
+                                buf[idx + 1 + i] = data[i];
+                            }
+                            idx += 1 + size;
+                        } else {
+                            break;
+                        }
+                        fb_state.inputs.pop_front().unwrap();
+                    }
+                    Ok(idx)
                 }
             }
-
-            FrameBufferFileType::Input => {
-                // do input
-                unimplemented!()
-            }
-        }
+        })
     }
 
     fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> std::io::Result<usize> {
@@ -249,66 +329,70 @@ impl Seek for FrameBuffer {
 
 impl Write for FrameBuffer {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut fb_state = get_fb_state();
         let cursor = self.cursor as usize;
-        match self.fb_type {
-            FrameBufferFileType::Buffer => {
-                let mut bytes_copied = 0;
+        FRAMEBUFFER_STATE.with(|fb| {
+            let mut fb_state = fb.borrow_mut();
+            match self.fb_type {
+                FrameBufferFileType::Buffer => {
+                    let mut bytes_copied = 0;
 
-                for i in 0..buf.len() {
-                    if fb_state.set_byte(cursor + i, buf[i]).is_none() {
-                        // TODO: check if we should return an error here
-                        break;
+                    for i in 0..buf.len() {
+                        if fb_state.set_byte(cursor + i, buf[i]).is_none() {
+                            // TODO: check if we should return an error here
+                            break;
+                        }
+                        bytes_copied += 1;
                     }
-                    bytes_copied += 1;
-                }
 
-                self.cursor += bytes_copied;
-                Ok(bytes_copied as usize)
-            }
-            FrameBufferFileType::Resolution => {
-                let resolution_data = format!("{}x{}", fb_state.x_size, fb_state.y_size);
-                let mut byte_vec: Vec<u8> = resolution_data.bytes().collect();
-                let upper_limit = std::cmp::min(buf.len(), byte_vec.len() - cursor as usize);
+                    self.cursor += bytes_copied;
+                    Ok(bytes_copied as usize)
+                }
+                FrameBufferFileType::Resolution => {
+                    let resolution_data = format!("{}x{}", fb_state.x_size, fb_state.y_size);
+                    let mut byte_vec: Vec<u8> = resolution_data.bytes().collect();
+                    let upper_limit = std::cmp::min(buf.len(), byte_vec.len() - cursor as usize);
 
-                for i in 0..upper_limit {
-                    byte_vec[i] = buf[i];
-                }
-
-                let mut parse_str = String::new();
-                for b in byte_vec.iter() {
-                    parse_str.push(*b as char);
-                }
-                let result: Vec<&str> = parse_str.split('x').collect();
-                if result.len() != 2 {
-                    return Ok(0);
-                }
-                if let Ok((n1, n2)) = result[0]
-                    .parse::<u32>()
-                    .and_then(|n1| result[1].parse::<u32>().map(|n2| (n1, n2)))
-                {
-                    if fb_state.resize(n1, n2).is_some() {
-                        return Ok(upper_limit);
+                    for i in 0..upper_limit {
+                        byte_vec[i] = buf[i];
                     }
-                }
-                Ok(0)
-            }
 
-            FrameBufferFileType::IndexDisplay => {
-                if buf.len() == 0 {
+                    let mut parse_str = String::new();
+                    for b in byte_vec.iter() {
+                        parse_str.push(*b as char);
+                    }
+                    let result: Vec<&str> = parse_str.split('x').collect();
+                    if result.len() != 2 {
+                        return Ok(0);
+                    }
+                    if let Ok((n1, n2)) = result[0]
+                        .parse::<u32>()
+                        .and_then(|n1| result[1].parse::<u32>().map(|n2| (n1, n2)))
+                    {
+                        if fb_state.resize(n1, n2).is_some() {
+                            return Ok(upper_limit);
+                        }
+                    }
                     Ok(0)
-                } else {
-                    match buf[0] {
-                        b'0' => fb_state.front_buffer = true,
-                        b'1' => fb_state.front_buffer = false,
-                        _ => (),
-                    }
-                    fb_state.draw();
-                    Ok(1)
                 }
+
+                FrameBufferFileType::IndexDisplay => {
+                    if buf.len() == 0 {
+                        Ok(0)
+                    } else {
+                        match buf[0] {
+                            b'0' => fb_state.front_buffer = true,
+                            b'1' => fb_state.front_buffer = false,
+                            _ => (),
+                        }
+                        // TODO: probably remove this
+                        //fb_state.fill_input_buffer();
+                        fb_state.draw();
+                        Ok(1)
+                    }
+                }
+                FrameBufferFileType::Input => Ok(0),
             }
-            FrameBufferFileType::Input => Ok(0),
-        }
+        })
     }
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())

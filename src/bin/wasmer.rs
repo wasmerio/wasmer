@@ -188,6 +188,10 @@ struct Run {
     #[structopt(flatten)]
     features: PrestandardFeatures,
 
+    #[cfg(feature = "experimental-framebuffer")]
+    #[structopt(long = "enable-experimental-framebuffer")]
+    enable_experimental_framebuffer: bool,
+
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
@@ -597,7 +601,13 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 options.pre_opened_directories.clone(),
                 mapped_dirs,
                 #[cfg(feature = "experimental-framebuffer")]
-                Some(Box::new(wasmer_wasi_framebuffer::initialize)),
+                {
+                    if options.enable_experimental_framebuffer {
+                        Some(Box::new(wasmer_wasi_framebuffer::initialize))
+                    } else {
+                        None
+                    }
+                },
                 #[cfg(not(feature = "experimental-framebuffer"))]
                 None,
             );
