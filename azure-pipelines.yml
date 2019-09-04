@@ -211,6 +211,22 @@ jobs:
           tag: dev
           assets: $(Build.ArtifactStagingDirectory)
 
+  - job: Docs
+    pool:
+      vmImage: "ubuntu-16.04"
+    variables:
+      rust_toolchain: nightly-2019-08-15
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - bash: |
+          make docs
+        displayName: Build documentation
+
 # We only run the pipelines on PRs to Master
 pr:
   - master
