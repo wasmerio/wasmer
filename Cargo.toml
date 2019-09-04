@@ -66,6 +66,10 @@ wabt = "0.9.1"
 glob = "0.3.0"
 rustc_version = "0.2.3"
 
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] } # used by the plugin example
+typetag = "0.1" # used by the plugin example
+
 [features]
 default = ["fast-tests", "wasi", "backend-cranelift"]
 "loader-kernel" = ["wasmer-kernel-loader"]
