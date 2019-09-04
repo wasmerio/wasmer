@@ -590,5 +590,4 @@ mod tests {
             f64::from_native(f64::from_binary((yf64).to_native().to_binary()))
         );
     }
-
 }
