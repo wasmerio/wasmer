@@ -384,7 +384,7 @@ int main()
 
         assert(call_result == WASMER_OK);
     }
-    
+
     {
         printf("\nCheck the `string` exported function\n");
 
