@@ -243,7 +243,7 @@ jobs:
     steps:
       - checkout: self
       - download: current
-        artifact rustdocs
+        artifact: rustdocs
       - bash: |
           git checkout --orphan test-branch/fake-gh-pages
           git rm -rf .
