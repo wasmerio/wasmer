@@ -2,6 +2,7 @@
 #include "../wasmer.h"
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 
 int main()
 {
@@ -43,17 +44,8 @@ int main()
 
         wasmer_byte_array name_bytes = wasmer_export_name(export);
 
-        assert(name_bytes.bytes_len == 3);
-
-        char expected[] = {'s', 'u', 'm'};
-
-        printf("Read export name:\n");
-
-        for (uint32_t idx = 0; idx < name_bytes.bytes_len; idx++) {
-            printf("%c\n", name_bytes.bytes[idx]);
-
-            assert(name_bytes.bytes[idx] == expected[idx]);
-        }
+        assert(name_bytes.bytes_len == sizeof("sum") - 1);
+        assert(memcmp(name_bytes.bytes, "sum", sizeof("sum") - 1) == 0);
 
         printf("Check arity\n");
 
@@ -68,15 +60,15 @@ int main()
 
         printf("Check signature\n");
 
-        wasmer_value_tag *input_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * inputs_arity);
-        wasmer_export_func_params(exported_function, input_types , inputs_arity);
+        wasmer_value_tag *input_types = (wasmer_value_tag *) calloc(inputs_arity, sizeof(wasmer_value_tag));
+        wasmer_export_func_params(exported_function, input_types, inputs_arity);
 
         assert(input_types[0] == WASM_I32);
         assert(input_types[1] == WASM_I32);
 
         free(input_types);
 
-        wasmer_value_tag *output_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * outputs_arity);
+        wasmer_value_tag *output_types = (wasmer_value_tag *) calloc(outputs_arity, sizeof(wasmer_value_tag));
         wasmer_export_func_returns(exported_function, output_types, outputs_arity);
 
         assert(output_types[0] == WASM_I32);
@@ -118,13 +110,8 @@ int main()
         const wasmer_export_func_t *exported_function = wasmer_export_to_func(export);
         wasmer_byte_array name_bytes = wasmer_export_name(export);
 
-        assert(name_bytes.bytes_len == 7);
-
-        char expected[] = {'a', 'r', 'i', 't', 'y', '_', '0'};
-
-        for (uint32_t idx = 0; idx < name_bytes.bytes_len; idx++) {
-            assert(name_bytes.bytes[idx] == expected[idx]);
-        }
+        assert(name_bytes.bytes_len == sizeof("arity_0") - 1);
+        assert(memcmp(name_bytes.bytes, "arity_0", sizeof("arity_0") - 1) == 0);
 
         uint32_t inputs_arity;
         wasmer_export_func_params_arity(exported_function, &inputs_arity);
@@ -135,7 +122,7 @@ int main()
         assert(inputs_arity == 0);
         assert(outputs_arity == 1);
 
-        wasmer_value_tag *output_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * outputs_arity);
+        wasmer_value_tag *output_types = (wasmer_value_tag *) calloc(outputs_arity, sizeof(wasmer_value_tag));
         wasmer_export_func_returns(exported_function, output_types, outputs_arity);
 
         assert(output_types[0] == WASM_I32);
@@ -166,13 +153,8 @@ int main()
         const wasmer_export_func_t *exported_function = wasmer_export_to_func(export);
         wasmer_byte_array name_bytes = wasmer_export_name(export);
 
-        assert(name_bytes.bytes_len == 7);
-
-        char expected[] = {'i', '3', '2', '_', 'i', '3', '2'};
-
-        for (uint32_t idx = 0; idx < name_bytes.bytes_len; idx++) {
-            assert(name_bytes.bytes[idx] == expected[idx]);
-        }
+        assert(name_bytes.bytes_len == sizeof("i32_i32") - 1);
+        assert(memcmp(name_bytes.bytes, "i32_i32", sizeof("i32_i32") - 1) == 0);
 
         uint32_t inputs_arity;
         wasmer_export_func_params_arity(exported_function, &inputs_arity);
@@ -183,14 +165,14 @@ int main()
         assert(inputs_arity == 1);
         assert(outputs_arity == 1);
 
-        wasmer_value_tag *input_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * inputs_arity);
-        wasmer_export_func_params(exported_function, input_types , inputs_arity);
+        wasmer_value_tag *input_types = (wasmer_value_tag *) calloc(inputs_arity, sizeof(wasmer_value_tag));
+        wasmer_export_func_params(exported_function, input_types, inputs_arity);
 
         assert(input_types[0] == WASM_I32);
 
         free(input_types);
 
-        wasmer_value_tag *output_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * outputs_arity);
+        wasmer_value_tag *output_types = (wasmer_value_tag *) calloc(outputs_arity, sizeof(wasmer_value_tag));
         wasmer_export_func_returns(exported_function, output_types, outputs_arity);
 
         assert(output_types[0] == WASM_I32);
@@ -224,13 +206,8 @@ int main()
         const wasmer_export_func_t *exported_function = wasmer_export_to_func(export);
         wasmer_byte_array name_bytes = wasmer_export_name(export);
 
-        assert(name_bytes.bytes_len == 7);
-
-        char expected[] = {'i', '6', '4', '_', 'i', '6', '4'};
-
-        for (uint32_t idx = 0; idx < name_bytes.bytes_len; idx++) {
-            assert(name_bytes.bytes[idx] == expected[idx]);
-        }
+        assert(name_bytes.bytes_len == sizeof("i64_i64") - 1);
+        assert(memcmp(name_bytes.bytes, "i64_i64", sizeof("i64_i64") - 1) == 0);
 
         uint32_t inputs_arity;
         wasmer_export_func_params_arity(exported_function, &inputs_arity);
@@ -241,14 +218,14 @@ int main()
         assert(inputs_arity == 1);
         assert(outputs_arity == 1);
 
-        wasmer_value_tag *input_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * inputs_arity);
-        wasmer_export_func_params(exported_function, input_types , inputs_arity);
+        wasmer_value_tag *input_types = (wasmer_value_tag *) calloc(inputs_arity, sizeof(wasmer_value_tag));
+        wasmer_export_func_params(exported_function, input_types, inputs_arity);
 
         assert(input_types[0] == WASM_I64);
 
         free(input_types);
 
-        wasmer_value_tag *output_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * outputs_arity);
+        wasmer_value_tag *output_types = (wasmer_value_tag *) calloc(outputs_arity, sizeof(wasmer_value_tag));
         wasmer_export_func_returns(exported_function, output_types, outputs_arity);
 
         assert(output_types[0] == WASM_I64);
@@ -282,13 +259,8 @@ int main()
         const wasmer_export_func_t *exported_function = wasmer_export_to_func(export);
         wasmer_byte_array name_bytes = wasmer_export_name(export);
 
-        assert(name_bytes.bytes_len == 7);
-
-        char expected[] = {'f', '3', '2', '_', 'f', '3', '2'};
-
-        for (uint32_t idx = 0; idx < name_bytes.bytes_len; idx++) {
-            assert(name_bytes.bytes[idx] == expected[idx]);
-        }
+        assert(name_bytes.bytes_len == sizeof("f32_f32") - 1);
+        assert(memcmp(name_bytes.bytes, "f32_f32", sizeof("f32_f32") - 1) == 0);
 
         uint32_t inputs_arity;
         wasmer_export_func_params_arity(exported_function, &inputs_arity);
@@ -299,14 +271,14 @@ int main()
         assert(inputs_arity == 1);
         assert(outputs_arity == 1);
 
-        wasmer_value_tag *input_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * inputs_arity);
-        wasmer_export_func_params(exported_function, input_types , inputs_arity);
+        wasmer_value_tag *input_types = (wasmer_value_tag *) calloc(inputs_arity, sizeof(wasmer_value_tag));
+        wasmer_export_func_params(exported_function, input_types, inputs_arity);
 
         assert(input_types[0] == WASM_F32);
 
         free(input_types);
 
-        wasmer_value_tag *output_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * outputs_arity);
+        wasmer_value_tag *output_types = (wasmer_value_tag *) calloc(outputs_arity, sizeof(wasmer_value_tag));
         wasmer_export_func_returns(exported_function, output_types, outputs_arity);
 
         assert(output_types[0] == WASM_F32);
@@ -339,13 +311,8 @@ int main()
         const wasmer_export_func_t *exported_function = wasmer_export_to_func(export);
         wasmer_byte_array name_bytes = wasmer_export_name(export);
 
-        assert(name_bytes.bytes_len == 7);
-
-        char expected[] = {'f', '6', '4', '_', 'f', '6', '4'};
-
-        for (uint32_t idx = 0; idx < name_bytes.bytes_len; idx++) {
-            assert(name_bytes.bytes[idx] == expected[idx]);
-        }
+        assert(name_bytes.bytes_len == sizeof("f64_f64") - 1);
+        assert(memcmp(name_bytes.bytes, "f64_f64", sizeof("f64_f64") - 1) == 0);
 
         uint32_t inputs_arity;
         wasmer_export_func_params_arity(exported_function, &inputs_arity);
@@ -356,14 +323,14 @@ int main()
         assert(inputs_arity == 1);
         assert(outputs_arity == 1);
 
-        wasmer_value_tag *input_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * inputs_arity);
-        wasmer_export_func_params(exported_function, input_types , inputs_arity);
+        wasmer_value_tag *input_types = (wasmer_value_tag *) calloc(inputs_arity, sizeof(wasmer_value_tag));
+        wasmer_export_func_params(exported_function, input_types, inputs_arity);
 
         assert(input_types[0] == WASM_F64);
 
         free(input_types);
 
-        wasmer_value_tag *output_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * outputs_arity);
+        wasmer_value_tag *output_types = (wasmer_value_tag *) calloc(outputs_arity, sizeof(wasmer_value_tag));
         wasmer_export_func_returns(exported_function, output_types, outputs_arity);
 
         assert(output_types[0] == WASM_F64);
@@ -396,13 +363,8 @@ int main()
         const wasmer_export_func_t *exported_function = wasmer_export_to_func(export);
         wasmer_byte_array name_bytes = wasmer_export_name(export);
 
-        assert(name_bytes.bytes_len == 6);
-
-        char expected[] = {'s', 't', 'r', 'i', 'n', 'g'};
-
-        for (uint32_t idx = 0; idx < name_bytes.bytes_len; idx++) {
-            assert(name_bytes.bytes[idx] == expected[idx]);
-        }
+        assert(name_bytes.bytes_len == sizeof("string") - 1);
+        assert(memcmp(name_bytes.bytes, "string", sizeof("string") - 1) == 0);
 
         uint32_t inputs_arity;
         wasmer_export_func_params_arity(exported_function, &inputs_arity);
@@ -413,7 +375,7 @@ int main()
         assert(inputs_arity == 0);
         assert(outputs_arity == 1);
 
-        wasmer_value_tag *output_types = (wasmer_value_tag *) malloc(sizeof(wasmer_value_tag) * outputs_arity);
+        wasmer_value_tag *output_types = (wasmer_value_tag *) calloc(outputs_arity, sizeof(wasmer_value_tag));
         wasmer_export_func_returns(exported_function, output_types, outputs_arity);
 
         assert(output_types[0] == WASM_I32);
@@ -444,13 +406,8 @@ int main()
         const wasmer_export_func_t *exported_function = wasmer_export_to_func(export);
         wasmer_byte_array name_bytes = wasmer_export_name(export);
 
-        assert(name_bytes.bytes_len == 4);
-
-        char expected[] = {'v', 'o' , 'i', 'd'};
-
-        for (uint32_t idx = 0; idx < name_bytes.bytes_len; idx++) {
-            assert(name_bytes.bytes[idx] == expected[idx]);
-        }
+        assert(name_bytes.bytes_len == sizeof("void") - 1);
+        assert(memcmp(name_bytes.bytes, "void", sizeof("void") - 1) == 0);
 
         uint32_t inputs_arity;
         wasmer_export_func_params_arity(exported_function, &inputs_arity);
