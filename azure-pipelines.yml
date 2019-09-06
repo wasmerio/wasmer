@@ -232,9 +232,6 @@ jobs:
   - job: Publish_Docs
     dependsOn:
       - Build_Docs
-    condition: |
-      and(eq(variables['Build.SourceBranch'], 'refs/heads/master'),
-          not(eq(variables['Build.Reason'], 'PullRequest')))
     displayName: Deploy API Documentation to GitHub
     pool:
       vmImage: "ubuntu-16.04"
