@@ -61,7 +61,7 @@ mod wasmer_wasi {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "wasmer", about = "Wasm execution runtime.")]
+#[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
 /// The options for the wasmer Command Line Interface
 enum CLIOptions {
     /// Run a WebAssembly file. Formats accepted: wasm, wast
@@ -115,7 +115,7 @@ pub struct LLVMCLIOptions {
 
 #[derive(Debug, StructOpt)]
 struct Run {
-    // Disable the cache
+    /// Disable the cache
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
@@ -127,7 +127,8 @@ struct Run {
     #[structopt(
         long = "backend",
         default_value = "cranelift",
-        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+        case_insensitive = true,
+        possible_values = Backend::variants(),
     )]
     backend: Backend,
 
@@ -154,7 +155,8 @@ struct Run {
     /// Custom code loader
     #[structopt(
         long = "loader",
-        raw(possible_values = "LoaderName::variants()", case_insensitive = "true")
+        case_insensitive = true,
+        possible_values = LoaderName::variants(),
     )]
     loader: Option<LoaderName>,
 
@@ -168,7 +170,8 @@ struct Run {
     #[structopt(
         long = "optimized-backends",
         multiple = true,
-        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+        case_insensitive = true,
+        possible_values = Backend::variants(),
     )]
     optimized_backends: Vec<Backend>,
 
@@ -197,7 +200,7 @@ struct Run {
     features: PrestandardFeatures,
 
     /// Application arguments
-    #[structopt(name = "--", raw(multiple = "true"))]
+    #[structopt(name = "--", multiple = true)]
     args: Vec<String>,
 }
 

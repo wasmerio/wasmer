@@ -21,7 +21,7 @@ include = [
 [dependencies]
 byteorder = "1.3.2"
 errno = "0.2.4"
-structopt = "0.2.18"
+structopt = "0.3.0"
 wabt = "0.9.1"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
