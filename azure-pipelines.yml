@@ -187,6 +187,24 @@ jobs:
       - publish: $(System.DefaultWorkingDirectory)/artifacts
         artifact: library-$(Agent.OS)
 
+  - job: Build_Docs
+    pool:
+      vmImage: "ubuntu-16.04"
+    variables:
+      rust_toolchain: nightly-2019-08-15
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - bash: |
+          make docs
+      - publish: target/doc
+        artifact: rustdocs
+        displayName: Build documentation
+
   - job: Publish
     dependsOn:
       - Build_CLI
@@ -211,27 +229,40 @@ jobs:
           tag: dev
           assets: $(Build.ArtifactStagingDirectory)
 
-  - job: Docs
+  - job: Publish_Docs
+    dependsOn:
+      - Build_Docs
+    condition: |
+      and(eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+          not(eq(variables['Build.Reason'], 'PullRequest')))
+    displayName: Deploy API Documentation to GitHub
     pool:
       vmImage: "ubuntu-16.04"
     variables:
       rust_toolchain: nightly-2019-08-15
     steps:
       - checkout: self
-        submodules: true
-      - template: .azure/install-rust.yml
-      - template: .azure/install-llvm.yml
-      - template: .azure/install-sccache.yml
-      - template: .azure/install-cmake.yml
+      - download: current
+        artifact rustdocs
       - bash: |
-          make docs
-        displayName: Build documentation
+          git checkout --orphan test-branch/fake-gh-pages
+          git rm -rf .
+          mkdir rustdoc/
+          cp -r $(Pipeline.Workspace)/{artifact}/* rustdoc/
+          echo '<meta http-equiv="refresh" content="1; url=rustdoc/wasmer_runtime/index.html">' > index.html
+          echo '<meta http-equiv="refresh" content="1; url=wasmer_runtime/index.html">' > rustdoc/index.html
+          git config --local user.name "Azure Pipelines"
+          git config --local user.email "azuredevops@microsoft.com"
+          git add .
+          git commit -m "Publishing GitHub Pages  ***NO_CI***"
+          git push --set-upstream origin test-branch/fake-gh-pages --force
+    displayName: Update documentation
 
 # We only run the pipelines on PRs to Master
 pr:
   - master
 
-# Otherwise, we test in any of this branches (master or bors related)
+# Otherwise, we test in any of these branches (master or bors related)
 trigger:
   - master
   - staging
