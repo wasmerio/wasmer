@@ -256,7 +256,6 @@ jobs:
           git add .
           git commit -m "Publishing GitHub Pages  ***NO_CI***"
           git push --set-upstream origin test-branch/fake-gh-pages --force
-    displayName: Update documentation
 
 # We only run the pipelines on PRs to Master
 pr:
