@@ -239,13 +239,15 @@ jobs:
       rust_toolchain: nightly-2019-08-15
     steps:
       - checkout: self
-      - download: current
-        artifact: rustdocs
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          artifactName: rustdocs
+          targetPath: $(Pipeline.Workspace)/rustdocs
       - bash: |
           git checkout --orphan test-branch/fake-gh-pages
           git rm -rf .
           mkdir rustdoc/
-          cp -r $(Pipeline.Workspace)/{artifact}/* rustdoc/
+          cp -r $(Pipeline.Workspace)/rustdocs/* rustdoc/
           echo '<meta http-equiv="refresh" content="1; url=rustdoc/wasmer_runtime/index.html">' > index.html
           echo '<meta http-equiv="refresh" content="1; url=wasmer_runtime/index.html">' > rustdoc/index.html
           git config --local user.name "Azure Pipelines"
