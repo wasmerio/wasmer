@@ -20,7 +20,7 @@ or the `validate_wasm` fuzzer
 ```sh
 cargo fuzz run validate_wasm
 ```
-or the `validate_wasm` fuzzer
+or the `compile_wasm` fuzzer
 ```sh
 cargo fuzz run compile_wasm
 ```
