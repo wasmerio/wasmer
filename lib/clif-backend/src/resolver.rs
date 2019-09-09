@@ -257,8 +257,16 @@ impl FuncResolverBuilder {
                             VmCallKind::StaticMemoryGrow => vmcalls::local_static_memory_grow as _,
                             VmCallKind::StaticMemorySize => vmcalls::local_static_memory_size as _,
 
-                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
-                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
+                            VmCallKind::SharedStaticMemoryGrow => {
+                                Err(CompileError::InternalError {
+                                    msg: format!("unimplemented: memory_grow on local shared static memory"),
+                                })?
+                            }
+                            VmCallKind::SharedStaticMemorySize => {
+                                Err(CompileError::InternalError {
+                                    msg: format!("unimplemented: current_memory on local shared static memory"),
+                                })?
+                            }
 
                             VmCallKind::DynamicMemoryGrow => {
                                 vmcalls::local_dynamic_memory_grow as _
@@ -275,8 +283,16 @@ impl FuncResolverBuilder {
                                 vmcalls::imported_static_memory_size as _
                             }
 
-                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
-                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
+                            VmCallKind::SharedStaticMemoryGrow => {
+                                Err(CompileError::InternalError {
+                                    msg: format!("unimplemented: memory_grow on imported shared static memory"),
+                                })?
+                            }
+                            VmCallKind::SharedStaticMemorySize => {
+                                Err(CompileError::InternalError {
+                                    msg: format!("unimplemented: current_memory on imported shared static memory"),
+                                })?
+                            }
 
                             VmCallKind::DynamicMemoryGrow => {
                                 vmcalls::imported_dynamic_memory_grow as _
