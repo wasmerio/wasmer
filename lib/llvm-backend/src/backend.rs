@@ -1,3 +1,4 @@
+use super::stackmap::StackmapRegistry;
 use crate::intrinsics::Intrinsics;
 use crate::structs::{Callbacks, LLVMModule, LLVMResult, MemProtect};
 use inkwell::{
@@ -25,6 +26,7 @@ use wasmer_runtime_core::{
     },
     cache::Error as CacheError,
     module::ModuleInfo,
+    state::ModuleStateMap,
     structures::TypedIndex,
     typed_func::{Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
@@ -40,6 +42,10 @@ extern "C" {
     ) -> LLVMResult;
     fn module_delete(module: *mut LLVMModule);
     fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
+    fn llvm_backend_get_stack_map_ptr(module: *const LLVMModule) -> *const u8;
+    fn llvm_backend_get_stack_map_size(module: *const LLVMModule) -> usize;
+    fn llvm_backend_get_code_ptr(module: *const LLVMModule) -> *const u8;
+    fn llvm_backend_get_code_size(module: *const LLVMModule) -> usize;
 
     fn throw_trap(ty: i32) -> !;
     fn throw_breakpoint(ty: i64) -> !;
@@ -62,6 +68,8 @@ extern "C" {
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
+
+static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
 
 fn get_callbacks() -> Callbacks {
     extern "C" fn alloc_memory(
@@ -154,10 +162,17 @@ pub struct LLVMBackend {
     module: *mut LLVMModule,
     #[allow(dead_code)]
     buffer: Arc<Buffer>,
+    msm: Option<ModuleStateMap>,
+    local_func_id_to_offset: Vec<usize>,
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, _intrinsics: Intrinsics) -> (Self, LLVMCache) {
+    pub fn new(
+        module: Module,
+        _intrinsics: Intrinsics,
+        _stackmaps: &StackmapRegistry,
+        _module_info: &ModuleInfo,
+    ) -> (Self, LLVMCache) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
             asm_printer: true,
@@ -204,22 +219,134 @@ impl LLVMBackend {
             )
         };
 
-        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
-
-        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
-            crate::platform::install_signal_handler();
-        });
-
         if res != LLVMResult::OK {
             panic!("failed to load object")
         }
 
         let buffer = Arc::new(Buffer::LlvmMemory(memory_buffer));
 
+        #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
+        {
+            use super::stackmap::{self, StkMapRecord, StkSizeRecord};
+            use std::collections::BTreeMap;
+
+            let stackmaps = _stackmaps;
+            let module_info = _module_info;
+
+            let raw_stackmap = unsafe {
+                std::slice::from_raw_parts(
+                    llvm_backend_get_stack_map_ptr(module),
+                    llvm_backend_get_stack_map_size(module),
+                )
+            };
+            if raw_stackmap.len() > 0 {
+                let map = stackmap::StackMap::parse(raw_stackmap).unwrap();
+
+                let (code_ptr, code_size) = unsafe {
+                    (
+                        llvm_backend_get_code_ptr(module),
+                        llvm_backend_get_code_size(module),
+                    )
+                };
+                let mut msm = ModuleStateMap {
+                    local_functions: Default::default(),
+                    total_size: code_size,
+                };
+
+                let num_local_functions =
+                    module_info.func_assoc.len() - module_info.imported_functions.len();
+                let mut local_func_id_to_addr: Vec<usize> = Vec::with_capacity(num_local_functions);
+
+                // All local functions.
+                for index in module_info.imported_functions.len()..module_info.func_assoc.len() {
+                    let name = if cfg!(target_os = "macos") {
+                        format!("_fn{}", index)
+                    } else {
+                        format!("fn{}", index)
+                    };
+
+                    let c_str = CString::new(name).unwrap();
+                    let ptr = unsafe { get_func_symbol(module, c_str.as_ptr()) };
+
+                    assert!(!ptr.is_null());
+                    local_func_id_to_addr.push(ptr as usize);
+                }
+
+                let mut addr_to_size_record: BTreeMap<usize, &StkSizeRecord> = BTreeMap::new();
+
+                for record in &map.stk_size_records {
+                    addr_to_size_record.insert(record.function_address as usize, record);
+                }
+
+                let mut map_records: BTreeMap<usize, &StkMapRecord> = BTreeMap::new();
+
+                for record in &map.stk_map_records {
+                    map_records.insert(record.patchpoint_id as usize, record);
+                }
+
+                for ((start_id, start_entry), (end_id, end_entry)) in stackmaps
+                    .entries
+                    .iter()
+                    .enumerate()
+                    .step_by(2)
+                    .zip(stackmaps.entries.iter().enumerate().skip(1).step_by(2))
+                {
+                    if let Some(map_record) = map_records.get(&start_id) {
+                        assert_eq!(start_id, map_record.patchpoint_id as usize);
+                        assert!(start_entry.is_start);
+                        assert!(!end_entry.is_start);
+
+                        let end_record = map_records.get(&end_id);
+
+                        let addr = local_func_id_to_addr[start_entry.local_function_id];
+                        let size_record = *addr_to_size_record
+                            .get(&addr)
+                            .expect("size_record not found");
+
+                        start_entry.populate_msm(
+                            module_info,
+                            code_ptr as usize,
+                            &map,
+                            size_record,
+                            map_record,
+                            end_record.map(|x| (end_entry, *x)),
+                            &mut msm,
+                        );
+                    } else {
+                        // The record is optimized out.
+                    }
+                }
+
+                let code_ptr = unsafe { llvm_backend_get_code_ptr(module) } as usize;
+                let code_len = unsafe { llvm_backend_get_code_size(module) } as usize;
+
+                let local_func_id_to_offset: Vec<usize> = local_func_id_to_addr
+                    .iter()
+                    .map(|&x| {
+                        assert!(x >= code_ptr && x < code_ptr + code_len);
+                        x - code_ptr
+                    })
+                    .collect();
+
+                return (
+                    Self {
+                        module,
+                        buffer: Arc::clone(&buffer),
+                        msm: Some(msm),
+                        local_func_id_to_offset,
+                    },
+                    LLVMCache { buffer },
+                );
+            }
+        }
+
+        // Stackmap is not supported on this platform, or this module contains no functions so no stackmaps.
         (
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
+                msm: None,
+                local_func_id_to_offset: vec![],
             },
             LLVMCache { buffer },
         )
@@ -237,8 +364,6 @@ impl LLVMBackend {
             return Err("failed to load object".to_string());
         }
 
-        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
-
         SIGNAL_HANDLER_INSTALLED.call_once(|| {
             crate::platform::install_signal_handler();
         });
@@ -249,6 +374,8 @@ impl LLVMBackend {
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
+                msm: None,
+                local_func_id_to_offset: vec![],
             },
             LLVMCache { buffer },
         ))
@@ -300,7 +427,28 @@ impl RunnableModule for LLVMBackend {
             mem::transmute(symbol)
         };
 
+        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
+            crate::platform::install_signal_handler();
+        });
+
         Some(unsafe { Wasm::from_raw_parts(trampoline, invoke_trampoline, None) })
+    }
+
+    fn get_code(&self) -> Option<&[u8]> {
+        Some(unsafe {
+            std::slice::from_raw_parts(
+                llvm_backend_get_code_ptr(self.module),
+                llvm_backend_get_code_size(self.module),
+            )
+        })
+    }
+
+    fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
+        Some(self.local_func_id_to_offset.clone())
+    }
+
+    fn get_module_state_map(&self) -> Option<ModuleStateMap> {
+        self.msm.clone()
     }
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {

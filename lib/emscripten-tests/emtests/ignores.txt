@@ -29,6 +29,7 @@ test_i16_emcc_intrinsic
 test_i64
 test_i64_7z
 test_i64_varargs
+test_indirectbr_many
 test_llvm_intrinsics
 test_longjmp_exc
 test_lower_intrinsics

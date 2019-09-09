@@ -8,6 +8,8 @@
     unreachable_patterns
 )]
 #![cfg_attr(nightly, feature(unwind_attributes))]
+#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
 #[cfg(test)]
 #[macro_use]
@@ -54,6 +56,8 @@ pub use trampoline_x64 as trampoline;
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub mod fault;
 pub mod state;
+#[cfg(feature = "managed")]
+pub mod tiering;
 
 use self::error::CompileResult;
 #[doc(inline)]

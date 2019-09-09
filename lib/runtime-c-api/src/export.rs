@@ -11,7 +11,7 @@ use crate::{
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_byte_array, wasmer_result_t,
 };
-use libc::c_int;
+use libc::{c_int, c_uint};
 use std::{ptr, slice};
 use wasmer_runtime::{Instance, Memory, Module, Value};
 use wasmer_runtime_core::{export::Export, module::ExportIndex};
@@ -390,9 +390,9 @@ pub unsafe extern "C" fn wasmer_export_name(export: *mut wasmer_export_t) -> was
 pub unsafe extern "C" fn wasmer_export_func_call(
     func: *const wasmer_export_func_t,
     params: *const wasmer_value_t,
-    params_len: c_int,
+    params_len: c_uint,
     results: *mut wasmer_value_t,
-    results_len: c_int,
+    results_len: c_uint,
 ) -> wasmer_result_t {
     if func.is_null() {
         update_last_error(CApiError {
@@ -400,15 +400,25 @@ pub unsafe extern "C" fn wasmer_export_func_call(
         });
         return wasmer_result_t::WASMER_ERROR;
     }
-    if params.is_null() {
+
+    if params_len > 0 && params.is_null() {
         update_last_error(CApiError {
             msg: "params ptr is null".to_string(),
         });
         return wasmer_result_t::WASMER_ERROR;
     }
 
-    let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
-    let params: Vec<Value> = params.iter().cloned().map(|x| x.into()).collect();
+    let params: Vec<Value> = {
+        if params_len <= 0 {
+            vec![]
+        } else {
+            slice::from_raw_parts::<wasmer_value_t>(params, params_len as usize)
+                .iter()
+                .cloned()
+                .map(|x| x.into())
+                .collect()
+        }
+    };
 
     let named_export = &*(func as *mut NamedExport);
 

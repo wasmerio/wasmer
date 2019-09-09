@@ -689,23 +689,11 @@ pub fn fd_pread(
             match &mut state.fs.inodes[inode].kind {
                 Kind::File { handle, .. } => {
                     if let Some(h) = handle {
-                        let current_pos =
-                            wasi_try!(h.seek(std::io::SeekFrom::Current(0)).ok(), __WASI_EIO);
                         wasi_try!(
                             h.seek(std::io::SeekFrom::Start(offset as u64)).ok(),
                             __WASI_EIO
                         );
                         let bytes_read = wasi_try!(read_bytes(h, memory, iov_cells));
-                        // reborrow so we can seek it back (the &mut gets moved into `read_bytes`
-                        // and we can't use it after)
-                        // If you're in the future and there's a nicer way to do this, please
-                        // clean up this code
-                        if let Some(h) = handle {
-                            wasi_try!(
-                                h.seek(std::io::SeekFrom::Start(current_pos)).ok(),
-                                __WASI_EIO
-                            );
-                        }
                         bytes_read
                     } else {
                         return __WASI_EINVAL;
@@ -1681,6 +1669,7 @@ pub fn path_open(
     if let Ok(m) = maybe_inode {
         &state.fs.inodes[m];
     }
+    let mut open_flags = 0;
 
     // TODO: traverse rights of dirs properly
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
@@ -1708,10 +1697,22 @@ pub fn path_open(
                     .write(adjusted_rights & __WASI_RIGHT_FD_WRITE != 0)
                     .create(o_flags & __WASI_O_CREAT != 0)
                     .truncate(o_flags & __WASI_O_TRUNC != 0);
-
+                open_flags |= Fd::READ;
+                if adjusted_rights & __WASI_RIGHT_FD_WRITE != 0 {
+                    open_flags |= Fd::WRITE;
+                }
+                if o_flags & __WASI_O_CREAT != 0 {
+                    open_flags |= Fd::CREATE;
+                }
+                if o_flags & __WASI_O_TRUNC != 0 {
+                    open_flags |= Fd::TRUNCATE;
+                }
                 *handle = Some(Box::new(HostFile::new(
                     wasi_try!(open_options.open(&path).map_err(|_| __WASI_EIO)),
                     path.to_path_buf(),
+                    true,
+                    adjusted_rights & __WASI_RIGHT_FD_WRITE != 0,
+                    false,
                 )));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
@@ -1768,6 +1769,7 @@ pub fn path_open(
                     // write access is required for creating a file
                     .write(true)
                     .create_new(true);
+                open_flags |= Fd::READ | Fd::WRITE | Fd::CREATE | Fd::TRUNCATE;
 
                 Some(Box::new(HostFile::new(
                     wasi_try!(open_options.open(&new_file_host_path).map_err(|e| {
@@ -1775,6 +1777,9 @@ pub fn path_open(
                         __WASI_EIO
                     })),
                     new_file_host_path.clone(),
+                    true,
+                    true,
+                    true,
                 )) as Box<dyn WasiFile>)
             };
 
@@ -1806,10 +1811,13 @@ pub fn path_open(
 
     // TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
-    let out_fd =
-        wasi_try!(state
-            .fs
-            .create_fd(adjusted_rights, fs_rights_inheriting, fs_flags, inode));
+    let out_fd = wasi_try!(state.fs.create_fd(
+        adjusted_rights,
+        fs_rights_inheriting,
+        fs_flags,
+        open_flags,
+        inode
+    ));
 
     fd_cell.set(out_fd);
 
@@ -2267,17 +2275,28 @@ pub fn poll_oneoff(
 
         let fd = match s.event_type {
             EventType::Read(__wasi_subscription_fs_readwrite_t { fd }) => {
-                let fd_entry = wasi_try!(state.fs.get_fd(fd));
-                if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ) {
-                    return __WASI_EACCES;
+                match fd {
+                    __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
+                    _ => {
+                        let fd_entry = wasi_try!(state.fs.get_fd(fd));
+                        if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ) {
+                            return __WASI_EACCES;
+                        }
+                    }
                 }
                 in_events.push(peb.add(PollEvent::PollIn).build());
                 Some(fd)
             }
             EventType::Write(__wasi_subscription_fs_readwrite_t { fd }) => {
-                let fd_entry = wasi_try!(state.fs.get_fd(fd));
-                if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
-                    return __WASI_EACCES;
+                match fd {
+                    __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
+                    _ => {
+                        let fd_entry = wasi_try!(state.fs.get_fd(fd));
+
+                        if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
+                            return __WASI_EACCES;
+                        }
+                    }
                 }
                 in_events.push(peb.add(PollEvent::PollOut).build());
                 Some(fd)

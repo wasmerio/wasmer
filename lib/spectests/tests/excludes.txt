@@ -1,3 +1,4 @@
+
 # Comment lines begin with # are ignored, empty lines are ignored
 # Exclude lines follow the format:
 #       <backend>:<exclude-kind>:<test-file-name>:<test-file-line>
@@ -859,6 +860,11 @@ llvm:skip:select.wast:*:windows
 llvm:skip:traps.wast:*:windows
 llvm:skip:unreachable.wast:*:windows
 llvm:skip:unwind.wast:*:windows
+
+# LLVM Linux after OSR - https://github.com/wasmerio/wasmer/pull/567
+llvm:skip:simd.wast:355:unix # Module - caught panic Any
+llvm:skip:simd_binaryen.wast:*:unix # Module - caught panic Any
+
 
 # Singlepass
 singlepass:skip:atomic.wast:*        # Threads not implemented

@@ -15,6 +15,8 @@ pub struct MachineState {
     pub stack_values: Vec<MachineValue>,
     pub register_values: Vec<MachineValue>,
 
+    pub prev_frame: BTreeMap<usize, MachineValue>,
+
     pub wasm_stack: Vec<WasmAbstractValue>,
     pub wasm_stack_private_depth: usize,
 
@@ -28,6 +30,8 @@ pub struct MachineStateDiff {
     pub stack_pop: usize,
     pub reg_diff: Vec<(RegisterIndex, MachineValue)>,
 
+    pub prev_frame_diff: BTreeMap<usize, Option<MachineValue>>, // None for removal
+
     pub wasm_stack_push: Vec<WasmAbstractValue>,
     pub wasm_stack_pop: usize,
     pub wasm_stack_private_depth: usize, // absolute value; not a diff.
@@ -35,15 +39,17 @@ pub struct MachineStateDiff {
     pub wasm_inst_offset: usize, // absolute value; not a diff.
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum MachineValue {
     Undefined,
     Vmctx,
+    VmctxDeref(Vec<usize>),
     PreserveRegister(RegisterIndex),
     CopyStackBPRelative(i32), // relative to Base Pointer, in byte offset
     ExplicitShadow,           // indicates that all values above this are above the shadow region
     WasmStack(usize),
     WasmLocal(usize),
+    TwoHalves(Box<(MachineValue, MachineValue)>), // 32-bit values. TODO: optimize: add another type for inner "half" value to avoid boxing?
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +75,7 @@ pub enum SuspendOffset {
 
 #[derive(Clone, Debug)]
 pub struct OffsetInfo {
+    pub end_offset: usize, // excluded bound
     pub diff_id: usize,
     pub activate_offset: usize,
 }
@@ -99,36 +106,19 @@ pub struct InstanceImage {
     pub execution_state: ExecutionStateImage,
 }
 
+#[derive(Debug, Clone)]
+pub struct CodeVersion {
+    pub baseline: bool,
+    pub msm: ModuleStateMap,
+    pub base: usize,
+}
+
 impl ModuleStateMap {
-    #[warn(dead_code)]
-    fn lookup_call_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
-        if ip < base || ip - base >= self.total_size {
-            None
-        } else {
-            let (_, fsm) = self
-                .local_functions
-                .range((Unbounded, Included(&(ip - base))))
-                .last()
-                .unwrap();
-
-            match fsm.call_offsets.get(&(ip - base)) {
-                Some(x) => {
-                    if x.diff_id < fsm.diffs.len() {
-                        Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
-                    } else {
-                        None
-                    }
-                }
-                None => None,
-            }
-        }
-    }
-
-    #[warn(dead_code)]
-    fn lookup_trappable_ip(
+    pub fn lookup_ip<F: FnOnce(&FunctionStateMap) -> &BTreeMap<usize, OffsetInfo>>(
         &self,
         ip: usize,
         base: usize,
+        offset_table_provider: F,
     ) -> Option<(&FunctionStateMap, MachineState)> {
         if ip < base || ip - base >= self.total_size {
             None
@@ -139,9 +129,14 @@ impl ModuleStateMap {
                 .last()
                 .unwrap();
 
-            match fsm.trappable_offsets.get(&(ip - base)) {
-                Some(x) => {
-                    if x.diff_id < fsm.diffs.len() {
+            match offset_table_provider(fsm)
+                .range((Unbounded, Included(&(ip - base))))
+                .last()
+            {
+                Some((_, x)) => {
+                    if ip - base >= x.end_offset {
+                        None
+                    } else if x.diff_id < fsm.diffs.len() {
                         Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
                     } else {
                         None
@@ -151,29 +146,28 @@ impl ModuleStateMap {
             }
         }
     }
+    pub fn lookup_call_ip(
+        &self,
+        ip: usize,
+        base: usize,
+    ) -> Option<(&FunctionStateMap, MachineState)> {
+        self.lookup_ip(ip, base, |fsm| &fsm.call_offsets)
+    }
 
-    #[warn(dead_code)]
-    fn lookup_loop_ip(&self, ip: usize, base: usize) -> Option<(&FunctionStateMap, MachineState)> {
-        if ip < base || ip - base >= self.total_size {
-            None
-        } else {
-            let (_, fsm) = self
-                .local_functions
-                .range((Unbounded, Included(&(ip - base))))
-                .last()
-                .unwrap();
+    pub fn lookup_trappable_ip(
+        &self,
+        ip: usize,
+        base: usize,
+    ) -> Option<(&FunctionStateMap, MachineState)> {
+        self.lookup_ip(ip, base, |fsm| &fsm.trappable_offsets)
+    }
 
-            match fsm.loop_offsets.get(&(ip - base)) {
-                Some(x) => {
-                    if x.diff_id < fsm.diffs.len() {
-                        Some((fsm, fsm.diffs[x.diff_id].build_state(fsm)))
-                    } else {
-                        None
-                    }
-                }
-                None => None,
-            }
-        }
+    pub fn lookup_loop_ip(
+        &self,
+        ip: usize,
+        base: usize,
+    ) -> Option<(&FunctionStateMap, MachineState)> {
+        self.lookup_ip(ip, base, |fsm| &fsm.loop_offsets)
     }
 }
 
@@ -206,7 +200,7 @@ impl MachineState {
             .iter()
             .zip(old.stack_values.iter())
             .enumerate()
-            .find(|&(_, (&a, &b))| a != b)
+            .find(|&(_, (a, b))| a != b)
             .map(|x| x.0)
             .unwrap_or(old.stack_values.len().min(self.stack_values.len()));
         assert_eq!(self.register_values.len(), old.register_values.len());
@@ -215,22 +209,42 @@ impl MachineState {
             .iter()
             .zip(old.register_values.iter())
             .enumerate()
-            .filter(|&(_, (&a, &b))| a != b)
-            .map(|(i, (&a, _))| (RegisterIndex(i), a))
+            .filter(|&(_, (a, b))| a != b)
+            .map(|(i, (a, _))| (RegisterIndex(i), a.clone()))
+            .collect();
+        let prev_frame_diff: BTreeMap<usize, Option<MachineValue>> = self
+            .prev_frame
+            .iter()
+            .filter(|(k, v)| {
+                if let Some(ref old_v) = old.prev_frame.get(k) {
+                    v != old_v
+                } else {
+                    true
+                }
+            })
+            .map(|(&k, v)| (k, Some(v.clone())))
+            .chain(
+                old.prev_frame
+                    .iter()
+                    .filter(|(k, _)| self.prev_frame.get(k).is_none())
+                    .map(|(&k, _)| (k, None)),
+            )
             .collect();
         let first_diff_wasm_stack_depth: usize = self
             .wasm_stack
             .iter()
             .zip(old.wasm_stack.iter())
             .enumerate()
-            .find(|&(_, (&a, &b))| a != b)
+            .find(|&(_, (a, b))| a != b)
             .map(|x| x.0)
             .unwrap_or(old.wasm_stack.len().min(self.wasm_stack.len()));
         MachineStateDiff {
             last: None,
             stack_push: self.stack_values[first_diff_stack_depth..].to_vec(),
             stack_pop: old.stack_values.len() - first_diff_stack_depth,
-            reg_diff: reg_diff,
+            reg_diff,
+
+            prev_frame_diff,
 
             wasm_stack_push: self.wasm_stack[first_diff_wasm_stack_depth..].to_vec(),
             wasm_stack_pop: old.wasm_stack.len() - first_diff_wasm_stack_depth,
@@ -258,10 +272,17 @@ impl MachineStateDiff {
                 state.stack_values.pop().unwrap();
             }
             for v in &x.stack_push {
-                state.stack_values.push(*v);
+                state.stack_values.push(v.clone());
             }
-            for &(index, v) in &x.reg_diff {
-                state.register_values[index.0] = v;
+            for &(index, ref v) in &x.reg_diff {
+                state.register_values[index.0] = v.clone();
+            }
+            for (index, ref v) in &x.prev_frame_diff {
+                if let Some(ref x) = v {
+                    state.prev_frame.insert(*index, x.clone());
+                } else {
+                    state.prev_frame.remove(index).unwrap();
+                }
             }
             for _ in 0..x.wasm_stack_pop {
                 state.wasm_stack.pop().unwrap();
@@ -381,16 +402,27 @@ impl InstanceImage {
 pub mod x64 {
     use super::*;
     use crate::codegen::BreakpointMap;
-    use crate::fault::{catch_unsafe_unwind, run_on_alternative_stack};
+    use crate::fault::{
+        catch_unsafe_unwind, get_boundary_register_preservation, run_on_alternative_stack,
+    };
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
     use std::any::Any;
 
+    unsafe fn compute_vmctx_deref(vmctx: *const Ctx, seq: &[usize]) -> u64 {
+        let mut ptr = &vmctx as *const *const Ctx as *const u8;
+        for x in seq {
+            ptr = (*(ptr as *const *const u8)).offset(*x as isize);
+        }
+        ptr as usize as u64
+    }
+
     pub fn new_machine_state() -> MachineState {
         MachineState {
             stack_values: vec![],
             register_values: vec![MachineValue::Undefined; 16 + 8],
+            prev_frame: BTreeMap::new(),
             wasm_stack: vec![],
             wasm_stack_private_depth: 0,
             wasm_inst_offset: ::std::usize::MAX,
@@ -453,6 +485,10 @@ pub mod x64 {
                         stack_offset -= 1;
                         stack[stack_offset] = vmctx as *mut Ctx as usize as u64;
                     }
+                    MachineValue::VmctxDeref(ref seq) => {
+                        stack_offset -= 1;
+                        stack[stack_offset] = compute_vmctx_deref(vmctx as *const Ctx, seq);
+                    }
                     MachineValue::PreserveRegister(index) => {
                         stack_offset -= 1;
                         stack[stack_offset] = known_registers[index.0].unwrap_or(0);
@@ -491,6 +527,73 @@ pub mod x64 {
                             }
                         }
                     }
+                    MachineValue::TwoHalves(ref inner) => {
+                        stack_offset -= 1;
+                        // TODO: Cleanup
+                        match inner.0 {
+                            MachineValue::WasmStack(x) => match state.wasm_stack[x] {
+                                WasmAbstractValue::Const(x) => {
+                                    assert!(x <= std::u32::MAX as u64);
+                                    stack[stack_offset] |= x;
+                                }
+                                WasmAbstractValue::Runtime => {
+                                    let v = f.stack[x].unwrap();
+                                    assert!(v <= std::u32::MAX as u64);
+                                    stack[stack_offset] |= v;
+                                }
+                            },
+                            MachineValue::WasmLocal(x) => match fsm.locals[x] {
+                                WasmAbstractValue::Const(x) => {
+                                    assert!(x <= std::u32::MAX as u64);
+                                    stack[stack_offset] |= x;
+                                }
+                                WasmAbstractValue::Runtime => {
+                                    let v = f.locals[x].unwrap();
+                                    assert!(v <= std::u32::MAX as u64);
+                                    stack[stack_offset] |= v;
+                                }
+                            },
+                            MachineValue::VmctxDeref(ref seq) => {
+                                stack[stack_offset] |=
+                                    compute_vmctx_deref(vmctx as *const Ctx, seq)
+                                        & (std::u32::MAX as u64);
+                            }
+                            MachineValue::Undefined => {}
+                            _ => unimplemented!("TwoHalves.0"),
+                        }
+                        match inner.1 {
+                            MachineValue::WasmStack(x) => match state.wasm_stack[x] {
+                                WasmAbstractValue::Const(x) => {
+                                    assert!(x <= std::u32::MAX as u64);
+                                    stack[stack_offset] |= x << 32;
+                                }
+                                WasmAbstractValue::Runtime => {
+                                    let v = f.stack[x].unwrap();
+                                    assert!(v <= std::u32::MAX as u64);
+                                    stack[stack_offset] |= v << 32;
+                                }
+                            },
+                            MachineValue::WasmLocal(x) => match fsm.locals[x] {
+                                WasmAbstractValue::Const(x) => {
+                                    assert!(x <= std::u32::MAX as u64);
+                                    stack[stack_offset] |= x << 32;
+                                }
+                                WasmAbstractValue::Runtime => {
+                                    let v = f.locals[x].unwrap();
+                                    assert!(v <= std::u32::MAX as u64);
+                                    stack[stack_offset] |= v << 32;
+                                }
+                            },
+                            MachineValue::VmctxDeref(ref seq) => {
+                                stack[stack_offset] |=
+                                    (compute_vmctx_deref(vmctx as *const Ctx, seq)
+                                        & (std::u32::MAX as u64))
+                                        << 32;
+                            }
+                            MachineValue::Undefined => {}
+                            _ => unimplemented!("TwoHalves.1"),
+                        }
+                    }
                 }
             }
             if !got_explicit_shadow {
@@ -502,6 +605,9 @@ pub mod x64 {
                     MachineValue::Undefined => {}
                     MachineValue::Vmctx => {
                         known_registers[i] = Some(vmctx as *mut Ctx as usize as u64);
+                    }
+                    MachineValue::VmctxDeref(ref seq) => {
+                        known_registers[i] = Some(compute_vmctx_deref(vmctx as *const Ctx, seq));
                     }
                     MachineValue::WasmStack(x) => match state.wasm_stack[x] {
                         WasmAbstractValue::Const(x) => {
@@ -620,11 +726,8 @@ pub mod x64 {
                 assert_eq!(vmctx.internal.memory_bound, memory.len());
             }
 
-            ::std::slice::from_raw_parts_mut(
-                vmctx.internal.memory_base,
-                vmctx.internal.memory_bound,
-            )
-            .copy_from_slice(memory);
+            std::slice::from_raw_parts_mut(vmctx.internal.memory_base, vmctx.internal.memory_bound)
+                .copy_from_slice(memory);
         }
 
         let globals_len = (*vmctx.module).info.globals.len();
@@ -655,7 +758,7 @@ pub mod x64 {
                 None
             } else {
                 Some(
-                    ::std::slice::from_raw_parts(
+                    std::slice::from_raw_parts(
                         vmctx.internal.memory_base,
                         vmctx.internal.memory_bound,
                     )
@@ -682,15 +785,15 @@ pub mod x64 {
     }
 
     #[warn(unused_variables)]
-    pub unsafe fn read_stack(
-        msm: &ModuleStateMap,
-        code_base: usize,
+    pub unsafe fn read_stack<'a, I: Iterator<Item = &'a CodeVersion>, F: Fn() -> I + 'a>(
+        versions: F,
         mut stack: *const u64,
         initially_known_registers: [Option<u64>; 24],
         mut initial_address: Option<u64>,
     ) -> ExecutionStateImage {
         let mut known_registers: [Option<u64>; 24] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
+        let mut was_baseline = true;
 
         for _ in 0.. {
             let ret_addr = initial_address.take().unwrap_or_else(|| {
@@ -698,14 +801,56 @@ pub mod x64 {
                 stack = stack.offset(1);
                 x
             });
-            let (fsm, state) = match msm
-                .lookup_call_ip(ret_addr as usize, code_base)
-                .or_else(|| msm.lookup_trappable_ip(ret_addr as usize, code_base))
-                .or_else(|| msm.lookup_loop_ip(ret_addr as usize, code_base))
-            {
-                Some(x) => x,
-                _ => return ExecutionStateImage { frames: results },
+
+            let mut fsm_state: Option<(&FunctionStateMap, MachineState)> = None;
+            let mut is_baseline: Option<bool> = None;
+
+            for version in versions() {
+                match version
+                    .msm
+                    .lookup_call_ip(ret_addr as usize, version.base)
+                    .or_else(|| {
+                        version
+                            .msm
+                            .lookup_trappable_ip(ret_addr as usize, version.base)
+                    })
+                    .or_else(|| version.msm.lookup_loop_ip(ret_addr as usize, version.base))
+                {
+                    Some(x) => {
+                        fsm_state = Some(x);
+                        is_baseline = Some(version.baseline);
+                        break;
+                    }
+                    None => {}
+                };
+            }
+
+            let (fsm, state) = if let Some(x) = fsm_state {
+                x
+            } else {
+                return ExecutionStateImage { frames: results };
             };
+
+            {
+                let is_baseline = is_baseline.unwrap();
+
+                // Are we unwinding through an optimized/baseline boundary?
+                if is_baseline && !was_baseline {
+                    let callee_saved = &*get_boundary_register_preservation();
+                    known_registers[X64Register::GPR(GPR::R15).to_index().0] =
+                        Some(callee_saved.r15);
+                    known_registers[X64Register::GPR(GPR::R14).to_index().0] =
+                        Some(callee_saved.r14);
+                    known_registers[X64Register::GPR(GPR::R13).to_index().0] =
+                        Some(callee_saved.r13);
+                    known_registers[X64Register::GPR(GPR::R12).to_index().0] =
+                        Some(callee_saved.r12);
+                    known_registers[X64Register::GPR(GPR::RBX).to_index().0] =
+                        Some(callee_saved.rbx);
+                }
+
+                was_baseline = is_baseline;
+            }
 
             let mut wasm_stack: Vec<Option<u64>> = state
                 .wasm_stack
@@ -729,6 +874,7 @@ pub mod x64 {
                 match *v {
                     MachineValue::Undefined => {}
                     MachineValue::Vmctx => {}
+                    MachineValue::VmctxDeref(_) => {}
                     MachineValue::WasmStack(idx) => {
                         if let Some(v) = known_registers[i] {
                             wasm_stack[idx] = Some(v);
@@ -773,6 +919,9 @@ pub mod x64 {
                     MachineValue::Vmctx => {
                         stack = stack.offset(1);
                     }
+                    MachineValue::VmctxDeref(_) => {
+                        stack = stack.offset(1);
+                    }
                     MachineValue::PreserveRegister(idx) => {
                         known_registers[idx.0] = Some(*stack);
                         stack = stack.offset(1);
@@ -788,9 +937,48 @@ pub mod x64 {
                         wasm_locals[idx] = Some(*stack);
                         stack = stack.offset(1);
                     }
+                    MachineValue::TwoHalves(ref inner) => {
+                        let v = *stack;
+                        stack = stack.offset(1);
+                        match inner.0 {
+                            MachineValue::WasmStack(idx) => {
+                                wasm_stack[idx] = Some(v & 0xffffffffu64);
+                            }
+                            MachineValue::WasmLocal(idx) => {
+                                wasm_locals[idx] = Some(v & 0xffffffffu64);
+                            }
+                            MachineValue::VmctxDeref(_) => {}
+                            MachineValue::Undefined => {}
+                            _ => unimplemented!("TwoHalves.0 (read)"),
+                        }
+                        match inner.1 {
+                            MachineValue::WasmStack(idx) => {
+                                wasm_stack[idx] = Some(v >> 32);
+                            }
+                            MachineValue::WasmLocal(idx) => {
+                                wasm_locals[idx] = Some(v >> 32);
+                            }
+                            MachineValue::VmctxDeref(_) => {}
+                            MachineValue::Undefined => {}
+                            _ => unimplemented!("TwoHalves.1 (read)"),
+                        }
+                    }
                 }
             }
-            stack = stack.offset(1); // RBP
+
+            for (offset, v) in state.prev_frame.iter() {
+                let offset = (*offset + 2) as isize; // (saved_rbp, return_address)
+                match *v {
+                    MachineValue::WasmStack(idx) => {
+                        wasm_stack[idx] = Some(*stack.offset(offset));
+                    }
+                    MachineValue::WasmLocal(idx) => {
+                        wasm_locals[idx] = Some(*stack.offset(offset));
+                    }
+                    _ => unreachable!("values in prev frame can only be stack/local"),
+                }
+            }
+            stack = stack.offset(1); // saved_rbp
 
             wasm_stack.truncate(
                 wasm_stack
@@ -845,6 +1033,7 @@ pub mod x64 {
         XMM7,
     }
 
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     pub enum X64Register {
         GPR(GPR),
         XMM(XMM),
@@ -856,6 +1045,37 @@ pub mod x64 {
                 X64Register::GPR(x) => RegisterIndex(x as usize),
                 X64Register::XMM(x) => RegisterIndex(x as usize + 16),
             }
+        }
+
+        pub fn from_dwarf_regnum(x: u16) -> Option<X64Register> {
+            Some(match x {
+                0 => X64Register::GPR(GPR::RAX),
+                1 => X64Register::GPR(GPR::RDX),
+                2 => X64Register::GPR(GPR::RCX),
+                3 => X64Register::GPR(GPR::RBX),
+                4 => X64Register::GPR(GPR::RSI),
+                5 => X64Register::GPR(GPR::RDI),
+                6 => X64Register::GPR(GPR::RBP),
+                7 => X64Register::GPR(GPR::RSP),
+                8 => X64Register::GPR(GPR::R8),
+                9 => X64Register::GPR(GPR::R9),
+                10 => X64Register::GPR(GPR::R10),
+                11 => X64Register::GPR(GPR::R11),
+                12 => X64Register::GPR(GPR::R12),
+                13 => X64Register::GPR(GPR::R13),
+                14 => X64Register::GPR(GPR::R14),
+                15 => X64Register::GPR(GPR::R15),
+
+                17 => X64Register::XMM(XMM::XMM0),
+                18 => X64Register::XMM(XMM::XMM1),
+                19 => X64Register::XMM(XMM::XMM2),
+                20 => X64Register::XMM(XMM::XMM3),
+                21 => X64Register::XMM(XMM::XMM4),
+                22 => X64Register::XMM(XMM::XMM5),
+                23 => X64Register::XMM(XMM::XMM6),
+                24 => X64Register::XMM(XMM::XMM7),
+                _ => return None,
+            })
         }
     }
 }

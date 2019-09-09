@@ -1,0 +1,238 @@
+name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
+
+# The Different jobs (lint, test, build to run)
+jobs:
+  - job: changelog
+    steps:
+      - bash: |
+          git --no-pager diff --name-only HEAD $(git merge-base HEAD master) --exit-code CHANGELOG.md
+        displayName: Changelog Updated
+
+  - job: lint
+    pool:
+      vmImage: "macos-10.14"
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - script: |
+          rustup component add rustfmt
+          rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+        displayName: Lint dependencies
+      - script: cargo fmt --all -- --check
+        displayName: Lint
+    variables:
+      rust_toolchain: stable
+
+  - job: Test
+    strategy:
+      matrix:
+        linux:
+          imageName: "ubuntu-16.04"
+          rust_toolchain: nightly-2019-08-15
+        mac:
+          imageName: "macos-10.14"
+          rust_toolchain: nightly-2019-08-15
+          # By default schannel checks revocation of certificates unlike some other SSL
+          # backends, but we've historically had problems on CI where a revocation
+          # server goes down presumably. See #43333 for more info
+          CARGO_HTTP_CHECK_REVOKE: false
+        windows:
+          imageName: "vs2017-win2016"
+          rust_toolchain: stable
+    pool:
+      vmImage: $(imageName)
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - bash: make test
+        displayName: Tests (*nix)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: make spectests-cranelift
+        displayName: Tests (Windows)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+  - job: Check
+    pool:
+      vmImage: "ubuntu-16.04"
+    variables:
+      rust_toolchain: nightly-2019-08-15
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - bash: make check
+        displayName: Check with Flags
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+
+  - job: Build_CLI
+    strategy:
+      matrix:
+        linux:
+          imageName: "ubuntu-16.04"
+          rust_toolchain: nightly-2019-08-15
+        mac:
+          imageName: "macos-10.14"
+          rust_toolchain: nightly-2019-08-15
+          MACOSX_DEPLOYMENT_TARGET: 10.10
+        windows:
+          imageName: "vs2017-win2016"
+          rust_toolchain: stable
+          # RUSTFLAGS: -Ctarget-feature=+crt-static
+    pool:
+      vmImage: $(imageName)
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - template: .azure/install-innosetup.yml
+      - bash: |
+          mkdir -p artifacts
+        displayName: Create Artifacts Dir
+      - bash: make release
+        displayName: Build (*nix)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: make release-llvm
+        displayName: Build (Windows)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+      - bash: |
+          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+        displayName: Build WAPM
+        condition: |
+          eq(variables['Build.SourceBranch'], 'refs/heads/master')
+      - bash: |
+          make build-install
+          cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
+        displayName: Build Distribution (*nix)
+        condition: |
+          and(
+            succeeded(),
+            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            not(eq(variables['Agent.OS'], 'Windows_NT'))
+          )
+      - bash: |
+          cd ./src/installer
+          iscc wasmer.iss
+          cp WasmerInstaller.exe ../../artifacts/wasmer-windows.exe
+        displayName: Build Distribution (Windows)
+        condition: |
+          and(
+            succeeded(),
+            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            eq(variables['Agent.OS'], 'Windows_NT')
+          )
+      - publish: $(System.DefaultWorkingDirectory)/artifacts
+        artifact: cli-$(Agent.OS)
+
+  - job: Build_Library
+    strategy:
+      matrix:
+        linux:
+          imageName: "ubuntu-16.04"
+          rust_toolchain: nightly-2019-08-15
+        mac:
+          imageName: "macos-10.14"
+          rust_toolchain: nightly-2019-08-15
+          MACOSX_DEPLOYMENT_TARGET: 10.10
+        windows:
+          imageName: "vs2017-win2016"
+          rust_toolchain: stable
+          # RUSTFLAGS: -Ctarget-feature=+crt-static
+    pool:
+      vmImage: $(imageName)
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      # - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - bash: |
+          mkdir -p artifacts
+        displayName: Create Artifacts Dir
+      - bash: |
+          make capi
+          make test-capi
+          cp target/release/libwasmer_runtime_c_api.so ./artifacts
+        displayName: Build c-api (Linux)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+      - bash: |
+          make capi
+          make test-capi
+          install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
+          cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
+        displayName: Build c-api (Darwin)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+      - bash: |
+          make capi
+          # Tests are failing on Windows, comment for now
+          # make test-capi
+          cp target/release/wasmer_runtime_c_api.dll ./artifacts
+        displayName: Build c-api (Windows)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+      - publish: $(System.DefaultWorkingDirectory)/artifacts
+        artifact: library-$(Agent.OS)
+
+  - job: Publish
+    dependsOn:
+      - Build_CLI
+      - Build_Library
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    steps:
+      # - download: current
+      - task: DownloadPipelineArtifact@1
+        inputs:
+          targetPath: $(Build.ArtifactStagingDirectory)
+      - bash: |
+          ls $ARTIFACT_STAGING_DIRECTORY
+        displayName: List Artifacts
+        env:
+          ARTIFACT_STAGING_DIRECTORY: $(Build.ArtifactStagingDirectory)
+      - task: GithubRelease@0
+        displayName: "Create GitHub Release"
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        inputs:
+          gitHubConnection: wasmer
+          repositoryName: wasmerio/wasmer
+          tag: dev
+          assets: $(Build.ArtifactStagingDirectory)
+
+  - job: Docs
+    pool:
+      vmImage: "ubuntu-16.04"
+    variables:
+      rust_toolchain: nightly-2019-08-15
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - bash: |
+          make docs
+        displayName: Build documentation
+
+# We only run the pipelines on PRs to Master
+pr:
+  - master
+
+# Otherwise, we test in any of this branches (master or bors related)
+trigger:
+  - master
+  - staging
+  - trying

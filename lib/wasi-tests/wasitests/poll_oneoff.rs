@@ -171,11 +171,46 @@ fn main() {
                     poll(fds.as_slice(), &[true, false], &[false, true]).expect("subsequent polls");
             }
             println!("{:?}", result);
+
+            /// stdin, stdout, stderr checking
+            let fds = vec![std::io::stdin().as_raw_fd()];
+            print!("Stdin: ");
+            println!(
+                "{}",
+                if poll(fds.as_slice(), &[true], &[false]).is_ok() {
+                    "OK"
+                } else {
+                    "ERROR"
+                }
+            );
+            let fds = vec![std::io::stdout().as_raw_fd()];
+            print!("Stdout: ");
+            println!(
+                "{}",
+                if poll(fds.as_slice(), &[false], &[true]).is_ok() {
+                    "OK"
+                } else {
+                    "ERROR"
+                }
+            );
+            let fds = vec![std::io::stderr().as_raw_fd()];
+            print!("Stderr: ");
+            println!(
+                "{}",
+                if poll(fds.as_slice(), &[false], &[true]).is_ok() {
+                    "OK"
+                } else {
+                    "ERROR"
+                }
+            );
         }
         #[cfg(not(target_os = "wasi"))]
         {
             println!("{}", "__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }");
             println!("{}", "[__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }, __wasi_event_t { userdata: 1193046, error: 0, type_: 2, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 1234, flags: 0 } } }]");
+            println!("Stdin: OK");
+            println!("Stdout: OK");
+            println!("Stderr: OK");
         }
     }
 

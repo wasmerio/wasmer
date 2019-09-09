@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use wasmer_runtime::{func, imports, instantiate};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_wasi::{
@@ -13,7 +14,7 @@ fn it_works(_ctx: &mut Ctx) -> i32 {
     5
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoggingWrapper {
     pub wasm_module_name: String,
 }
@@ -86,6 +87,8 @@ impl std::io::Write for LoggingWrapper {
 }
 
 // the WasiFile methods aren't relevant for a write-only Stdout-like implementation
+// we must use typetag and serde so that our trait objects can be safely Serialized and Deserialized
+#[typetag::serde]
 impl WasiFile for LoggingWrapper {
     fn last_accessed(&self) -> u64 {
         0

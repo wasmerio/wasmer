@@ -116,13 +116,20 @@ pub struct CodeMemory {
     size: usize,
 }
 
+unsafe impl Send for CodeMemory {}
+unsafe impl Sync for CodeMemory {}
+
 #[cfg(not(unix))]
 impl CodeMemory {
     pub fn new(_size: usize) -> CodeMemory {
         unimplemented!();
     }
 
-    pub fn make_executable(&mut self) {
+    pub fn make_executable(&self) {
+        unimplemented!();
+    }
+
+    pub fn make_writable(&self) {
         unimplemented!();
     }
 }
@@ -130,13 +137,20 @@ impl CodeMemory {
 #[cfg(unix)]
 impl CodeMemory {
     pub fn new(size: usize) -> CodeMemory {
+        if size == 0 {
+            return CodeMemory {
+                ptr: std::ptr::null_mut(),
+                size: 0,
+            };
+        }
+
         fn round_up_to_page_size(size: usize) -> usize {
             (size + (4096 - 1)) & !(4096 - 1)
         }
         let size = round_up_to_page_size(size);
         let ptr = unsafe {
             mmap(
-                ::std::ptr::null_mut(),
+                std::ptr::null_mut(),
                 size,
                 PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANON,
@@ -153,9 +167,15 @@ impl CodeMemory {
         }
     }
 
-    pub fn make_executable(&mut self) {
+    pub fn make_executable(&self) {
         if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_EXEC) } != 0 {
             panic!("cannot set code memory to executable");
+        }
+    }
+
+    pub fn make_writable(&self) {
+        if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_WRITE) } != 0 {
+            panic!("cannot set code memory to writable");
         }
     }
 }
@@ -172,12 +192,12 @@ impl Drop for CodeMemory {
 impl Deref for CodeMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts(self.ptr, self.size) }
     }
 }
 
 impl DerefMut for CodeMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { ::std::slice::from_raw_parts_mut(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.size) }
     }
 }

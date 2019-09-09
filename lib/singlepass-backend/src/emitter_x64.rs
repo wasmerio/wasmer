@@ -61,6 +61,8 @@ pub trait Emitter {
 
     fn emit_label(&mut self, label: Self::Label);
 
+    fn emit_nop(&mut self);
+
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lea_label(&mut self, label: Self::Label, dst: Location);
@@ -466,6 +468,10 @@ impl Emitter for Assembler {
 
     fn emit_label(&mut self, label: Self::Label) {
         dynasm!(self ; => label);
+    }
+
+    fn emit_nop(&mut self) {
+        dynasm!(self ; nop);
     }
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {

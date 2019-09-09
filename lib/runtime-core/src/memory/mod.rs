@@ -363,5 +363,4 @@ mod memory_tests {
             "Max number of pages is required for shared memory"
         )
     }
-
 }
