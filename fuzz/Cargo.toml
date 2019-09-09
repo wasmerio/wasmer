@@ -25,3 +25,7 @@ path = "fuzz_targets/simple_instantiate.rs"
 [[bin]]
 name = "validate_wasm"
 path = "fuzz_targets/validate_wasm.rs"
+
+[[bin]]
+name = "compile_wasm"
+path = "fuzz_targets/compile_wasm.rs"

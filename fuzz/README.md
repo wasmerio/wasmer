@@ -10,7 +10,7 @@ $ cargo install cargo-fuzz
 
 `cargo-fuzz` is documented in the [Rust Fuzz Book](https://rust-fuzz.github.io/book/cargo-fuzz.html).
 
-## Running a fuzzer (simple_instantiate, validate_wasm)
+## Running a fuzzer (simple_instantiate, validate_wasm, compile_wasm)
 
 Once `cargo-fuzz` is installed, you can run the `simple_instantiate` fuzzer with
 ```sh
@@ -19,6 +19,10 @@ cargo fuzz run simple_instantiate
 or the `validate_wasm` fuzzer
 ```sh
 cargo fuzz run validate_wasm
+```
+or the `compile_wasm` fuzzer
+```sh
+cargo fuzz run compile_wasm
 ```
 
 You should see output that looks something like this:
