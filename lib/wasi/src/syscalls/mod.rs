@@ -1729,7 +1729,7 @@ pub fn path_open(
                 path_to_symlink,
                 relative_path,
             } => {
-                // I think this should return an error
+                // I think this should return an error (because symlinks should be resolved away by the path traversal)
                 // TODO: investigate this
                 unimplemented!("SYMLINKS IN PATH_OPEN");
             }
@@ -2202,7 +2202,7 @@ pub fn path_unlink_file(
                 } else {
                     // File is closed
                     // problem with the abstraction, we can't call unlink because there's no handle
-                    // TODO: replace this code in 0.7.0
+                    // TODO: replace this code
                     wasi_try!(std::fs::remove_file(path).map_err(|_| __WASI_EIO));
                 }
             }

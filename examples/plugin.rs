@@ -3,7 +3,7 @@ use wasmer_runtime::{func, imports, instantiate};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_wasi::{
     generate_import_object,
-    state::{self, WasiFile},
+    state::{self, WasiFile, WasiFsError},
     types,
 };
 
@@ -101,6 +101,16 @@ impl WasiFile for LoggingWrapper {
     }
     fn size(&self) -> u64 {
         0
+    }
+    fn set_len(&mut self, _len: u64) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        // return an arbitrary amount
+        Ok(1024)
     }
 }
 

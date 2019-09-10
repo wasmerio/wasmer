@@ -50,7 +50,7 @@ pub enum Kind {
         /// the open file, if it's open
         handle: Option<Box<dyn WasiFile>>,
         /// The path on the host system where the file is located
-        /// This is deprecated and will be removed in 0.7.0 or a shortly thereafter
+        /// This is deprecated and will be removed soon
         path: PathBuf,
     },
     Dir {

@@ -9,6 +9,7 @@ use std::{
     path::PathBuf,
     time::SystemTime,
 };
+use wasmer_runtime_core::debug;
 
 /// Error type for external users
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -122,58 +123,57 @@ impl WasiFsError {
 pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> __wasi_timestamp_t;
+
     /// the last time the file was modified in nanoseconds as a UNIX timestamp
     fn last_modified(&self) -> __wasi_timestamp_t;
+
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
     fn created_time(&self) -> __wasi_timestamp_t;
+
     /// set the last time the file was accessed in nanoseconds as a UNIX timestamp
-    // TODO: stablize this in 0.7.0 by removing default impl
     fn set_last_accessed(&self, _last_accessed: __wasi_timestamp_t) {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_last_accessed for your type before then");
+        debug!("{:?} did nothing in WasiFile::set_last_accessed due to using the default implementation", self);
     }
+
     /// set the last time the file was modified in nanoseconds as a UNIX timestamp
-    // TODO: stablize this in 0.7.0 by removing default impl
     fn set_last_modified(&self, _last_modified: __wasi_timestamp_t) {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_last_modified for your type before then");
+        debug!("{:?} did nothing in WasiFile::set_last_modified due to using the default implementation", self);
     }
+
     /// set the time at which the file was created in nanoseconds as a UNIX timestamp
-    // TODO: stablize this in 0.7.0 by removing default impl
     fn set_created_time(&self, _created_time: __wasi_timestamp_t) {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_created_time for your type before then");
+        debug!(
+            "{:?} did nothing in WasiFile::set_created_time to using the default implementation",
+            self
+        );
     }
+
     /// the size of the file in bytes
     fn size(&self) -> u64;
+
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
-    // TODO: stablize this in 0.7.0 by removing default impl
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::allocate for your type before then");
-    }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError>;
 
     /// Request deletion of the file
-    // TODO: break this out into a WasiPath trait which is dynamically in Kind::File
-    // this change can't be done until before release
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::unlink for your type before then");
-    }
+    fn unlink(&mut self) -> Result<(), WasiFsError>;
 
     /// Store file contents and metadata to disk
-    // TODO: stablize this in 0.7.0 by removing default impl
+    /// Default implementation returns `Ok(())`.  You should implement this method if you care
+    /// about flushing your cache to permanent storage
     fn sync_to_disk(&self) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::sync_to_disk for your type before then");
+        Ok(())
     }
 
     /// Moves the file to a new location
     /// NOTE: the signature of this function will change before stabilization
     // TODO: stablizie this in 0.7.0 or 0.8.0 by removing default impl
     fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0 or 0.8.0.  Please implement WasiFile::rename_file for your type before then");
+        panic!("Default implementation for now as this method is unstable; this default implementation or this entire method may be removed in a future release.");
     }
 
     /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0 or 0.8.0.  Please implement WasiFile::bytes_available for your type before then");
-    }
+    fn bytes_available(&self) -> Result<usize, WasiFsError>;
 
     /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
     /// Returns the underlying host fd
@@ -688,6 +688,13 @@ impl WasiFile for Stdout {
     fn size(&self) -> u64 {
         0
     }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        debug!("Calling WasiFile::set_len on stdout; this is probably a bug");
+        Err(WasiFsError::PermissionDenied)
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
 
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
         // unwrap is safe because of get_raw_fd implementation
@@ -772,6 +779,13 @@ impl WasiFile for Stderr {
     fn size(&self) -> u64 {
         0
     }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        debug!("Calling WasiFile::set_len on stderr; this is probably a bug");
+        Err(WasiFsError::PermissionDenied)
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
 
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
         // unwrap is safe because of get_raw_fd implementation
@@ -855,6 +869,14 @@ impl WasiFile for Stdin {
     }
     fn size(&self) -> u64 {
         0
+    }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        debug!("Calling WasiFile::set_len on stdin; this is probably a bug");
+        Err(WasiFsError::PermissionDenied)
+    }
+
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
     }
 
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
