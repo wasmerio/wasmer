@@ -336,8 +336,46 @@ impl Emitter for Assembler {
         }
     }
     
-    fn emit_cdq(&mut self) { unimplemented!("cdq"); }
-    fn emit_cqo(&mut self) { unimplemented!("cqo"); }
+    fn emit_cdq(&mut self) {
+        dynasm!(
+            self
+            ; b >after
+            ; bit_tester:
+            ; .dword 0x80000000u32 as i32
+            ; all_ones:
+            ; .dword 0xffffffffu32 as i32
+            ; after:
+            ; ldr w_tmp1, <bit_tester
+            ; and w_tmp1, W(map_gpr(GPR::RAX).x()), w_tmp1
+            ; cbz w_tmp1, >zero
+            ; not_zero:
+            ; ldr W(map_gpr(GPR::RDX).x()), <all_ones
+            ; b >after
+            ; zero:
+            ; mov W(map_gpr(GPR::RDX).x()), wzr
+            ; after:
+        );
+    }
+    fn emit_cqo(&mut self) {
+        dynasm!(
+            self
+            ; b >after
+            ; bit_tester:
+            ; .qword 0x8000000000000000u64 as i64
+            ; all_ones:
+            ; .qword 0xffffffffffffffffu64 as i64
+            ; after:
+            ; ldr x_tmp1, <bit_tester
+            ; and x_tmp1, X(map_gpr(GPR::RAX).x()), x_tmp1
+            ; cbz x_tmp1, >zero
+            ; not_zero:
+            ; ldr X(map_gpr(GPR::RDX).x()), <all_ones
+            ; b >after
+            ; zero:
+            ; mov X(map_gpr(GPR::RDX).x()), xzr
+            ; after:
+        );
+    }
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(eor, self, sz, src, dst, { unreachable!("xor") });
     }
@@ -397,7 +435,32 @@ impl Emitter for Assembler {
         );
     }
     
-    fn emit_set(&mut self, condition: Condition, dst: GPR) { unimplemented!("instruction") }
+    fn emit_set(&mut self, condition: Condition, dst: GPR) {
+        use Condition::*;
+
+        match condition {
+            None => dynasm!(self ; b >set),
+            Above => dynasm!(self ; b.hi >set),
+            AboveEqual => dynasm!(self ; b.hs >set),
+            Below => dynasm!(self ; b.lo >set),
+            BelowEqual => dynasm!(self ; b.ls >set),
+            Greater => dynasm!(self ; b.gt >set),
+            GreaterEqual => dynasm!(self ; b.ge >set),
+            Less => dynasm!(self ; b.lt >set),
+            LessEqual => dynasm!(self ; b.le >set),
+            Equal => dynasm!(self ; b.eq >set),
+            NotEqual => dynasm!(self ; b.ne >set),
+            Signed => dynasm!(self ; b.vs >set), // TODO: Review this
+        }
+        dynasm!(
+            self
+            ; mov W(map_gpr(dst).x()), wzr
+            ; b >ok
+            ; set:
+            ; mov W(map_gpr(dst).x()), 1
+            ; ok:
+        );
+    }
     
     fn emit_push(&mut self, sz: Size, src: Location) {
         match (sz, src) {
@@ -442,7 +505,83 @@ impl Emitter for Assembler {
             _ => panic!("pop {:?} {:?}", sz, dst),
         }
     }
-    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) { unimplemented!("instruction") }
+    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {
+        match (sz, left, right) {
+            (Size::S32, Location::Imm32(left), Location::GPR(right)) => {
+                dynasm!(self
+                    ; b >after
+                    ; data:
+                    ; .dword left as i32
+                    ; after:
+                    ; ldr w_tmp1, <data
+                    ; cmp W(map_gpr(right).x()), w_tmp1
+                );
+            }
+            (Size::S64, Location::Imm32(left), Location::GPR(right)) => {
+                dynasm!(self
+                    ; b >after
+                    ; data:
+                    ; .qword left as i64
+                    ; after:
+                    ; ldr x_tmp1, <data
+                    ; cmp X(map_gpr(right).x()), x_tmp1
+                );
+            }
+            (Size::S32, Location::Imm32(left), Location::Memory(right, disp)) => {
+                assert!(disp >= 0);
+                dynasm!(self
+                    ; b >after
+                    ; data:
+                    ; .dword left as i32
+                    ; after:
+                    ; ldr w_tmp1, <data
+                    ; ldr w_tmp2, [X(map_gpr(right).x()), disp as u32]
+                    ; cmp w_tmp2, w_tmp1
+                );
+            }
+            (Size::S64, Location::Imm32(left), Location::Memory(right, disp)) => {
+                assert!(disp >= 0);
+                dynasm!(self
+                    ; b >after
+                    ; data:
+                    ; .qword left as i64
+                    ; after:
+                    ; ldr x_tmp1, <data
+                    ; ldr x_tmp2, [X(map_gpr(right).x()), disp as u32]
+                    ; cmp x_tmp2, x_tmp1
+                );
+            }
+            (Size::S32, Location::GPR(left), Location::GPR(right)) => dynasm!(
+                self
+                ; cmp W(map_gpr(right).x()), W(map_gpr(left).x())
+            ),
+            (Size::S64, Location::GPR(left), Location::GPR(right)) => dynasm!(
+                self
+                ; cmp X(map_gpr(right).x()), X(map_gpr(left).x())
+            ),
+            (Size::S32, Location::GPR(left), Location::Memory(right, disp)) => dynasm!(
+                self
+                ; ldr w_tmp1, [X(map_gpr(right).x()), disp as u32]
+                ; cmp w_tmp1, W(map_gpr(left).x())
+            ),
+            (Size::S64, Location::GPR(left), Location::Memory(right, disp)) => dynasm!(
+                self
+                ; ldr x_tmp1, [X(map_gpr(right).x()), disp as u32]
+                ; cmp x_tmp1, X(map_gpr(left).x())
+            ),
+            (Size::S32, Location::Memory(left, disp), Location::GPR(right)) => dynasm!(
+                self
+                ; ldr w_tmp1, [X(map_gpr(left).x()), disp as u32]
+                ; cmp W(map_gpr(right).x()), w_tmp1
+            ),
+            (Size::S64, Location::Memory(left, disp), Location::GPR(right)) => dynasm!(
+                self
+                ; ldr x_tmp1, [X(map_gpr(left).x()), disp as u32]
+                ; cmp X(map_gpr(right).x()), x_tmp1
+            ),
+            _ => unreachable!()
+        }
+    }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(add, self, sz, src, dst, { unreachable!("add") });
     }
@@ -450,9 +589,23 @@ impl Emitter for Assembler {
         binop_all_nofp!(sub, self, sz, src, dst, { unreachable!("sub") });
     }
     
-    fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR) { unimplemented!("instruction") }
-    
+    fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_gpr_gpr!(mul, self, sz, src, dst, {
+            binop_mem_gpr!(mul, self, sz, src, dst, { unreachable!() })
+        });
+    }
+    fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR) {
+        dynasm!(
+            self
+            ; b >after
+            ; data:
+            ; .dword src as i32
+            ; after:
+            ; ldr w_tmp1, <data
+            ; mul X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1
+        );
+    }
+
     fn emit_div(&mut self, sz: Size, divisor: Location) { unimplemented!("instruction") }
     fn emit_idiv(&mut self, sz: Size, divisor: Location) { unimplemented!("instruction") }
     fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
