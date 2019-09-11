@@ -664,7 +664,7 @@ impl WasiFs {
     // even if it's false, it still follows symlinks, just not the last
     // symlink so
     // This will be resolved when we have tests asserting the correct behavior
-    pub fn get_inode_at_path(
+    pub(crate) fn get_inode_at_path(
         &mut self,
         base: __wasi_fd_t,
         path: &str,
@@ -675,7 +675,7 @@ impl WasiFs {
 
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
     /// stripped off
-    pub fn get_parent_inode_at_path(
+    pub(crate) fn get_parent_inode_at_path(
         &mut self,
         base: __wasi_fd_t,
         path: &Path,
@@ -787,7 +787,7 @@ impl WasiFs {
     }
 
     /// Creates an inode and inserts it given a Kind and some extra data
-    pub fn create_inode(
+    pub(crate) fn create_inode(
         &mut self,
         kind: Kind,
         is_preopened: bool,
@@ -805,7 +805,7 @@ impl WasiFs {
     }
 
     /// creates an inode and inserts it given a Kind, does not assume the file exists to
-    pub fn create_inode_with_default_stat(
+    pub(crate) fn create_inode_with_default_stat(
         &mut self,
         kind: Kind,
         is_preopened: bool,
@@ -849,7 +849,7 @@ impl WasiFs {
     /// This function is unsafe because it's the caller's responsibility to ensure that
     /// all refences to the given inode have been removed from the filesystem
     ///
-    /// returns true if the inode existed and was removed
+    /// returns the inode if it existed and was removed
     pub unsafe fn remove_inode(&mut self, inode: Inode) -> Option<InodeVal> {
         self.inodes.remove(inode)
     }
@@ -940,6 +940,61 @@ impl WasiFs {
                 .unwrap_or(0),
             ..__wasi_filestat_t::default()
         })
+    }
+
+    /// Closes an open FD, handling all details such as FD being preopen
+    pub(crate) fn close_fd(&mut self, fd: __wasi_fd_t) -> Result<(), __wasi_errno_t> {
+        let inodeval_mut = self.get_inodeval_mut(fd)?;
+        let is_preopened = inodeval_mut.is_preopened;
+
+        match &mut inodeval_mut.kind {
+            Kind::File { ref mut handle, .. } => {
+                let mut empty_handle = None;
+                std::mem::swap(handle, &mut empty_handle);
+            }
+            Kind::Dir { parent, path, .. } => {
+                debug!("Closing dir {:?}", &path);
+                let key = path
+                    .file_name()
+                    .ok_or(__WASI_EINVAL)?
+                    .to_string_lossy()
+                    .to_string();
+                if let Some(p) = parent.clone() {
+                    match &mut self.inodes[p].kind {
+                        Kind::Dir { entries, .. } | Kind::Root { entries } => {
+                            self.fd_map.remove(&fd).unwrap();
+                            if is_preopened {
+                                let mut idx = None;
+                                for (i, po_fd) in self.preopen_fds.iter().enumerate() {
+                                    if *po_fd == fd {
+                                        idx = Some(i);
+                                        break;
+                                    }
+                                }
+                                if let Some(i) = idx {
+                                    // only remove entry properly if this is the original preopen FD
+                                    // calling `path_open` can give you an fd to the same inode as a preopen fd
+                                    entries.remove(&key);
+                                    self.preopen_fds.remove(i);
+                                    // Maybe recursively closes fds if og preopen?
+                                }
+                            }
+                        }
+                        _ => unreachable!(
+                            "Fatal internal logic error, directory's parent is not a directory"
+                        ),
+                    }
+                } else {
+                    // this shouldn't be possible anymore due to Root
+                    debug!("HIT UNREACHABLE CODE! Non-root directory does not have a parent");
+                    return Err(__WASI_EINVAL);
+                }
+            }
+            Kind::Root { .. } => return Err(__WASI_EACCES),
+            Kind::Symlink { .. } | Kind::Buffer { .. } => return Err(__WASI_EINVAL),
+        }
+
+        Ok(())
     }
 }
 
