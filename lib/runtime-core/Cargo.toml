@@ -55,7 +55,8 @@ cc = "1.0"
 debug = []
 trace = ["debug"]
 # backend flags used in conditional compilation of Backend::variants
-"backend-cranelift" = []
-"backend-singlepass" = []
-"backend-llvm" = []
+backend-cranelift = []
+backend-singlepass = []
+backend-llvm = []
 managed = []
+interface-types = []

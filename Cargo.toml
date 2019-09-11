@@ -40,25 +40,26 @@ wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
 
 [workspace]
 members = [
+    "examples/plugin-for-example",
     "lib/clif-backend",
-    "lib/singlepass-backend",
-    "lib/runtime",
-    # "lib/runtime-abi",
-    "lib/runtime-core",
+    "lib/dev-utils",
     "lib/emscripten",
-    "lib/spectests",
-    "lib/win-exception-handler",
-    "lib/runtime-c-api",
-    "lib/llvm-backend",
-    "lib/wasi",
-    "lib/middleware-common",
+    "lib/emscripten-tests",
+    "lib/interface-types",
     "lib/kernel-loader",
     "lib/kernel-net",
-    "lib/dev-utils",
-    "lib/wasi-tests",
-    "lib/emscripten-tests",
+    "lib/llvm-backend",
+    "lib/middleware-common",
     "lib/middleware-common-tests",
-    "examples/plugin-for-example"
+    "lib/runtime",
+    "lib/runtime-c-api",
+    "lib/runtime-core",
+    "lib/singlepass-backend",
+    "lib/spectests",
+    "lib/wasi",
+    "lib/wasi-tests",
+    "lib/win-exception-handler"
+    # "lib/runtime-abi",
 ]
 
 [build-dependencies]
@@ -100,6 +101,7 @@ backend-singlepass = [
 ]
 wasi = ["wasmer-wasi"]
 managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
+interface-types = ["wasmer-runtime/interface-types"]
 # vfs = ["wasmer-runtime-abi"]
 
 [[example]]

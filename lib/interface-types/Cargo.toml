@@ -1,0 +1,15 @@
+[package]
+name = "wasmer-interface-types"
+version = "0.6.0"
+description = "WebAssembly Interface Types library for Wasmer"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+edition = "2018"
+
+[dependencies]
+nom = "5.0"
+
+[dev-dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.6.0", features = ["backend-cranelift"] }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.6.0" }
