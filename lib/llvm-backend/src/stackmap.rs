@@ -31,10 +31,6 @@ pub enum ValueSemantic {
     WasmStack(usize),
     Ctx,
     SignalMem,
-    PointerToMemoryBase,
-    PointerToMemoryBound, // 64-bit
-    MemoryBase,
-    MemoryBound, // 64-bit
     PointerToGlobal(usize),
     Global(usize),
     PointerToTableBase,
@@ -127,18 +123,6 @@ impl StackmapEntry {
                 ValueSemantic::Ctx => MachineValue::Vmctx,
                 ValueSemantic::SignalMem => {
                     MachineValue::VmctxDeref(vec![Ctx::offset_interrupt_signal_mem() as usize, 0])
-                }
-                ValueSemantic::PointerToMemoryBase => {
-                    MachineValue::VmctxDeref(vec![Ctx::offset_memory_base() as usize])
-                }
-                ValueSemantic::PointerToMemoryBound => {
-                    MachineValue::VmctxDeref(vec![Ctx::offset_memory_bound() as usize])
-                }
-                ValueSemantic::MemoryBase => {
-                    MachineValue::VmctxDeref(vec![Ctx::offset_memory_base() as usize, 0])
-                }
-                ValueSemantic::MemoryBound => {
-                    MachineValue::VmctxDeref(vec![Ctx::offset_memory_bound() as usize, 0])
                 }
                 ValueSemantic::PointerToGlobal(idx) => {
                     MachineValue::VmctxDeref(deref_global(module_info, idx, false))

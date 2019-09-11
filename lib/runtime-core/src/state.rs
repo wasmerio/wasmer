@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
 
+use crate::units::Bytes;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);
 
@@ -705,21 +707,22 @@ pub mod x64 {
             known_registers[X64Register::XMM(XMM::XMM0).to_index().0].unwrap_or(0);
 
         if let Some(ref memory) = image.memory {
-            assert!(vmctx.internal.memory_bound <= memory.len());
-
-            if vmctx.internal.memory_bound < memory.len() {
-                let grow: unsafe extern "C" fn(ctx: &mut Ctx, memory_index: usize, delta: usize) =
-                    ::std::mem::transmute((*vmctx.internal.intrinsics).memory_grow);
-                grow(
-                    vmctx,
-                    0,
-                    (memory.len() - vmctx.internal.memory_bound) / 65536,
-                );
-                assert_eq!(vmctx.internal.memory_bound, memory.len());
+            let len_in_bytes = Bytes(memory.len());
+            assert!(vmctx.memory(0).size().bytes() <= len_in_bytes);
+            if vmctx.memory(0).size().bytes() <= len_in_bytes {
+                vmctx
+                    .memory(0)
+                    .grow((len_in_bytes - vmctx.memory(0).size().bytes()).into())
+                    .unwrap();
+                assert!(vmctx.memory(0).size().bytes() >= len_in_bytes);
             }
 
-            std::slice::from_raw_parts_mut(vmctx.internal.memory_base, vmctx.internal.memory_bound)
-                .copy_from_slice(memory);
+            vmctx
+                .memory(0)
+                .view::<u8>()
+                .iter()
+                .zip(memory)
+                .for_each(|(dst, src)| dst.set(*src));
         }
 
         let globals_len = (*vmctx.module).info.globals.len();
@@ -745,34 +748,34 @@ pub mod x64 {
         vmctx: &mut Ctx,
         execution_state: ExecutionStateImage,
     ) -> InstanceImage {
-        unsafe {
-            let memory = if vmctx.internal.memory_base.is_null() {
-                None
-            } else {
-                Some(
-                    std::slice::from_raw_parts(
-                        vmctx.internal.memory_base,
-                        vmctx.internal.memory_bound,
-                    )
-                    .to_vec(),
-                )
-            };
+        let info = unsafe { &(*vmctx.module).info };
+        let memory = if info.memories.len() == 0 && info.memories.len() == 0 {
+            None
+        } else {
+            Some(
+                vmctx
+                    .memory(0)
+                    .view::<u8>()
+                    .iter()
+                    .map(|c| c.get())
+                    .collect(),
+            )
+        };
 
-            // FIXME: Imported globals
-            let globals_len = (*vmctx.module).info.globals.len();
-            let globals: Vec<u128> = (0..globals_len)
-                .map(|i| {
-                    (*vmctx.local_backing).globals[LocalGlobalIndex::new(i)]
-                        .get()
-                        .to_u128()
-                })
-                .collect();
+        // FIXME: Imported globals
+        let globals_len = info.globals.len();
+        let globals: Vec<u128> = (0..globals_len)
+            .map(|i| unsafe {
+                (*vmctx.local_backing).globals[LocalGlobalIndex::new(i)]
+                    .get()
+                    .to_u128()
+            })
+            .collect();
 
-            InstanceImage {
-                memory: memory,
-                globals: globals,
-                execution_state: execution_state,
-            }
+        InstanceImage {
+            memory: memory,
+            globals: globals,
+            execution_state: execution_state,
         }
     }
 

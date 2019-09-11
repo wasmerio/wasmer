@@ -114,9 +114,6 @@ pub struct InternalCtx {
 
     pub stack_lower_bound: *mut u8,
 
-    pub memory_base: *mut u8,
-    pub memory_bound: usize,
-
     pub internals: *mut [u64; INTERNALS_SIZE], // TODO: Make this dynamic?
 
     pub interrupt_signal_mem: *mut u8,
@@ -245,16 +242,6 @@ impl Ctx {
         import_backing: &mut ImportBacking,
         module: &ModuleInner,
     ) -> Self {
-        let (mem_base, mem_bound): (*mut u8, usize) =
-            if module.info.memories.len() == 0 && module.info.imported_memories.len() == 0 {
-                (::std::ptr::null_mut(), 0)
-            } else {
-                let mem = match MemoryIndex::new(0).local_or_import(&module.info) {
-                    LocalOrImport::Local(index) => local_backing.vm_memories[index],
-                    LocalOrImport::Import(index) => import_backing.vm_memories[index],
-                };
-                ((*mem).base, (*mem).bound)
-            };
         Self {
             internal: InternalCtx {
                 memories: local_backing.vm_memories.as_mut_ptr(),
@@ -271,9 +258,6 @@ impl Ctx {
                 intrinsics: get_intrinsics_for_module(&module.info),
 
                 stack_lower_bound: ::std::ptr::null_mut(),
-
-                memory_base: mem_base,
-                memory_bound: mem_bound,
 
                 internals: &mut local_backing.internals.0,
 
@@ -298,16 +282,6 @@ impl Ctx {
         data: *mut c_void,
         data_finalizer: fn(*mut c_void),
     ) -> Self {
-        let (mem_base, mem_bound): (*mut u8, usize) =
-            if module.info.memories.len() == 0 && module.info.imported_memories.len() == 0 {
-                (::std::ptr::null_mut(), 0)
-            } else {
-                let mem = match MemoryIndex::new(0).local_or_import(&module.info) {
-                    LocalOrImport::Local(index) => local_backing.vm_memories[index],
-                    LocalOrImport::Import(index) => import_backing.vm_memories[index],
-                };
-                ((*mem).base, (*mem).bound)
-            };
         Self {
             internal: InternalCtx {
                 memories: local_backing.vm_memories.as_mut_ptr(),
@@ -324,9 +298,6 @@ impl Ctx {
                 intrinsics: get_intrinsics_for_module(&module.info),
 
                 stack_lower_bound: ::std::ptr::null_mut(),
-
-                memory_base: mem_base,
-                memory_bound: mem_bound,
 
                 internals: &mut local_backing.internals.0,
 
@@ -477,24 +448,16 @@ impl Ctx {
         9 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_memory_base() -> u8 {
+    pub fn offset_internals() -> u8 {
         10 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_memory_bound() -> u8 {
+    pub fn offset_interrupt_signal_mem() -> u8 {
         11 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_internals() -> u8 {
-        12 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn offset_interrupt_signal_mem() -> u8 {
-        13 * (mem::size_of::<usize>() as u8)
-    }
-
     pub fn offset_local_functions() -> u8 {
-        14 * (mem::size_of::<usize>() as u8)
+        12 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -709,16 +672,6 @@ mod vm_offset_tests {
         assert_eq!(
             Ctx::offset_stack_lower_bound() as usize,
             offset_of!(InternalCtx => stack_lower_bound).get_byte_offset(),
-        );
-
-        assert_eq!(
-            Ctx::offset_memory_base() as usize,
-            offset_of!(InternalCtx => memory_base).get_byte_offset(),
-        );
-
-        assert_eq!(
-            Ctx::offset_memory_bound() as usize,
-            offset_of!(InternalCtx => memory_bound).get_byte_offset(),
         );
 
         assert_eq!(

@@ -33,6 +33,7 @@ use wasmer_runtime_core::{
         TableIndex, Type,
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
+    vmcalls,
 };
 use wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 
@@ -1489,25 +1490,50 @@ impl X64FunctionCode {
         let tmp_base = m.acquire_temp_gpr().unwrap();
         let tmp_bound = m.acquire_temp_gpr().unwrap();
 
-        // Load base into temporary register.
+        // Load pointer to array of memories.
+        match MemoryIndex::new(0).local_or_import(module_info) {
+            LocalOrImport::Local(_local_mem_index) => {
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_memories() as i32),
+                    Location::GPR(tmp_base),
+                );
+            }
+            LocalOrImport::Import(_import_mem_index) => {
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        vm::Ctx::offset_imported_memories() as i32,
+                    ),
+                    Location::GPR(tmp_base),
+                );
+            }
+        };
+
+        // Load pointer to first memory.
         a.emit_mov(
             Size::S64,
-            Location::Memory(
-                Machine::get_vmctx_reg(),
-                vm::Ctx::offset_memory_base() as i32,
-            ),
+            Location::Memory(tmp_base, 0),
+            Location::GPR(tmp_base),
+        );
+
+        // The first member is the base, the second member is the bound.
+        // Load bound pointer before clobbering tmp_base.
+        if need_check {
+            a.emit_mov(
+                Size::S64,
+                Location::Memory(tmp_base, 8),
+                Location::GPR(tmp_bound),
+            );
+        }
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(tmp_base, 0),
             Location::GPR(tmp_base),
         );
 
         if need_check {
-            a.emit_mov(
-                Size::S64,
-                Location::Memory(
-                    Machine::get_vmctx_reg(),
-                    vm::Ctx::offset_memory_bound() as i32,
-                ),
-                Location::GPR(tmp_bound),
-            );
             // Adds base to bound so `tmp_bound` now holds the end of linear memory.
             a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
             a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
@@ -4055,17 +4081,29 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::Nop => {}
             Operator::MemorySize { reserved } => {
                 let memory_index = MemoryIndex::new(reserved as usize);
+                let func_value: *const i8 = match memory_index.local_or_import(module_info) {
+                    LocalOrImport::Local(local_mem_index) => {
+                        let mem_desc = &module_info.memories[local_mem_index];
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => vmcalls::local_dynamic_memory_size as _,
+                            MemoryType::Static | MemoryType::SharedStatic => {
+                                vmcalls::local_static_memory_size as _
+                            }
+                        }
+                    }
+                    LocalOrImport::Import(import_mem_index) => {
+                        let mem_desc = &module_info.imported_memories[import_mem_index].1;
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => vmcalls::imported_dynamic_memory_size as _,
+                            MemoryType::Static | MemoryType::SharedStatic => {
+                                vmcalls::imported_static_memory_size as _
+                            }
+                        }
+                    }
+                };
                 a.emit_mov(
                     Size::S64,
-                    Location::Memory(
-                        Machine::get_vmctx_reg(),
-                        vm::Ctx::offset_intrinsics() as i32,
-                    ),
-                    Location::GPR(GPR::RAX),
-                );
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_size() as i32),
+                    Location::Imm64(func_value as _),
                     Location::GPR(GPR::RAX),
                 );
                 Self::emit_call_sysv(
@@ -4087,26 +4125,36 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::MemoryGrow { reserved } => {
                 let memory_index = MemoryIndex::new(reserved as usize);
+                let func_value: *const i8 = match memory_index.local_or_import(module_info) {
+                    LocalOrImport::Local(local_mem_index) => {
+                        let mem_desc = &module_info.memories[local_mem_index];
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => vmcalls::local_dynamic_memory_grow as _,
+                            MemoryType::Static | MemoryType::SharedStatic => {
+                                vmcalls::local_static_memory_grow as _
+                            }
+                        }
+                    }
+                    LocalOrImport::Import(import_mem_index) => {
+                        let mem_desc = &module_info.imported_memories[import_mem_index].1;
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => vmcalls::imported_dynamic_memory_grow as _,
+                            MemoryType::Static | MemoryType::SharedStatic => {
+                                vmcalls::imported_static_memory_grow as _
+                            }
+                        }
+                    }
+                };
                 let param_pages = self.value_stack.pop().unwrap();
 
                 self.machine.release_locations_only_regs(&[param_pages]);
-
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(
-                        Machine::get_vmctx_reg(),
-                        vm::Ctx::offset_intrinsics() as i32,
-                    ),
-                    Location::GPR(GPR::RAX),
-                );
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_grow() as i32),
-                    Location::GPR(GPR::RAX),
-                );
-
                 self.machine.release_locations_only_osr_state(1);
 
+                a.emit_mov(
+                    Size::S64,
+                    Location::Imm64(func_value as _),
+                    Location::GPR(GPR::RAX),
+                );
                 Self::emit_call_sysv(
                     a,
                     &mut self.machine,

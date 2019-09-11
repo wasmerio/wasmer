@@ -25,9 +25,6 @@ pub unsafe extern "C" fn local_static_memory_grow(
         Err(_) => -1,
     };
 
-    ctx.internal.memory_base = (*local_memory).base;
-    ctx.internal.memory_bound = (*local_memory).bound;
-
     ret
 }
 
@@ -53,9 +50,6 @@ pub unsafe extern "C" fn local_dynamic_memory_grow(
         Ok(old) => old.0 as i32,
         Err(_) => -1,
     };
-
-    ctx.internal.memory_base = (*local_memory).base;
-    ctx.internal.memory_bound = (*local_memory).bound;
 
     ret
 }
@@ -90,9 +84,6 @@ pub unsafe extern "C" fn imported_static_memory_grow(
         Err(_) => -1,
     };
 
-    ctx.internal.memory_base = (*local_memory).base;
-    ctx.internal.memory_bound = (*local_memory).bound;
-
     ret
 }
 
@@ -121,9 +112,6 @@ pub unsafe extern "C" fn imported_dynamic_memory_grow(
         Ok(old) => old.0 as i32,
         Err(_) => -1,
     };
-
-    ctx.internal.memory_base = (*local_memory).base;
-    ctx.internal.memory_bound = (*local_memory).bound;
 
     ret
 }
