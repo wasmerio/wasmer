@@ -976,7 +976,7 @@ impl WasiFs {
                                     // calling `path_open` can give you an fd to the same inode as a preopen fd
                                     entries.remove(&key);
                                     self.preopen_fds.remove(i);
-                                    // Maybe recursively closes fds if og preopen?
+                                    // Maybe recursively closes fds if original preopen?
                                 }
                             }
                         }
