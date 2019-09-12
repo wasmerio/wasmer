@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#783](https://github.com/wasmerio/wasmer/pull/783) Remove memory_base and memory_bound from InternalCtx.
 - [#809](https://github.com/wasmerio/wasmer/pull/809) Fix bugs leading to panics in `LocalBacking`.
 - [#822](https://github.com/wasmerio/wasmer/pull/822) Update Cranelift fork version to `0.43.1`
 - [#829](https://github.com/wasmerio/wasmer/pull/829) Fix deps on `make bench-*` commands; benchmarks don't compile other backends now
@@ -15,6 +16,12 @@ Blocks of changes will separated by version increments.
 - [#821](https://github.com/wasmerio/wasmer/issues/821) Remove patch version on most deps Cargo manifests.  This gives Wasmer library users more control over which versions of the deps they use.
 - [#820](https://github.com/wasmerio/wasmer/issues/820) Remove null-pointer checks in `WasmPtr` from runtime-core, re-add them in Emscripten
 - [#803](https://github.com/wasmerio/wasmer/issues/803) Add method to `Ctx` to invoke functions by their `TableIndex`
+- [#790](https://github.com/wasmerio/wasmer/pull/790) Fix flaky test failure with LLVM, switch to large code model.
+- [#788](https://github.com/wasmerio/wasmer/pull/788) Use union merge on the changelog file.
+- [#785](https://github.com/wasmerio/wasmer/pull/785) Include Apache license file for spectests.
+- [#786](https://github.com/wasmerio/wasmer/pull/786) In the LLVM backend, lower atomic wasm operations to atomic machine instructions.
+- [#784](https://github.com/wasmerio/wasmer/pull/784) Fix help string for wasmer run.
+- [#783](https://github.com/wasmerio/wasmer/pull/783) Remove memory_base and memory_bound from InternalCtx.
 - [#790](https://github.com/wasmerio/wasmer/pull/790) Fix flaky test failure with LLVM, switch to large code model.
 - [#788](https://github.com/wasmerio/wasmer/pull/788) Use union merge on the changelog file.
 - [#785](https://github.com/wasmerio/wasmer/pull/785) Include Apache license file for spectests.
