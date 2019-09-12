@@ -6,8 +6,13 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+## 0.7.0 - 2019-09-12
+
 Special thanks to @YaronWittenstein @penberg for their contributions.
 
+- [#776](https://github.com/wasmerio/wasmer/issues/776) Allow WASI preopened fds to be closed
+- [#774](https://github.com/wasmerio/wasmer/issues/774) Add more methods to the `WasiFile` trait
+- [#772](https://github.com/wasmerio/wasmer/issues/772) [#770](https://github.com/wasmerio/wasmer/issues/770) Handle more internal failures by passing back errors
 - [#756](https://github.com/wasmerio/wasmer/issues/756) Allow NULL parameter and 0 arity in `wasmer_export_func_call` C API
 - [#747](https://github.com/wasmerio/wasmer/issues/747) Return error instead of panicking on traps when using the Wasmer binary
 - [#741](https://github.com/wasmerio/wasmer/issues/741) Add validate Wasm fuzz target

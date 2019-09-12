@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasi"
-version = "0.6.0"
+version = "0.7.0"
 description = "Wasmer runtime WASI implementation library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -18,7 +18,7 @@ time = "0.1.42"
 typetag = "0.1"
 serde = { version = "1", features = ["derive"] }
 # wasmer-runtime-abi = { path = "../runtime-abi" }
-wasmer-runtime-core = { path = "../runtime-core", version = "0.6.0" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.7.0" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.8"
