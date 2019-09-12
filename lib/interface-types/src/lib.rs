@@ -22,8 +22,15 @@ macro_rules! d {
     };
 }
 
+macro_rules! consume {
+    (($input:ident, $parser_output:ident) = $parser_expression:expr) => {
+        let (next_input, $parser_output) = $parser_expression;
+        $input = next_input;
+    };
+}
+
 #[derive(PartialEq, Debug)]
-enum Type {
+enum InterfaceType {
     Int,
     Float,
     Any,
@@ -37,14 +44,7 @@ enum Type {
     AnyRef,
 }
 
-#[derive(Debug)]
-struct Export<'input> {
-    name: &'input str,
-    input_types: Vec<Type>,
-    output_types: Vec<Type>,
-}
-
-impl TryFrom<u64> for Type {
+impl TryFrom<u64> for InterfaceType {
     type Error = &'static str;
 
     fn try_from(code: u64) -> Result<Self, Self::Error> {
@@ -59,10 +59,59 @@ impl TryFrom<u64> for Type {
             0x7d => Self::F32,
             0x7c => Self::F64,
             0x6f => Self::AnyRef,
-
-            _ => return Err("Unknown type code."),
+            _ => return Err("Unknown interface type code."),
         })
     }
+}
+
+#[derive(PartialEq, Debug)]
+enum AdapterKind {
+    Import,
+    Export,
+    HelperFunction,
+}
+
+impl TryFrom<u8> for AdapterKind {
+    type Error = &'static str;
+
+    fn try_from(code: u8) -> Result<Self, Self::Error> {
+        Ok(match code {
+            0 => Self::Import,
+            1 => Self::Export,
+            2 => Self::HelperFunction,
+            _ => return Err("Unknown adapter kind code."),
+        })
+    }
+}
+
+#[derive(Debug)]
+struct Export<'input> {
+    name: &'input str,
+    input_types: Vec<InterfaceType>,
+    output_types: Vec<InterfaceType>,
+}
+
+#[derive(Debug)]
+struct Type<'input> {
+    name: &'input str,
+    fields: Vec<&'input str>,
+    types: Vec<InterfaceType>,
+}
+
+#[derive(Debug)]
+struct ImportedFunction<'input> {
+    namespace: &'input str,
+    name: &'input str,
+    input_types: Vec<InterfaceType>,
+    output_types: Vec<InterfaceType>,
+}
+
+fn byte<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'input [u8], u8, E> {
+    if input.is_empty() {
+        return Err(Err::Error(make_error(input, ErrorKind::Eof)));
+    }
+
+    Ok((&input[1..], input[0]))
 }
 
 fn leb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'input [u8], u64, E> {
@@ -103,7 +152,7 @@ fn string<'input, E: ParseError<&'input [u8]>>(
     }))
 }
 
-fn list<'input, I: ::std::fmt::Debug, E: ParseError<&'input [u8]>>(
+fn list<'input, I, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
     item_parser: fn(&'input [u8]) -> IResult<&'input [u8], I, E>,
 ) -> IResult<&'input [u8], Vec<I>, E> {
@@ -121,22 +170,23 @@ fn list<'input, I: ::std::fmt::Debug, E: ParseError<&'input [u8]>>(
     let mut items = vec![];
 
     for _ in 0..length {
-        let (next_input, item) = item_parser(input)?;
+        consume!((input, item) = item_parser(input)?);
         items.push(item);
-        input = next_input;
     }
 
     Ok((input, items))
 }
 
-fn ty<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'input [u8], Type, E> {
+fn ty<'input, E: ParseError<&'input [u8]>>(
+    input: &'input [u8],
+) -> IResult<&'input [u8], InterfaceType, E> {
     if input.is_empty() {
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
     let (input, ty) = leb(input)?;
 
-    match Type::try_from(ty) {
+    match InterfaceType::try_from(ty) {
         Ok(ty) => Ok((input, ty)),
         Err(_) => Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
     }
@@ -145,30 +195,98 @@ fn ty<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'inp
 pub fn parse<'input, E: ParseError<&'input [u8]>>(
     bytes: &'input [u8],
 ) -> IResult<&'input [u8], bool, E> {
-    let input = bytes;
-    let (mut input, number_of_exports) = leb(input)?;
-    d!(number_of_exports);
+    let mut input = bytes;
 
     let mut exports = vec![];
+    let mut types = vec![];
+    let mut imported_functions = vec![];
 
-    for export_nth in 0..number_of_exports {
-        let (next_input, export_name) = string(input)?;
-        input = next_input;
+    {
+        consume!((input, number_of_exports) = leb(input)?);
+        d!(number_of_exports);
 
-        let (next_input, export_input_types) = list(input, ty)?;
-        input = next_input;
+        for _ in 0..number_of_exports {
+            consume!((input, export_name) = string(input)?);
+            consume!((input, export_input_types) = list(input, ty)?);
+            consume!((input, export_output_types) = list(input, ty)?);
 
-        let (next_input, export_output_types) = list(input, ty)?;
-        input = next_input;
+            exports.push(Export {
+                name: export_name,
+                input_types: export_input_types,
+                output_types: export_output_types,
+            });
+        }
+    }
 
-        exports.push(Export {
-            name: export_name,
-            input_types: export_input_types,
-            output_types: export_output_types,
-        });
+    {
+        consume!((input, number_of_types) = leb(input)?);
+        d!(number_of_types);
+
+        for _ in 0..number_of_types {
+            consume!((input, type_name) = string(input)?);
+            consume!((input, type_fields) = list(input, string)?);
+            consume!((input, type_types) = list(input, ty)?);
+
+            types.push(Type {
+                name: type_name,
+                fields: type_fields,
+                types: type_types,
+            });
+        }
+    }
+
+    {
+        consume!((input, number_of_imported_functions) = leb(input)?);
+        d!(number_of_imported_functions);
+
+        for _ in 0..number_of_imported_functions {
+            consume!((input, imported_function_namespace) = string(input)?);
+            consume!((input, imported_function_name) = string(input)?);
+            consume!((input, imported_function_input_types) = list(input, ty)?);
+            consume!((input, imported_function_output_types) = list(input, ty)?);
+
+            imported_functions.push(ImportedFunction {
+                namespace: imported_function_namespace,
+                name: imported_function_name,
+                input_types: imported_function_input_types,
+                output_types: imported_function_output_types,
+            });
+        }
+    }
+
+    {
+        consume!((input, number_of_adapters) = leb(input)?);
+        d!(number_of_adapters);
+
+        for _ in 0..number_of_adapters {
+            consume!((input, adapter_kind) = byte(input)?);
+            let adapter_kind = AdapterKind::try_from(adapter_kind)
+                .map_err(|_| Err::Error(make_error(input, ErrorKind::ParseTo)))?;
+            d!(&adapter_kind);
+
+            match adapter_kind {
+                AdapterKind::Import => {
+                    consume!((input, adapter_namespace) = string(input)?);
+                    d!(adapter_namespace);
+
+                    consume!((input, adapter_name) = string(input)?);
+                    d!(adapter_name);
+
+                    consume!((input, adapter_input_types) = list(input, ty)?);
+                    d!(adapter_input_types);
+
+                    consume!((input, adapter_output_types) = list(input, ty)?);
+                    d!(adapter_output_types);
+                }
+
+                _ => println!("kind = {:?}", adapter_kind),
+            }
+        }
     }
 
     d!(exports);
+    d!(types);
+    d!(imported_functions);
 
     Ok((&[] as &[u8], true))
 }
