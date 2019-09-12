@@ -27,7 +27,7 @@ rayon = "1.1.0"
 version = "1.0.99"
 features = ["rc"]
 [dependencies.serde_derive]
-version = "1.0.98"
+version = "1.0.100"
 [dependencies.serde_bytes]
 version = "0.11.2"
 [dependencies.serde-bench]
