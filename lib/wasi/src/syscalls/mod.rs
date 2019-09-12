@@ -374,23 +374,11 @@ pub fn fd_allocate(
 ///     If `fd` is invalid or not open
 pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_close");
-
-    let memory = ctx.memory(0);
     let state = get_wasi_state(ctx);
-    let inode_val = wasi_try!(state.fs.get_inodeval_mut(fd));
 
-    if inode_val.is_preopened {
-        return __WASI_EACCES;
-    }
-    match &mut inode_val.kind {
-        Kind::File { ref mut handle, .. } => {
-            let mut empty_handle = None;
-            std::mem::swap(handle, &mut empty_handle);
-        }
-        Kind::Dir { .. } => return __WASI_EISDIR,
-        Kind::Root { .. } => return __WASI_EACCES,
-        Kind::Symlink { .. } | Kind::Buffer { .. } => return __WASI_EINVAL,
-    }
+    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+
+    wasi_try!(state.fs.close_fd(fd));
 
     __WASI_ESUCCESS
 }
@@ -1666,9 +1654,6 @@ pub fn path_open(
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     );
 
-    if let Ok(m) = maybe_inode {
-        &state.fs.inodes[m];
-    }
     let mut open_flags = 0;
 
     // TODO: traverse rights of dirs properly
@@ -1820,6 +1805,7 @@ pub fn path_open(
     ));
 
     fd_cell.set(out_fd);
+    debug!("wasi::path_open returning fd {}", out_fd);
 
     __WASI_ESUCCESS
 }
