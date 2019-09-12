@@ -153,7 +153,9 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     };
 
     let contents = format!(
-        "#[test]{ignore}
+        "{banner}
+
+#[test]{ignore}
 fn test_{rs_module_name}() {{
     assert_wasi_output!(
         \"../../{module_path}\",
@@ -165,6 +167,7 @@ fn test_{rs_module_name}() {{
     );
 }}
 ",
+        banner = BANNER,
         ignore = ignored,
         module_path = wasm_out_name,
         rs_module_name = rs_module_name,
