@@ -21,7 +21,7 @@ bincode = "1.1"
 colored = "1.8"
 
 [dependencies.indexmap]
-version = "1.0.2"
+version = "1.2.0"
 features = ["serde-1"]
 
 # Dependencies for caching.
