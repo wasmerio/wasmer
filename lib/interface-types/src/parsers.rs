@@ -337,3 +337,140 @@ pub fn parse<'input, E: ParseError<&'input [u8]>>(
         },
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_byte() {
+        let input = &[0x01, 0x02, 0x03];
+        let output = Ok((&[0x02, 0x03][..], 0x01u8));
+
+        assert_eq!(byte::<()>(input), output);
+    }
+
+    #[test]
+    fn test_leb_1_byte() {
+        let input = &[0x01, 0x02, 0x03];
+        let output = Ok((&[0x02, 0x03][..], 0x01u64));
+
+        assert_eq!(leb::<()>(input), output);
+    }
+
+    #[test]
+    fn test_leb_3_bytes() {
+        let input = &[0xfc, 0xff, 0x01, 0x02];
+        let output = Ok((&[0x02][..], 0x7ffcu64));
+
+        assert_eq!(leb::<()>(input), output);
+    }
+
+    #[test]
+    fn test_string() {
+        let input = &[
+            0x03, // string of 3 bytes
+            0x61, // "a"
+            0x62, // "b"
+            0x63, // "c"
+            0x64, 0x65,
+        ];
+        let output = Ok((&[0x64, 0x65][..], "abc"));
+
+        assert_eq!(string::<()>(input), output);
+    }
+
+    #[test]
+    fn test_list() {
+        let input = &[
+            0x02, // list of 2 items
+            0x01, // string of 1 byte
+            0x61, // "a"
+            0x02, // string of 2 bytes
+            0x62, // "b"
+            0x63, // "c"
+            0x07,
+        ];
+        let output = Ok((&[0x07][..], vec!["a", "bc"]));
+
+        assert_eq!(list::<&str, ()>(input, string), output);
+    }
+
+    #[test]
+    fn test_ty() {
+        let input = &[
+            0x0a, // list of 10 items
+            0xff, 0xff, 0x01, // Int
+            0xfe, 0xff, 0x01, // Float
+            0xfd, 0xff, 0x01, // Any
+            0xfc, 0xff, 0x01, // String
+            0xfb, 0xff, 0x01, // Seq
+            0x7f, // I32
+            0x7e, // I64
+            0x7d, // F32
+            0x7c, // F64
+            0x6f, // AnyRef
+            0x01,
+        ];
+        let output = Ok((
+            &[0x01][..],
+            vec![
+                InterfaceType::Int,
+                InterfaceType::Float,
+                InterfaceType::Any,
+                InterfaceType::String,
+                InterfaceType::Seq,
+                InterfaceType::I32,
+                InterfaceType::I64,
+                InterfaceType::F32,
+                InterfaceType::F64,
+                InterfaceType::AnyRef,
+            ],
+        ));
+
+        assert_eq!(list::<InterfaceType, ()>(input, ty), output);
+    }
+
+    #[test]
+    fn test_instructions() {
+        let input = &[
+            0x0e, // list of 14 items
+            0x00, 0x01, // ArgumentGet(1)
+            0x01, 0x01, // Call(1)
+            0x02, 0x03, 0x61, 0x62, 0x63, // CallExport("abc")
+            0x03, // ReadUtf8
+            0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8("abc")
+            0x05, 0xff, 0xff, 0x01, // AsWasm(Int)
+            0x06, 0x7e, // AsInterface(I64)
+            0x07, // TableRefAdd
+            0x08, // TableRefGet
+            0x09, 0x01, // CallMethod(1)
+            0x0a, 0x7f, // MakeRecord(I32)
+            0x0c, 0x01, 0x02, // GetField(1, 2)
+            0x0d, 0x7f, 0x01, // Const(I32, 1)
+            0x0e, 0x01, // FoldSeq(1)
+            0x0a,
+        ];
+        let output = Ok((
+            &[0x0a][..],
+            vec![
+                Instruction::ArgumentGet(1),
+                Instruction::Call(1),
+                Instruction::CallExport("abc"),
+                Instruction::ReadUtf8,
+                Instruction::WriteUtf8("abc"),
+                Instruction::AsWasm(InterfaceType::Int),
+                Instruction::AsInterface(InterfaceType::I64),
+                Instruction::TableRefAdd,
+                Instruction::TableRefGet,
+                Instruction::CallMethod(1),
+                Instruction::MakeRecord(InterfaceType::I32),
+                Instruction::GetField(1, 2),
+                Instruction::Const(InterfaceType::I32, 1),
+                Instruction::FoldSeq(1),
+            ],
+        ));
+
+        assert_eq!(list::<Instruction, ()>(input, instructions), output);
+    }
+}
