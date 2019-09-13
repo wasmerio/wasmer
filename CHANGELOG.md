@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#786](https://github.com/wasmerio/wasmer/pull/786) In the LLVM backend, lower atomic wasm operations to atomic machine instructions.
 - [#784](https://github.com/wasmerio/wasmer/pull/784) Fix help string for wasmer run.
 
 ## 0.7.0 - 2019-09-12
