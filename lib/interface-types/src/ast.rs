@@ -1,13 +1,12 @@
 use std::str;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum InterfaceType {
     Int,
     Float,
     Any,
     String,
     Seq,
-
     I32,
     I64,
     F32,
@@ -35,7 +34,7 @@ pub enum Instruction<'input> {
     TableRefGet,
     CallMethod(u64),
     MakeRecord(InterfaceType),
-    GetField(u64, u64),
+    GetField(InterfaceType, u64),
     Const(InterfaceType, u64),
     FoldSeq(u64),
 }

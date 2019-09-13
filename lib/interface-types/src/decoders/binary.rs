@@ -177,7 +177,7 @@ fn instructions<'input, E: ParseError<&'input [u8]>>(
         }
 
         0x0c => {
-            consume!((input, argument_0) = leb(input)?);
+            consume!((input, argument_0) = ty(input)?);
             consume!((input, argument_1) = leb(input)?);
             (input, Instruction::GetField(argument_0, argument_1))
         }
@@ -479,7 +479,7 @@ mod tests {
             0x08, // TableRefGet
             0x09, 0x01, // CallMethod(1)
             0x0a, 0x7f, // MakeRecord(I32)
-            0x0c, 0x01, 0x02, // GetField(1, 2)
+            0x0c, 0xff, 0xff, 0x01, 0x02, // GetField(Int, 2)
             0x0d, 0x7f, 0x01, // Const(I32, 1)
             0x0e, 0x01, // FoldSeq(1)
             0x0a,
@@ -498,7 +498,7 @@ mod tests {
                 Instruction::TableRefGet,
                 Instruction::CallMethod(1),
                 Instruction::MakeRecord(InterfaceType::I32),
-                Instruction::GetField(1, 2),
+                Instruction::GetField(InterfaceType::Int, 2),
                 Instruction::Const(InterfaceType::I32, 1),
                 Instruction::FoldSeq(1),
             ],
