@@ -36,7 +36,7 @@ impl TryFrom<u64> for InterfaceType {
 }
 
 #[derive(PartialEq, Debug)]
-pub enum AdapterKind {
+pub(crate) enum AdapterKind {
     Import,
     Export,
     HelperFunction,

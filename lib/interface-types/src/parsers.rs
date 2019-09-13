@@ -164,7 +164,7 @@ fn instructions<'input, E: ParseError<&'input [u8]>>(
     })
 }
 
-pub fn exports<'input, E: ParseError<&'input [u8]>>(
+fn exports<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Export>, E> {
     let mut input = input;
@@ -187,7 +187,7 @@ pub fn exports<'input, E: ParseError<&'input [u8]>>(
     Ok((input, exports))
 }
 
-pub fn types<'input, E: ParseError<&'input [u8]>>(
+fn types<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Type>, E> {
     let mut input = input;
@@ -210,7 +210,7 @@ pub fn types<'input, E: ParseError<&'input [u8]>>(
     Ok((input, types))
 }
 
-pub fn imported_functions<'input, E: ParseError<&'input [u8]>>(
+fn imported_functions<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<ImportedFunction>, E> {
     let mut input = input;
@@ -235,7 +235,7 @@ pub fn imported_functions<'input, E: ParseError<&'input [u8]>>(
     Ok((input, imported_functions))
 }
 
-pub fn adapters<'input, E: ParseError<&'input [u8]>>(
+fn adapters<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Adapter>, E> {
     let mut input = input;
@@ -298,7 +298,7 @@ pub fn adapters<'input, E: ParseError<&'input [u8]>>(
     Ok((input, adapters))
 }
 
-pub fn forwards<'input, E: ParseError<&'input [u8]>>(
+fn forwards<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Forward>, E> {
     let mut input = input;
