@@ -473,4 +473,186 @@ mod tests {
 
         assert_eq!(list::<Instruction, ()>(input, instructions), output);
     }
+
+    #[test]
+    fn test_exports() {
+        let input = &[
+            0x02, // 2 exports
+            0x02, // string of 2 bytes
+            0x61, 0x62, // "a", "b"
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x02, // string of 2 bytes
+            0x63, 0x64, // "c", "d"
+            0x00, // list of 0 item
+            0x00, // list of 0 item
+        ];
+        let output = Ok((
+            &[] as &[u8],
+            vec![
+                Export {
+                    name: "ab",
+                    input_types: vec![InterfaceType::I32],
+                    output_types: vec![InterfaceType::I32],
+                },
+                Export {
+                    name: "cd",
+                    input_types: vec![],
+                    output_types: vec![],
+                },
+            ],
+        ));
+
+        assert_eq!(exports::<()>(input), output);
+    }
+
+    #[test]
+    fn test_types() {
+        let input = &[
+            0x01, // 1 type
+            0x02, // string of 2 bytes
+            0x61, 0x62, // "a", "b"
+            0x02, // list of 2 items
+            0x02, // string of 2 bytes
+            0x63, 0x64, // "c", "d"
+            0x01, // string of 1 byte
+            0x65, // "e"
+            0x02, // list of 2 items
+            0x7f, // I32
+            0x7f, // I32
+        ];
+        let output = Ok((
+            &[] as &[u8],
+            vec![Type {
+                name: "ab",
+                fields: vec!["cd", "e"],
+                types: vec![InterfaceType::I32, InterfaceType::I32],
+            }],
+        ));
+
+        assert_eq!(types::<()>(input), output);
+    }
+
+    #[test]
+    fn test_imported_functions() {
+        let input = &[
+            0x02, // 2 imported functions
+            0x01, // string of 1 byte
+            0x61, // "a"
+            0x01, // string of 1 byte
+            0x62, // "b"
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x7e, // I64
+            0x01, // string of 1 byte
+            0x63, // "c"
+            0x01, // string of 1 byte
+            0x64, // "d"
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x7e, // I64
+        ];
+        let output = Ok((
+            &[] as &[u8],
+            vec![
+                ImportedFunction {
+                    namespace: "a",
+                    name: "b",
+                    input_types: vec![InterfaceType::I32],
+                    output_types: vec![InterfaceType::I64],
+                },
+                ImportedFunction {
+                    namespace: "c",
+                    name: "d",
+                    input_types: vec![InterfaceType::I32],
+                    output_types: vec![InterfaceType::I64],
+                },
+            ],
+        ));
+
+        assert_eq!(imported_functions::<()>(input), output);
+    }
+
+    #[test]
+    fn test_adapters() {
+        let input = &[
+            0x03, // 3 adapters
+            0x00, // adapter kind: import
+            0x01, // string of 1 byte
+            0x61, // "a"
+            0x01, // string of 1 byte
+            0x62, // "b"
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x00, 0x01, // ArgumentGet(1)
+            0x01, // adapter kind: export
+            0x01, // string of 1 byte
+            0x63, // "c"
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x00, 0x01, // ArgumentGet(1)
+            0x02, // adapter kind: helper function
+            0x01, // string of 1 byte
+            0x64, // "d"
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x7f, // I32
+            0x01, // list of 1 item
+            0x00, 0x01, // ArgumentGet(1)
+        ];
+        let output = Ok((
+            &[] as &[u8],
+            vec![
+                Adapter::Import {
+                    namespace: "a",
+                    name: "b",
+                    input_types: vec![InterfaceType::I32],
+                    output_types: vec![InterfaceType::I32],
+                    instructions: vec![Instruction::ArgumentGet(1)],
+                },
+                Adapter::Export {
+                    name: "c",
+                    input_types: vec![InterfaceType::I32],
+                    output_types: vec![InterfaceType::I32],
+                    instructions: vec![Instruction::ArgumentGet(1)],
+                },
+                Adapter::HelperFunction {
+                    name: "d",
+                    input_types: vec![InterfaceType::I32],
+                    output_types: vec![InterfaceType::I32],
+                    instructions: vec![Instruction::ArgumentGet(1)],
+                },
+            ],
+        ));
+
+        assert_eq!(adapters::<()>(input), output);
+    }
+
+    #[test]
+    fn test_forwards() {
+        let input = &[
+            0x02, // 2 adapters
+            0x01, // string of 1 byte
+            0x61, // "a"
+            0x02, // string of 2 bytes
+            0x62, 0x63, // "b", "c"
+        ];
+        let output = Ok((
+            &[] as &[u8],
+            vec![Forward { name: "a" }, Forward { name: "bc" }],
+        ));
+
+        assert_eq!(forwards::<()>(input), output);
+    }
 }
