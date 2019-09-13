@@ -6,6 +6,8 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#784](https://github.com/wasmerio/wasmer/pull/784) Fix help string for wasmer run.
+
 ## 0.7.0 - 2019-09-12
 
 Special thanks to @YaronWittenstein @penberg for their contributions.
