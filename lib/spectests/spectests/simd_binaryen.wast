@@ -1,9 +1,6 @@
 ;;
 ;; https://github.com/WebAssembly/binaryen/blob/master/test/spec/simd.wast
 ;;
-;; Distributed under the Apache License
-;; https://github.com/WebAssembly/binaryen/blob/master/test/spec/LICENSE
-;;
 ;; Modified by wasmer to work with the wabt parser and to pass with wasmer.
 ;; * replaced result negative nans with positive nans
 ;; * disabled min and max tests pending an update to LLVM

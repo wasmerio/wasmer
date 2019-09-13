@@ -1,5 +1,4 @@
 ;; atomic.wast from WebAssembly test suite.
-;; https://github.com/WebAssembly/testsuite/blob/master/LICENSE
 ;;
 ;; Modified by Wasmer to parse with the wabt spec test parser, replacing
 ;; '_u.add' with '.add_u' and similarly for 'sub', 'and', 'or', 'xor', 'xchg'
