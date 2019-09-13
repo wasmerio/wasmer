@@ -1,13 +1,14 @@
 pub mod ast;
 #[macro_use]
 mod macros;
-pub mod parsers;
+pub mod decoders;
+pub mod encoders;
 
-pub use parsers::parse;
+pub use decoders::binary::parse as parse_binary;
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::*, parse};
+    use crate::{ast::*, parse_binary};
     use std::fs;
     use wasmer_clif_backend::CraneliftCompiler;
     use wasmer_runtime_core as runtime;
@@ -31,7 +32,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse() {
+    fn test_parse_binary_from_custom_section() {
         let module = get_module();
         let custom_section_bytes = module
             .info()
@@ -40,7 +41,7 @@ mod tests {
             .unwrap()
             .as_slice();
 
-        match parse::<()>(custom_section_bytes) {
+        match parse_binary::<()>(custom_section_bytes) {
             Ok((remainder, interfaces)) => {
                 assert!(remainder.is_empty());
                 assert_eq!(
