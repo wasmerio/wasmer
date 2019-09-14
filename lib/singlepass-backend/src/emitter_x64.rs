@@ -926,7 +926,7 @@ impl Emitter for Assembler {
         match loc {
             Location::GPR(x) => dynasm!(self ; call Rq(x as u8)),
             Location::Memory(base, disp) => dynasm!(self ; call QWORD [Rq(base as u8) + disp]),
-            _ => unreachable!(),
+            _ => panic!("CALL {:?}", loc),
         }
     }
 
