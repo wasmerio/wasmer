@@ -16,14 +16,14 @@ spectests-generate: generate-spectests
 emtests-generate: generate-emtests
 wasitests-generate: generate-wasitests
 
-spectests-cranelift:
+spectests-cranelift: generate-spectests
 	echo removed
 
 generate: generate-spectests generate-emtests generate-wasitests
 
 
 # Spectests
-spectests-llvm:
+spectests-llvm: generate-spectests
 	cargo test --manifest-path lib/spectests/Cargo.toml --release --features llvm -- --nocapture
 
 spectests: spectests-llvm
@@ -48,7 +48,7 @@ test-rest:
 circleci-clean:
 	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
 
-test: spectests
+test: spectests circleci-clean
 
 
 # Utils

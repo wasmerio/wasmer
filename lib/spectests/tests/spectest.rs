@@ -1159,8 +1159,7 @@ mod tests {
 
         let mut glob_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         glob_path.push("spectests");
-        //glob_path.push("*.wast");
-        glob_path.push("simd-simple.wast");
+        glob_path.push("*.wast");
 
         let glob_str = glob_path.to_str().unwrap();
         for entry in glob(glob_str).expect("Failed to read glob pattern") {
