@@ -198,6 +198,7 @@ impl LLVMBackend {
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
         let mem_buf_slice = memory_buffer.as_slice();
+        dbg!(&mem_buf_slice);
 
         if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.obj_file } {
             let mut file = File::create(path).unwrap();
