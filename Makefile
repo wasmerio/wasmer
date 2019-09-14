@@ -24,7 +24,7 @@ generate: generate-spectests generate-emtests generate-wasitests
 
 # Spectests
 spectests-llvm: generate-spectests
-	RUST_BACKTRACE=1 cargo test --manifest-path lib/spectests/Cargo.toml --release --features llvm -- --nocapture
+	RUST_BACKTRACE=1 cargo test --manifest-path lib/spectests/Cargo.toml --features llvm -- --nocapture
 
 spectests: spectests-llvm
 
