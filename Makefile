@@ -16,6 +16,9 @@ spectests-generate: generate-spectests
 emtests-generate: generate-emtests
 wasitests-generate: generate-wasitests
 
+spectests-cranelift:
+	echo removed
+
 generate: generate-spectests generate-emtests generate-wasitests
 
 
