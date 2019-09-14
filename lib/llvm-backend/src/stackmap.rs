@@ -95,6 +95,7 @@ impl StackmapEntry {
 
         // System V requires 16-byte alignment before each call instruction.
         // Considering the saved rbp we need to ensure the stack size % 16 always equals to 8.
+        dbg!(size_record);
         assert!(size_record.stack_size % 16 == 8);
 
         // Layout begins just below saved rbp. (push rbp; mov rbp, rsp)
