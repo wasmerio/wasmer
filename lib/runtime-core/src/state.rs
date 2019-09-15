@@ -357,11 +357,7 @@ impl ExecutionStateImage {
             for (i, f) in self.frames.iter().enumerate() {
                 ret += &format!("* Frame {} @ Local function {}", i, f.local_function_id);
                 ret += "\n";
-                ret += &format!(
-                    "  {} {}\n",
-                    "Offset:",
-                    format!("{}", f.wasm_inst_offset),
-                );
+                ret += &format!("  {} {}\n", "Offset:", format!("{}", f.wasm_inst_offset),);
                 ret += &format!(
                     "  {} {}\n",
                     "Locals:",
