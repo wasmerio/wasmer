@@ -303,7 +303,7 @@ impl ExecutionStateImage {
 
         if let Ok(x) = env::var("WASMER_BACKTRACE") {
             if x == "1" {
-                eprintln!("{}", self.colored_output());
+                eprintln!("{}", self.output());
                 return;
             }
         }
@@ -311,9 +311,7 @@ impl ExecutionStateImage {
         eprintln!("Run with `WASMER_BACKTRACE=1` environment variable to display a backtrace.");
     }
 
-    pub fn colored_output(&self) -> String {
-        use colored::*;
-
+    pub fn output(&self) -> String {
         fn join_strings(x: impl Iterator<Item = String>, sep: &str) -> String {
             let mut ret = String::new();
             let mut first = true;
@@ -341,8 +339,6 @@ impl ExecutionStateImage {
                             i,
                             x.map(|x| format!("{}", x))
                                 .unwrap_or_else(|| "?".to_string())
-                                .bold()
-                                .cyan()
                         )
                     }),
                     ", ",
@@ -353,27 +349,27 @@ impl ExecutionStateImage {
         let mut ret = String::new();
 
         if self.frames.len() == 0 {
-            ret += &"Unknown fault address, cannot read stack.".yellow();
+            ret += &"Unknown fault address, cannot read stack.";
             ret += "\n";
         } else {
-            ret += &"Backtrace:".bold();
+            ret += &"Backtrace:";
             ret += "\n";
             for (i, f) in self.frames.iter().enumerate() {
-                ret += &format!("* Frame {} @ Local function {}", i, f.local_function_id).bold();
+                ret += &format!("* Frame {} @ Local function {}", i, f.local_function_id);
                 ret += "\n";
                 ret += &format!(
                     "  {} {}\n",
-                    "Offset:".bold().yellow(),
-                    format!("{}", f.wasm_inst_offset).bold().cyan(),
+                    "Offset:",
+                    format!("{}", f.wasm_inst_offset),
                 );
                 ret += &format!(
                     "  {} {}\n",
-                    "Locals:".bold().yellow(),
+                    "Locals:",
                     format_optional_u64_sequence(&f.locals)
                 );
                 ret += &format!(
                     "  {} {}\n\n",
-                    "Stack:".bold().yellow(),
+                    "Stack:",
                     format_optional_u64_sequence(&f.stack)
                 );
             }
