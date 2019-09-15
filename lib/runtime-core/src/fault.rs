@@ -7,6 +7,11 @@ pub mod raw {
         pub fn register_preservation_trampoline(); // NOT safe to call directly
     }
 
+    #[cfg(not(target_arch = "x86_64"))]
+    pub extern "C" fn register_preservation_trampoline() {
+        unimplemented!("register_preservation_trampoline");
+    }
+
     extern "C" {
         pub fn setjmp(env: *mut c_void) -> i32;
         pub fn longjmp(env: *mut c_void, val: i32) -> !;
@@ -32,6 +37,11 @@ use std::sync::Once;
 #[cfg(target_arch = "x86_64")]
 pub(crate) unsafe fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64 {
     raw::run_on_alternative_stack(stack_end, stack_begin)
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+pub(crate) unsafe fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64 {
+    unimplemented!("run_on_alternative_stack");
 }
 
 const TRAP_STACK_SIZE: usize = 1048576; // 1MB
