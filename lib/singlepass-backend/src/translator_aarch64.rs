@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::codegen_x64::*;
 use crate::emitter_x64::*;
 use dynasmrt::{aarch64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
@@ -6,14 +8,18 @@ use dynasmrt::{aarch64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, Dyna
 pub struct AX(pub u32);
 
 impl AX {
-    pub fn x(&self) -> u32 { self.0 }
+    pub fn x(&self) -> u32 {
+        self.0
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct AV(pub u32);
 
 impl AV {
-    pub fn v(&self) -> u32 { self.0 }
+    pub fn v(&self) -> u32 {
+        self.0
+    }
 }
 
 /*
@@ -52,7 +58,7 @@ pub enum XMM {
 }
 */
 
-fn map_gpr(gpr: GPR) -> AX {
+pub fn map_gpr(gpr: GPR) -> AX {
     use GPR::*;
 
     match gpr {
@@ -60,7 +66,7 @@ fn map_gpr(gpr: GPR) -> AX {
         RCX => AX(1),
         RDX => AX(2),
         RBX => AX(3),
-        RSP => AX(4),
+        RSP => AX(28),
         RBP => AX(5),
         RSI => AX(6),
         RDI => AX(7),
@@ -75,7 +81,7 @@ fn map_gpr(gpr: GPR) -> AX {
     }
 }
 
-fn map_xmm(xmm: XMM) -> AV {
+pub fn map_xmm(xmm: XMM) -> AV {
     use XMM::*;
 
     match xmm {
@@ -312,10 +318,10 @@ impl Emitter for Assembler {
             (Size::S64, Location::Imm32(x), Location::GPR(dst)) => {
                 dynasm!(self ; b >after; data: ; .qword x as i64; after: ; ldr X(map_gpr(dst).x()), <data);
             }
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
-    
+
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
@@ -332,10 +338,10 @@ impl Emitter for Assembler {
             Location::GPR(dst) => {
                 dynasm!(self ; adr X(map_gpr(dst).x()), =>label);
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
-    
+
     fn emit_cdq(&mut self) {
         dynasm!(
             self
@@ -397,18 +403,18 @@ impl Emitter for Assembler {
             Signed => dynasm!(self ; b.vs =>label), // TODO: Review this
         }
     }
-    
+
     fn emit_jmp_location(&mut self, loc: Location) {
         match loc {
             Location::GPR(x) => dynasm!(self ; br X(map_gpr(x).x())),
             Location::Memory(base, disp) => {
                 assert!(disp >= 0);
                 dynasm!(self ; ldr x_tmp1, [ X(map_gpr(base).x()), disp as u32 ]; br x_tmp1);
-            },
+            }
             _ => unreachable!(),
         }
     }
-    
+
     fn emit_conditional_trap(&mut self, condition: Condition) {
         use Condition::*;
 
@@ -434,7 +440,7 @@ impl Emitter for Assembler {
             ; ok:
         );
     }
-    
+
     fn emit_set(&mut self, condition: Condition, dst: GPR) {
         use Condition::*;
 
@@ -461,7 +467,7 @@ impl Emitter for Assembler {
             ; ok:
         );
     }
-    
+
     fn emit_push(&mut self, sz: Size, src: Location) {
         match (sz, src) {
             (Size::S64, Location::Imm32(src)) => dynasm!(self
@@ -579,7 +585,7 @@ impl Emitter for Assembler {
                 ; ldr x_tmp1, [X(map_gpr(left).x()), disp as u32]
                 ; cmp X(map_gpr(right).x()), x_tmp1
             ),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
@@ -588,7 +594,7 @@ impl Emitter for Assembler {
     fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(sub, self, sz, src, dst, { unreachable!("sub") });
     }
-    
+
     fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(mul, self, sz, src, dst, {
             binop_mem_gpr!(mul, self, sz, src, dst, { unreachable!() })
@@ -606,89 +612,299 @@ impl Emitter for Assembler {
         );
     }
 
-    fn emit_div(&mut self, sz: Size, divisor: Location) { unimplemented!("instruction") }
-    fn emit_idiv(&mut self, sz: Size, divisor: Location) { unimplemented!("instruction") }
-    fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_shr(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_rol(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_ror(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_and(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_or(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!("instruction") }
-    fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) { unimplemented!("instruction") }
-    fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) { unimplemented!("instruction") }
+    fn emit_div(&mut self, sz: Size, divisor: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_idiv(&mut self, sz: Size, divisor: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) {
+        //binop_all_nofp!(ushl, self, sz, src, dst, { unreachable!("shl") });
+        unimplemented!("instruction")
+    }
+    fn emit_shr(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_rol(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_ror(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_and(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_all_nofp!(and, self, sz, src, dst, { unreachable!("and") });
+    }
+    fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
+        //binop_all_nofp!(or, self, sz, src, dst, { unreachable!("or") });
+        unimplemented!("instruction");
+    }
+    fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
+        match sz {
+            Size::S32 => {
+                match src {
+                    Location::Imm32(x) => dynasm!(self
+                        ; b >after
+                        ; data:
+                        ; .dword x as i32
+                        ; after:
+                        ; ldr w_tmp2, <data
+                        ; clz w_tmp1, w_tmp2
+                    ),
+                    Location::GPR(x) => dynasm!(self
+                        ; clz w_tmp1, W(map_gpr(x).x())
+                    ),
+                    Location::Memory(base, disp) => {
+                        assert!(disp >= 0);
+                        dynasm!(self
+                            ; ldr w_tmp1, [X(map_gpr(base).x()), disp as u32]
+                            ; clz w_tmp1, w_tmp1
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+                match dst {
+                    Location::GPR(x) => dynasm!(
+                        self
+                        ; mov W(map_gpr(x).x()), w_tmp1
+                    ),
+                    Location::Memory(base, disp) => {
+                        assert!(disp >= 0);
+                        dynasm!(
+                            self
+                            ; str w_tmp1, [X(map_gpr(base).x()), disp as u32]
+                        )
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Size::S64 => {
+                match src {
+                    Location::Imm32(x) => dynasm!(self
+                        ; b >after
+                        ; data:
+                        ; .qword x as i64
+                        ; after:
+                        ; ldr x_tmp2, <data
+                        ; clz x_tmp1, x_tmp2
+                    ),
+                    Location::GPR(x) => dynasm!(self
+                        ; clz x_tmp1, X(map_gpr(x).x())
+                    ),
+                    Location::Memory(base, disp) => {
+                        assert!(disp >= 0);
+                        dynasm!(self
+                            ; ldr x_tmp1, [X(map_gpr(base).x()), disp as u32]
+                            ; clz x_tmp1, x_tmp1
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+                match dst {
+                    Location::GPR(x) => dynasm!(
+                        self
+                        ; mov X(map_gpr(x).x()), x_tmp1
+                    ),
+                    Location::Memory(base, disp) => {
+                        assert!(disp >= 0);
+                        dynasm!(
+                            self
+                            ; str x_tmp1, [X(map_gpr(base).x()), disp as u32]
+                        )
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
+        unimplemented!("instruction")
+    }
+    fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) { unimplemented!("instruction") }
-    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) { unimplemented!("instruction") }
+    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
+        unimplemented!("instruction")
+    }
+    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) { unimplemented!("instruction") }
-    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) { unimplemented!("instruction") }
+    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {
+        unimplemented!("instruction")
+    }
+    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vcmpeqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcmpeqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vcmpeqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcmpeqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vcmpneqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcmpneqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vcmpneqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcmpneqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vcmpltss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcmpltsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vcmpltss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcmpltsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vcmpless(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcmplesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vcmpless(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcmplesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vcmpgtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcmpgtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vcmpgtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcmpgtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vroundss_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vroundss_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vroundss_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vroundss_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vroundsd_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vroundss_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vroundss_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vroundss_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vroundss_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vroundsd_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) { unimplemented!("instruction") }
-    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) { unimplemented!("instruction") }
-    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) { unimplemented!("instruction") }
-    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) { unimplemented!("instruction") }
+    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
+        unimplemented!("instruction")
+    }
+    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
+        unimplemented!("instruction")
+    }
+    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
+        unimplemented!("instruction")
+    }
+    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) { unimplemented!("instruction") }
-    fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) { unimplemented!("instruction") }
+    fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
+    fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_test_gpr_64(&mut self, reg: GPR) { unimplemented!("instruction") }
+    fn emit_test_gpr_64(&mut self, reg: GPR) {
+        unimplemented!("instruction")
+    }
 
-    fn emit_ud2(&mut self) { dynasm!(self ; brk 2) }
+    fn emit_ud2(&mut self) {
+        dynasm!(self ; brk 2)
+    }
     fn emit_ret(&mut self) {
         dynasm!(self
             ; ldr x_tmp1, [x_rsp]
@@ -745,10 +961,12 @@ impl Emitter for Assembler {
                     ; br x_tmp1
                     ; done:
                 );
-            },
+            }
             _ => unreachable!(),
         }
     }
 
-    fn emit_bkpt(&mut self) { dynasm!(self ; brk 1) }
+    fn emit_bkpt(&mut self) {
+        dynasm!(self ; brk 1)
+    }
 }

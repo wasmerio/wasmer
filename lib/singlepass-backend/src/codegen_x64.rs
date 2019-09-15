@@ -4,7 +4,11 @@
 use crate::emitter_x64::*;
 use crate::machine::*;
 use crate::protect_unix;
-use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+#[cfg(target_arch = "aarch64")]
+use dynasmrt::aarch64::Assembler;
+#[cfg(target_arch = "x86_64")]
+use dynasmrt::x64::Assembler;
+use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{
@@ -36,6 +40,7 @@ use wasmer_runtime_core::{
 };
 use wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 
+#[cfg(target_arch = "x86_64")]
 lazy_static! {
     /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
     static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u64, stack_base: *const u64, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
@@ -116,6 +121,69 @@ lazy_static! {
             ; pop r14
             ; pop r15
             ; ret
+        );
+        let buf = assembler.finalize().unwrap();
+        let ret = unsafe { ::std::mem::transmute(buf.ptr(offset)) };
+        ::std::mem::forget(buf);
+        ret
+    };
+}
+
+#[cfg(target_arch = "aarch64")]
+lazy_static! {
+    /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
+    static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u64, stack_base: *const u64, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
+        let mut assembler = Assembler::new().unwrap();
+        let offset = assembler.offset();
+        dynasm!(
+            assembler
+            ; .arch aarch64
+            ; sub sp, sp, 80
+            ; str x19, [sp, 0]
+            ; str x20, [sp, 8]
+            ; str x21, [sp, 16]
+            ; str x22, [sp, 24]
+            ; str x23, [sp, 32]
+            ; str x24, [sp, 40]
+            ; str x25, [sp, 48]
+            ; str x26, [sp, 56]
+            ; str x27, [sp, 64]
+            ; str x28, [sp, 72]
+            ; mov x28, sp // WASM stack pointer
+            ; ldr x9, >v_65536
+            ; sub sp, sp, x9 // Pre-allocate the WASM stack
+
+            // return address
+            ; adr x9, >done
+            ; sub x28, x28, 8
+            ; str x9, [x28] // Keep this consistent with RSP mapping in translator_aarch64
+
+            // ctx
+            ; mov X(crate::translator_aarch64::map_gpr(GPR::RDI).x()), x2
+
+            // TODO: params
+
+            // Jump to target function!
+            ; br x3
+
+            ; done:
+            ; ldr x9, >v_65536
+            ; add sp, sp, x9 // Resume stack pointer
+            ; ldr x19, [sp, 0]
+            ; ldr x20, [sp, 8]
+            ; ldr x21, [sp, 16]
+            ; ldr x22, [sp, 24]
+            ; ldr x23, [sp, 32]
+            ; ldr x24, [sp, 40]
+            ; ldr x25, [sp, 48]
+            ; ldr x26, [sp, 56]
+            ; ldr x27, [sp, 64]
+            ; ldr x28, [sp, 72]
+            ; add sp, sp, 80
+            ; br x30 // LR
+
+            ; v_65536:
+            ; .qword 65536
         );
         let buf = assembler.finalize().unwrap();
         let ret = unsafe { ::std::mem::transmute(buf.ptr(offset)) };
