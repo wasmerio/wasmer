@@ -1,5 +1,5 @@
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-pub use wasmer_runtime_core::state::x64::{GPR, XMM};
+pub use wasmer_runtime_core::state::x64_decl::{GPR, XMM};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
@@ -168,6 +168,13 @@ pub trait Emitter {
     fn emit_call_location(&mut self, loc: Location);
 
     fn emit_bkpt(&mut self);
+}
+
+fn _dummy(a: &mut Assembler) {
+    dynasm!(
+        self
+        ; .arch x64
+    );
 }
 
 macro_rules! unop_gpr {

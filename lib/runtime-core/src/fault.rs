@@ -1,9 +1,13 @@
 pub mod raw {
     use std::ffi::c_void;
 
+    #[cfg(target_arch = "x86_64")]
     extern "C" {
         pub fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64;
         pub fn register_preservation_trampoline(); // NOT safe to call directly
+    }
+
+    extern "C" {
         pub fn setjmp(env: *mut c_void) -> i32;
         pub fn longjmp(env: *mut c_void, val: i32) -> !;
     }
@@ -25,13 +29,14 @@ use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
 
+#[cfg(target_arch = "x86_64")]
 pub(crate) unsafe fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64 {
     raw::run_on_alternative_stack(stack_end, stack_begin)
 }
 
 const TRAP_STACK_SIZE: usize = 1048576; // 1MB
 
-const SETJMP_BUFFER_LEN: usize = 27;
+const SETJMP_BUFFER_LEN: usize = 128;
 type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 
 struct UnwindInfo {
@@ -181,6 +186,12 @@ unsafe fn with_breakpoint_map<R, F: FnOnce(Option<&BreakpointMap>) -> R>(f: F) -
     f(inner.breakpoints.as_ref())
 }
 
+#[cfg(not(target_arch = "x86_64"))]
+pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
+    unimplemented!("allocate_and_run only supported on x86_64");
+}
+
+#[cfg(target_arch = "x86_64")]
 pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
     struct Context<F: FnOnce() -> R, R> {
         f: Option<F>,
@@ -351,6 +362,11 @@ pub struct FaultInfo {
     pub faulting_addr: *const c_void,
     pub ip: *const c_void,
     pub known_registers: [Option<u64>; 24],
+}
+
+#[cfg(target_arch = "aarch64")]
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
+    unimplemented!("get_fault_info is not yet implemented for aarch64.");
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
