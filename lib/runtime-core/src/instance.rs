@@ -518,7 +518,7 @@ impl LikeNamespace for Rc<Instance> {
 }
 
 #[must_use]
-fn call_func_with_index(
+pub(crate) fn call_func_with_index(
     info: &ModuleInfo,
     runnable: &dyn RunnableModule,
     import_backing: &ImportBacking,

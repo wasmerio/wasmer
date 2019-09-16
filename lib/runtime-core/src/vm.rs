@@ -1,9 +1,11 @@
 pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
+    error::{CallError, CallResult, RuntimeError},
+    instance::call_func_with_index,
     memory::{Memory, MemoryType},
     module::{ModuleInfo, ModuleInner},
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex},
+    types::{FuncIndex, LocalOrImport, MemoryIndex, Value},
     vmcalls,
 };
 use std::{
@@ -392,6 +394,27 @@ impl Ctx {
         unsafe {
             (*self.internal.internals)[field.index()] = value;
         }
+    }
+
+    /// Calls a host or Wasm function at the given index
+    pub fn call_with_index(&mut self, index: FuncIndex, args: &[Value]) -> CallResult<Vec<Value>> {
+        let module = unsafe { &(*self.module) };
+        if module.info.func_assoc.get(index).is_none() {
+            return Err(CallError::Runtime(RuntimeError::Trap {
+                msg: format!("Index out of bounds: {}", index.index()).into_boxed_str(),
+            }));
+        }
+        let mut output = vec![];
+        call_func_with_index(
+            &module.info,
+            module.runnable_module.as_ref(),
+            unsafe { &*self.import_backing },
+            self as *mut Ctx,
+            index,
+            args,
+            &mut output,
+        )?;
+        Ok(output)
     }
 }
 
