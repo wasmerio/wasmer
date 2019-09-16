@@ -193,7 +193,7 @@ docs-publish:
 	echo b1
 	git remote rm origin
 	echo b2
-	git remote add origin https://wasmerio:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git
+	git remote add origin https://WasmerBot:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git
 	echo d
 	cp -r ${RUST_DOCS_DIR}/* rustdoc/
 	echo f
