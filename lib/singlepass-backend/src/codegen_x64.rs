@@ -353,7 +353,7 @@ impl RunnableModule for X64ExecutionContext {
 
 #[derive(Debug)]
 pub struct CodegenError {
-    pub message: &'static str,
+    pub message: String,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -474,7 +474,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 Some(x) => x,
                 None => {
                     return Err(CodegenError {
-                        message: "label not found",
+                        message: format!("label not found"),
                     });
                 }
             };
@@ -482,7 +482,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 Some(x) => x,
                 None => {
                     return Err(CodegenError {
-                        message: "offset is none",
+                        message: format!("offset is none"),
                     });
                 }
             };
@@ -3873,7 +3873,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     returns: match ty {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => panic!("multi-value returns not yet implemented"),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("multi-value returns not yet implemented"),
+                            })
+                        }
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),
@@ -3980,7 +3984,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     returns: match ty {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => panic!("multi-value returns not yet implemented"),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("multi-value returns not yet implemented"),
+                            })
+                        }
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),
@@ -4005,7 +4013,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     returns: match ty {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => panic!("multi-value returns not yet implemented"),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("multi-value returns not yet implemented"),
+                            })
+                        }
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),
@@ -4966,7 +4978,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
             _ => {
-                panic!("not yet implemented: {:?}", op);
+                return Err(CodegenError {
+                    message: format!("not yet implemented: {:?}", op),
+                });
             }
         }
 
