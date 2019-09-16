@@ -353,7 +353,7 @@ impl RunnableModule for X64ExecutionContext {
 
 #[derive(Debug)]
 pub struct CodegenError {
-    pub message: &'static str,
+    pub message: String,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -474,7 +474,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 Some(x) => x,
                 None => {
                     return Err(CodegenError {
-                        message: "label not found",
+                        message: format!("label not found"),
                     });
                 }
             };
@@ -482,7 +482,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 Some(x) => x,
                 None => {
                     return Err(CodegenError {
-                        message: "offset is none",
+                        message: format!("offset is none"),
                     });
                 }
             };
@@ -3875,7 +3875,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: "multi-value returns not yet implemented",
+                                message: format!("multi-value returns not yet implemented"),
                             })
                         }
                     },
@@ -3986,7 +3986,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: "multi-value returns not yet implemented",
+                                message: format!("multi-value returns not yet implemented"),
                             })
                         }
                     },
@@ -4015,7 +4015,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: "multi-value returns not yet implemented",
+                                message: format!("multi-value returns not yet implemented"),
                             })
                         }
                     },
@@ -4979,8 +4979,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             _ => {
                 return Err(CodegenError {
-                    message: "not yet implemented: {:?}",
-                    op,
+                    message: format!("not yet implemented: {:?}", op),
                 });
             }
         }
