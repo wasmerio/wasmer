@@ -12,7 +12,7 @@ readme = "README.md"
 wasmer-runtime-core = { path = "../runtime-core", version = "0.7.0" }
 wasmparser = "0.35.1"
 dynasm = "0.3.2"
-dynasmrt = "0.3.1"
+dynasmrt = "0.5.1"
 lazy_static = "1.4.0"
 byteorder = "1.3.2"
 nix = "0.15.0"
