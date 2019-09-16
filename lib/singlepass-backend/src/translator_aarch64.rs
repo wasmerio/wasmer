@@ -325,10 +325,18 @@ impl Emitter for Assembler {
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!(self ; add W(map_gpr(dst).x()), W(map_gpr(src).x()), disp as u32);
+                if disp >= 0 {
+                    dynasm!(self ; add W(map_gpr(dst).x()), W(map_gpr(src).x()), disp as u32);
+                } else {
+                    dynasm!(self ; sub W(map_gpr(dst).x()), W(map_gpr(src).x()), (-disp) as u32);
+                }
             }
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!(self ; add X(map_gpr(dst).x()), X(map_gpr(src).x()), disp as u32);
+                if disp >= 0 {
+                    dynasm!(self ; add X(map_gpr(dst).x()), X(map_gpr(src).x()), disp as u32);
+                } else {
+                    dynasm!(self ; sub X(map_gpr(dst).x()), X(map_gpr(src).x()), (-disp) as u32);
+                }
             }
             _ => unreachable!(),
         }
