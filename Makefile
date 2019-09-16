@@ -104,9 +104,6 @@ test-capi: capi
 test-rest:
 	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-middleware-common-tests --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-wasi-tests --exclude wasmer-emscripten-tests
 
-circleci-clean:
-	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
-
 test: spectests emtests middleware wasitests circleci-clean test-rest
 
 
@@ -187,3 +184,30 @@ dep-graph:
 
 docs:
 	cargo doc --features=backend-singlepass,backend-llvm,wasi,managed
+
+docs-publish:
+	echo a
+	git remote -v
+	echo b
+	git checkout gh-pages
+	echo b1
+	git remote rm origin
+	echo b2
+	git remote add origin https://wasmerio:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git
+	echo d
+	cp -r ${RUST_DOCS_DIR}/* rustdoc/
+	echo f
+	echo '<meta http-equiv="refresh" content="0; url=rustdoc/wasmer_runtime/index.html">' > index.html
+	echo g
+	echo '<meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > rustdoc/index.html
+	echo h
+	git config --local user.name "Azure Pipelines"
+	echo i
+	git config --local user.email "azuredevops@microsoft.com"
+	echo j
+	git add rustdoc/*
+	echo k
+	git commit -m "Publishing GitHub Pages ***CI***"
+	echo l
+	git push origin gh-pages
+	echo m

@@ -244,31 +244,9 @@ jobs:
           artifactName: rustdocs
           targetPath: $(Pipeline.Workspace)/rustdocs
       - bash: |
-          echo a
-          git remote -v
-          echo b
-          git checkout --orphan test-branch/fake-gh-pages
-          echo c
-          git rm -rf .
-          echo d
-          mkdir rustdoc/
-          echo e
-          cp -r $(Pipeline.Workspace)/rustdocs/* rustdoc/
-          echo f
-          echo '<meta http-equiv="refresh" content="1; url=rustdoc/wasmer_runtime/index.html">' > index.html
-          echo g
-          echo '<meta http-equiv="refresh" content="1; url=wasmer_runtime/index.html">' > rustdoc/index.html
-          echo h
-          git config --local user.name "Azure Pipelines"
-          echo i
-          git config --local user.email "azuredevops@microsoft.com"
-          echo j
-          git add .
-          echo k
-          git commit -m "Publishing GitHub Pages  ***NO_CI***"
-          echo l
-          git push --set-upstream origin test-branch/fake-gh-pages --force
-          echo m
+          make docs-publish
+        env:
+          RUST_DOCS_DIR: $(Pipeline.Workspace)/rustdocs
 
 # We only run the pipelines on PRs to Master
 pr:
