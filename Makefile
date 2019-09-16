@@ -205,6 +205,7 @@ docs-publish:
 	echo i
 	git config --local user.email "azuredevops@microsoft.com"
 	echo j
+	git add index.html
 	git add rustdoc/*
 	echo k
 	git commit -m "Publishing GitHub Pages ***CI***"
