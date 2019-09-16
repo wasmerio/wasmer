@@ -661,11 +661,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map(|arg| arg.as_str())
                 .map(|x| Value::I32(x.parse().unwrap()))
                 .collect();
-            instance
+            let result = instance
                 .dyn_func("main")
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
+            println!("main() returned: {:?}", result);
         }
     }
 
