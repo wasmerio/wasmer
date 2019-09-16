@@ -190,10 +190,8 @@ docs-publish:
 	git remote -v
 	echo b
 	git checkout gh-pages
-	echo b1
-	git remote rm origin
 	echo b2
-	git remote add origin https://WasmerBot:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git
+	git remote add wasmerbot https://WasmerBot:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git
 	echo d
 	cp -r ${RUST_DOCS_DIR}/* rustdoc/
 	echo f
@@ -210,5 +208,5 @@ docs-publish:
 	echo k
 	git commit -m "Publishing GitHub Pages ***CI***"
 	echo l
-	git push origin gh-pages
+	git push wasmerbot gh-pages
 	echo m
