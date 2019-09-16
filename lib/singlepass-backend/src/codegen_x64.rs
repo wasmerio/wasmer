@@ -3873,7 +3873,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     returns: match ty {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => panic!("multi-value returns not yet implemented"),
+                        _ => {
+                            return Err(CodegenError {
+                                message: "multi-value returns not yet implemented",
+                            })
+                        }
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),
@@ -3980,7 +3984,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     returns: match ty {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => panic!("multi-value returns not yet implemented"),
+                        _ => {
+                            return Err(CodegenError {
+                                message: "multi-value returns not yet implemented",
+                            })
+                        }
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),
@@ -4005,7 +4013,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     returns: match ty {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => panic!("multi-value returns not yet implemented"),
+                        _ => {
+                            return Err(CodegenError {
+                                message: "multi-value returns not yet implemented",
+                            })
+                        }
                     },
                     value_stack_depth: self.value_stack.len(),
                     state: self.machine.state.clone(),
@@ -4966,7 +4978,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
             _ => {
-                panic!("not yet implemented: {:?}", op);
+                return Err(CodegenError {
+                    message: "not yet implemented: {:?}",
+                    op,
+                });
             }
         }
 
