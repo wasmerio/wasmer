@@ -25,6 +25,8 @@ pub(crate) struct InstanceInner {
     pub(crate) vmctx: *mut vm::Ctx,
 }
 
+unsafe impl Send for InstanceInner {}
+
 impl Drop for InstanceInner {
     fn drop(&mut self) {
         // Drop the vmctx.

@@ -46,7 +46,8 @@ impl IsExport for Export {
 /// ```
 pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send>>>>,
-    pub(crate) state_creator: Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + Send>>,
+    pub(crate) state_creator:
+        Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + Send + Sync + 'static>>,
     pub allow_missing_functions: bool,
 }
 
@@ -62,7 +63,7 @@ impl ImportObject {
 
     pub fn new_with_data<F>(state_creator: F) -> Self
     where
-        F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static + Send,
+        F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static + Send + Sync,
     {
         Self {
             map: Arc::new(Mutex::new(HashMap::new())),

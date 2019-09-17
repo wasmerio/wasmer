@@ -54,6 +54,8 @@ pub struct LocalBacking {
     pub(crate) internals: Internals,
 }
 
+unsafe impl Send for LocalBacking {}
+
 impl LocalBacking {
     pub(crate) fn new(
         module: &ModuleInner,
@@ -460,6 +462,8 @@ pub struct ImportBacking {
     pub(crate) vm_tables: BoxedMap<ImportedTableIndex, *mut vm::LocalTable>,
     pub(crate) vm_globals: BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,
 }
+
+unsafe impl Send for ImportBacking {}
 
 impl ImportBacking {
     pub fn new(

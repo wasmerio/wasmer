@@ -25,8 +25,6 @@ pub enum Export {
     Global(Global),
 }
 
-unsafe impl Send for Export {}
-
 #[derive(Debug, Clone)]
 pub struct FuncPointer(*const vm::Func);
 

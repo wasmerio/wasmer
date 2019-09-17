@@ -474,6 +474,8 @@ pub struct ImportedFunc {
     pub vmctx: *mut Ctx,
 }
 
+unsafe impl Send for ImportedFunc {}
+
 impl ImportedFunc {
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_func() -> u8 {
