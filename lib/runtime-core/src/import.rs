@@ -207,10 +207,8 @@ impl Extend<(String, String, Export)> for ImportObject {
 }
 
 pub struct Namespace {
-    map: HashMap<String, Box<dyn IsExport>>,
+    map: HashMap<String, Box<dyn IsExport + Send>>,
 }
-
-unsafe impl Send for Namespace {}
 
 impl Namespace {
     pub fn new() -> Self {
@@ -219,10 +217,10 @@ impl Namespace {
         }
     }
 
-    pub fn insert<S, E>(&mut self, name: S, export: E) -> Option<Box<dyn IsExport>>
+    pub fn insert<S, E>(&mut self, name: S, export: E) -> Option<Box<dyn IsExport + Send>>
     where
         S: Into<String>,
-        E: IsExport + 'static,
+        E: IsExport + Send + 'static,
     {
         self.map.insert(name.into(), Box::new(export))
     }

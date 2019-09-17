@@ -501,6 +501,8 @@ pub struct LocalTable {
     pub table: *mut (),
 }
 
+unsafe impl Send for LocalTable {}
+
 impl LocalTable {
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_base() -> u8 {
@@ -579,6 +581,8 @@ pub struct Anyfunc {
     pub ctx: *mut Ctx,
     pub sig_id: SigId,
 }
+
+unsafe impl Send for Anyfunc {}
 
 impl Anyfunc {
     pub fn null() -> Self {
