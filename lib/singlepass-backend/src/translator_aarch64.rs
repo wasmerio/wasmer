@@ -982,9 +982,17 @@ impl Emitter for Assembler {
         let target = map_gpr(target);
         dynasm!(
             self
-            ; sub sp, sp, 16
+            ; sub sp, sp, 80
             ; str x30, [sp, 0] // LR
             ; str X(target.x()), [sp, 8]
+            // Save callee-saved registers as required by x86-64 conventions.
+            ; str X(map_gpr(GPR::RBX).x()), [sp, 16]
+            ; str X(map_gpr(GPR::R12).x()), [sp, 24]
+            ; str X(map_gpr(GPR::R13).x()), [sp, 32]
+            ; str X(map_gpr(GPR::R14).x()), [sp, 40]
+            ; str X(map_gpr(GPR::R15).x()), [sp, 48]
+            ; str X(map_gpr(GPR::RBP).x()), [sp, 56]
+            ; str X(map_gpr(GPR::RSP).x()), [sp, 64]
             ; adr x30, >after
 
             // Put parameters in correct order
@@ -1009,7 +1017,14 @@ impl Emitter for Assembler {
 
             ; after:
             ; ldr x30, [sp, 0] // LR
-            ; add sp, sp, 16
+            ; ldr X(map_gpr(GPR::RBX).x()), [sp, 16]
+            ; ldr X(map_gpr(GPR::R12).x()), [sp, 24]
+            ; ldr X(map_gpr(GPR::R13).x()), [sp, 32]
+            ; ldr X(map_gpr(GPR::R14).x()), [sp, 40]
+            ; ldr X(map_gpr(GPR::R15).x()), [sp, 48]
+            ; ldr X(map_gpr(GPR::RBP).x()), [sp, 56]
+            ; ldr X(map_gpr(GPR::RSP).x()), [sp, 64]
+            ; add sp, sp, 80
             ; br x30
         );
     }
