@@ -231,7 +231,11 @@ impl UnsharedMemory {
             MemoryType::Static => {
                 UnsharedMemoryStorage::Static(StaticMemory::new(desc, &mut local)?)
             }
-            MemoryType::SharedStatic => panic!("attempting to create shared unshared memory"),
+            MemoryType::SharedStatic => {
+                return Err(CreationError::InvalidDescriptor(
+                    "attempting to create shared unshared memory".to_string(),
+                ));
+            }
         };
 
         Ok(Self {
