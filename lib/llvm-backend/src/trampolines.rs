@@ -20,7 +20,7 @@ pub fn generate_trampolines(
     context: &Context,
     builder: &Builder,
     intrinsics: &Intrinsics,
-) {
+) -> Result<(), String> {
     for (sig_index, sig) in info.signatures.iter() {
         let func_type = signatures[sig_index];
 
@@ -42,8 +42,9 @@ pub fn generate_trampolines(
             Some(Linkage::External),
         );
 
-        generate_trampoline(trampoline_func, sig, context, builder, intrinsics);
+        generate_trampoline(trampoline_func, sig, context, builder, intrinsics)?;
     }
+    Ok(())
 }
 
 fn generate_trampoline(
@@ -52,7 +53,7 @@ fn generate_trampoline(
     context: &Context,
     builder: &Builder,
     intrinsics: &Intrinsics,
-) {
+) -> Result<(), String> {
     let entry_block = context.append_basic_block(&trampoline_func, "entry");
     builder.position_at_end(&entry_block);
 
@@ -64,7 +65,7 @@ fn generate_trampoline(
             args_ptr.into_pointer_value(),
             returns_ptr.into_pointer_value(),
         ),
-        _ => unimplemented!(),
+        _ => return Err("trampoline function unimplemented".to_string()),
     };
 
     let cast_ptr_ty = |wasmer_ty| match wasmer_ty {
@@ -108,8 +109,11 @@ fn generate_trampoline(
                 call_site.try_as_basic_value().left().unwrap(),
             );
         }
-        _ => unimplemented!("multi-value returns"),
+        _ => {
+            return Err("trampoline function multi-value returns".to_string());
+        }
     }
 
     builder.build_return(None);
+    Ok(())
 }
