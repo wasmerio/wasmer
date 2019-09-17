@@ -165,6 +165,8 @@ pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
+unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets> {}
+
 impl<'a, Args, Rets> Func<'a, Args, Rets, Wasm>
 where
     Args: WasmTypeList,

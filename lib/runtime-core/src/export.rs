@@ -11,6 +11,8 @@ pub enum Context {
     Internal,
 }
 
+unsafe impl Send for Context {}
+
 #[derive(Debug, Clone)]
 pub enum Export {
     Function {
@@ -25,6 +27,8 @@ pub enum Export {
 
 #[derive(Debug, Clone)]
 pub struct FuncPointer(*const vm::Func);
+
+unsafe impl Send for FuncPointer {}
 
 impl FuncPointer {
     /// This needs to be unsafe because there is
