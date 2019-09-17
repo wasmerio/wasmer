@@ -301,6 +301,10 @@ impl Emitter for Assembler {
                 assert!(disp >= 0);
                 dynasm!(self ; str W(map_gpr(src).x()), [ X(map_gpr(dst).x()), disp as u32 ] );
             }
+            (Size::S32, Location::Imm32(x), Location::Memory(dst, disp)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; b >after; data: ; .dword x as i32; after: ; ldr w_tmp1, <data; str w_tmp1, [ X(map_gpr(dst).x()), disp as u32 ] );
+            }
             (Size::S32, Location::Imm32(x), Location::GPR(dst)) => {
                 dynasm!(self ; b >after; data: ; .dword x as i32; after: ; ldr W(map_gpr(dst).x()), <data);
             }
@@ -314,6 +318,10 @@ impl Emitter for Assembler {
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
                 assert!(disp >= 0);
                 dynasm!(self ; str X(map_gpr(src).x()), [ X(map_gpr(dst).x()), disp as u32 ] );
+            }
+            (Size::S64, Location::Imm32(x), Location::Memory(dst, disp)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; b >after; data: ; .qword x as i64; after: ; ldr x_tmp1, <data; str x_tmp1, [ X(map_gpr(dst).x()), disp as u32 ] );
             }
             (Size::S64, Location::Imm32(x), Location::GPR(dst)) => {
                 dynasm!(self ; b >after; data: ; .qword x as i64; after: ; ldr X(map_gpr(dst).x()), <data);
