@@ -110,7 +110,7 @@ fn generate_trampoline(
             );
         }
         _ => {
-            return Err("trampoline function multi-value returns".to_string());
+            return Err("trampoline function multi-value returns unimplemented".to_string());
         }
     }
 
