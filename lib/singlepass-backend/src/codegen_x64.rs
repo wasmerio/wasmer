@@ -644,7 +644,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             ),
             Location::GPR(GPR::RAX),
         );
-        a.emit_jmp_location(Location::GPR(GPR::RAX));
+        a.emit_homomorphic_host_redirection(GPR::RAX);
 
         self.func_import_count += 1;
 

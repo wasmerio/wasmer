@@ -168,6 +168,8 @@ pub trait Emitter {
     fn emit_call_location(&mut self, loc: Location);
 
     fn emit_bkpt(&mut self);
+
+    fn emit_homomorphic_host_redirection(&mut self, target: GPR);
 }
 
 fn _dummy(a: &mut Assembler) {
@@ -939,5 +941,9 @@ impl Emitter for Assembler {
 
     fn emit_bkpt(&mut self) {
         dynasm!(self ; int 0x3);
+    }
+
+    fn emit_homomorphic_host_redirection(&mut self, target: GPR) {
+        self.emit_jmp_location(Location::GPR(target));
     }
 }

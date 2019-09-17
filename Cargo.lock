@@ -428,7 +428,7 @@ dependencies = [
 
 [[package]]
 name = "dynasm"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "dynasmrt"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1692,8 +1692,8 @@ version = "0.6.0"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "colored 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "dynasm 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "dynasmrt 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dynasm 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dynasmrt 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1875,8 +1875,8 @@ dependencies = [
 "checksum csv-core 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "9b5cadb6b25c77aeff80ba701712494213f4a8418fcda2ee11b6560c3ad0bf4c"
 "checksum ctor 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)" = "5b6b2f4752cc29efbfd03474c532ce8f916f2d44ec5bb8c21f93bc76e5365528"
 "checksum digest 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f3d0c8c8752312f9713efd397ff63acb9f85585afbf179282e720e7704954dd5"
-"checksum dynasm 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "56607fba702a46df49ce4f6e1e7b7cc55df2c8c5066630a1b4e91939f8948795"
-"checksum dynasmrt 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "81c856c0e3505b907e0f07a70712daf717a204e8195e3f41d20badea3718762c"
+"checksum dynasm 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8654f63488a94cd11feac2a609fdcdecd09e02fb582731f635783689fbb429f3"
+"checksum dynasmrt 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b0046b083139885c38990f2fb9822d06f6c5902068d93a6ed9e56b63011b9932"
 "checksum either 1.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5527cfe0d098f36e3f8839852688e63c8fff1c90b2b405aef730615f9a7bcf7b"
 "checksum enum-methods 0.0.8 (registry+https://github.com/rust-lang/crates.io-index)" = "7798e7da2d4cb0d6d6fc467e8d6b5bf247e9e989f786dde1732d79899c32bb10"
 "checksum env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "aafcde04e90a5226a6443b7aabdb016ba2f8307c847d524724bd9b346dd1a2d3"

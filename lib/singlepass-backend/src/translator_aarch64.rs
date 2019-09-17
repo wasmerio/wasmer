@@ -977,4 +977,40 @@ impl Emitter for Assembler {
     fn emit_bkpt(&mut self) {
         dynasm!(self ; brk 1)
     }
+
+    fn emit_homomorphic_host_redirection(&mut self, target: GPR) {
+        let target = map_gpr(target);
+        dynasm!(
+            self
+            ; sub sp, sp, 16
+            ; str x30, [sp, 0] // LR
+            ; str X(target.x()), [sp, 8]
+            ; adr x30, >after
+
+            // Put parameters in correct order
+            ; sub sp, sp, 64
+            ; str X(map_gpr(GPR::RDI).x()), [sp, 0]
+            ; str X(map_gpr(GPR::RSI).x()), [sp, 8]
+            ; str X(map_gpr(GPR::RDX).x()), [sp, 16]
+            ; str X(map_gpr(GPR::RCX).x()), [sp, 24]
+            ; str X(map_gpr(GPR::R8).x()), [sp, 32]
+            ; str X(map_gpr(GPR::R9).x()), [sp, 40]
+            ; ldr x0, [sp, 0]
+            ; ldr x1, [sp, 8]
+            ; ldr x2, [sp, 16]
+            ; ldr x3, [sp, 24]
+            ; ldr x4, [sp, 32]
+            ; ldr x5, [sp, 40]
+            ; add sp, sp, 64
+
+            // Branch to saved target
+            ; ldr x8, [sp, 8]
+            ; br x8
+
+            ; after:
+            ; ldr x30, [sp, 0] // LR
+            ; add sp, sp, 16
+            ; br x30
+        );
+    }
 }
