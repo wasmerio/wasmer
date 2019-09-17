@@ -473,11 +473,7 @@ impl EmscriptenGlobals {
         let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
 
         // Memory initialization
-        let memory_type = MemoryDescriptor {
-            minimum: memory_min,
-            maximum: memory_max,
-            shared: shared,
-        };
+        let memory_type = MemoryDescriptor::new(memory_min, memory_max, shared)?;
         let memory = Memory::new(memory_type).unwrap();
 
         let table_type = TableDescriptor {

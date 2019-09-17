@@ -177,7 +177,7 @@ impl fmt::Debug for Memory {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MemoryType {
     Dynamic,
     Static,
