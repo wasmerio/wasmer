@@ -1,6 +1,6 @@
 use std::str;
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Debug)]
 pub enum InterfaceType {
     Int,
     Float,
