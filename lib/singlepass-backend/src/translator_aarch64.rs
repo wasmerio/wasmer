@@ -1033,7 +1033,10 @@ impl Emitter for Assembler {
             ; ldr X(map_gpr(GPR::RBP).x()), [sp, 56]
             ; ldr X(map_gpr(GPR::RSP).x()), [sp, 64]
             ; add sp, sp, 80
-            ; br x30
+
+            ; ldr x_tmp1, [x_rsp]
+            ; add x_rsp, x_rsp, 8
+            ; br x_tmp1
         );
     }
 }
