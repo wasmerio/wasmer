@@ -1,17 +1,19 @@
 pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
-    error::{CallError, CallResult, RuntimeError},
-    instance::call_func_with_index,
+    error::CallResult,
+    instance::call_func_with_index_inner,
     memory::{Memory, MemoryType},
     module::{ModuleInfo, ModuleInner},
+    sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{FuncIndex, LocalOrImport, MemoryIndex, Value},
+    types::{LocalOrImport, MemoryIndex, TableIndex, Value},
     vmcalls,
 };
 use std::{
     cell::UnsafeCell,
     ffi::c_void,
-    mem, ptr,
+    mem,
+    ptr::{self, NonNull},
     sync::atomic::{AtomicUsize, Ordering},
     sync::Once,
 };
@@ -397,24 +399,36 @@ impl Ctx {
     }
 
     /// Calls a host or Wasm function at the given index
-    pub fn call_with_index(&mut self, index: FuncIndex, args: &[Value]) -> CallResult<Vec<Value>> {
-        let module = unsafe { &(*self.module) };
-        if module.info.func_assoc.get(index).is_none() {
-            return Err(CallError::Runtime(RuntimeError::Trap {
-                msg: format!("Index out of bounds: {}", index.index()).into_boxed_str(),
-            }));
-        }
-        let mut output = vec![];
-        call_func_with_index(
-            &module.info,
-            module.runnable_module.as_ref(),
-            unsafe { &*self.import_backing },
-            self as *mut Ctx,
-            index,
+    pub fn call_with_index(&mut self, index: TableIndex, args: &[Value]) -> CallResult<Vec<Value>> {
+        let anyfunc_table =
+            unsafe { &*((**self.internal.tables).table as *mut crate::table::AnyfuncTable) };
+        let entry = anyfunc_table.backing[index.index()];
+
+        let fn_ptr = entry.func;
+        let sig_id = entry.sig_id;
+        let signature = SigRegistry.lookup_signature(unsafe { std::mem::transmute(sig_id.0) });
+        let mut rets = vec![];
+
+        let wasm = {
+            let module = unsafe { &*self.module };
+            let runnable = &module.runnable_module;
+
+            let sig_index = SigRegistry.lookup_sig_index(signature.clone());
+            runnable
+                .get_trampoline(&module.info, sig_index)
+                .expect("wasm trampoline")
+        };
+
+        call_func_with_index_inner(
+            self as *mut Ctx, /* doesn't handle all cases */
+            NonNull::new(fn_ptr as *mut _).unwrap(),
+            &signature,
+            wasm,
             args,
-            &mut output,
+            &mut rets,
         )?;
-        Ok(output)
+
+        Ok(rets)
     }
 }
 

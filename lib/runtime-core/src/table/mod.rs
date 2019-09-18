@@ -9,8 +9,7 @@ use std::{cell::RefCell, fmt, ptr, rc::Rc};
 
 mod anyfunc;
 
-pub use self::anyfunc::Anyfunc;
-use self::anyfunc::AnyfuncTable;
+pub use self::anyfunc::{Anyfunc, AnyfuncTable};
 use crate::error::GrowError;
 
 pub enum Element<'a> {

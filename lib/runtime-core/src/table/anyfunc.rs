@@ -44,7 +44,7 @@ impl<'a> From<DynFunc<'a>> for Anyfunc<'a> {
 }
 
 pub struct AnyfuncTable {
-    backing: Vec<vm::Anyfunc>,
+    pub backing: Vec<vm::Anyfunc>,
     max: Option<u32>,
 }
 
