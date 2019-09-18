@@ -398,14 +398,16 @@ impl Ctx {
         }
     }
 
-    /// Calls a host or Wasm function at the given index
-    pub fn call_with_index(&mut self, index: TableIndex, args: &[Value]) -> CallResult<Vec<Value>> {
+    /// Calls a host or Wasm function at the given table index
+    pub fn call_with_table_index(
+        &mut self,
+        index: TableIndex,
+        args: &[Value],
+    ) -> CallResult<Vec<Value>> {
         let anyfunc_table =
             unsafe { &*((**self.internal.tables).table as *mut crate::table::AnyfuncTable) };
-        let entry = anyfunc_table.backing[index.index()];
+        let Anyfunc { func, ctx, sig_id } = anyfunc_table.backing[index.index()];
 
-        let fn_ptr = entry.func;
-        let sig_id = entry.sig_id;
         let signature = SigRegistry.lookup_signature(unsafe { std::mem::transmute(sig_id.0) });
         let mut rets = vec![];
 
@@ -420,8 +422,8 @@ impl Ctx {
         };
 
         call_func_with_index_inner(
-            self as *mut Ctx, /* doesn't handle all cases */
-            NonNull::new(fn_ptr as *mut _).unwrap(),
+            ctx,
+            NonNull::new(func as *mut _).unwrap(),
             &signature,
             wasm,
             args,

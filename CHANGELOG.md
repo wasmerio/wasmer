@@ -6,6 +6,8 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#803](https://github.com/wasmerio/wasmer/issues/803) Add method to `Ctx` to invoke functions by their `TableIndex`
+
 ## 0.7.0 - 2019-09-12
 
 Special thanks to @YaronWittenstein @penberg for their contributions.

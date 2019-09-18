@@ -12,4 +12,4 @@ links to related issues, and the context of the PR.
 
 # Review
 
-- [ ] Create a short description of the the change in the CHANGELOG.md file
+- [ ] Add a short description of the the change to the CHANGELOG.md file

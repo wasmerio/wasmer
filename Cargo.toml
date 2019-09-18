@@ -58,7 +58,7 @@ members = [
     "lib/wasi-tests",
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
-    "examples/plugin-for-example"
+    "examples/plugin-for-example",
 ]
 
 [build-dependencies]
@@ -104,4 +104,8 @@ managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
 
 [[example]]
 name = "plugin"
+crate-type = ["bin"]
+
+[[example]]
+name = "callback"
 crate-type = ["bin"]
