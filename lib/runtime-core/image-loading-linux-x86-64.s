@@ -81,7 +81,7 @@ pushq %r8
 pushq %r9
 pushq %r10
 
-callq get_boundary_register_preservation
+callq get_boundary_register_preservation@PLT
 
 # Keep this consistent with BoundaryRegisterPreservation
 movq %r15, 0(%rax)
