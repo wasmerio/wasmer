@@ -8,7 +8,7 @@ pub use decoders::binary::parse as parse_binary;
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::*, parse_binary};
+    use crate::{ast::*, encoders::wat::*, parse_binary};
     use std::fs;
     use wasmer_clif_backend::CraneliftCompiler;
     use wasmer_runtime_core as runtime;
@@ -102,6 +102,50 @@ mod tests {
                         ],
                         forwards: vec![Forward { name: "main" }]
                     }
+                );
+
+                let wat = String::from(&interfaces);
+
+                assert_eq!(
+                    wat,
+                    r#";; Interfaces
+
+;; Interface, Export strlen
+(@interface export "strlen"
+  (param i32)
+  (result i32))
+
+;; Interface, Export write_null_byte
+(@interface export "write_null_byte"
+  (param i32 i32)
+  (result i32))
+
+;; Interface, Imported function host.console_log
+(@interface func $host_console_log (import "host" "console_log")
+  (param String))
+
+;; Interface, Imported function host.document_title
+(@interface func $host_document_title (import "host" "document_title")
+  (result String))
+
+;; Interface, Adapter host.console_log
+(@interface adapt (import "host" "console_log")
+  (param i32)
+  arg.get 0
+  arg.get 0
+  call-export "strlen"
+  read-utf8
+  call 0)
+
+;; Interface, Adapter host.document_title
+(@interface adapt (import "host" "document_title")
+  (result i32)
+  call 1
+  write-utf8 "alloc"
+  call-export "write_null_byte")
+
+;; Interface, Forward main
+(@interface forward (export "main"))"#,
                 );
             }
 

@@ -1,4 +1,6 @@
-use crate::ast::{Adapter, Export, Forward, ImportedFunction, Instruction, InterfaceType, Type};
+use crate::ast::{
+    Adapter, Export, Forward, ImportedFunction, Instruction, InterfaceType, Interfaces, Type,
+};
 
 impl From<&InterfaceType> for String {
     fn from(interface_type: &InterfaceType) -> Self {
@@ -183,6 +185,83 @@ impl<'input> From<&Forward<'input>> for String {
             r#"(@interface forward (export "{name}"))"#,
             name = forward.name,
         )
+    }
+}
+
+impl<'input> From<&Interfaces<'input>> for String {
+    fn from(interfaces: &Interfaces) -> Self {
+        let mut output = String::from(";; Interfaces");
+
+        let exports = interfaces
+            .exports
+            .iter()
+            .fold(String::new(), |mut accumulator, export| {
+                accumulator.push_str(&format!("\n\n;; Interface, Export {}\n", export.name));
+                accumulator.push_str(&String::from(export));
+                accumulator
+            });
+
+        let types = interfaces
+            .types
+            .iter()
+            .fold(String::new(), |mut accumulator, ty| {
+                accumulator.push_str(&format!("\n\n;; Interface, Ty {}\n", ty.name));
+                accumulator.push_str(&String::from(ty));
+                accumulator
+            });
+
+        let imported_functions = interfaces.imported_functions.iter().fold(
+            String::new(),
+            |mut accumulator, imported_function| {
+                accumulator.push_str(&format!(
+                    "\n\n;; Interface, Imported function {}.{}\n",
+                    imported_function.namespace, imported_function.name
+                ));
+                accumulator.push_str(&String::from(imported_function));
+                accumulator
+            },
+        );
+
+        let adapters =
+            interfaces
+                .adapters
+                .iter()
+                .fold(String::new(), |mut accumulator, adapter| {
+                    match adapter {
+                        Adapter::Import {
+                            namespace, name, ..
+                        } => accumulator.push_str(&format!(
+                            "\n\n;; Interface, Adapter {}.{}\n",
+                            namespace, name
+                        )),
+
+                        Adapter::Export { name, .. } => {
+                            accumulator.push_str(&format!("\n\n;; Interface, Adapter {}\n", name))
+                        }
+
+                        _ => unimplemented!(),
+                    }
+                    accumulator.push_str(&String::from(adapter));
+                    accumulator
+                });
+
+        let forwards =
+            interfaces
+                .forwards
+                .iter()
+                .fold(String::new(), |mut accumulator, forward| {
+                    accumulator.push_str(&format!("\n\n;; Interface, Forward {}\n", forward.name));
+                    accumulator.push_str(&String::from(forward));
+                    accumulator
+                });
+
+        output.push_str(&exports);
+        output.push_str(&types);
+        output.push_str(&imported_functions);
+        output.push_str(&adapters);
+        output.push_str(&forwards);
+
+        output
     }
 }
 
@@ -440,6 +519,85 @@ mod tests {
     fn test_forward() {
         let input: String = (&Forward { name: "main" }).into();
         let output = r#"(@interface forward (export "main"))"#;
+
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn test_interfaces() {
+        let input: String = (&Interfaces {
+            exports: vec![
+                Export {
+                    name: "foo",
+                    input_types: vec![InterfaceType::I32],
+                    output_types: vec![],
+                },
+                Export {
+                    name: "bar",
+                    input_types: vec![],
+                    output_types: vec![],
+                },
+            ],
+            types: vec![],
+            imported_functions: vec![
+                ImportedFunction {
+                    namespace: "ns",
+                    name: "foo",
+                    input_types: vec![],
+                    output_types: vec![InterfaceType::I32],
+                },
+                ImportedFunction {
+                    namespace: "ns",
+                    name: "bar",
+                    input_types: vec![],
+                    output_types: vec![],
+                },
+            ],
+            adapters: vec![
+                Adapter::Import {
+                    namespace: "ns",
+                    name: "foo",
+                    input_types: vec![InterfaceType::I32],
+                    output_types: vec![],
+                    instructions: vec![Instruction::ArgumentGet(42)],
+                },
+                Adapter::Export {
+                    name: "bar",
+                    input_types: vec![],
+                    output_types: vec![],
+                    instructions: vec![Instruction::ArgumentGet(42)],
+                },
+            ],
+            forwards: vec![Forward { name: "main" }],
+        })
+            .into();
+        let output = r#";; Interfaces
+
+;; Interface, Export foo
+(@interface export "foo"
+  (param i32))
+
+;; Interface, Export bar
+(@interface export "bar")
+
+;; Interface, Imported function ns.foo
+(@interface func $ns_foo (import "ns" "foo")
+  (result i32))
+
+;; Interface, Imported function ns.bar
+(@interface func $ns_bar (import "ns" "bar"))
+
+;; Interface, Adapter ns.foo
+(@interface adapt (import "ns" "foo")
+  (param i32)
+  arg.get 42)
+
+;; Interface, Adapter bar
+(@interface adapt (export "bar")
+  arg.get 42)
+
+;; Interface, Forward main
+(@interface forward (export "main"))"#;
 
         assert_eq!(input, output);
     }
