@@ -44,6 +44,22 @@ impl<'input> From<&Instruction<'input>> for String {
                 format!("const {} {}", String::from(interface_type), value)
             }
             Instruction::FoldSeq(import_index) => format!("fold-seq {}", import_index),
+            Instruction::Add(interface_type) => format!("add {}", String::from(interface_type)),
+            Instruction::MemToSeq(interface_type, memory) => format!(
+                r#"mem-to-seq {} "{}""#,
+                String::from(interface_type),
+                memory
+            ),
+            Instruction::Load(interface_type, memory) => {
+                format!(r#"load {} "{}""#, String::from(interface_type), memory)
+            }
+            Instruction::SeqNew(interface_type) => {
+                format!("seq.new {}", String::from(interface_type))
+            }
+            Instruction::ListPush => "list.push".into(),
+            Instruction::RepeatWhile(condition_index, step_index) => {
+                format!("repeat-while {} {}", condition_index, step_index)
+            }
         }
     }
 }
@@ -212,6 +228,12 @@ mod tests {
             (&Instruction::GetField(InterfaceType::Int, 7)).into(),
             (&Instruction::Const(InterfaceType::I32, 7)).into(),
             (&Instruction::FoldSeq(7)).into(),
+            (&Instruction::Add(InterfaceType::Int)).into(),
+            (&Instruction::MemToSeq(InterfaceType::Int, "foo")).into(),
+            (&Instruction::Load(InterfaceType::Int, "foo")).into(),
+            (&Instruction::SeqNew(InterfaceType::Int)).into(),
+            (&Instruction::ListPush).into(),
+            (&Instruction::RepeatWhile(1, 2)).into(),
         ];
         let outputs = vec![
             "arg.get 7",
@@ -228,6 +250,12 @@ mod tests {
             "get-field Int 7",
             "const i32 7",
             "fold-seq 7",
+            "add Int",
+            r#"mem-to-seq Int "foo""#,
+            r#"load Int "foo""#,
+            "seq.new Int",
+            "list.push",
+            "repeat-while 1 2",
         ];
 
         assert_eq!(inputs, outputs);

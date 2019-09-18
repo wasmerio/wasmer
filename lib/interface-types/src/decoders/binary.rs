@@ -193,6 +193,36 @@ fn instructions<'input, E: ParseError<&'input [u8]>>(
             (input, Instruction::FoldSeq(argument_0))
         }
 
+        0x0f => {
+            consume!((input, argument_0) = ty(input)?);
+            (input, Instruction::Add(argument_0))
+        }
+
+        0x10 => {
+            consume!((input, argument_0) = ty(input)?);
+            consume!((input, argument_1) = string(input)?);
+            (input, Instruction::MemToSeq(argument_0, argument_1))
+        }
+
+        0x11 => {
+            consume!((input, argument_0) = ty(input)?);
+            consume!((input, argument_1) = string(input)?);
+            (input, Instruction::Load(argument_0, argument_1))
+        }
+
+        0x12 => {
+            consume!((input, argument_0) = ty(input)?);
+            (input, Instruction::SeqNew(argument_0))
+        }
+
+        0x13 => (input, Instruction::ListPush),
+
+        0x14 => {
+            consume!((input, argument_0) = leb(input)?);
+            consume!((input, argument_1) = leb(input)?);
+            (input, Instruction::RepeatWhile(argument_0, argument_1))
+        }
+
         _ => return Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
     })
 }
@@ -467,7 +497,7 @@ mod tests {
     #[test]
     fn test_instructions() {
         let input = &[
-            0x0e, // list of 14 items
+            0x14, // list of 20 items
             0x00, 0x01, // ArgumentGet(1)
             0x01, 0x01, // Call(1)
             0x02, 0x03, 0x61, 0x62, 0x63, // CallExport("abc")
@@ -482,6 +512,12 @@ mod tests {
             0x0c, 0xff, 0xff, 0x01, 0x02, // GetField(Int, 2)
             0x0d, 0x7f, 0x01, // Const(I32, 1)
             0x0e, 0x01, // FoldSeq(1)
+            0x0f, 0x7f, // Add(I32)
+            0x10, 0x7f, 0x03, 0x61, 0x62, 0x63, // MemToSeq(I32, "abc")
+            0x11, 0x7f, 0x03, 0x61, 0x62, 0x63, // Load(I32, "abc")
+            0x12, 0x7f, // SeqNew(I32)
+            0x13, // ListPush
+            0x14, 0x01, 0x02, // RepeatWhile(1, 2)
             0x0a,
         ];
         let output = Ok((
@@ -501,6 +537,12 @@ mod tests {
                 Instruction::GetField(InterfaceType::Int, 2),
                 Instruction::Const(InterfaceType::I32, 1),
                 Instruction::FoldSeq(1),
+                Instruction::Add(InterfaceType::I32),
+                Instruction::MemToSeq(InterfaceType::I32, "abc"),
+                Instruction::Load(InterfaceType::I32, "abc"),
+                Instruction::SeqNew(InterfaceType::I32),
+                Instruction::ListPush,
+                Instruction::RepeatWhile(1, 2),
             ],
         ));
 

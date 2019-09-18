@@ -37,6 +37,12 @@ pub enum Instruction<'input> {
     GetField(InterfaceType, u64),
     Const(InterfaceType, u64),
     FoldSeq(u64),
+    Add(InterfaceType),
+    MemToSeq(InterfaceType, &'input str),
+    Load(InterfaceType, &'input str),
+    SeqNew(InterfaceType),
+    ListPush,
+    RepeatWhile(u64, u64),
 }
 
 #[derive(PartialEq, Debug)]
