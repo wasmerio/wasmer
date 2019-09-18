@@ -1,5 +1,6 @@
-use crate::ast::{
-    Adapter, Export, Forward, ImportedFunction, Instruction, InterfaceType, Interfaces, Type,
+use crate::{
+    ast::{Adapter, Export, Forward, ImportedFunction, InterfaceType, Interfaces, Type},
+    instructions::Instruction,
 };
 
 impl From<&InterfaceType> for String {
@@ -267,7 +268,7 @@ impl<'input> From<&Interfaces<'input>> for String {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::*;
+    use crate::{ast::*, instructions::Instruction};
 
     #[test]
     fn test_interface_types() {
