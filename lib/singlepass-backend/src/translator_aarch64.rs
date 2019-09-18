@@ -654,8 +654,7 @@ impl Emitter for Assembler {
         binop_all_nofp!(and, self, sz, src, dst, { unreachable!("and") });
     }
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
-        //binop_all_nofp!(or, self, sz, src, dst, { unreachable!("or") });
-        unimplemented!("instruction");
+        binop_all_nofp!(orr, self, sz, src, dst, { unreachable!("or") });
     }
     fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         match sz {
@@ -742,10 +741,64 @@ impl Emitter for Assembler {
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
         unimplemented!("instruction")
     }
-    fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
-        unimplemented!("instruction")
+    fn emit_movzx(&mut self, sz_src: Size, src: Location, _sz_dst: Size, dst: Location) {
+        match (sz_src, src, dst) {
+            (Size::S8, Location::GPR(src), Location::GPR(dst)) => {
+                dynasm!(self ; uxtb W(map_gpr(dst).x()), W(map_gpr(src).x()));
+            }
+            (Size::S16, Location::GPR(src), Location::GPR(dst)) => {
+                dynasm!(self ; uxth W(map_gpr(dst).x()), W(map_gpr(src).x()));
+            }
+            (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; ldrb W(map_gpr(dst).x()), [X(map_gpr(src).x()), disp as u32]);
+            }
+            (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; ldrh W(map_gpr(dst).x()), [X(map_gpr(src).x()), disp as u32]);
+            }
+            _ => unreachable!(),
+        }
     }
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
+        match (sz_src, src, sz_dst, dst) {
+            (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; sxtb W(map_gpr(dst).x()), W(map_gpr(src).x()));
+            }
+            (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; sxth W(map_gpr(dst).x()), W(map_gpr(src).x()));
+            }
+            (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; ldrb W(map_gpr(dst).x()), [X(map_gpr(src).x()), disp as u32]; sxtb W(map_gpr(dst).x()), W(map_gpr(dst).x()));
+            }
+            (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; ldrh W(map_gpr(dst).x()), [X(map_gpr(src).x()), disp as u32]; sxth W(map_gpr(dst).x()), W(map_gpr(dst).x()));
+            }
+            (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; sxtb X(map_gpr(dst).x()), W(map_gpr(src).x()));
+            }
+            (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; sxth X(map_gpr(dst).x()), W(map_gpr(src).x()));
+            }
+            (Size::S32, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; sxtw X(map_gpr(dst).x()), W(map_gpr(src).x()));
+            }
+            (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; ldrb W(map_gpr(dst).x()), [X(map_gpr(src).x()), disp as u32]; sxtb X(map_gpr(dst).x()), W(map_gpr(dst).x()));
+            }
+            (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; ldrh W(map_gpr(dst).x()), [X(map_gpr(src).x()), disp as u32]; sxth X(map_gpr(dst).x()), W(map_gpr(dst).x()));
+            }
+            (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
+                assert!(disp >= 0);
+                dynasm!(self ; ldrh W(map_gpr(dst).x()), [X(map_gpr(src).x()), disp as u32]; sxtw X(map_gpr(dst).x()), W(map_gpr(dst).x()));
+            }
+            _ => unreachable!(),
+        }
         unimplemented!("instruction")
     }
 
