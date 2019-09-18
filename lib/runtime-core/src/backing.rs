@@ -149,6 +149,11 @@ impl LocalBacking {
                     }]);
                 }
                 Initializer::GetGlobal(import_global_index) => {
+                    if import_global_index.index() >= imports.globals.len() {
+                        return Err(vec![LinkError::Generic {
+                            message: "incorrect global index for initializer".to_string(),
+                        }]);
+                    }
                     if let Value::I32(x) = imports.globals[import_global_index].get() {
                         x as u32
                     } else {
@@ -205,6 +210,11 @@ impl LocalBacking {
                     }]);
                 }
                 Initializer::GetGlobal(import_global_index) => {
+                    if import_global_index.index() >= imports.globals.len() {
+                        return Err(vec![LinkError::Generic {
+                            message: "incorrect global index for initializer".to_string(),
+                        }]);
+                    }
                     if let Value::I32(x) = imports.globals[import_global_index].get() {
                         x as u32
                     } else {
@@ -273,6 +283,11 @@ impl LocalBacking {
                     }]);
                 }
                 Initializer::GetGlobal(import_global_index) => {
+                    if import_global_index.index() >= imports.globals.len() {
+                        return Err(vec![LinkError::Generic {
+                            message: "incorrect global index for initializer".to_string(),
+                        }]);
+                    }
                     if let Value::I32(x) = imports.globals[import_global_index].get() {
                         x as u32
                     } else {
@@ -326,6 +341,11 @@ impl LocalBacking {
                     }]);
                 }
                 Initializer::GetGlobal(import_global_index) => {
+                    if import_global_index.index() >= imports.globals.len() {
+                        return Err(vec![LinkError::Generic {
+                            message: "incorrect global index for initializer".to_string(),
+                        }]);
+                    }
                     if let Value::I32(x) = imports.globals[import_global_index].get() {
                         x as u32
                     } else {
