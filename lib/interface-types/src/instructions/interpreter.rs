@@ -1,12 +1,11 @@
 use crate::instructions::{stack::Stack, Instruction};
 use std::convert::TryFrom;
 
-type ExecutableInstruction = dyn Fn(&mut Stack);
-//trait ExecutableInstruction: Fn(&mut Stack) {}
+type ExecutableInstruction = Box<dyn Fn(&mut Stack)>;
 
 pub(crate) struct Interpreter {
     stack: Stack,
-    instructions: Vec<Box<dyn Fn(&mut Stack) + 'static>>,
+    instructions: Vec<ExecutableInstruction>,
 }
 
 impl Interpreter {
@@ -21,7 +20,7 @@ impl<'binary_input> TryFrom<&Vec<Instruction<'binary_input>>> for Interpreter {
     fn try_from(instructions: &Vec<Instruction>) -> Result<Self, Self::Error> {
         let executable_instructions = instructions
             .iter()
-            .map(|instruction| -> Box<dyn Fn(&mut Stack) + 'static> {
+            .map(|instruction| -> ExecutableInstruction {
                 match instruction {
                     Instruction::ArgumentGet(index) => {
                         let index = index.to_owned();
@@ -50,7 +49,7 @@ impl<'binary_input> TryFrom<&Vec<Instruction<'binary_input>>> for Interpreter {
                     _ => unimplemented!(),
                 }
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         Ok(Interpreter {
             stack: Stack::new(),
