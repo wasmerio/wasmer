@@ -97,6 +97,7 @@ pub trait Emitter {
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
     fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location);
 
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR);
     fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR);
@@ -855,6 +856,24 @@ impl Emitter for Assembler {
                 dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rq(src as u8));
             }
             _ => panic!("LOCK XADD {:?} {:?} {:?}", sz, src, dst),
+        }
+    }
+
+    fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location) {
+        match (sz, src, dst) {
+            (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rb(src as u8));
+            }
+            (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rw(src as u8));
+            }
+            (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rd(src as u8));
+            }
+            (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
+                dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rq(src as u8));
+            }
+            _ => panic!("LOCK CMPXCHG {:?} {:?} {:?}", sz, src, dst),
         }
     }
 
