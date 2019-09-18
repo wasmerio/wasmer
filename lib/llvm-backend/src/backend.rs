@@ -189,8 +189,8 @@ impl LLVMBackend {
                 &TargetMachine::get_host_cpu_name().to_string(),
                 &TargetMachine::get_host_cpu_features().to_string(),
                 OptimizationLevel::Aggressive,
-                RelocMode::PIC,
-                CodeModel::Default,
+                RelocMode::Static,
+                CodeModel::Large,
             )
             .unwrap();
 

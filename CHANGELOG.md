@@ -7,6 +7,11 @@ Blocks of changes will separated by version increments.
 ## **[Unreleased]**
 
 - [#803](https://github.com/wasmerio/wasmer/issues/803) Add method to `Ctx` to invoke functions by their `TableIndex`
+- [#790](https://github.com/wasmerio/wasmer/pull/790) Fix flaky test failure with LLVM, switch to large code model.
+- [#788](https://github.com/wasmerio/wasmer/pull/788) Use union merge on the changelog file.
+- [#785](https://github.com/wasmerio/wasmer/pull/785) Include Apache license file for spectests.
+- [#786](https://github.com/wasmerio/wasmer/pull/786) In the LLVM backend, lower atomic wasm operations to atomic machine instructions.
+- [#784](https://github.com/wasmerio/wasmer/pull/784) Fix help string for wasmer run.
 
 ## 0.7.0 - 2019-09-12
 

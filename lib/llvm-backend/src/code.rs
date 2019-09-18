@@ -4784,8 +4784,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     effective_address,
                 );
                 let result = builder.build_load(effective_address, &state.var_name());
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 4);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let load = result.as_instruction_value().unwrap();
+                load.set_alignment(4).unwrap();
+                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
                 state.push1(result);
             }
             Operator::I64AtomicLoad { ref memarg } => {
@@ -4809,8 +4811,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     effective_address,
                 );
                 let result = builder.build_load(effective_address, &state.var_name());
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 8);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let load = result.as_instruction_value().unwrap();
+                load.set_alignment(8).unwrap();
+                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
                 state.push1(result);
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
@@ -4836,8 +4840,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 1);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let load = narrow_result.as_instruction_value().unwrap();
+                load.set_alignment(1).unwrap();
+                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
@@ -4865,8 +4871,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 2);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let load = narrow_result.as_instruction_value().unwrap();
+                load.set_alignment(2).unwrap();
+                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
@@ -4894,8 +4902,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 1);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let load = narrow_result.as_instruction_value().unwrap();
+                load.set_alignment(1).unwrap();
+                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
@@ -4923,8 +4933,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 2);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let load = narrow_result.as_instruction_value().unwrap();
+                load.set_alignment(2).unwrap();
+                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
@@ -4952,8 +4964,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 4);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let load = narrow_result.as_instruction_value().unwrap();
+                load.set_alignment(4).unwrap();
+                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
@@ -4979,9 +4993,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     effective_address,
                 );
-                builder.build_store(effective_address, value);
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 4);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let store = builder.build_store(effective_address, value);
+                store.set_alignment(4).unwrap();
+                store
+                    .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
             }
             Operator::I64AtomicStore { ref memarg } => {
                 let value = state.pop1()?;
@@ -5004,9 +5020,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     effective_address,
                 );
-                builder.build_store(effective_address, value);
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 8);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let store = builder.build_store(effective_address, value);
+                store.set_alignment(8).unwrap();
+                store
+                    .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
             }
             Operator::I32AtomicStore8 { ref memarg } | Operator::I64AtomicStore8 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -5031,9 +5049,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 );
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
-                builder.build_store(effective_address, narrow_value);
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 1);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let store = builder.build_store(effective_address, narrow_value);
+                store.set_alignment(1).unwrap();
+                store
+                    .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
             }
             Operator::I32AtomicStore16 { ref memarg }
             | Operator::I64AtomicStore16 { ref memarg } => {
@@ -5059,9 +5079,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 );
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
-                builder.build_store(effective_address, narrow_value);
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 2);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let store = builder.build_store(effective_address, narrow_value);
+                store.set_alignment(2).unwrap();
+                store
+                    .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
             }
             Operator::I64AtomicStore32 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -5086,9 +5108,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 );
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
-                builder.build_store(effective_address, narrow_value);
-                // TODO: LLVMSetAlignment(result.as_value_ref(), 4);
-                // TODO: LLVMSetOrdering(result.as_value_ref(), LLVMAtomicOrderingSequentiallyConsistent);
+                let store = builder.build_store(effective_address, narrow_value);
+                store.set_alignment(4).unwrap();
+                store
+                    .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+                    .unwrap();
             }
             Operator::I32AtomicRmw8UAdd { ref memarg } => {
                 let value = state.pop1()?.into_int_value();

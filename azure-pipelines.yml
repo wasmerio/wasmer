@@ -50,6 +50,16 @@ jobs:
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
+      - bash: |
+          hostname
+          uname -a
+        displayName: System info (*nix)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: |
+          cat /proc/cpuinfo
+          cat /proc/meminfo
+        displayName: System info - Extended (Linux)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
       - bash: make test
         displayName: Tests (*nix)
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
