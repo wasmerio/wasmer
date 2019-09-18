@@ -1638,7 +1638,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-interface-types"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "nom 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.7.0",
