@@ -4128,7 +4128,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     |a| {
-                        a.emit_call_location(Location::GPR(GPR::RAX));
+                        let label = a.get_label();
+                        let after = a.get_label();
+                        a.emit_jmp(Condition::None, after);
+                        a.emit_label(label);
+                        a.emit_homomorphic_host_redirection(GPR::RAX);
+                        a.emit_label(after);
+                        a.emit_call_label(label);
                     },
                     ::std::iter::once(Location::Imm32(memory_index.index() as u32)),
                     None,
