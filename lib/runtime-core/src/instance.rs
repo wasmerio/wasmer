@@ -25,6 +25,7 @@ pub(crate) struct InstanceInner {
     pub(crate) vmctx: *mut vm::Ctx,
 }
 
+// manually implemented because InstanceInner contains a raw pointer to Ctx
 unsafe impl Send for InstanceInner {}
 
 impl Drop for InstanceInner {

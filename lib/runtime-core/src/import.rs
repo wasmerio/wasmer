@@ -107,17 +107,6 @@ impl ImportObject {
         }
     }
 
-    /*pub fn get_namespace(
-        &self,
-        namespace: &str,
-    ) -> Option<
-        MutexGuardRef<HashMap<String, Box<dyn LikeNamespace + Send>>, &(dyn LikeNamespace + Send)>,
-    > {
-        MutexGuardRef::new(self.map.lock().unwrap())
-            .try_map(|mg| mg.get(namespace).map(|ns| &ns.as_ref()).ok_or(()))
-            .ok()
-    }*/
-
     /// Apply a function on the namespace if it exists
     /// If your function can fail, consider using `maybe_with_namespace`
     pub fn with_namespace<Func, InnerRet>(&self, namespace: &str, f: Func) -> Option<InnerRet>

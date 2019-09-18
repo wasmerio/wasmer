@@ -54,6 +54,7 @@ pub struct LocalBacking {
     pub(crate) internals: Internals,
 }
 
+// Manually implemented because LocalBacking contains raw pointers directly
 unsafe impl Send for LocalBacking {}
 
 impl LocalBacking {
@@ -463,6 +464,7 @@ pub struct ImportBacking {
     pub(crate) vm_globals: BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,
 }
 
+// manually implemented because ImportBacking contains raw pointers directly
 unsafe impl Send for ImportBacking {}
 
 impl ImportBacking {

@@ -474,6 +474,7 @@ pub struct ImportedFunc {
     pub vmctx: *mut Ctx,
 }
 
+// manually implemented because ImportedFunc contains raw pointers directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO: review this, shouldn't `Ctx` be Send?))
 unsafe impl Send for ImportedFunc {}
 
 impl ImportedFunc {
@@ -503,6 +504,7 @@ pub struct LocalTable {
     pub table: *mut (),
 }
 
+// manually implemented because LocalTable contains raw pointers directly
 unsafe impl Send for LocalTable {}
 
 impl LocalTable {
@@ -533,6 +535,9 @@ pub struct LocalMemory {
     /// or `*mut SharedStaticMemory`.
     pub memory: *mut (),
 }
+
+// manually implemented because LocalMemory contains raw pointers
+unsafe impl Send for LocalMemory {}
 
 impl LocalMemory {
     #[allow(clippy::erasing_op)] // TODO
@@ -584,6 +589,7 @@ pub struct Anyfunc {
     pub sig_id: SigId,
 }
 
+// manually implemented because Anyfunc contains raw pointers directly
 unsafe impl Send for Anyfunc {}
 
 impl Anyfunc {

@@ -213,7 +213,8 @@ struct UnsharedMemoryInternal {
     local: Cell<vm::LocalMemory>,
 }
 
-unsafe impl Send for UnsharedMemoryInternal {}
+// Manually implemented because UnsharedMemoryInternal uses `Cell` and is used in an Arc;
+// this is safe because the lock for storage can be used to protect (seems like a weak reason: PLEASE REVIEW!)
 unsafe impl Sync for UnsharedMemoryInternal {}
 
 impl UnsharedMemory {
@@ -291,7 +292,8 @@ pub struct SharedMemoryInternal {
     lock: Mutex<()>,
 }
 
-unsafe impl Send for SharedMemoryInternal {}
+// Manually implemented because SharedMemoryInternal uses `Cell` and is used in Arc;
+// this is safe because of `lock`; accesing `local` without locking `lock` is not safe (Maybe we could put the lock on Local then?)
 unsafe impl Sync for SharedMemoryInternal {}
 
 impl SharedMemory {
