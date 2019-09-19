@@ -3,7 +3,7 @@
 use wasmer_runtime::{compile_with, compiler_for_backend, func, imports, Backend, Ctx};
 use wasmer_runtime_core::{structures::TypedIndex, types::TableIndex};
 
-static WASM: &'static str = "examples/callback-guest.wasm";
+static WASM: &'static str = "examples/callback-guest/callback-guest.wasm";
 
 /// This function matches our arbitrarily decided callback signature
 /// in this example we'll only call functions that take no arguments and return one value
