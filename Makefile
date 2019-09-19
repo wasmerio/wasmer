@@ -1,4 +1,4 @@
-.PHONY: spectests emtests clean build install lint precommit docs
+.PHONY: spectests emtests clean build install lint precommit docs examples
 
 # Generate files
 generate-spectests:
@@ -111,11 +111,15 @@ test: spectests emtests middleware wasitests circleci-clean test-rest
 
 
 # Integration tests
-integration-tests: release-clif
+integration-tests: release-clif examples
 	echo "Running Integration Tests"
 	./integration_tests/lua/test.sh
 	./integration_tests/nginx/test.sh
 	./integration_tests/cowsay/test.sh
+
+examples:
+	cargo run --example plugin
+	cargo run --example callback
 
 
 # Utils
