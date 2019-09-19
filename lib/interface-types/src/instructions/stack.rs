@@ -8,6 +8,7 @@ pub(crate) trait Stackable {
     fn pop(&mut self, n: usize) -> Option<Vec<Self::Item>>;
 }
 
+#[derive(Debug)]
 pub(crate) struct Stack<T> {
     inner: Vec<T>,
 }

@@ -2,6 +2,7 @@ use crate::ast::InterfaceType;
 
 pub mod interpreter;
 mod stack;
+pub mod wasm;
 
 #[derive(PartialEq, Debug)]
 pub enum Instruction<'input> {
