@@ -1,34 +1,62 @@
-use std::{iter::Rev, vec::Drain};
+pub(crate) trait Stackable {
+    type Item;
 
-pub(super) struct Stack {
-    inner: Vec<u32>,
+    fn is_empty(&self) -> bool;
+    fn as_slice(&self) -> &[Self::Item];
+    fn push(&mut self, item: Self::Item);
+    fn pop1(&mut self) -> Option<Self::Item>;
+    fn pop(&mut self, n: usize) -> Option<Vec<Self::Item>>;
 }
 
-impl Stack {
-    pub(super) fn new() -> Self {
+pub(crate) struct Stack<T> {
+    inner: Vec<T>,
+}
+
+impl<T> Stack<T> {
+    pub fn new() -> Self {
         Self { inner: Vec::new() }
     }
+}
 
-    pub(super) fn is_empty(&self) -> bool {
+impl<T> Stackable for Stack<T> {
+    type Item = T;
+
+    fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
-    pub(super) fn push(&mut self, item: u32) {
+    fn as_slice(&self) -> &[Self::Item] {
+        self.inner.as_slice()
+    }
+
+    fn push(&mut self, item: Self::Item) {
         self.inner.push(item);
     }
 
-    pub(super) fn pop(&mut self) -> Option<u32> {
+    fn pop1(&mut self) -> Option<Self::Item> {
         self.inner.pop()
     }
 
-    pub(super) fn pop_n(&mut self, n: usize) -> Rev<Drain<u32>> {
-        self.inner.drain(self.inner.len() - n..).rev()
+    fn pop(&mut self, n: usize) -> Option<Vec<Self::Item>> {
+        if self.inner.len() < n {
+            None
+        } else {
+            let items = self
+                .inner
+                .drain(self.inner.len() - n..)
+                .rev()
+                .collect::<Vec<Self::Item>>();
+
+            assert!(items.len() == n);
+
+            Some(items)
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Stack;
+    use super::{Stack, Stackable};
 
     #[test]
     fn test_is_empty() {
@@ -40,16 +68,16 @@ mod tests {
     }
 
     #[test]
-    fn test_push_pop() {
+    fn test_push_pop1() {
         let mut stack = Stack::new();
         stack.push(1);
 
-        assert_eq!(stack.pop(), Some(1));
+        assert_eq!(stack.pop1(), Some(1));
         assert_eq!(stack.is_empty(), true);
     }
 
     #[test]
-    fn test_pop_n() {
+    fn test_pop() {
         let mut stack = Stack::new();
         stack.push(1);
         stack.push(2);
@@ -58,9 +86,9 @@ mod tests {
         stack.push(5);
         stack.push(6);
 
-        assert_eq!(stack.pop_n(1).collect::<Vec<_>>(), &[6]);
-        assert_eq!(stack.pop_n(2).collect::<Vec<_>>(), &[5, 4]);
-        assert_eq!(stack.pop_n(3).collect::<Vec<_>>(), &[3, 2, 1]);
+        assert_eq!(stack.pop(1), Some(vec![6]));
+        assert_eq!(stack.pop(2), Some(vec![5, 4]));
+        assert_eq!(stack.pop(3), Some(vec![3, 2, 1]));
         assert_eq!(stack.is_empty(), true);
     }
 }
