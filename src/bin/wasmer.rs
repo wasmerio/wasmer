@@ -64,7 +64,7 @@ mod wasmer_wasi {
 #[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
 /// The options for the wasmer Command Line Interface
 enum CLIOptions {
-    /// Run a WebAssembly file. Formats accepted: wasm, wast
+    /// Run a WebAssembly file. Formats accepted: wasm, wat
     #[structopt(name = "run")]
     Run(Run),
 
