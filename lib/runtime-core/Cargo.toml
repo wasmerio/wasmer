@@ -18,7 +18,6 @@ libc = "0.2.60"
 hex = "0.3.2"
 smallvec = "0.6.10"
 bincode = "1.1"
-colored = "1.8"
 
 [dependencies.indexmap]
 version = "1.2.0"
