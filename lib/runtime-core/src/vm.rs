@@ -1,15 +1,19 @@
 pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
+    error::CallResult,
+    instance::call_func_with_index_inner,
     memory::{Memory, MemoryType},
     module::{ModuleInfo, ModuleInner},
+    sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex},
+    types::{LocalOrImport, MemoryIndex, TableIndex, Value},
     vmcalls,
 };
 use std::{
     cell::UnsafeCell,
     ffi::c_void,
-    mem, ptr,
+    mem,
+    ptr::{self, NonNull},
     sync::atomic::{AtomicUsize, Ordering},
     sync::Once,
 };
@@ -392,6 +396,41 @@ impl Ctx {
         unsafe {
             (*self.internal.internals)[field.index()] = value;
         }
+    }
+
+    /// Calls a host or Wasm function at the given table index
+    pub fn call_with_table_index(
+        &mut self,
+        index: TableIndex,
+        args: &[Value],
+    ) -> CallResult<Vec<Value>> {
+        let anyfunc_table =
+            unsafe { &*((**self.internal.tables).table as *mut crate::table::AnyfuncTable) };
+        let Anyfunc { func, ctx, sig_id } = anyfunc_table.backing[index.index()];
+
+        let signature = SigRegistry.lookup_signature(unsafe { std::mem::transmute(sig_id.0) });
+        let mut rets = vec![];
+
+        let wasm = {
+            let module = unsafe { &*self.module };
+            let runnable = &module.runnable_module;
+
+            let sig_index = SigRegistry.lookup_sig_index(signature.clone());
+            runnable
+                .get_trampoline(&module.info, sig_index)
+                .expect("wasm trampoline")
+        };
+
+        call_func_with_index_inner(
+            ctx,
+            NonNull::new(func as *mut _).unwrap(),
+            &signature,
+            wasm,
+            args,
+            &mut rets,
+        )?;
+
+        Ok(rets)
     }
 }
 
