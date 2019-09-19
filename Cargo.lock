@@ -271,47 +271,73 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.42.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1#d3f1818379aa6490f0011d295edc31442734e8f2"
 dependencies = [
- "cranelift-entity 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cranelift-entity 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
 ]
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.42.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1#d3f1818379aa6490f0011d295edc31442734e8f2"
 dependencies = [
- "cranelift-bforest 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cranelift-codegen-meta 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cranelift-entity 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cranelift-bforest 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "cranelift-codegen-meta 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "cranelift-entity 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "target-lexicon 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "target-lexicon 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.42.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1#d3f1818379aa6490f0011d295edc31442734e8f2"
 dependencies = [
- "cranelift-entity 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cranelift-entity 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
 ]
 
 [[package]]
 name = "cranelift-entity"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.42.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1#d3f1818379aa6490f0011d295edc31442734e8f2"
+
+[[package]]
+name = "cranelift-frontend"
+version = "0.42.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1#d3f1818379aa6490f0011d295edc31442734e8f2"
+dependencies = [
+ "cranelift-codegen 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "target-lexicon 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "cranelift-native"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.42.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1#d3f1818379aa6490f0011d295edc31442734e8f2"
 dependencies = [
- "cranelift-codegen 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cranelift-codegen 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
  "raw-cpuid 6.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "target-lexicon 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "target-lexicon 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "cranelift-wasm"
+version = "0.42.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1#d3f1818379aa6490f0011d295edc31442734e8f2"
+dependencies = [
+ "cranelift-codegen 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "cranelift-entity 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "cranelift-frontend 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.37.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1318,7 +1344,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "target-lexicon"
-version = "0.4.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1533,9 +1559,11 @@ name = "wasmer-clif-backend"
 version = "0.7.0"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "cranelift-codegen 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cranelift-entity 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cranelift-native 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cranelift-codegen 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "cranelift-entity 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "cranelift-frontend 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "cranelift-native 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
+ "cranelift-wasm 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rayon 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1543,37 +1571,11 @@ dependencies = [
  "serde-bench 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_bytes 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.100 (registry+https://github.com/rust-lang/crates.io-index)",
- "target-lexicon 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-fork-frontend 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-fork-wasm 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "target-lexicon 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.7.0",
  "wasmer-win-exception-handler 0.7.0",
- "wasmparser 0.35.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.37.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "wasmer-clif-fork-frontend"
-version = "0.33.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "cranelift-codegen 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "target-lexicon 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "wasmer-clif-fork-wasm"
-version = "0.33.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "cranelift-codegen 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cranelift-entity 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-fork-frontend 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmparser 0.35.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1635,7 +1637,7 @@ dependencies = [
  "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.7.0",
- "wasmparser 0.35.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.37.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1708,7 +1710,7 @@ dependencies = [
  "serde_bytes 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.100 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmparser 0.35.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.37.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1725,7 +1727,7 @@ dependencies = [
  "nix 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.7.0",
- "wasmparser 0.35.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.37.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1785,7 +1787,7 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.35.3"
+version = "0.37.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -1886,11 +1888,13 @@ dependencies = [
 "checksum cmake 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)" = "81fb25b677f8bf1eb325017cb6bb8452f87969db0fedb4f757b297bee78a7c62"
 "checksum colored 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6cdb90b60f2927f8d76139c72dbde7e10c3a2bc47c8594c9c7a66529f2687c03"
 "checksum constant_time_eq 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "995a44c877f9212528ccc74b21a232f66ad69001e40ede5bcee2ac9ef2657120"
-"checksum cranelift-bforest 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)" = "409f92af3dd276e112b72873a3ef02613e3c5f55b81d5d5d04f3157d4f8b8c54"
-"checksum cranelift-codegen 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b303542a56fba4cbaeea099fb30ed078b50de0e765fd69f7f5f410adbe31d95b"
-"checksum cranelift-codegen-meta 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0fee15ed430092a6d14b7c6d627540bef732509b8097ae31e4e35526edaa129c"
-"checksum cranelift-entity 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)" = "739222c3740e4a8d6f0375bd95caba9b6c11afcba9f0e1d4f944d6bd99f84600"
-"checksum cranelift-native 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ce451162d18b7d82118e23ea7e12f7d8b98557549404bd71215548de79eb0736"
+"checksum cranelift-bforest 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)" = "<none>"
+"checksum cranelift-codegen 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)" = "<none>"
+"checksum cranelift-codegen-meta 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)" = "<none>"
+"checksum cranelift-entity 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)" = "<none>"
+"checksum cranelift-frontend 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)" = "<none>"
+"checksum cranelift-native 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)" = "<none>"
+"checksum cranelift-wasm 0.42.0 (git+https://github.com/wasmerio/cranelift?branch=feature/cranelift-master-fork-1)" = "<none>"
 "checksum criterion 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "0363053954f3e679645fc443321ca128b7b950a6fe288cf5f9335cc22ee58394"
 "checksum criterion-plot 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "76f9212ddf2f4a9eb2d401635190600656a1f88a932ef53d06e7fa4c7e02fb8e"
 "checksum crossbeam-deque 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b18cd2e169ad86297e6bc0ad9aa679aee9daa4f19e8163860faf7c164e4f5a71"
@@ -2008,7 +2012,7 @@ dependencies = [
 "checksum synom 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)" = "a393066ed9010ebaed60b9eafa373d4b1baac186dd7e008555b0f702b51945b6"
 "checksum synstructure 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)" = "02353edf96d6e4dc81aea2d8490a7e9db177bf8acb0e951c24940bf866cb313f"
 "checksum take_mut 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f764005d11ee5f36500a149ace24e00e3da98b0158b3e2d53a7495660d3f4d60"
-"checksum target-lexicon 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1b0ab4982b8945c35cc1c46a83a9094c414f6828a099ce5dcaa8ee2b04642dcb"
+"checksum target-lexicon 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7975cb2c6f37d77b190bc5004a2bb015971464756fde9514651a525ada2a741a"
 "checksum tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e24d9338a0a5be79593e2fa15a648add6138caa803e2d5bc782c371732ca9"
 "checksum termcolor 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "96d6098003bde162e4277c70665bd87c326f5a0c3f3fbfb285787fa482d54e6e"
 "checksum textwrap 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
@@ -2032,9 +2036,7 @@ dependencies = [
 "checksum wabt-sys 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "af5d153dc96aad7dc13ab90835b892c69867948112d95299e522d370c4e13a08"
 "checksum walkdir 2.2.9 (registry+https://github.com/rust-lang/crates.io-index)" = "9658c94fa8b940eab2250bd5a457f9c48b748420d71293b165c8cdbe2f55f71e"
 "checksum wasi 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b89c3ce4ce14bdc6fb6beaf9ec7928ca331de5df7e5ea278375642a2f478570d"
-"checksum wasmer-clif-fork-frontend 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3bd6bec1587a3b11222f4ff129fd119785713c41de413f54f99d3c03743812f4"
-"checksum wasmer-clif-fork-wasm 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a8f323e612fe2549391255a09f89c927d7feb0ec4bf0c2cad9e3c089bdca42fc"
-"checksum wasmparser 0.35.3 (registry+https://github.com/rust-lang/crates.io-index)" = "099aaf77635ffad3d9ab57253c29b16a46e93755c3e54cfe33fb8cf4b54f760b"
+"checksum wasmparser 0.37.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f7387ba67c13dd9cd01d7d961e733375aee889f828564e190da85b5602eb5eeb"
 "checksum which 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b57acb10231b9493c8472b20cb57317d0679a49e0bdbee44b3b803a6473af164"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8093091eeb260906a183e6ae1abdba2ef5ef2257a21801128899c3fc699229c6"

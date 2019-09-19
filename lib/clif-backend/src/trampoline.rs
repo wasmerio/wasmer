@@ -13,12 +13,18 @@ use wasmer_runtime_core::{
     types::{FuncSig, SigIndex, Type},
     vm,
 };
+use crate::resolver::EmptyStackmapSink;
 
 struct NullRelocSink {}
 
 impl RelocSink for NullRelocSink {
     fn reloc_ebb(&mut self, _: u32, _: Reloc, _: u32) {}
     fn reloc_external(&mut self, _: u32, _: Reloc, _: &ir::ExternalName, _: i64) {}
+
+    fn reloc_constant(&mut self, _: u32, _: Reloc, _: u32) {
+        unimplemented!()
+    }
+
     fn reloc_jt(&mut self, _: u32, _: Reloc, _: ir::JumpTable) {}
 }
 
@@ -89,12 +95,13 @@ impl Trampolines {
             ctx.func = trampoline_func;
 
             let mut code_buf = Vec::new();
-
+            let mut stackmap_sink = EmptyStackmapSink {};
             ctx.compile_and_emit(
                 isa,
                 &mut code_buf,
                 &mut NullRelocSink {},
                 &mut NullTrapSink {},
+                &mut stackmap_sink,
             )
             .expect("unable to compile trampolines");
             ctx.clear();

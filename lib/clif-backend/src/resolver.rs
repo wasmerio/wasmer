@@ -30,6 +30,7 @@ use wasmer_runtime_core::{
     types::{FuncSig, LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
+use cranelift_codegen::binemit::{StackmapSink, Stackmap};
 
 extern "C" {
     #[cfg(not(target_os = "windows"))]
@@ -56,6 +57,13 @@ pub struct FuncResolverBuilder {
     local_relocs: Map<LocalFuncIndex, Box<[LocalRelocation]>>,
     external_relocs: Map<LocalFuncIndex, Box<[ExternalRelocation]>>,
     import_len: usize,
+}
+
+pub struct EmptyStackmapSink {}
+impl StackmapSink for EmptyStackmapSink {
+    fn add_stackmap(&mut self, _: u32, _: Stackmap) {
+
+    }
 }
 
 impl FuncResolverBuilder {
@@ -109,12 +117,14 @@ impl FuncResolverBuilder {
                         ctx.func = func.to_owned();
                         let mut reloc_sink = RelocSink::new();
                         let mut local_trap_sink = LocalTrapSink::new();
+                        let mut stackmap_sink = EmptyStackmapSink {};
 
                         ctx.compile_and_emit(
                             isa,
                             &mut code_buf,
                             &mut reloc_sink,
                             &mut local_trap_sink,
+                            &mut stackmap_sink,
                         )
                         .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
                         ctx.clear();

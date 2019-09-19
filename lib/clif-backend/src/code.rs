@@ -7,10 +7,10 @@ use crate::{
 };
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
+use cranelift_codegen::ir::{self, Ebb, InstBuilder};
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::{cursor::FuncCursor, isa};
-use cranelift_frontend::{FunctionBuilder, Position, Variable};
+use cranelift_frontend::{FunctionBuilder, Variable};
 use cranelift_wasm::{self, FuncTranslator};
 use cranelift_wasm::{get_vmctx_value_label, translate_operator};
 use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError};
@@ -85,11 +85,14 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
         //func_translator.translate(body_bytes, body_offset, &mut func, &mut func_env)?;
 
+        let builder = FunctionBuilder::new(
+            func
+        );
+
         let mut func_env = CraneliftFunctionCodeGenerator {
-            func,
+            builder,
             func_translator,
             next_local: 0,
-            position: Position::default(),
             func_env: FunctionEnvironment {
                 module_info: Arc::clone(&module_info),
                 target_config: self.isa.frontend_config().clone(),
@@ -97,14 +100,11 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             },
         };
 
-        debug_assert_eq!(func_env.func.dfg.num_ebbs(), 0, "Function must be empty");
-        debug_assert_eq!(func_env.func.dfg.num_insts(), 0, "Function must be empty");
+        let mut builder = &mut func_env.builder;
+        let func = &builder.func;
 
-        let mut builder = FunctionBuilder::new(
-            &mut func_env.func,
-            &mut func_env.func_translator.func_ctx,
-            &mut func_env.position,
-        );
+        debug_assert_eq!(func.dfg.num_ebbs(), 0, "Function must be empty");
+        debug_assert_eq!(func.dfg.num_insts(), 0, "Function must be empty");
 
         // TODO srcloc
         //builder.set_srcloc(cur_srcloc(&reader));
@@ -298,7 +298,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     ) -> Result<(Caller, Box<dyn CacheGen>), CodegenError> {
         let mut func_bodies: Map<LocalFuncIndex, ir::Function> = Map::new();
         for f in self.functions.into_iter() {
-            func_bodies.push(f.func);
+            func_bodies.push(f.builder.func);
         }
 
         let (func_resolver_builder, handler_data) =
@@ -390,10 +390,9 @@ impl From<WasmError> for CodegenError {
 }
 
 pub struct CraneliftFunctionCodeGenerator {
-    func: Function,
+    builder: FunctionBuilder,
     func_translator: FuncTranslator,
     next_local: usize,
-    position: Position,
     func_env: FunctionEnvironment,
 }
 
@@ -1117,7 +1116,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
 
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
         let mut next_local = self.next_local;
-        cranelift_wasm::declare_locals(&mut self.builder(), n as u32, ty, &mut next_local)?;
+        cranelift_wasm::declare_locals(&mut self.builder, n as u32, ty, &mut next_local, &mut self.func_env)?;
         self.next_local = next_local;
         Ok(())
     }
@@ -1143,24 +1142,15 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             return Ok(());
         }
 
-        let mut builder = FunctionBuilder::new(
-            &mut self.func,
-            &mut self.func_translator.func_ctx,
-            &mut self.position,
-        );
         let state = &mut self.func_translator.state;
-        translate_operator(op, &mut builder, state, &mut self.func_env)?;
+        translate_operator(op, &mut self.builder, state, &mut self.func_env)?;
         Ok(())
     }
 
     fn finalize(&mut self) -> Result<(), CodegenError> {
         let return_mode = self.return_mode();
 
-        let mut builder = FunctionBuilder::new(
-            &mut self.func,
-            &mut self.func_translator.func_ctx,
-            &mut self.position,
-        );
+        let builder = &mut self.builder;
         let state = &mut self.func_translator.state;
 
         // The final `End` operator left us in the exit block where we need to manually add a return
@@ -1182,7 +1172,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         // or the end of the function is unreachable.
         state.stack.clear();
 
-        self.builder().finalize();
+        self.builder.finalize();
         Ok(())
     }
 }
@@ -1205,13 +1195,6 @@ impl CraneliftModuleCodeGenerator {
 }
 
 impl CraneliftFunctionCodeGenerator {
-    pub fn builder(&mut self) -> FunctionBuilder {
-        FunctionBuilder::new(
-            &mut self.func,
-            &mut self.func_translator.func_ctx,
-            &mut self.position,
-        )
-    }
 
     pub fn return_mode(&self) -> ReturnMode {
         ReturnMode::NormalReturns
