@@ -1,6 +1,6 @@
 use crate::instructions::{
     stack::{Stack, Stackable},
-    wasm::{self, Value},
+    wasm::{self, Type, Value},
     Instruction,
 };
 use std::{convert::TryFrom, marker::PhantomData};
@@ -105,6 +105,20 @@ where
 
                                         match runtime.stack.pop(inputs_cardinality) {
                                             Some(inputs) =>  {
+                                                let input_types = inputs
+                                                    .iter()
+                                                    .map(|input| input.into())
+                                                    .collect::<Vec<Type>>();
+
+                                                if input_types != export.inputs() {
+                                                    return Err(format!(
+                                                        "`{}` cannot call the exported function `{}` because the value types in the stack mismatch the function signature (expects {:?}).",
+                                                        instruction_name,
+                                                        export_name,
+                                                        export.inputs(),
+                                                    ))
+                                                }
+
                                                 match export.call(&inputs) {
                                                     Ok(outputs) => {
                                                         for output in outputs.iter() {
@@ -117,7 +131,7 @@ where
                                                 }
                                             }
                                             None => Err(format!(
-                                                "`{}` cannot call the exported function `{}` because there is no enought data in the stack for the arguments (need {}).",
+                                                "`{}` cannot call the exported function `{}` because there is no enought data in the stack for the arguments (needs {}).",
                                                 instruction_name,
                                                 export_name,
                                                 inputs_cardinality,
@@ -337,6 +351,55 @@ mod tests {
         assert_eq!(
             error,
             String::from(r#"`call-export "bar"` cannot call the exported function `bar` because it doesn't exist."#)
+        );
+    }
+
+    #[test]
+    fn test_interpreter_call_export_too_small_stack() {
+        let interpreter: Interpreter<Instance, Export> = (&vec![
+            Instruction::ArgumentGet(0),
+            Instruction::CallExport("sum"),
+            //                       ^^^ `sum` expects 2 values in the stack, only one is present
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![Value::I32(3), Value::I32(4)];
+        let instance = Instance::new();
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_err());
+
+        let error = run.unwrap_err();
+
+        assert_eq!(
+            error,
+            String::from(r#"`call-export "sum"` cannot call the exported function `sum` because there is no enought data in the stack for the arguments (needs 2)."#)
+        );
+    }
+
+    #[test]
+    fn test_interpreter_call_export_invalid_types_in_the_stack() {
+        let interpreter: Interpreter<Instance, Export> = (&vec![
+            Instruction::ArgumentGet(1),
+            Instruction::ArgumentGet(0),
+            Instruction::CallExport("sum"),
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![Value::I32(3), Value::I64(4)];
+        //                                                 ^^^ mismatch with `sum` signature
+        let instance = Instance::new();
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_err());
+
+        let error = run.unwrap_err();
+
+        assert_eq!(
+            error,
+            String::from(r#"`call-export "sum"` cannot call the exported function `sum` because the value types in the stack mismatch the function signature (expects [I32, I32])."#)
         );
     }
 }

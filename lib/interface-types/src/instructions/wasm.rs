@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 
+#[derive(Debug, PartialEq)]
 pub enum Type {
     I32,
     I64,
@@ -15,6 +16,18 @@ pub enum Value {
     F32(f32),
     F64(f64),
     V128(u128),
+}
+
+impl From<&Value> for Type {
+    fn from(value: &Value) -> Self {
+        match value {
+            Value::I32(_) => Type::I32,
+            Value::I64(_) => Type::I64,
+            Value::F32(_) => Type::F32,
+            Value::F64(_) => Type::F64,
+            Value::V128(_) => Type::V128,
+        }
+    }
 }
 
 impl Default for Value {
