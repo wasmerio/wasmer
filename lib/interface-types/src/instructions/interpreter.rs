@@ -126,8 +126,12 @@ where
                                                         }
 
                                                         Ok(())
-                                                    },
-                                                    Err(_) => Err("failed".into()),
+                                                    }
+                                                    Err(_) => Err(format!(
+                                                        "`{}` failed when calling the exported function `{}`.",
+                                                        instruction_name,
+                                                        export_name
+                                                    ))
                                                 }
                                             }
                                             None => Err(format!(
@@ -400,6 +404,45 @@ mod tests {
         assert_eq!(
             error,
             String::from(r#"`call-export "sum"` cannot call the exported function `sum` because the value types in the stack mismatch the function signature (expects [I32, I32])."#)
+        );
+    }
+
+    #[test]
+    fn test_interpreter_call_export_failed_when_calling() {
+        let interpreter: Interpreter<Instance, Export> = (&vec![
+            Instruction::ArgumentGet(1),
+            Instruction::ArgumentGet(0),
+            Instruction::CallExport("sum"),
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![Value::I32(3), Value::I32(4)];
+        let instance = Instance {
+            exports: {
+                let mut hashmap = HashMap::new();
+                hashmap.insert(
+                    "sum".into(),
+                    Export {
+                        inputs: vec![Type::I32, Type::I32],
+                        outputs: vec![Type::I32],
+                        function: |_| Err(()),
+                        //            ^^^^^^ function fails
+                    },
+                );
+
+                hashmap
+            },
+        };
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_err());
+
+        let error = run.unwrap_err();
+
+        assert_eq!(
+            error,
+            String::from(r#"`call-export "sum"` failed when calling the exported function `sum`."#)
         );
     }
 }
