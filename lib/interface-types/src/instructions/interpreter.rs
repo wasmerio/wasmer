@@ -1,25 +1,23 @@
 use crate::instructions::{
     stack::{Stack, Stackable},
-    wasm, Instruction,
+    wasm::{self, Value},
+    Instruction,
 };
-use std::{
-    convert::{TryFrom, TryInto},
-    marker::PhantomData,
-};
-
-type ExecutableInstruction<Instance, Export> =
-    Box<dyn Fn(&mut Runtime<Instance, Export>) -> Result<(), String>>;
+use std::{convert::TryFrom, marker::PhantomData};
 
 struct Runtime<'invocation, 'instance, Instance, Export>
 where
     Export: wasm::Export + 'instance,
     Instance: wasm::Instance<Export> + 'instance,
 {
-    invocation_inputs: &'invocation [u64],
-    stack: Stack<u64>,
+    invocation_inputs: &'invocation [Value],
+    stack: Stack<Value>,
     wasm_instance: &'instance Instance,
     wasm_exports: PhantomData<Export>,
 }
+
+type ExecutableInstruction<Instance, Export> =
+    Box<dyn Fn(&mut Runtime<Instance, Export>) -> Result<(), String>>;
 
 pub struct Interpreter<Instance, Export>
 where
@@ -40,9 +38,9 @@ where
 
     pub fn run(
         &self,
-        invocation_inputs: &[u64],
+        invocation_inputs: &[Value],
         wasm_instance: &Instance,
-    ) -> Result<Stack<u64>, String> {
+    ) -> Result<Stack<Value>, String> {
         let mut runtime = Runtime {
             invocation_inputs,
             stack: Stack::new(),
@@ -107,14 +105,10 @@ where
 
                                         match runtime.stack.pop(inputs_cardinality) {
                                             Some(inputs) =>  {
-                                                let inputs: Vec<wasm::Value> = inputs.iter().map(|i| wasm::Value::I32(*i as i32)).collect();
-
                                                 match export.call(&inputs) {
                                                     Ok(outputs) => {
                                                         for output in outputs.iter() {
-                                                            let output: i32 = output.try_into().unwrap();
-
-                                                            runtime.stack.push(output as u64);
+                                                            runtime.stack.push(*output);
                                                         }
 
                                                         Ok(())
@@ -129,8 +123,7 @@ where
                                                 inputs_cardinality,
                                             ))
                                         }
-                                    },
-
+                                    }
                                     None => Err(format!(
                                         "`{}` cannot call the exported function `{}` because it doesn't exist.",
                                         instruction_name,
@@ -170,13 +163,17 @@ where
 #[cfg(test)]
 mod tests {
     use super::Interpreter;
-    use crate::instructions::{stack::Stackable, wasm, Instruction};
+    use crate::instructions::{
+        stack::Stackable,
+        wasm::{self, Type, Value},
+        Instruction,
+    };
     use std::{collections::HashMap, convert::TryInto};
 
     struct Export {
-        inputs: Vec<wasm::Type>,
-        outputs: Vec<wasm::Type>,
-        function: fn(arguments: &[wasm::Value]) -> Result<Vec<wasm::Value>, ()>,
+        inputs: Vec<Type>,
+        outputs: Vec<Type>,
+        function: fn(arguments: &[Value]) -> Result<Vec<Value>, ()>,
     }
 
     impl wasm::Export for Export {
@@ -188,15 +185,15 @@ mod tests {
             self.outputs.len()
         }
 
-        fn inputs(&self) -> &[wasm::Type] {
+        fn inputs(&self) -> &[Type] {
             &self.inputs
         }
 
-        fn outputs(&self) -> &[wasm::Type] {
+        fn outputs(&self) -> &[Type] {
             &self.outputs
         }
 
-        fn call(&self, arguments: &[wasm::Value]) -> Result<Vec<wasm::Value>, ()> {
+        fn call(&self, arguments: &[Value]) -> Result<Vec<Value>, ()> {
             (self.function)(arguments)
         }
     }
@@ -213,13 +210,13 @@ mod tests {
                     hashmap.insert(
                         "sum".into(),
                         Export {
-                            inputs: vec![wasm::Type::I32, wasm::Type::I32],
-                            outputs: vec![wasm::Type::I32],
-                            function: |arguments: &[wasm::Value]| {
+                            inputs: vec![Type::I32, Type::I32],
+                            outputs: vec![Type::I32],
+                            function: |arguments: &[Value]| {
                                 let a: i32 = (&arguments[0]).try_into().unwrap();
                                 let b: i32 = (&arguments[1]).try_into().unwrap();
 
-                                Ok(vec![wasm::Value::I32(a + b)])
+                                Ok(vec![Value::I32(a + b)])
                             },
                         },
                     );
@@ -255,7 +252,7 @@ mod tests {
         let interpreter: Interpreter<Instance, Export> =
             (&vec![Instruction::ArgumentGet(0)]).try_into().unwrap();
 
-        let invocation_inputs = vec![42];
+        let invocation_inputs = vec![Value::I32(42)];
         let instance = Instance::new();
         let run = interpreter.run(&invocation_inputs, &instance);
 
@@ -263,7 +260,7 @@ mod tests {
 
         let stack = run.unwrap();
 
-        assert_eq!(stack.as_slice(), &[42]);
+        assert_eq!(stack.as_slice(), &[Value::I32(42)]);
     }
 
     #[test]
@@ -271,7 +268,7 @@ mod tests {
         let interpreter: Interpreter<Instance, Export> =
             (&vec![Instruction::ArgumentGet(1)]).try_into().unwrap();
 
-        let invocation_inputs = vec![42];
+        let invocation_inputs = vec![Value::I32(42)];
         let instance = Instance::new();
         let run = interpreter.run(&invocation_inputs, &instance);
 
@@ -292,7 +289,7 @@ mod tests {
                 .try_into()
                 .unwrap();
 
-        let invocation_inputs = vec![7, 42];
+        let invocation_inputs = vec![Value::I32(7), Value::I32(42)];
         let instance = Instance::new();
         let run = interpreter.run(&invocation_inputs, &instance);
 
@@ -300,7 +297,7 @@ mod tests {
 
         let stack = run.unwrap();
 
-        assert_eq!(stack.as_slice(), &[7, 42]);
+        assert_eq!(stack.as_slice(), &[Value::I32(7), Value::I32(42)]);
     }
 
     #[test]
@@ -313,7 +310,7 @@ mod tests {
             .try_into()
             .unwrap();
 
-        let invocation_inputs = vec![3, 4];
+        let invocation_inputs = vec![Value::I32(3), Value::I32(4)];
         let instance = Instance::new();
         let run = interpreter.run(&invocation_inputs, &instance);
 
@@ -321,7 +318,7 @@ mod tests {
 
         let stack = run.unwrap();
 
-        assert_eq!(stack.as_slice(), &[7]);
+        assert_eq!(stack.as_slice(), &[Value::I32(7)]);
     }
 
     #[test]

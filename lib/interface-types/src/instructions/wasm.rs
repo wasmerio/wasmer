@@ -8,13 +8,19 @@ pub enum Type {
     V128,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Value {
     I32(i32),
     I64(i64),
     F32(f32),
     F64(f64),
     V128(u128),
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Self::I32(0)
+    }
 }
 
 macro_rules! from_x_for_value {
