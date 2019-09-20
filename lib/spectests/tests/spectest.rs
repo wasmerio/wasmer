@@ -1056,7 +1056,7 @@ mod tests {
     fn get_spectest_import_object(
         registered_modules: &HashMap<String, Rc<Instance>>,
     ) -> ImportObject {
-        let memory_desc = MemoryDescriptor::new(Pages(1),Some(Pages(2)),false).unwrap();
+        let memory_desc = MemoryDescriptor::new(Pages(1), Some(Pages(2)), false).unwrap();
         let memory = Memory::new(memory_desc).unwrap();
 
         let global_i32 = Global::new(wasmer_runtime_core::types::Value::I32(666));
