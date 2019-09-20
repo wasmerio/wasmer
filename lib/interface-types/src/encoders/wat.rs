@@ -67,7 +67,7 @@ impl<'input> From<&Instruction<'input>> for String {
     }
 }
 
-fn input_types_to_param(input_types: &Vec<InterfaceType>) -> String {
+fn input_types_to_param(input_types: &[InterfaceType]) -> String {
     if input_types.is_empty() {
         "".into()
     } else {
@@ -84,7 +84,7 @@ fn input_types_to_param(input_types: &Vec<InterfaceType>) -> String {
     }
 }
 
-fn output_types_to_result(output_types: &Vec<InterfaceType>) -> String {
+fn output_types_to_result(output_types: &[InterfaceType]) -> String {
     if output_types.is_empty() {
         "".into()
     } else {

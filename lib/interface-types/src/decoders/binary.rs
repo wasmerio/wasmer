@@ -52,7 +52,7 @@ fn leb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'in
     }
 
     let (output, bytes) = match input.iter().position(|&byte| byte & 0x80 == 0) {
-        Some(position) => (&input[position + 1..], &input[..position + 1]),
+        Some(position) => (&input[position + 1..], &input[..=position]),
         None => (&[] as &[u8], input),
     };
 
@@ -61,7 +61,7 @@ fn leb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'in
         bytes
             .iter()
             .rev()
-            .fold(0, |acc, byte| (acc << 7) | (byte & 0x7f) as u64),
+            .fold(0, |acc, byte| (acc << 7) | u64::from(byte & 0x7f)),
     ))
 }
 
@@ -84,6 +84,7 @@ fn string<'input, E: ParseError<&'input [u8]>>(
     }))
 }
 
+#[allow(clippy::type_complexity)]
 fn list<'input, I, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
     item_parser: fn(&'input [u8]) -> IResult<&'input [u8], I, E>,

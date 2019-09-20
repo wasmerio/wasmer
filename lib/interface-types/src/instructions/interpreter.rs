@@ -7,12 +7,15 @@ use std::{
     marker::PhantomData,
 };
 
+type ExecutableInstruction<Instance, Export> =
+    Box<dyn Fn(&mut Runtime<Instance, Export>) -> Result<(), String>>;
+
 struct Runtime<'invocation, 'instance, Instance, Export>
 where
     Export: wasm::Export + 'instance,
     Instance: wasm::Instance<Export> + 'instance,
 {
-    invocation_inputs: &'invocation Vec<u64>,
+    invocation_inputs: &'invocation [u64],
     stack: Stack<u64>,
     wasm_instance: &'instance Instance,
     wasm_exports: PhantomData<Export>,
@@ -23,7 +26,7 @@ where
     Export: wasm::Export,
     Instance: wasm::Instance<Export>,
 {
-    executable_instructions: Vec<Box<dyn Fn(&mut Runtime<Instance, Export>) -> Result<(), String>>>,
+    executable_instructions: Vec<ExecutableInstruction<Instance, Export>>,
 }
 
 impl<Instance, Export> Interpreter<Instance, Export>
@@ -31,16 +34,13 @@ where
     Export: wasm::Export,
     Instance: wasm::Instance<Export>,
 {
-    fn iter(
-        &self,
-    ) -> impl Iterator<Item = &Box<dyn Fn(&mut Runtime<Instance, Export>) -> Result<(), String>>> + '_
-    {
+    fn iter(&self) -> impl Iterator<Item = &ExecutableInstruction<Instance, Export>> + '_ {
         self.executable_instructions.iter()
     }
 
     pub fn run(
         &self,
-        invocation_inputs: &Vec<u64>,
+        invocation_inputs: &[u64],
         wasm_instance: &Instance,
     ) -> Result<Stack<u64>, String> {
         let mut runtime = Runtime {
@@ -73,7 +73,7 @@ where
         let executable_instructions = instructions
             .iter()
             .map(
-                |instruction| -> Box<dyn Fn(&mut Runtime<Instance, Export>) -> Result<(), String>> {
+                |instruction| -> ExecutableInstruction<Instance, Export> {
                     match instruction {
                         Instruction::ArgumentGet(index) => {
                             let index = index.to_owned();
