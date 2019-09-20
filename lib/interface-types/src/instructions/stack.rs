@@ -1,4 +1,4 @@
-pub(crate) trait Stackable {
+pub trait Stackable {
     type Item;
 
     fn is_empty(&self) -> bool;
@@ -9,7 +9,7 @@ pub(crate) trait Stackable {
 }
 
 #[derive(Debug)]
-pub(crate) struct Stack<T> {
+pub struct Stack<T> {
     inner: Vec<T>,
 }
 
