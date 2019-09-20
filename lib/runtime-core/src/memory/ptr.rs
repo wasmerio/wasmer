@@ -46,9 +46,7 @@ fn align_pointer(ptr: usize, align: usize) -> usize {
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
-        if self.offset == 0
-            || (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0
-        {
+        if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
             return None;
         }
         unsafe {
@@ -62,9 +60,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
 
     #[inline]
     pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<&'a mut Cell<T>> {
-        if self.offset == 0
-            || (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0
-        {
+        if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
             return None;
         }
         let cell_ptr = align_pointer(
@@ -83,9 +79,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
         let slice_full_len = index as usize + length as usize;
 
-        if self.offset == 0
-            || (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0
-        {
+        if (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0 {
             return None;
         }
 
@@ -112,9 +106,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
         let slice_full_len = index as usize + length as usize;
 
-        if self.offset == 0
-            || (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0
-        {
+        if (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0 {
             return None;
         }
 

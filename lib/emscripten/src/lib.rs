@@ -62,6 +62,7 @@ mod math;
 mod memory;
 mod process;
 mod pthread;
+mod ptr;
 mod signal;
 mod storage;
 mod syscalls;
