@@ -8,18 +8,29 @@ pub trait Stackable {
     fn pop(&mut self, n: usize) -> Option<Vec<Self::Item>>;
 }
 
-#[derive(Debug)]
-pub struct Stack<T> {
+#[derive(Debug, Default)]
+pub struct Stack<T>
+where
+    T: Default,
+{
     inner: Vec<T>,
 }
 
-impl<T> Stack<T> {
+impl<T> Stack<T>
+where
+    T: Default,
+{
     pub fn new() -> Self {
-        Self { inner: Vec::new() }
+        Self {
+            ..Default::default()
+        }
     }
 }
 
-impl<T> Stackable for Stack<T> {
+impl<T> Stackable for Stack<T>
+where
+    T: Default,
+{
     type Item = T;
 
     fn is_empty(&self) -> bool {
