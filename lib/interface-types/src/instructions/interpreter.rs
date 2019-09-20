@@ -427,7 +427,7 @@ mod tests {
                         inputs: vec![Type::I32, Type::I32],
                         outputs: vec![Type::I32],
                         function: |_| Err(()),
-                        //            ^^^^^^ function fails
+                        //            ^^^^^^^ function fails
                     },
                 );
 
@@ -444,5 +444,41 @@ mod tests {
             error,
             String::from(r#"`call-export "sum"` failed when calling the exported function `sum`."#)
         );
+    }
+
+    #[test]
+    fn test_interpreter_call_export_that_returns_nothing() {
+        let interpreter: Interpreter<Instance, Export> = (&vec![
+            Instruction::ArgumentGet(1),
+            Instruction::ArgumentGet(0),
+            Instruction::CallExport("sum"),
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![Value::I32(3), Value::I32(4)];
+        let instance = Instance {
+            exports: {
+                let mut hashmap = HashMap::new();
+                hashmap.insert(
+                    "sum".into(),
+                    Export {
+                        inputs: vec![Type::I32, Type::I32],
+                        outputs: vec![Type::I32],
+                        function: |_| Ok(vec![]),
+                        //            ^^^^^^^^^^ void function
+                    },
+                );
+
+                hashmap
+            },
+        };
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_ok());
+
+        let stack = run.unwrap();
+
+        assert!(stack.is_empty());
     }
 }
