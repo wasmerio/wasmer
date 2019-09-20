@@ -1,6 +1,10 @@
 //! This is a wrapper around the `WasmPtr` abstraction that does not allow deref of address 0
 //! This is a common assumption in Emscripten code
 
+// this is a wrapper with extra logic around the runtime-core `WasmPtr`, so we
+// don't want to warn about unusued code here
+#![allow(dead_code)]
+
 use std::{cell::Cell, fmt};
 pub use wasmer_runtime_core::memory::ptr::Array;
 use wasmer_runtime_core::{
@@ -101,7 +105,6 @@ impl<T: Copy + ValueType> WasmPtr<T, ptr::Array> {
         }
     }
 
-    #[allow(dead_code)]
     #[inline(always)]
     pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
         if self.0.offset() == 0 {
