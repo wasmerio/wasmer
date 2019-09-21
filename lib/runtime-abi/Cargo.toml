@@ -12,7 +12,7 @@ libc = "0.2.60"
 wasmer-runtime-core = { path = "../runtime-core" }
 failure = "0.1"
 tar = "0.4"
-wasmparser = "0.35.1"
+wasmparser = { version = "0.37.0", default-features = false }
 zstd = "0.4"
 
 # [target.'cfg(unix)'.dependencies.zbox]
