@@ -4,9 +4,10 @@
 
 | &nbsp; | Singlepass | Cranelift | LLVM |
 | - | - | - | - |
-| Caching | No | Yes | Yes |
-| SIMD | No | No | Yes |
-| Multi-value return | No | No | No |
+| Caching | ❌ | ✅ | ✅ |
+| SIMD | ❌ | ❌ | ✅ |
+| Multi-value return | ❌ | ❌ | ❌ |
+| Metering | ✅ | ✅ | ❓ | 
 
 
 ## Language integration
@@ -16,5 +17,7 @@ TODO: define a set of features that are relevant and mark them here
 Current ideas:
 
 - WASI FS API
-- Callbacks? (not even in Rust yet)
+- Callbacks
 - Exiting early in hostcall
+- Metering
+- Caching
