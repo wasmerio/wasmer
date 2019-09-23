@@ -5,9 +5,12 @@
 | &nbsp; | Singlepass | Cranelift | LLVM |
 | - | - | - | - |
 | Caching | ❌ | ✅ | ✅ |
-| SIMD | ❌ | ❌ | ✅ |
+| Emscripten | ✅ | ✅ | ✅ |
+| Metering | ✅ | ❌ | ✅ |
 | Multi-value return | ❌ | ❌ | ❌ |
-| Metering | ✅ | ✅ | ❓ | 
+| OSR | 🚧 | ❓ | ❓ |
+| SIMD | ❌ | ❌ | ✅ |
+| WASI | ✅ | ✅ | ✅ |
 
 
 ## Language integration
