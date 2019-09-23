@@ -1586,6 +1586,55 @@ impl X64FunctionCode {
         m.release_temp_gpr(tmp_addr);
     }
 
+    /// Emits a memory operation.
+    fn emit_cas_loop_op<F: FnOnce(&mut Assembler, &mut Machine, GPR, GPR)>(
+        module_info: &ModuleInfo,
+        config: &CodegenConfig,
+        a: &mut Assembler,
+        m: &mut Machine,
+        loc: Location,
+        target: Location,
+        ret: Location,
+        memarg: &MemoryImmediate,
+        value_size: usize,
+        cb: F,
+    ) {
+        let compare = m.reserve_temp_gpr(GPR::RAX);
+        let value = if loc == Location::GPR(GPR::R14) {
+            GPR::R13
+        } else {
+            GPR::R14
+        };
+        a.emit_push(Size::S64, Location::GPR(value));
+
+        a.emit_mov(Size::S32, loc, Location::GPR(value));
+
+        let retry = a.get_label();
+        a.emit_label(retry);
+
+        Self::emit_memory_op(
+            module_info,
+            config,
+            a,
+            m,
+            target,
+            memarg,
+            true,
+            value_size,
+            |a, m, addr| {
+                a.emit_mov(Size::S32, Location::Memory(addr, 0), Location::GPR(compare));
+                a.emit_mov(Size::S32, Location::GPR(compare), ret);
+                cb(a, m, compare, value);
+                a.emit_lock_cmpxchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0));
+            },
+        );
+
+        a.emit_jmp(Condition::NotEqual, retry);
+
+        a.emit_pop(Size::S64, Location::GPR(value));
+        m.release_temp_gpr(compare);
+    }
+
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
     fn emit_f32_int_conv_check(
         a: &mut Assembler,
@@ -5596,11 +5645,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_movzx(
-                    Size::S8,
-                    loc,
-                    Size::S32,
-                    Location::GPR(value));
+                a.emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value));
                 a.emit_neg(Size::S8, Location::GPR(value));
                 Self::emit_memory_op(
                     module_info,
@@ -5661,39 +5706,20 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
-                let value = if loc == Location::GPR(GPR::R14) { GPR::R13 } else { GPR::R14 };
-                a.emit_push(Size::S64, Location::GPR(value));
-                a.emit_mov(Size::S32, loc, Location::GPR(value));
-
-                let retry = a.get_label();
-                a.emit_label(retry);
-
-                Self::emit_memory_op(
+                Self::emit_cas_loop_op(
                     module_info,
                     &self.config,
                     a,
                     &mut self.machine,
+                    loc,
                     target,
+                    ret,
                     memarg,
-                    true,
                     4,
-                    |a, _m, addr| {
-                        a.emit_mov(Size::S32, Location::Memory(addr, 0), Location::GPR(compare));
-                        a.emit_mov(Size::S32, Location::GPR(compare), ret);
-                        a.emit_and(Size::S32, Location::GPR(compare), Location::GPR(value));
-                        a.emit_lock_cmpxchg(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
+                    |a, _m, src, dst| {
+                        a.emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 );
-
-                a.emit_jmp(Condition::NotEqual, retry);
-
-                a.emit_pop(Size::S64, Location::GPR(value));
-                self.machine.release_temp_gpr(compare);
             }
             _ => {
                 return Err(CodegenError {
