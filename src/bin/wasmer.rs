@@ -512,7 +512,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         import_object.allow_missing_functions = true; // Import initialization might be left to the loader.
         let instance = module
             .instantiate(&import_object)
-            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+            .map_err(|e| format!("Can't instantiate loader module: {:?}", e))?;
 
         let args: Vec<Value> = options
             .args
@@ -551,7 +551,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let import_object = wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals);
         let mut instance = module
             .instantiate(&import_object)
-            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+            .map_err(|e| format!("Can't instantiate emscripten module: {:?}", e))?;
 
         wasmer_emscripten::run_emscripten_instance(
             &module,
@@ -591,7 +591,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             #[allow(unused_mut)] // mut used in feature
             let mut instance = module
                 .instantiate(&import_object)
-                .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+                .map_err(|e| format!("Can't instantiate WASI module: {:?}", e))?;
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
@@ -752,7 +752,7 @@ fn run(options: Run) {
     match execute_wasm(&options) {
         Ok(()) => {}
         Err(message) => {
-            eprintln!("execute_wasm: {:?}", message);
+            eprintln!("Error: {}", message);
             exit(1);
         }
     }

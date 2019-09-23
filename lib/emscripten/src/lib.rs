@@ -735,8 +735,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall345" => func!(crate::syscalls::___syscall345),
 
         // Process
-        "abort" => func!(crate::process::em_abort),
+        "abort" => func!(crate::process::_abort),
         "_abort" => func!(crate::process::_abort),
+        "_prctl" => func!(crate::process::_prctl),
         "abortStackOverflow" => func!(crate::process::abort_stack_overflow),
         "_llvm_trap" => func!(crate::process::_llvm_trap),
         "_fork" => func!(crate::process::_fork),
@@ -829,6 +830,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_gmtime" => func!(crate::time::_gmtime),
 
         // Math
+        "sqrt" => func!(crate::math::sqrt),
+        "floor" => func!(crate::math::floor),
+        "fabs" => func!(crate::math::fabs),
         "f64-rem" => func!(crate::math::f64_rem),
         "_llvm_copysign_f32" => func!(crate::math::_llvm_copysign_f32),
         "_llvm_copysign_f64" => func!(crate::math::_llvm_copysign_f64),
