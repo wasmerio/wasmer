@@ -2,10 +2,14 @@
 
 # Generate files
 generate-spectests:
-	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core --release
+	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core --release \
+	&& echo "formatting" \
+	&& cargo fmt
 
 generate-emtests:
-	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release
+	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release \
+	&& echo "formatting" \
+	&& cargo fmt
 
 generate-wasitests: wasitests-setup
 	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
