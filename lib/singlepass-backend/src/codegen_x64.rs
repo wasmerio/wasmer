@@ -5661,14 +5661,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
+                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let value = if loc == Location::GPR(GPR::R14) { GPR::R13 } else { GPR::R14 };
+                a.emit_push(Size::S64, Location::GPR(value));
+                a.emit_mov(Size::S32, loc, Location::GPR(value));
+
                 let retry = a.get_label();
-
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                let compare = GPR::RAX;
-
                 a.emit_label(retry);
 
-                a.emit_mov(Size::S32, loc, Location::GPR(value));
                 Self::emit_memory_op(
                     module_info,
                     &self.config,
@@ -5679,32 +5679,21 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     4,
                     |a, _m, addr| {
-                        a.emit_mov(Size::S32, Location::Memory(addr, 0), Location::GPR(compare))
-                    },
-                );
-                a.emit_and(Size::S32, Location::GPR(compare), Location::GPR(value));
-                Self::emit_memory_op(
-                    module_info,
-                    &self.config,
-                    a,
-                    &mut self.machine,
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |a, _m, addr| {
+                        a.emit_mov(Size::S32, Location::Memory(addr, 0), Location::GPR(compare));
+                        a.emit_mov(Size::S32, Location::GPR(compare), ret);
+                        a.emit_and(Size::S32, Location::GPR(compare), Location::GPR(value));
                         a.emit_lock_cmpxchg(
                             Size::S32,
                             Location::GPR(value),
                             Location::Memory(addr, 0),
-                        )
+                        );
                     },
                 );
 
                 a.emit_jmp(Condition::NotEqual, retry);
 
-                a.emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                a.emit_pop(Size::S64, Location::GPR(value));
+                self.machine.release_temp_gpr(compare);
             }
             _ => {
                 return Err(CodegenError {
