@@ -131,11 +131,11 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer_runtime_core::memory::{Memory, MemoryView};
-    /// # use std::sync::atomic::Ordering;
+    /// # use std::{cell::Cell, sync::atomic::Ordering};
     /// # fn view_memory(memory: Memory) {
     /// // Without synchronization.
     /// let view: MemoryView<u8> = memory.view();
-    /// for byte in view[0x1000 .. 0x1010].iter().map(|cell| cell.get()) {
+    /// for byte in view[0x1000 .. 0x1010].iter().map(Cell::get) {
     ///     println!("byte: {}", byte);
     /// }
     ///
