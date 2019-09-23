@@ -732,7 +732,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
             }
             "backtrace" | "bt" => {
                 if let Some(ref image) = ctx.image {
-                    println!("{}", image.execution_state.colored_output());
+                    println!("{}", image.execution_state.output());
                 } else {
                     println!("State not available");
                 }

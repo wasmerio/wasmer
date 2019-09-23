@@ -530,29 +530,12 @@ fn call_func_with_index(
     args: &[Value],
     rets: &mut Vec<Value>,
 ) -> CallResult<()> {
-    rets.clear();
-
     let sig_index = *info
         .func_assoc
         .get(func_index)
         .expect("broken invariant, incorrect func index");
 
     let signature = &info.signatures[sig_index];
-    let num_results = signature.returns().len();
-    let num_results = num_results
-        + signature
-            .returns()
-            .iter()
-            .filter(|&&ty| ty == Type::V128)
-            .count();
-    rets.reserve(num_results);
-
-    if !signature.check_param_value_types(args) {
-        Err(ResolveError::Signature {
-            expected: signature.clone(),
-            found: args.iter().map(|val| val.ty()).collect(),
-        })?
-    }
 
     let func_ptr = match func_index.local_or_import(info) {
         LocalOrImport::Local(local_func_index) => {
@@ -569,6 +552,39 @@ fn call_func_with_index(
             import_backing.vm_functions[imported_func_index].vmctx
         }
     };
+
+    let wasm = runnable
+        .get_trampoline(info, sig_index)
+        .expect("wasm trampoline");
+
+    call_func_with_index_inner(ctx_ptr, func_ptr, signature, wasm, args, rets)
+}
+
+pub(crate) fn call_func_with_index_inner(
+    ctx_ptr: *mut vm::Ctx,
+    func_ptr: NonNull<vm::Func>,
+    signature: &FuncSig,
+    wasm: Wasm,
+    args: &[Value],
+    rets: &mut Vec<Value>,
+) -> CallResult<()> {
+    rets.clear();
+
+    let num_results = signature.returns().len();
+    let num_results = num_results
+        + signature
+            .returns()
+            .iter()
+            .filter(|&&ty| ty == Type::V128)
+            .count();
+    rets.reserve(num_results);
+
+    if !signature.check_param_value_types(args) {
+        Err(ResolveError::Signature {
+            expected: signature.clone(),
+            found: args.iter().map(|val| val.ty()).collect(),
+        })?
+    }
 
     let mut raw_args: SmallVec<[u64; 8]> = SmallVec::new();
     for v in args {
@@ -601,9 +617,7 @@ fn call_func_with_index(
         trampoline,
         invoke,
         invoke_env,
-    } = runnable
-        .get_trampoline(info, sig_index)
-        .expect("wasm trampoline");
+    } = wasm;
 
     let run_wasm = |result_space: *mut u64| unsafe {
         let mut trap_info = WasmTrapInfo::Unknown;
