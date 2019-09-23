@@ -11,14 +11,14 @@ pub trait Stackable {
 #[derive(Debug, Default)]
 pub struct Stack<T>
 where
-    T: Default,
+    T: Default + Clone,
 {
     inner: Vec<T>,
 }
 
 impl<T> Stack<T>
 where
-    T: Default,
+    T: Default + Clone,
 {
     pub fn new() -> Self {
         Self {
@@ -29,7 +29,7 @@ where
 
 impl<T> Stackable for Stack<T>
 where
-    T: Default,
+    T: Default + Clone,
 {
     type Item = T;
 
