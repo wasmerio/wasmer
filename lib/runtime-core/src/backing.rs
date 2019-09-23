@@ -54,6 +54,9 @@ pub struct LocalBacking {
     pub(crate) internals: Internals,
 }
 
+// Manually implemented because LocalBacking contains raw pointers directly
+unsafe impl Send for LocalBacking {}
+
 impl LocalBacking {
     pub(crate) fn new(
         module: &ModuleInner,
@@ -461,6 +464,9 @@ pub struct ImportBacking {
     pub(crate) vm_globals: BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,
 }
 
+// manually implemented because ImportBacking contains raw pointers directly
+unsafe impl Send for ImportBacking {}
+
 impl ImportBacking {
     pub fn new(
         module: &ModuleInner,
@@ -536,9 +542,8 @@ fn import_functions(
         let namespace = module.info.namespace_table.get(*namespace_index);
         let name = module.info.name_table.get(*name_index);
 
-        let import = imports
-            .get_namespace(namespace)
-            .and_then(|namespace| namespace.get_export(name));
+        let import =
+            imports.maybe_with_namespace(namespace, |namespace| namespace.get_export(name));
         match import {
             Some(Export::Function {
                 func,
@@ -624,9 +629,8 @@ fn import_memories(
         let namespace = module.info.namespace_table.get(*namespace_index);
         let name = module.info.name_table.get(*name_index);
 
-        let memory_import = imports
-            .get_namespace(&namespace)
-            .and_then(|namespace| namespace.get_export(&name));
+        let memory_import =
+            imports.maybe_with_namespace(namespace, |namespace| namespace.get_export(name));
         match memory_import {
             Some(Export::Memory(memory)) => {
                 if expected_memory_desc.fits_in_imported(memory.descriptor()) {
@@ -696,9 +700,8 @@ fn import_tables(
         let namespace = module.info.namespace_table.get(*namespace_index);
         let name = module.info.name_table.get(*name_index);
 
-        let table_import = imports
-            .get_namespace(&namespace)
-            .and_then(|namespace| namespace.get_export(&name));
+        let table_import =
+            imports.maybe_with_namespace(namespace, |namespace| namespace.get_export(name));
         match table_import {
             Some(Export::Table(mut table)) => {
                 if expected_table_desc.fits_in_imported(table.descriptor()) {
@@ -767,9 +770,8 @@ fn import_globals(
     {
         let namespace = module.info.namespace_table.get(*namespace_index);
         let name = module.info.name_table.get(*name_index);
-        let import = imports
-            .get_namespace(namespace)
-            .and_then(|namespace| namespace.get_export(name));
+        let import =
+            imports.maybe_with_namespace(namespace, |namespace| namespace.get_export(name));
         match import {
             Some(Export::Global(mut global)) => {
                 if global.descriptor() == *imported_global_desc {

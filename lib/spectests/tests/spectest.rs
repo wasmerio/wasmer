@@ -18,7 +18,7 @@ mod tests {
     // TODO Files could be run with multiple threads
     // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
 
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     struct SpecFailure {
         file: String,
@@ -119,6 +119,24 @@ mod tests {
         "unknown"
     }
 
+    fn with_instance<F, R>(
+        maybe_instance: Option<Arc<Mutex<Instance>>>,
+        named_modules: &HashMap<String, Arc<Mutex<Instance>>>,
+        module: &Option<String>,
+        f: F,
+    ) -> Option<R>
+    where
+        R: Sized,
+        F: FnOnce(&Instance) -> R,
+    {
+        let ref ins = module
+            .as_ref()
+            .and_then(|name| named_modules.get(name).cloned())
+            .or(maybe_instance)?;
+        let guard = ins.lock().unwrap();
+        Some(f(guard.borrow()))
+    }
+
     use glob::glob;
     use std::collections::HashMap;
     use std::fs;
@@ -173,11 +191,11 @@ mod tests {
                 .expect(&format!("Failed to parse script {}", &filename));
 
         use std::panic;
-        let mut instance: Option<Rc<Instance>> = None;
+        let mut instance: Option<Arc<Mutex<Instance>>> = None;
 
-        let mut named_modules: HashMap<String, Rc<Instance>> = HashMap::new();
+        let mut named_modules: HashMap<String, Arc<Mutex<Instance>>> = HashMap::new();
 
-        let mut registered_modules: HashMap<String, Rc<Instance>> = HashMap::new();
+        let mut registered_modules: HashMap<String, Arc<Mutex<Instance>>> = HashMap::new();
         //
 
         while let Some(Command { kind, line }) =
@@ -236,9 +254,9 @@ mod tests {
                             instance = None;
                         }
                         Ok(i) => {
-                            let i = Rc::new(i);
+                            let i = Arc::new(Mutex::new(i));
                             if name.is_some() {
-                                named_modules.insert(name.unwrap(), Rc::clone(&i));
+                                named_modules.insert(name.unwrap(), Arc::clone(&i));
                             }
                             instance = Some(i);
                         }
@@ -251,20 +269,17 @@ mod tests {
                             field,
                             args,
                         } => {
-                            let instance: Option<&Instance> = match module {
-                                Some(ref name) => {
-                                    let i = named_modules.get(name);
-                                    match i {
-                                        Some(ins) => Some(ins.borrow()),
-                                        None => None,
-                                    }
-                                }
-                                None => match instance {
-                                    Some(ref i) => Some(i.borrow()),
-                                    None => None,
+                            let maybe_call_result = with_instance(
+                                instance.clone(),
+                                &named_modules,
+                                &module,
+                                |instance| {
+                                    let params: Vec<wasmer_runtime_core::types::Value> =
+                                        args.iter().cloned().map(convert_value).collect();
+                                    instance.call(&field, &params[..])
                                 },
-                            };
-                            if instance.is_none() {
+                            );
+                            if maybe_call_result.is_none() {
                                 test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
@@ -276,9 +291,7 @@ mod tests {
                                     excludes,
                                 );
                             } else {
-                                let params: Vec<wasmer_runtime_core::types::Value> =
-                                    args.iter().cloned().map(|x| convert_value(x)).collect();
-                                let call_result = instance.unwrap().call(&field, &params[..]);
+                                let call_result = maybe_call_result.unwrap();
                                 match call_result {
                                     Err(e) => {
                                         test_report.add_failure(
@@ -316,20 +329,17 @@ mod tests {
                             }
                         }
                         Action::Get { module, field } => {
-                            let instance: Option<&Instance> = match module {
-                                Some(ref name) => {
-                                    let i = named_modules.get(name);
-                                    match i {
-                                        Some(ins) => Some(ins.borrow()),
-                                        None => None,
-                                    }
-                                }
-                                None => match instance {
-                                    Some(ref i) => Some(i.borrow()),
-                                    None => None,
+                            let maybe_call_result = with_instance(
+                                instance.clone(),
+                                &named_modules,
+                                &module,
+                                |instance| {
+                                    instance
+                                        .get_export(&field)
+                                        .expect(&format!("missing global {:?}", &field))
                                 },
-                            };
-                            if instance.is_none() {
+                            );
+                            if maybe_call_result.is_none() {
                                 test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
@@ -341,10 +351,7 @@ mod tests {
                                     excludes,
                                 );
                             } else {
-                                let export: Export = instance
-                                    .unwrap()
-                                    .get_export(&field)
-                                    .expect(&format!("missing global {:?}", &field));
+                                let export: Export = maybe_call_result.unwrap();
                                 match export {
                                     Export::Global(g) => {
                                         let value = g.get();
@@ -392,20 +399,13 @@ mod tests {
                         field,
                         args,
                     } => {
-                        let instance: Option<&Instance> = match module {
-                            Some(ref name) => {
-                                let i = named_modules.get(name);
-                                match i {
-                                    Some(ins) => Some(ins.borrow()),
-                                    None => None,
-                                }
-                            }
-                            None => match instance {
-                                Some(ref i) => Some(i.borrow()),
-                                None => None,
-                            },
-                        };
-                        if instance.is_none() {
+                        let maybe_call_result =
+                            with_instance(instance.clone(), &named_modules, &module, |instance| {
+                                let params: Vec<wasmer_runtime_core::types::Value> =
+                                    args.iter().cloned().map(convert_value).collect();
+                                instance.call(&field, &params[..])
+                            });
+                        if maybe_call_result.is_none() {
                             test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
@@ -417,9 +417,7 @@ mod tests {
                                 excludes,
                             );
                         } else {
-                            let params: Vec<wasmer_runtime_core::types::Value> =
-                                args.iter().cloned().map(|x| convert_value(x)).collect();
-                            let call_result = instance.unwrap().call(&field, &params[..]);
+                            let call_result = maybe_call_result.unwrap();
                             match call_result {
                                 Err(e) => {
                                     test_report.add_failure(
@@ -468,20 +466,13 @@ mod tests {
                         field,
                         args,
                     } => {
-                        let instance: Option<&Instance> = match module {
-                            Some(ref name) => {
-                                let i = named_modules.get(name);
-                                match i {
-                                    Some(ins) => Some(ins.borrow()),
-                                    None => None,
-                                }
-                            }
-                            None => match instance {
-                                Some(ref i) => Some(i.borrow()),
-                                None => None,
-                            },
-                        };
-                        if instance.is_none() {
+                        let maybe_call_result =
+                            with_instance(instance.clone(), &named_modules, &module, |instance| {
+                                let params: Vec<wasmer_runtime_core::types::Value> =
+                                    args.iter().cloned().map(convert_value).collect();
+                                instance.call(&field, &params[..])
+                            });
+                        if maybe_call_result.is_none() {
                             test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
@@ -493,9 +484,7 @@ mod tests {
                                 excludes,
                             );
                         } else {
-                            let params: Vec<wasmer_runtime_core::types::Value> =
-                                args.iter().cloned().map(|x| convert_value(x)).collect();
-                            let call_result = instance.unwrap().call(&field, &params[..]);
+                            let call_result = maybe_call_result.unwrap();
                             match call_result {
                                 Err(e) => {
                                     test_report.add_failure(
@@ -544,20 +533,13 @@ mod tests {
                         field,
                         args,
                     } => {
-                        let instance: Option<&Instance> = match module {
-                            Some(ref name) => {
-                                let i = named_modules.get(name);
-                                match i {
-                                    Some(ins) => Some(ins.borrow()),
-                                    None => None,
-                                }
-                            }
-                            None => match instance {
-                                Some(ref i) => Some(i.borrow()),
-                                None => None,
-                            },
-                        };
-                        if instance.is_none() {
+                        let maybe_call_result =
+                            with_instance(instance.clone(), &named_modules, &module, |instance| {
+                                let params: Vec<wasmer_runtime_core::types::Value> =
+                                    args.iter().cloned().map(convert_value).collect();
+                                instance.call(&field, &params[..])
+                            });
+                        if maybe_call_result.is_none() {
                             test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
@@ -569,9 +551,7 @@ mod tests {
                                 excludes,
                             );
                         } else {
-                            let params: Vec<wasmer_runtime_core::types::Value> =
-                                args.iter().cloned().map(|x| convert_value(x)).collect();
-                            let call_result = instance.unwrap().call(&field, &params[..]);
+                            let call_result = maybe_call_result.unwrap();
                             use wasmer_runtime_core::error::{CallError, RuntimeError};
                             match call_result {
                                 Err(e) => {
@@ -749,20 +729,17 @@ mod tests {
                             field,
                             args,
                         } => {
-                            let instance: Option<&Instance> = match module {
-                                Some(ref name) => {
-                                    let i = named_modules.get(name);
-                                    match i {
-                                        Some(ins) => Some(ins.borrow()),
-                                        None => None,
-                                    }
-                                }
-                                None => match instance {
-                                    Some(ref i) => Some(i.borrow()),
-                                    None => None,
+                            let maybe_call_result = with_instance(
+                                instance.clone(),
+                                &named_modules,
+                                &module,
+                                |instance| {
+                                    let params: Vec<wasmer_runtime_core::types::Value> =
+                                        args.iter().cloned().map(convert_value).collect();
+                                    instance.call(&field, &params[..])
                                 },
-                            };
-                            if instance.is_none() {
+                            );
+                            if maybe_call_result.is_none() {
                                 test_report.add_failure(
                                     SpecFailure {
                                         file: filename.to_string(),
@@ -774,9 +751,7 @@ mod tests {
                                     excludes,
                                 );
                             } else {
-                                let params: Vec<wasmer_runtime_core::types::Value> =
-                                    args.iter().cloned().map(|x| convert_value(x)).collect();
-                                let call_result = instance.unwrap().call(&field, &params[..]);
+                                let call_result = maybe_call_result.unwrap();
                                 match call_result {
                                     Err(_e) => {
                                         // TODO is specific error required?
@@ -871,16 +846,16 @@ mod tests {
                     }
                 }
                 CommandKind::Register { name, as_name } => {
-                    let instance: Option<Rc<Instance>> = match name {
+                    let instance: Option<Arc<Mutex<Instance>>> = match name {
                         Some(ref name) => {
                             let i = named_modules.get(name);
                             match i {
-                                Some(ins) => Some(Rc::clone(ins)),
+                                Some(ins) => Some(Arc::clone(ins)),
                                 None => None,
                             }
                         }
                         None => match instance {
-                            Some(ref i) => Some(Rc::clone(i)),
+                            Some(ref i) => Some(Arc::clone(i)),
                             None => None,
                         },
                     };
@@ -906,21 +881,13 @@ mod tests {
                         field,
                         args,
                     } => {
-                        let instance: Option<&Instance> = match module {
-                            Some(ref name) => {
-                                let i = named_modules.get(name);
-                                match i {
-                                    Some(ins) => Some(ins.borrow()),
-                                    None => None,
-                                }
-                            }
-                            None => match instance {
-                                Some(ref i) => Some(i.borrow()),
-                                None => None,
-                            },
-                        };
-
-                        if instance.is_none() {
+                        let maybe_call_result =
+                            with_instance(instance.clone(), &named_modules, &module, |instance| {
+                                let params: Vec<wasmer_runtime_core::types::Value> =
+                                    args.iter().cloned().map(convert_value).collect();
+                                instance.call(&field, &params[..])
+                            });
+                        if maybe_call_result.is_none() {
                             test_report.add_failure(
                                 SpecFailure {
                                     file: filename.to_string(),
@@ -932,9 +899,7 @@ mod tests {
                                 excludes,
                             );
                         } else {
-                            let params: Vec<wasmer_runtime_core::types::Value> =
-                                args.iter().cloned().map(|x| convert_value(x)).collect();
-                            let call_result = instance.unwrap().call(&field, &params[..]);
+                            let call_result = maybe_call_result.unwrap();
                             match call_result {
                                 Err(e) => {
                                     test_report.add_failure(
@@ -1054,7 +1019,7 @@ mod tests {
     }
 
     fn get_spectest_import_object(
-        registered_modules: &HashMap<String, Rc<Instance>>,
+        registered_modules: &HashMap<String, Arc<Mutex<Instance>>>,
     ) -> ImportObject {
         let memory = Memory::new(MemoryDescriptor {
             minimum: Pages(1),
@@ -1091,7 +1056,7 @@ mod tests {
         };
 
         for (name, instance) in registered_modules.iter() {
-            import_object.register(name.clone(), Rc::clone(instance));
+            import_object.register(name.clone(), Arc::clone(instance));
         }
         import_object
     }

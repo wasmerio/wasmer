@@ -5,7 +5,10 @@ use crate::{
     types::{ElementType, TableDescriptor},
     vm,
 };
-use std::{cell::RefCell, fmt, ptr, rc::Rc};
+use std::{
+    fmt, ptr,
+    sync::{Arc, Mutex},
+};
 
 mod anyfunc;
 
@@ -25,7 +28,7 @@ pub enum TableStorage {
 
 pub struct Table {
     desc: TableDescriptor,
-    storage: Rc<RefCell<(TableStorage, vm::LocalTable)>>,
+    storage: Arc<Mutex<(TableStorage, vm::LocalTable)>>,
 }
 
 impl Table {
@@ -71,7 +74,7 @@ impl Table {
 
         Ok(Self {
             desc,
-            storage: Rc::new(RefCell::new((storage, local))),
+            storage: Arc::new(Mutex::new((storage, local))),
         })
     }
 
@@ -82,7 +85,8 @@ impl Table {
 
     /// Set the element at index.
     pub fn set(&self, index: u32, element: Element) -> Result<(), ()> {
-        match &mut *self.storage.borrow_mut() {
+        let mut storage = self.storage.lock().unwrap();
+        match &mut *storage {
             (TableStorage::Anyfunc(ref mut anyfunc_table), _) => {
                 match element {
                     Element::Anyfunc(anyfunc) => anyfunc_table.set(index, anyfunc),
@@ -96,14 +100,16 @@ impl Table {
     where
         F: FnOnce(&mut [vm::Anyfunc]) -> R,
     {
-        match &mut *self.storage.borrow_mut() {
+        let mut storage = self.storage.lock().unwrap();
+        match &mut *storage {
             (TableStorage::Anyfunc(ref mut anyfunc_table), _) => f(anyfunc_table.internal_buffer()),
         }
     }
 
     /// The current size of this table.
     pub fn size(&self) -> u32 {
-        match &*self.storage.borrow() {
+        let storage = self.storage.lock().unwrap();
+        match &*storage {
             (TableStorage::Anyfunc(ref anyfunc_table), _) => anyfunc_table.current_size(),
         }
     }
@@ -114,7 +120,8 @@ impl Table {
             return Ok(self.size());
         }
 
-        match &mut *self.storage.borrow_mut() {
+        let mut storage = self.storage.lock().unwrap();
+        match &mut *storage {
             (TableStorage::Anyfunc(ref mut anyfunc_table), ref mut local) => anyfunc_table
                 .grow(delta, local)
                 .ok_or(GrowError::TableGrowError),
@@ -122,7 +129,8 @@ impl Table {
     }
 
     pub fn vm_local_table(&mut self) -> *mut vm::LocalTable {
-        &mut self.storage.borrow_mut().1
+        let mut storage = self.storage.lock().unwrap();
+        &mut storage.1
     }
 }
 
@@ -136,7 +144,7 @@ impl Clone for Table {
     fn clone(&self) -> Self {
         Self {
             desc: self.desc,
-            storage: Rc::clone(&self.storage),
+            storage: Arc::clone(&self.storage),
         }
     }
 }

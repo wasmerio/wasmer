@@ -513,6 +513,9 @@ pub struct ImportedFunc {
     pub vmctx: *mut Ctx,
 }
 
+// manually implemented because ImportedFunc contains raw pointers directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO: review this, shouldn't `Ctx` be Send?))
+unsafe impl Send for ImportedFunc {}
+
 impl ImportedFunc {
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_func() -> u8 {
@@ -539,6 +542,9 @@ pub struct LocalTable {
     /// The table that this represents. At the moment, this can only be `*mut AnyfuncTable`.
     pub table: *mut (),
 }
+
+// manually implemented because LocalTable contains raw pointers directly
+unsafe impl Send for LocalTable {}
 
 impl LocalTable {
     #[allow(clippy::erasing_op)] // TODO
@@ -568,6 +574,9 @@ pub struct LocalMemory {
     /// or `*mut SharedStaticMemory`.
     pub memory: *mut (),
 }
+
+// manually implemented because LocalMemory contains raw pointers
+unsafe impl Send for LocalMemory {}
 
 impl LocalMemory {
     #[allow(clippy::erasing_op)] // TODO
@@ -618,6 +627,9 @@ pub struct Anyfunc {
     pub ctx: *mut Ctx,
     pub sig_id: SigId,
 }
+
+// manually implemented because Anyfunc contains raw pointers directly
+unsafe impl Send for Anyfunc {}
 
 impl Anyfunc {
     pub fn null() -> Self {

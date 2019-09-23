@@ -16,7 +16,12 @@ use crate::{
     vm::{self, InternalField},
 };
 use smallvec::{smallvec, SmallVec};
-use std::{mem, pin::Pin, ptr::NonNull, sync::Arc};
+use std::{
+    mem,
+    pin::Pin,
+    ptr::NonNull,
+    sync::{Arc, Mutex},
+};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -24,6 +29,9 @@ pub(crate) struct InstanceInner {
     import_backing: ImportBacking,
     pub(crate) vmctx: *mut vm::Ctx,
 }
+
+// manually implemented because InstanceInner contains a raw pointer to Ctx
+unsafe impl Send for InstanceInner {}
 
 impl Drop for InstanceInner {
     fn drop(&mut self) {
@@ -517,6 +525,27 @@ impl LikeNamespace for Rc<Instance> {
     }
 }
 
+impl LikeNamespace for Arc<Mutex<Instance>> {
+    fn get_export(&self, name: &str) -> Option<Export> {
+        let instance = self.lock().unwrap();
+        let export_index = instance.module.info.exports.get(name)?;
+
+        Some(
+            instance
+                .inner
+                .get_export_from_index(&instance.module, export_index),
+        )
+    }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        unimplemented!("Use the exports method instead");
+    }
+
+    fn maybe_insert(&mut self, _name: &str, _export: Export) -> Option<()> {
+        None
+    }
+}
+
 #[must_use]
 fn call_func_with_index(
     info: &ModuleInfo,
@@ -761,5 +790,17 @@ impl<'a> DynFunc<'a> {
                 self.instance_inner.import_backing.vm_functions[import_func_index].func
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn is_send<T: Send>() {}
+
+    #[test]
+    fn test_instance_is_send() {
+        is_send::<Instance>();
     }
 }
