@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#807](https://github.com/wasmerio/wasmer/pull/807) Implement Send for `Instance`, breaking change on `ImportObject`, remove method `get_namespace` replaced with `with_namespace` and `maybe_with_namespace`
 - [#790](https://github.com/wasmerio/wasmer/pull/790) Fix flaky test failure with LLVM, switch to large code model.
 - [#788](https://github.com/wasmerio/wasmer/pull/788) Use union merge on the changelog file.
 - [#785](https://github.com/wasmerio/wasmer/pull/785) Include Apache license file for spectests.

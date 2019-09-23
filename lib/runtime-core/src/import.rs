@@ -266,12 +266,14 @@ mod test {
 
         imports1.extend(imports2);
 
-        let cat_ns = imports1.get_namespace("cat").unwrap();
-        assert!(cat_ns.get_export("small").is_some());
+        let small_cat_export =
+            imports1.maybe_with_namespace("cat", |cat_ns| cat_ns.get_export("small"));
+        assert!(small_cat_export.is_some());
 
-        let dog_ns = imports1.get_namespace("dog").unwrap();
-        assert!(dog_ns.get_export("happy").is_some());
-        assert!(dog_ns.get_export("small").is_some());
+        let entries = imports1.maybe_with_namespace("dog", |dog_ns| {
+            Some((dog_ns.get_export("happy")?, dog_ns.get_export("small")?))
+        });
+        assert!(entries.is_some());
     }
 
     #[test]
@@ -289,14 +291,14 @@ mod test {
         };
 
         imports1.extend(imports2);
-        let dog_ns = imports1.get_namespace("dog").unwrap();
+        let happy_dog_entry = imports1
+            .maybe_with_namespace("dog", |dog_ns| dog_ns.get_export("happy"))
+            .unwrap();
 
-        assert!(
-            if let Export::Global(happy_dog_global) = dog_ns.get_export("happy").unwrap() {
-                happy_dog_global.get() == Value::I32(4)
-            } else {
-                false
-            }
-        );
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.get() == Value::I32(4)
+        } else {
+            false
+        });
     }
 }
