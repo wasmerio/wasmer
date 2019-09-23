@@ -1,11 +1,10 @@
-use libc::{abort, c_char, c_int, exit, EAGAIN};
+use libc::{abort, c_int, exit, EAGAIN};
 
 #[cfg(not(target_os = "windows"))]
 type PidT = libc::pid_t;
 #[cfg(target_os = "windows")]
 type PidT = c_int;
 
-use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
 
 pub fn abort_with_message(ctx: &mut Ctx, message: &str) {
@@ -19,6 +18,12 @@ pub fn _abort(_ctx: &mut Ctx) {
     unsafe {
         abort();
     }
+}
+
+pub fn _prctl(ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_prctl");
+    abort_with_message(ctx, "missing function: prctl");
+    -1
 }
 
 pub fn _fork(_ctx: &mut Ctx) -> PidT {
@@ -43,18 +48,6 @@ pub fn _exit(_ctx: &mut Ctx, status: c_int) {
     // -> !
     debug!("emscripten::_exit {}", status);
     unsafe { exit(status) }
-}
-
-pub fn em_abort(ctx: &mut Ctx, message: u32) {
-    debug!("emscripten::em_abort {}", message);
-    let message_addr = emscripten_memory_pointer!(ctx.memory(0), message) as *mut c_char;
-    unsafe {
-        let message = CStr::from_ptr(message_addr)
-            .to_str()
-            .unwrap_or("Unexpected abort");
-
-        abort_with_message(ctx, message);
-    }
 }
 
 pub fn _kill(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
