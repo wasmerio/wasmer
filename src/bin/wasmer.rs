@@ -752,7 +752,7 @@ fn run(options: Run) {
     match execute_wasm(&options) {
         Ok(()) => {}
         Err(message) => {
-            eprintln!("Error while running the WebAssembly Module: {}", message);
+            eprintln!("Error: {}", message);
             exit(1);
         }
     }
