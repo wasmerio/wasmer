@@ -2,10 +2,14 @@
 
 # Generate files
 generate-spectests:
-	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core --release
+	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core --release \
+	&& echo "formatting" \
+	&& cargo fmt
 
 generate-emtests:
-	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release
+	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release \
+	&& echo "formatting" \
+	&& cargo fmt
 
 generate-wasitests: wasitests-setup
 	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
@@ -136,11 +140,15 @@ install:
 
 # Checks
 check-bench-singlepass:
-	cargo bench --all --no-run --no-default-features --features "backend-singlepass"
+	cargo bench --all --no-run --no-default-features --features "backend-singlepass" \
+	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 check-bench-clif:
-	cargo bench --all --no-run --no-default-features --features "backend-cranelift"
+	cargo bench --all --no-run --no-default-features --features "backend-cranelift" \
+	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
+	--exclude wasmer-middleware-common-tests
 check-bench-llvm:
-	cargo bench --all --no-run --no-default-features --features "backend-llvm"
+	cargo bench --all --no-run --no-default-features --features "backend-llvm" \
+	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
 check-bench: check-bench-singlepass check-bench-llvm
 
@@ -164,11 +172,15 @@ release-llvm:
 	cargo build --release --features backend-llvm
 
 bench-singlepass:
-	cargo bench --all --no-default-features --features "backend-singlepass"
+	cargo bench --all --no-default-features --features "backend-singlepass" \
+	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 bench-clif:
-	cargo bench --all --no-default-features --features "backend-cranelift"
+	cargo bench --all --no-default-features --features "backend-cranelift" \
+	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
+	--exclude wasmer-middleware-common-tests
 bench-llvm:
-	cargo bench --all --no-default-features --features "backend-llvm"
+	cargo bench --all --no-default-features --features "backend-llvm" \
+	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
 # Build utils
 build-install:
