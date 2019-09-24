@@ -1176,7 +1176,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                             BasicTypeEnum::FloatType(float_ty) => {
                                 float_ty.const_float(0.0).as_basic_value_enum()
                             }
-                            _ => unimplemented!(),
+                            _ => {
+                                return Err(CodegenError {
+                                    message: "Operator::End phi type unimplemented".to_string(),
+                                });
+                            }
                         };
                         state.push1(placeholder_value);
                         phi.as_instruction().erase_from_basic_block();
@@ -1741,7 +1745,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                             _ => value,
                         });
                     }
-                    _ => unimplemented!("multi-value returns"),
+                    _ => {
+                        return Err(CodegenError {
+                            message: "Operator::CallIndirect multi-value returns unimplemented"
+                                .to_string(),
+                        });
+                    }
                 }
             }
 
@@ -6853,7 +6862,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(result.try_as_basic_value().left().unwrap());
             }
             _ => {
-                unimplemented!("{:?}", op);
+                return Err(CodegenError {
+                    message: format!("Operator {:?} unimplemented", op),
+                });
             }
         }
 
@@ -6876,7 +6887,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     "return",
                 )));
             }
-            _ => unimplemented!("multi-value returns not yet implemented"),
+            _ => {
+                return Err(CodegenError {
+                    message: "multi-value returns not yet implemented".to_string(),
+                });
+            }
         }
         Ok(())
     }
@@ -7051,7 +7066,10 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             self.context.as_ref().unwrap(),
             self.builder.as_ref().unwrap(),
             self.intrinsics.as_ref().unwrap(),
-        );
+        )
+        .map_err(|e| CodegenError {
+            message: format!("trampolines generation error: {:?}", e),
+        })?;
 
         if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.pre_opt_ir } {
             self.module.print_to_file(path).unwrap();

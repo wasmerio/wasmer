@@ -395,14 +395,19 @@ pub fn read_module<
 }
 
 pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
-    Ok(match ty {
-        WpType::I32 => Type::I32,
-        WpType::I64 => Type::I64,
-        WpType::F32 => Type::F32,
-        WpType::F64 => Type::F64,
-        WpType::V128 => Type::V128,
-        _ => panic!("broken invariant, invalid type"),
-    })
+    match ty {
+        WpType::I32 => Ok(Type::I32),
+        WpType::I64 => Ok(Type::I64),
+        WpType::F32 => Ok(Type::F32),
+        WpType::F64 => Ok(Type::F64),
+        WpType::V128 => Ok(Type::V128),
+        _ => {
+            return Err(BinaryReaderError {
+                message: "broken invariant, invalid type",
+                offset: -1isize as usize,
+            });
+        }
+    }
 }
 
 pub fn type_to_wp_type(ty: Type) -> WpType {

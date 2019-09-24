@@ -20,7 +20,7 @@ wabt = "0.9.1"
 wasmer-dev-utils = { path = "../dev-utils", version = "0.7.0"}
 
 [build-dependencies]
-glob = "0.3.0"
+glob = "0.3"
 
 [features]
 clif = []

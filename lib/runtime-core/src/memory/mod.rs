@@ -8,12 +8,9 @@ use crate::{
     units::Pages,
     vm,
 };
-use std::{
-    cell::{Cell, RefCell},
-    fmt, mem,
-    rc::Rc,
-    sync::Arc,
-};
+use std::{cell::Cell, fmt, mem, sync::Arc};
+
+use std::sync::Mutex as StdMutex;
 
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::StaticMemory;
@@ -127,11 +124,11 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer_runtime_core::memory::{Memory, MemoryView};
-    /// # use std::sync::atomic::Ordering;
+    /// # use std::{cell::Cell, sync::atomic::Ordering};
     /// # fn view_memory(memory: Memory) {
     /// // Without synchronization.
     /// let view: MemoryView<u8> = memory.view();
-    /// for byte in view[0x1000 .. 0x1010].iter().map(|cell| cell.get()) {
+    /// for byte in view[0x1000 .. 0x1010].iter().map(Cell::get) {
     ///     println!("byte: {}", byte);
     /// }
     ///
@@ -204,13 +201,17 @@ enum UnsharedMemoryStorage {
 }
 
 pub struct UnsharedMemory {
-    internal: Rc<UnsharedMemoryInternal>,
+    internal: Arc<UnsharedMemoryInternal>,
 }
 
 struct UnsharedMemoryInternal {
-    storage: RefCell<UnsharedMemoryStorage>,
+    storage: StdMutex<UnsharedMemoryStorage>,
     local: Cell<vm::LocalMemory>,
 }
+
+// Manually implemented because UnsharedMemoryInternal uses `Cell` and is used in an Arc;
+// this is safe because the lock for storage can be used to protect (seems like a weak reason: PLEASE REVIEW!)
+unsafe impl Sync for UnsharedMemoryInternal {}
 
 impl UnsharedMemory {
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
@@ -235,15 +236,15 @@ impl UnsharedMemory {
         };
 
         Ok(Self {
-            internal: Rc::new(UnsharedMemoryInternal {
-                storage: RefCell::new(storage),
+            internal: Arc::new(UnsharedMemoryInternal {
+                storage: StdMutex::new(storage),
                 local: Cell::new(local),
             }),
         })
     }
 
     pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
-        let mut storage = self.internal.storage.borrow_mut();
+        let mut storage = self.internal.storage.lock().unwrap();
 
         let mut local = self.internal.local.get();
 
@@ -260,7 +261,7 @@ impl UnsharedMemory {
     }
 
     pub fn size(&self) -> Pages {
-        let storage = self.internal.storage.borrow();
+        let storage = self.internal.storage.lock().unwrap();
 
         match &*storage {
             UnsharedMemoryStorage::Dynamic(ref dynamic_memory) => dynamic_memory.size(),
@@ -276,7 +277,7 @@ impl UnsharedMemory {
 impl Clone for UnsharedMemory {
     fn clone(&self) -> Self {
         UnsharedMemory {
-            internal: Rc::clone(&self.internal),
+            internal: Arc::clone(&self.internal),
         }
     }
 }
@@ -286,10 +287,14 @@ pub struct SharedMemory {
 }
 
 pub struct SharedMemoryInternal {
-    memory: RefCell<Box<StaticMemory>>,
+    memory: StdMutex<Box<StaticMemory>>,
     local: Cell<vm::LocalMemory>,
     lock: Mutex<()>,
 }
+
+// Manually implemented because SharedMemoryInternal uses `Cell` and is used in Arc;
+// this is safe because of `lock`; accesing `local` without locking `lock` is not safe (Maybe we could put the lock on Local then?)
+unsafe impl Sync for SharedMemoryInternal {}
 
 impl SharedMemory {
     fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
@@ -303,7 +308,7 @@ impl SharedMemory {
 
         Ok(Self {
             internal: Arc::new(SharedMemoryInternal {
-                memory: RefCell::new(memory),
+                memory: StdMutex::new(memory),
                 local: Cell::new(local),
                 lock: Mutex::new(()),
             }),
@@ -313,15 +318,18 @@ impl SharedMemory {
     pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         let _guard = self.internal.lock.lock();
         let mut local = self.internal.local.get();
-        let pages = self.internal.memory.borrow_mut().grow(delta, &mut local);
+        let mut memory = self.internal.memory.lock().unwrap();
+        let pages = memory.grow(delta, &mut local);
         pages
     }
 
     pub fn size(&self) -> Pages {
         let _guard = self.internal.lock.lock();
-        self.internal.memory.borrow_mut().size()
+        let memory = self.internal.memory.lock().unwrap();
+        memory.size()
     }
 
+    // This function is scary, because the mutex is not locked here
     pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
         self.internal.local.as_ptr()
     }
