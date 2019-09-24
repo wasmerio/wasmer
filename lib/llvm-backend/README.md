@@ -15,7 +15,7 @@
     <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
   </a>
   <a href="https://crates.io/crates/wasmer-llvm-backend">
-    <img src="https://img.shields.io/crates/d/wasmer-llvm-backend.svg" alt="Number of downloads from crates.io">
+    <img src="https://img.shields.io/crates/d/wasmer-llvm-backend.svg?style=flat-square" alt="Number of downloads from crates.io">
   </a>
   <a href="https://docs.rs/wasmer-llvm-backend">
     <img src="https://docs.rs/wasmer-llvm-backend/badge.svg" alt="Read our API documentation">
