@@ -50,16 +50,12 @@ impl Memory {
     /// # use wasmer_runtime_core::memory::Memory;
     /// # use wasmer_runtime_core::error::Result;
     /// # use wasmer_runtime_core::units::Pages;
-    /// # fn create_memory() -> Result<()> {
-    /// let descriptor = MemoryDescriptor {
-    ///     minimum: Pages(10),
-    ///     maximum: None,
-    ///     shared: false,
-    /// };
+    /// fn create_memory() -> Result<()> {
+    ///     let descriptor = MemoryDescriptor::new(Pages(10), None, false).unwrap();
     ///
-    /// let memory = Memory::new(descriptor)?;
-    /// # Ok(())
-    /// # }
+    ///     let memory = Memory::new(descriptor)?;
+    ///     Ok(())
+    /// }
     /// ```
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
         if let Some(max) = desc.maximum {
@@ -174,7 +170,7 @@ impl fmt::Debug for Memory {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MemoryType {
     Dynamic,
     Static,
@@ -232,7 +228,11 @@ impl UnsharedMemory {
             MemoryType::Static => {
                 UnsharedMemoryStorage::Static(StaticMemory::new(desc, &mut local)?)
             }
-            MemoryType::SharedStatic => panic!("attempting to create shared unshared memory"),
+            MemoryType::SharedStatic => {
+                return Err(CreationError::InvalidDescriptor(
+                    "attempting to create shared unshared memory".to_string(),
+                ));
+            }
         };
 
         Ok(Self {
@@ -350,24 +350,16 @@ mod memory_tests {
 
     #[test]
     fn test_initial_memory_size() {
-        let unshared_memory = Memory::new(MemoryDescriptor {
-            minimum: Pages(10),
-            maximum: Some(Pages(20)),
-            shared: false,
-        })
-        .unwrap();
+        let memory_desc = MemoryDescriptor::new(Pages(10), Some(Pages(20)), false).unwrap();
+        let unshared_memory = Memory::new(memory_desc).unwrap();
         assert_eq!(unshared_memory.size(), Pages(10));
     }
 
     #[test]
     fn test_invalid_descriptor_returns_error() {
-        let result = Memory::new(MemoryDescriptor {
-            minimum: Pages(10),
-            maximum: None,
-            shared: true,
-        });
+        let memory_desc = MemoryDescriptor::new(Pages(10), None, true);
         assert!(
-            result.is_err(),
+            memory_desc.is_err(),
             "Max number of pages is required for shared memory"
         )
     }

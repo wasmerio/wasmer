@@ -1021,12 +1021,8 @@ mod tests {
     fn get_spectest_import_object(
         registered_modules: &HashMap<String, Arc<Mutex<Instance>>>,
     ) -> ImportObject {
-        let memory = Memory::new(MemoryDescriptor {
-            minimum: Pages(1),
-            maximum: Some(Pages(2)),
-            shared: false,
-        })
-        .unwrap();
+        let memory_desc = MemoryDescriptor::new(Pages(1), Some(Pages(2)), false).unwrap();
+        let memory = Memory::new(memory_desc).unwrap();
 
         let global_i32 = Global::new(wasmer_runtime_core::types::Value::I32(666));
         let global_f32 = Global::new(wasmer_runtime_core::types::Value::F32(666.0));
