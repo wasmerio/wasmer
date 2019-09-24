@@ -6551,6 +6551,559 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 );
             }
+            Operator::I32AtomicRmwXchg { ref memarg } => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S32, loc, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    4,
+                    |a, _m, addr| {
+                        a.emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                    },
+                );
+                a.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I64AtomicRmwXchg { ref memarg } => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S64, loc, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    8,
+                    |a, _m, addr| {
+                        a.emit_xchg(Size::S64, Location::GPR(value), Location::Memory(addr, 0))
+                    },
+                );
+                a.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I32AtomicRmw8UXchg { ref memarg } => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    1,
+                    |a, _m, addr| {
+                        a.emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                    },
+                );
+                a.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I32AtomicRmw16UXchg { ref memarg } => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    2,
+                    |a, _m, addr| {
+                        a.emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                    },
+                );
+                a.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I64AtomicRmw8UXchg { ref memarg } => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    1,
+                    |a, _m, addr| {
+                        a.emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                    },
+                );
+                a.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I64AtomicRmw16UXchg { ref memarg } => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    2,
+                    |a, _m, addr| {
+                        a.emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                    },
+                );
+                a.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I64AtomicRmw32UXchg { ref memarg } => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let value = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S32, loc, Location::GPR(value));
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    4,
+                    |a, _m, addr| {
+                        a.emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                    },
+                );
+                a.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.machine.release_temp_gpr(value);
+            }
+            Operator::I32AtomicRmwCmpxchg { ref memarg } => {
+                let new =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let cmp =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let value = if cmp == Location::GPR(GPR::R14) {
+                    if new == Location::GPR(GPR::R13) {
+                        GPR::R12
+                    } else {
+                        GPR::R13
+                    }
+                } else {
+                    GPR::R14
+                };
+                a.emit_push(Size::S64, Location::GPR(value));
+                a.emit_mov(Size::S32, cmp, Location::GPR(compare));
+                a.emit_mov(Size::S32, new, Location::GPR(value));
+
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    4,
+                    |a, _m, addr| {
+                        a.emit_lock_cmpxchg(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        a.emit_mov(Size::S32, Location::GPR(compare), ret);
+                    },
+                );
+                a.emit_pop(Size::S64, Location::GPR(value));
+                self.machine.release_temp_gpr(compare);
+            }
+            Operator::I64AtomicRmwCmpxchg { ref memarg } => {
+                let new =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let cmp =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let value = if cmp == Location::GPR(GPR::R14) {
+                    if new == Location::GPR(GPR::R13) {
+                        GPR::R12
+                    } else {
+                        GPR::R13
+                    }
+                } else {
+                    GPR::R14
+                };
+                a.emit_push(Size::S64, Location::GPR(value));
+                a.emit_mov(Size::S64, cmp, Location::GPR(compare));
+                a.emit_mov(Size::S64, new, Location::GPR(value));
+
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    8,
+                    |a, _m, addr| {
+                        a.emit_lock_cmpxchg(
+                            Size::S64,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        a.emit_mov(Size::S64, Location::GPR(compare), ret);
+                    },
+                );
+                a.emit_pop(Size::S64, Location::GPR(value));
+                self.machine.release_temp_gpr(compare);
+            }
+            Operator::I32AtomicRmw8UCmpxchg { ref memarg } => {
+                let new =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let cmp =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let value = if cmp == Location::GPR(GPR::R14) {
+                    if new == Location::GPR(GPR::R13) {
+                        GPR::R12
+                    } else {
+                        GPR::R13
+                    }
+                } else {
+                    GPR::R14
+                };
+                a.emit_push(Size::S64, Location::GPR(value));
+                a.emit_mov(Size::S32, cmp, Location::GPR(compare));
+                a.emit_mov(Size::S32, new, Location::GPR(value));
+
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    1,
+                    |a, _m, addr| {
+                        a.emit_lock_cmpxchg(
+                            Size::S8,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        a.emit_movzx(Size::S8, Location::GPR(compare), Size::S32, ret);
+                    },
+                );
+                a.emit_pop(Size::S64, Location::GPR(value));
+                self.machine.release_temp_gpr(compare);
+            }
+            Operator::I32AtomicRmw16UCmpxchg { ref memarg } => {
+                let new =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let cmp =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let value = if cmp == Location::GPR(GPR::R14) {
+                    if new == Location::GPR(GPR::R13) {
+                        GPR::R12
+                    } else {
+                        GPR::R13
+                    }
+                } else {
+                    GPR::R14
+                };
+                a.emit_push(Size::S64, Location::GPR(value));
+                a.emit_mov(Size::S32, cmp, Location::GPR(compare));
+                a.emit_mov(Size::S32, new, Location::GPR(value));
+
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    1,
+                    |a, _m, addr| {
+                        a.emit_lock_cmpxchg(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        a.emit_movzx(Size::S16, Location::GPR(compare), Size::S32, ret);
+                    },
+                );
+                a.emit_pop(Size::S64, Location::GPR(value));
+                self.machine.release_temp_gpr(compare);
+            }
+            Operator::I64AtomicRmw8UCmpxchg { ref memarg } => {
+                let new =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let cmp =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let value = if cmp == Location::GPR(GPR::R14) {
+                    if new == Location::GPR(GPR::R13) {
+                        GPR::R12
+                    } else {
+                        GPR::R13
+                    }
+                } else {
+                    GPR::R14
+                };
+                a.emit_push(Size::S64, Location::GPR(value));
+                a.emit_mov(Size::S64, cmp, Location::GPR(compare));
+                a.emit_mov(Size::S64, new, Location::GPR(value));
+
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    1,
+                    |a, _m, addr| {
+                        a.emit_lock_cmpxchg(
+                            Size::S8,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        a.emit_movzx(Size::S8, Location::GPR(compare), Size::S64, ret);
+                    },
+                );
+                a.emit_pop(Size::S64, Location::GPR(value));
+                self.machine.release_temp_gpr(compare);
+            }
+            Operator::I64AtomicRmw16UCmpxchg { ref memarg } => {
+                let new =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let cmp =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let value = if cmp == Location::GPR(GPR::R14) {
+                    if new == Location::GPR(GPR::R13) {
+                        GPR::R12
+                    } else {
+                        GPR::R13
+                    }
+                } else {
+                    GPR::R14
+                };
+                a.emit_push(Size::S64, Location::GPR(value));
+                a.emit_mov(Size::S64, cmp, Location::GPR(compare));
+                a.emit_mov(Size::S64, new, Location::GPR(value));
+
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    1,
+                    |a, _m, addr| {
+                        a.emit_lock_cmpxchg(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        a.emit_movzx(Size::S16, Location::GPR(compare), Size::S64, ret);
+                    },
+                );
+                a.emit_pop(Size::S64, Location::GPR(value));
+                self.machine.release_temp_gpr(compare);
+            }
+            Operator::I64AtomicRmw32UCmpxchg { ref memarg } => {
+                let new =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let cmp =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let value = if cmp == Location::GPR(GPR::R14) {
+                    if new == Location::GPR(GPR::R13) {
+                        GPR::R12
+                    } else {
+                        GPR::R13
+                    }
+                } else {
+                    GPR::R14
+                };
+                a.emit_push(Size::S64, Location::GPR(value));
+                a.emit_mov(Size::S64, cmp, Location::GPR(compare));
+                a.emit_mov(Size::S64, new, Location::GPR(value));
+
+                Self::emit_memory_op(
+                    module_info,
+                    &self.config,
+                    a,
+                    &mut self.machine,
+                    target,
+                    memarg,
+                    true,
+                    1,
+                    |a, _m, addr| {
+                        a.emit_lock_cmpxchg(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        a.emit_mov(Size::S32, Location::GPR(compare), ret);
+                    },
+                );
+                a.emit_pop(Size::S64, Location::GPR(value));
+                self.machine.release_temp_gpr(compare);
+            }
             _ => {
                 return Err(CodegenError {
                     message: format!("not yet implemented: {:?}", op),

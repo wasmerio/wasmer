@@ -867,7 +867,6 @@ llvm:skip:simd_binaryen.wast:*:unix # Module - caught panic Any
 
 
 # Singlepass
-singlepass:skip:atomic.wast:*        # Threads not implemented
 singlepass:skip:simd.wast:*          # SIMD not implemented
 singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
@@ -904,6 +903,51 @@ singlepass:fail:address.wast:586 # AssertTrap - expected trap, got Runtime:Error
 singlepass:fail:address.wast:588 # AssertTrap - expected trap, got []
 singlepass:fail:address.wast:589 # AssertTrap - expected trap, got []
 singlepass:fail:align.wast:864 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:380 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:381 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:382 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:383 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:384 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:385 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:386 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:387 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:388 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:389 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:390 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:391 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:392 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:393 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:394 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:395 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:396 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:397 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:398 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:399 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:400 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:401 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:402 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:403 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:404 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:405 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:406 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:407 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:408 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:409 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:410 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:411 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:412 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:413 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:414 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:415 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:416 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:417 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:418 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:419 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:420 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:421 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:422 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:423 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:atomic.wast:424 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call.wast:289 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call_indirect.wast:469 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call_indirect.wast:470 # AssertTrap - expected trap, got Runtime:Error unknown error
