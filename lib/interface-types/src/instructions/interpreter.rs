@@ -3,7 +3,11 @@ use crate::instructions::{
     wasm::{self, FunctionIndex, InterfaceType, InterfaceValue, TypedIndex},
     Instruction,
 };
-use std::{cell::Cell, convert::TryFrom, marker::PhantomData};
+use std::{
+    cell::Cell,
+    convert::{TryFrom, TryInto},
+    marker::PhantomData,
+};
 
 struct Runtime<'invocation, 'instance, Instance, Export, LocalImport, Memory>
 where
@@ -15,9 +19,9 @@ where
     invocation_inputs: &'invocation [InterfaceValue],
     stack: Stack<InterfaceValue>,
     wasm_instance: &'instance Instance,
-    wasm_exports: PhantomData<Export>,
-    wasm_locals_or_imports: PhantomData<LocalImport>,
-    wasm_memories: PhantomData<Memory>,
+    _wasm_exports: PhantomData<Export>,
+    _wasm_locals_or_imports: PhantomData<LocalImport>,
+    _wasm_memories: PhantomData<Memory>,
 }
 
 type ExecutableInstruction<Instance, Export, LocalImport, Memory> =
@@ -56,9 +60,9 @@ where
             invocation_inputs,
             stack: Stack::new(),
             wasm_instance,
-            wasm_exports: PhantomData,
-            wasm_locals_or_imports: PhantomData,
-            wasm_memories: PhantomData,
+            _wasm_exports: PhantomData,
+            _wasm_locals_or_imports: PhantomData,
+            _wasm_memories: PhantomData,
         };
 
         for executable_instruction in self.iter() {
@@ -274,6 +278,76 @@ where
                                 }
                             })
                         }
+                        Instruction::WriteUtf8 { allocator_name } => {
+                            let allocator_name = (*allocator_name).to_owned();
+                            let instruction_name: String = instruction.into();
+
+                            Box::new(move |runtime: &mut Runtime<Instance, Export, LocalImport, Memory>| -> Result<(), _> {
+                                let instance = runtime.wasm_instance;
+
+                                match instance.export(&allocator_name) {
+                                    Some(allocator) => {
+                                        if allocator.inputs() != [InterfaceType::I32] ||
+                                            allocator.outputs() != [InterfaceType::I32] {
+                                            return Err(format!(
+                                                "`{}` failed because the allocator `{}` has an invalid signature (expects [I32] -> [I32]).",
+                                                instruction_name,
+                                                allocator_name,
+                                            ))
+                                        }
+
+                                        match runtime.wasm_instance.memory(0) {
+                                            Some(memory) => match runtime.stack.pop1() {
+                                                Some(string) => {
+                                                    let memory_view = memory.view::<u8>();
+
+                                                    let string: String = (&string).try_into()?;
+                                                    let string_bytes = string.as_bytes();
+                                                    let string_length = (string_bytes.len() as i32)
+                                                        .try_into()
+                                                        .map_err(|error| format!("{}", error))?;
+
+                                                    match allocator.call(&[InterfaceValue::I32(string_length)]) {
+                                                        Ok(outputs) => {
+                                                            let string_pointer: i32 = (&outputs[0]).try_into()?;
+
+                                                            for (nth, byte) in string_bytes.iter().enumerate() {
+                                                                memory_view[string_pointer as usize + nth].set(*byte);
+                                                            }
+
+                                                            runtime.stack.push(InterfaceValue::I32(string_pointer));
+                                                            runtime.stack.push(InterfaceValue::I32(string_length));
+
+                                                            Ok(())
+                                                        }
+                                                        Err(_) => Err(format!(
+                                                            "`{}` failed when calling the allocator `{}`.",
+                                                            instruction_name,
+                                                            allocator_name,
+                                                        ))
+                                                    }
+                                                }
+                                                None => Err(format!(
+                                                    "`{}` cannot call the allocator `{}` because there is no enough data on the stack for the arguments (needs {}).",
+                                                    instruction_name,
+                                                    allocator_name,
+                                                    1
+                                                ))
+                                            }
+                                            None => Err(format!(
+                                                "`{}` failed because there is no memory to write into.",
+                                                instruction_name
+                                            ))
+                                        }
+                                    }
+                                    None => Err(format!(
+                                        "`{}` failed because the exported function `{}` (the allocator) doesn't exist.",
+                                        instruction_name,
+                                        allocator_name
+                                    ))
+                                }
+                            })
+                        }
                         _ => unimplemented!(),
                     }
                 },
@@ -396,6 +470,18 @@ mod tests {
                             },
                         },
                     );
+                    hashmap.insert(
+                        "alloc".into(),
+                        Export {
+                            inputs: vec![InterfaceType::I32],
+                            outputs: vec![InterfaceType::I32],
+                            function: |arguments: &[InterfaceValue]| {
+                                let _size: i32 = (&arguments[0]).try_into().unwrap();
+
+                                Ok(vec![InterfaceValue::I32(0)])
+                            },
+                        },
+                    );
 
                     hashmap
                 },
@@ -417,7 +503,7 @@ mod tests {
 
                     hashmap
                 },
-                memory: Memory::new(vec![]),
+                memory: Memory::new(vec![Cell::new(0); 128]),
             }
         }
     }
@@ -849,5 +935,99 @@ mod tests {
                 ..Default::default()
             },
             stack: [],
+    );
+
+    test!(
+        test_interpreter_write_utf8 =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::WriteUtf8 { allocator_name: "alloc" },
+            ],
+            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
+            instance: Instance::new(),
+            stack: [
+                InterfaceValue::I32(0),
+                //              ^^^^^^ pointer
+                InterfaceValue::I32(13),
+                //              ^^^^^^^ length
+            ]
+    );
+
+    test!(
+        test_interpreter_write_utf8__roundtrip_with_read_utf8 =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::WriteUtf8 { allocator_name: "alloc" },
+                Instruction::ReadUtf8,
+            ],
+            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
+            instance: Instance::new(),
+            stack: [InterfaceValue::String("Hello, World!".into())],
+    );
+
+    test!(
+        test_interpreter_write_utf8__allocator_does_not_exist =
+            instructions: [Instruction::WriteUtf8 { allocator_name: "alloc" }],
+            invocation_inputs: [],
+            instance: Instance { ..Default::default() },
+            error: r#"`write-utf8 "alloc"` failed because the exported function `alloc` (the allocator) doesn't exist."#,
+    );
+
+    test!(
+        test_interpreter_write_utf8__stack_is_too_small =
+            instructions: [
+                Instruction::WriteUtf8 { allocator_name: "alloc" }
+                //                                        ^^^^^ `alloc` expects 1 value on the stack, none is present
+            ],
+            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
+            instance: Instance::new(),
+            error: r#"`write-utf8 "alloc"` cannot call the allocator `alloc` because there is no enough data on the stack for the arguments (needs 1)."#,
+    );
+
+    test!(
+        test_interpreter_write_utf8__failure_when_calling_the_allocator =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::WriteUtf8 { allocator_name: "alloc-fail" }
+            ],
+            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
+            instance: {
+                let mut instance = Instance::new();
+                instance.exports.insert(
+                    "alloc-fail".into(),
+                    Export {
+                        inputs: vec![InterfaceType::I32],
+                        outputs: vec![InterfaceType::I32],
+                        function: |_| Err(()),
+                        //            ^^^^^^^ function fails
+                    },
+                );
+
+                instance
+            },
+            error: r#"`write-utf8 "alloc-fail"` failed when calling the allocator `alloc-fail`."#,
+    );
+
+    test!(
+        test_interpreter_write_utf8__invalid_allocator_signature =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::WriteUtf8 { allocator_name: "alloc-fail" }
+            ],
+            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
+            instance: {
+                let mut instance = Instance::new();
+                instance.exports.insert(
+                    "alloc-fail".into(),
+                    Export {
+                        inputs: vec![InterfaceType::I32, InterfaceType::I32],
+                        outputs: vec![],
+                        function: |_| Err(()),
+                    },
+                );
+
+                instance
+            },
+            error: r#"`write-utf8 "alloc-fail"` failed because the allocator `alloc-fail` has an invalid signature (expects [I32] -> [I32])."#,
     );
 }

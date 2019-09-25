@@ -49,8 +49,8 @@ macro_rules! from_x_for_interface_value {
             type Error = &'static str;
 
             fn try_from(w: &InterfaceValue) -> Result<Self, Self::Error> {
-                match *w {
-                    InterfaceValue::$value_variant(n) => Ok(n),
+                match w {
+                    InterfaceValue::$value_variant(n) => Ok(n.clone()),
                     _ => Err("Invalid cast."),
                 }
             }
@@ -58,6 +58,7 @@ macro_rules! from_x_for_interface_value {
     };
 }
 
+from_x_for_interface_value!(String, String);
 from_x_for_interface_value!(i32, I32);
 from_x_for_interface_value!(i64, I64);
 from_x_for_interface_value!(f32, F32);
