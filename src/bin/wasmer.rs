@@ -514,17 +514,17 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .instantiate(&import_object)
             .map_err(|e| format!("Can't instantiate loader module: {:?}", e))?;
 
-        let args: Vec<Value> = options
-            .args
-            .iter()
-            .map(|arg| arg.as_str())
-            .map(|x| {
-                Value::I32(x.parse().expect(&format!(
+        let mut args: Vec<Value> = Vec::new();
+        for arg in options.args.iter() {
+            let x = arg.as_str().parse().map_err(|_| {
+                format!(
                     "Can't parse the provided argument {:?} as a integer",
-                    x
-                )))
-            })
-            .collect();
+                    arg.as_str()
+                )
+            })?;
+            args.push(Value::I32(x));
+        }
+
         let index = instance
             .resolve_func("_start")
             .expect("The loader requires a _start function to be present in the module");
@@ -658,12 +658,17 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            let args: Vec<Value> = options
-                .args
-                .iter()
-                .map(|arg| arg.as_str())
-                .map(|x| Value::I32(x.parse().unwrap()))
-                .collect();
+            let mut args: Vec<Value> = Vec::new();
+            for arg in options.args.iter() {
+                let x = arg.as_str().parse().map_err(|_| {
+                    format!(
+                        "Can't parse the provided argument {:?} as a integer",
+                        arg.as_str()
+                    )
+                })?;
+                args.push(Value::I32(x));
+            }
+
             instance
                 .dyn_func("main")
                 .map_err(|e| format!("{:?}", e))?
