@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#834](https://github.com/wasmerio/wasmer/pull/834) Fix panic when unwraping `wasmer` arguments
 - [#833](https://github.com/wasmerio/wasmer/pull/833) Add doc example of using ImportObject's new `maybe_with_namespace` method
 - [#832](https://github.com/wasmerio/wasmer/pull/832) Delete unused runtime ABI
 - [#809](https://github.com/wasmerio/wasmer/pull/809) Fix bugs leading to panics in `LocalBacking`.
