@@ -23,11 +23,13 @@ impl From<&InterfaceType> for String {
 impl<'input> From<&Instruction<'input>> for String {
     fn from(instruction: &Instruction) -> Self {
         match instruction {
-            Instruction::ArgumentGet(index) => format!("arg.get {}", index),
-            Instruction::Call(index) => format!("call {}", index),
-            Instruction::CallExport(export_name) => format!(r#"call-export "{}""#, export_name),
+            Instruction::ArgumentGet { index } => format!("arg.get {}", index),
+            Instruction::Call { function_index } => format!("call {}", function_index),
+            Instruction::CallExport { export_name } => format!(r#"call-export "{}""#, export_name),
             Instruction::ReadUtf8 => "read-utf8".into(),
-            Instruction::WriteUtf8(string) => format!(r#"write-utf8 "{}""#, string),
+            Instruction::WriteUtf8 { allocator_name } => {
+                format!(r#"write-utf8 "{}""#, allocator_name)
+            }
             Instruction::AsWasm(interface_type) => {
                 format!("as-wasm {}", String::from(interface_type))
             }
@@ -294,11 +296,14 @@ mod tests {
     #[test]
     fn test_instructions() {
         let inputs: Vec<String> = vec![
-            (&Instruction::ArgumentGet(7)).into(),
-            (&Instruction::Call(7)).into(),
-            (&Instruction::CallExport("foo")).into(),
+            (&Instruction::ArgumentGet { index: 7 }).into(),
+            (&Instruction::Call { function_index: 7 }).into(),
+            (&Instruction::CallExport { export_name: "foo" }).into(),
             (&Instruction::ReadUtf8).into(),
-            (&Instruction::WriteUtf8("foo")).into(),
+            (&Instruction::WriteUtf8 {
+                allocator_name: "foo",
+            })
+                .into(),
             (&Instruction::AsWasm(InterfaceType::Int)).into(),
             (&Instruction::AsInterface(InterfaceType::AnyRef)).into(),
             (&Instruction::TableRefAdd).into(),
@@ -438,9 +443,11 @@ mod tests {
                 input_types: vec![InterfaceType::I32, InterfaceType::F32],
                 output_types: vec![InterfaceType::I32],
                 instructions: vec![
-                    Instruction::ArgumentGet(0),
-                    Instruction::WriteUtf8("hello"),
-                    Instruction::CallExport("f"),
+                    Instruction::ArgumentGet { index: 0 },
+                    Instruction::WriteUtf8 {
+                        allocator_name: "hello",
+                    },
+                    Instruction::CallExport { export_name: "f" },
                 ],
             })
                 .into(),
@@ -449,7 +456,7 @@ mod tests {
                 name: "foo",
                 input_types: vec![InterfaceType::I32],
                 output_types: vec![],
-                instructions: vec![Instruction::CallExport("f")],
+                instructions: vec![Instruction::CallExport { export_name: "f" }],
             })
                 .into(),
             (&Adapter::Import {
@@ -457,7 +464,7 @@ mod tests {
                 name: "foo",
                 input_types: vec![],
                 output_types: vec![InterfaceType::I32],
-                instructions: vec![Instruction::CallExport("f")],
+                instructions: vec![Instruction::CallExport { export_name: "f" }],
             })
                 .into(),
             (&Adapter::Export {
@@ -465,9 +472,11 @@ mod tests {
                 input_types: vec![InterfaceType::I32, InterfaceType::F32],
                 output_types: vec![InterfaceType::I32],
                 instructions: vec![
-                    Instruction::ArgumentGet(0),
-                    Instruction::WriteUtf8("hello"),
-                    Instruction::CallExport("f"),
+                    Instruction::ArgumentGet { index: 0 },
+                    Instruction::WriteUtf8 {
+                        allocator_name: "hello",
+                    },
+                    Instruction::CallExport { export_name: "f" },
                 ],
             })
                 .into(),
@@ -475,14 +484,14 @@ mod tests {
                 name: "foo",
                 input_types: vec![InterfaceType::I32],
                 output_types: vec![],
-                instructions: vec![Instruction::CallExport("f")],
+                instructions: vec![Instruction::CallExport { export_name: "f" }],
             })
                 .into(),
             (&Adapter::Export {
                 name: "foo",
                 input_types: vec![],
                 output_types: vec![InterfaceType::I32],
-                instructions: vec![Instruction::CallExport("f")],
+                instructions: vec![Instruction::CallExport { export_name: "f" }],
             })
                 .into(),
         ];
@@ -560,13 +569,13 @@ mod tests {
                     name: "foo",
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![],
-                    instructions: vec![Instruction::ArgumentGet(42)],
+                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
                 },
                 Adapter::Export {
                     name: "bar",
                     input_types: vec![],
                     output_types: vec![],
-                    instructions: vec![Instruction::ArgumentGet(42)],
+                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
                 },
             ],
             forwards: vec![Forward { name: "main" }],

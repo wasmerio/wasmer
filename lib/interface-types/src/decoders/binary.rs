@@ -133,24 +133,39 @@ fn instructions<'input, E: ParseError<&'input [u8]>>(
     Ok(match opcode {
         0x00 => {
             consume!((input, argument_0) = leb(input)?);
-            (input, Instruction::ArgumentGet(argument_0))
+            (input, Instruction::ArgumentGet { index: argument_0 })
         }
 
         0x01 => {
             consume!((input, argument_0) = leb(input)?);
-            (input, Instruction::Call(argument_0 as usize))
+            (
+                input,
+                Instruction::Call {
+                    function_index: argument_0 as usize,
+                },
+            )
         }
 
         0x02 => {
             consume!((input, argument_0) = string(input)?);
-            (input, Instruction::CallExport(argument_0))
+            (
+                input,
+                Instruction::CallExport {
+                    export_name: argument_0,
+                },
+            )
         }
 
         0x03 => (input, Instruction::ReadUtf8),
 
         0x04 => {
             consume!((input, argument_0) = string(input)?);
-            (input, Instruction::WriteUtf8(argument_0))
+            (
+                input,
+                Instruction::WriteUtf8 {
+                    allocator_name: argument_0,
+                },
+            )
         }
 
         0x05 => {
@@ -499,11 +514,11 @@ mod tests {
     fn test_instructions() {
         let input = &[
             0x14, // list of 20 items
-            0x00, 0x01, // ArgumentGet(1)
-            0x01, 0x01, // Call(1)
-            0x02, 0x03, 0x61, 0x62, 0x63, // CallExport("abc")
+            0x00, 0x01, // ArgumentGet { index: 1 }
+            0x01, 0x01, // Call { function_index: 1 }
+            0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
             0x03, // ReadUtf8
-            0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8("abc")
+            0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
             0x05, 0xff, 0xff, 0x01, // AsWasm(Int)
             0x06, 0x7e, // AsInterface(I64)
             0x07, // TableRefAdd
@@ -524,11 +539,13 @@ mod tests {
         let output = Ok((
             &[0x0a][..],
             vec![
-                Instruction::ArgumentGet(1),
-                Instruction::Call(1),
-                Instruction::CallExport("abc"),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::Call { function_index: 1 },
+                Instruction::CallExport { export_name: "abc" },
                 Instruction::ReadUtf8,
-                Instruction::WriteUtf8("abc"),
+                Instruction::WriteUtf8 {
+                    allocator_name: "abc",
+                },
                 Instruction::AsWasm(InterfaceType::Int),
                 Instruction::AsInterface(InterfaceType::I64),
                 Instruction::TableRefAdd,
@@ -667,7 +684,7 @@ mod tests {
             0x01, // list of 1 item
             0x7f, // I32
             0x01, // list of 1 item
-            0x00, 0x01, // ArgumentGet(1)
+            0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, // adapter kind: export
             0x01, // string of 1 byte
             0x63, // "c"
@@ -676,7 +693,7 @@ mod tests {
             0x01, // list of 1 item
             0x7f, // I32
             0x01, // list of 1 item
-            0x00, 0x01, // ArgumentGet(1)
+            0x00, 0x01, // ArgumentGet { index: 1 }
             0x02, // adapter kind: helper function
             0x01, // string of 1 byte
             0x64, // "d"
@@ -685,7 +702,7 @@ mod tests {
             0x01, // list of 1 item
             0x7f, // I32
             0x01, // list of 1 item
-            0x00, 0x01, // ArgumentGet(1)
+            0x00, 0x01, // ArgumentGet { index: 1 }
         ];
         let output = Ok((
             &[] as &[u8],
@@ -695,19 +712,19 @@ mod tests {
                     name: "b",
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet(1)],
+                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
                 },
                 Adapter::Export {
                     name: "c",
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet(1)],
+                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
                 },
                 Adapter::HelperFunction {
                     name: "d",
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet(1)],
+                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
                 },
             ],
         ));

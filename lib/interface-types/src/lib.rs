@@ -82,11 +82,13 @@ mod tests {
                                 input_types: vec![InterfaceType::I32],
                                 output_types: vec![],
                                 instructions: vec![
-                                    Instruction::ArgumentGet(0),
-                                    Instruction::ArgumentGet(0),
-                                    Instruction::CallExport("strlen"),
+                                    Instruction::ArgumentGet { index: 0 },
+                                    Instruction::ArgumentGet { index: 0 },
+                                    Instruction::CallExport {
+                                        export_name: "strlen"
+                                    },
                                     Instruction::ReadUtf8,
-                                    Instruction::Call(0),
+                                    Instruction::Call { function_index: 0 },
                                 ]
                             },
                             Adapter::Import {
@@ -95,9 +97,13 @@ mod tests {
                                 input_types: vec![],
                                 output_types: vec![InterfaceType::I32],
                                 instructions: vec![
-                                    Instruction::Call(1),
-                                    Instruction::WriteUtf8("alloc"),
-                                    Instruction::CallExport("write_null_byte"),
+                                    Instruction::Call { function_index: 1 },
+                                    Instruction::WriteUtf8 {
+                                        allocator_name: "alloc"
+                                    },
+                                    Instruction::CallExport {
+                                        export_name: "write_null_byte"
+                                    },
                                 ]
                             }
                         ],

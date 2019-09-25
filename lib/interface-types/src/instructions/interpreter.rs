@@ -88,7 +88,7 @@ where
             .map(
                 |instruction| -> ExecutableInstruction<Instance, Export, LocalImport, Memory> {
                     match instruction {
-                        Instruction::ArgumentGet(index) => {
+                        Instruction::ArgumentGet { index } => {
                             let index = index.to_owned();
                             let instruction_name: String = instruction.into();
 
@@ -107,7 +107,7 @@ where
                                 Ok(())
                             })
                         }
-                        Instruction::CallExport(export_name) => {
+                        Instruction::CallExport { export_name } => {
                             let export_name = (*export_name).to_owned();
                             let instruction_name: String = instruction.into();
 
@@ -215,7 +215,7 @@ where
                                 }
                             })
                         }
-                        Instruction::Call(index) => {
+                        Instruction::Call { function_index: index } => {
                             let index = index.to_owned();
                             let instruction_name: String = instruction.into();
 
@@ -442,11 +442,11 @@ mod tests {
     #[test]
     fn test_interpreter_from_instructions() {
         let instructions = vec![
-            Instruction::ArgumentGet(0),
-            Instruction::ArgumentGet(0),
-            Instruction::CallExport("foo"),
+            Instruction::ArgumentGet { index: 0 },
+            Instruction::ArgumentGet { index: 0 },
+            Instruction::CallExport { export_name: "foo" },
             Instruction::ReadUtf8,
-            Instruction::Call(7),
+            Instruction::Call { function_index: 7 },
         ];
         let interpreter: Interpreter<(), (), (), ()> = (&instructions).try_into().unwrap();
 
@@ -509,7 +509,7 @@ mod tests {
 
     test!(
         test_interpreter_argument_get =
-            instructions: [Instruction::ArgumentGet(0)],
+            instructions: [Instruction::ArgumentGet { index: 0 }],
             invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I32(42)],
@@ -518,8 +518,8 @@ mod tests {
     test!(
         test_interpreter_argument_get__twice =
             instructions: [
-                Instruction::ArgumentGet(0),
-                Instruction::ArgumentGet(1),
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(7),
@@ -534,7 +534,7 @@ mod tests {
 
     test!(
         test_interpreter_argument_get__invalid_index =
-            instructions: [Instruction::ArgumentGet(1)],
+            instructions: [Instruction::ArgumentGet { index: 1 }],
             invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
             error: "`arg.get 1` cannot access argument #1 because it doesn't exist."
@@ -543,9 +543,9 @@ mod tests {
     test!(
         test_interpreter_call_export =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
-                Instruction::CallExport("sum"),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::CallExport { export_name: "sum" },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -557,7 +557,7 @@ mod tests {
 
     test!(
         test_interpreter_call_export__invalid_export_name =
-            instructions: [Instruction::CallExport("bar")],
+            instructions: [Instruction::CallExport { export_name: "bar" }],
             invocation_inputs: [],
             instance: Instance::new(),
             error: r#"`call-export "bar"` cannot call the exported function `bar` because it doesn't exist."#,
@@ -566,8 +566,8 @@ mod tests {
     test!(
         test_interpreter_call_export__stack_is_too_small =
             instructions: [
-                Instruction::ArgumentGet(0),
-                Instruction::CallExport("sum"),
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::CallExport { export_name: "sum" },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -580,9 +580,9 @@ mod tests {
     test!(
         test_interpreter_call_export__invalid_types_in_the_stack =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
-                Instruction::CallExport("sum"),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::CallExport { export_name: "sum" },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -596,9 +596,9 @@ mod tests {
     test!(
         test_interpreter_call_export__failure_when_calling =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
-                Instruction::CallExport("sum"),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::CallExport { export_name: "sum" },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -627,9 +627,9 @@ mod tests {
     test!(
         test_interpreter_call_export__void =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
-                Instruction::CallExport("sum"),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::CallExport { export_name: "sum" },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -658,8 +658,8 @@ mod tests {
     test!(
         test_interpreter_read_utf8 =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
                 Instruction::ReadUtf8,
             ],
             invocation_inputs: [
@@ -678,8 +678,8 @@ mod tests {
     test!(
         test_interpreter_read_utf8__read_out_of_memory =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
                 Instruction::ReadUtf8,
             ],
             invocation_inputs: [
@@ -698,8 +698,8 @@ mod tests {
     test!(
         test_interpreter_read_utf8__invalid_encoding =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
                 Instruction::ReadUtf8,
             ],
             invocation_inputs: [
@@ -718,7 +718,7 @@ mod tests {
     test!(
         test_interpreter_read_utf8__stack_is_too_small =
             instructions: [
-                Instruction::ArgumentGet(0),
+                Instruction::ArgumentGet { index: 0 },
                 Instruction::ReadUtf8,
                 //           ^^^^^^^^ `read-utf8` expects 2 values on the stack, only one is present.
             ],
@@ -733,9 +733,9 @@ mod tests {
     test!(
         test_interpreter_call =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
-                Instruction::Call(42),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::Call { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -748,7 +748,7 @@ mod tests {
     test!(
         test_interpreter_call__invalid_local_import_index =
             instructions: [
-                Instruction::Call(42),
+                Instruction::Call { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -761,9 +761,9 @@ mod tests {
     test!(
         test_interpreter_call__stack_is_too_small =
             instructions: [
-                Instruction::ArgumentGet(0),
-                Instruction::Call(42),
-                //                ^^ `42` expects 2 values on the stack, only one is present
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::Call { function_index: 42 },
+                //                                  ^^ `42` expects 2 values on the stack, only one is present
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -776,9 +776,9 @@ mod tests {
     test!(
         test_interpreter_call__invalid_types_in_the_stack =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
-                Instruction::Call(42),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::Call { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -792,9 +792,9 @@ mod tests {
     test!(
         test_interpreter_call__failure_when_calling =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
-                Instruction::Call(42),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::Call { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -823,9 +823,9 @@ mod tests {
     test!(
         test_interpreter_call__void =
             instructions: [
-                Instruction::ArgumentGet(1),
-                Instruction::ArgumentGet(0),
-                Instruction::Call(42),
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::Call { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),

@@ -6,11 +6,11 @@ pub mod wasm;
 
 #[derive(PartialEq, Debug)]
 pub enum Instruction<'input> {
-    ArgumentGet(u64),
-    Call(usize),
-    CallExport(&'input str),
+    ArgumentGet { index: u64 },
+    Call { function_index: usize },
+    CallExport { export_name: &'input str },
     ReadUtf8,
-    WriteUtf8(&'input str),
+    WriteUtf8 { allocator_name: &'input str },
     AsWasm(InterfaceType),
     AsInterface(InterfaceType),
     TableRefAdd,
