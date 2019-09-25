@@ -7,7 +7,7 @@ pub mod wasm;
 #[derive(PartialEq, Debug)]
 pub enum Instruction<'input> {
     ArgumentGet(u64),
-    Call(u64),
+    Call(usize),
     CallExport(&'input str),
     ReadUtf8,
     WriteUtf8(&'input str),

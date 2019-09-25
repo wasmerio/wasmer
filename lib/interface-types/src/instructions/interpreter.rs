@@ -1,42 +1,49 @@
 use crate::instructions::{
     stack::{Stack, Stackable},
-    wasm::{self, InterfaceType, InterfaceValue},
+    wasm::{self, FunctionIndex, InterfaceType, InterfaceValue, TypedIndex},
     Instruction,
 };
 use std::{cell::Cell, convert::TryFrom, marker::PhantomData};
 
-struct Runtime<'invocation, 'instance, Instance, Export, Memory>
+struct Runtime<'invocation, 'instance, Instance, Export, LocalImport, Memory>
 where
     Export: wasm::Export + 'instance,
+    LocalImport: wasm::LocalImport + 'instance,
     Memory: wasm::Memory + 'instance,
-    Instance: wasm::Instance<Export, Memory> + 'instance,
+    Instance: wasm::Instance<Export, LocalImport, Memory> + 'instance,
 {
     invocation_inputs: &'invocation [InterfaceValue],
     stack: Stack<InterfaceValue>,
     wasm_instance: &'instance Instance,
     wasm_exports: PhantomData<Export>,
-    wasm_memory: PhantomData<Memory>,
+    wasm_locals_or_imports: PhantomData<LocalImport>,
+    wasm_memories: PhantomData<Memory>,
 }
 
-type ExecutableInstruction<Instance, Export, Memory> =
-    Box<dyn Fn(&mut Runtime<Instance, Export, Memory>) -> Result<(), String>>;
+type ExecutableInstruction<Instance, Export, LocalImport, Memory> =
+    Box<dyn Fn(&mut Runtime<Instance, Export, LocalImport, Memory>) -> Result<(), String>>;
 
-pub struct Interpreter<Instance, Export, Memory>
+pub struct Interpreter<Instance, Export, LocalImport, Memory>
 where
     Export: wasm::Export,
+    LocalImport: wasm::LocalImport,
     Memory: wasm::Memory,
-    Instance: wasm::Instance<Export, Memory>,
+    Instance: wasm::Instance<Export, LocalImport, Memory>,
 {
-    executable_instructions: Vec<ExecutableInstruction<Instance, Export, Memory>>,
+    executable_instructions: Vec<ExecutableInstruction<Instance, Export, LocalImport, Memory>>,
 }
 
-impl<Instance, Export, Memory> Interpreter<Instance, Export, Memory>
+impl<Instance, Export, LocalImport, Memory> Interpreter<Instance, Export, LocalImport, Memory>
 where
     Export: wasm::Export,
+    LocalImport: wasm::LocalImport,
     Memory: wasm::Memory,
-    Instance: wasm::Instance<Export, Memory>,
+    Instance: wasm::Instance<Export, LocalImport, Memory>,
 {
-    fn iter(&self) -> impl Iterator<Item = &ExecutableInstruction<Instance, Export, Memory>> + '_ {
+    fn iter(
+        &self,
+    ) -> impl Iterator<Item = &ExecutableInstruction<Instance, Export, LocalImport, Memory>> + '_
+    {
         self.executable_instructions.iter()
     }
 
@@ -50,7 +57,8 @@ where
             stack: Stack::new(),
             wasm_instance,
             wasm_exports: PhantomData,
-            wasm_memory: PhantomData,
+            wasm_locals_or_imports: PhantomData,
+            wasm_memories: PhantomData,
         };
 
         for executable_instruction in self.iter() {
@@ -64,12 +72,13 @@ where
     }
 }
 
-impl<'binary_input, Instance, Export, Memory> TryFrom<&Vec<Instruction<'binary_input>>>
-    for Interpreter<Instance, Export, Memory>
+impl<'binary_input, Instance, Export, LocalImport, Memory> TryFrom<&Vec<Instruction<'binary_input>>>
+    for Interpreter<Instance, Export, LocalImport, Memory>
 where
     Export: wasm::Export,
+    LocalImport: wasm::LocalImport,
     Memory: wasm::Memory,
-    Instance: wasm::Instance<Export, Memory>,
+    Instance: wasm::Instance<Export, LocalImport, Memory>,
 {
     type Error = String;
 
@@ -77,13 +86,13 @@ where
         let executable_instructions = instructions
             .iter()
             .map(
-                |instruction| -> ExecutableInstruction<Instance, Export, Memory> {
+                |instruction| -> ExecutableInstruction<Instance, Export, LocalImport, Memory> {
                     match instruction {
                         Instruction::ArgumentGet(index) => {
                             let index = index.to_owned();
                             let instruction_name: String = instruction.into();
 
-                            Box::new(move |runtime: &mut Runtime<Instance, Export, Memory>| -> Result<(), _> {
+                            Box::new(move |runtime: &mut Runtime<Instance, Export, LocalImport, Memory>| -> Result<(), _> {
                                 let invocation_inputs = runtime.invocation_inputs;
 
                                 if index >= (invocation_inputs.len() as u64) {
@@ -102,7 +111,7 @@ where
                             let export_name = (*export_name).to_owned();
                             let instruction_name: String = instruction.into();
 
-                            Box::new(move |runtime: &mut Runtime<Instance, Export, Memory>| -> Result<(), _> {
+                            Box::new(move |runtime: &mut Runtime<Instance, Export, LocalImport, Memory>| -> Result<(), _> {
                                 let instance = runtime.wasm_instance;
 
                                 match instance.export(&export_name) {
@@ -159,7 +168,7 @@ where
                         Instruction::ReadUtf8 => {
                             let instruction_name: String = instruction.into();
 
-                            Box::new(move |runtime: &mut Runtime<Instance, Export, Memory>| -> Result<(), _> {
+                            Box::new(move |runtime: &mut Runtime<Instance, Export, LocalImport, Memory>| -> Result<(), _> {
                                 match runtime.stack.pop(2) {
                                     Some(inputs) => match runtime.wasm_instance.memory(0) {
                                         Some(memory) => {
@@ -208,11 +217,61 @@ where
                         }
                         Instruction::Call(index) => {
                             let index = index.to_owned();
+                            let instruction_name: String = instruction.into();
 
-                            Box::new(move |_runtime: &mut Runtime<Instance, Export, Memory>| -> Result<(), _> {
-                                println!("call {}", index);
+                            Box::new(move |runtime: &mut Runtime<Instance, Export, LocalImport, Memory>| -> Result<(), _> {
+                                let instance = runtime.wasm_instance;
+                                let function_index = FunctionIndex::new(index);
 
-                                Ok(())
+                                match instance.local_or_import(function_index) {
+                                    Some(local_or_import) => {
+                                        let inputs_cardinality = local_or_import.inputs_cardinality();
+
+                                        match runtime.stack.pop(inputs_cardinality) {
+                                            Some(inputs) =>  {
+                                                let input_types = inputs
+                                                    .iter()
+                                                    .map(|input| input.into())
+                                                    .collect::<Vec<InterfaceType>>();
+
+                                                if input_types != local_or_import.inputs() {
+                                                    return Err(format!(
+                                                        "`{}` cannot call the local or imported function `{}` because the value types on the stack mismatch the function signature (expects {:?}).",
+                                                        instruction_name,
+                                                        index,
+                                                        local_or_import.inputs(),
+                                                    ))
+                                                }
+
+                                                match local_or_import.call(&inputs) {
+                                                    Ok(outputs) => {
+                                                        for output in outputs.iter() {
+                                                            runtime.stack.push(output.clone());
+                                                        }
+
+                                                        Ok(())
+                                                    }
+                                                    Err(_) => Err(format!(
+                                                        "`{}` failed when calling the local or imported function `{}`.",
+                                                        instruction_name,
+                                                        index
+                                                    ))
+                                                }
+                                            }
+                                            None => Err(format!(
+                                                "`{}` cannot call the local or imported function `{}` because there is no enough data on the stack for the arguments (needs {}).",
+                                                instruction_name,
+                                                index,
+                                                inputs_cardinality,
+                                            ))
+                                        }
+                                    }
+                                    None => Err(format!(
+                                        "`{}` cannot call the local or imported function `{}` because it doesn't exist.",
+                                        instruction_name,
+                                        index,
+                                    ))
+                                }
                             })
                         }
                         _ => unimplemented!(),
@@ -265,6 +324,34 @@ mod tests {
         }
     }
 
+    struct LocalImport {
+        inputs: Vec<InterfaceType>,
+        outputs: Vec<InterfaceType>,
+        function: fn(arguments: &[InterfaceValue]) -> Result<Vec<InterfaceValue>, ()>,
+    }
+
+    impl wasm::LocalImport for LocalImport {
+        fn inputs_cardinality(&self) -> usize {
+            self.inputs.len() as usize
+        }
+
+        fn outputs_cardinality(&self) -> usize {
+            self.outputs.len()
+        }
+
+        fn inputs(&self) -> &[InterfaceType] {
+            &self.inputs
+        }
+
+        fn outputs(&self) -> &[InterfaceType] {
+            &self.outputs
+        }
+
+        fn call(&self, arguments: &[InterfaceValue]) -> Result<Vec<InterfaceValue>, ()> {
+            (self.function)(arguments)
+        }
+    }
+
     #[derive(Default)]
     struct Memory {
         data: Vec<Cell<u8>>,
@@ -287,6 +374,7 @@ mod tests {
     #[derive(Default)]
     struct Instance {
         exports: HashMap<String, Export>,
+        locals_or_imports: HashMap<usize, LocalImport>,
         memory: Memory,
     }
 
@@ -311,14 +399,39 @@ mod tests {
 
                     hashmap
                 },
+                locals_or_imports: {
+                    let mut hashmap = HashMap::new();
+                    hashmap.insert(
+                        42,
+                        LocalImport {
+                            inputs: vec![InterfaceType::I32, InterfaceType::I32],
+                            outputs: vec![InterfaceType::I32],
+                            function: |arguments: &[InterfaceValue]| {
+                                let a: i32 = (&arguments[0]).try_into().unwrap();
+                                let b: i32 = (&arguments[1]).try_into().unwrap();
+
+                                Ok(vec![InterfaceValue::I32(a * b)])
+                            },
+                        },
+                    );
+
+                    hashmap
+                },
                 memory: Memory::new(vec![]),
             }
         }
     }
 
-    impl wasm::Instance<Export, Memory> for Instance {
+    impl wasm::Instance<Export, LocalImport, Memory> for Instance {
         fn export(&self, export_name: &str) -> Option<&Export> {
             self.exports.get(export_name)
+        }
+
+        fn local_or_import<I: wasm::TypedIndex + wasm::LocalImportIndex>(
+            &self,
+            index: I,
+        ) -> Option<&LocalImport> {
+            self.locals_or_imports.get(&index.index())
         }
 
         fn memory(&self, _index: usize) -> Option<&Memory> {
@@ -335,14 +448,14 @@ mod tests {
             Instruction::ReadUtf8,
             Instruction::Call(7),
         ];
-        let interpreter: Interpreter<(), (), ()> = (&instructions).try_into().unwrap();
+        let interpreter: Interpreter<(), (), (), ()> = (&instructions).try_into().unwrap();
 
         assert_eq!(interpreter.executable_instructions.len(), 5);
     }
 
     #[test]
     fn test_interpreter_argument_get() {
-        let interpreter: Interpreter<Instance, Export, Memory> =
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> =
             (&vec![Instruction::ArgumentGet(0)]).try_into().unwrap();
 
         let invocation_inputs = vec![InterfaceValue::I32(42)];
@@ -358,7 +471,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_argument_get_invalid_index() {
-        let interpreter: Interpreter<Instance, Export, Memory> =
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> =
             (&vec![Instruction::ArgumentGet(1)]).try_into().unwrap();
 
         let invocation_inputs = vec![InterfaceValue::I32(42)];
@@ -377,7 +490,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_argument_get_argument_get() {
-        let interpreter: Interpreter<Instance, Export, Memory> =
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> =
             (&vec![Instruction::ArgumentGet(0), Instruction::ArgumentGet(1)])
                 .try_into()
                 .unwrap();
@@ -398,7 +511,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_call_export() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(1),
             Instruction::ArgumentGet(0),
             Instruction::CallExport("sum"),
@@ -419,7 +532,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_call_export_invalid_export_name() {
-        let interpreter: Interpreter<Instance, Export, Memory> =
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> =
             (&vec![Instruction::CallExport("bar")]).try_into().unwrap();
 
         let invocation_inputs = vec![];
@@ -438,7 +551,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_call_export_stack_is_too_small() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(0),
             Instruction::CallExport("sum"),
             //                       ^^^ `sum` expects 2 values on the stack, only one is present
@@ -462,7 +575,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_call_export_invalid_types_in_the_stack() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(1),
             Instruction::ArgumentGet(0),
             Instruction::CallExport("sum"),
@@ -471,7 +584,7 @@ mod tests {
             .unwrap();
 
         let invocation_inputs = vec![InterfaceValue::I32(3), InterfaceValue::I64(4)];
-        //                                                 ^^^ mismatch with `sum` signature
+        //                                                                   ^^^ mismatch with `sum` signature
         let instance = Instance::new();
         let run = interpreter.run(&invocation_inputs, &instance);
 
@@ -487,7 +600,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_call_export_failed_when_calling() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(1),
             Instruction::ArgumentGet(0),
             Instruction::CallExport("sum"),
@@ -527,7 +640,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_call_export_that_returns_nothing() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(1),
             Instruction::ArgumentGet(0),
             Instruction::CallExport("sum"),
@@ -564,7 +677,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_read_utf8() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(1),
             Instruction::ArgumentGet(0),
             Instruction::ReadUtf8,
@@ -598,7 +711,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_read_utf8_out_of_memory() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(1),
             Instruction::ArgumentGet(0),
             Instruction::ReadUtf8,
@@ -629,7 +742,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_read_utf8_invalid_encoding() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(1),
             Instruction::ArgumentGet(0),
             Instruction::ReadUtf8,
@@ -662,7 +775,7 @@ mod tests {
 
     #[test]
     fn test_interpreter_read_utf8_stack_is_too_small() {
-        let interpreter: Interpreter<Instance, Export, Memory> = (&vec![
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
             Instruction::ArgumentGet(0),
             Instruction::ReadUtf8,
             //           ^^^^^^^^ `read-utf8` expects 2 values on the stack, only one is present.
@@ -684,5 +797,173 @@ mod tests {
                 r#"`read-utf8` failed because there is no enough data on the stack (needs 2)."#
             )
         );
+    }
+
+    #[test]
+    fn test_interpreter_call() {
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
+            Instruction::ArgumentGet(1),
+            Instruction::ArgumentGet(0),
+            Instruction::Call(42),
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![InterfaceValue::I32(3), InterfaceValue::I32(4)];
+        let instance = Instance::new();
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_ok());
+
+        let stack = run.unwrap();
+
+        assert_eq!(stack.as_slice(), &[InterfaceValue::I32(12)]);
+    }
+
+    #[test]
+    fn test_interpreter_call_invalid_local_import_index() {
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> =
+            (&vec![Instruction::Call(42)]).try_into().unwrap();
+
+        let invocation_inputs = vec![];
+        let instance = Instance {
+            ..Default::default()
+        };
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_err());
+
+        let error = run.unwrap_err();
+
+        assert_eq!(
+            error,
+            String::from(r#"`call 42` cannot call the local or imported function `42` because it doesn't exist."#)
+        );
+    }
+
+    #[test]
+    fn test_interpreter_call_stack_is_too_small() {
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
+            Instruction::ArgumentGet(0),
+            Instruction::Call(42),
+            //                ^^ `42` expects 2 values on the stack, only one is present
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![InterfaceValue::I32(3), InterfaceValue::I32(4)];
+        let instance = Instance::new();
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_err());
+
+        let error = run.unwrap_err();
+
+        assert_eq!(
+            error,
+            String::from(r#"`call 42` cannot call the local or imported function `42` because there is no enough data on the stack for the arguments (needs 2)."#)
+        );
+    }
+
+    #[test]
+    fn test_interpreter_call_invalid_types_in_the_stack() {
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
+            Instruction::ArgumentGet(1),
+            Instruction::ArgumentGet(0),
+            Instruction::Call(42),
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![InterfaceValue::I32(3), InterfaceValue::I64(4)];
+        //                                                                   ^^^ mismatch with `42` signature
+        let instance = Instance::new();
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_err());
+
+        let error = run.unwrap_err();
+
+        assert_eq!(
+            error,
+            String::from(r#"`call 42` cannot call the local or imported function `42` because the value types on the stack mismatch the function signature (expects [I32, I32])."#)
+        );
+    }
+
+    #[test]
+    fn test_interpreter_call_failed_when_calling() {
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
+            Instruction::ArgumentGet(1),
+            Instruction::ArgumentGet(0),
+            Instruction::Call(42),
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![InterfaceValue::I32(3), InterfaceValue::I32(4)];
+        let instance = Instance {
+            locals_or_imports: {
+                let mut hashmap = HashMap::new();
+                hashmap.insert(
+                    42,
+                    LocalImport {
+                        inputs: vec![InterfaceType::I32, InterfaceType::I32],
+                        outputs: vec![InterfaceType::I32],
+                        function: |_| Err(()),
+                        //            ^^^^^^^ function fails
+                    },
+                );
+
+                hashmap
+            },
+            ..Default::default()
+        };
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_err());
+
+        let error = run.unwrap_err();
+
+        assert_eq!(
+            error,
+            String::from(r#"`call 42` failed when calling the local or imported function `42`."#)
+        );
+    }
+
+    #[test]
+    fn test_interpreter_call_that_returns_nothing() {
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory> = (&vec![
+            Instruction::ArgumentGet(1),
+            Instruction::ArgumentGet(0),
+            Instruction::Call(42),
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![InterfaceValue::I32(3), InterfaceValue::I32(4)];
+        let instance = Instance {
+            locals_or_imports: {
+                let mut hashmap = HashMap::new();
+                hashmap.insert(
+                    42,
+                    LocalImport {
+                        inputs: vec![InterfaceType::I32, InterfaceType::I32],
+                        outputs: vec![InterfaceType::I32],
+                        function: |_| Ok(vec![]),
+                        //            ^^^^^^^^^^ void function
+                    },
+                );
+
+                hashmap
+            },
+            ..Default::default()
+        };
+        let run = interpreter.run(&invocation_inputs, &instance);
+
+        assert!(run.is_ok());
+
+        let stack = run.unwrap();
+
+        assert!(stack.is_empty());
     }
 }

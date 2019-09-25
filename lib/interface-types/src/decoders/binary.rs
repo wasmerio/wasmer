@@ -138,7 +138,7 @@ fn instructions<'input, E: ParseError<&'input [u8]>>(
 
         0x01 => {
             consume!((input, argument_0) = leb(input)?);
-            (input, Instruction::Call(argument_0))
+            (input, Instruction::Call(argument_0 as usize))
         }
 
         0x02 => {

@@ -9,7 +9,7 @@ pub use decoders::binary::parse as parse_binary;
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::*, encoders::wat::*, instructions::Instruction, parse_binary};
+    use crate::{ast::*, instructions::Instruction, parse_binary};
     use std::fs;
     use wasmer_clif_backend::CraneliftCompiler;
     use wasmer_runtime_core as runtime;
