@@ -42,12 +42,8 @@ fn main() -> error::Result<()> {
 
     let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler())?;
 
-    let memory = Memory::new(MemoryDescriptor {
-        minimum: Pages(1),
-        maximum: Some(Pages(1)),
-        shared: false,
-    })
-    .unwrap();
+    let memory_desc = MemoryDescriptor::new(Pages(1), Some(Pages(1)), false).unwrap();
+    let memory = Memory::new(memory_desc).unwrap();
 
     let global = Global::new(Value::I32(42));
 

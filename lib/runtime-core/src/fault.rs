@@ -283,13 +283,10 @@ extern "C" fn signal_trap_handler(
                 let image = build_instance_image(ctx, es_image);
                 unwind_result = Box::new(image);
             } else {
-                use colored::*;
                 if es_image.frames.len() > 0 {
                     eprintln!(
                         "\n{}",
                         "Wasmer encountered an error while running your WebAssembly program."
-                            .bold()
-                            .red()
                     );
                     es_image.print_backtrace_if_needed();
                 }

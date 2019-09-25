@@ -1117,7 +1117,18 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
 
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
         let mut next_local = self.next_local;
-        cranelift_wasm::declare_locals(&mut self.builder(), n as u32, ty, &mut next_local)?;
+        let mut builder = FunctionBuilder::new(
+            &mut self.func,
+            &mut self.func_translator.func_ctx,
+            &mut self.position,
+        );
+        cranelift_wasm::declare_locals(
+            &mut builder,
+            n as u32,
+            ty,
+            &mut next_local,
+            &mut self.func_env,
+        )?;
         self.next_local = next_local;
         Ok(())
     }

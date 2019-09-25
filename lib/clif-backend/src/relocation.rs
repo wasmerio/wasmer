@@ -202,6 +202,11 @@ impl binemit::RelocSink for RelocSink {
             }
         }
     }
+
+    fn reloc_constant(&mut self, _: u32, _: cranelift_codegen::binemit::Reloc, _: u32) {
+        unimplemented!()
+    }
+
     fn reloc_jt(
         &mut self,
         _offset: binemit::CodeOffset,

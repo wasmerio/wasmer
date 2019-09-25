@@ -4,11 +4,14 @@ use crate::{
     types::{GlobalDescriptor, Type, Value},
     vm,
 };
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::{
+    fmt,
+    sync::{Arc, Mutex},
+};
 
 pub struct Global {
     desc: GlobalDescriptor,
-    storage: Rc<RefCell<vm::LocalGlobal>>,
+    storage: Arc<Mutex<vm::LocalGlobal>>,
 }
 
 impl Global {
@@ -56,7 +59,7 @@ impl Global {
 
         Self {
             desc,
-            storage: Rc::new(RefCell::new(local_global)),
+            storage: Arc::new(Mutex::new(local_global)),
         }
     }
 
@@ -83,7 +86,8 @@ impl Global {
                         Value::V128(x) => x,
                     },
                 };
-                *self.storage.borrow_mut() = local_global;
+                let mut storage = self.storage.lock().unwrap();
+                *storage = local_global;
             } else {
                 panic!("Wrong type for setting this global")
             }
@@ -94,7 +98,8 @@ impl Global {
 
     /// Get the value held by this global.
     pub fn get(&self) -> Value {
-        let data = self.storage.borrow().data;
+        let storage = self.storage.lock().unwrap();
+        let data = storage.data;
 
         match self.desc.ty {
             Type::I32 => Value::I32(data as i32),
@@ -105,8 +110,10 @@ impl Global {
         }
     }
 
+    // TODO: think about this and if this should now be unsafe
     pub(crate) fn vm_local_global(&mut self) -> *mut vm::LocalGlobal {
-        &mut *self.storage.borrow_mut()
+        let mut storage = self.storage.lock().unwrap();
+        &mut *storage
     }
 }
 
@@ -120,7 +127,7 @@ impl Clone for Global {
     fn clone(&self) -> Self {
         Self {
             desc: self.desc,
-            storage: Rc::clone(&self.storage),
+            storage: Arc::clone(&self.storage),
         }
     }
 }
