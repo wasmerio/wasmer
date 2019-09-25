@@ -155,7 +155,7 @@ where
                                                 }
                                             }
                                             None => Err(format!(
-                                                "`{}` cannot call the local or imported function `{}` because there is no enough data on the stack for the arguments (needs {}).",
+                                                "`{}` cannot call the local or imported function `{}` because there is not enough data on the stack for the arguments (needs {}).",
                                                 instruction_name,
                                                 index,
                                                 inputs_cardinality,
@@ -213,7 +213,7 @@ where
                                                 }
                                             }
                                             None => Err(format!(
-                                                "`{}` cannot call the exported function `{}` because there is no enough data on the stack for the arguments (needs {}).",
+                                                "`{}` cannot call the exported function `{}` because there is not enough data on the stack for the arguments (needs {}).",
                                                 instruction_name,
                                                 export_name,
                                                 inputs_cardinality,
@@ -272,7 +272,7 @@ where
                                         ))
                                     }
                                     None => Err(format!(
-                                        "`{}` failed because there is no enough data on the stack (needs 2).",
+                                        "`{}` failed because there is not enough data on the stack (needs 2).",
                                         instruction_name,
                                     ))
                                 }
@@ -328,7 +328,7 @@ where
                                                     }
                                                 }
                                                 None => Err(format!(
-                                                    "`{}` cannot call the allocator `{}` because there is no enough data on the stack for the arguments (needs {}).",
+                                                    "`{}` cannot call the allocator `{}` because there is not enough data on the stack for the arguments (needs {}).",
                                                     instruction_name,
                                                     allocator_name,
                                                     1
@@ -660,7 +660,7 @@ mod tests {
                 InterfaceValue::I32(4),
             ],
             instance: Instance::new(),
-            error: r#"`call-export "sum"` cannot call the exported function `sum` because there is no enough data on the stack for the arguments (needs 2)."#,
+            error: r#"`call-export "sum"` cannot call the exported function `sum` because there is not enough data on the stack for the arguments (needs 2)."#,
     );
 
     test!(
@@ -813,7 +813,7 @@ mod tests {
                 InterfaceValue::I32(0),
             ],
             instance: Instance::new(),
-            error: r#"`read-utf8` failed because there is no enough data on the stack (needs 2)."#,
+            error: r#"`read-utf8` failed because there is not enough data on the stack (needs 2)."#,
     );
 
     test!(
@@ -856,7 +856,7 @@ mod tests {
                 InterfaceValue::I32(4),
             ],
             instance: Instance::new(),
-            error: r#"`call 42` cannot call the local or imported function `42` because there is no enough data on the stack for the arguments (needs 2)."#,
+            error: r#"`call 42` cannot call the local or imported function `42` because there is not enough data on the stack for the arguments (needs 2)."#,
     );
 
     test!(
@@ -981,7 +981,7 @@ mod tests {
             ],
             invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
             instance: Instance::new(),
-            error: r#"`write-utf8 "alloc"` cannot call the allocator `alloc` because there is no enough data on the stack for the arguments (needs 1)."#,
+            error: r#"`write-utf8 "alloc"` cannot call the allocator `alloc` because there is not enough data on the stack for the arguments (needs 1)."#,
     );
 
     test!(
