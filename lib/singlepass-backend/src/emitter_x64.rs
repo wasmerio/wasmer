@@ -553,7 +553,7 @@ impl Emitter for Assembler {
                         dynasm!(self ; movq Rx(dst as u8), Rx(src as u8));
                     }
 
-                    _ => panic!("MOV {:?} {:?} {:?}", sz, src, dst),
+                    _ => panic!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
                 }
             })
         });
@@ -566,7 +566,7 @@ impl Emitter for Assembler {
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!(self ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
             }
-            _ => panic!("LEA {:?} {:?} {:?}", sz, src, dst),
+            _ => panic!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),
         }
     }
     fn emit_lea_label(&mut self, label: Self::Label, dst: Location) {
@@ -574,7 +574,7 @@ impl Emitter for Assembler {
             Location::GPR(x) => {
                 dynasm!(self ; lea Rq(x as u8), [=>label]);
             }
-            _ => panic!("LEA label={:?} {:?}", label, dst),
+            _ => panic!("singlepass can't emit LEA label={:?} {:?}", label, dst),
         }
     }
     fn emit_cdq(&mut self) {
@@ -585,7 +585,7 @@ impl Emitter for Assembler {
     }
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(xor, self, sz, src, dst, {
-            panic!("XOR {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit XOR {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_jmp(&mut self, condition: Condition, label: Self::Label) {
@@ -608,7 +608,7 @@ impl Emitter for Assembler {
         match loc {
             Location::GPR(x) => dynasm!(self ; jmp Rq(x as u8)),
             Location::Memory(base, disp) => dynasm!(self ; jmp QWORD [Rq(base as u8) + disp]),
-            _ => panic!("JMP {:?}", loc),
+            _ => panic!("singlepass can't emit JMP {:?}", loc),
         }
     }
     fn emit_conditional_trap(&mut self, condition: Condition) {
@@ -640,7 +640,7 @@ impl Emitter for Assembler {
             Condition::Equal => dynasm!(self ; sete Rb(dst as u8)),
             Condition::NotEqual => dynasm!(self ; setne Rb(dst as u8)),
             Condition::Signed => dynasm!(self ; sets Rb(dst as u8)),
-            _ => panic!("SET {:?} {:?}", condition, dst),
+            _ => panic!("singlepass can't emit SET {:?} {:?}", condition, dst),
         }
     }
     fn emit_push(&mut self, sz: Size, src: Location) {
@@ -650,7 +650,7 @@ impl Emitter for Assembler {
             (Size::S64, Location::Memory(src, disp)) => {
                 dynasm!(self ; push QWORD [Rq(src as u8) + disp])
             }
-            _ => panic!("PUSH {:?} {:?}", sz, src),
+            _ => panic!("singlepass can't emit PUSH {:?} {:?}", sz, src),
         }
     }
     fn emit_pop(&mut self, sz: Size, dst: Location) {
@@ -659,22 +659,22 @@ impl Emitter for Assembler {
             (Size::S64, Location::Memory(dst, disp)) => {
                 dynasm!(self ; pop QWORD [Rq(dst as u8) + disp])
             }
-            _ => panic!("POP {:?} {:?}", sz, dst),
+            _ => panic!("singlepass can't emit POP {:?} {:?}", sz, dst),
         }
     }
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {
         binop_all_nofp!(cmp, self, sz, left, right, {
-            panic!("CMP {:?} {:?} {:?}", sz, left, right);
+            panic!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
         });
     }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(add, self, sz, src, dst, {
-            panic!("ADD {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit ADD {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(sub, self, sz, src, dst, {
-            panic!("SUB {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit SUB {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_neg(&mut self, sz: Size, value: Location) {
@@ -695,13 +695,13 @@ impl Emitter for Assembler {
             (Size::S64, Location::Memory(value, disp)) => {
                 dynasm!(self ; neg [Rq(value as u8) + disp])
             }
-            _ => panic!("NEG {:?} {:?}", sz, value),
+            _ => panic!("singlepass can't emit NEG {:?} {:?}", sz, value),
         }
     }
     fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(imul, self, sz, src, dst, {
             binop_mem_gpr!(imul, self, sz, src, dst, {
-                panic!("IMUL {:?} {:?} {:?}", sz, src, dst)
+                panic!("singlepass can't emit IMUL {:?} {:?} {:?}", sz, src, dst)
             })
         });
     }
@@ -710,67 +710,67 @@ impl Emitter for Assembler {
     }
     fn emit_div(&mut self, sz: Size, divisor: Location) {
         unop_gpr_or_mem!(div, self, sz, divisor, {
-            panic!("DIV {:?} {:?}", sz, divisor)
+            panic!("singlepass can't emit DIV {:?} {:?}", sz, divisor)
         });
     }
     fn emit_idiv(&mut self, sz: Size, divisor: Location) {
         unop_gpr_or_mem!(idiv, self, sz, divisor, {
-            panic!("IDIV {:?} {:?}", sz, divisor)
+            panic!("singlepass can't emit IDIV {:?} {:?}", sz, divisor)
         });
     }
     fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) {
         binop_shift!(shl, self, sz, src, dst, {
-            panic!("SHL {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit SHL {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_shr(&mut self, sz: Size, src: Location, dst: Location) {
         binop_shift!(shr, self, sz, src, dst, {
-            panic!("SHR {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit SHR {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) {
         binop_shift!(sar, self, sz, src, dst, {
-            panic!("SAR {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit SAR {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_rol(&mut self, sz: Size, src: Location, dst: Location) {
         binop_shift!(rol, self, sz, src, dst, {
-            panic!("ROL {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit ROL {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_ror(&mut self, sz: Size, src: Location, dst: Location) {
         binop_shift!(ror, self, sz, src, dst, {
-            panic!("ROR {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit ROR {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_and(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(and, self, sz, src, dst, {
-            panic!("AND {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit AND {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(or, self, sz, src, dst, {
-            panic!("OR {:?} {:?} {:?}", sz, src, dst)
+            panic!("singlepass can't emit OR {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(lzcnt, self, sz, src, dst, {
             binop_mem_gpr!(lzcnt, self, sz, src, dst, {
-                panic!("LZCNT {:?} {:?} {:?}", sz, src, dst)
+                panic!("singlepass can't emit LZCNT {:?} {:?} {:?}", sz, src, dst)
             })
         });
     }
     fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(tzcnt, self, sz, src, dst, {
             binop_mem_gpr!(tzcnt, self, sz, src, dst, {
-                panic!("TZCNT {:?} {:?} {:?}", sz, src, dst)
+                panic!("singlepass can't emit TZCNT {:?} {:?} {:?}", sz, src, dst)
             })
         });
     }
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(popcnt, self, sz, src, dst, {
             binop_mem_gpr!(popcnt, self, sz, src, dst, {
-                panic!("POPCNT {:?} {:?} {:?}", sz, src, dst)
+                panic!("singlepass can't emit POPCNT {:?} {:?} {:?}", sz, src, dst)
             })
         });
     }
@@ -800,7 +800,7 @@ impl Emitter for Assembler {
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
             }
-            _ => panic!("MOVZX {:?} {:?} {:?} {:?}", sz_src, src, sz_dst, dst),
+            _ => panic!("singlepass can't emit MOVZX {:?} {:?} {:?} {:?}", sz_src, src, sz_dst, dst),
         }
     }
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
@@ -835,7 +835,7 @@ impl Emitter for Assembler {
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]);
             }
-            _ => panic!("MOVSX {:?} {:?} {:?} {:?}", sz_src, src, sz_dst, dst),
+            _ => panic!("singlepass can't emit MOVSX {:?} {:?} {:?} {:?}", sz_src, src, sz_dst, dst),
         }
     }
 
@@ -877,7 +877,7 @@ impl Emitter for Assembler {
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!(self ; xchg [Rq(dst as u8) + disp], Rq(src as u8));
             }
-            _ => panic!("XCHG {:?} {:?} {:?}", sz, src, dst),
+            _ => panic!("singlepass can't emit XCHG {:?} {:?} {:?}", sz, src, dst),
         }
     }
 
@@ -895,7 +895,7 @@ impl Emitter for Assembler {
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rq(src as u8));
             }
-            _ => panic!("LOCK XADD {:?} {:?} {:?}", sz, src, dst),
+            _ => panic!("singlepass can't emit LOCK XADD {:?} {:?} {:?}", sz, src, dst),
         }
     }
 
@@ -913,7 +913,7 @@ impl Emitter for Assembler {
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rq(src as u8));
             }
-            _ => panic!("LOCK CMPXCHG {:?} {:?} {:?}", sz, src, dst),
+            _ => panic!("singlepass can't emit LOCK CMPXCHG {:?} {:?} {:?}", sz, src, dst),
         }
     }
 
@@ -1061,7 +1061,7 @@ impl Emitter for Assembler {
         match loc {
             Location::GPR(x) => dynasm!(self ; call Rq(x as u8)),
             Location::Memory(base, disp) => dynasm!(self ; call QWORD [Rq(base as u8) + disp]),
-            _ => panic!("CALL {:?}", loc),
+            _ => panic!("singlepass can't emit CALL {:?}", loc),
         }
     }
 
