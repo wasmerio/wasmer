@@ -100,7 +100,7 @@ fn list<'input, I, E: ParseError<&'input [u8]>>(
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
-    let mut items = vec![];
+    let mut items = Vec::with_capacity(length as usize);
 
     for _ in 0..length {
         consume!((input, item) = item_parser(input)?);
@@ -247,9 +247,10 @@ fn exports<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Export>, E> {
     let mut input = input;
-    let mut exports = vec![];
 
     consume!((input, number_of_exports) = leb(input)?);
+
+    let mut exports = Vec::with_capacity(number_of_exports as usize);
 
     for _ in 0..number_of_exports {
         consume!((input, export_name) = string(input)?);
@@ -270,9 +271,10 @@ fn types<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Type>, E> {
     let mut input = input;
-    let mut types = vec![];
 
     consume!((input, number_of_types) = leb(input)?);
+
+    let mut types = Vec::with_capacity(number_of_types as usize);
 
     for _ in 0..number_of_types {
         consume!((input, type_name) = string(input)?);
@@ -293,9 +295,10 @@ fn imported_functions<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<ImportedFunction>, E> {
     let mut input = input;
-    let mut imported_functions = vec![];
 
     consume!((input, number_of_imported_functions) = leb(input)?);
+
+    let mut imported_functions = Vec::with_capacity(number_of_imported_functions as usize);
 
     for _ in 0..number_of_imported_functions {
         consume!((input, imported_function_namespace) = string(input)?);
@@ -318,9 +321,10 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Adapter>, E> {
     let mut input = input;
-    let mut adapters = vec![];
 
     consume!((input, number_of_adapters) = leb(input)?);
+
+    let mut adapters = Vec::with_capacity(number_of_adapters as usize);
 
     for _ in 0..number_of_adapters {
         consume!((input, adapter_kind) = byte(input)?);
@@ -381,9 +385,10 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Forward>, E> {
     let mut input = input;
-    let mut forwards = vec![];
 
     consume!((input, number_of_forwards) = leb(input)?);
+
+    let mut forwards = Vec::with_capacity(number_of_forwards as usize);
 
     for _ in 0..number_of_forwards {
         consume!((input, forward_name) = string(input)?);
