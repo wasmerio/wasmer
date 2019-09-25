@@ -124,6 +124,14 @@ impl ImportObject {
     }
 
     /// The same as `with_namespace` but takes a function that may fail
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::import::{ImportObject, LikeNamespace};
+    /// # use wasmer_runtime_core::export::Export;
+    /// fn get_export(imports: &ImportObject, namespace: &str, name: &str) -> Option<Export> {
+    ///     imports.maybe_with_namespace(namespace, |ns| ns.get_export(name))
+    /// }
+    /// ```
     pub fn maybe_with_namespace<Func, InnerRet>(&self, namespace: &str, f: Func) -> Option<InnerRet>
     where
         Func: FnOnce(&(dyn LikeNamespace + Send)) -> Option<InnerRet>,
