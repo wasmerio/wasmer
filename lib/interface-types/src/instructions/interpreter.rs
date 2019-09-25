@@ -107,6 +107,65 @@ where
                                 Ok(())
                             })
                         }
+                        Instruction::Call { function_index: index } => {
+                            let index = index.to_owned();
+                            let instruction_name: String = instruction.into();
+
+                            Box::new(move |runtime: &mut Runtime<Instance, Export, LocalImport, Memory>| -> Result<(), _> {
+                                let instance = runtime.wasm_instance;
+                                let function_index = FunctionIndex::new(index);
+
+                                match instance.local_or_import(function_index) {
+                                    Some(local_or_import) => {
+                                        let inputs_cardinality = local_or_import.inputs_cardinality();
+
+                                        match runtime.stack.pop(inputs_cardinality) {
+                                            Some(inputs) =>  {
+                                                let input_types = inputs
+                                                    .iter()
+                                                    .map(|input| input.into())
+                                                    .collect::<Vec<InterfaceType>>();
+
+                                                if input_types != local_or_import.inputs() {
+                                                    return Err(format!(
+                                                        "`{}` cannot call the local or imported function `{}` because the value types on the stack mismatch the function signature (expects {:?}).",
+                                                        instruction_name,
+                                                        index,
+                                                        local_or_import.inputs(),
+                                                    ))
+                                                }
+
+                                                match local_or_import.call(&inputs) {
+                                                    Ok(outputs) => {
+                                                        for output in outputs.iter() {
+                                                            runtime.stack.push(output.clone());
+                                                        }
+
+                                                        Ok(())
+                                                    }
+                                                    Err(_) => Err(format!(
+                                                        "`{}` failed when calling the local or imported function `{}`.",
+                                                        instruction_name,
+                                                        index
+                                                    ))
+                                                }
+                                            }
+                                            None => Err(format!(
+                                                "`{}` cannot call the local or imported function `{}` because there is no enough data on the stack for the arguments (needs {}).",
+                                                instruction_name,
+                                                index,
+                                                inputs_cardinality,
+                                            ))
+                                        }
+                                    }
+                                    None => Err(format!(
+                                        "`{}` cannot call the local or imported function `{}` because it doesn't exist.",
+                                        instruction_name,
+                                        index,
+                                    ))
+                                }
+                            })
+                        }
                         Instruction::CallExport { export_name } => {
                             let export_name = (*export_name).to_owned();
                             let instruction_name: String = instruction.into();
@@ -211,65 +270,6 @@ where
                                     None => Err(format!(
                                         "`{}` failed because there is no enough data on the stack (needs 2).",
                                         instruction_name,
-                                    ))
-                                }
-                            })
-                        }
-                        Instruction::Call { function_index: index } => {
-                            let index = index.to_owned();
-                            let instruction_name: String = instruction.into();
-
-                            Box::new(move |runtime: &mut Runtime<Instance, Export, LocalImport, Memory>| -> Result<(), _> {
-                                let instance = runtime.wasm_instance;
-                                let function_index = FunctionIndex::new(index);
-
-                                match instance.local_or_import(function_index) {
-                                    Some(local_or_import) => {
-                                        let inputs_cardinality = local_or_import.inputs_cardinality();
-
-                                        match runtime.stack.pop(inputs_cardinality) {
-                                            Some(inputs) =>  {
-                                                let input_types = inputs
-                                                    .iter()
-                                                    .map(|input| input.into())
-                                                    .collect::<Vec<InterfaceType>>();
-
-                                                if input_types != local_or_import.inputs() {
-                                                    return Err(format!(
-                                                        "`{}` cannot call the local or imported function `{}` because the value types on the stack mismatch the function signature (expects {:?}).",
-                                                        instruction_name,
-                                                        index,
-                                                        local_or_import.inputs(),
-                                                    ))
-                                                }
-
-                                                match local_or_import.call(&inputs) {
-                                                    Ok(outputs) => {
-                                                        for output in outputs.iter() {
-                                                            runtime.stack.push(output.clone());
-                                                        }
-
-                                                        Ok(())
-                                                    }
-                                                    Err(_) => Err(format!(
-                                                        "`{}` failed when calling the local or imported function `{}`.",
-                                                        instruction_name,
-                                                        index
-                                                    ))
-                                                }
-                                            }
-                                            None => Err(format!(
-                                                "`{}` cannot call the local or imported function `{}` because there is no enough data on the stack for the arguments (needs {}).",
-                                                instruction_name,
-                                                index,
-                                                inputs_cardinality,
-                                            ))
-                                        }
-                                    }
-                                    None => Err(format!(
-                                        "`{}` cannot call the local or imported function `{}` because it doesn't exist.",
-                                        instruction_name,
-                                        index,
                                     ))
                                 }
                             })
