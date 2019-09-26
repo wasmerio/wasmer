@@ -90,26 +90,22 @@ where
             .iter()
             .map(
                 |instruction| -> ExecutableInstruction<Instance, Export, LocalImport, Memory> {
-                    let instruction_representation: String = instruction.into();
+                    let instruction_name: String = instruction.into();
 
                     match instruction {
                         Instruction::ArgumentGet { index } => {
-                            instructions::argument_get(*index, instruction_representation)
+                            instructions::argument_get(*index, instruction_name)
                         }
                         Instruction::Call { function_index } => {
-                            instructions::call(*function_index, instruction_representation)
+                            instructions::call(*function_index, instruction_name)
                         }
-                        Instruction::CallExport { export_name } => instructions::call_export(
-                            (*export_name).to_owned(),
-                            instruction_representation,
-                        ),
-                        Instruction::ReadUtf8 => {
-                            instructions::read_utf8(instruction_representation)
+                        Instruction::CallExport { export_name } => {
+                            instructions::call_export((*export_name).to_owned(), instruction_name)
                         }
-                        Instruction::WriteUtf8 { allocator_name } => instructions::write_utf8(
-                            (*allocator_name).to_owned(),
-                            instruction_representation,
-                        ),
+                        Instruction::ReadUtf8 => instructions::read_utf8(instruction_name),
+                        Instruction::WriteUtf8 { allocator_name } => {
+                            instructions::write_utf8((*allocator_name).to_owned(), instruction_name)
+                        }
                         _ => unimplemented!(),
                     }
                 },
