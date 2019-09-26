@@ -1,4 +1,4 @@
-use crate::{ast::*, instructions::Instruction};
+use crate::{ast::*, interpreter::Instruction};
 use nom::{
     error::{make_error, ErrorKind, ParseError},
     Err, IResult,

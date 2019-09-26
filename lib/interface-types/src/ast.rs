@@ -1,4 +1,4 @@
-use crate::instructions::Instruction;
+use crate::interpreter::Instruction;
 use std::str;
 
 #[derive(PartialEq, Debug)]
