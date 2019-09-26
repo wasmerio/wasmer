@@ -11,5 +11,5 @@ edition = "2018"
 nom = "5.0"
 
 [dev-dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.7.0", features = ["backend-cranelift"] }
-wasmer-clif-backend = { path = "../clif-backend", version = "0.7.0" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.7", features = ["backend-cranelift"] }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.7" }
