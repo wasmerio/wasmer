@@ -10,7 +10,7 @@ edition = "2018"
 [dependencies]
 nix = "0.15"
 page_size = "0.4"
-wasmparser = "0.37.0"
+wasmparser = "0.39.1"
 parking_lot = "0.9"
 lazy_static = "1.4"
 errno = "0.2"

@@ -10,13 +10,13 @@ readme = "README.md"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.7.0" }
-cranelift-native = "0.43.1"
-cranelift-codegen = "0.43.1"
-cranelift-entity = "0.43.1"
-cranelift-frontend = { package = "wasmer-clif-fork-frontend", version = "0.43.1" }
-cranelift-wasm = { package = "wasmer-clif-fork-wasm", version = "0.43.1" }
+cranelift-native = { git = "https://github.com/wasmerio/cranelift", branch = "wasmer-publish-new", version = "0.44.0" }
+cranelift-codegen = { git = "https://github.com/wasmerio/cranelift", branch = "wasmer-publish-new", version = "0.44.0" }
+cranelift-entity = { git = "https://github.com/wasmerio/cranelift", branch = "wasmer-publish-new", version = "0.44.0" }
+cranelift-frontend = { package = "wasmer-clif-fork-frontend", git = "https://github.com/wasmerio/cranelift", branch = "wasmer-publish-new", version = "0.44.0" }
+cranelift-wasm = { package = "wasmer-clif-fork-wasm", git = "https://github.com/wasmerio/cranelift", branch = "wasmer-publish-new", version = "0.44.0" }
 target-lexicon = "0.8.1"
-wasmparser = "0.37.0"
+wasmparser = "0.39.1"
 byteorder = "1.3.2"
 nix = "0.15.0"
 libc = "0.2.60"
