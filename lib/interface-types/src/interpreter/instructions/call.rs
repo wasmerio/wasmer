@@ -5,7 +5,7 @@ use crate::interpreter::wasm::{
 
 executable_instruction!(
     call(function_index: usize, instruction_name: String) -> _ {
-        Box::new(move |runtime| -> _ {
+        move |runtime| -> _ {
             let instance = runtime.wasm_instance;
             let index = FunctionIndex::new(function_index);
 
@@ -58,7 +58,7 @@ executable_instruction!(
                     function_index,
                 ))
             }
-        })
+        }
     }
 );
 

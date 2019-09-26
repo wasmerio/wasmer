@@ -3,7 +3,7 @@ use std::convert::TryInto;
 
 executable_instruction!(
     write_utf8(allocator_name: String, instruction_name: String) -> _ {
-        Box::new(move |runtime| -> _ {
+        move |runtime| -> _ {
             let instance = runtime.wasm_instance;
 
             match instance.export(&allocator_name) {
@@ -67,7 +67,7 @@ executable_instruction!(
                     allocator_name
                 ))
             }
-        })
+        }
     }
 );
 

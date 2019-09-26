@@ -37,7 +37,7 @@ macro_rules! executable_instruction {
             Memory: wasm::structures::Memory,
             Instance: wasm::structures::Instance<Export, LocalImport, Memory>,
         {
-            $implementation
+            Box::new($implementation)
         }
     };
 }

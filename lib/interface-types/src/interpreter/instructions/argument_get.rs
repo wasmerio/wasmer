@@ -1,6 +1,6 @@
 executable_instruction!(
     argument_get(index: u64, instruction_name: String) -> _ {
-        Box::new(move |runtime| -> _ {
+        move |runtime| -> _ {
             let invocation_inputs = runtime.invocation_inputs;
 
             if index >= (invocation_inputs.len() as u64) {
@@ -13,7 +13,7 @@ executable_instruction!(
             runtime.stack.push(invocation_inputs[index as usize].clone());
 
             Ok(())
-        })
+        }
     }
 );
 

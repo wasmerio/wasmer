@@ -3,7 +3,7 @@ use std::{cell::Cell, convert::TryFrom};
 
 executable_instruction!(
     read_utf8(instruction_name: String) -> _ {
-        Box::new(move |runtime| -> _ {
+        move |runtime| -> _ {
             match runtime.stack.pop(2) {
                 Some(inputs) => match runtime.wasm_instance.memory(0) {
                     Some(memory) => {
@@ -48,7 +48,7 @@ executable_instruction!(
                     instruction_name,
                 ))
             }
-        })
+        }
     }
 );
 
