@@ -512,19 +512,19 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         import_object.allow_missing_functions = true; // Import initialization might be left to the loader.
         let instance = module
             .instantiate(&import_object)
-            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+            .map_err(|e| format!("Can't instantiate loader module: {:?}", e))?;
 
-        let args: Vec<Value> = options
-            .args
-            .iter()
-            .map(|arg| arg.as_str())
-            .map(|x| {
-                Value::I32(x.parse().expect(&format!(
+        let mut args: Vec<Value> = Vec::new();
+        for arg in options.args.iter() {
+            let x = arg.as_str().parse().map_err(|_| {
+                format!(
                     "Can't parse the provided argument {:?} as a integer",
-                    x
-                )))
-            })
-            .collect();
+                    arg.as_str()
+                )
+            })?;
+            args.push(Value::I32(x));
+        }
+
         let index = instance
             .resolve_func("_start")
             .expect("The loader requires a _start function to be present in the module");
@@ -551,7 +551,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let import_object = wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals);
         let mut instance = module
             .instantiate(&import_object)
-            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+            .map_err(|e| format!("Can't instantiate emscripten module: {:?}", e))?;
 
         wasmer_emscripten::run_emscripten_instance(
             &module,
@@ -591,7 +591,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             #[allow(unused_mut)] // mut used in feature
             let mut instance = module
                 .instantiate(&import_object)
-                .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+                .map_err(|e| format!("Can't instantiate WASI module: {:?}", e))?;
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
@@ -658,12 +658,17 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            let args: Vec<Value> = options
-                .args
-                .iter()
-                .map(|arg| arg.as_str())
-                .map(|x| Value::I32(x.parse().unwrap()))
-                .collect();
+            let mut args: Vec<Value> = Vec::new();
+            for arg in options.args.iter() {
+                let x = arg.as_str().parse().map_err(|_| {
+                    format!(
+                        "Can't parse the provided argument {:?} as a integer",
+                        arg.as_str()
+                    )
+                })?;
+                args.push(Value::I32(x));
+            }
+
             instance
                 .dyn_func("main")
                 .map_err(|e| format!("{:?}", e))?
@@ -732,7 +737,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
             }
             "backtrace" | "bt" => {
                 if let Some(ref image) = ctx.image {
-                    println!("{}", image.execution_state.colored_output());
+                    println!("{}", image.execution_state.output());
                 } else {
                     println!("State not available");
                 }
@@ -752,7 +757,7 @@ fn run(options: Run) {
     match execute_wasm(&options) {
         Ok(()) => {}
         Err(message) => {
-            eprintln!("execute_wasm: {:?}", message);
+            eprintln!("Error: {}", message);
             exit(1);
         }
     }

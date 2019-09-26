@@ -4,7 +4,7 @@ use errno;
 use nix::libc;
 use page_size;
 use std::ops::{Bound, RangeBounds};
-use std::{fs::File, os::unix::io::IntoRawFd, path::Path, ptr, rc::Rc, slice};
+use std::{fs::File, os::unix::io::IntoRawFd, path::Path, ptr, slice, sync::Arc};
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -14,7 +14,7 @@ pub struct Memory {
     ptr: *mut u8,
     size: usize,
     protection: Protect,
-    fd: Option<Rc<RawFd>>,
+    fd: Option<Arc<RawFd>>,
 }
 
 impl Memory {
@@ -49,7 +49,7 @@ impl Memory {
                 ptr: ptr as *mut u8,
                 size: file_len as usize,
                 protection,
-                fd: Some(Rc::new(raw_fd)),
+                fd: Some(Arc::new(raw_fd)),
             })
         }
     }

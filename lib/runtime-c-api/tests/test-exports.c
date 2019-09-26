@@ -242,7 +242,7 @@ int main()
 
         wasmer_result_t call_result = wasmer_export_func_call(exported_function, inputs, inputs_arity, outputs, outputs_arity);
 
-        printf("Result: %lld\n", outputs[0].value.I64);
+        printf("Result: %ld\n", outputs[0].value.I64);
 
         assert(outputs[0].value.I64 == 7);
         assert(call_result == WASMER_OK);

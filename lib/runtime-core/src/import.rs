@@ -2,9 +2,9 @@ use crate::export::Export;
 use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
 use std::{
-    cell::{Ref, RefCell},
+    borrow::{Borrow, BorrowMut},
     ffi::c_void,
-    rc::Rc,
+    sync::{Arc, Mutex},
 };
 
 pub trait LikeNamespace {
@@ -45,8 +45,9 @@ impl IsExport for Export {
 /// }
 /// ```
 pub struct ImportObject {
-    map: Rc<RefCell<HashMap<String, Box<dyn LikeNamespace>>>>,
-    pub(crate) state_creator: Option<Rc<dyn Fn() -> (*mut c_void, fn(*mut c_void))>>,
+    map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send>>>>,
+    pub(crate) state_creator:
+        Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + Send + Sync + 'static>>,
     pub allow_missing_functions: bool,
 }
 
@@ -54,7 +55,7 @@ impl ImportObject {
     /// Create a new `ImportObject`.
     pub fn new() -> Self {
         Self {
-            map: Rc::new(RefCell::new(HashMap::new())),
+            map: Arc::new(Mutex::new(HashMap::new())),
             state_creator: None,
             allow_missing_functions: false,
         }
@@ -62,11 +63,11 @@ impl ImportObject {
 
     pub fn new_with_data<F>(state_creator: F) -> Self
     where
-        F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static,
+        F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static + Send + Sync,
     {
         Self {
-            map: Rc::new(RefCell::new(HashMap::new())),
-            state_creator: Some(Rc::new(state_creator)),
+            map: Arc::new(Mutex::new(HashMap::new())),
+            state_creator: Some(Arc::new(state_creator)),
             allow_missing_functions: false,
         }
     }
@@ -92,9 +93,10 @@ impl ImportObject {
     pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
     where
         S: Into<String>,
-        N: LikeNamespace + 'static,
+        N: LikeNamespace + Send + 'static,
     {
-        let mut map = self.map.borrow_mut();
+        let mut guard = self.map.lock().unwrap();
+        let map = guard.borrow_mut();
 
         match map.entry(name.into()) {
             Entry::Vacant(empty) => {
@@ -105,19 +107,47 @@ impl ImportObject {
         }
     }
 
-    pub fn get_namespace(&self, namespace: &str) -> Option<Ref<dyn LikeNamespace + 'static>> {
-        let map_ref = self.map.borrow();
-
+    /// Apply a function on the namespace if it exists
+    /// If your function can fail, consider using `maybe_with_namespace`
+    pub fn with_namespace<Func, InnerRet>(&self, namespace: &str, f: Func) -> Option<InnerRet>
+    where
+        Func: FnOnce(&(dyn LikeNamespace + Send)) -> InnerRet,
+        InnerRet: Sized,
+    {
+        let guard = self.map.lock().unwrap();
+        let map_ref = guard.borrow();
         if map_ref.contains_key(namespace) {
-            Some(Ref::map(map_ref, |map| &*map[namespace]))
+            Some(f(map_ref[namespace].as_ref()))
         } else {
             None
         }
     }
 
+    /// The same as `with_namespace` but takes a function that may fail
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::import::{ImportObject, LikeNamespace};
+    /// # use wasmer_runtime_core::export::Export;
+    /// fn get_export(imports: &ImportObject, namespace: &str, name: &str) -> Option<Export> {
+    ///     imports.maybe_with_namespace(namespace, |ns| ns.get_export(name))
+    /// }
+    /// ```
+    pub fn maybe_with_namespace<Func, InnerRet>(&self, namespace: &str, f: Func) -> Option<InnerRet>
+    where
+        Func: FnOnce(&(dyn LikeNamespace + Send)) -> Option<InnerRet>,
+        InnerRet: Sized,
+    {
+        let guard = self.map.lock().unwrap();
+        let map_ref = guard.borrow();
+        map_ref
+            .get(namespace)
+            .map(|ns| ns.as_ref())
+            .and_then(|ns| f(ns))
+    }
+
     pub fn clone_ref(&self) -> Self {
         Self {
-            map: Rc::clone(&self.map),
+            map: Arc::clone(&self.map),
             state_creator: self.state_creator.clone(),
             allow_missing_functions: false,
         }
@@ -125,7 +155,9 @@ impl ImportObject {
 
     fn get_objects(&self) -> VecDeque<(String, String, Export)> {
         let mut out = VecDeque::new();
-        for (name, ns) in self.map.borrow().iter() {
+        let guard = self.map.lock().unwrap();
+        let map = guard.borrow();
+        for (name, ns) in map.iter() {
             for (id, exp) in ns.get_exports() {
                 out.push_back((name.clone(), id, exp));
             }
@@ -158,7 +190,8 @@ impl IntoIterator for ImportObject {
 
 impl Extend<(String, String, Export)> for ImportObject {
     fn extend<T: IntoIterator<Item = (String, String, Export)>>(&mut self, iter: T) {
-        let mut map = self.map.borrow_mut();
+        let mut guard = self.map.lock().unwrap();
+        let map = guard.borrow_mut();
         for (ns, id, exp) in iter.into_iter() {
             if let Some(like_ns) = map.get_mut(&ns) {
                 like_ns.maybe_insert(&id, exp);
@@ -172,7 +205,7 @@ impl Extend<(String, String, Export)> for ImportObject {
 }
 
 pub struct Namespace {
-    map: HashMap<String, Box<dyn IsExport>>,
+    map: HashMap<String, Box<dyn IsExport + Send>>,
 }
 
 impl Namespace {
@@ -182,10 +215,10 @@ impl Namespace {
         }
     }
 
-    pub fn insert<S, E>(&mut self, name: S, export: E) -> Option<Box<dyn IsExport>>
+    pub fn insert<S, E>(&mut self, name: S, export: E) -> Option<Box<dyn IsExport + Send>>
     where
         S: Into<String>,
-        E: IsExport + 'static,
+        E: IsExport + Send + 'static,
     {
         self.map.insert(name.into(), Box::new(export))
     }
@@ -241,12 +274,14 @@ mod test {
 
         imports1.extend(imports2);
 
-        let cat_ns = imports1.get_namespace("cat").unwrap();
-        assert!(cat_ns.get_export("small").is_some());
+        let small_cat_export =
+            imports1.maybe_with_namespace("cat", |cat_ns| cat_ns.get_export("small"));
+        assert!(small_cat_export.is_some());
 
-        let dog_ns = imports1.get_namespace("dog").unwrap();
-        assert!(dog_ns.get_export("happy").is_some());
-        assert!(dog_ns.get_export("small").is_some());
+        let entries = imports1.maybe_with_namespace("dog", |dog_ns| {
+            Some((dog_ns.get_export("happy")?, dog_ns.get_export("small")?))
+        });
+        assert!(entries.is_some());
     }
 
     #[test]
@@ -264,14 +299,14 @@ mod test {
         };
 
         imports1.extend(imports2);
-        let dog_ns = imports1.get_namespace("dog").unwrap();
+        let happy_dog_entry = imports1
+            .maybe_with_namespace("dog", |dog_ns| dog_ns.get_export("happy"))
+            .unwrap();
 
-        assert!(
-            if let Export::Global(happy_dog_global) = dog_ns.get_export("happy").unwrap() {
-                happy_dog_global.get() == Value::I32(4)
-            } else {
-                false
-            }
-        );
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.get() == Value::I32(4)
+        } else {
+            false
+        });
     }
 }

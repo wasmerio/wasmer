@@ -1,15 +1,19 @@
 pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
+    error::CallResult,
+    instance::call_func_with_index_inner,
     memory::{Memory, MemoryType},
     module::{ModuleInfo, ModuleInner},
+    sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex},
+    types::{LocalOrImport, MemoryIndex, TableIndex, Value},
     vmcalls,
 };
 use std::{
     cell::UnsafeCell,
     ffi::c_void,
-    mem, ptr,
+    mem,
+    ptr::{self, NonNull},
     sync::atomic::{AtomicUsize, Ordering},
     sync::Once,
 };
@@ -393,6 +397,41 @@ impl Ctx {
             (*self.internal.internals)[field.index()] = value;
         }
     }
+
+    /// Calls a host or Wasm function at the given table index
+    pub fn call_with_table_index(
+        &mut self,
+        index: TableIndex,
+        args: &[Value],
+    ) -> CallResult<Vec<Value>> {
+        let anyfunc_table =
+            unsafe { &*((**self.internal.tables).table as *mut crate::table::AnyfuncTable) };
+        let Anyfunc { func, ctx, sig_id } = anyfunc_table.backing[index.index()];
+
+        let signature = SigRegistry.lookup_signature(unsafe { std::mem::transmute(sig_id.0) });
+        let mut rets = vec![];
+
+        let wasm = {
+            let module = unsafe { &*self.module };
+            let runnable = &module.runnable_module;
+
+            let sig_index = SigRegistry.lookup_sig_index(signature.clone());
+            runnable
+                .get_trampoline(&module.info, sig_index)
+                .expect("wasm trampoline")
+        };
+
+        call_func_with_index_inner(
+            ctx,
+            NonNull::new(func as *mut _).unwrap(),
+            &signature,
+            wasm,
+            args,
+            &mut rets,
+        )?;
+
+        Ok(rets)
+    }
 }
 
 #[doc(hidden)]
@@ -474,6 +513,9 @@ pub struct ImportedFunc {
     pub vmctx: *mut Ctx,
 }
 
+// manually implemented because ImportedFunc contains raw pointers directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO: review this, shouldn't `Ctx` be Send?))
+unsafe impl Send for ImportedFunc {}
+
 impl ImportedFunc {
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_func() -> u8 {
@@ -500,6 +542,9 @@ pub struct LocalTable {
     /// The table that this represents. At the moment, this can only be `*mut AnyfuncTable`.
     pub table: *mut (),
 }
+
+// manually implemented because LocalTable contains raw pointers directly
+unsafe impl Send for LocalTable {}
 
 impl LocalTable {
     #[allow(clippy::erasing_op)] // TODO
@@ -529,6 +574,9 @@ pub struct LocalMemory {
     /// or `*mut SharedStaticMemory`.
     pub memory: *mut (),
 }
+
+// manually implemented because LocalMemory contains raw pointers
+unsafe impl Send for LocalMemory {}
 
 impl LocalMemory {
     #[allow(clippy::erasing_op)] // TODO
@@ -579,6 +627,9 @@ pub struct Anyfunc {
     pub ctx: *mut Ctx,
     pub sig_id: SigId,
 }
+
+// manually implemented because Anyfunc contains raw pointers directly
+unsafe impl Send for Anyfunc {}
 
 impl Anyfunc {
     pub fn null() -> Self {

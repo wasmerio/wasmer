@@ -11,6 +11,9 @@ pub enum Context {
     Internal,
 }
 
+// Manually implemented because context contains a raw pointer to Ctx
+unsafe impl Send for Context {}
+
 #[derive(Debug, Clone)]
 pub enum Export {
     Function {
@@ -25,6 +28,9 @@ pub enum Export {
 
 #[derive(Debug, Clone)]
 pub struct FuncPointer(*const vm::Func);
+
+// Manually implemented because FuncPointer contains a raw pointer to Ctx
+unsafe impl Send for FuncPointer {}
 
 impl FuncPointer {
     /// This needs to be unsafe because there is
