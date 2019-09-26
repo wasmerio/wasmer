@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#839](https://github.com/wasmerio/wasmer/pull/839) Change supported version to stable Rust 1.37+
 - [#834](https://github.com/wasmerio/wasmer/pull/834) Fix panic when unwraping `wasmer` arguments
 - [#833](https://github.com/wasmerio/wasmer/pull/833) Add doc example of using ImportObject's new `maybe_with_namespace` method
 - [#832](https://github.com/wasmerio/wasmer/pull/832) Delete unused runtime ABI
