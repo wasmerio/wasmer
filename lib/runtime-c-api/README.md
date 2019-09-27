@@ -25,7 +25,7 @@
 # Wasmer Runtime C API
 
 Wasmer is a standalone JIT WebAssembly runtime, aiming to be fully
-compatible with Emscripten, Rust and Go. [Learn
+compatible with WASI, Emscripten, Rust and Go. [Learn
 more](https://github.com/wasmerio/wasmer).
 
 This crate exposes a C and a C++ API for the Wasmer runtime.
