@@ -9,7 +9,7 @@ executable_instruction!(
                     Some(memory) => {
                         let length = i32::try_from(&inputs[0])? as usize;
                         let pointer = i32::try_from(&inputs[1])? as usize;
-                        let memory_view = memory.view::<u8>();
+                        let memory_view = memory.view();
 
                         if memory_view.len() < pointer + length {
                             return Err(format!(

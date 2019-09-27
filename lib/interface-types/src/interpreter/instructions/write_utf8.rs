@@ -20,7 +20,7 @@ executable_instruction!(
                     match runtime.wasm_instance.memory(0) {
                         Some(memory) => match runtime.stack.pop1() {
                             Some(string) => {
-                                let memory_view = memory.view::<u8>();
+                                let memory_view = memory.view();
 
                                 let string: String = (&string).try_into()?;
                                 let string_bytes = string.as_bytes();

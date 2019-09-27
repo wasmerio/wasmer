@@ -14,9 +14,9 @@ pub(crate) use write_utf8::write_utf8;
 pub(crate) mod tests {
     use crate::interpreter::wasm::{
         self,
-        values::{InterfaceType, InterfaceValue, ValueType},
+        values::{InterfaceType, InterfaceValue},
     };
-    use std::{cell::Cell, collections::HashMap, convert::TryInto};
+    use std::{cell::Cell, collections::HashMap, convert::TryInto, ops::Deref, rc::Rc};
 
     pub(crate) struct Export {
         pub(crate) inputs: Vec<InterfaceType>,
@@ -74,24 +74,35 @@ pub(crate) mod tests {
         }
     }
 
+    #[derive(Default, Clone)]
+    pub(crate) struct MemoryView(Rc<Vec<Cell<u8>>>);
+
+    impl wasm::structures::MemoryView for MemoryView {}
+
+    impl Deref for MemoryView {
+        type Target = [Cell<u8>];
+
+        fn deref(&self) -> &[Cell<u8>] {
+            self.0.as_slice()
+        }
+    }
+
     #[derive(Default)]
     pub(crate) struct Memory {
-        pub(crate) data: Vec<Cell<u8>>,
+        pub(crate) view: MemoryView,
     }
 
     impl Memory {
         pub(crate) fn new(data: Vec<Cell<u8>>) -> Self {
-            Self { data }
+            Self {
+                view: MemoryView(Rc::new(data)),
+            }
         }
     }
 
-    impl wasm::structures::Memory for Memory {
-        fn view<V: ValueType>(&self) -> &[Cell<V>] {
-            use std::slice;
-
-            let slice = self.data.as_slice();
-
-            unsafe { slice::from_raw_parts(slice.as_ptr() as *const Cell<V>, slice.len()) }
+    impl wasm::structures::Memory<MemoryView> for Memory {
+        fn view(&self) -> MemoryView {
+            self.view.clone()
         }
     }
 
@@ -158,7 +169,7 @@ pub(crate) mod tests {
         }
     }
 
-    impl wasm::structures::Instance<Export, LocalImport, Memory> for Instance {
+    impl wasm::structures::Instance<Export, LocalImport, Memory, MemoryView> for Instance {
         fn export(&self, export_name: &str) -> Option<&Export> {
             self.exports.get(export_name)
         }

@@ -1,7 +1,7 @@
 use crate::interpreter::Instruction;
 use std::str;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum InterfaceType {
     Int,
     Float,

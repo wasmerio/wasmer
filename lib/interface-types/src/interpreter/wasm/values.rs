@@ -63,23 +63,3 @@ from_x_for_interface_value!(i32, I32);
 from_x_for_interface_value!(i64, I64);
 from_x_for_interface_value!(f32, F32);
 from_x_for_interface_value!(f64, F64);
-
-pub trait ValueType: Copy
-where
-    Self: Sized,
-{
-}
-
-macro_rules! value_type {
-    ($native_type:ty) => {
-        impl ValueType for $native_type {}
-    };
-
-    ($($native_type:ty),*) => {
-        $(
-            value_type!($native_type);
-        )*
-    };
-}
-
-value_type!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);

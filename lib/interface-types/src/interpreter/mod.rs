@@ -8,45 +8,50 @@ use stack::Stack;
 use std::{convert::TryFrom, marker::PhantomData};
 use wasm::values::InterfaceValue;
 
-pub(crate) struct Runtime<'invocation, 'instance, Instance, Export, LocalImport, Memory>
+pub(crate) struct Runtime<'invocation, 'instance, Instance, Export, LocalImport, Memory, MemoryView>
 where
     Export: wasm::structures::Export + 'instance,
     LocalImport: wasm::structures::LocalImport + 'instance,
-    Memory: wasm::structures::Memory + 'instance,
-    Instance: wasm::structures::Instance<Export, LocalImport, Memory> + 'instance,
+    Memory: wasm::structures::Memory<MemoryView> + 'instance,
+    MemoryView: wasm::structures::MemoryView,
+    Instance: wasm::structures::Instance<Export, LocalImport, Memory, MemoryView> + 'instance,
 {
     invocation_inputs: &'invocation [InterfaceValue],
     stack: Stack<InterfaceValue>,
     wasm_instance: &'instance Instance,
-    _wasm_exports: PhantomData<Export>,
-    _wasm_locals_or_imports: PhantomData<LocalImport>,
-    _wasm_memories: PhantomData<Memory>,
+    _phantom: PhantomData<(Export, LocalImport, Memory, MemoryView)>,
 }
 
-pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory> =
-    Box<dyn Fn(&mut Runtime<Instance, Export, LocalImport, Memory>) -> Result<(), String>>;
+pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, MemoryView> = Box<
+    dyn Fn(&mut Runtime<Instance, Export, LocalImport, Memory, MemoryView>) -> Result<(), String>,
+>;
 
-pub struct Interpreter<Instance, Export, LocalImport, Memory>
+pub struct Interpreter<Instance, Export, LocalImport, Memory, MemoryView>
 where
     Export: wasm::structures::Export,
     LocalImport: wasm::structures::LocalImport,
-    Memory: wasm::structures::Memory,
-    Instance: wasm::structures::Instance<Export, LocalImport, Memory>,
+    Memory: wasm::structures::Memory<MemoryView>,
+    MemoryView: wasm::structures::MemoryView,
+    Instance: wasm::structures::Instance<Export, LocalImport, Memory, MemoryView>,
 {
-    executable_instructions: Vec<ExecutableInstruction<Instance, Export, LocalImport, Memory>>,
+    executable_instructions:
+        Vec<ExecutableInstruction<Instance, Export, LocalImport, Memory, MemoryView>>,
 }
 
-impl<Instance, Export, LocalImport, Memory> Interpreter<Instance, Export, LocalImport, Memory>
+impl<Instance, Export, LocalImport, Memory, MemoryView>
+    Interpreter<Instance, Export, LocalImport, Memory, MemoryView>
 where
     Export: wasm::structures::Export,
     LocalImport: wasm::structures::LocalImport,
-    Memory: wasm::structures::Memory,
-    Instance: wasm::structures::Instance<Export, LocalImport, Memory>,
+    Memory: wasm::structures::Memory<MemoryView>,
+    MemoryView: wasm::structures::MemoryView,
+    Instance: wasm::structures::Instance<Export, LocalImport, Memory, MemoryView>,
 {
     fn iter(
         &self,
-    ) -> impl Iterator<Item = &ExecutableInstruction<Instance, Export, LocalImport, Memory>> + '_
-    {
+    ) -> impl Iterator<
+        Item = &ExecutableInstruction<Instance, Export, LocalImport, Memory, MemoryView>,
+    > + '_ {
         self.executable_instructions.iter()
     }
 
@@ -59,9 +64,7 @@ where
             invocation_inputs,
             stack: Stack::new(),
             wasm_instance,
-            _wasm_exports: PhantomData,
-            _wasm_locals_or_imports: PhantomData,
-            _wasm_memories: PhantomData,
+            _phantom: PhantomData,
         };
 
         for executable_instruction in self.iter() {
@@ -75,13 +78,15 @@ where
     }
 }
 
-impl<'binary_input, Instance, Export, LocalImport, Memory> TryFrom<&Vec<Instruction<'binary_input>>>
-    for Interpreter<Instance, Export, LocalImport, Memory>
+impl<'binary_input, Instance, Export, LocalImport, Memory, MemoryView>
+    TryFrom<&Vec<Instruction<'binary_input>>>
+    for Interpreter<Instance, Export, LocalImport, Memory, MemoryView>
 where
     Export: wasm::structures::Export,
     LocalImport: wasm::structures::LocalImport,
-    Memory: wasm::structures::Memory,
-    Instance: wasm::structures::Instance<Export, LocalImport, Memory>,
+    Memory: wasm::structures::Memory<MemoryView>,
+    MemoryView: wasm::structures::MemoryView,
+    Instance: wasm::structures::Instance<Export, LocalImport, Memory, MemoryView>,
 {
     type Error = String;
 
@@ -118,7 +123,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Instruction, Interpreter};
+    use super::{wasm::structures::EmptyMemoryView, Instruction, Interpreter};
     use std::convert::TryInto;
 
     #[test]
@@ -130,7 +135,8 @@ mod tests {
             Instruction::ReadUtf8,
             Instruction::Call { function_index: 7 },
         ];
-        let interpreter: Interpreter<(), (), (), ()> = (&instructions).try_into().unwrap();
+        let interpreter: Interpreter<(), (), (), (), EmptyMemoryView> =
+            (&instructions).try_into().unwrap();
 
         assert_eq!(interpreter.executable_instructions.len(), 5);
     }

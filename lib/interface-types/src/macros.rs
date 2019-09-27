@@ -28,14 +28,15 @@ macro_rules! executable_instruction {
     ($name:ident ( $($argument_name:ident: $argument_type:ty),* ) -> _ $implementation:block ) => {
         use crate::interpreter::{ExecutableInstruction, wasm, stack::Stackable};
 
-        pub(crate) fn $name<Instance, Export, LocalImport, Memory>(
+        pub(crate) fn $name<Instance, Export, LocalImport, Memory, MemoryView>(
             $($argument_name: $argument_type),*
-        ) -> ExecutableInstruction<Instance, Export, LocalImport, Memory>
+        ) -> ExecutableInstruction<Instance, Export, LocalImport, Memory, MemoryView>
         where
             Export: wasm::structures::Export,
             LocalImport: wasm::structures::LocalImport,
-            Memory: wasm::structures::Memory,
-            Instance: wasm::structures::Instance<Export, LocalImport, Memory>,
+            Memory: wasm::structures::Memory<MemoryView>,
+            MemoryView: wasm::structures::MemoryView,
+            Instance: wasm::structures::Instance<Export, LocalImport, Memory, MemoryView>,
         {
             Box::new($implementation)
         }
@@ -56,14 +57,14 @@ macro_rules! test_executable_instruction {
         #[allow(non_snake_case, unused)]
         fn $test_name() {
             use crate::interpreter::{
-                instructions::tests::{Export, Instance, LocalImport, Memory},
+                instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
                 stack::Stackable,
                 wasm::values::{InterfaceType, InterfaceValue},
                 Instruction, Interpreter,
             };
             use std::{cell::Cell, collections::HashMap, convert::TryInto};
 
-            let interpreter: Interpreter<Instance, Export, LocalImport, Memory> =
+            let interpreter: Interpreter<Instance, Export, LocalImport, Memory, MemoryView> =
                 (&vec![$($instructions),*]).try_into().unwrap();
 
             let invocation_inputs = vec![$($invocation_inputs),*];
@@ -90,14 +91,14 @@ macro_rules! test_executable_instruction {
         #[allow(non_snake_case, unused)]
         fn $test_name() {
             use crate::interpreter::{
-                instructions::tests::{Export, Instance, LocalImport, Memory},
+                instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
                 stack::Stackable,
                 wasm::values::{InterfaceType, InterfaceValue},
                 Instruction, Interpreter,
             };
             use std::{cell::Cell, collections::HashMap, convert::TryInto};
 
-            let interpreter: Interpreter<Instance, Export, LocalImport, Memory> =
+            let interpreter: Interpreter<Instance, Export, LocalImport, Memory, MemoryView> =
                 (&vec![$($instructions),*]).try_into().unwrap();
 
             let invocation_inputs = vec![$($invocation_inputs),*];
