@@ -57,6 +57,8 @@ members = [
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
     "examples/plugin-for-example",
+    "examples/parallel",
+    "examples/parallel-guest",
 ]
 
 [build-dependencies]
