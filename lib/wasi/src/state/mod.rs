@@ -55,7 +55,8 @@ pub struct InodeVal {
     pub kind: Kind,
 }
 
-/// The core file-object data type
+/// The core of the filesystem abstraction.  Includes directories,
+/// files, and symlinks.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Kind {
     File {
@@ -1010,7 +1011,12 @@ impl WasiFs {
     }
 }
 
-/// Top level data type containing all the state that WASI can interact with
+/// Top level data type containing all* the state with which WASI can
+/// interact.
+///
+/// * The contents of files are not stored and may be modified by
+/// other, concurrently running programs.  Data such as the contents
+/// of directories are lazily loaded.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WasiState {
     pub fs: WasiFs,

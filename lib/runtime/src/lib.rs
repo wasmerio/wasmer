@@ -190,7 +190,7 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
 
 /// Get a single instance of the default compiler to use.
 ///
-/// The ouptput of this function can be controlled by the mutually
+/// The output of this function can be controlled by the mutually
 /// exclusive `default-backend-llvm`, `default-backend-singlepass`,
 /// and `default-backend-cranelift` feature flags.
 pub fn default_compiler() -> impl Compiler {
@@ -224,10 +224,10 @@ pub fn default_compiler() -> impl Compiler {
 }
 
 /// Get the `Compiler` as a trait object for the given `Backend`.
-/// Returns `Option` because support for the `Compiler` may not be enabled by
-/// feature flags.
+/// Returns `Option` because support for the requested `Compiler` may
+/// not be enabled by feature flags.
 ///
-/// To get a list of the enabled backends as strings, call `Backend::variants()`
+/// To get a list of the enabled backends as strings, call `Backend::variants()`.
 pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
     match backend {
         #[cfg(feature = "cranelift")]
@@ -250,5 +250,5 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
     }
 }
 
-/// The current version of this crate
+/// The current version of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
