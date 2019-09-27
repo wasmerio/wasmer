@@ -618,7 +618,7 @@ fn import_functions(
         }
     }
 
-    if link_errors.len() > 0 {
+    if !link_errors.is_empty() {
         Err(link_errors)
     } else {
         Ok(functions.into_boxed_map())

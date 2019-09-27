@@ -10,6 +10,16 @@
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
+//! Wasmer's WASI implementation
+//!
+//! Use `generate_import_object` to create an `ImportObject`.  This `ImportObject`
+//! can be combined with a module to create an `Instance` which can execute WASI
+//! Wasm functions.
+//!
+//! See `state` for the experimental WASI FS API.  Also see the
+//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)
+//! for an example of how to extend WASI using the WASI FS API.
+
 #[cfg(target = "windows")]
 extern crate winapi;
 
@@ -37,6 +47,7 @@ pub struct ExitCode {
     pub code: syscalls::types::__wasi_exitcode_t,
 }
 
+/// Create a WasiImport object with `WasiState`
 pub fn generate_import_object(
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,

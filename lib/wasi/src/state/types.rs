@@ -626,6 +626,7 @@ fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, WasiFsError> {
     unimplemented!("host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff")
 }
 
+/// A wrapper type around Stdout
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stdout;
 impl Read for Stdout {
@@ -717,6 +718,7 @@ impl WasiFile for Stdout {
     }
 }
 
+/// A wrapper type around Stderr
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stderr;
 impl Read for Stderr {
@@ -808,6 +810,7 @@ impl WasiFile for Stderr {
     }
 }
 
+/// A wrapper type around Stdin
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stdin;
 impl Read for Stdin {
