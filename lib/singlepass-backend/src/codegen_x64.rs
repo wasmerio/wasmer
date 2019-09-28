@@ -4953,7 +4953,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 a.emit_lea_label(table_label, Location::GPR(GPR::RCX));
                 a.emit_mov(Size::S32, cond, Location::GPR(GPR::RDX));
-                a.emit_imul_imm32_gpr64(5, GPR::RDX);
+
+                let instr_size = a.get_jmp_instr_size();
+                a.emit_imul_imm32_gpr64(instr_size as _, GPR::RDX);
                 a.emit_add(Size::S64, Location::GPR(GPR::RCX), Location::GPR(GPR::RDX));
                 a.emit_jmp_location(Location::GPR(GPR::RDX));
 
