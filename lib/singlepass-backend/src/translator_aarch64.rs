@@ -507,11 +507,55 @@ impl Emitter for Assembler {
                 }
                 dynasm!(self ; b >after; data: ; .dword x as i32; after: ; ldr w_tmp1, <data; strh w_tmp1, [x_tmp3] );
             }
-            (_, Location::XMM(_), _) => {
-                dynasm!(self ; brk 21);
+            (Size::S32, Location::XMM(src), Location::XMM(dst)) => {
+                dynasm!(self ; fmov S(map_xmm(dst).v()), S(map_xmm(src).v()));
             }
-            (_, _, Location::XMM(_)) => {
-                dynasm!(self ; brk 22);
+            (Size::S32, Location::XMM(src), Location::GPR(dst)) => {
+                dynasm!(self ; fmov W(map_gpr(dst).x()), S(map_xmm(src).v()));
+            }
+            (Size::S32, Location::GPR(src), Location::XMM(dst)) => {
+                dynasm!(self ; fmov S(map_xmm(dst).v()), W(map_gpr(src).x()));
+            }
+            (Size::S32, Location::Memory(base, disp), Location::XMM(dst)) => {
+                if disp >= 0 {
+                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                } else {
+                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                }
+                dynasm!(self ; ldr S(map_xmm(dst).v()), [x_tmp3] );
+            }
+            (Size::S32, Location::XMM(src), Location::Memory(base, disp)) => {
+                if disp >= 0 {
+                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                } else {
+                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                }
+                dynasm!(self ; str S(map_xmm(src).v()), [x_tmp3] );
+            }
+            (Size::S64, Location::XMM(src), Location::XMM(dst)) => {
+                dynasm!(self ; fmov D(map_xmm(dst).v()), D(map_xmm(src).v()));
+            }
+            (Size::S64, Location::XMM(src), Location::GPR(dst)) => {
+                dynasm!(self ; fmov X(map_gpr(dst).x()), D(map_xmm(src).v()));
+            }
+            (Size::S64, Location::GPR(src), Location::XMM(dst)) => {
+                dynasm!(self ; fmov D(map_xmm(dst).v()), X(map_gpr(src).x()));
+            }
+            (Size::S64, Location::Memory(base, disp), Location::XMM(dst)) => {
+                if disp >= 0 {
+                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                } else {
+                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                }
+                dynasm!(self ; ldr D(map_xmm(dst).v()), [x_tmp3] );
+            }
+            (Size::S64, Location::XMM(src), Location::Memory(base, disp)) => {
+                if disp >= 0 {
+                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                } else {
+                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                }
+                dynasm!(self ; str D(map_xmm(src).v()), [x_tmp3] );
             }
             _ => panic!("NOT IMPL: {:?} {:?} {:?}", sz, src, dst)
         }
@@ -1381,7 +1425,6 @@ impl Emitter for Assembler {
         let target = map_gpr(target);
         dynasm!(
             self
-            ; bkpt 16
             ; sub sp, sp, 80
             ; str x30, [sp, 0] // LR
             ; str X(target.x()), [sp, 8]
@@ -1428,7 +1471,6 @@ impl Emitter for Assembler {
 
             ; ldr x_tmp1, [x_rsp]
             ; add x_rsp, x_rsp, 8
-            ; bkpt 17
             ; br x_tmp1
         );
     }
