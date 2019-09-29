@@ -1514,6 +1514,7 @@ impl X64FunctionCode {
 
             // This branch is used for emitting "faster" code for the special case of (offset + value_size) not exceeding u32 range.
             match (offset as u32).checked_add(value_size as u32) {
+                Some(0) => {}
                 Some(x) => {
                     a.emit_add(Size::S64, Location::Imm32(x), Location::GPR(tmp_addr));
                 }
@@ -1541,11 +1542,13 @@ impl X64FunctionCode {
 
         // Calculates the real address, and loads from it.
         a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
-        a.emit_add(
-            Size::S64,
-            Location::Imm32(offset as u32),
-            Location::GPR(tmp_addr),
-        );
+        if offset != 0 {
+            a.emit_add(
+                Size::S64,
+                Location::Imm32(offset as u32),
+                Location::GPR(tmp_addr),
+            );
+        }
         a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
         m.release_temp_gpr(tmp_base);
 
