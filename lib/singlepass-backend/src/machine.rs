@@ -87,7 +87,7 @@ impl Machine {
     }
 
     /// Specify that a given register is in use.
-    pub fn reserve_temp_gpr(&mut self, gpr: GPR) -> GPR {
+    pub fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
         assert!(!self.used_gprs.contains(&gpr));
         self.used_gprs.insert(gpr);
         gpr

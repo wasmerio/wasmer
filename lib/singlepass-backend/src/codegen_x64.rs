@@ -1603,7 +1603,7 @@ impl X64FunctionCode {
     ) {
         assert!(memory_sz <= stack_sz);
 
-        let compare = m.reserve_temp_gpr(GPR::RAX);
+        let compare = m.reserve_unused_temp_gpr(GPR::RAX);
         let value = if loc == Location::GPR(GPR::R14) {
             GPR::R13
         } else {
@@ -6775,7 +6775,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
                 let value = if cmp == Location::GPR(GPR::R14) {
                     if new == Location::GPR(GPR::R13) {
                         GPR::R12
@@ -6824,7 +6824,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
                 let value = if cmp == Location::GPR(GPR::R14) {
                     if new == Location::GPR(GPR::R13) {
                         GPR::R12
@@ -6873,7 +6873,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
                 let value = if cmp == Location::GPR(GPR::R14) {
                     if new == Location::GPR(GPR::R13) {
                         GPR::R12
@@ -6922,7 +6922,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
                 let value = if cmp == Location::GPR(GPR::R14) {
                     if new == Location::GPR(GPR::R13) {
                         GPR::R12
@@ -6971,7 +6971,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
                 let value = if cmp == Location::GPR(GPR::R14) {
                     if new == Location::GPR(GPR::R13) {
                         GPR::R12
@@ -7020,7 +7020,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
                 let value = if cmp == Location::GPR(GPR::R14) {
                     if new == Location::GPR(GPR::R13) {
                         GPR::R12
@@ -7069,7 +7069,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_temp_gpr(GPR::RAX);
+                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
                 let value = if cmp == Location::GPR(GPR::R14) {
                     if new == Location::GPR(GPR::R13) {
                         GPR::R12
