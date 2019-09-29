@@ -95,11 +95,16 @@ fn main() -> error::Result<()> {
 ## Additional Notes
 
 The `wasmer-runtime` crate is build to support multiple compiler
-backends.  Currently, we support the [Cranelift] compiler with the
-[`wasmer-clif-backend`] crate by default.
+backends.  We support have a [Cranelift] backend in the
+[`wasmer-clif-backend`] crate, a [LLVM] backend in the
+[`wasmer-llvm-backend`] crate, and the [Singlepass] backend in the
+[`wasmer-singlepass-backend`] crate.  Currently, the Cranelift backend
+is the default.
 
 You can specify the compiler you wish to use with the [`compile_with`] function.
 
 [Cranelift]: https://github.com/CraneStation/cranelift
+[LLVM]: https://llvm.org
+[Singlepass]: https://github.com/wasmerio/wasmer/tree/master/lib/singlepass-backend
 [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 [`compile_with`]: https://docs.rs/wasmer-runtime/*/wasmer_runtime/fn.compile_with.html

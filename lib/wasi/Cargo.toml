@@ -17,7 +17,6 @@ rand = "0.7"
 time = "0.1"
 typetag = "0.1"
 serde = { version = "1", features = ["derive"] }
-# wasmer-runtime-abi = { path = "../runtime-abi" }
 wasmer-runtime-core = { path = "../runtime-core", version = "0.7.0" }
 
 [target.'cfg(windows)'.dependencies]

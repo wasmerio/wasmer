@@ -1,6 +1,17 @@
 //! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
 //! yet and may be broken in patch releases.  If you're using this and have any specific needs,
 //! please let us know here https://github.com/wasmerio/wasmer/issues/583 or by filing an issue.
+//!
+//! Wasmer always has a virtual root directory located at `/` at which all pre-opened directories can
+//! be found.  It's possible to traverse between preopened directories this way as well (for example
+//! `preopen-dir1/../preopen-dir2`).
+//!
+//! A preopened directory is a directory or directory + name combination passed into the
+//! `generate_import_object` function.  These are directories that the caller has given
+//! the WASI module permission to access.
+//!
+//! You can implement `WasiFile` for your own types to get custom behavior and extend WASI, see the
+//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs).
 
 mod types;
 
@@ -44,6 +55,8 @@ pub struct InodeVal {
     pub kind: Kind,
 }
 
+/// The core of the filesystem abstraction.  Includes directories,
+/// files, and symlinks.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Kind {
     File {
@@ -998,6 +1011,12 @@ impl WasiFs {
     }
 }
 
+/// Top level data type containing all* the state with which WASI can
+/// interact.
+///
+/// * The contents of files are not stored and may be modified by
+/// other, concurrently running programs.  Data such as the contents
+/// of directories are lazily loaded.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WasiState {
     pub fs: WasiFs,
