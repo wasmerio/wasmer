@@ -47,7 +47,7 @@ pub struct ExitCode {
     pub code: syscalls::types::__wasi_exitcode_t,
 }
 
-/// Creates a WasiImport object with `WasiState`.
+/// Creates a Wasi [`ImportObject`] with [`WasiState`].
 pub fn generate_import_object(
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
