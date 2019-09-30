@@ -351,6 +351,8 @@ pub fn run_emscripten_instance(
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
+        // check if entrypoint exist
+        instance.dyn_func(&ep)?;
         debug!("Running entry point: {}", &ep);
         let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
