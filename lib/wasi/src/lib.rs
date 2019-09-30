@@ -51,7 +51,7 @@ pub struct ExitCode {
 pub fn generate_import_object(
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
-    preopened_files: Vec<String>,
+    preopened_files: Vec<PathBuf>,
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> ImportObject {
     let state_gen = move || {
@@ -63,6 +63,7 @@ pub fn generate_import_object(
         }
         let preopened_files = preopened_files.clone();
         let mapped_dirs = mapped_dirs.clone();
+        //let wasi_builder = create_wasi_instance();
 
         let state = Box::new(WasiState {
             fs: WasiFs::new(&preopened_files, &mapped_dirs).expect("Could not create WASI FS"),

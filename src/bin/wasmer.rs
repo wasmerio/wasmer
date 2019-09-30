@@ -142,7 +142,7 @@ struct Run {
 
     /// WASI pre-opened directory
     #[structopt(long = "dir", multiple = true, group = "wasi")]
-    pre_opened_directories: Vec<String>,
+    pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the wasm module
     #[structopt(long = "mapdir", multiple = true)]
