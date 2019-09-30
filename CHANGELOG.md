@@ -6,7 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
-- [#848](https://github.com/wasmerio/wasmer/pull/848) Fix panic when calling non-existant `--em-entrypoint` function
+- [#849](https://github.com/wasmerio/wasmer/pull/849) Fix panic when calling non-existant `--em-entrypoint` function
 - [#841](https://github.com/wasmerio/wasmer/pull/841) Slightly improve rustdoc documentation and small updates to outdated info in readme files
 - [#835](https://github.com/wasmerio/wasmer/pull/836) Update Cranelift fork version to `0.44.0`
 - [#836](https://github.com/wasmerio/wasmer/pull/836) Update Cranelift fork version to `0.44.0`
