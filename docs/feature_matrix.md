@@ -3,13 +3,13 @@
 ## Compiler Backend
 
 | &nbsp; | Singlepass | Cranelift | LLVM |
-| - | - | - | - |
-| Caching | ❌ | ✅ | ✅ |
+| - | :-: | :-: | :-: |
+| Caching | ⬜ | ✅ | ✅ |
 | Emscripten | ✅ | ✅ | ✅ |
-| Metering | ✅ | ❌ | ✅ |
-| Multi-value return | ❌ | ❌ | ❌ |
-| OSR | 🚧 | ❓ | ❓ |
-| SIMD | ❌ | ❌ | ✅ |
+| Metering | ✅ | ⬜ | ✅ |
+| Multi-value return | ⬜ | ⬜ | ⬜ |
+| OSR | 🔄 | ❓ | ❓ |
+| SIMD | ⬜ | ⬜ | ✅ |
 | WASI | ✅ | ✅ | ✅ |
 
 
