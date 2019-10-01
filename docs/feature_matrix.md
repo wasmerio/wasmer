@@ -4,24 +4,13 @@
 
 | &nbsp; | Singlepass | Cranelift | LLVM |
 | - | :-: | :-: | :-: |
-| Caching | 🥚 | 🐔 | 🐔 |
-| Emscripten | 🐔 | 🐔 | 🐔 |
-| Metering | 🐔 | 🥚 | 🐔 |
-| Multi-value return | 🥚 | 🥚 | 🥚 |
-| OSR | 🐤 | ❓ | ❓ |
-| SIMD | 🥚 | 🥚  | 🐔 |
-| WASI | 🐔 | 🐔 | 🐔 |
-
-Key:
-
-🥚 - Not yet started
-
-🐣 - Implementation or design started
-
-🐤 - In progress or partial support
-
-🐔 - Complete
-
+| Caching | ◻ | ✅ | ✅ |
+| Emscripten | ✅ | ✅ | ✅ |
+| Metering | ✅ | ◻ | ✅ |
+| Multi-value return | ◻ | ◻ | ◻ |
+| OSR | 🔄 | ❓ | ❓ |
+| SIMD | ◻ | ◻ | ✅ |
+| WASI | ✅ | ✅ | ✅ |
 
 
 ## Language integration
