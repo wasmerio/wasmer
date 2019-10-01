@@ -4,12 +4,12 @@
 
 | &nbsp; | Singlepass | Cranelift | LLVM |
 | - | :-: | :-: | :-: |
-| Caching | ◻ | ✅ | ✅ |
+| Caching | ⬜ | ✅ | ✅ |
 | Emscripten | ✅ | ✅ | ✅ |
-| Metering | ✅ | ◻ | ✅ |
-| Multi-value return | ◻ | ◻ | ◻ |
+| Metering | ✅ | ⬜ | ✅ |
+| Multi-value return | ⬜ | ⬜ | ⬜ |
 | OSR | 🔄 | ❓ | ❓ |
-| SIMD | ◻ | ◻ | ✅ |
+| SIMD | ⬜ | ⬜ | ✅ |
 | WASI | ✅ | ✅ | ✅ |
 
 
