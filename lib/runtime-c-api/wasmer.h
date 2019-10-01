@@ -171,6 +171,21 @@ typedef struct {
 } wasmer_trampoline_buffer_t;
 
 /**
+ * Opens a directory that's visible to the WASI module as `alias` but
+ * is backed by the host file at `host_file_path`
+ */
+typedef struct {
+  /**
+   * What the WASI module will see in its virtual root
+   */
+  wasmer_byte_array alias;
+  /**
+   * The backing file that the WASI module will interact with via the alias
+   */
+  wasmer_byte_array host_file_path;
+} wasmer_wasi_map_dir_entry_t;
+
+/**
  * Creates a new Module from the given wasm bytes.
  *
  * Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -755,5 +770,26 @@ void *wasmer_trampoline_get_context(void);
  * Returns true for valid wasm bytes and false for invalid bytes
  */
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
+
+/**
+ * Convenience function that creates a WASI import object with no arguments,
+ * environment variables, preopened files, or mapped directories.
+ *
+ * This function is the same as calling [`wasmer_wasi_generate_import_object`] with all
+ * empty values.
+ */
+wasmer_import_object_t *wasmer_wasi_generate_default_import_object(void);
+
+/**
+ * Creates a WASI import object
+ */
+wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_array *args,
+                                                           unsigned int args_len,
+                                                           const wasmer_byte_array *envs,
+                                                           unsigned int envs_len,
+                                                           const wasmer_byte_array *preopened_files,
+                                                           unsigned int preopened_files_len,
+                                                           const wasmer_wasi_map_dir_entry_t *mapped_dirs,
+                                                           unsigned int mapped_dirs_len);
 
 #endif /* WASMER_H */
