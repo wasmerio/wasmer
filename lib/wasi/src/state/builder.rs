@@ -15,12 +15,16 @@ pub fn create_wasi_state() -> WasiStateBuilder {
 /// ```
 /// # use wasmer_wasi::state::create_wasi_state;
 /// create_wasi_state()
-///    .add_env_pair(b"HOME", "/home/home".to_string())
-///    .add_arg("--help")
-///    .add_env_pairs(&[("COLOR_OUTPUT", "TRUE"), ("PATH", "/usr/bin")])
-///    .add_args(&["--verbose", "list"])
-///    .add_preopened_dir("src")
-///    .add_mapped_dir("dot", ".")
+///    .env(b"HOME", "/home/home".to_string())
+///    .arg("--help")
+///    .envs({ let mut hm = std::collections::HashMap::new();
+///            hm.insert("COLOR_OUTPUT", "TRUE");
+///            hm.insert("PATH", "/usr/bin");
+///            hm
+///          })
+///    .args(&["--verbose", "list"])
+///    .preopen_dir("src")
+///    .map_dir("dot", ".")
 ///    .build()
 ///    .unwrap();
 /// ```
@@ -66,7 +70,7 @@ impl WasiStateBuilder {
     /// Add an environment variable pair.
     /// Environment variable keys and values must not contain the byte `=` (0x3d)
     /// or nul (0x0).
-    pub fn add_env_pair<Key, Value>(mut self, key: Key, value: Value) -> Self
+    pub fn env<Key, Value>(&mut self, key: Key, value: Value) -> &mut Self
     where
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
@@ -88,7 +92,7 @@ impl WasiStateBuilder {
 
     /// Add an argument.
     /// Arguments must not contain the nul (0x0) byte
-    pub fn add_arg<Arg>(mut self, arg: Arg) -> Self
+    pub fn arg<Arg>(&mut self, arg: Arg) -> &mut Self
     where
         Arg: AsRef<[u8]>,
     {
@@ -102,12 +106,13 @@ impl WasiStateBuilder {
 
     /// Add multiple environment variable pairs.
     /// Keys and values must not contain the `=` (0x3d) or nul (0x0) byte.
-    pub fn add_env_pairs<Key, Value>(mut self, env_pairs: &[(Key, Value)]) -> Self
+    pub fn envs<I, Key, Value>(&mut self, env_pairs: I) -> &mut Self
     where
+        I: IntoIterator<Item = (Key, Value)>,
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
-        for (key, value) in env_pairs.iter() {
+        for (key, value) in env_pairs {
             let key_b = key.as_ref();
             let val_b = value.as_ref();
 
@@ -126,11 +131,12 @@ impl WasiStateBuilder {
 
     /// Add multiple arguments.
     /// Arguments must not contain the nul (0x0) byte
-    pub fn add_args<Arg>(mut self, args: &[Arg]) -> Self
+    pub fn args<I, Arg>(&mut self, args: I) -> &mut Self
     where
+        I: IntoIterator<Item = Arg>,
         Arg: AsRef<[u8]>,
     {
-        for arg in args.iter() {
+        for arg in args {
             let arg_b = arg.as_ref();
             let mut byte_vec = Vec::with_capacity(arg_b.len());
             byte_vec.extend_from_slice(&arg_b);
@@ -144,7 +150,7 @@ impl WasiStateBuilder {
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
     // TODO: design a simple API for passing in permissions here (i.e. read-only)
-    pub fn add_preopened_dir<FilePath>(mut self, po_dir: FilePath) -> Self
+    pub fn preopen_dir<FilePath>(&mut self, po_dir: FilePath) -> &mut Self
     where
         FilePath: AsRef<Path>,
     {
@@ -157,11 +163,12 @@ impl WasiStateBuilder {
     /// Preopen a directory
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
-    pub fn add_preopened_dirs<FilePath>(mut self, po_dirs: &[FilePath]) -> Self
+    pub fn preopen_dirs<I, FilePath>(&mut self, po_dirs: I) -> &mut Self
     where
+        I: IntoIterator<Item = FilePath>,
         FilePath: AsRef<Path>,
     {
-        for po_dir in po_dirs.iter() {
+        for po_dir in po_dirs {
             let path = po_dir.as_ref();
             self.preopened_files.push(path.to_path_buf());
         }
@@ -170,7 +177,7 @@ impl WasiStateBuilder {
     }
 
     /// Preopen a directory with a different name exposed to the WASI.
-    pub fn add_mapped_dir<FilePath>(mut self, alias: &str, po_dir: FilePath) -> Self
+    pub fn map_dir<FilePath>(&mut self, alias: &str, po_dir: FilePath) -> &mut Self
     where
         FilePath: AsRef<Path>,
     {
@@ -184,7 +191,7 @@ impl WasiStateBuilder {
     /// Consumes the [`WasiStateBuilder`] and produces a [`WasiState`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error
-    pub fn build(self) -> Result<WasiState, WasiStateCreationError> {
+    pub fn build(&mut self) -> Result<WasiState, WasiStateCreationError> {
         for arg in self.args.iter() {
             for b in arg.iter() {
                 if *b == 0 {
@@ -245,8 +252,8 @@ impl WasiStateBuilder {
         Ok(WasiState {
             fs: WasiFs::new(&self.preopened_files, &self.mapped_dirs)
                 .map_err(WasiStateCreationError::WasiFsCreationError)?,
-            args: self.args,
-            envs: self.envs,
+            args: self.args.clone(),
+            envs: self.envs.clone(),
         })
     }
 }
@@ -257,17 +264,13 @@ mod test {
 
     #[test]
     fn env_var_errors() {
-        let output = create_wasi_state()
-            .add_env_pair("HOM=E", "/home/home")
-            .build();
+        let output = create_wasi_state().env("HOM=E", "/home/home").build();
         match output {
             Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
             _ => assert!(false),
         }
 
-        let output = create_wasi_state()
-            .add_env_pair("HOME\0", "/home/home")
-            .build();
+        let output = create_wasi_state().env("HOME\0", "/home/home").build();
         match output {
             Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
             _ => assert!(false),
@@ -276,12 +279,12 @@ mod test {
 
     #[test]
     fn nul_character_in_args() {
-        let output = create_wasi_state().add_arg("--h\0elp").build();
+        let output = create_wasi_state().arg("--h\0elp").build();
         match output {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
         }
-        let output = create_wasi_state().add_args(&["--help", "--wat\0"]).build();
+        let output = create_wasi_state().args(&["--help", "--wat\0"]).build();
         match output {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
