@@ -1563,21 +1563,17 @@ impl X64FunctionCode {
         };
         if check_alignment && align != 1 {
             let tmp_aligncheck = m.acquire_temp_gpr().unwrap();
-            //let tmp_mask = m.acquire_temp_gpr().unwrap();
             a.emit_mov(
                 Size::S32,
                 Location::GPR(tmp_addr),
                 Location::GPR(tmp_aligncheck),
             );
-            //a.emit_mov(Size::S64, Location::Imm64(align - 1), Location::GPR(tmp_mask));
-            //a.emit_and(Size::S64, Location::GPR(tmp_mask), Location::GPR(tmp_aligncheck));
             a.emit_and(
                 Size::S64,
                 Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             );
             a.emit_conditional_trap(Condition::NotEqual);
-            //m.release_temp_gpr(tmp_mask);
             m.release_temp_gpr(tmp_aligncheck);
         }
 
