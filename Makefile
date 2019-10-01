@@ -161,7 +161,7 @@ release:
 
 # Only one backend (cranelift)
 release-clif:
-	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
+	# If you are on macOS, you will need mingw-w64 for cross compiling to Windows
 	# brew install mingw-w64
 	cargo build --release
 

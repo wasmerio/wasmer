@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#852](https://github.com/wasmerio/wasmer/pull/852) Make minor grammar/capitalization fixes to README.md
 - [#841](https://github.com/wasmerio/wasmer/pull/841) Slightly improve rustdoc documentation and small updates to outdated info in readme files
 - [#835](https://github.com/wasmerio/wasmer/pull/836) Update Cranelift fork version to `0.44.0`
 - [#836](https://github.com/wasmerio/wasmer/pull/836) Update Cranelift fork version to `0.44.0`
@@ -50,7 +51,7 @@ Special thanks to @YaronWittenstein @penberg for their contributions.
 - [#702](https://github.com/wasmerio/wasmer/issues/702) Add SharedMemory to Wasmer. Add `--enable-threads` flag, add partial implementation of atomics to LLVM backend.
 - [#698](https://github.com/wasmerio/wasmer/issues/698) [#690](https://github.com/wasmerio/wasmer/issues/690) [#687](https://github.com/wasmerio/wasmer/issues/690) Fix panics in Emscripten
 - [#689](https://github.com/wasmerio/wasmer/issues/689) Replace `wasmer_runtime_code::memory::Atomic` with `std::sync::atomic` atomics, changing its interface
-- [#680](https://github.com/wasmerio/wasmer/issues/680) [#673](https://github.com/wasmerio/wasmer/issues/673) [#669](https://github.com/wasmerio/wasmer/issues/669) [#660](https://github.com/wasmerio/wasmer/issues/660) [#659](https://github.com/wasmerio/wasmer/issues/659) Misc. runtime and singlepass fixes 
+- [#680](https://github.com/wasmerio/wasmer/issues/680) [#673](https://github.com/wasmerio/wasmer/issues/673) [#669](https://github.com/wasmerio/wasmer/issues/669) [#660](https://github.com/wasmerio/wasmer/issues/660) [#659](https://github.com/wasmerio/wasmer/issues/659) Misc. runtime and singlepass fixes
 - [#677](https://github.com/wasmerio/wasmer/issues/677) [#675](https://github.com/wasmerio/wasmer/issues/675) [#674](https://github.com/wasmerio/wasmer/issues/674) LLVM backend fixes and improvements
 - [#671](https://github.com/wasmerio/wasmer/issues/671) Implement fs polling in `wasi::poll_oneoff` for Unix-like platforms
 - [#656](https://github.com/wasmerio/wasmer/issues/656) Move CI to Azure Pipelines
@@ -127,7 +128,7 @@ Special thanks to @YaronWittenstein @penberg for their contributions.
 - [#493](https://github.com/wasmerio/wasmer/pull/493) `wasmer_module_instantiate` has better error messages in the runtime C API
 - [#474](https://github.com/wasmerio/wasmer/pull/474) Set the install name of the dylib to `@rpath`
 - [#490](https://github.com/wasmerio/wasmer/pull/490) Add MiddlewareChain and StreamingCompiler to runtime
-- [#487](https://github.com/wasmerio/wasmer/pull/487) Fix stack offset check in singlepass backend 
+- [#487](https://github.com/wasmerio/wasmer/pull/487) Fix stack offset check in singlepass backend
 - [#450](https://github.com/wasmerio/wasmer/pull/450) Added Metering
 - [#481](https://github.com/wasmerio/wasmer/pull/481) Added context trampoline into runtime
 - [#484](https://github.com/wasmerio/wasmer/pull/484) Fix bugs in emscripten socket syscalls

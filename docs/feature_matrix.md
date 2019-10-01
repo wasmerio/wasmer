@@ -12,7 +12,6 @@
 | SIMD | ⬜ | ⬜ | ✅ |
 | WASI | ✅ | ✅ | ✅ |
 
-
 ## Language integration
 
 TODO: define a set of features that are relevant and mark them here
