@@ -190,7 +190,7 @@ impl WasiFs {
 
         debug!("wasi::fs::preopen_dirs");
         for dir in preopened_dirs {
-            debug!("Attempting to preopen {}", &dir);
+            debug!("Attempting to preopen {}", &dir.to_string_lossy());
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
             let cur_dir_metadata = dir.metadata().map_err(|e| {

@@ -53,7 +53,7 @@ mod wasmer_wasi {
     pub fn generate_import_object(
         _args: Vec<Vec<u8>>,
         _envs: Vec<Vec<u8>>,
-        _preopened_files: Vec<String>,
+        _preopened_files: Vec<std::path::PathBuf>,
         _mapped_dirs: Vec<(String, std::path::PathBuf)>,
     ) -> ImportObject {
         unimplemented!()
