@@ -168,11 +168,9 @@ impl Instance {
         Rets: WasmTypeList,
     {
         let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
+            &self
+                .get_export_index(name)
+                .map_err(|_| ResolveError::ExportNotFound {
                     name: name.to_string(),
                 })?;
 
@@ -232,11 +230,9 @@ impl Instance {
 
     pub fn resolve_func(&self, name: &str) -> ResolveResult<usize> {
         let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
+            &self
+                .get_export_index(name)
+                .map_err(|_| ResolveError::ExportNotFound {
                     name: name.to_string(),
                 })?;
 
@@ -266,11 +262,9 @@ impl Instance {
     /// ```
     pub fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc> {
         let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
+            &self
+                .get_export_index(name)
+                .map_err(|_| ResolveError::ExportNotFound {
                     name: name.to_string(),
                 })?;
 
@@ -321,14 +315,7 @@ impl Instance {
     /// # }
     /// ```
     pub fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>> {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
+        let export_index = &self.get_export_index(name)?;
 
         let func_index = if let ExportIndex::Func(func_index) = export_index {
             *func_index
@@ -352,6 +339,19 @@ impl Instance {
         )?;
 
         Ok(results)
+    }
+
+    /// Returns the index given the export name.
+    pub fn get_export_index(&self, name: &str) -> CallResult<ExportIndex> {
+        let export_index =
+            self.module
+                .info
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
+        Ok(*export_index)
     }
 
     /// Returns an immutable reference to the

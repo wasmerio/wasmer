@@ -351,12 +351,32 @@ pub fn run_emscripten_instance(
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
-        // check if entrypoint exist
-        instance.dyn_func(&ep)?;
-        debug!("Running entry point: {}", &ep);
-        let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
-        //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
-        instance.call(&ep, &[Value::I32(arg as i32)])?;
+        let func_name = &ep;
+        debug!("Running entry point: {}", func_name);
+        let func = instance.dyn_func(func_name)?;
+
+        let num_params = func.signature().params();
+        debug!("Expected parameters: {:?}", num_params);
+
+        if num_params.len() != args.len() {
+            return Err(CallError::Resolve(ResolveError::ExportWrongType {
+                name: func_name.to_string(),
+            }));
+        }
+
+        let mut new_args: Vec<Value> = Vec::new();
+        for arg in args.iter() {
+            match arg.parse() {
+                Err(_e) => {
+                    return Err(CallError::Resolve(ResolveError::ExportWrongType {
+                        name: func_name.to_string(),
+                    }))
+                }
+                Ok(x) => new_args.push(Value::I32(x)),
+            }
+        }
+
+        func.call(&new_args)?;
     } else {
         let (func_name, main_func) = match instance.dyn_func("_main") {
             Ok(func) => Ok(("_main", func)),
