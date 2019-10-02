@@ -1028,6 +1028,31 @@ pub struct WasiState {
 }
 
 impl WasiState {
+    /// Create a [`WasiStateBuilder`] to construct a validated instance of
+    /// [`WasiState`].
+    ///
+    /// Usage:
+    ///
+    /// ```
+    /// # use wasmer_wasi::state::WasiState;
+    /// WasiState::new("program_name")
+    ///    .env(b"HOME", "/home/home".to_string())
+    ///    .arg("--help")
+    ///    .envs({ let mut hm = std::collections::HashMap::new();
+    ///            hm.insert("COLOR_OUTPUT", "TRUE");
+    ///            hm.insert("PATH", "/usr/bin");
+    ///            hm
+    ///          })
+    ///    .args(&["--verbose", "list"])
+    ///    .preopen_dir("src")
+    ///    .map_dir("dot", ".")
+    ///    .build()
+    ///    .unwrap();
+    /// ```
+    pub fn new(program_name: &str) -> WasiStateBuilder {
+        create_wasi_state(program_name)
+    }
+
     /// Turn the WasiState into bytes
     pub fn freeze(&self) -> Option<Vec<u8>> {
         bincode::serialize(self).ok()

@@ -4,30 +4,14 @@ use crate::state::{WasiFs, WasiState};
 use std::path::{Path, PathBuf};
 
 /// Creates an empty [`WasiStateBuilder`].
-pub fn create_wasi_state() -> WasiStateBuilder {
-    WasiStateBuilder::default()
+pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
+    WasiStateBuilder {
+        args: vec![program_name.bytes().collect()],
+        ..WasiStateBuilder::default()
+    }
 }
 
 /// Type for building an instance of [`WasiState`]
-///
-/// Usage:
-///
-/// ```
-/// # use wasmer_wasi::state::create_wasi_state;
-/// create_wasi_state()
-///    .env(b"HOME", "/home/home".to_string())
-///    .arg("--help")
-///    .envs({ let mut hm = std::collections::HashMap::new();
-///            hm.insert("COLOR_OUTPUT", "TRUE");
-///            hm.insert("PATH", "/usr/bin");
-///            hm
-///          })
-///    .args(&["--verbose", "list"])
-///    .preopen_dir("src")
-///    .map_dir("dot", ".")
-///    .build()
-///    .unwrap();
-/// ```
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct WasiStateBuilder {
     args: Vec<Vec<u8>>,
@@ -66,6 +50,8 @@ fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> 
     Ok(())
 }
 
+// TODO add other WasiFS APIs here like swapping out stdout, for example (though we need to
+// return stdout somehow, it's unclear what that API should look like)
 impl WasiStateBuilder {
     /// Add an environment variable pair.
     /// Environment variable keys and values must not contain the byte `=` (0x3d)
@@ -192,12 +178,16 @@ impl WasiStateBuilder {
     ///
     /// Returns the error from `WasiFs::new` if there's an error
     pub fn build(&mut self) -> Result<WasiState, WasiStateCreationError> {
-        for arg in self.args.iter() {
+        for (i, arg) in self.args.iter().enumerate() {
             for b in arg.iter() {
                 if *b == 0 {
                     return Err(WasiStateCreationError::ArgumentContainsNulByte(
                         std::str::from_utf8(arg)
-                            .unwrap_or("Inner error: arg is invalid_utf8!")
+                            .unwrap_or(if i == 0 {
+                                "Inner error: program name is invalid utf8!"
+                            } else {
+                                "Inner error: arg is invalid utf8!"
+                            })
                             .to_string(),
                     ));
                 }
@@ -264,13 +254,17 @@ mod test {
 
     #[test]
     fn env_var_errors() {
-        let output = create_wasi_state().env("HOM=E", "/home/home").build();
+        let output = create_wasi_state("test_prog")
+            .env("HOM=E", "/home/home")
+            .build();
         match output {
             Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
             _ => assert!(false),
         }
 
-        let output = create_wasi_state().env("HOME\0", "/home/home").build();
+        let output = create_wasi_state("test_prog")
+            .env("HOME\0", "/home/home")
+            .build();
         match output {
             Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
             _ => assert!(false),
@@ -279,12 +273,14 @@ mod test {
 
     #[test]
     fn nul_character_in_args() {
-        let output = create_wasi_state().arg("--h\0elp").build();
+        let output = create_wasi_state("test_prog").arg("--h\0elp").build();
         match output {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
         }
-        let output = create_wasi_state().args(&["--help", "--wat\0"]).build();
+        let output = create_wasi_state("test_prog")
+            .args(&["--help", "--wat\0"])
+            .build();
         match output {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
