@@ -175,7 +175,7 @@ pub(crate) mod tests {
         }
 
         fn local_or_import<I: wasm::structures::TypedIndex + wasm::structures::LocalImportIndex>(
-            &self,
+            &mut self,
             index: I,
         ) -> Option<&LocalImport> {
             self.locals_or_imports.get(&index.index())

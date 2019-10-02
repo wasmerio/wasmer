@@ -4,7 +4,7 @@ use std::convert::TryInto;
 executable_instruction!(
     write_utf8(allocator_name: String, instruction_name: String) -> _ {
         move |runtime| -> _ {
-            let instance = runtime.wasm_instance;
+            let instance = &mut runtime.wasm_instance;
 
             match instance.export(&allocator_name) {
                 Some(allocator) => {
@@ -17,7 +17,7 @@ executable_instruction!(
                             ))
                         }
 
-                    match runtime.wasm_instance.memory(0) {
+                    match instance.memory(0) {
                         Some(memory) => match runtime.stack.pop1() {
                             Some(string) => {
                                 let memory_view = memory.view();

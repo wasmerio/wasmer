@@ -18,7 +18,7 @@ where
 {
     invocation_inputs: &'invocation [InterfaceValue],
     stack: Stack<InterfaceValue>,
-    wasm_instance: &'instance Instance,
+    wasm_instance: &'instance mut Instance,
     _phantom: PhantomData<(Export, LocalImport, Memory, MemoryView)>,
 }
 
@@ -58,7 +58,7 @@ where
     pub fn run(
         &self,
         invocation_inputs: &[InterfaceValue],
-        wasm_instance: &Instance,
+        wasm_instance: &mut Instance,
     ) -> Result<Stack<InterfaceValue>, String> {
         let mut runtime = Runtime {
             invocation_inputs,

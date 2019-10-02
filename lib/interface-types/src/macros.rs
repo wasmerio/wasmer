@@ -68,8 +68,8 @@ macro_rules! test_executable_instruction {
                 (&vec![$($instructions),*]).try_into().unwrap();
 
             let invocation_inputs = vec![$($invocation_inputs),*];
-            let instance = $instance;
-            let run = interpreter.run(&invocation_inputs, &instance);
+            let mut instance = $instance;
+            let run = interpreter.run(&invocation_inputs, &mut instance);
 
             assert!(run.is_ok());
 
@@ -102,8 +102,8 @@ macro_rules! test_executable_instruction {
                 (&vec![$($instructions),*]).try_into().unwrap();
 
             let invocation_inputs = vec![$($invocation_inputs),*];
-            let instance = $instance;
-            let run = interpreter.run(&invocation_inputs, &instance);
+            let mut instance = $instance;
+            let run = interpreter.run(&invocation_inputs, &mut instance);
 
             assert!(run.is_err());
 

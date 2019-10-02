@@ -3,7 +3,7 @@ use crate::interpreter::wasm::values::InterfaceType;
 executable_instruction!(
     call_export(export_name: String, instruction_name: String) -> _ {
         move |runtime| -> _ {
-            let instance = runtime.wasm_instance;
+            let instance = &mut runtime.wasm_instance;
 
             match instance.export(&export_name) {
                 Some(export) => {

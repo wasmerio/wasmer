@@ -6,7 +6,7 @@ use crate::interpreter::wasm::{
 executable_instruction!(
     call(function_index: usize, instruction_name: String) -> _ {
         move |runtime| -> _ {
-            let instance = runtime.wasm_instance;
+            let instance = &mut runtime.wasm_instance;
             let index = FunctionIndex::new(function_index);
 
             match instance.local_or_import(index) {

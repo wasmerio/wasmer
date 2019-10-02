@@ -70,7 +70,7 @@ where
     MV: MemoryView,
 {
     fn export(&self, export_name: &str) -> Option<&E>;
-    fn local_or_import<I: TypedIndex + LocalImportIndex>(&self, index: I) -> Option<&LI>;
+    fn local_or_import<I: TypedIndex + LocalImportIndex>(&mut self, index: I) -> Option<&LI>;
     fn memory(&self, index: usize) -> Option<&M>;
 }
 
@@ -151,7 +151,7 @@ where
         None
     }
 
-    fn local_or_import<I: TypedIndex + LocalImportIndex>(&self, _index: I) -> Option<&LI> {
+    fn local_or_import<I: TypedIndex + LocalImportIndex>(&mut self, _index: I) -> Option<&LI> {
         None
     }
 }
