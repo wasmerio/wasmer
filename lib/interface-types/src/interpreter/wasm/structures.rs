@@ -125,7 +125,7 @@ impl MemoryView for EmptyMemoryView {}
 impl Deref for EmptyMemoryView {
     type Target = [Cell<u8>];
 
-    fn deref(&self) -> &[Cell<u8>] {
+    fn deref(&self) -> &Self::Target {
         &[]
     }
 }

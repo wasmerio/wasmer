@@ -54,7 +54,7 @@ pub(crate) mod tests {
 
     impl wasm::structures::LocalImport for LocalImport {
         fn inputs_cardinality(&self) -> usize {
-            self.inputs.len() as usize
+            self.inputs.len()
         }
 
         fn outputs_cardinality(&self) -> usize {
@@ -82,7 +82,7 @@ pub(crate) mod tests {
     impl Deref for MemoryView {
         type Target = [Cell<u8>];
 
-        fn deref(&self) -> &[Cell<u8>] {
+        fn deref(&self) -> &Self::Target {
             self.0.as_slice()
         }
     }
