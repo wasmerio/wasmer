@@ -6,7 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
-- [#858](https://github.com/wasmerio/wasmer/pull/858) Fix panic when `loader` option associated with wasm module without exported `_start` function
+- [#858](https://github.com/wasmerio/wasmer/pull/858) Minor panic fix when wasmer binary with `loader` option run a module without exported `_start` function
 - [#852](https://github.com/wasmerio/wasmer/pull/852) Make minor grammar/capitalization fixes to README.md
 - [#841](https://github.com/wasmerio/wasmer/pull/841) Slightly improve rustdoc documentation and small updates to outdated info in readme files
 - [#835](https://github.com/wasmerio/wasmer/pull/836) Update Cranelift fork version to `0.44.0`
