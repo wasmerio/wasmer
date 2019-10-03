@@ -80,10 +80,10 @@ fn main() -> error::Result<()> {
     // We're not importing anything, so make an empty import object.
     let import_object = imports! {};
 
-    let mut instance = instantiate(WASM, &import_object)?;
+    let instance = instantiate(WASM, &import_object)?;
 
     let values = instance
-        .func("add_one")?
+        .dyn_func("add_one")?
         .call(&[Value::I32(42)])?;
 
     assert_eq!(values[0], Value::I32(43));
