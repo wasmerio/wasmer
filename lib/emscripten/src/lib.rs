@@ -363,18 +363,18 @@ pub fn run_emscripten_instance(
                 name: func_name.to_string(),
             }));
         }
-
-        let mut new_args: Vec<Value> = Vec::new();
-        for arg in args.iter() {
-            match arg.parse() {
-                Err(_e) => {
-                    return Err(CallError::Resolve(ResolveError::ExportWrongType {
-                        name: func_name.to_string(),
-                    }))
-                }
-                Ok(x) => new_args.push(Value::I32(x)),
-            }
-        }
+        let new_args = args
+            .iter()
+            .map(|a| {
+                a.parse()
+                    .map_err(|_| {
+                        CallError::Resolve(ResolveError::ExportWrongType {
+                            name: func_name.to_string(),
+                        })
+                    })
+                    .map(Value::I32)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         func.call(&new_args)?;
     } else {
