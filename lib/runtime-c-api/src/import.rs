@@ -121,7 +121,7 @@ mod wasi {
             .collect();
         let po_file_vec = preopened_file_list
             .iter()
-            .map(|po_file| Ok(unsafe { po_file.as_str()? }.to_owned()))
+            .map(|po_file| Ok(unsafe { PathBuf::from(po_file.as_str()?) }.to_owned()))
             .collect::<Result<Vec<_>, _>>()?;
         let mapped_dir_vec = mapped_dir_list
             .iter()
