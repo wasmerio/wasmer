@@ -793,7 +793,7 @@ impl WasiFs {
                     }
                     // TODO: verify this behavior
                     Kind::Dir { .. } => return Err(__WASI_EISDIR),
-                    Kind::Symlink { .. } => unimplemented!(),
+                    Kind::Symlink { .. } => unimplemented!("WasiFs::flush Kind::Symlink"),
                     Kind::Buffer { .. } => (),
                     _ => return Err(__WASI_EIO),
                 }

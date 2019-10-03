@@ -279,7 +279,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
                     ir::types::I64 => pos.ins().call(i64_print, &[vmctx, param]),
                     ir::types::F32 => pos.ins().call(f32_print, &[vmctx, param]),
                     ir::types::F64 => pos.ins().call(f64_print, &[vmctx, param]),
-                    _ => unimplemented!(),
+                    _ => unimplemented!("unimplemented type {}", param),
                 };
             }
 

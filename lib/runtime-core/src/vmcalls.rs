@@ -150,11 +150,11 @@ pub unsafe extern "C" fn local_table_grow(
     let _ = table_index;
     let _ = delta;
     let _ = ctx;
-    unimplemented!()
+    unimplemented!("vmcalls::local_table_grow")
 }
 
 pub unsafe extern "C" fn local_table_size(ctx: &vm::Ctx, table_index: LocalTableIndex) -> u32 {
     let _ = table_index;
     let _ = ctx;
-    unimplemented!()
+    unimplemented!("vmcalls::local_table_size")
 }

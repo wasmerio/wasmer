@@ -22,7 +22,7 @@ impl RelocSink for NullRelocSink {
     fn reloc_external(&mut self, _: u32, _: Reloc, _: &ir::ExternalName, _: i64) {}
 
     fn reloc_constant(&mut self, _: u32, _: Reloc, _: u32) {
-        unimplemented!()
+        unimplemented!("RelocSink::reloc_constant")
     }
 
     fn reloc_jt(&mut self, _: u32, _: Reloc, _: ir::JumpTable) {}
