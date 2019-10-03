@@ -15,9 +15,9 @@ assignees: ''
 A clear and concise description of what the bug is.
 
 Copy and paste the result of executing the following in your shell, so we can know the version of wasmer, Rust (if available) and architecture of your environment.
---> 
+-->
 
-```bash
+```sh
 echo "`wasmer -V` | `rustc -V` | `uname -m`"
 ```
 
@@ -33,7 +33,7 @@ For example,
 4. See error
 
 If applicable, add a link to a test case (as a zip file or link to a repository we can clone).
---> 
+-->
 
 ### Expected behavior
 <!-- A clear and concise description of what you expected to happen. -->

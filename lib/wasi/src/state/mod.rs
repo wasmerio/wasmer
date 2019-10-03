@@ -13,8 +13,10 @@
 //! You can implement `WasiFile` for your own types to get custom behavior and extend WASI, see the
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs).
 
+mod builder;
 mod types;
 
+pub use self::builder::*;
 pub use self::types::*;
 use crate::syscalls::types::*;
 use generational_arena::Arena;
@@ -140,7 +142,7 @@ pub struct WasiFs {
 
 impl WasiFs {
     pub fn new(
-        preopened_dirs: &[String],
+        preopened_dirs: &[PathBuf],
         mapped_dirs: &[(String, PathBuf)],
     ) -> Result<Self, String> {
         debug!("wasi::fs::inodes");
@@ -188,11 +190,10 @@ impl WasiFs {
 
         debug!("wasi::fs::preopen_dirs");
         for dir in preopened_dirs {
-            debug!("Attempting to preopen {}", &dir);
+            debug!("Attempting to preopen {}", &dir.to_string_lossy());
             // TODO: think about this
             let default_rights = 0x1FFFFFFF; // all rights
-            let cur_dir = PathBuf::from(dir);
-            let cur_dir_metadata = cur_dir.metadata().map_err(|e| {
+            let cur_dir_metadata = dir.metadata().map_err(|e| {
                 format!(
                     "Could not get metadata for file {:?}: {}",
                     dir,
@@ -202,18 +203,18 @@ impl WasiFs {
             let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
                     parent: Some(root_inode),
-                    path: cur_dir.clone(),
+                    path: dir.clone(),
                     entries: Default::default(),
                 }
             } else {
                 return Err(format!(
                     "WASI only supports pre-opened directories right now; found \"{}\"",
-                    &dir
+                    &dir.to_string_lossy()
                 ));
             };
             // TODO: handle nested pats in `file`
             let inode = wasi_fs
-                .create_inode(kind, true, dir.to_string())
+                .create_inode(kind, true, dir.to_string_lossy().into_owned())
                 .map_err(|e| {
                     format!(
                         "Failed to create inode for preopened dir: WASI error code: {}",
@@ -231,7 +232,9 @@ impl WasiFs {
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", dir, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
                 // todo handle collisions
-                assert!(entries.insert(dir.to_string(), inode).is_none())
+                assert!(entries
+                    .insert(dir.to_string_lossy().into_owned(), inode)
+                    .is_none())
             }
             wasi_fs.preopen_fds.push(fd);
         }
@@ -1025,6 +1028,31 @@ pub struct WasiState {
 }
 
 impl WasiState {
+    /// Create a [`WasiStateBuilder`] to construct a validated instance of
+    /// [`WasiState`].
+    ///
+    /// Usage:
+    ///
+    /// ```
+    /// # use wasmer_wasi::state::WasiState;
+    /// WasiState::new("program_name")
+    ///    .env(b"HOME", "/home/home".to_string())
+    ///    .arg("--help")
+    ///    .envs({ let mut hm = std::collections::HashMap::new();
+    ///            hm.insert("COLOR_OUTPUT", "TRUE");
+    ///            hm.insert("PATH", "/usr/bin");
+    ///            hm
+    ///          })
+    ///    .args(&["--verbose", "list"])
+    ///    .preopen_dir("src")
+    ///    .map_dir("dot", ".")
+    ///    .build()
+    ///    .unwrap();
+    /// ```
+    pub fn new(program_name: &str) -> WasiStateBuilder {
+        create_wasi_state(program_name)
+    }
+
     /// Turn the WasiState into bytes
     pub fn freeze(&self) -> Option<Vec<u8>> {
         bincode::serialize(self).ok()

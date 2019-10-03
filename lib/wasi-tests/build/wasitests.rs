@@ -145,7 +145,7 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         out_str.push_str("vec![");
 
         for entry in args.po_dirs {
-            out_str.push_str(&format!("\"{}\".to_string(),", entry));
+            out_str.push_str(&format!("std::path::PathBuf::from(\"{}\"),", entry));
         }
 
         out_str.push_str("]");

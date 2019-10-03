@@ -37,7 +37,7 @@ This crate represents the Singlepass backend integration for Wasmer.
 
 If you are using the `wasmer` CLI, you can specify the backend with:
 
-```bash
+```sh
 wasmer run program.wasm --backend=singlepass
 ```
 

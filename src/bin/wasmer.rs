@@ -53,7 +53,7 @@ mod wasmer_wasi {
     pub fn generate_import_object(
         _args: Vec<Vec<u8>>,
         _envs: Vec<Vec<u8>>,
-        _preopened_files: Vec<String>,
+        _preopened_files: Vec<std::path::PathBuf>,
         _mapped_dirs: Vec<(String, std::path::PathBuf)>,
     ) -> ImportObject {
         unimplemented!()
@@ -142,7 +142,7 @@ struct Run {
 
     /// WASI pre-opened directory
     #[structopt(long = "dir", multiple = true, group = "wasi")]
-    pre_opened_directories: Vec<String>,
+    pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the wasm module
     #[structopt(long = "mapdir", multiple = true)]
