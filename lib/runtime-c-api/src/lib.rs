@@ -133,7 +133,7 @@ pub struct wasmer_byte_array {
 impl wasmer_byte_array {
     /// Get the data as a slice
     pub unsafe fn as_slice<'a>(&self) -> &'a [u8] {
-        std::slice::from_raw_parts(self.bytes, self.bytes_len as usize)
+        get_slice_checked(self.bytes, self.bytes_len as usize)
     }
 
     /// Copy the data into an owned Vec
@@ -147,5 +147,16 @@ impl wasmer_byte_array {
     /// Read the data as a &str, returns an error if the string is not valid UTF8
     pub unsafe fn as_str<'a>(&self) -> Result<&'a str, std::str::Utf8Error> {
         std::str::from_utf8(self.as_slice())
+    }
+}
+
+/// Gets a slice from a pointer and a length, returning an empty slice if the
+/// pointer is null
+#[inline]
+pub(crate) unsafe fn get_slice_checked<'a, T>(ptr: *const T, len: usize) -> &'a [T] {
+    if ptr.is_null() {
+        &[]
+    } else {
+        std::slice::from_raw_parts(ptr, len)
     }
 }

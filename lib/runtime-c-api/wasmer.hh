@@ -606,7 +606,11 @@ bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 /// empty values.
 wasmer_import_object_t *wasmer_wasi_generate_default_import_object();
 
-/// Creates a WASI import object
+/// Creates a WASI import object.
+///
+/// This function treats null pointers as empty collections.
+/// For example, passing null for a string in `args`, will lead to a zero
+/// length argument in that position.
 wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_array *args,
                                                            unsigned int args_len,
                                                            const wasmer_byte_array *envs,

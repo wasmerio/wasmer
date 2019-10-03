@@ -54,6 +54,7 @@ pub unsafe extern "C" fn wasmer_import_object_new() -> *mut wasmer_import_object
 #[cfg(feature = "wasi")]
 mod wasi {
     use super::*;
+    use crate::get_slice_checked;
     use std::path::PathBuf;
 
     /// Opens a directory that's visible to the WASI module as `alias` but
@@ -76,7 +77,11 @@ mod wasi {
         }
     }
 
-    /// Creates a WASI import object
+    /// Creates a WASI import object.
+    ///
+    /// This function treats null pointers as empty collections.
+    /// For example, passing null for a string in `args`, will lead to a zero
+    /// length argument in that position.
     #[no_mangle]
     pub unsafe extern "C" fn wasmer_wasi_generate_import_object(
         args: *const wasmer_byte_array,
@@ -88,11 +93,10 @@ mod wasi {
         mapped_dirs: *const wasmer_wasi_map_dir_entry_t,
         mapped_dirs_len: c_uint,
     ) -> *mut wasmer_import_object_t {
-        let arg_list = std::slice::from_raw_parts(args, args_len as usize);
-        let env_list = std::slice::from_raw_parts(envs, envs_len as usize);
-        let preopened_file_list =
-            std::slice::from_raw_parts(preopened_files, preopened_files_len as usize);
-        let mapped_dir_list = std::slice::from_raw_parts(mapped_dirs, mapped_dirs_len as usize);
+        let arg_list = get_slice_checked(args, args_len as usize);
+        let env_list = get_slice_checked(envs, envs_len as usize);
+        let preopened_file_list = get_slice_checked(preopened_files, preopened_files_len as usize);
+        let mapped_dir_list = get_slice_checked(mapped_dirs, mapped_dirs_len as usize);
 
         wasmer_wasi_generate_import_object_inner(
             arg_list,
