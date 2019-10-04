@@ -2693,31 +2693,139 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::F32Min => {
                 let (v1, v2) = state.pop2()?;
-                let res = builder
-                    .build_call(intrinsics.minimum_f32, &[v1, v2], &state.var_name())
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap();
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let v1_is_nan = builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    v1,
+                    intrinsics.f32_zero,
+                    "nan",
+                );
+                let v2_is_not_nan = builder.build_float_compare(
+                    FloatPredicate::ORD,
+                    v2,
+                    intrinsics.f32_zero,
+                    "notnan",
+                );
+                let v1_repr = builder
+                    .build_bitcast(v1, intrinsics.i32_ty, "")
+                    .into_int_value();
+                let v2_repr = builder
+                    .build_bitcast(v2, intrinsics.i32_ty, "")
+                    .into_int_value();
+                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let negative_zero = intrinsics.f32_ty.const_float(-0.0);
+                let v2 = builder
+                    .build_select(
+                        builder.build_and(
+                            builder.build_and(float_eq, repr_ne, ""),
+                            v2_is_not_nan,
+                            "",
+                        ),
+                        negative_zero,
+                        v2,
+                        "",
+                    )
+                    .into_float_value();
+                let res =
+                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
                 state.push1(res);
             }
             Operator::F64Min => {
                 let (v1, v2) = state.pop2()?;
-                let res = builder
-                    .build_call(intrinsics.minimum_f64, &[v1, v2], &state.var_name())
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap();
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let v1_is_nan = builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    v1,
+                    intrinsics.f64_zero,
+                    "nan",
+                );
+                let v2_is_not_nan = builder.build_float_compare(
+                    FloatPredicate::ORD,
+                    v2,
+                    intrinsics.f64_zero,
+                    "notnan",
+                );
+                let v1_repr = builder
+                    .build_bitcast(v1, intrinsics.i64_ty, "")
+                    .into_int_value();
+                let v2_repr = builder
+                    .build_bitcast(v2, intrinsics.i64_ty, "")
+                    .into_int_value();
+                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let negative_zero = intrinsics.f64_ty.const_float(-0.0);
+                let v2 = builder
+                    .build_select(
+                        builder.build_and(
+                            builder.build_and(float_eq, repr_ne, ""),
+                            v2_is_not_nan,
+                            "",
+                        ),
+                        negative_zero,
+                        v2,
+                        "",
+                    )
+                    .into_float_value();
+                let res =
+                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
                 state.push1(res);
             }
             Operator::F32x4Min => {
                 let (v1, v2) = state.pop2()?;
                 let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
-                let res = builder
-                    .build_call(intrinsics.minimum_f32x4, &[v1, v2], &state.var_name())
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap();
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1_is_nan = builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    v1,
+                    intrinsics.f32x4_zero,
+                    "nan",
+                );
+                let v2_is_not_nan = builder.build_float_compare(
+                    FloatPredicate::ORD,
+                    v2,
+                    intrinsics.f32x4_zero,
+                    "notnan",
+                );
+                let v1_repr = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2_repr = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let negative_zero = splat_vector(
+                    builder,
+                    intrinsics,
+                    intrinsics.f32_ty.const_float(-0.0).as_basic_value_enum(),
+                    intrinsics.f32x4_ty,
+                    "",
+                );
+                let v2 = builder
+                    .build_select(
+                        builder.build_and(
+                            builder.build_and(float_eq, repr_ne, ""),
+                            v2_is_not_nan,
+                            "",
+                        ),
+                        negative_zero,
+                        v2,
+                        "",
+                    )
+                    .into_vector_value();
+                let res =
+                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
@@ -2725,41 +2833,187 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let (v1, v2) = state.pop2()?;
                 let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
-                let res = builder
-                    .build_call(intrinsics.minimum_f64x2, &[v1, v2], &state.var_name())
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap();
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1_is_nan = builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    v1,
+                    intrinsics.f64x2_zero,
+                    "nan",
+                );
+                let v2_is_not_nan = builder.build_float_compare(
+                    FloatPredicate::ORD,
+                    v2,
+                    intrinsics.f64x2_zero,
+                    "notnan",
+                );
+                let v1_repr = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2_repr = builder
+                    .build_bitcast(v2, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let negative_zero = splat_vector(
+                    builder,
+                    intrinsics,
+                    intrinsics.f64_ty.const_float(-0.0).as_basic_value_enum(),
+                    intrinsics.f64x2_ty,
+                    "",
+                );
+                let v2 = builder
+                    .build_select(
+                        builder.build_and(
+                            builder.build_and(float_eq, repr_ne, ""),
+                            v2_is_not_nan,
+                            "",
+                        ),
+                        negative_zero,
+                        v2,
+                        "",
+                    )
+                    .into_vector_value();
+                let res =
+                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
             Operator::F32Max => {
                 let (v1, v2) = state.pop2()?;
-                let res = builder
-                    .build_call(intrinsics.maximum_f32, &[v1, v2], &state.var_name())
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap();
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let v1_is_nan = builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    v1,
+                    intrinsics.f32_zero,
+                    "nan",
+                );
+                let v2_is_not_nan = builder.build_float_compare(
+                    FloatPredicate::ORD,
+                    v2,
+                    intrinsics.f32_zero,
+                    "notnan",
+                );
+                let v1_repr = builder
+                    .build_bitcast(v1, intrinsics.i32_ty, "")
+                    .into_int_value();
+                let v2_repr = builder
+                    .build_bitcast(v2, intrinsics.i32_ty, "")
+                    .into_int_value();
+                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let v2 = builder
+                    .build_select(
+                        builder.build_and(
+                            builder.build_and(float_eq, repr_ne, ""),
+                            v2_is_not_nan,
+                            "",
+                        ),
+                        intrinsics.f32_zero,
+                        v2,
+                        "",
+                    )
+                    .into_float_value();
+                let res =
+                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
                 state.push1(res);
             }
             Operator::F64Max => {
                 let (v1, v2) = state.pop2()?;
-                let res = builder
-                    .build_call(intrinsics.maximum_f64, &[v1, v2], &state.var_name())
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap();
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let v1_is_nan = builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    v1,
+                    intrinsics.f64_zero,
+                    "nan",
+                );
+                let v2_is_not_nan = builder.build_float_compare(
+                    FloatPredicate::ORD,
+                    v2,
+                    intrinsics.f64_zero,
+                    "notnan",
+                );
+                let v1_repr = builder
+                    .build_bitcast(v1, intrinsics.i64_ty, "")
+                    .into_int_value();
+                let v2_repr = builder
+                    .build_bitcast(v2, intrinsics.i64_ty, "")
+                    .into_int_value();
+                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let v2 = builder
+                    .build_select(
+                        builder.build_and(
+                            builder.build_and(float_eq, repr_ne, ""),
+                            v2_is_not_nan,
+                            "",
+                        ),
+                        intrinsics.f64_zero,
+                        v2,
+                        "",
+                    )
+                    .into_float_value();
+                let res =
+                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
                 state.push1(res);
             }
             Operator::F32x4Max => {
                 let (v1, v2) = state.pop2()?;
                 let v1 = builder.build_bitcast(v1, intrinsics.f32x4_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.f32x4_ty, "");
-                let res = builder
-                    .build_call(intrinsics.maximum_f32x4, &[v1, v2], &state.var_name())
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap();
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1_is_nan = builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    v1,
+                    intrinsics.f32x4_zero,
+                    "nan",
+                );
+                let v2_is_not_nan = builder.build_float_compare(
+                    FloatPredicate::ORD,
+                    v2,
+                    intrinsics.f32x4_zero,
+                    "notnan",
+                );
+                let v1_repr = builder
+                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let v2_repr = builder
+                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                    .into_vector_value();
+                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let zero = splat_vector(
+                    builder,
+                    intrinsics,
+                    intrinsics.f32_zero.as_basic_value_enum(),
+                    intrinsics.f32x4_ty,
+                    "",
+                );
+                let v2 = builder
+                    .build_select(
+                        builder.build_and(
+                            builder.build_and(float_eq, repr_ne, ""),
+                            v2_is_not_nan,
+                            "",
+                        ),
+                        zero,
+                        v2,
+                        "",
+                    )
+                    .into_vector_value();
+                let res =
+                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
@@ -2767,11 +3021,51 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let (v1, v2) = state.pop2()?;
                 let v1 = builder.build_bitcast(v1, intrinsics.f64x2_ty, "");
                 let v2 = builder.build_bitcast(v2, intrinsics.f64x2_ty, "");
-                let res = builder
-                    .build_call(intrinsics.maximum_f64x2, &[v1, v2], &state.var_name())
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap();
+                let v1 = canonicalize_nans(builder, intrinsics, v1);
+                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let v1_is_nan = builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    v1,
+                    intrinsics.f64x2_zero,
+                    "nan",
+                );
+                let v2_is_not_nan = builder.build_float_compare(
+                    FloatPredicate::ORD,
+                    v2,
+                    intrinsics.f64x2_zero,
+                    "notnan",
+                );
+                let v1_repr = builder
+                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let v2_repr = builder
+                    .build_bitcast(v2, intrinsics.i64x2_ty, "")
+                    .into_vector_value();
+                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let zero = splat_vector(
+                    builder,
+                    intrinsics,
+                    intrinsics.f64_zero.as_basic_value_enum(),
+                    intrinsics.f64x2_ty,
+                    "",
+                );
+                let v2 = builder
+                    .build_select(
+                        builder.build_and(
+                            builder.build_and(float_eq, repr_ne, ""),
+                            v2_is_not_nan,
+                            "",
+                        ),
+                        zero,
+                        v2,
+                        "",
+                    )
+                    .into_vector_value();
+                let res =
+                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
                 state.push1(res);
             }
