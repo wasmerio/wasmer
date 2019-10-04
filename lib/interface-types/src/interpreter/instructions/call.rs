@@ -17,7 +17,7 @@ executable_instruction!(
                         Some(inputs) =>  {
                             let input_types = inputs
                                 .iter()
-                                .map(|input| input.into())
+                                .map(Into::into)
                                 .collect::<Vec<InterfaceType>>();
 
                             if input_types != local_or_import.inputs() {
