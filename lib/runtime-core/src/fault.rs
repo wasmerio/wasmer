@@ -246,6 +246,7 @@ extern "C" fn signal_trap_handler(
 ) {
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
+        println!("Fault: {:?}", fault);
 
         let mut unwind_result: Box<dyn Any> = Box::new(());
 
@@ -368,15 +369,74 @@ unsafe fn install_sighandler() {
     sigaction(SIGINT, &sa_interrupt).unwrap();
 }
 
+#[derive(Debug, Clone)]
 pub struct FaultInfo {
     pub faulting_addr: *const c_void,
     pub ip: *const c_void,
     pub known_registers: [Option<u64>; 24],
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
-    unimplemented!("get_fault_info is not yet implemented for aarch64.");
+    #[allow(dead_code)]
+    #[repr(packed)]
+    struct sigcontext {
+        fault_address: u64,
+        regs: [u64; 31],
+        sp: u64,
+        pc: u64,
+        pstate: u64,
+        reserved: [u8; 4096],
+    }
+
+    #[allow(dead_code)]
+    #[repr(packed)]
+    struct ucontext {
+        unknown: [u8; 176],
+        uc_mcontext: sigcontext,
+    }
+
+    #[allow(dead_code)]
+    #[repr(C)]
+    struct siginfo_t {
+        si_signo: i32,
+        si_errno: i32,
+        si_code: i32,
+        si_addr: u64,
+        // ...
+    }
+
+    let siginfo = siginfo as *const siginfo_t;
+    let si_addr = (*siginfo).si_addr;
+
+    let ucontext = ucontext as *const ucontext;
+    let gregs = &(*ucontext).uc_mcontext.regs;
+
+    let mut known_registers: [Option<u64>; 24] = [None; 24];
+
+    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[15] as _);
+    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs[14] as _);
+    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(gregs[13] as _);
+    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(gregs[12] as _);
+    known_registers[X64Register::GPR(GPR::R11).to_index().0] = Some(gregs[11] as _);
+    known_registers[X64Register::GPR(GPR::R10).to_index().0] = Some(gregs[10] as _);
+    known_registers[X64Register::GPR(GPR::R9).to_index().0] = Some(gregs[9] as _);
+    known_registers[X64Register::GPR(GPR::R8).to_index().0] = Some(gregs[8] as _);
+    known_registers[X64Register::GPR(GPR::RSI).to_index().0] = Some(gregs[6] as _);
+    known_registers[X64Register::GPR(GPR::RDI).to_index().0] = Some(gregs[7] as _);
+    known_registers[X64Register::GPR(GPR::RDX).to_index().0] = Some(gregs[2] as _);
+    known_registers[X64Register::GPR(GPR::RCX).to_index().0] = Some(gregs[1] as _);
+    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(gregs[3] as _);
+    known_registers[X64Register::GPR(GPR::RAX).to_index().0] = Some(gregs[0] as _);
+
+    known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[5] as _);
+    known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[28] as _);
+
+    FaultInfo {
+        faulting_addr: si_addr as usize as _,
+        ip: (*ucontext).uc_mcontext.pc as _,
+        known_registers,
+    }
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
