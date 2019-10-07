@@ -254,6 +254,56 @@ mod test {
     use crate::export::Export;
     use crate::global::Global;
     use crate::types::Value;
+    use std::ffi::c_void;
+    use std::sync::Arc;
+
+    struct Data {
+        inner: *const c_void,
+    }
+
+    unsafe impl Send for Data {}
+    unsafe impl Sync for Data {}
+
+    fn dummy_state_creator(data: Arc<Data>) -> (*mut c_void, fn(*mut c_void)) {
+        let data: *mut Data = Arc::into_raw(data) as _;
+
+        (data as _, |_| {})
+    }
+
+    #[test]
+    fn state_creator_fn() {
+        let ptr = std::ptr::null();
+
+        let data = Arc::new(Data { inner: ptr });
+
+        let imports = imports! {
+            move || dummy_state_creator(Arc::clone(&data)),
+        };
+
+        let (state, _dtor) = imports.call_state_creator().unwrap();
+        let data: &mut Data = unsafe { &mut *(state as *mut Data) };
+
+        assert_eq!(ptr, data.inner);
+    }
+
+    #[test]
+    fn state_creator_closure() {
+        let ptr = std::ptr::null();
+
+        let data = Arc::new(Data { inner: ptr });
+
+        let imports = imports! {
+            move || {
+                let data: *mut Data = Arc::into_raw(Arc::clone(&data)) as _;
+                (data as _, |_| {})
+            },
+        };
+
+        let (state, _dtor) = imports.call_state_creator().unwrap();
+        let data: &mut Data = unsafe { &mut *(state as *mut Data) };
+
+        assert_eq!(ptr, data.inner);
+    }
 
     #[test]
     fn extending_works() {
