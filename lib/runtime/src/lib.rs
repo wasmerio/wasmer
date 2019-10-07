@@ -70,7 +70,7 @@
 //!     let value = add_one.call(42)?;
 //!
 //!     assert_eq!(value, 43);
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -199,13 +199,15 @@ pub fn default_compiler() -> impl Compiler {
             feature = "default-backend-llvm",
             any(
                 feature = "default-backend-cranelift",
-                feature = "default-backend-singlepass"
+                feature = "default-backend-singlepass",
+                feature = "deterministic"
             )
         ),
         all(
             feature = "default-backend-cranelift",
-            feature = "default-backend-singlepass"
-        )
+            any(feature = "default-backend-singlepass", feature = "deterministic")
+        ),
+        all(feature = "default-backend-singlepass", feature = "deterministic")
     ))]
     compile_error!(
         "The `default-backend-X` features are mutually exclusive.  Please choose just one"
@@ -214,7 +216,7 @@ pub fn default_compiler() -> impl Compiler {
     #[cfg(feature = "default-backend-llvm")]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(feature = "default-backend-singlepass")]
+    #[cfg(any(feature = "default-backend-singlepass", feature = "deterministic"))]
     use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
     #[cfg(feature = "default-backend-cranelift")]
