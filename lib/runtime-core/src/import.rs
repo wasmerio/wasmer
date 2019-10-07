@@ -258,7 +258,7 @@ mod test {
     use std::sync::Arc;
 
     struct Data {
-        inner: *const c_void,
+        inner: *const u32,
     }
 
     unsafe impl Send for Data {}
@@ -272,8 +272,7 @@ mod test {
 
     #[test]
     fn state_creator_fn() {
-        let ptr = std::ptr::null();
-
+        let ptr = &0xAABBCCDDu32 as *const u32;
         let data = Arc::new(Data { inner: ptr });
 
         let imports = imports! {
@@ -288,8 +287,7 @@ mod test {
 
     #[test]
     fn state_creator_closure() {
-        let ptr = std::ptr::null();
-
+        let ptr = &0xAABBCCDDu32 as *const u32;
         let data = Arc::new(Data { inner: ptr });
 
         let imports = imports! {
