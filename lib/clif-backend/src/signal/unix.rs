@@ -99,7 +99,7 @@ pub fn call_protected<T>(
                         Ok(SIGSEGV) | Ok(SIGBUS) => WasmTrapInfo::MemoryOutOfBounds,
                         Ok(SIGFPE) => WasmTrapInfo::IllegalArithmetic,
                         _ => unimplemented!(
-                            "WasmTrapInfo::Unknown signal:{}",
+                            "WasmTrapInfo::Unknown signal:{:?}",
                             Signal::from_c_int(signum)
                         ),
                     }))
