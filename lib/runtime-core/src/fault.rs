@@ -198,7 +198,7 @@ unsafe fn with_breakpoint_map<R, F: FnOnce(Option<&BreakpointMap>) -> R>(f: F) -
 
 #[cfg(not(target_arch = "x86_64"))]
 pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
-    unimplemented!("allocate_and_run only supported on x86_64");
+    f()
 }
 
 #[cfg(target_arch = "x86_64")]
