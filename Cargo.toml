@@ -100,7 +100,6 @@ backend-singlepass = [
 ]
 wasi = ["wasmer-wasi"]
 managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
-deterministic = ["wasmer-runtime/deterministic"]
 
 [[example]]
 name = "plugin"
