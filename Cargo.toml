@@ -26,7 +26,7 @@ wabt = "0.9.1"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
-wasmer-runtime = { path = "lib/runtime", default-features = false }
+wasmer-runtime = { path = "lib/runtime" }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
@@ -100,7 +100,6 @@ backend-singlepass = [
 ]
 wasi = ["wasmer-wasi"]
 managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
-
 deterministic = ["wasmer-runtime/deterministic"]
 
 [[example]]

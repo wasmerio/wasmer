@@ -41,7 +41,7 @@ singlepass = ["wasmer-singlepass-backend"]
 default-backend-singlepass = ["singlepass"]
 default-backend-llvm = ["llvm"]
 default-backend-cranelift = ["cranelift"]
-deterministic = ["wasmer-singlepass-backend/deterministic"]
+deterministic = ["wasmer-singlepass-backend/deterministic", "wasmer-runtime-core/deterministic"]
 
 [[bench]]
 name = "nginx"
