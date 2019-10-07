@@ -21,4 +21,4 @@ smallvec = "0.6"
 
 [features]
 default = []
-deterministic = ["wasmparser/deterministic", "wasmer-runtime-core/deterministic"]
+deterministic-execution = ["wasmparser/deterministic", "wasmer-runtime-core/deterministic-execution"]

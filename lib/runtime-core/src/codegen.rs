@@ -146,7 +146,7 @@ pub fn validating_parser_config(features: &Features) -> wasmparser::ValidatingPa
             enable_bulk_memory: false,
             enable_multi_value: false,
 
-            #[cfg(feature = "deterministic")]
+            #[cfg(feature = "deterministic-execution")]
             deterministic_only: true,
         },
     }

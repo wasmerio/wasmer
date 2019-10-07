@@ -200,14 +200,20 @@ pub fn default_compiler() -> impl Compiler {
             any(
                 feature = "default-backend-cranelift",
                 feature = "default-backend-singlepass",
-                feature = "deterministic"
+                feature = "deterministic-execution"
             )
         ),
         all(
             feature = "default-backend-cranelift",
-            any(feature = "default-backend-singlepass", feature = "deterministic")
+            any(
+                feature = "default-backend-singlepass",
+                feature = "deterministic-execution"
+            )
         ),
-        all(feature = "default-backend-singlepass", feature = "deterministic")
+        all(
+            feature = "default-backend-singlepass",
+            feature = "deterministic-execution"
+        )
     ))]
     compile_error!(
         "The `default-backend-X` features are mutually exclusive.  Please choose just one"
@@ -216,7 +222,10 @@ pub fn default_compiler() -> impl Compiler {
     #[cfg(feature = "default-backend-llvm")]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(any(feature = "default-backend-singlepass", feature = "deterministic"))]
+    #[cfg(any(
+        feature = "default-backend-singlepass",
+        feature = "deterministic-execution"
+    ))]
     use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
     #[cfg(feature = "default-backend-cranelift")]
@@ -235,7 +244,7 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "cranelift")]
         Backend::Cranelift => Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new())),
 
-        #[cfg(feature = "singlepass")]
+        #[cfg(any(feature = "singlepass", feature = "deterministic-execution"))]
         Backend::Singlepass => Some(Box::new(
             wasmer_singlepass_backend::SinglePassCompiler::new(),
         )),
@@ -246,7 +255,8 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(any(
             not(feature = "llvm"),
             not(feature = "singlepass"),
-            not(feature = "cranelift")
+            not(feature = "cranelift"),
+            not(feature = "deterministic-execution"),
         ))]
         _ => None,
     }

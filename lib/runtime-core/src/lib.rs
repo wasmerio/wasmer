@@ -146,7 +146,7 @@ pub fn validate_and_report_errors_with_features(
             enable_reference_types: false,
             enable_threads: features.threads,
 
-            #[cfg(feature = "deterministic")]
+            #[cfg(feature = "deterministic-execution")]
             deterministic_only: true,
         },
     };
