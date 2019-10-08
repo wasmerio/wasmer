@@ -2420,14 +2420,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I32Clz => {
                 let input = state.pop1()?;
-                let ensure_defined_zero = intrinsics
-                    .i1_ty
-                    .const_int(1 as u64, false)
-                    .as_basic_value_enum();
+                let is_zero_undef = intrinsics.i1_zero.as_basic_value_enum();
                 let res = builder
                     .build_call(
                         intrinsics.ctlz_i32,
-                        &[input, ensure_defined_zero],
+                        &[input, is_zero_undef],
                         &state.var_name(),
                     )
                     .try_as_basic_value()
@@ -2437,14 +2434,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I64Clz => {
                 let input = state.pop1()?;
-                let ensure_defined_zero = intrinsics
-                    .i1_ty
-                    .const_int(1 as u64, false)
-                    .as_basic_value_enum();
+                let is_zero_undef = intrinsics.i1_zero.as_basic_value_enum();
                 let res = builder
                     .build_call(
                         intrinsics.ctlz_i64,
-                        &[input, ensure_defined_zero],
+                        &[input, is_zero_undef],
                         &state.var_name(),
                     )
                     .try_as_basic_value()
@@ -2454,14 +2448,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I32Ctz => {
                 let input = state.pop1()?;
-                let ensure_defined_zero = intrinsics
-                    .i1_ty
-                    .const_int(1 as u64, false)
-                    .as_basic_value_enum();
+                let is_zero_undef = intrinsics.i1_zero.as_basic_value_enum();
                 let res = builder
                     .build_call(
                         intrinsics.cttz_i32,
-                        &[input, ensure_defined_zero],
+                        &[input, is_zero_undef],
                         &state.var_name(),
                     )
                     .try_as_basic_value()
@@ -2471,14 +2462,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::I64Ctz => {
                 let input = state.pop1()?;
-                let ensure_defined_zero = intrinsics
-                    .i1_ty
-                    .const_int(1 as u64, false)
-                    .as_basic_value_enum();
+                let is_zero_undef = intrinsics.i1_zero.as_basic_value_enum();
                 let res = builder
                     .build_call(
                         intrinsics.cttz_i64,
-                        &[input, ensure_defined_zero],
+                        &[input, is_zero_undef],
                         &state.var_name(),
                     )
                     .try_as_basic_value()

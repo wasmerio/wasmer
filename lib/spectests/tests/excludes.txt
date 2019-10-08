@@ -24,7 +24,6 @@ clif:skip:simd_binaryen.wast:* # SIMD not implemented
 
 # linking.wast:387,388 appear to be related to WABT issue: https://github.com/pepyakin/wabt-rs/issues/51
 
-clif:fail:globals.wast:243 # AssertInvalid - Should be invalid
 clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
 clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
 clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
@@ -814,28 +813,12 @@ llvm:skip:f64.wast:2417
 llvm:skip:f64.wast:2418
 
 # LLVM
-llvm:skip:br_table.wast:1255
-llvm:skip:imports.wast:391 # Running forever
-llvm:skip:imports.wast:402 # Running forever
-llvm:skip:call.wast:273    # Spec running forever
-llvm:skip:call_indirect.wast:556 # Spec running forever
-llvm:skip:call_indirect.wast:557 # Spec running forever
-llvm:skip:fac.wast:89 # Spec running forever
-llvm:skip:skip-stack-guard-page.wast:* # Spec running forever or (signal: 4, SIGILL: illegal instruction)
-llvm:skip:linking.wast:236 # terminating with uncaught exception of type WasmTrap
-llvm:skip:linking.wast:248 # terminating with uncaught exception of type WasmTrap
-
 llvm:fail:f32.wast:1621 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
 llvm:fail:f32.wast:2020 # AssertReturn - result F32(2147483648) ("0x80000000") does not match expected F32(0) ("0x0")
 llvm:fail:f64.wast:1621 # AssertReturn - result F64(0) ("0x0") does not match expected F64(9223372036854775808) ("0x8000000000000000")
 llvm:fail:f64.wast:2020 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
-llvm:fail:i32.wast:243 # AssertReturn - result I32(283816271) ("0x10eab14f") does not match expected I32(32) ("0x20")
-llvm:fail:i32.wast:252 # AssertReturn - result I32(283816288) ("0x10eab160") does not match expected I32(32) ("0x20")
-llvm:fail:i64.wast:243 # AssertReturn - result I64(4578783727) ("0x110eab1ef") does not match expected I64(64) ("0x40")
-llvm:fail:i64.wast:252 # AssertReturn - result I64(4578783712) ("0x110eab1e0") does not match expected I64(64) ("0x40")
 llvm:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
-llvm:fail:load.wast:201 # AssertReturn - result I32(285315103) ("0x1101901f") does not match expected I32(32) ("0x20")
 
 # LLVM Windows
 llvm:skip:address.wast:*:windows
