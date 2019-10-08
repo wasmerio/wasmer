@@ -58,7 +58,8 @@ members = [
     "lib/wasi-tests",
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
-    "examples/plugin-for-example"
+    "examples/plugin-for-example",
+    "examples/hello_world"
 ]
 
 [build-dependencies]
