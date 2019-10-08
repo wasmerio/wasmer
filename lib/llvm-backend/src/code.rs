@@ -935,6 +935,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     let signal_mem = ctx.signal_mem();
                     let iv = builder
                         .build_store(signal_mem, context.i8_type().const_int(0 as u64, false));
+                    // Any 'store' can be made volatile.
                     iv.set_volatile(true).unwrap();
                     finalize_opcode_stack_map(
                         intrinsics,
