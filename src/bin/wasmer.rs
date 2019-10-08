@@ -407,7 +407,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     #[cfg(feature = "backend-llvm")]
     {
-       if options.backend == Backend::LLVM {
+        if options.backend == Backend::LLVM {
             let options = options.backend_llvm_options.clone();
             unsafe {
                 wasmer_llvm_backend::GLOBAL_OPTIONS = LLVMOptions {
@@ -418,7 +418,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             }
         }
     }
-    
+
     let track_state = !options.no_track_state;
 
     #[cfg(feature = "loader-kernel")]
