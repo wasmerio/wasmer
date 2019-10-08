@@ -293,6 +293,7 @@ extern "C" fn signal_trap_handler(
 
             let es_image = CURRENT_CODE_VERSIONS.with(|versions| {
                 let versions = versions.borrow();
+                println!("V = {}", versions.len());
                 read_stack(
                     || versions.iter(),
                     rsp as usize as *const u64,
@@ -306,6 +307,7 @@ extern "C" fn signal_trap_handler(
                 unwind_result = Box::new(image);
             } else {
                 use colored::*;
+                println!("F = {}", es_image.frames.len());
                 if es_image.frames.len() > 0 {
                     eprintln!(
                         "\n{}",
