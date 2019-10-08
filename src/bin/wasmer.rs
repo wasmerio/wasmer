@@ -630,7 +630,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             #[cfg(not(feature = "managed"))]
             {
                 use wasmer_runtime::error::RuntimeError;
+                use wasmer_runtime_core::{
+                    fault::{push_code_version, pop_code_version},
+                    state::CodeVersion
+                };
+
+                push_code_version(CodeVersion {
+                    baseline: true,
+                    msm: instance.module.runnable_module.get_module_state_map().unwrap(),
+                    base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                });
                 let result = start.call();
+                pop_code_version().unwrap();
 
                 if let Err(ref err) = result {
                     match err {

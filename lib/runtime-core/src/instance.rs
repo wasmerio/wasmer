@@ -3,7 +3,6 @@ use crate::{
     backing::{ImportBacking, LocalBacking},
     error::{CallError, CallResult, ResolveError, ResolveResult, Result, RuntimeError},
     export::{Context, Export, ExportIter, FuncPointer},
-    fault::{pop_code_version, push_code_version},
     global::Global,
     import::{ImportObject, LikeNamespace},
     loader::Loader,
@@ -12,7 +11,6 @@ use crate::{
     sig_registry::SigRegistry,
     structures::TypedIndex,
     table::Table,
-    state::CodeVersion,
     typed_func::{Func, Wasm, WasmTrapInfo, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Type, Value},
     vm::{self, InternalField},
@@ -335,13 +333,7 @@ impl Instance {
 
         let mut results = Vec::new();
 
-        push_code_version(CodeVersion {
-            baseline: true,
-            msm: self.module.runnable_module.get_module_state_map().unwrap(),
-            base: self.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-        });
-
-        let result = call_func_with_index(
+        call_func_with_index(
             &self.module.info,
             &*self.module.runnable_module,
             &self.inner.import_backing,
@@ -349,10 +341,7 @@ impl Instance {
             func_index,
             params,
             &mut results,
-        );
-
-        pop_code_version().unwrap();
-        result?;
+        )?;
 
         Ok(results)
     }
