@@ -6,6 +6,8 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#863](https://github.com/wasmerio/wasmer/pull/863) Fix min and max for cases involving NaN and negative zero when using the LLVM backend.
+
 ## 0.8.0 - 2019-10-02
 
 Special thanks to @jdanford for their contributions!
