@@ -85,12 +85,39 @@ pub union wasmer_import_export_value {
 /// List of export/import kinds.
 #[allow(non_camel_case_types)]
 #[repr(u32)]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
+// ================
+// !    DANGER    !
+// ================
+// Do not modify these values without updating the `TryFrom` implementation below
 pub enum wasmer_import_export_kind {
-    WASM_FUNCTION,
-    WASM_GLOBAL,
-    WASM_MEMORY,
-    WASM_TABLE,
+    WASM_FUNCTION = 0,
+    WASM_GLOBAL = 1,
+    WASM_MEMORY = 2,
+    WASM_TABLE = 3,
+}
+
+impl wasmer_import_export_kind {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Self::WASM_FUNCTION => "function",
+            Self::WASM_GLOBAL => "global",
+            Self::WASM_MEMORY => "memory",
+            Self::WASM_TABLE => "table",
+        }
+    }
+}
+
+impl std::convert::TryFrom<u32> for wasmer_import_export_kind {
+    type Error = ();
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        if value > 3 {
+            Err(())
+        } else {
+            Ok(unsafe { std::mem::transmute(value) })
+        }
+    }
 }
 
 /// Gets export descriptors for the given module

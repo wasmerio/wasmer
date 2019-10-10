@@ -9,7 +9,7 @@ use crate::{
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_uint;
-use std::{ffi::c_void, ptr, slice, sync::Arc};
+use std::{convert::TryFrom, ffi::c_void, ptr, slice, sync::Arc};
 use wasmer_runtime::{Global, Memory, Module, Table};
 use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer},
@@ -158,6 +158,118 @@ mod wasi {
 
 #[cfg(feature = "wasi")]
 pub use self::wasi::*;
+
+/// Gets an entry from an ImportObject at the name and namespace.
+/// Stores an immutable reference to `name` and `namespace` in `import`.
+///
+/// The caller owns all data involved.
+/// `import_export_value` will be written to based on `tag`, `import_export_value` must be
+/// initialized to point to the type specified by `tag`.  Failure to do so may result
+/// in data corruption or undefined behavior.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_import_object_get_import(
+    import_object: *const wasmer_import_object_t,
+    namespace: wasmer_byte_array,
+    name: wasmer_byte_array,
+    import: *mut wasmer_import_t,
+    import_export_value: *mut wasmer_import_export_value,
+    tag: u32,
+) -> wasmer_result_t {
+    let tag: wasmer_import_export_kind = if let Ok(t) = TryFrom::try_from(tag) {
+        t
+    } else {
+        update_last_error(CApiError {
+            msg: "wasmer_import_export_tag out of range".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    };
+    let import_object: &mut ImportObject = &mut *(import_object as *mut ImportObject);
+    let namespace_str = if let Ok(ns) = namespace.as_str() {
+        ns
+    } else {
+        update_last_error(CApiError {
+            msg: "error converting namespace to UTF-8 string".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    };
+    let name_str = if let Ok(name) = name.as_str() {
+        name
+    } else {
+        update_last_error(CApiError {
+            msg: "error converting name to UTF-8 string".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    };
+    if import.is_null() || import_export_value.is_null() {
+        update_last_error(CApiError {
+            msg: "pointer to import and import_export_value must not be null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+    let import_out = &mut *import;
+    let import_export_value_out = &mut *import_export_value;
+    if let Some(export) =
+        import_object.maybe_with_namespace(namespace_str, |ns| ns.get_export(name_str))
+    {
+        match export {
+            Export::Function { .. } => {
+                if tag != wasmer_import_export_kind::WASM_FUNCTION {
+                    update_last_error(CApiError {
+                        msg: format!("Found function, expected {}", tag.to_str()),
+                    });
+                    return wasmer_result_t::WASMER_ERROR;
+                }
+                import_out.tag = wasmer_import_export_kind::WASM_FUNCTION;
+                let writer = import_export_value_out.func as *mut Export;
+                *writer = export.clone();
+            }
+            Export::Memory(memory) => {
+                if tag != wasmer_import_export_kind::WASM_MEMORY {
+                    update_last_error(CApiError {
+                        msg: format!("Found memory, expected {}", tag.to_str()),
+                    });
+                    return wasmer_result_t::WASMER_ERROR;
+                }
+                import_out.tag = wasmer_import_export_kind::WASM_MEMORY;
+                let writer = import_export_value_out.func as *mut Memory;
+                *writer = memory.clone();
+            }
+            Export::Table(table) => {
+                if tag != wasmer_import_export_kind::WASM_TABLE {
+                    update_last_error(CApiError {
+                        msg: format!("Found table, expected {}", tag.to_str()),
+                    });
+                    return wasmer_result_t::WASMER_ERROR;
+                }
+                import_out.tag = wasmer_import_export_kind::WASM_TABLE;
+                let writer = import_export_value_out.func as *mut Table;
+                *writer = table.clone();
+            }
+            Export::Global(global) => {
+                if tag != wasmer_import_export_kind::WASM_GLOBAL {
+                    update_last_error(CApiError {
+                        msg: format!("Found global, expected {}", tag.to_str()),
+                    });
+                    return wasmer_result_t::WASMER_ERROR;
+                }
+                import_out.tag = wasmer_import_export_kind::WASM_GLOBAL;
+                let writer = import_export_value_out.func as *mut Global;
+                *writer = global.clone();
+            }
+        }
+
+        import_out.value = *import_export_value;
+        import_out.module_name = namespace;
+        import_out.import_name = name;
+
+        wasmer_result_t::WASMER_OK
+    } else {
+        update_last_error(CApiError {
+            msg: format!("Export {} {} not found", namespace_str, name_str),
+        });
+        wasmer_result_t::WASMER_ERROR
+    }
+}
 
 /// Extends an existing import object with new imports
 #[allow(clippy::cast_ptr_alignment)]

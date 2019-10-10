@@ -10,10 +10,10 @@
  * List of export/import kinds.
  */
 enum wasmer_import_export_kind {
-  WASM_FUNCTION,
-  WASM_GLOBAL,
-  WASM_MEMORY,
-  WASM_TABLE,
+  WASM_FUNCTION = 0,
+  WASM_GLOBAL = 1,
+  WASM_MEMORY = 2,
+  WASM_TABLE = 3,
 };
 typedef uint32_t wasmer_import_export_kind;
 
@@ -468,6 +468,22 @@ void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
 wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_object,
                                             wasmer_import_t *imports,
                                             unsigned int imports_len);
+
+/**
+ * Gets an entry from an ImportObject at the name and namespace.
+ * Stores an immutable reference to `name` and `namespace` in `import`.
+ *
+ * The caller owns all data involved.
+ * `import_export_value` will be written to based on `tag`, `import_export_value` must be
+ * initialized to point to the type specified by `tag`.  Failure to do so may result
+ * in data corruption or undefined behavior.
+ */
+wasmer_result_t wasmer_import_object_get_import(const wasmer_import_object_t *import_object,
+                                                wasmer_byte_array namespace_,
+                                                wasmer_byte_array name,
+                                                wasmer_import_t *import,
+                                                wasmer_import_export_value *import_export_value,
+                                                uint32_t tag);
 
 /**
  * Creates a new empty import object.
