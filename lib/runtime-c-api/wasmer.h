@@ -466,7 +466,7 @@ void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
  * Extends an existing import object with new imports
  */
 wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_object,
-                                            wasmer_import_t *imports,
+                                            const wasmer_import_t *imports,
                                             unsigned int imports_len);
 
 /**

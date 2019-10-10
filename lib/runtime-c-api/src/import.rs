@@ -276,7 +276,7 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_object_extend(
     import_object: *mut wasmer_import_object_t,
-    imports: *mut wasmer_import_t,
+    imports: *const wasmer_import_t,
     imports_len: c_uint,
 ) -> wasmer_result_t {
     let import_object: &mut ImportObject = &mut *(import_object as *mut ImportObject);
