@@ -148,7 +148,7 @@ impl LocalBacking {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => {
                     return Err(vec![LinkError::Generic {
-                        message: "a const initializer must be the i32 type".to_string(),
+                        message: "a const initializer must be an i32".to_string(),
                     }]);
                 }
                 Initializer::GetGlobal(import_global_index) => {
@@ -209,7 +209,7 @@ impl LocalBacking {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => {
                     return Err(vec![LinkError::Generic {
-                        message: "a const initializer must be the i32 type".to_string(),
+                        message: "a const initializer must be an i32".to_string(),
                     }]);
                 }
                 Initializer::GetGlobal(import_global_index) => {
@@ -282,7 +282,7 @@ impl LocalBacking {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => {
                     return Err(vec![LinkError::Generic {
-                        message: "a const initializer must be the i32 type".to_string(),
+                        message: "a const initializer must be an i32".to_string(),
                     }]);
                 }
                 Initializer::GetGlobal(import_global_index) => {
@@ -340,7 +340,7 @@ impl LocalBacking {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => {
                     return Err(vec![LinkError::Generic {
-                        message: "a const initializer must be the i32 type".to_string(),
+                        message: "a const initializer be an i32".to_string(),
                     }]);
                 }
                 Initializer::GetGlobal(import_global_index) => {

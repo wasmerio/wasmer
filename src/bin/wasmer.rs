@@ -23,7 +23,7 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
-use wasmer_llvm_backend::LLVMCompiler;
+use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
     Func, Value, VERSION,
@@ -109,7 +109,7 @@ pub struct LLVMCLIOptions {
     post_opt_ir: Option<PathBuf>,
 
     /// Emit LLVM generated native code object file.
-    #[structopt(long = "backend-llvm-object-file", parse(from_os_str))]
+    #[structopt(long = "llvm-object-file", parse(from_os_str))]
     obj_file: Option<PathBuf>,
 }
 
@@ -404,6 +404,20 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         Some(x) => x,
         None => return Err("the requested backend is not enabled".into()),
     };
+
+    #[cfg(feature = "backend-llvm")]
+    {
+        if options.backend == Backend::LLVM {
+            let options = options.backend_llvm_options.clone();
+            unsafe {
+                wasmer_llvm_backend::GLOBAL_OPTIONS = LLVMOptions {
+                    pre_opt_ir: options.pre_opt_ir,
+                    post_opt_ir: options.post_opt_ir,
+                    obj_file: options.obj_file,
+                }
+            }
+        }
+    }
 
     let track_state = !options.no_track_state;
 
