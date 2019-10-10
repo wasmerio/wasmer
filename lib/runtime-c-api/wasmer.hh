@@ -371,6 +371,11 @@ wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_objec
                                             const wasmer_import_t *imports,
                                             unsigned int imports_len);
 
+/// Call `wasmer_import_object_imports_destroy` to free the memory allocated by this function
+int32_t wasmer_import_object_get_functions(const wasmer_import_object_t *import_object,
+                                           wasmer_import_t *imports,
+                                           uint32_t imports_len);
+
 /// Gets an entry from an ImportObject at the name and namespace.
 /// Stores an immutable reference to `name` and `namespace` in `import`.
 ///
@@ -384,6 +389,9 @@ wasmer_result_t wasmer_import_object_get_import(const wasmer_import_object_t *im
                                                 wasmer_import_t *import,
                                                 wasmer_import_export_value *import_export_value,
                                                 uint32_t tag);
+
+/// Frees the memory acquired in `wasmer_import_object_get_functions`
+void wasmer_import_object_imports_destroy(wasmer_import_t *imports, uint32_t imports_len);
 
 /// Creates a new empty import object.
 /// See also `wasmer_import_object_append`

@@ -271,6 +271,98 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
     }
 }
 
+#[no_mangle]
+/// Call `wasmer_import_object_imports_destroy` to free the memory allocated by this function
+pub unsafe extern "C" fn wasmer_import_object_get_functions(
+    import_object: *const wasmer_import_object_t,
+    imports: *mut wasmer_import_t,
+    imports_len: u32,
+) -> i32 {
+    if import_object.is_null() || imports.is_null() {
+        update_last_error(CApiError {
+            msg: format!("import_object and imports must not be null"),
+        });
+        return -1;
+    }
+    let import_object: &mut ImportObject = &mut *(import_object as *mut ImportObject);
+
+    let mut i = 0;
+    for (namespace, name, export) in import_object.clone_ref().into_iter() {
+        if i + 1 > imports_len {
+            return i as i32;
+        }
+        match export {
+            Export::Function { .. } => {
+                let ns = namespace.clone().into_bytes();
+                let ns_bytes = wasmer_byte_array {
+                    bytes: ns.as_ptr(),
+                    bytes_len: ns.len() as u32,
+                };
+                std::mem::forget(ns);
+
+                let name = name.clone().into_bytes();
+                let name_bytes = wasmer_byte_array {
+                    bytes: name.as_ptr(),
+                    bytes_len: name.len() as u32,
+                };
+                std::mem::forget(name);
+
+                let func = Box::new(export.clone());
+
+                let new_entry = wasmer_import_t {
+                    module_name: ns_bytes,
+                    import_name: name_bytes,
+                    tag: wasmer_import_export_kind::WASM_FUNCTION,
+                    value: wasmer_import_export_value {
+                        func: Box::into_raw(func) as *mut _ as *const _,
+                    },
+                };
+                *imports.add(i as usize) = new_entry;
+                i += 1;
+            }
+            _ => (),
+        }
+    }
+
+    return i as i32;
+}
+
+#[no_mangle]
+/// Frees the memory acquired in `wasmer_import_object_get_functions`
+pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
+    imports: *mut wasmer_import_t,
+    imports_len: u32,
+) {
+    // what's our null check policy here?
+    let imports: &[wasmer_import_t] = &*slice::from_raw_parts_mut(imports, imports_len as usize);
+    for import in imports {
+        let _namespace: Vec<u8> = Vec::from_raw_parts(
+            import.module_name.bytes as *mut u8,
+            import.module_name.bytes_len as usize,
+            import.module_name.bytes_len as usize,
+        );
+        let _name: Vec<u8> = Vec::from_raw_parts(
+            import.import_name.bytes as *mut u8,
+            import.import_name.bytes_len as usize,
+            import.import_name.bytes_len as usize,
+        );
+        match import.tag {
+            wasmer_import_export_kind::WASM_FUNCTION => {
+                let _: Box<Export> = Box::from_raw(import.value.func as *mut _);
+            }
+            wasmer_import_export_kind::WASM_GLOBAL => {
+                let _: Box<Global> = Box::from_raw(import.value.global as *mut _);
+            }
+            wasmer_import_export_kind::WASM_MEMORY => {
+                let _: Box<Memory> = Box::from_raw(import.value.memory as *mut _);
+            }
+            wasmer_import_export_kind::WASM_TABLE => {
+                let _: Box<Table> = Box::from_raw(import.value.table as *mut _);
+            }
+        }
+    }
+}
+
 /// Extends an existing import object with new imports
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
