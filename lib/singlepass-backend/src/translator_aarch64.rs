@@ -687,7 +687,7 @@ impl Emitter for Assembler {
             self
             ; b >ok
             ; fail:
-            ; brk 0
+            ; .dword 0 ; .dword 0
             ; ok:
         );
     }
@@ -1089,7 +1089,7 @@ impl Emitter for Assembler {
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
         dynasm!(
             self
-            ; brk 90 // TODO: Implement
+            ; .dword 0 ; .dword 90 // TODO: Implement
         );
     }
     fn emit_movzx(&mut self, sz_src: Size, src: Location, _sz_dst: Size, dst: Location) {
@@ -1182,175 +1182,175 @@ impl Emitter for Assembler {
 
     // TODO: These instructions are only used in FP opcodes. Implement later.
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vcmpeqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcmpeqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vcmpneqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcmpneqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vcmpltss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcmpltsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vcmpless(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcmplesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vcmpgtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcmpgtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vroundss_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vroundss_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vroundss_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vroundss_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vroundsd_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
     fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_test_gpr_64(&mut self, reg: GPR) {
-        dynasm!(self ; brk 29)
+        dynasm!(self ; .dword 0 ; .dword 29)
     }
 
     fn emit_ud2(&mut self) {
-        dynasm!(self ; brk 2)
+        dynasm!(self ; .dword 0 ; .dword 2)
     }
     fn emit_ret(&mut self) {
         dynasm!(self
@@ -1418,7 +1418,7 @@ impl Emitter for Assembler {
     }
 
     fn emit_bkpt(&mut self) {
-        dynasm!(self ; brk 1)
+        dynasm!(self ; .dword 0 ; .dword 1)
     }
 
     fn emit_homomorphic_host_redirection(&mut self, target: GPR) {
