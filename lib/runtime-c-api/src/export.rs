@@ -112,11 +112,13 @@ impl std::convert::TryFrom<u32> for wasmer_import_export_kind {
     type Error = ();
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        if value > 3 {
-            Err(())
-        } else {
-            Ok(unsafe { std::mem::transmute(value) })
-        }
+        Ok(match value {
+            0 => Self::WASM_FUNCTION,
+            1 => Self::WASM_GLOBAL,
+            2 => Self::WASM_MEMORY,
+            3 => Self::WASM_TABLE,
+            _ => return Err(()),
+        })
     }
 }
 
