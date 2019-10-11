@@ -1,5 +1,6 @@
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 pub use wasmer_runtime_core::state::x64_decl::{GPR, XMM};
+use wasmer_runtime_core::backend::{InlineBreakpointType};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
@@ -171,6 +172,7 @@ pub trait Emitter {
     fn emit_bkpt(&mut self);
 
     fn emit_homomorphic_host_redirection(&mut self, target: GPR);
+    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType);
 }
 
 fn _dummy(a: &mut Assembler) {
@@ -950,5 +952,14 @@ impl Emitter for Assembler {
 
     fn emit_homomorphic_host_redirection(&mut self, target: GPR) {
         self.emit_jmp_location(Location::GPR(target));
+    }
+
+    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType) {
+        dynasm!(self
+            ; ud2
+            ; .byte 0x0f ; .byte (0xb9u8 as i8) // ud
+            ; int -1
+            ; .byte (ty as u8 as i8)
+        );
     }
 }

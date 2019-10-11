@@ -3,6 +3,7 @@
 use crate::codegen_x64::*;
 use crate::emitter_x64::*;
 use dynasmrt::{aarch64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+use wasmer_runtime_core::backend::{InlineBreakpointType};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct AX(pub u32);
@@ -1472,6 +1473,14 @@ impl Emitter for Assembler {
             ; ldr x_tmp1, [x_rsp]
             ; add x_rsp, x_rsp, 8
             ; br x_tmp1
+        );
+    }
+
+    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType) {
+        dynasm!(self
+            ; .dword 0
+            ; .dword -1
+            ; .dword (ty as u8 as i32)
         );
     }
 }

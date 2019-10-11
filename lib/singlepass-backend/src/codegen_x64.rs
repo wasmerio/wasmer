@@ -1904,11 +1904,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Event::Internal(x) => {
                 match x {
                     InternalEvent::Breakpoint(callback) => {
-                        a.emit_bkpt();
+                        use wasmer_runtime_core::backend::InlineBreakpointType;
                         self.breakpoints
                             .as_mut()
                             .unwrap()
                             .insert(a.get_offset(), callback);
+                        a.emit_inline_breakpoint(InlineBreakpointType::Middleware);
                     }
                     InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {}
                     InternalEvent::GetInternal(idx) => {
