@@ -465,7 +465,6 @@ singlepass:fail:conversions.wast:240 # AssertTrap - expected trap, got Runtime:E
 singlepass:fail:conversions.wast:241 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:242 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:elem.wast:353 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:f32.wast:1620 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
 singlepass:fail:f32.wast:1652 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:1654 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
 singlepass:fail:f32.wast:1656 # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
@@ -902,15 +901,6 @@ singlepass:fail:i32.wast:99 # AssertTrap - expected trap, got Runtime:Error unkn
 singlepass:fail:i32.wast:100 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:i32.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:i32.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:242 # AssertReturn - result I32(31) ("0x1f") does not match expected I32(0) ("0x0")
-singlepass:fail:i32.wast:243 # AssertReturn - result I32(0) ("0x0") does not match expected I32(32) ("0x20")
-singlepass:fail:i32.wast:244 # AssertReturn - result I32(15) ("0xf") does not match expected I32(16) ("0x10")
-singlepass:fail:i32.wast:245 # AssertReturn - result I32(7) ("0x7") does not match expected I32(24) ("0x18")
-singlepass:fail:i32.wast:246 # AssertReturn - result I32(31) ("0x1f") does not match expected I32(0) ("0x0")
-singlepass:fail:i32.wast:247 # AssertReturn - result I32(0) ("0x0") does not match expected I32(31) ("0x1f")
-singlepass:fail:i32.wast:248 # AssertReturn - result I32(1) ("0x1") does not match expected I32(30) ("0x1e")
-singlepass:fail:i32.wast:249 # AssertReturn - result I32(30) ("0x1e") does not match expected I32(1) ("0x1")
-singlepass:fail:i32.wast:252 # AssertReturn - result I32(0) ("0x0") does not match expected I32(32) ("0x20")
 singlepass:fail:i64.wast:62 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:i64.wast:63 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:i64.wast:64 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -920,15 +910,6 @@ singlepass:fail:i64.wast:99 # AssertTrap - expected trap, got Runtime:Error unkn
 singlepass:fail:i64.wast:100 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:i64.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:i64.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:242 # AssertReturn - result I64(63) ("0x3f") does not match expected I64(0) ("0x0")
-singlepass:fail:i64.wast:243 # AssertReturn - result I64(0) ("0x0") does not match expected I64(64) ("0x40")
-singlepass:fail:i64.wast:244 # AssertReturn - result I64(15) ("0xf") does not match expected I64(48) ("0x30")
-singlepass:fail:i64.wast:245 # AssertReturn - result I64(7) ("0x7") does not match expected I64(56) ("0x38")
-singlepass:fail:i64.wast:246 # AssertReturn - result I64(63) ("0x3f") does not match expected I64(0) ("0x0")
-singlepass:fail:i64.wast:247 # AssertReturn - result I64(0) ("0x0") does not match expected I64(63) ("0x3f")
-singlepass:fail:i64.wast:248 # AssertReturn - result I64(1) ("0x1") does not match expected I64(62) ("0x3e")
-singlepass:fail:i64.wast:249 # AssertReturn - result I64(62) ("0x3e") does not match expected I64(1) ("0x1")
-singlepass:fail:i64.wast:252 # AssertReturn - result I64(0) ("0x0") does not match expected I64(64) ("0x40")
 singlepass:fail:if.wast:440 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:imports.wast:283 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:imports.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error

@@ -2822,7 +2822,69 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
-                Assembler::emit_vminss,
+                |a, src1, src2, dst| {
+                    let loc1 = Location::XMM(src1);
+                    let loc2 = match src2 {
+                        XMMOrMemory::XMM(x) => Location::XMM(x),
+                        XMMOrMemory::Memory(base, disp) => Location::Memory(base, disp),
+                    };
+                    // TODO: use temp_gpr (or at least check that src2 isn't
+                    //       XMMOrMemory that uses AX or DX.
+                    a.emit_mov(Size::S32, loc1, Location::GPR(GPR::RAX));
+                    a.emit_mov(Size::S32, loc2, Location::GPR(GPR::RDX));
+                    // TODO: we can skip this when dst is an XMM reg.
+                    let tmp_xmm = if src1 == XMM::XMM0 {
+                        if src2 == XMMOrMemory::XMM(XMM::XMM1) {
+                            XMM::XMM2
+                        } else {
+                            XMM::XMM1
+                        }
+                    } else {
+                        XMM::XMM0
+                    };
+                    match src2 {
+                        XMMOrMemory::XMM(x) => {
+                            a.emit_mov(Size::S64, Location::XMM(x), Location::XMM(tmp_xmm))
+                        }
+                        XMMOrMemory::Memory(base, disp) => a.emit_mov(
+                            Size::S64,
+                            Location::Memory(base, disp),
+                            Location::XMM(tmp_xmm),
+                        ),
+                    };
+                    a.emit_ucomiss(XMMOrMemory::XMM(src1), tmp_xmm);
+                    let do_vminss = a.get_label();
+                    a.emit_jmp(Condition::NotEqual, do_vminss);
+                    a.emit_jmp(Condition::ParityEven, do_vminss);
+                    a.emit_cmp(Size::S32, Location::GPR(GPR::RAX), Location::GPR(GPR::RDX));
+                    a.emit_jmp(Condition::Equal, do_vminss);
+                    static NEG_ZERO: u128 = 0x80000000;
+                    match src2 {
+                        XMMOrMemory::XMM(x) => {
+                            a.emit_mov(
+                                Size::S64,
+                                Location::Imm64((&NEG_ZERO as *const u128) as u64),
+                                Location::GPR(GPR::RDX),
+                            );
+                            a.emit_mov(Size::S64, Location::Memory(GPR::RDX, 0), Location::XMM(x));
+                        }
+                        XMMOrMemory::Memory(base, disp) => {
+                            // TODO: What if base == RDX?
+                            a.emit_mov(
+                                Size::S64,
+                                Location::Imm64((&NEG_ZERO as *const u128) as u64),
+                                Location::GPR(GPR::RDX),
+                            );
+                            a.emit_mov(
+                                Size::S64,
+                                Location::Memory(GPR::RDX, 0),
+                                Location::Memory(base, disp),
+                            );
+                        }
+                    };
+                    a.emit_label(do_vminss);
+                    a.emit_vminss(src1, src2, dst);
+                },
             ),
             Operator::F32Eq => Self::emit_fp_cmpop_avx(
                 a,

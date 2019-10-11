@@ -26,6 +26,8 @@ pub enum Condition {
     Equal,
     NotEqual,
     Signed,
+    ParityEven,
+    ParityOdd,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -36,7 +38,7 @@ pub enum Size {
     S64,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
 pub enum XMMOrMemory {
     XMM(XMM),
@@ -602,6 +604,8 @@ impl Emitter for Assembler {
             Condition::Equal => jmp_op!(je, self, label),
             Condition::NotEqual => jmp_op!(jne, self, label),
             Condition::Signed => jmp_op!(js, self, label),
+            Condition::ParityEven => jmp_op!(jp, self, label),
+            Condition::ParityOdd => jmp_op!(jnp, self, label),
         }
     }
     fn emit_jmp_location(&mut self, loc: Location) {
@@ -625,6 +629,8 @@ impl Emitter for Assembler {
             Condition::Equal => trap_op!(je, self),
             Condition::NotEqual => trap_op!(jne, self),
             Condition::Signed => trap_op!(js, self),
+            Condition::ParityEven => trap_op!(jp, self),
+            Condition::ParityOdd => trap_op!(jnp, self),
         }
     }
     fn emit_set(&mut self, condition: Condition, dst: GPR) {
