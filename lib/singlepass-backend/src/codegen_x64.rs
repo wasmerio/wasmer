@@ -2823,15 +2823,20 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 |a, src1, src2, dst| {
-                    let loc1 = Location::XMM(src1);
-                    let loc2 = match src2 {
-                        XMMOrMemory::XMM(x) => Location::XMM(x),
-                        XMMOrMemory::Memory(base, disp) => Location::Memory(base, disp),
-                    };
                     // TODO: use temp_gpr (or at least check that src2 isn't
                     //       XMMOrMemory that uses AX or DX.
-                    a.emit_mov(Size::S32, loc1, Location::GPR(GPR::RAX));
-                    a.emit_mov(Size::S32, loc2, Location::GPR(GPR::RDX));
+                    a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(GPR::RAX));
+                    match src2 {
+                        XMMOrMemory::XMM(x) => {
+                            a.emit_mov(Size::S32, Location::XMM(x), Location::GPR(GPR::RDX))
+                        }
+                        XMMOrMemory::Memory(base, disp) => a.emit_mov(
+                            Size::S32,
+                            Location::Memory(base, disp),
+                            Location::GPR(GPR::RDX),
+                        ),
+                    };
+
                     // TODO: we can skip this when dst is an XMM reg.
                     let tmp_xmm = if src1 == XMM::XMM0 {
                         if src2 == XMMOrMemory::XMM(XMM::XMM1) {
