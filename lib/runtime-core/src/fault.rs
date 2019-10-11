@@ -244,9 +244,59 @@ extern "C" fn signal_trap_handler(
     siginfo: *mut siginfo_t,
     ucontext: *mut c_void,
 ) {
+    use crate::backend::{Architecture, InlineBreakpointType, get_inline_breakpoint_size, read_inline_breakpoint};
+
+    #[cfg(target_arch = "x86_64")]
+    static ARCH: Architecture = Architecture::X64;
+
+    #[cfg(target_arch = "aarch64")]
+    static ARCH: Architecture = Architecture::Aarch64;
+
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
-        println!("Fault: {:?}", fault);
+        let early_return = CURRENT_CODE_VERSIONS.with(|versions| {
+            let versions = versions.borrow();
+            for v in versions.iter() {
+                let magic_size = if let Some(x) = get_inline_breakpoint_size(ARCH, v.backend) {
+                    x
+                } else {
+                    continue
+                };
+                let ip = fault.ip.get();
+                let end = v.base + v.msm.total_size;
+                if ip >= v.base && ip < end && ip + magic_size <= end {
+                    if let Some(ib) = read_inline_breakpoint(ARCH, v.backend, unsafe {
+                        std::slice::from_raw_parts(ip as *const u8, magic_size)
+                    }) {
+                        fault.ip.set(ip + magic_size);
+                        
+                        match ib.ty {
+                            InlineBreakpointType::Trace => {},
+                            InlineBreakpointType::Middleware => {
+                                let out: Option<Result<(), Box<dyn Any>>> = with_breakpoint_map(|bkpt_map| {
+                                    bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
+                                        x(BreakpointInfo {
+                                            fault: Some(&fault),
+                                        })
+                                    })
+                                });
+                                if let Some(Ok(())) = out {
+                                } else {
+                                    println!("Failed calling middleware: {:?}", out);
+                                }
+                            }
+                            _ => println!("Unknown breakpoint type: {:?}", ib.ty)
+                        }
+                        return true;
+                    }
+                    break;
+                }
+            }
+            false
+        });
+        if early_return {
+            return;
+        }
 
         let mut unwind_result: Box<dyn Any> = Box::new(());
 
@@ -259,7 +309,7 @@ extern "C" fn signal_trap_handler(
                 Ok(SIGTRAP) => {
                     // breakpoint
                     let out: Option<Result<(), Box<dyn Any>>> = with_breakpoint_map(|bkpt_map| {
-                        bkpt_map.and_then(|x| x.get(&(fault.ip as usize))).map(|x| {
+                        bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| {
                             x(BreakpointInfo {
                                 fault: Some(&fault),
                             })
@@ -293,12 +343,11 @@ extern "C" fn signal_trap_handler(
 
             let es_image = CURRENT_CODE_VERSIONS.with(|versions| {
                 let versions = versions.borrow();
-                println!("V = {}", versions.len());
                 read_stack(
                     || versions.iter(),
                     rsp as usize as *const u64,
                     fault.known_registers,
-                    Some(fault.ip as usize as u64),
+                    Some(fault.ip.get() as u64),
                 )
             });
 
@@ -307,7 +356,6 @@ extern "C" fn signal_trap_handler(
                 unwind_result = Box::new(image);
             } else {
                 use colored::*;
-                println!("F = {}", es_image.frames.len());
                 if es_image.frames.len() > 0 {
                     eprintln!(
                         "\n{}",
@@ -374,12 +422,12 @@ unsafe fn install_sighandler() {
 #[derive(Debug, Clone)]
 pub struct FaultInfo {
     pub faulting_addr: *const c_void,
-    pub ip: *const c_void,
+    pub ip: &'static Cell<usize>,
     pub known_registers: [Option<u64>; 24],
 }
 
 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
     #[allow(dead_code)]
     #[repr(packed)]
     struct sigcontext {
@@ -411,7 +459,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     let siginfo = siginfo as *const siginfo_t;
     let si_addr = (*siginfo).si_addr;
 
-    let ucontext = ucontext as *const ucontext;
+    let ucontext = ucontext as *mut ucontext;
     let gregs = &(*ucontext).uc_mcontext.regs;
 
     let mut known_registers: [Option<u64>; 24] = [None; 24];
@@ -436,13 +484,13 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
 
     FaultInfo {
         faulting_addr: si_addr as usize as _,
-        ip: (*ucontext).uc_mcontext.pc as _,
+        ip: std::mem::transmute::<&mut u64, &'static Cell<usize>>(&mut (*ucontext).uc_mcontext.pc),
         known_registers,
     }
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
     use libc::{
         _libc_xmmreg, ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8,
         REG_R9, REG_RAX, REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX, REG_RIP, REG_RSI, REG_RSP,
@@ -465,9 +513,8 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     let siginfo = siginfo as *const siginfo_t;
     let si_addr = (*siginfo).si_addr;
 
-    let ucontext = ucontext as *const ucontext_t;
-    let gregs = &(*ucontext).uc_mcontext.gregs;
-    let fpregs = &*(*ucontext).uc_mcontext.fpregs;
+    let ucontext = ucontext as *mut ucontext_t;
+    let gregs = &mut (*ucontext).uc_mcontext.gregs;
 
     let mut known_registers: [Option<u64>; 24] = [None; 24];
     known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[REG_R15 as usize] as _);
@@ -488,18 +535,23 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[REG_RBP as usize] as _);
     known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[REG_RSP as usize] as _);
 
-    known_registers[X64Register::XMM(XMM::XMM0).to_index().0] = Some(read_xmm(&fpregs._xmm[0]));
-    known_registers[X64Register::XMM(XMM::XMM1).to_index().0] = Some(read_xmm(&fpregs._xmm[1]));
-    known_registers[X64Register::XMM(XMM::XMM2).to_index().0] = Some(read_xmm(&fpregs._xmm[2]));
-    known_registers[X64Register::XMM(XMM::XMM3).to_index().0] = Some(read_xmm(&fpregs._xmm[3]));
-    known_registers[X64Register::XMM(XMM::XMM4).to_index().0] = Some(read_xmm(&fpregs._xmm[4]));
-    known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(read_xmm(&fpregs._xmm[5]));
-    known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(read_xmm(&fpregs._xmm[6]));
-    known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
+    // WSL bug
+    if !(*ucontext).uc_mcontext.fpregs.is_null() {
+        let fpregs = &*(*ucontext).uc_mcontext.fpregs;
+
+        known_registers[X64Register::XMM(XMM::XMM0).to_index().0] = Some(read_xmm(&fpregs._xmm[0]));
+        known_registers[X64Register::XMM(XMM::XMM1).to_index().0] = Some(read_xmm(&fpregs._xmm[1]));
+        known_registers[X64Register::XMM(XMM::XMM2).to_index().0] = Some(read_xmm(&fpregs._xmm[2]));
+        known_registers[X64Register::XMM(XMM::XMM3).to_index().0] = Some(read_xmm(&fpregs._xmm[3]));
+        known_registers[X64Register::XMM(XMM::XMM4).to_index().0] = Some(read_xmm(&fpregs._xmm[4]));
+        known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(read_xmm(&fpregs._xmm[5]));
+        known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(read_xmm(&fpregs._xmm[6]));
+        known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
+    }
 
     FaultInfo {
         faulting_addr: si_addr as usize as _,
-        ip: gregs[REG_RIP as usize] as _,
+        ip: std::mem::transmute::<&mut i64, &'static Cell<usize>>(&mut gregs[REG_RIP as usize]),
         known_registers,
     }
 }
