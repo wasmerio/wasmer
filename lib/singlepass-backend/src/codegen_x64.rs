@@ -2874,15 +2874,15 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::Memory(GPR::RDX, 0), Location::XMM(x));
                         }
                         XMMOrMemory::Memory(base, disp) => {
-                            // TODO: What if base == RDX?
+                            let neg_zero_base = if base == GPR::RDX { GPR::RAX } else { GPR::RDX };
                             a.emit_mov(
                                 Size::S64,
                                 Location::Imm64((&NEG_ZERO as *const u128) as u64),
-                                Location::GPR(GPR::RDX),
+                                Location::GPR(neg_zero_base),
                             );
                             a.emit_mov(
                                 Size::S64,
-                                Location::Memory(GPR::RDX, 0),
+                                Location::Memory(neg_zero_base, 0),
                                 Location::Memory(base, disp),
                             );
                         }
