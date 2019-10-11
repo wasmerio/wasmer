@@ -29,7 +29,7 @@ pub use unix::*;
 pub use windows::*;
 
 /// This function is not safe
-#[allow(clippy::mut_from_ref)]
+#[warn(clippy::mut_from_ref, clippy::cast_ref_to_mut)]
 pub(crate) fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
     unsafe { state::get_wasi_state(&mut *(ctx as *const Ctx as *mut Ctx)) }
 }
@@ -325,6 +325,7 @@ pub fn fd_advise(
 ///     The offset from the start marking the beginning of the allocation
 /// - `__wasi_filesize_t len`
 ///     The length from the offset marking the end of the allocation
+#[warn(clippy::clone_double_ref)]
 pub fn fd_allocate(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -372,6 +373,7 @@ pub fn fd_allocate(
 ///     If `fd` is a directory
 /// - `__WASI_EBADF`
 ///     If `fd` is invalid or not open
+#[warn(clippy::clone_double_ref)]
 pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_close");
     let state = get_wasi_state(ctx);
@@ -388,6 +390,7 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 /// Inputs:
 /// - `__wasi_fd_t fd`
 ///     The file descriptor to sync
+#[warn(clippy::clone_double_ref)]
 pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_datasync");
     let state = get_wasi_state(ctx);
@@ -411,6 +414,7 @@ pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 /// Output:
 /// - `__wasi_fdstat_t *buf`
 ///     The location where the metadata will be written
+#[warn(clippy::clone_double_ref)]
 pub fn fd_fdstat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -525,6 +529,7 @@ pub fn fd_filestat_get(
 ///     File descriptor to adjust
 /// - `__wasi_filesize_t st_size`
 ///     New size that `fd` will be set to
+#[warn(clippy::clone_double_ref)]
 pub fn fd_filestat_set_size(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -1268,6 +1273,7 @@ pub fn fd_write(
 /// Required Rights:
 /// - __WASI_RIGHT_PATH_CREATE_DIRECTORY
 ///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
+#[warn(clippy::clone_double_ref)]
 pub fn path_create_directory(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -1426,6 +1432,7 @@ pub fn path_filestat_get(
 ///     The timestamp that the last modified time attribute is set to
 /// - `__wasi_fstflags_t fst_flags`
 ///     A bitmask controlling which attributes are set
+#[warn(clippy::clone_double_ref)]
 pub fn path_filestat_set_times(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
