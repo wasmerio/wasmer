@@ -2836,16 +2836,18 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::GPR(GPR::RDX),
                         ),
                     };
-
-                    // TODO: we can skip this when dst is an XMM reg.
-                    let tmp_xmm = if src1 == XMM::XMM0 {
-                        if src2 == XMMOrMemory::XMM(XMM::XMM1) {
-                            XMM::XMM2
-                        } else {
-                            XMM::XMM1
-                        }
+                    let tmp_xmm = if dst != src1 && XMMOrMemory::XMM(dst) != src2 {
+                        dst
                     } else {
-                        XMM::XMM0
+                        if src1 == XMM::XMM0 {
+                            if src2 == XMMOrMemory::XMM(XMM::XMM1) {
+                                XMM::XMM2
+                            } else {
+                                XMM::XMM1
+                            }
+                        } else {
+                            XMM::XMM0
+                        }
                     };
                     match src2 {
                         XMMOrMemory::XMM(x) => {
