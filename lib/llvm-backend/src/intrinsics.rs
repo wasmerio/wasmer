@@ -6,7 +6,9 @@ use inkwell::{
     types::{
         BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VectorType, VoidType,
     },
-    values::{BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue},
+    values::{
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, VectorValue,
+    },
     AddressSpace,
 };
 use std::collections::HashMap;
@@ -125,6 +127,8 @@ pub struct Intrinsics {
     pub i128_zero: IntValue,
     pub f32_zero: FloatValue,
     pub f64_zero: FloatValue,
+    pub f32x4_zero: VectorValue,
+    pub f64x2_zero: VectorValue,
 
     pub trap_unreachable: BasicValueEnum,
     pub trap_call_indirect_sig: BasicValueEnum,
@@ -191,6 +195,8 @@ impl Intrinsics {
         let i128_zero = i128_ty.const_int(0, false);
         let f32_zero = f32_ty.const_float(0.0);
         let f64_zero = f64_ty.const_float(0.0);
+        let f32x4_zero = f32x4_ty.const_zero();
+        let f64x2_zero = f64x2_ty.const_zero();
 
         let i1_ty_basic = i1_ty.as_basic_type_enum();
         let i32_ty_basic = i32_ty.as_basic_type_enum();
@@ -455,6 +461,8 @@ impl Intrinsics {
             i128_zero,
             f32_zero,
             f64_zero,
+            f32x4_zero,
+            f64x2_zero,
 
             trap_unreachable: i32_zero.as_basic_value_enum(),
             trap_call_indirect_sig: i32_ty.const_int(1, false).as_basic_value_enum(),
