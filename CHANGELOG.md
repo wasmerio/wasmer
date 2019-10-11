@@ -6,6 +6,8 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
+- [#874](https://github.com/wasmerio/wasmer/pull/874) Convert clippy error to warning
+
 ## 0.8.0 - 2019-10-02
 
 Special thanks to @jdanford for their contributions!
