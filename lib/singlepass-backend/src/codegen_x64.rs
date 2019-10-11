@@ -2823,30 +2823,34 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 |a, src1, src2, dst| {
-                    // TODO: use temp_gpr (or at least check that src2 isn't
-                    //       XMMOrMemory that uses AX or DX.
-                    a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(GPR::RAX));
+                    // TODO: we don't have access to 'machine' here.
+                    //let tmp1 = self.machine.acquire_temp_gpr().unwrap();
+                    //let tmp2 = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp1 = GPR::RAX;
+                    let tmp2 = GPR::RDX;
+                    a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmp1));
                     match src2 {
                         XMMOrMemory::XMM(x) => {
-                            a.emit_mov(Size::S32, Location::XMM(x), Location::GPR(GPR::RDX))
+                            a.emit_mov(Size::S32, Location::XMM(x), Location::GPR(tmp2))
                         }
-                        XMMOrMemory::Memory(base, disp) => a.emit_mov(
-                            Size::S32,
-                            Location::Memory(base, disp),
-                            Location::GPR(GPR::RDX),
-                        ),
+                        XMMOrMemory::Memory(base, disp) => {
+                            a.emit_mov(Size::S32, Location::Memory(base, disp), Location::GPR(tmp2))
+                        }
                     };
-                    let tmp_xmm = if dst != src1 && XMMOrMemory::XMM(dst) != src2 {
-                        dst
+                    let (tmp_xmm, _release_tmp_xmm) = if dst != src1 && XMMOrMemory::XMM(dst) != src2
+                    {
+                        (dst, false)
                     } else {
+                        // TODO: we don't have access to 'machine' here.
+                        //(self.machine.acquire_temp_xmm().unwrap(), true)
                         if src1 == XMM::XMM0 {
                             if src2 == XMMOrMemory::XMM(XMM::XMM1) {
-                                XMM::XMM2
+                                (XMM::XMM2, false)
                             } else {
-                                XMM::XMM1
+                                (XMM::XMM1, false)
                             }
                         } else {
-                            XMM::XMM0
+                            (XMM::XMM0, false)
                         }
                     };
                     match src2 {
@@ -2863,7 +2867,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     let do_vminss = a.get_label();
                     a.emit_jmp(Condition::NotEqual, do_vminss);
                     a.emit_jmp(Condition::ParityEven, do_vminss);
-                    a.emit_cmp(Size::S32, Location::GPR(GPR::RAX), Location::GPR(GPR::RDX));
+                    a.emit_cmp(Size::S32, Location::GPR(tmp1), Location::GPR(tmp2));
                     a.emit_jmp(Condition::Equal, do_vminss);
                     static NEG_ZERO: u128 = 0x80000000;
                     match src2 {
@@ -2871,12 +2875,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(
                                 Size::S64,
                                 Location::Imm64((&NEG_ZERO as *const u128) as u64),
-                                Location::GPR(GPR::RDX),
+                                Location::GPR(tmp2),
                             );
-                            a.emit_mov(Size::S64, Location::Memory(GPR::RDX, 0), Location::XMM(x));
+                            a.emit_mov(Size::S64, Location::Memory(tmp2, 0), Location::XMM(x));
                         }
                         XMMOrMemory::Memory(base, disp) => {
-                            let neg_zero_base = if base == GPR::RDX { GPR::RAX } else { GPR::RDX };
+                            let neg_zero_base = if base == tmp2 { tmp1 } else { tmp2 };
                             a.emit_mov(
                                 Size::S64,
                                 Location::Imm64((&NEG_ZERO as *const u128) as u64),
@@ -2891,6 +2895,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     };
                     a.emit_label(do_vminss);
                     a.emit_vminss(src1, src2, dst);
+                    // TODO: we don't have access to 'machine' here.
+                    //if release_tmp_xmm { self.machine.release_temp_xmm(tmp_xmm) }
                 },
             ),
             Operator::F32Eq => Self::emit_fp_cmpop_avx(
