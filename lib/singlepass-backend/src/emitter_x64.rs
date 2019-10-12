@@ -26,8 +26,6 @@ pub enum Condition {
     Equal,
     NotEqual,
     Signed,
-    ParityEven,
-    ParityOdd,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -614,8 +612,6 @@ impl Emitter for Assembler {
             Condition::Equal => jmp_op!(je, self, label),
             Condition::NotEqual => jmp_op!(jne, self, label),
             Condition::Signed => jmp_op!(js, self, label),
-            Condition::ParityEven => jmp_op!(jp, self, label),
-            Condition::ParityOdd => jmp_op!(jnp, self, label),
         }
     }
     fn emit_jmp_location(&mut self, loc: Location) {
@@ -639,8 +635,6 @@ impl Emitter for Assembler {
             Condition::Equal => trap_op!(je, self),
             Condition::NotEqual => trap_op!(jne, self),
             Condition::Signed => trap_op!(js, self),
-            Condition::ParityEven => trap_op!(jp, self),
-            Condition::ParityOdd => trap_op!(jnp, self),
         }
     }
     fn emit_set(&mut self, condition: Condition, dst: GPR) {
@@ -963,9 +957,15 @@ impl Emitter for Assembler {
 
     fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
         match (src, dst) {
-            (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => dynasm!(self ; movaps Rx(dst as u8), Rx(src as u8)),
-            (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => dynasm!(self ; movaps Rx(dst as u8), [Rq(base as u8) + disp]),
-            (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => dynasm!(self ; movaps [Rq(base as u8) + disp], Rx(src as u8)),
+            (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => {
+                dynasm!(self ; movaps Rx(dst as u8), Rx(src as u8))
+            }
+            (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => {
+                dynasm!(self ; movaps Rx(dst as u8), [Rq(base as u8) + disp])
+            }
+            (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => {
+                dynasm!(self ; movaps [Rq(base as u8) + disp], Rx(src as u8))
+            }
             _ => panic!("singlepass can't emit VMOVAPS {:?} {:?}", src, dst),
         };
     }
@@ -1034,8 +1034,12 @@ impl Emitter for Assembler {
 
     fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
         match src2 {
-            XMMOrMemory::XMM(src2) => dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8)),
-            XMMOrMemory::Memory(base, disp) => dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8)),
+            XMMOrMemory::XMM(src2) => {
+                dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8))
+            }
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
+            }
         }
     }
 
