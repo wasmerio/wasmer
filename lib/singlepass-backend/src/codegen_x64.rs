@@ -2823,6 +2823,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 |a, src1, src2, dst| {
+                    /*
                     // TODO: we don't have access to 'machine' here.
                     //let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                     //let tmp2 = self.machine.acquire_temp_gpr().unwrap();
@@ -2897,6 +2898,75 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a.emit_vminss(src1, src2, dst);
                     // TODO: we don't have access to 'machine' here.
                     //if release_tmp_xmm { self.machine.release_temp_xmm(tmp_xmm) }
+*/
+                    let tmp_xmm1 = /*if dst != src1 && XMMOrMemory::XMM(dst) != src2
+                    {
+                        dst
+                    } else {
+                        // TODO: we don't have access to 'machine' here.
+                        //(self.machine.acquire_temp_xmm().unwrap(), true)
+                        if src1 == XMM::XMM0 {
+                            if src2 == XMMOrMemory::XMM(XMM::XMM1) {
+                                XMM::XMM2
+                            } else {
+                                XMM::XMM1
+                            }
+                        } else {
+                            XMM::XMM0
+                        }
+                    };*/ XMM::XMM6;
+                    let tmp_xmm2 = XMM::XMM7;  // TODO: pick value safely.
+                    let tmp_xmm3 = XMM::XMM5;  // TODO: pick value safely.
+                    /*
+                    let src2 = match src2 {
+                        XMMOrMemory::XMM(x) => x,
+                        XMMOrMemory::Memory(_, _) => panic!(),
+                    };
+                    a.emit_vminss(src1, XMMOrMemory::XMM(src2), src2);
+                    a.emit_vcmpunordss(src1, XMMOrMemory::XMM(src1), tmp_xmm);
+                    a.emit_vblendvps(src1, src2, XMMOrMemory::XMM(src1), tmp_xmm);
+                    a.emit_vcmpordss(src1, XMMOrMemory::XMM(src1), src2);
+                    let canonical_nan_base = GPR::RDX;
+                    static CANONICAL_NAN: u128 = 0x7FC0_0000;
+                    a.emit_mov(Size::S64, Location::Imm64((&CANONICAL_NAN as *const u128) as u64), Location::GPR(canonical_nan_base));
+                    a.emit_mov(Size::S64, Location::Memory(canonical_nan_base, 0), Location::XMM(tmp_xmm));
+                    a.emit_vblendvps(src1, tmp_xmm, XMMOrMemory::XMM(src1), src2);
+                    a.emit_mov(Size::S64, Location::XMM(src2), Location::XMM(dst));
+                     */
+                    static NEG_ZERO: u128 = 0x8000_0000;
+                    static CANONICAL_NAN: u128 = 0x7FC0_0000;
+                    let loc2 = match src2 {
+                        XMMOrMemory::XMM(x) => Location::XMM(x),
+                        XMMOrMemory::Memory(base, disp) => Location::Memory(base, disp),
+                    };
+                    let spare_base = GPR::RDX;
+                    //a.emit_ud2();
+                    a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(GPR::RAX));
+                    a.emit_mov(Size::S32, loc2, Location::GPR(GPR::RDX));
+                    a.emit_cmp(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RAX));
+                    let src2 = match src2 {
+                        XMMOrMemory::XMM(x) => x,
+                        XMMOrMemory::Memory(_, _) => panic!(),
+                    };
+                    a.emit_vminss(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
+                    let label1 = a.get_label();
+                    let label2 = a.get_label();
+                    a.emit_jmp(Condition::NotEqual, label1);
+                    a.emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+                    a.emit_jmp(Condition::None, label2);
+                    a.emit_label(label1);
+                    // load float -0.0
+                    a.emit_mov(Size::S64, Location::Imm64((&NEG_ZERO as *const u128) as u64), Location::GPR(spare_base));
+                    a.emit_mov(Size::S64, Location::Memory(spare_base, 0), Location::XMM(tmp_xmm2));
+                    a.emit_label(label2);
+                    a.emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
+                    a.emit_vblendvps(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1);
+                    a.emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1);
+                    // load float canonical nan
+                    a.emit_mov(Size::S64, Location::Imm64((&CANONICAL_NAN as *const u128) as u64), Location::GPR(spare_base));
+                    a.emit_mov(Size::S64, Location::Memory(spare_base, 0), Location::XMM(src2));
+                    a.emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
+                    a.emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(dst));
                 },
             ),
             Operator::F32Eq => Self::emit_fp_cmpop_avx(

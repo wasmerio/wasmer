@@ -107,6 +107,8 @@ pub trait Emitter {
     fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR);
     fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR);
 
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
+
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
@@ -138,6 +140,12 @@ pub trait Emitter {
     fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
+    fn emit_vcmpunordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpunordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
     fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
@@ -165,6 +173,8 @@ pub trait Emitter {
     fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
     fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
     fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
+
+    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
 
     fn emit_test_gpr_64(&mut self, reg: GPR);
 
@@ -951,6 +961,15 @@ impl Emitter for Assembler {
         dynasm!(self ; cmovae Rq(dst as u8), Rq(src as u8));
     }
 
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+        match (src, dst) {
+            (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => dynasm!(self ; movaps Rx(dst as u8), Rx(src as u8)),
+            (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => dynasm!(self ; movaps Rx(dst as u8), [Rq(base as u8) + disp]),
+            (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => dynasm!(self ; movaps [Rq(base as u8) + disp], Rx(src as u8)),
+            _ => panic!("singlepass can't emit VMOVAPS {:?} {:?}", src, dst),
+        };
+    }
+
     avx_fn!(vaddss, emit_vaddss);
     avx_fn!(vaddsd, emit_vaddsd);
 
@@ -987,6 +1006,12 @@ impl Emitter for Assembler {
     avx_fn!(vcmpgess, emit_vcmpgess);
     avx_fn!(vcmpgesd, emit_vcmpgesd);
 
+    avx_fn!(vcmpunordss, emit_vcmpunordss);
+    avx_fn!(vcmpunordsd, emit_vcmpunordsd);
+
+    avx_fn!(vcmpordss, emit_vcmpordss);
+    avx_fn!(vcmpordsd, emit_vcmpordsd);
+
     avx_fn!(vsqrtss, emit_vsqrtss);
     avx_fn!(vsqrtsd, emit_vsqrtsd);
 
@@ -1006,6 +1031,13 @@ impl Emitter for Assembler {
     avx_i2f_32_fn!(vcvtsi2sd, emit_vcvtsi2sd_32);
     avx_i2f_64_fn!(vcvtsi2ss, emit_vcvtsi2ss_64);
     avx_i2f_64_fn!(vcvtsi2sd, emit_vcvtsi2sd_64);
+
+    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+        match src2 {
+            XMMOrMemory::XMM(src2) => dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8)),
+        }
+    }
 
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
