@@ -1,8 +1,11 @@
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
 use wasmer_runtime_core::{
     codegen::{Event, EventSink, FunctionMiddleware, InternalEvent},
     module::ModuleInfo,
 };
-use std::sync::{Arc, atomic::{Ordering, AtomicU32}};
 
 pub struct CallTrace {
     counter: Arc<AtomicU32>,

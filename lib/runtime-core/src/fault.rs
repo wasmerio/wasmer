@@ -244,7 +244,9 @@ extern "C" fn signal_trap_handler(
     siginfo: *mut siginfo_t,
     ucontext: *mut c_void,
 ) {
-    use crate::backend::{Architecture, InlineBreakpointType, get_inline_breakpoint_size, read_inline_breakpoint};
+    use crate::backend::{
+        get_inline_breakpoint_size, read_inline_breakpoint, Architecture, InlineBreakpointType,
+    };
 
     #[cfg(target_arch = "x86_64")]
     static ARCH: Architecture = Architecture::X64;
@@ -260,30 +262,35 @@ extern "C" fn signal_trap_handler(
                 let magic_size = if let Some(x) = get_inline_breakpoint_size(ARCH, v.backend) {
                     x
                 } else {
-                    continue
+                    continue;
                 };
                 let ip = fault.ip.get();
                 let end = v.base + v.msm.total_size;
                 if ip >= v.base && ip < end && ip + magic_size <= end {
-                    if let Some(ib) = read_inline_breakpoint(ARCH, v.backend, std::slice::from_raw_parts(ip as *const u8, magic_size)) {
+                    if let Some(ib) = read_inline_breakpoint(
+                        ARCH,
+                        v.backend,
+                        std::slice::from_raw_parts(ip as *const u8, magic_size),
+                    ) {
                         fault.ip.set(ip + magic_size);
-                        
+
                         match ib.ty {
-                            InlineBreakpointType::Trace => {},
+                            InlineBreakpointType::Trace => {}
                             InlineBreakpointType::Middleware => {
-                                let out: Option<Result<(), Box<dyn Any>>> = with_breakpoint_map(|bkpt_map| {
-                                    bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
-                                        x(BreakpointInfo {
-                                            fault: Some(&fault),
+                                let out: Option<Result<(), Box<dyn Any>>> =
+                                    with_breakpoint_map(|bkpt_map| {
+                                        bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
+                                            x(BreakpointInfo {
+                                                fault: Some(&fault),
+                                            })
                                         })
-                                    })
-                                });
+                                    });
                                 if let Some(Ok(())) = out {
                                 } else {
                                     println!("Failed calling middleware: {:?}", out);
                                 }
                             }
-                            _ => println!("Unknown breakpoint type: {:?}", ib.ty)
+                            _ => println!("Unknown breakpoint type: {:?}", ib.ty),
                         }
                         return true;
                     }

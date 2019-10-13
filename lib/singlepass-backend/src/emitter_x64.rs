@@ -1,6 +1,6 @@
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+use wasmer_runtime_core::backend::InlineBreakpointType;
 pub use wasmer_runtime_core::state::x64_decl::{GPR, XMM};
-use wasmer_runtime_core::backend::{InlineBreakpointType};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {

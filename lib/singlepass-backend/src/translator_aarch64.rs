@@ -3,7 +3,7 @@
 use crate::codegen_x64::*;
 use crate::emitter_x64::*;
 use dynasmrt::{aarch64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-use wasmer_runtime_core::backend::{InlineBreakpointType};
+use wasmer_runtime_core::backend::InlineBreakpointType;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct AX(pub u32);
@@ -558,7 +558,7 @@ impl Emitter for Assembler {
                 }
                 dynasm!(self ; str D(map_xmm(src).v()), [x_tmp3] );
             }
-            _ => panic!("NOT IMPL: {:?} {:?} {:?}", sz, src, dst)
+            _ => panic!("NOT IMPL: {:?} {:?} {:?}", sz, src, dst),
         }
     }
 
@@ -844,7 +844,7 @@ impl Emitter for Assembler {
                     ; ldr w_tmp1, [x_tmp3]
                     ; cmp w_tmp1, W(map_gpr(left).x())
                 )
-            },
+            }
             (Size::S64, Location::GPR(left), Location::Memory(base, disp)) => {
                 if disp >= 0 {
                     dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
@@ -856,7 +856,7 @@ impl Emitter for Assembler {
                     ; ldr x_tmp1, [x_tmp3]
                     ; cmp x_tmp1, X(map_gpr(left).x())
                 )
-            },
+            }
             (Size::S32, Location::Memory(base, disp), Location::GPR(right)) => {
                 if disp >= 0 {
                     dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
@@ -868,7 +868,7 @@ impl Emitter for Assembler {
                     ; ldr w_tmp1, [x_tmp3]
                     ; cmp W(map_gpr(right).x()), w_tmp1
                 )
-            },
+            }
             (Size::S64, Location::Memory(base, disp), Location::GPR(right)) => {
                 if disp >= 0 {
                     dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
@@ -880,7 +880,7 @@ impl Emitter for Assembler {
                     ; ldr x_tmp1, [x_tmp3]
                     ; cmp X(map_gpr(right).x()), x_tmp1
                 )
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -927,7 +927,7 @@ impl Emitter for Assembler {
                             ; ldr w_tmp1, [x_tmp3]
                         )
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
                 dynasm!(
                     self
@@ -953,7 +953,7 @@ impl Emitter for Assembler {
                             ; ldr x_tmp1, [x_tmp3]
                         )
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
                 dynasm!(
                     self
@@ -962,7 +962,7 @@ impl Emitter for Assembler {
                     ; msub X(map_gpr(GPR::RDX).x()), X(map_gpr(GPR::RAX).x()), x_tmp1, x_tmp2
                 )
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
     fn emit_idiv(&mut self, sz: Size, divisor: Location) {
@@ -984,7 +984,7 @@ impl Emitter for Assembler {
                             ; ldr w_tmp1, [x_tmp3]
                         )
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
                 dynasm!(
                     self
@@ -1010,7 +1010,7 @@ impl Emitter for Assembler {
                             ; ldr x_tmp1, [x_tmp3]
                         )
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
                 dynasm!(
                     self
@@ -1019,7 +1019,7 @@ impl Emitter for Assembler {
                     ; msub X(map_gpr(GPR::RDX).x()), X(map_gpr(GPR::RAX).x()), x_tmp1, x_tmp2
                 )
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
     fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) {
@@ -1034,43 +1034,42 @@ impl Emitter for Assembler {
     fn emit_rol(&mut self, sz: Size, src: Location, dst: Location) {
         // TODO: We are changing content of `src` (possibly RCX) here. Will this break any assumptions?
         match sz {
-            Size::S32 => {
-                match src {
-                    Location::Imm8(x) => {
-                        assert!(x < 32);
-                        binop_shift!(ror, self, sz, Location::Imm8(32 - x), dst, { unreachable!("rol") });
-                    }
-                    Location::GPR(GPR::RCX) => {
-                        dynasm!(
-                            self
-                            ; mov w_tmp1, 32
-                            ; sub W(map_gpr(GPR::RCX).x()), w_tmp1, W(map_gpr(GPR::RCX).x())
-                        );
-                        binop_shift!(ror, self, sz, src, dst, { unreachable!("rol") });
-                    }
-                    _ => unreachable!()
+            Size::S32 => match src {
+                Location::Imm8(x) => {
+                    assert!(x < 32);
+                    binop_shift!(ror, self, sz, Location::Imm8(32 - x), dst, {
+                        unreachable!("rol")
+                    });
                 }
-            }
-            Size::S64 => {
-                match src {
-                    Location::Imm8(x) => {
-                        assert!(x < 64);
-                        binop_shift!(ror, self, sz, Location::Imm8(64 - x), dst, { unreachable!("rol") });
-                    }
-                    Location::GPR(GPR::RCX) => {
-                        dynasm!(
-                            self
-                            ; mov x_tmp1, 64
-                            ; sub X(map_gpr(GPR::RCX).x()), x_tmp1, X(map_gpr(GPR::RCX).x())
-                        );
-                        binop_shift!(ror, self, sz, src, dst, { unreachable!("rol") });
-                    }
-                    _ => unreachable!()
+                Location::GPR(GPR::RCX) => {
+                    dynasm!(
+                        self
+                        ; mov w_tmp1, 32
+                        ; sub W(map_gpr(GPR::RCX).x()), w_tmp1, W(map_gpr(GPR::RCX).x())
+                    );
+                    binop_shift!(ror, self, sz, src, dst, { unreachable!("rol") });
                 }
-            }
-            _ => unreachable!()
+                _ => unreachable!(),
+            },
+            Size::S64 => match src {
+                Location::Imm8(x) => {
+                    assert!(x < 64);
+                    binop_shift!(ror, self, sz, Location::Imm8(64 - x), dst, {
+                        unreachable!("rol")
+                    });
+                }
+                Location::GPR(GPR::RCX) => {
+                    dynasm!(
+                        self
+                        ; mov x_tmp1, 64
+                        ; sub X(map_gpr(GPR::RCX).x()), x_tmp1, X(map_gpr(GPR::RCX).x())
+                    );
+                    binop_shift!(ror, self, sz, src, dst, { unreachable!("rol") });
+                }
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
         }
-        
     }
     fn emit_ror(&mut self, sz: Size, src: Location, dst: Location) {
         binop_shift!(ror, self, sz, src, dst, { unreachable!("ror") });
@@ -1485,76 +1484,78 @@ impl Emitter for Assembler {
     }
 }
 
-fn emit_clz_variant(assembler: &mut Assembler, sz: Size, src: &Location, dst: &Location, reversed: bool) {
+fn emit_clz_variant(
+    assembler: &mut Assembler,
+    sz: Size,
+    src: &Location,
+    dst: &Location,
+    reversed: bool,
+) {
     match sz {
-            Size::S32 => {
-                match *src {
-                    Location::GPR(src) => {
-                        dynasm!(
-                            assembler
-                            ; mov w_tmp1, W(map_gpr(src).x())
-                        )
+        Size::S32 => {
+            match *src {
+                Location::GPR(src) => dynasm!(
+                    assembler
+                    ; mov w_tmp1, W(map_gpr(src).x())
+                ),
+                Location::Memory(base, disp) => {
+                    if disp >= 0 {
+                        dynasm!(assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    } else {
+                        dynasm!(assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
                     }
-                    Location::Memory(base, disp) => {
-                        if disp >= 0 {
-                            dynasm!(assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
-                        } else {
-                            dynasm!(assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
-                        }
-                        dynasm!(
-                            assembler
-                            ; ldr w_tmp1, [x_tmp3]
-                        )
-                    }
-                    _ => unreachable!()
+                    dynasm!(
+                        assembler
+                        ; ldr w_tmp1, [x_tmp3]
+                    )
                 }
-                match *dst {
-                    Location::GPR(dst) => {
-                        if reversed {
-                            dynasm!(assembler ; rbit w_tmp1, w_tmp1);
-                        }
-                        dynasm!(
-                            assembler
-                            ; clz W(map_gpr(dst).x()), w_tmp1
-                        );
-                    }
-                    _ => unreachable!()
-                }
+                _ => unreachable!(),
             }
-            Size::S64 => {
-                match *src {
-                    Location::GPR(src) => {
-                        dynasm!(
-                            assembler
-                            ; mov x_tmp1, X(map_gpr(src).x())
-                        )
+            match *dst {
+                Location::GPR(dst) => {
+                    if reversed {
+                        dynasm!(assembler ; rbit w_tmp1, w_tmp1);
                     }
-                    Location::Memory(base, disp) => {
-                        if disp >= 0 {
-                            dynasm!(assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
-                        } else {
-                            dynasm!(assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
-                        }
-                        dynasm!(
-                            assembler
-                            ; ldr x_tmp1, [x_tmp3]
-                        )
-                    }
-                    _ => unreachable!()
+                    dynasm!(
+                        assembler
+                        ; clz W(map_gpr(dst).x()), w_tmp1
+                    );
                 }
-                match *dst {
-                    Location::GPR(dst) => {
-                        if reversed {
-                            dynasm!(assembler ; rbit x_tmp1, x_tmp1)
-                        }
-                        dynasm!(
-                            assembler
-                            ; clz X(map_gpr(dst).x()), x_tmp1
-                        );
-                    }
-                    _ => unreachable!()
-                }
+                _ => unreachable!(),
             }
-            _ => unreachable!()
         }
+        Size::S64 => {
+            match *src {
+                Location::GPR(src) => dynasm!(
+                    assembler
+                    ; mov x_tmp1, X(map_gpr(src).x())
+                ),
+                Location::Memory(base, disp) => {
+                    if disp >= 0 {
+                        dynasm!(assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    } else {
+                        dynasm!(assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    }
+                    dynasm!(
+                        assembler
+                        ; ldr x_tmp1, [x_tmp3]
+                    )
+                }
+                _ => unreachable!(),
+            }
+            match *dst {
+                Location::GPR(dst) => {
+                    if reversed {
+                        dynasm!(assembler ; rbit x_tmp1, x_tmp1)
+                    }
+                    dynasm!(
+                        assembler
+                        ; clz X(map_gpr(dst).x()), x_tmp1
+                    );
+                }
+                _ => unreachable!(),
+            }
+        }
+        _ => unreachable!(),
+    }
 }

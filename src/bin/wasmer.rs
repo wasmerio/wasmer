@@ -621,10 +621,17 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         options
                             .optimized_backends
                             .iter()
-                            .map(|&backend| -> (Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
-                                let options = options.clone();
-                                (backend, Box::new(move || get_compiler_by_backend(backend, &options).unwrap()))
-                            })
+                            .map(
+                                |&backend| -> (Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
+                                    let options = options.clone();
+                                    (
+                                        backend,
+                                        Box::new(move || {
+                                            get_compiler_by_backend(backend, &options).unwrap()
+                                        }),
+                                    )
+                                },
+                            )
                             .collect(),
                         interactive_shell,
                     )?
@@ -635,13 +642,17 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             {
                 use wasmer_runtime::error::RuntimeError;
                 use wasmer_runtime_core::{
-                    fault::{push_code_version, pop_code_version},
-                    state::CodeVersion
+                    fault::{pop_code_version, push_code_version},
+                    state::CodeVersion,
                 };
 
                 push_code_version(CodeVersion {
                     baseline: true,
-                    msm: instance.module.runnable_module.get_module_state_map().unwrap(),
+                    msm: instance
+                        .module
+                        .runnable_module
+                        .get_module_state_map()
+                        .unwrap(),
                     base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
                     backend: options.backend,
                 });
@@ -815,7 +826,7 @@ fn validate(validate: Validate) {
 }
 
 fn get_compiler_by_backend(backend: Backend, opts: &Run) -> Option<Box<dyn Compiler>> {
-    use wasmer_runtime_core::codegen::{MiddlewareChain};
+    use wasmer_runtime_core::codegen::MiddlewareChain;
     let opts = opts.clone();
     let middlewares_gen = move || {
         let mut middlewares = MiddlewareChain::new();
@@ -825,14 +836,15 @@ fn get_compiler_by_backend(backend: Backend, opts: &Run) -> Option<Box<dyn Compi
         }
         middlewares
     };
-    
+
     Some(match backend {
         #[cfg(feature = "backend-singlepass")]
         Backend::Singlepass => {
+            use wasmer_runtime_core::codegen::StreamingCompiler;
             use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
-            use wasmer_runtime_core::codegen::{StreamingCompiler};
 
-            let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(middlewares_gen);
+            let c: StreamingCompiler<SinglePassMCG, _, _, _, _> =
+                StreamingCompiler::new(middlewares_gen);
             Box::new(c)
         }
         #[cfg(not(feature = "backend-singlepass"))]

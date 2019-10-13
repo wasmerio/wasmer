@@ -1,6 +1,6 @@
+use crate::backend::Backend;
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
-use crate::backend::Backend;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);

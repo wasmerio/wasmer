@@ -94,11 +94,15 @@ pub fn get_inline_breakpoint_size(arch: Architecture, backend: Backend) -> Optio
     match (arch, backend) {
         (Architecture::X64, Backend::Singlepass) => Some(7),
         (Architecture::Aarch64, Backend::Singlepass) => Some(12),
-        _ => None
+        _ => None,
     }
 }
 
-pub fn read_inline_breakpoint(arch: Architecture, backend: Backend, code: &[u8]) -> Option<InlineBreakpoint> {
+pub fn read_inline_breakpoint(
+    arch: Architecture,
+    backend: Backend,
+    code: &[u8],
+) -> Option<InlineBreakpoint> {
     match arch {
         Architecture::X64 => match backend {
             Backend::Singlepass => {
@@ -118,7 +122,7 @@ pub fn read_inline_breakpoint(arch: Architecture, backend: Backend, code: &[u8])
                     None
                 }
             }
-            _ => None
+            _ => None,
         },
         Architecture::Aarch64 => match backend {
             Backend::Singlepass => {
@@ -131,14 +135,14 @@ pub fn read_inline_breakpoint(arch: Architecture, backend: Backend, code: &[u8])
                             0 => InlineBreakpointType::Trace,
                             1 => InlineBreakpointType::Middleware,
                             _ => InlineBreakpointType::Unknown,
-                        }
+                        },
                     })
                 } else {
                     None
                 }
-            },
+            }
             _ => None,
-        }
+        },
     }
 }
 
