@@ -179,6 +179,10 @@ struct Run {
     #[structopt(long = "call-trace")]
     call_trace: bool,
 
+    // Enable the BlockTrace middleware.
+    #[structopt(long = "block-trace")]
+    block_trace: bool,
+
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
     /// help commands and error messages of the running wasm program
@@ -833,6 +837,10 @@ fn get_compiler_by_backend(backend: Backend, opts: &Run) -> Option<Box<dyn Compi
         if opts.call_trace {
             use wasmer_middleware_common::call_trace::CallTrace;
             middlewares.push(CallTrace::new());
+        }
+        if opts.block_trace {
+            use wasmer_middleware_common::block_trace::BlockTrace;
+            middlewares.push(BlockTrace::new());
         }
         middlewares
     };
