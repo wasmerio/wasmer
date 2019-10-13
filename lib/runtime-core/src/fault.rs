@@ -265,9 +265,7 @@ extern "C" fn signal_trap_handler(
                 let ip = fault.ip.get();
                 let end = v.base + v.msm.total_size;
                 if ip >= v.base && ip < end && ip + magic_size <= end {
-                    if let Some(ib) = read_inline_breakpoint(ARCH, v.backend, unsafe {
-                        std::slice::from_raw_parts(ip as *const u8, magic_size)
-                    }) {
+                    if let Some(ib) = read_inline_breakpoint(ARCH, v.backend, std::slice::from_raw_parts(ip as *const u8, magic_size)) {
                         fault.ip.set(ip + magic_size);
                         
                         match ib.ty {
@@ -557,7 +555,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
 }
 
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
     #[allow(dead_code)]
     #[repr(C)]
     struct ucontext_t {
@@ -566,7 +564,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
         uc_stack: libc::stack_t,
         uc_link: *const ucontext_t,
         uc_mcsize: u64,
-        uc_mcontext: *const mcontext_t,
+        uc_mcontext: *mut mcontext_t,
     }
     #[repr(C)]
     struct exception_state {
@@ -615,8 +613,8 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     let siginfo = siginfo as *const siginfo_t;
     let si_addr = (*siginfo).si_addr;
 
-    let ucontext = ucontext as *const ucontext_t;
-    let ss = &(*(*ucontext).uc_mcontext).ss;
+    let ucontext = ucontext as *mut ucontext_t;
+    let ss = &mut (*(*ucontext).uc_mcontext).ss;
     let fs = &(*(*ucontext).uc_mcontext).fs;
 
     let mut known_registers: [Option<u64>; 24] = [None; 24];
@@ -650,7 +648,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
 
     FaultInfo {
         faulting_addr: si_addr,
-        ip: ss.rip as _,
+        ip: std::mem::transmute::<&mut u64, &'static Cell<usize>>(&mut ss.rip),
         known_registers,
     }
 }
