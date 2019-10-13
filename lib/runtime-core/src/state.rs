@@ -875,12 +875,19 @@ pub mod x64 {
         mut stack: *const u64,
         initially_known_registers: [Option<u64>; 24],
         mut initial_address: Option<u64>,
+        max_depth: Option<usize>,
     ) -> ExecutionStateImage {
         let mut known_registers: [Option<u64>; 24] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
         let mut was_baseline = true;
 
-        for _ in 0.. {
+        for depth in 0.. {
+            if let Some(max_depth) = max_depth {
+                if depth >= max_depth {
+                    return ExecutionStateImage { frames: results };
+                }
+            }
+
             let ret_addr = initial_address.take().unwrap_or_else(|| {
                 let x = *stack;
                 stack = stack.offset(1);
@@ -891,7 +898,7 @@ pub mod x64 {
             let mut is_baseline: Option<bool> = None;
 
             for version in versions() {
-                println!("Lookup IP: {:x}", ret_addr);
+                //println!("Lookup IP: {:x}", ret_addr);
                 match version
                     .msm
                     .lookup_call_ip(ret_addr as usize, version.base)
@@ -1079,7 +1086,7 @@ pub mod x64 {
                 stack: wasm_stack,
                 locals: wasm_locals,
             };
-            println!("WFS = {:?}", wfs);
+            //println!("WFS = {:?}", wfs);
             results.push(wfs);
         }
 

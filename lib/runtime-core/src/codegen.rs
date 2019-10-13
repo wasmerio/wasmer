@@ -3,6 +3,7 @@ use crate::{
     backend::{Backend, CacheGen, Compiler, CompilerConfig, Features, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
+    fault::FaultInfo,
     module::{ModuleInfo, ModuleInner},
     structures::Map,
     types::{FuncIndex, FuncSig, SigIndex},
@@ -49,7 +50,7 @@ impl fmt::Debug for InternalEvent {
 }
 
 pub struct BreakpointInfo<'a> {
-    pub fault: Option<&'a dyn Any>,
+    pub fault: Option<&'a FaultInfo>,
 }
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {

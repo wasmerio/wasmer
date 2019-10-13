@@ -20,7 +20,7 @@ pub mod raw {
 
 use crate::codegen::{BreakpointInfo, BreakpointMap};
 use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR, XMM};
-use crate::state::CodeVersion;
+use crate::state::{CodeVersion, ExecutionStateImage};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use nix::sys::signal::{
@@ -344,17 +344,9 @@ extern "C" fn signal_trap_handler(
             }
 
             let ctx: &mut vm::Ctx = &mut **CURRENT_CTX.with(|x| x.get());
-            let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
-
-            let es_image = CURRENT_CODE_VERSIONS.with(|versions| {
-                let versions = versions.borrow();
-                read_stack(
-                    || versions.iter(),
-                    rsp as usize as *const u64,
-                    fault.known_registers,
-                    Some(fault.ip.get() as u64),
-                )
-            });
+            let es_image = fault
+                .read_stack(None)
+                .expect("fault.read_stack() failed. Broken invariants?");
 
             if is_suspend_signal {
                 let image = build_instance_image(ctx, es_image);
@@ -429,6 +421,26 @@ pub struct FaultInfo {
     pub faulting_addr: *const c_void,
     pub ip: &'static Cell<usize>,
     pub known_registers: [Option<u64>; 24],
+}
+
+impl FaultInfo {
+    pub unsafe fn read_stack(&self, max_depth: Option<usize>) -> Option<ExecutionStateImage> {
+        let rsp = match self.known_registers[X64Register::GPR(GPR::RSP).to_index().0] {
+            Some(x) => x,
+            None => return None,
+        };
+
+        Some(CURRENT_CODE_VERSIONS.with(|versions| {
+            let versions = versions.borrow();
+            read_stack(
+                || versions.iter(),
+                rsp as usize as *const u64,
+                self.known_registers,
+                Some(self.ip.get() as u64),
+                max_depth,
+            )
+        }))
+    }
 }
 
 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
