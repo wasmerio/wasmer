@@ -272,8 +272,6 @@ extern "C" fn signal_trap_handler(
                         v.backend,
                         std::slice::from_raw_parts(ip as *const u8, magic_size),
                     ) {
-                        fault.ip.set(ip + magic_size);
-
                         match ib.ty {
                             InlineBreakpointType::Trace => {}
                             InlineBreakpointType::Middleware => {
@@ -292,6 +290,8 @@ extern "C" fn signal_trap_handler(
                             }
                             _ => println!("Unknown breakpoint type: {:?}", ib.ty),
                         }
+
+                        fault.ip.set(ip + magic_size);
                         return true;
                     }
                     break;
