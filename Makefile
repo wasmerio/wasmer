@@ -100,7 +100,7 @@ llvm: spectests-llvm emtests-llvm wasitests-llvm
 # All tests
 capi:
 	#cargo build --release
-	#cargo build -p wasmer-runtime-c-api --release
+	cargo build -p wasmer-runtime-c-api --release
 
 test-capi: capi
 	#cargo test -p wasmer-runtime-c-api --release
