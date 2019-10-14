@@ -28,7 +28,7 @@ spectests-singlepass:
 	#cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture
 
 spectests-cranelift:
-	cargo test --manifest-path lib/spectests/Cargo.toml --features clif -- --nocapture -- --test-threads=1
+	cargo test --manifest-path lib/spectests/Cargo.toml --features clif -- --nocapture
 
 spectests-llvm:
 	#cargo test --manifest-path lib/spectests/Cargo.toml --release --features llvm -- --nocapture
