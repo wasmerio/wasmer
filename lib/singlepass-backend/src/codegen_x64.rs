@@ -18,7 +18,8 @@ use std::{
 };
 use wasmer_runtime_core::{
     backend::{
-        sys::Memory, Backend, CacheGen, CompilerConfig, MemoryBoundCheckMode, RunnableModule, Token,
+        get_inline_breakpoint_size, sys::Memory, Architecture, Backend, CacheGen, CompilerConfig,
+        MemoryBoundCheckMode, RunnableModule, Token,
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
@@ -39,6 +40,11 @@ use wasmer_runtime_core::{
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
 };
 use wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
+
+#[cfg(target_arch = "aarch64")]
+static ARCH: Architecture = Architecture::Aarch64;
+#[cfg(target_arch = "x86_64")]
+static ARCH: Architecture = Architecture::X64;
 
 #[cfg(target_arch = "x86_64")]
 lazy_static! {
@@ -679,6 +685,28 @@ impl X64FunctionCode {
             offset,
             OffsetInfo {
                 end_offset: offset + 1,
+                activate_offset: offset,
+                diff_id: state_diff_id,
+            },
+        );
+        fsm.wasm_offset_to_target_offset
+            .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
+    }
+
+    fn mark_inline_breakpoint(
+        a: &mut Assembler,
+        m: &Machine,
+        fsm: &mut FunctionStateMap,
+        control_stack: &mut [ControlFrame],
+    ) {
+        let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
+        let offset = a.get_offset().0;
+        fsm.trappable_offsets.insert(
+            offset,
+            OffsetInfo {
+                end_offset: offset
+                    + get_inline_breakpoint_size(ARCH, Backend::Singlepass)
+                        .expect("cannot get inline breakpoint size"),
                 activate_offset: offset,
                 diff_id: state_diff_id,
             },
@@ -1909,6 +1937,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             .as_mut()
                             .unwrap()
                             .insert(a.get_offset(), callback);
+                        Self::mark_trappable(a, &self.machine, &mut self.fsm, &mut self.control_stack);
                         a.emit_inline_breakpoint(InlineBreakpointType::Middleware);
                     }
                     InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {}
