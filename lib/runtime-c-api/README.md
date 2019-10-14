@@ -36,6 +36,7 @@ The C and C++ header files can be found in the source tree of this
 crate, respectively [`wasmer.h`][wasmer_h] and
 [`wasmer.hh`][wasmer_hh]. They are automatically generated, and always
 up-to-date in this repository.
+The runtime library needed to compile (so, dll, dylib) can be donwloaded in wasmer [release page](https://github.com/wasmerio/wasmer/releases).
 
 Here is a simple example to use the C API:
 
