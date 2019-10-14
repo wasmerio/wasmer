@@ -34,8 +34,16 @@ impl FunctionMiddleware for BlockTrace {
                 let evt_idx = self.evt_idx;
                 sink.push(op);
                 sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
-                    move |_| {
-                        eprintln!("[BlockTrace] ({}, {}) -> enter_func", func_idx, evt_idx);
+                    move |info| {
+                        eprintln!(
+                            "[BlockTrace] ({}, {}) -> enter_func % {:?}",
+                            func_idx,
+                            evt_idx,
+                            info.fault
+                                .and_then(|x| unsafe { x.read_stack(Some(1)) })
+                                .unwrap()
+                                .frames[0]
+                        );
                         Ok(())
                     },
                 ))))
@@ -45,8 +53,16 @@ impl FunctionMiddleware for BlockTrace {
                 let evt_idx = self.evt_idx;
                 sink.push(op);
                 sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
-                    move |_| {
-                        eprintln!("[BlockTrace] ({}, {}) -> leave_call", func_idx, evt_idx);
+                    move |info| {
+                        eprintln!(
+                            "[BlockTrace] ({}, {}) -> leave_call % {:?}",
+                            func_idx,
+                            evt_idx,
+                            info.fault
+                                .and_then(|x| unsafe { x.read_stack(Some(1)) })
+                                .unwrap()
+                                .frames[0]
+                        );
                         Ok(())
                     },
                 ))))
@@ -56,8 +72,16 @@ impl FunctionMiddleware for BlockTrace {
                 let evt_idx = self.evt_idx;
                 sink.push(op);
                 sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
-                    move |_| {
-                        eprintln!("[BlockTrace] ({}, {}) -> block", func_idx, evt_idx);
+                    move |info| {
+                        eprintln!(
+                            "[BlockTrace] ({}, {}) -> block % {:?}",
+                            func_idx,
+                            evt_idx,
+                            info.fault
+                                .and_then(|x| unsafe { x.read_stack(Some(1)) })
+                                .unwrap()
+                                .frames[0]
+                        );
                         Ok(())
                     },
                 ))))
@@ -67,8 +91,16 @@ impl FunctionMiddleware for BlockTrace {
                 let evt_idx = self.evt_idx;
                 sink.push(op);
                 sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
-                    move |_| {
-                        eprintln!("[BlockTrace] ({}, {}) -> loop", func_idx, evt_idx);
+                    move |info| {
+                        eprintln!(
+                            "[BlockTrace] ({}, {}) -> loop % {:?}",
+                            func_idx,
+                            evt_idx,
+                            info.fault
+                                .and_then(|x| unsafe { x.read_stack(Some(1)) })
+                                .unwrap()
+                                .frames[0]
+                        );
                         Ok(())
                     },
                 ))))
@@ -78,8 +110,16 @@ impl FunctionMiddleware for BlockTrace {
                 let evt_idx = self.evt_idx;
                 sink.push(op);
                 sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
-                    move |_| {
-                        eprintln!("[BlockTrace] ({}, {}) -> if", func_idx, evt_idx);
+                    move |info| {
+                        eprintln!(
+                            "[BlockTrace] ({}, {}) -> if % {:?}",
+                            func_idx,
+                            evt_idx,
+                            info.fault
+                                .and_then(|x| unsafe { x.read_stack(Some(1)) })
+                                .unwrap()
+                                .frames[0]
+                        );
                         Ok(())
                     },
                 ))))
@@ -89,8 +129,16 @@ impl FunctionMiddleware for BlockTrace {
                 let evt_idx = self.evt_idx;
                 sink.push(op);
                 sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
-                    move |_| {
-                        eprintln!("[BlockTrace] ({}, {}) -> else", func_idx, evt_idx);
+                    move |info| {
+                        eprintln!(
+                            "[BlockTrace] ({}, {}) -> else % {:?}",
+                            func_idx,
+                            evt_idx,
+                            info.fault
+                                .and_then(|x| unsafe { x.read_stack(Some(1)) })
+                                .unwrap()
+                                .frames[0]
+                        );
                         Ok(())
                     },
                 ))))
