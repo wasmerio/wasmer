@@ -2908,11 +2908,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Location::Imm64((&CANONICAL_NAN as *const u128) as u64),
                     Location::GPR(tmpg),
                 );
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(tmpg, 0),
-                    Location::XMM(src2),
-                );
+                a.emit_mov(Size::S64, Location::Memory(tmpg, 0), Location::XMM(src2));
                 a.emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                 match ret {
                     Location::XMM(x) => {
@@ -2923,6 +2919,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     }
                     _ => unreachable!(),
                 }
+
+                self.machine.release_temp_gpr(tmpg);
+                self.machine.release_temp_xmm(tmp2);
+                self.machine.release_temp_xmm(tmp1);
             }
             Operator::F32Eq => Self::emit_fp_cmpop_avx(
                 a,
