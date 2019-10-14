@@ -1023,6 +1023,14 @@ pub mod x64 {
         XMM5,
         XMM6,
         XMM7,
+        XMM8,
+        XMM9,
+        XMM10,
+        XMM11,
+        XMM12,
+        XMM13,
+        XMM14,
+        XMM15,
     }
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]
