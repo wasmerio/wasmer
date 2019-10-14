@@ -2812,12 +2812,103 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.value_stack,
                 Assembler::emit_vdivss,
             ),
-            Operator::F32Max => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vmaxss,
-            ),
+            Operator::F32Max => {
+                let src2 =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let src1 =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let tmp1 = self.machine.acquire_temp_xmm().unwrap();
+                let tmp2 = self.machine.acquire_temp_xmm().unwrap();
+                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
+                let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
+
+                let src1 = match src1 {
+                    Location::XMM(x) => x,
+                    Location::GPR(_) | Location::Memory(_, _) => {
+                        a.emit_mov(Size::S64, src1, Location::XMM(tmp1));
+                        tmp1
+                    }
+                    Location::Imm32(_) => {
+                        a.emit_mov(Size::S32, src1, Location::GPR(tmpg1));
+                        a.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp1));
+                        tmp1
+                    }
+                    Location::Imm64(_) => {
+                        a.emit_mov(Size::S64, src1, Location::GPR(tmpg1));
+                        a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
+                        tmp1
+                    }
+                    _ => unreachable!(),
+                };
+                let src2 = match src2 {
+                    Location::XMM(x) => x,
+                    Location::GPR(_) | Location::Memory(_, _) => {
+                        a.emit_mov(Size::S64, src2, Location::XMM(tmp2));
+                        tmp2
+                    }
+                    Location::Imm32(_) => {
+                        a.emit_mov(Size::S32, src2, Location::GPR(tmpg1));
+                        a.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp2));
+                        tmp2
+                    }
+                    Location::Imm64(_) => {
+                        a.emit_mov(Size::S64, src2, Location::GPR(tmpg1));
+                        a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
+                        tmp2
+                    }
+                    _ => unreachable!(),
+                };
+
+                let tmp_xmm1 = XMM::XMM8;
+                let tmp_xmm2 = XMM::XMM9;
+                let tmp_xmm3 = XMM::XMM10;
+
+                static CANONICAL_NAN: u128 = 0x7FC0_0000;
+                a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
+                a.emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
+                a.emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
+                a.emit_vmaxss(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
+                let label1 = a.get_label();
+                let label2 = a.get_label();
+                a.emit_jmp(Condition::NotEqual, label1);
+                a.emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+                a.emit_jmp(Condition::None, label2);
+                a.emit_label(label1);
+                a.emit_vxorps(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2);
+                a.emit_label(label2);
+                a.emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
+                a.emit_vblendvps(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1);
+                a.emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1);
+                // load float canonical nan
+                a.emit_mov(
+                    Size::S64,
+                    Location::Imm64((&CANONICAL_NAN as *const u128) as u64),
+                    Location::GPR(tmpg1),
+                );
+                a.emit_mov(Size::S64, Location::Memory(tmpg1, 0), Location::XMM(src2));
+                a.emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
+                match ret {
+                    Location::XMM(x) => {
+                        a.emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                    }
+                    Location::Memory(_, _) | Location::GPR(_) => {
+                        a.emit_mov(Size::S64, Location::XMM(src1), ret);
+                    }
+                    _ => unreachable!(),
+                }
+
+                self.machine.release_temp_gpr(tmpg2);
+                self.machine.release_temp_gpr(tmpg1);
+                self.machine.release_temp_xmm(tmp2);
+                self.machine.release_temp_xmm(tmp1);
+            }
             Operator::F32Min => {
                 let src2 =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());

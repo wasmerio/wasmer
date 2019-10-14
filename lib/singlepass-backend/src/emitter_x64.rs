@@ -106,6 +106,7 @@ pub trait Emitter {
     fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR);
 
     fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
+    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
@@ -1017,6 +1018,8 @@ impl Emitter for Assembler {
             _ => panic!("singlepass can't emit VMOVAPS {:?} {:?}", src, dst),
         };
     }
+
+    avx_fn!(vxorps, emit_vxorps);
 
     avx_fn!(vaddss, emit_vaddss);
     avx_fn!(vaddsd, emit_vaddsd);
