@@ -106,7 +106,9 @@ pub trait Emitter {
     fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR);
 
     fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
     fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
@@ -174,6 +176,7 @@ pub trait Emitter {
     fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
 
     fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
+    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
 
     fn emit_test_gpr_64(&mut self, reg: GPR);
 
@@ -1019,7 +1022,23 @@ impl Emitter for Assembler {
         };
     }
 
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+        match (src, dst) {
+            (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => {
+                dynasm!(self ; movapd Rx(dst as u8), Rx(src as u8))
+            }
+            (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => {
+                dynasm!(self ; movapd Rx(dst as u8), [Rq(base as u8) + disp])
+            }
+            (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => {
+                dynasm!(self ; movapd [Rq(base as u8) + disp], Rx(src as u8))
+            }
+            _ => panic!("singlepass can't emit VMOVAPD {:?} {:?}", src, dst),
+        };
+    }
+
     avx_fn!(vxorps, emit_vxorps);
+    avx_fn!(vxorpd, emit_vxorpd);
 
     avx_fn!(vaddss, emit_vaddss);
     avx_fn!(vaddsd, emit_vaddsd);
@@ -1090,6 +1109,17 @@ impl Emitter for Assembler {
             }
             XMMOrMemory::Memory(base, disp) => {
                 dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
+            }
+        }
+    }
+
+    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+        match src2 {
+            XMMOrMemory::XMM(src2) => {
+                dynasm!(self ; vblendvpd Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8))
+            }
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; vblendvpd Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
             }
         }
     }
