@@ -2832,7 +2832,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 let tmp1 = self.machine.acquire_temp_xmm().unwrap();
                 let tmp2 = self.machine.acquire_temp_xmm().unwrap();
-                let tmpg = self.machine.acquire_temp_gpr().unwrap();
+                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
+                let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
 
                 let src1 = match src1 {
                     Location::XMM(x) => x,
@@ -2841,13 +2842,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         tmp1
                     }
                     Location::Imm32(_) => {
-                        a.emit_mov(Size::S32, src1, Location::GPR(tmpg));
-                        a.emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp1));
+                        a.emit_mov(Size::S32, src1, Location::GPR(tmpg1));
+                        a.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp1));
                         tmp1
                     }
                     Location::Imm64(_) => {
-                        a.emit_mov(Size::S64, src1, Location::GPR(tmpg));
-                        a.emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp1));
+                        a.emit_mov(Size::S64, src1, Location::GPR(tmpg1));
+                        a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
                         tmp1
                     }
                     _ => unreachable!(),
@@ -2859,13 +2860,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         tmp2
                     }
                     Location::Imm32(_) => {
-                        a.emit_mov(Size::S32, src2, Location::GPR(tmpg));
-                        a.emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp2));
+                        a.emit_mov(Size::S32, src2, Location::GPR(tmpg1));
+                        a.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp2));
                         tmp2
                     }
                     Location::Imm64(_) => {
-                        a.emit_mov(Size::S64, src2, Location::GPR(tmpg));
-                        a.emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp2));
+                        a.emit_mov(Size::S64, src2, Location::GPR(tmpg1));
+                        a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
                         tmp2
                     }
                     _ => unreachable!(),
@@ -2877,9 +2878,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 static NEG_ZERO: u128 = 0x8000_0000;
                 static CANONICAL_NAN: u128 = 0x7FC0_0000;
-                a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(GPR::RAX));
-                a.emit_mov(Size::S32, Location::XMM(src2), Location::GPR(GPR::RDX));
-                a.emit_cmp(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RAX));
+                a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
+                a.emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
+                a.emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
                 a.emit_vminss(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
                 let label1 = a.get_label();
                 let label2 = a.get_label();
@@ -2891,11 +2892,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(
                     Size::S64,
                     Location::Imm64((&NEG_ZERO as *const u128) as u64),
-                    Location::GPR(tmpg),
+                    Location::GPR(tmpg1),
                 );
                 a.emit_mov(
                     Size::S64,
-                    Location::Memory(tmpg, 0),
+                    Location::Memory(tmpg1, 0),
                     Location::XMM(tmp_xmm2),
                 );
                 a.emit_label(label2);
@@ -2906,9 +2907,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(
                     Size::S64,
                     Location::Imm64((&CANONICAL_NAN as *const u128) as u64),
-                    Location::GPR(tmpg),
+                    Location::GPR(tmpg1),
                 );
-                a.emit_mov(Size::S64, Location::Memory(tmpg, 0), Location::XMM(src2));
+                a.emit_mov(Size::S64, Location::Memory(tmpg1, 0), Location::XMM(src2));
                 a.emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                 match ret {
                     Location::XMM(x) => {
@@ -2920,7 +2921,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     _ => unreachable!(),
                 }
 
-                self.machine.release_temp_gpr(tmpg);
+                self.machine.release_temp_gpr(tmpg2);
+                self.machine.release_temp_gpr(tmpg1);
                 self.machine.release_temp_xmm(tmp2);
                 self.machine.release_temp_xmm(tmp1);
             }
