@@ -959,7 +959,6 @@ singlepass:fail:linking.wast:236 # AssertTrap - expected trap, got Runtime:Error
 singlepass:fail:linking.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:387 # AssertReturn - result I32(0) ("0x0") does not match expected I32(104) ("0x68")
 singlepass:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:load.wast:201 # AssertReturn - result I32(0) ("0x0") does not match expected I32(32) ("0x20")
 singlepass:fail:memory_grow.wast:15 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:memory_grow.wast:16 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:memory_grow.wast:17 # AssertTrap - expected trap, got Runtime:Error unknown error
@@ -967,7 +966,6 @@ singlepass:fail:memory_grow.wast:18 # AssertTrap - expected trap, got Runtime:Er
 singlepass:fail:memory_grow.wast:24 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:memory_grow.wast:25 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:memory_grow.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_grow.wast:299 # AssertReturn - result I32(0) ("0x0") does not match expected I32(31) ("0x1f")
 singlepass:fail:memory_trap.wast:23 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:memory_trap.wast:24 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:memory_trap.wast:25 # AssertTrap - expected trap, got Runtime:Error unknown error
