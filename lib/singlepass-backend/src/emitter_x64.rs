@@ -91,6 +91,7 @@ pub trait Emitter {
     fn emit_and(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location);
@@ -759,6 +760,14 @@ impl Emitter for Assembler {
         binop_gpr_gpr!(bsr, self, sz, src, dst, {
             binop_mem_gpr!(bsr, self, sz, src, dst, {
                 panic!("singlepass can't emit BSR {:?} {:?} {:?}", sz, src, dst)
+            })
+        });
+    }
+
+    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_gpr_gpr!(bsf, self, sz, src, dst, {
+            binop_mem_gpr!(bsf, self, sz, src, dst, {
+                panic!("singlepass can't emit BSF {:?} {:?} {:?}", sz, src, dst)
             })
         });
     }
