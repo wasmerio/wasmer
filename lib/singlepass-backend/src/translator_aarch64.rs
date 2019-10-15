@@ -224,9 +224,9 @@ macro_rules! binop_gpr_mem {
         match ($sz, $src, $dst) {
             (Size::S32, Location::GPR(src), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!($assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!($assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!($assembler
                     ; ldr w_tmp1, [x_tmp3]
@@ -236,9 +236,9 @@ macro_rules! binop_gpr_mem {
             },
             (Size::S64, Location::GPR(src), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!($assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!($assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!($assembler
                     ; ldr x_tmp1, [x_tmp3]
@@ -256,9 +256,9 @@ macro_rules! binop_mem_gpr {
         match ($sz, $src, $dst) {
             (Size::S32, Location::Memory(base, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!($assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!($assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!($assembler
                     ; ldr w_tmp1, [x_tmp3]
@@ -267,9 +267,9 @@ macro_rules! binop_mem_gpr {
             },
             (Size::S64, Location::Memory(base, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!($assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!($assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!($assembler
                     ; ldr x_tmp1, [x_tmp3]
@@ -305,9 +305,9 @@ macro_rules! binop_shift {
             (Size::S32, Location::Imm8(imm), Location::Memory(base, disp)) => {
                 assert!(imm < 32);
                 if disp >= 0 {
-                    dynasm!($assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!($assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!($assembler
                     ; ldr w_tmp1, [x_tmp3]
@@ -320,9 +320,9 @@ macro_rules! binop_shift {
             },
             (Size::S32, Location::GPR(GPR::RCX), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!($assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!($assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!($assembler
                     ; ldr w_tmp1, [x_tmp3]
@@ -337,9 +337,9 @@ macro_rules! binop_shift {
             (Size::S64, Location::Imm8(imm), Location::Memory(base, disp)) => {
                 assert!(imm < 32);
                 if disp >= 0 {
-                    dynasm!($assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!($assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!($assembler
                     ; ldr x_tmp1, [x_tmp3]
@@ -352,9 +352,9 @@ macro_rules! binop_shift {
             },
             (Size::S64, Location::GPR(GPR::RCX), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!($assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!($assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!($assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!($assembler
                     ; ldr x_tmp1, [x_tmp3]
@@ -402,25 +402,25 @@ impl Emitter for Assembler {
             }
             (Size::S32, Location::Memory(base, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldr W(map_gpr(dst).x()), [x_tmp3] );
             }
             (Size::S32, Location::GPR(src), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; str W(map_gpr(src).x()), [x_tmp3] );
             }
             (Size::S32, Location::Imm32(x), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; b >after; data: ; .dword x as i32; after: ; ldr w_tmp1, <data; str w_tmp1, [x_tmp3] );
             }
@@ -432,25 +432,25 @@ impl Emitter for Assembler {
             }
             (Size::S64, Location::Memory(base, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldr X(map_gpr(dst).x()), [x_tmp3] );
             }
             (Size::S64, Location::GPR(src), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; str X(map_gpr(src).x()), [x_tmp3] );
             }
             (Size::S64, Location::Imm32(x), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; b >after; data: ; .qword x as i64; after: ; ldr x_tmp1, <data; str x_tmp1, [x_tmp3] );
             }
@@ -462,49 +462,49 @@ impl Emitter for Assembler {
             }
             (Size::S8, Location::GPR(src), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; strb W(map_gpr(src).x()), [x_tmp3] );
             }
             (Size::S8, Location::Memory(base, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrb W(map_gpr(dst).x()), [x_tmp3] );
             }
             (Size::S8, Location::Imm32(x), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; b >after; data: ; .dword x as i32; after: ; ldr w_tmp1, <data; strb w_tmp1, [x_tmp3] );
             }
             (Size::S16, Location::GPR(src), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; strh W(map_gpr(src).x()), [x_tmp3] );
             }
             (Size::S16, Location::Memory(base, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrh W(map_gpr(dst).x()), [x_tmp3] );
             }
             (Size::S16, Location::Imm32(x), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; b >after; data: ; .dword x as i32; after: ; ldr w_tmp1, <data; strh w_tmp1, [x_tmp3] );
             }
@@ -519,17 +519,17 @@ impl Emitter for Assembler {
             }
             (Size::S32, Location::Memory(base, disp), Location::XMM(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldr S(map_xmm(dst).v()), [x_tmp3] );
             }
             (Size::S32, Location::XMM(src), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; str S(map_xmm(src).v()), [x_tmp3] );
             }
@@ -544,17 +544,17 @@ impl Emitter for Assembler {
             }
             (Size::S64, Location::Memory(base, disp), Location::XMM(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldr D(map_xmm(dst).v()), [x_tmp3] );
             }
             (Size::S64, Location::XMM(src), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; str D(map_xmm(src).v()), [x_tmp3] );
             }
@@ -657,9 +657,9 @@ impl Emitter for Assembler {
             Location::GPR(x) => dynasm!(self ; br X(map_gpr(x).x())),
             Location::Memory(base, disp) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldr x_tmp1, [x_tmp3]; br x_tmp1);
             }
@@ -737,9 +737,9 @@ impl Emitter for Assembler {
             ),
             (Size::S64, Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self
                     ; ldr x_tmp1, [x_tmp3]
@@ -758,9 +758,9 @@ impl Emitter for Assembler {
             ),
             (Size::S64, Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self
                     ; ldr x_tmp1, [x_rsp]
@@ -795,9 +795,9 @@ impl Emitter for Assembler {
             }
             (Size::S32, Location::Imm32(left), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self
                     ; b >after
@@ -811,9 +811,9 @@ impl Emitter for Assembler {
             }
             (Size::S64, Location::Imm32(left), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self
                     ; b >after
@@ -835,9 +835,9 @@ impl Emitter for Assembler {
             ),
             (Size::S32, Location::GPR(left), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(
                     self
@@ -847,9 +847,9 @@ impl Emitter for Assembler {
             }
             (Size::S64, Location::GPR(left), Location::Memory(base, disp)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(
                     self
@@ -859,9 +859,9 @@ impl Emitter for Assembler {
             }
             (Size::S32, Location::Memory(base, disp), Location::GPR(right)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(
                     self
@@ -871,9 +871,9 @@ impl Emitter for Assembler {
             }
             (Size::S64, Location::Memory(base, disp), Location::GPR(right)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(
                     self
@@ -918,9 +918,9 @@ impl Emitter for Assembler {
                     ),
                     Location::Memory(base, disp) => {
                         if disp >= 0 {
-                            dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                            dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                         } else {
-                            dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                            dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                         }
                         dynasm!(
                             self
@@ -944,9 +944,9 @@ impl Emitter for Assembler {
                     ),
                     Location::Memory(base, disp) => {
                         if disp >= 0 {
-                            dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                            dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                         } else {
-                            dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                            dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                         }
                         dynasm!(
                             self
@@ -975,9 +975,9 @@ impl Emitter for Assembler {
                     ),
                     Location::Memory(base, disp) => {
                         if disp >= 0 {
-                            dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                            dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                         } else {
-                            dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                            dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                         }
                         dynasm!(
                             self
@@ -1001,9 +1001,9 @@ impl Emitter for Assembler {
                     ),
                     Location::Memory(base, disp) => {
                         if disp >= 0 {
-                            dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                            dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                         } else {
-                            dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                            dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                         }
                         dynasm!(
                             self
@@ -1102,17 +1102,17 @@ impl Emitter for Assembler {
             }
             (Size::S8, Location::Memory(base, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrb W(map_gpr(dst).x()), [x_tmp3]);
             }
             (Size::S16, Location::Memory(base, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrh W(map_gpr(dst).x()), [x_tmp3]);
             }
@@ -1129,17 +1129,17 @@ impl Emitter for Assembler {
             }
             (Size::S8, Location::Memory(base, disp), Size::S32, Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrb W(map_gpr(dst).x()), [x_tmp3]; sxtb W(map_gpr(dst).x()), W(map_gpr(dst).x()));
             }
             (Size::S16, Location::Memory(base, disp), Size::S32, Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrh W(map_gpr(dst).x()), [x_tmp3]; sxth W(map_gpr(dst).x()), W(map_gpr(dst).x()));
             }
@@ -1154,25 +1154,25 @@ impl Emitter for Assembler {
             }
             (Size::S8, Location::Memory(base, disp), Size::S64, Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrb W(map_gpr(dst).x()), [x_tmp3]; sxtb X(map_gpr(dst).x()), W(map_gpr(dst).x()));
             }
             (Size::S16, Location::Memory(base, disp), Size::S64, Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrh W(map_gpr(dst).x()), [x_tmp3]; sxth X(map_gpr(dst).x()), W(map_gpr(dst).x()));
             }
             (Size::S32, Location::Memory(base, disp), Size::S64, Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self ; ldrh W(map_gpr(dst).x()), [x_tmp3]; sxtw X(map_gpr(dst).x()), W(map_gpr(dst).x()));
             }
@@ -1395,9 +1395,9 @@ impl Emitter for Assembler {
             ),
             Location::Memory(base, disp) => {
                 if disp >= 0 {
-                    dynasm!(self ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                 } else {
-                    dynasm!(self ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                    dynasm!(self ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
                 dynasm!(self
                     // Push return address.
@@ -1500,9 +1500,9 @@ fn emit_clz_variant(
                 ),
                 Location::Memory(base, disp) => {
                     if disp >= 0 {
-                        dynasm!(assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                        dynasm!(assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                     } else {
-                        dynasm!(assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                        dynasm!(assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                     }
                     dynasm!(
                         assembler
@@ -1532,9 +1532,9 @@ fn emit_clz_variant(
                 ),
                 Location::Memory(base, disp) => {
                     if disp >= 0 {
-                        dynasm!(assembler ; add x_tmp3, X(map_gpr(base).x()), disp as u32);
+                        dynasm!(assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
                     } else {
-                        dynasm!(assembler ; sub x_tmp3, X(map_gpr(base).x()), (-disp) as u32);
+                        dynasm!(assembler ; disp: ; .dword disp as i32 ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                     }
                     dynasm!(
                         assembler
