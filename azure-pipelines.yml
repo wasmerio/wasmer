@@ -61,7 +61,7 @@ jobs:
         displayName: System info - Extended (Linux)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
       - bash: |
-        sysctl -a | grep machdep.cpu
+          sysctl -a | grep machdep.cpu
         displayName: System info - Extended (Mac)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
