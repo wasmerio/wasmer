@@ -2342,13 +2342,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 Location::Imm32(0),
             ),
             Operator::I32Clz => {
-                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let src = match loc {
                     Location::Imm32(_) | Location::Memory(_, _) => {
                         let tmp = self.machine.acquire_temp_gpr().unwrap();
                         a.emit_mov(Size::S32, loc, Location::GPR(tmp));
                         tmp
-                    },
+                    }
                     Location::GPR(reg) => reg,
                     _ => unreachable!(),
                 };
@@ -2361,11 +2362,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 self.value_stack.push(ret);
 
                 let dst = match ret {
-                    Location::Memory(_, _) => { self.machine.acquire_temp_gpr().unwrap() },
+                    Location::Memory(_, _) => self.machine.acquire_temp_gpr().unwrap(),
                     Location::GPR(reg) => reg,
                     _ => unreachable!(),
                 };
-                
+
                 let zero_path = a.get_label();
                 let end = a.get_label();
 
@@ -2381,17 +2382,17 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 match loc {
                     Location::Imm32(_) | Location::Memory(_, _) => {
                         self.machine.release_temp_gpr(src);
-                    },
+                    }
                     _ => {}
                 };
                 match ret {
                     Location::Memory(_, _) => {
                         a.emit_mov(Size::S32, Location::GPR(dst), ret);
                         self.machine.release_temp_gpr(dst);
-                    },
+                    }
                     _ => {}
                 };
-            },
+            }
             Operator::I32Ctz => Self::emit_xcnt_i32(
                 a,
                 &mut self.machine,
