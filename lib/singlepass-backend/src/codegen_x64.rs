@@ -2341,12 +2341,57 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 Condition::Equal,
                 Location::Imm32(0),
             ),
-            Operator::I32Clz => Self::emit_xcnt_i32(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_lzcnt,
-            ),
+            Operator::I32Clz => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let src = match loc {
+                    Location::Imm32(_) | Location::Memory(_, _) => {
+                        let tmp = self.machine.acquire_temp_gpr().unwrap();
+                        a.emit_mov(Size::S32, loc, Location::GPR(tmp));
+                        tmp
+                    },
+                    Location::GPR(reg) => reg,
+                    _ => unreachable!(),
+                };
+
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let dst = match ret {
+                    Location::Memory(_, _) => { self.machine.acquire_temp_gpr().unwrap() },
+                    Location::GPR(reg) => reg,
+                    _ => unreachable!(),
+                };
+                
+                let zero_path = a.get_label();
+                let end = a.get_label();
+
+                a.emit_test_gpr_64(src);
+                a.emit_jmp(Condition::Equal, zero_path);
+                a.emit_bsr(Size::S32, Location::GPR(src), Location::GPR(dst));
+                a.emit_xor(Size::S32, Location::Imm32(31), Location::GPR(dst));
+                a.emit_jmp(Condition::None, end);
+                a.emit_label(zero_path);
+                a.emit_mov(Size::S32, Location::Imm32(32), Location::GPR(dst));
+                a.emit_label(end);
+
+                match loc {
+                    Location::Imm32(_) | Location::Memory(_, _) => {
+                        self.machine.release_temp_gpr(src);
+                    },
+                    _ => {}
+                };
+                match ret {
+                    Location::Memory(_, _) => {
+                        a.emit_mov(Size::S32, Location::GPR(dst), ret);
+                        self.machine.release_temp_gpr(dst);
+                    },
+                    _ => {}
+                };
+            },
             Operator::I32Ctz => Self::emit_xcnt_i32(
                 a,
                 &mut self.machine,
