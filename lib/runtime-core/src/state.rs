@@ -674,6 +674,37 @@ pub mod x64 {
 
         stack_offset -= 1;
         stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM15).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM14).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM13).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM12).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM11).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM10).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM9).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM8).to_index().0].unwrap_or(0);
+        stack_offset -= 1;
+        stack[stack_offset] =
             known_registers[X64Register::XMM(XMM::XMM7).to_index().0].unwrap_or(0);
 
         stack_offset -= 1;
@@ -1074,6 +1105,14 @@ pub mod x64 {
                 22 => X64Register::XMM(XMM::XMM5),
                 23 => X64Register::XMM(XMM::XMM6),
                 24 => X64Register::XMM(XMM::XMM7),
+                25 => X64Register::XMM(XMM::XMM8),
+                26 => X64Register::XMM(XMM::XMM9),
+                27 => X64Register::XMM(XMM::XMM10),
+                28 => X64Register::XMM(XMM::XMM11),
+                29 => X64Register::XMM(XMM::XMM12),
+                30 => X64Register::XMM(XMM::XMM13),
+                31 => X64Register::XMM(XMM::XMM14),
+                32 => X64Register::XMM(XMM::XMM15),
                 _ => return None,
             })
         }
