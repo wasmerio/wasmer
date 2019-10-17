@@ -445,8 +445,9 @@ mod tests {
                                                         "AssertReturnCanonicalNan"
                                                     ),
                                                     message: format!(
-                                                        "value is not canonical nan {:?}",
-                                                        v
+                                                        "value is not canonical nan {:?} ({:?})",
+                                                        v,
+                                                        value_to_hex(v.clone()),
                                                     ),
                                                 },
                                                 &test_key,
@@ -512,8 +513,9 @@ mod tests {
                                                         "AssertReturnArithmeticNan"
                                                     ),
                                                     message: format!(
-                                                        "value is not arithmetic nan {:?}",
-                                                        v
+                                                        "value is not arithmetic nan {:?} ({:?})",
+                                                        v,
+                                                        value_to_hex(v.clone()),
                                                     ),
                                                 },
                                                 &test_key,
@@ -942,6 +944,16 @@ mod tests {
             wasmer_runtime_core::types::Value::F32(x) => x.is_quiet_nan(),
             wasmer_runtime_core::types::Value::F64(x) => x.is_quiet_nan(),
             _ => panic!("value is not a float {:?}", val),
+        }
+    }
+
+    fn value_to_hex(val: wasmer_runtime_core::types::Value) -> String {
+        match val {
+            wasmer_runtime_core::types::Value::I32(x) => format!("{:#x}", x),
+            wasmer_runtime_core::types::Value::I64(x) => format!("{:#x}", x),
+            wasmer_runtime_core::types::Value::F32(x) => format!("{:#x}", x.to_bits()),
+            wasmer_runtime_core::types::Value::F64(x) => format!("{:#x}", x.to_bits()),
+            wasmer_runtime_core::types::Value::V128(x) => format!("{:#x}", x),
         }
     }
 
