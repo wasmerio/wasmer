@@ -153,7 +153,37 @@ check-bench-llvm:
 check-bench: check-bench-singlepass check-bench-llvm
 
 check: check-bench
-	cargo check --release --features backend-singlepass,backend-llvm,loader-kernel,debug
+	# TODO: We wanted `--workspace --exclude wasmer-runtime`, but for
+	# https://github.com/rust-lang/cargo/issues/6745 .
+	cargo check -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
+	cargo check --release -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
+	cargo check -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests --all-features
+	cargo check --release -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests --all-features
+	# wasmer-runtime doesn't work with all backends enabled at once.
+	#
+	# We test using manifest-path directly so as to disable the default.
+	# `--no-default-features` only disables the default features in the
+	# current package, not the package specified by `-p`. This is
+	# intentional.
+	#
+	# Test default features, test 'debug' feature only in non-release
+	# builds, test as many combined features as possible with each backend
+	# as default, and test a minimal set of features with only one backend
+	# at a time.
+	cargo check --manifest-path lib/runtime/Cargo.toml
+	cargo check --release --manifest-path lib/runtime/Cargo.toml
+	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,debug,llvm,singlepass,default-backend-singlepass
+	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,llvm,singlepass,default-backend-singlepass
+	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,debug,llvm,singlepass,default-backend-cranelift
+	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,llvm,singlepass,default-backend-cranelift
+	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,debug,llvm,singlepass,default-backend-llvm
+	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,llvm,singlepass,default-backend-llvm
+	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=singlepass,default-backend-singlepass,debug
+	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=singlepass,default-backend-singlepass
+	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,default-backend-cranelift,debug
+	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,default-backend-cranelift
+	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=llvm,default-backend-llvm,debug
+	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=llvm,default-backend-llvm
 
 # Release
 release:

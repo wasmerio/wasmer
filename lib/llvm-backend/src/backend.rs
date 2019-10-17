@@ -477,33 +477,3 @@ impl CacheGen for LLVMCache {
         Ok(([].as_ref().into(), memory))
     }
 }
-
-#[cfg(feature = "disasm")]
-unsafe fn disass_ptr(ptr: *const u8, size: usize, inst_count: usize) {
-    use capstone::arch::BuildsCapstone;
-    let mut cs = capstone::Capstone::new() // Call builder-pattern
-        .x86() // X86 architecture
-        .mode(capstone::arch::x86::ArchMode::Mode64) // 64-bit mode
-        .detail(true) // Generate extra instruction details
-        .build()
-        .expect("Failed to create Capstone object");
-
-    // Get disassembled instructions
-    let insns = cs
-        .disasm_count(
-            std::slice::from_raw_parts(ptr, size),
-            ptr as u64,
-            inst_count,
-        )
-        .expect("Failed to disassemble");
-
-    println!("count = {}", insns.len());
-    for insn in insns.iter() {
-        println!(
-            "0x{:x}: {:6} {}",
-            insn.address(),
-            insn.mnemonic().unwrap_or(""),
-            insn.op_str().unwrap_or("")
-        );
-    }
-}
