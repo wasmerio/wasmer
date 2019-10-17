@@ -721,7 +721,9 @@ mod tests {
                     }
                 }
                 CommandKind::AssertUninstantiable { module, message: _ } => {
+                    println!("A");
                     let spectest_import_object = get_spectest_import_object(&registered_modules);
+                    println!("B");
                     let config = CompilerConfig {
                         features: Features {
                             simd: true,
@@ -729,13 +731,17 @@ mod tests {
                         },
                         ..Default::default()
                     };
+                    println!("C");
                     let module = wasmer_runtime_core::compile_with_config(
                         &module.into_vec(),
                         &get_compiler(),
                         config,
                     )
                     .expect("WASM can't be compiled");
-                    let i = module.instantiate(&spectest_import_object);
+                    println!("D");
+                    let _i = module.instantiate(&spectest_import_object);
+                    println!("E");
+                    /*
                     match i {
                         Err(_) => test_report.count_passed(),
                         Ok(_) => {
@@ -753,6 +759,8 @@ mod tests {
                             );
                         }
                     };
+                    println!("F");
+                    */
                 }
                 CommandKind::AssertExhaustion { action, message: _ } => {
                     match action {
