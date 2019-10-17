@@ -285,12 +285,12 @@ void module_delete(WasmModule *module) { delete module; }
   unsafe_unwind(new BreakpointException(callback));
 }
 
-bool invoke_trampoline(trampoline_t trampoline, void *ctx, void *func,
+bool invoke_trampoline(trampoline_t trampoline, void *func_env, void *func,
                        void *params, void *results, WasmTrapType *trap_out,
                        box_any_t *user_error, void *invoke_env) noexcept {
   try {
-    catch_unwind([trampoline, ctx, func, params, results]() {
-      trampoline(ctx, func, params, results);
+    catch_unwind([trampoline, func_env, func, params, results]() {
+      trampoline(func_env, func, params, results);
     });
     return true;
   } catch (std::unique_ptr<WasmException> &e) {

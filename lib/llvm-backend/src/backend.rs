@@ -28,7 +28,7 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     state::ModuleStateMap,
     structures::TypedIndex,
-    typed_func::{Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
@@ -58,8 +58,8 @@ extern "C" {
 
     #[allow(improper_ctypes)]
     fn invoke_trampoline(
-        trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
-        vmctx_ptr: *mut vm::Ctx,
+        trampoline: Trampoline,
+        env_ptr: Option<NonNull<vm::FuncEnv>>,
         func_ptr: NonNull<vm::Func>,
         params: *const u64,
         results: *mut u64,
@@ -409,7 +409,7 @@ impl RunnableModule for LLVMBackend {
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         let trampoline: unsafe extern "C" fn(
-            *mut vm::Ctx,
+            Option<NonNull<vm::FuncEnv>>,
             NonNull<vm::Func>,
             *const u64,
             *mut u64,
