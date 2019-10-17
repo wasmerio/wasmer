@@ -427,6 +427,9 @@ impl Emitter for Assembler {
             (Size::S32, Location::Imm32(x), Location::GPR(dst)) => {
                 dynasm!(self ; b >after; data: ; .dword x as i32; after: ; ldr W(map_gpr(dst).x()), <data);
             }
+            (Size::S32, Location::Imm64(x), Location::GPR(dst)) => {
+                dynasm!(self ; b >after; data: ; .dword x as i32; after: ; ldr W(map_gpr(dst).x()), <data);
+            }
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
                 dynasm!(self ; mov X(map_gpr(dst).x()), X(map_gpr(src).x()));
             }
