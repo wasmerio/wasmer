@@ -6,7 +6,7 @@ use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
     backend::RunnableModule,
     module::ModuleInfo,
-    typed_func::{Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
     vm,
 };
@@ -59,8 +59,8 @@ impl RunnableModule for Caller {
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         unsafe extern "C" fn invoke(
-            trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
-            ctx: *mut vm::Ctx,
+            trampoline: Trampoline,
+            env: Option<NonNull<vm::FuncEnv>>,
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
@@ -73,12 +73,12 @@ impl RunnableModule for Caller {
             #[cfg(not(target_os = "windows"))]
             let res = call_protected(handler_data, || {
                 // Leap of faith.
-                trampoline(ctx, func, args, rets);
+                trampoline(env, func, args, rets);
             });
 
             // the trampoline is called from C on windows
             #[cfg(target_os = "windows")]
-            let res = call_protected(handler_data, trampoline, ctx, func, args, rets);
+            let res = call_protected(handler_data, trampoline, env, func, args, rets);
 
             match res {
                 Err(err) => {

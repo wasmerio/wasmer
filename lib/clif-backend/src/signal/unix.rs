@@ -9,15 +9,19 @@
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
 //!
-use crate::relocation::{TrapCode, TrapData};
-use crate::signal::{CallProtError, HandlerData};
+use crate::{
+    relocation::{TrapCode, TrapData},
+    signal::{CallProtError, HandlerData},
+};
 use libc::{c_int, c_void, siginfo_t};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
 };
-use std::cell::{Cell, UnsafeCell};
-use std::ptr;
-use std::sync::Once;
+use std::{
+    cell::{Cell, UnsafeCell},
+    ptr,
+    sync::Once,
+};
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 extern "C" fn signal_trap_handler(

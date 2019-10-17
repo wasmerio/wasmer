@@ -7,12 +7,12 @@ use cranelift_codegen::{
     isa, Context,
 };
 use std::collections::HashMap;
-use std::{iter, mem, ptr::NonNull};
+use std::{iter, mem};
 use wasmer_runtime_core::{
     backend::sys::{Memory, Protect},
     module::{ExportIndex, ModuleInfo},
+    typed_func::Trampoline,
     types::{FuncSig, SigIndex, Type},
-    vm,
 };
 
 struct NullRelocSink {}
@@ -28,8 +28,6 @@ impl RelocSink for NullRelocSink {
     fn reloc_jt(&mut self, _: u32, _: Reloc, _: ir::JumpTable) {}
 }
 
-pub type Trampoline = unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64);
-
 pub struct Trampolines {
     memory: Memory,
     offsets: HashMap<SigIndex, usize>,
@@ -37,12 +35,6 @@ pub struct Trampolines {
 
 impl Trampolines {
     pub fn from_trampoline_cache(cache: TrampolineCache) -> Self {
-        // pub struct TrampolineCache {
-        //     #[serde(with = "serde_bytes")]
-        //     code: Vec<u8>,
-        //     offsets: HashMap<SigIndex, usize>,
-        // }
-
         let mut memory = Memory::with_size(cache.code.len()).unwrap();
         unsafe {
             memory.protect(.., Protect::ReadWrite).unwrap();
@@ -173,6 +165,7 @@ fn generate_func(func_sig: &FuncSig) -> ir::Function {
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
     args_vec.push(vmctx_ptr);
+
     for (index, wasm_ty) in func_sig.params().iter().enumerate() {
         let mem_flags = ir::MemFlags::trusted();
 

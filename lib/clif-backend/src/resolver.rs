@@ -49,7 +49,7 @@ fn lookup_func(
     let offset = *map.get(local_func_index)?;
     let ptr = unsafe { memory.as_ptr().add(offset) };
 
-    NonNull::new(ptr).map(|nonnull| nonnull.cast())
+    NonNull::new(ptr).map(|ptr| ptr.cast())
 }
 
 #[allow(dead_code)]
@@ -62,6 +62,7 @@ pub struct FuncResolverBuilder {
 }
 
 pub struct NoopStackmapSink {}
+
 impl StackmapSink for NoopStackmapSink {
     fn add_stackmap(&mut self, _: u32, _: Stackmap) {}
 }
