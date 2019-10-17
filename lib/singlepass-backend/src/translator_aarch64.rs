@@ -566,16 +566,16 @@ impl Emitter for Assembler {
         match (sz, src, dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add W(map_gpr(dst).x()), W(map_gpr(src).x()), disp as u32);
+                    dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add W(map_gpr(dst).x()), W(map_gpr(src).x()), w_tmp3);
                 } else {
-                    dynasm!(self ; sub W(map_gpr(dst).x()), W(map_gpr(src).x()), (-disp) as u32);
+                    dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub W(map_gpr(dst).x()), W(map_gpr(src).x()), w_tmp3);
                 }
             }
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
                 if disp >= 0 {
-                    dynasm!(self ; add X(map_gpr(dst).x()), X(map_gpr(src).x()), disp as u32);
+                    dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add X(map_gpr(dst).x()), X(map_gpr(src).x()), x_tmp3);
                 } else {
-                    dynasm!(self ; sub X(map_gpr(dst).x()), X(map_gpr(src).x()), (-disp) as u32);
+                    dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub X(map_gpr(dst).x()), X(map_gpr(src).x()), x_tmp3);
                 }
             }
             _ => unreachable!(),
