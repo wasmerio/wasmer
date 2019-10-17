@@ -49,13 +49,14 @@ static void removeExceptionHandler() {
     exceptionHandlerInstalled = FALSE;
 }
 
-uint8_t callProtected(trampoline_t trampoline,
-        const struct wasmer_instance_context_t* ctx,
-        const struct func_t* func,
-        const uint64_t* param_vec,
-        uint64_t* return_vec,
-        struct call_protected_result_t* out_result) {
-
+uint8_t callProtected(
+    trampoline_t trampoline,
+    const funcenv_t* func_env,
+    const func_t* func,
+    const uint64_t* param_vec,
+    uint64_t* return_vec,
+    call_protected_result_t* out_result
+) {
     // install exception handler
     if (exceptionHandlerInstalled == FALSE) {
         exceptionHandlerInstalled = TRUE;
@@ -68,7 +69,7 @@ uint8_t callProtected(trampoline_t trampoline,
     {
         // save the stack pointer
         savedStackPointer = get_callee_frame_address();
-        trampoline(ctx, func, param_vec, return_vec);
+        trampoline(func_env, func, param_vec, return_vec);
         out_result->code = 0;
         out_result->exception_address = 0;
         out_result->instruction_pointer = 0;
