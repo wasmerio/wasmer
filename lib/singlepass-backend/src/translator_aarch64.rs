@@ -109,6 +109,10 @@ pub fn get_aarch64_assembler() -> Assembler {
         ; .alias w_tmp2, w26
         ; .alias x_tmp3, x25
         ; .alias w_tmp3, w25
+        ; .alias d_tmp1, d28
+        ; .alias d_tmp2, d27
+        ; .alias v_tmp1, v28
+        ; .alias v_tmp2, v27
     );
     a
 }
@@ -1102,10 +1106,78 @@ impl Emitter for Assembler {
         emit_clz_variant(self, sz, &src, &dst, true);
     }
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
-        dynasm!(
-            self
-            ; .dword 0 ; .dword 90 // TODO: Implement
-        );
+        match sz {
+            Size::S32 => {
+                match src {
+                    Location::GPR(src) => dynasm!(
+                        self
+                        ; mov w_tmp1, W(map_gpr(src).x())
+                    ),
+                    Location::Memory(base, disp) => {
+                        if disp >= 0 {
+                            dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
+                        } else {
+                            dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
+                        }
+                        dynasm!(
+                            self
+                            ; ldr w_tmp1, [x_tmp3]
+                        )
+                    }
+                    _ => unreachable!(),
+                }
+                match dst {
+                    Location::GPR(dst) => {
+                        dynasm!(
+                            self
+                            ; mov v_tmp1.S[0], w_tmp1
+                            ; cnt v_tmp1.B16, v_tmp1.B16
+                            ; mov W(map_gpr(dst).x()), v_tmp1.S[0]
+                            ; add W(map_gpr(dst).x()), W(map_gpr(dst).x()), W(map_gpr(dst).x()), lsr 16
+                            ; and W(map_gpr(dst).x()), W(map_gpr(dst).x()), 31
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Size::S64 => {
+                match src {
+                    Location::GPR(src) => dynasm!(
+                        self
+                        ; mov x_tmp1, X(map_gpr(src).x())
+                    ),
+                    Location::Memory(base, disp) => {
+                        if disp >= 0 {
+                            dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
+                        } else {
+                            dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
+                        }
+                        dynasm!(
+                            self
+                            ; ldr x_tmp1, [x_tmp3]
+                        )
+                    }
+                    _ => unreachable!(),
+                }
+                match dst {
+                    Location::GPR(dst) => {
+                        dynasm!(
+                            self
+                            ; mov v_tmp1.D[0], x_tmp1
+                            ; cnt v_tmp1.B16, v_tmp1.B16
+                            ; mov x_tmp1, v_tmp1.D[0]
+                            ; mov X(map_gpr(dst).x()), x_tmp1
+                            ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 16
+                            ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 32
+                            ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 48
+                            ; and X(map_gpr(dst).x()), X(map_gpr(dst).x()), 63
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
     }
     fn emit_movzx(&mut self, sz_src: Size, src: Location, _sz_dst: Size, dst: Location) {
         match (sz_src, src, dst) {
