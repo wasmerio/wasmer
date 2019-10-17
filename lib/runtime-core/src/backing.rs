@@ -365,13 +365,12 @@ impl LocalBacking {
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
                             let sig_index = module.info.func_assoc[func_index];
-                            // let signature = &module.info.signatures[sig_index];
                             let signature = SigRegistry
                                 .lookup_signature_ref(&module.info.signatures[sig_index]);
                             let sig_id =
                                 vm::SigId(SigRegistry.lookup_sig_index(signature).index() as u32);
 
-                            let (func, ctx) = match func_index.local_or_import(&module.info) {
+                            let (func, env) = match func_index.local_or_import(&module.info) {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
                                         .runnable_module
@@ -379,16 +378,17 @@ impl LocalBacking {
                                         .unwrap()
                                         .as_ptr()
                                         as *const vm::Func,
-                                    vmctx,
+                                    vmctx as _, // cast `*mut vm::Ctx` to `*mut vm::FuncEnv`
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, vmctx } =
+                                    let vm::ImportedFunc { func, env } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx)
+
+                                    (func, env)
                                 }
                             };
 
-                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id };
+                            elements[init_base + i] = vm::Anyfunc { func, env, sig_id };
                         }
                     });
                 }
@@ -400,11 +400,10 @@ impl LocalBacking {
                             let sig_index = module.info.func_assoc[func_index];
                             let signature = SigRegistry
                                 .lookup_signature_ref(&module.info.signatures[sig_index]);
-                            // let signature = &module.info.signatures[sig_index];
                             let sig_id =
                                 vm::SigId(SigRegistry.lookup_sig_index(signature).index() as u32);
 
-                            let (func, ctx) = match func_index.local_or_import(&module.info) {
+                            let (func, env) = match func_index.local_or_import(&module.info) {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
                                         .runnable_module
@@ -412,16 +411,17 @@ impl LocalBacking {
                                         .unwrap()
                                         .as_ptr()
                                         as *const vm::Func,
-                                    vmctx,
+                                    vmctx as _, // cast `*mut vm::Ctx` to `*mut vm::FuncEnv`
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, vmctx } =
+                                    let vm::ImportedFunc { func, env } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx)
+
+                                    (func, env)
                                 }
                             };
 
-                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id };
+                            elements[init_base + i] = vm::Anyfunc { func, env, sig_id };
                         }
                     });
                 }
@@ -564,6 +564,7 @@ fn import_functions(
 
         let import =
             imports.maybe_with_namespace(namespace, |namespace| namespace.get_export(name));
+
         match import {
             Some(Export::Function {
                 func,
@@ -573,10 +574,10 @@ fn import_functions(
                 if *expected_sig == *signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
-                        vmctx: match ctx {
+                        env: match ctx {
                             Context::External(ctx) => ctx,
                             Context::Internal => vmctx,
-                        },
+                        } as _, // cast `*mut vm::Ctx` to `*mut vm::FuncEnv`
                     });
                 } else {
                     link_errors.push(LinkError::IncorrectImportSignature {
@@ -606,7 +607,7 @@ fn import_functions(
                 if imports.allow_missing_functions {
                     functions.push(vm::ImportedFunc {
                         func: ::std::ptr::null(),
-                        vmctx: ::std::ptr::null_mut(),
+                        env: ::std::ptr::null_mut(),
                     });
                 } else {
                     link_errors.push(LinkError::ImportNotFound {

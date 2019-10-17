@@ -108,11 +108,13 @@ impl Instance {
                 .unwrap(),
             };
 
-            let ctx_ptr = match start_index.local_or_import(&instance.module.info) {
-                LocalOrImport::Local(_) => instance.inner.vmctx,
-                LocalOrImport::Import(imported_func_index) => {
-                    instance.inner.import_backing.vm_functions[imported_func_index].vmctx
+            let env_ptr = match start_index.local_or_import(&instance.module.info) {
+                LocalOrImport::Local(_) => {
+                    NonNull::new(instance.inner.vmctx).map(|pointer| pointer.cast())
                 }
+                LocalOrImport::Import(imported_func_index) => NonNull::new(
+                    instance.inner.import_backing.vm_functions[imported_func_index].env,
+                ),
             };
 
             let sig_index = *instance
@@ -129,7 +131,7 @@ impl Instance {
                 .expect("wasm trampoline");
 
             let start_func: Func<(), (), Wasm> =
-                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, ctx_ptr) };
+                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, env_ptr) };
 
             start_func.call()?;
         }
@@ -193,13 +195,6 @@ impl Instance {
                 })?;
             }
 
-            let ctx = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(_) => self.inner.vmctx,
-                LocalOrImport::Import(imported_func_index) => {
-                    self.inner.import_backing.vm_functions[imported_func_index].vmctx
-                }
-            };
-
             let func_wasm_inner = self
                 .module
                 .runnable_module
@@ -218,8 +213,17 @@ impl Instance {
                 .unwrap(),
             };
 
+            let env_ptr = match func_index.local_or_import(&self.module.info) {
+                LocalOrImport::Local(_) => {
+                    NonNull::new(self.inner.vmctx).map(|pointer| pointer.cast())
+                }
+                LocalOrImport::Import(imported_func_index) => {
+                    NonNull::new(self.inner.import_backing.vm_functions[imported_func_index].env)
+                }
+            };
+
             let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, ctx) };
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, env_ptr) };
 
             Ok(typed_func)
         } else {
@@ -449,13 +453,12 @@ impl InstanceInner {
                 let imported_func = &self.import_backing.vm_functions[imported_func_index];
                 (
                     imported_func.func as *const _,
-                    Context::External(imported_func.vmctx),
+                    Context::External(imported_func.env as _), // cast `*mut vm::Ctx` to `*mut vm::Func`
                 )
             }
         };
 
         let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
-        // let signature = &module.info.signatures[sig_index];
 
         (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
@@ -572,10 +575,10 @@ fn call_func_with_index(
         }
     };
 
-    let ctx_ptr = match func_index.local_or_import(info) {
-        LocalOrImport::Local(_) => local_ctx,
+    let env_ptr = match func_index.local_or_import(info) {
+        LocalOrImport::Local(_) => NonNull::new(local_ctx).map(|pointer| pointer.cast()),
         LocalOrImport::Import(imported_func_index) => {
-            import_backing.vm_functions[imported_func_index].vmctx
+            NonNull::new(import_backing.vm_functions[imported_func_index].env)
         }
     };
 
@@ -583,11 +586,11 @@ fn call_func_with_index(
         .get_trampoline(info, sig_index)
         .expect("wasm trampoline");
 
-    call_func_with_index_inner(ctx_ptr, func_ptr, signature, wasm, args, rets)
+    call_func_with_index_inner(env_ptr, func_ptr, signature, wasm, args, rets)
 }
 
 pub(crate) fn call_func_with_index_inner(
-    ctx_ptr: *mut vm::Ctx,
+    env_ptr: Option<NonNull<vm::FuncEnv>>,
     func_ptr: NonNull<vm::Func>,
     signature: &FuncSig,
     wasm: Wasm,
@@ -651,7 +654,7 @@ pub(crate) fn call_func_with_index_inner(
 
         let success = invoke(
             trampoline,
-            ctx_ptr,
+            env_ptr,
             func_ptr,
             raw_args.as_ptr(),
             result_space,

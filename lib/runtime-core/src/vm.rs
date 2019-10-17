@@ -406,7 +406,7 @@ impl Ctx {
     ) -> CallResult<Vec<Value>> {
         let anyfunc_table =
             unsafe { &*((**self.internal.tables).table as *mut crate::table::AnyfuncTable) };
-        let Anyfunc { func, ctx, sig_id } = anyfunc_table.backing[index.index()];
+        let Anyfunc { func, env, sig_id } = anyfunc_table.backing[index.index()];
 
         let signature = SigRegistry.lookup_signature(unsafe { std::mem::transmute(sig_id.0) });
         let mut rets = vec![];
@@ -422,7 +422,7 @@ impl Ctx {
         };
 
         call_func_with_index_inner(
-            ctx,
+            NonNull::new(env),
             NonNull::new(func as *mut _).unwrap(),
             &signature,
             wasm,
@@ -498,22 +498,25 @@ impl Ctx {
     }
 }
 
-enum InnerFunc {}
 /// Used to provide type safety (ish) for passing around function pointers.
-/// The typesystem ensures this cannot be dereferenced since an
-/// empty enum cannot actually exist.
 #[repr(C)]
-pub struct Func(InnerFunc);
+pub struct Func {
+    _private: [u8; 0],
+}
 
-/// An imported function, which contains the vmctx that owns this function.
+#[repr(C)]
+pub struct FuncEnv {
+    _private: [u8; 0],
+}
+
+/// An imported function, which contains an environment.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
     pub func: *const Func,
-    pub vmctx: *mut Ctx,
+    pub env: *mut FuncEnv,
 }
 
-// manually implemented because ImportedFunc contains raw pointers directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO: review this, shouldn't `Ctx` be Send?))
 unsafe impl Send for ImportedFunc {}
 
 impl ImportedFunc {
@@ -522,7 +525,7 @@ impl ImportedFunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_vmctx() -> u8 {
+    pub fn offset_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -624,7 +627,7 @@ pub struct SigId(pub u32);
 #[repr(C)]
 pub struct Anyfunc {
     pub func: *const Func,
-    pub ctx: *mut Ctx,
+    pub env: *mut FuncEnv,
     pub sig_id: SigId,
 }
 
@@ -635,7 +638,7 @@ impl Anyfunc {
     pub fn null() -> Self {
         Self {
             func: ptr::null(),
-            ctx: ptr::null_mut(),
+            env: ptr::null_mut(),
             sig_id: SigId(u32::max_value()),
         }
     }
@@ -645,7 +648,7 @@ impl Anyfunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_vmctx() -> u8 {
+    pub fn offset_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -745,8 +748,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            ImportedFunc::offset_vmctx() as usize,
-            offset_of!(ImportedFunc => vmctx).get_byte_offset(),
+            ImportedFunc::offset_env() as usize,
+            offset_of!(ImportedFunc => env).get_byte_offset(),
         );
     }
 
@@ -792,8 +795,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            Anyfunc::offset_vmctx() as usize,
-            offset_of!(Anyfunc => ctx).get_byte_offset(),
+            Anyfunc::offset_env() as usize,
+            offset_of!(Anyfunc => env).get_byte_offset(),
         );
 
         assert_eq!(
