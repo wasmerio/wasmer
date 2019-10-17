@@ -189,7 +189,7 @@ lazy_static! {
             ; br x30 // LR
 
             ; v_65536:
-            ; .qword 65536
+            ; .qword 1048576
         );
         let buf = assembler.finalize().unwrap();
         let ret = unsafe { ::std::mem::transmute(buf.ptr(offset)) };
