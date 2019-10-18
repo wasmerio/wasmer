@@ -82,7 +82,7 @@ clif:fail:data.wast:227:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:258:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:273:windows # AssertUnlinkable - caught panic Any
 clif:fail:start.wast:92:windows # Module - caught panic Any
-clif:fail:start.wast:98:windows
+clif:skip:start.wast:98:windows
 
 clif:fail:align.wast:3:windows # Module - caught panic Any
 clif:fail:align.wast:4:windows # Module - caught panic Any
