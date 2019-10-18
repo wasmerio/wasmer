@@ -153,8 +153,8 @@ check-bench-llvm:
 check-bench: check-bench-singlepass check-bench-llvm
 
 check: check-bench
-	# TODO: We wanted `--workspace --exclude wasmer-runtime`, but for
-	# https://github.com/rust-lang/cargo/issues/6745 .
+	# TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
+	# to https://github.com/rust-lang/cargo/issues/6745 .
 	cargo check -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
 	cargo check --release -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
 	cargo check -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests --all-features
