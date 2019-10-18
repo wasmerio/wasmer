@@ -786,7 +786,7 @@ impl FuncEnvironment for FunctionEnvironment {
             ptr_type,
             mflags,
             entry_addr,
-            vm::Anyfunc::offset_env() as i32,
+            vm::Anyfunc::offset_func_env() as i32,
         );
 
         let found_sig = pos.ins().load(
@@ -903,7 +903,7 @@ impl FuncEnvironment for FunctionEnvironment {
 
                 let imported_env_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
                     base: imported_func_struct_addr,
-                    offset: (vm::ImportedFunc::offset_env() as i32).into(),
+                    offset: (vm::ImportedFunc::offset_func_env() as i32).into(),
                     global_type: ptr_type,
                     readonly: true,
                 });

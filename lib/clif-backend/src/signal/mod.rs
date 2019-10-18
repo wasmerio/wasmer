@@ -60,7 +60,8 @@ impl RunnableModule for Caller {
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         unsafe extern "C" fn invoke(
             trampoline: Trampoline,
-            env: Option<NonNull<vm::FuncEnv>>,
+            _vmctx: Option<NonNull<vm::Ctx>>,
+            func_env: Option<NonNull<vm::FuncEnv>>,
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
@@ -73,12 +74,12 @@ impl RunnableModule for Caller {
             #[cfg(not(target_os = "windows"))]
             let res = call_protected(handler_data, || {
                 // Leap of faith.
-                trampoline(env, func, args, rets);
+                trampoline(func_env, func, args, rets);
             });
 
             // the trampoline is called from C on windows
             #[cfg(target_os = "windows")]
-            let res = call_protected(handler_data, trampoline, env, func, args, rets);
+            let res = call_protected(handler_data, trampoline, func_env, func, args, rets);
 
             match res {
                 Err(err) => {
