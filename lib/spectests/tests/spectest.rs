@@ -739,7 +739,7 @@ mod tests {
                     )
                     .expect("WASM can't be compiled");
                     println!("D");
-                    let i = module.instantiate(&spectest_import_object)
+                    let i = module.instantiate(&spectest_import_object);
                     println!("E");
                     match i {
                         Err(_) => test_report.count_passed(),
