@@ -59,6 +59,7 @@ extern "C" {
     #[allow(improper_ctypes)]
     fn invoke_trampoline(
         trampoline: Trampoline,
+        vmctx: Option<NonNull<vm::Ctx>>,
         env_ptr: Option<NonNull<vm::FuncEnv>>,
         func_ptr: NonNull<vm::Func>,
         params: *const u64,

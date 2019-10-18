@@ -285,9 +285,9 @@ void module_delete(WasmModule *module) { delete module; }
   unsafe_unwind(new BreakpointException(callback));
 }
 
-bool invoke_trampoline(trampoline_t trampoline, void *func_env, void *func,
+bool invoke_trampoline(trampoline_t trampoline, void *_vmctx, void *func_env, void *func,
                        void *params, void *results, WasmTrapType *trap_out,
-                       box_any_t *user_error, void *invoke_env) noexcept {
+                       box_any_t *user_error, void *_invoke_env) noexcept {
   try {
     catch_unwind([trampoline, func_env, func, params, results]() {
       trampoline(func_env, func, params, results);
