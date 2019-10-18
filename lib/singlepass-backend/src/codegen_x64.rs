@@ -10,6 +10,7 @@ use std::ptr::NonNull;
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap},
+    ptr,
     sync::{Arc, RwLock},
 };
 use wasmer_runtime_core::{
@@ -255,17 +256,13 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
-        use std::ffi::c_void;
-        use wasmer_runtime_core::typed_func::WasmTrapInfo;
+        use std::{ffi::c_void, mem, slice};
+        use wasmer_runtime_core::typed_func::{Trampoline, WasmTrapInfo};
 
         unsafe extern "C" fn invoke(
-            _trampoline: unsafe extern "C" fn(
-                *mut vm::Ctx,
-                NonNull<vm::Func>,
-                *const u64,
-                *mut u64,
-            ),
-            ctx: *mut vm::Ctx,
+            _trampoline: Trampoline,
+            vmctx: Option<NonNull<vm::Ctx>>,
+            func_env: Option<NonNull<vm::FuncEnv>>,
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
@@ -273,21 +270,24 @@ impl RunnableModule for X64ExecutionContext {
             user_error: *mut Option<Box<dyn Any>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
-            let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
+            let vmctx: &vm::Ctx = vmctx
+                .map(|pointer| &*pointer.as_ptr())
+                .expect("vmctx is null");
+            let rm: &Box<dyn RunnableModule> = &(*(vmctx.module)).runnable_module;
             let execution_context =
-                ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
+                mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
 
-            let args = std::slice::from_raw_parts(
-                args,
-                num_params_plus_one.unwrap().as_ptr() as usize - 1,
-            );
+            let args =
+                slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
             let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
             let ret = match protect_unix::call_protected(
                 || {
                     CONSTRUCT_STACK_AND_CALL_WASM(
                         args_reverse.as_ptr(),
                         args_reverse.as_ptr().offset(args_reverse.len() as isize),
-                        ctx,
+                        func_env
+                            .map(|pointer| pointer.cast().as_ptr())
+                            .unwrap_or_else(ptr::null_mut),
                         func.as_ptr(),
                     )
                 },
@@ -311,7 +311,7 @@ impl RunnableModule for X64ExecutionContext {
         }
 
         unsafe extern "C" fn dummy_trampoline(
-            _: *mut vm::Ctx,
+            _: Option<NonNull<vm::FuncEnv>>,
             _: NonNull<vm::Func>,
             _: *const u64,
             _: *mut u64,
