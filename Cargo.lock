@@ -1680,7 +1680,6 @@ dependencies = [
  "nix 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.8.0",
- "wasmparser 0.39.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

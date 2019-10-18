@@ -1,15 +1,13 @@
 #![allow(clippy::forget_copy)] // Used by dynasm.
 #![warn(unused_imports)]
 
-use crate::emitter_x64::*;
-use crate::machine::*;
-use crate::protect_unix;
+use crate::{emitter_x64::*, machine::*, protect_unix};
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use smallvec::SmallVec;
-use std::ptr::NonNull;
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap},
+    ptr::NonNull,
     sync::{Arc, RwLock},
 };
 use wasmer_runtime_core::{
@@ -33,8 +31,8 @@ use wasmer_runtime_core::{
         TableIndex, Type,
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
+    wasmparser::{MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType},
 };
-use wasmparser::{MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 
 lazy_static! {
     /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
