@@ -720,10 +720,44 @@ mod tests {
                         }
                     }
                 }
-                CommandKind::AssertUninstantiable {
-                    module: _,
-                    message: _,
-                } => println!("AssertUninstantiable not yet implmented "),
+                CommandKind::AssertUninstantiable { module, message: _ } => {
+                    let spectest_import_object = get_spectest_import_object(&registered_modules);
+                    let config = CompilerConfig {
+                        features: Features {
+                            simd: true,
+                            threads: true,
+                        },
+                        ..Default::default()
+                    };
+                    let module = wasmer_runtime_core::compile_with_config(
+                        &module.into_vec(),
+                        &get_compiler(),
+                        config,
+                    )
+                    .expect("WASM can't be compiled");
+                    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                        module
+                            .instantiate(&spectest_import_object)
+                            .expect("WASM can't be instantiated");
+                    }));
+                    match result {
+                        Err(_) => test_report.count_passed(),
+                        Ok(_) => {
+                            test_report.add_failure(
+                                SpecFailure {
+                                    file: filename.to_string(),
+                                    line: line,
+                                    kind: format!("{}", "AssertUninstantiable"),
+                                    message: format!(
+                                        "instantiate successful, expected uninstantiable"
+                                    ),
+                                },
+                                &test_key,
+                                excludes,
+                            );
+                        }
+                    };
+                }
                 CommandKind::AssertExhaustion { action, message: _ } => {
                     match action {
                         Action::Invoke {
