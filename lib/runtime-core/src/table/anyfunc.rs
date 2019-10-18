@@ -6,7 +6,6 @@ use crate::{
     types::{FuncSig, TableDescriptor},
     vm,
 };
-
 use std::sync::Arc;
 
 enum AnyfuncInner<'a> {
@@ -111,7 +110,7 @@ impl AnyfuncTable {
 
                     vm::Anyfunc {
                         func: ptr,
-                        env,
+                        func_env: env,
                         sig_id,
                     }
                 }
@@ -121,7 +120,7 @@ impl AnyfuncTable {
 
                     vm::Anyfunc {
                         func: func.raw(),
-                        env: func.instance_inner.vmctx as _, // cast `*mut vm::Ctx` to `*mut vm::FuncEnv`
+                        func_env: func.instance_inner.vmctx as _, // cast `*mut vm::Ctx` to `*mut vm::FuncEnv`
                         sig_id,
                     }
                 }

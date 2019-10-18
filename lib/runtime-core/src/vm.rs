@@ -406,7 +406,11 @@ impl Ctx {
     ) -> CallResult<Vec<Value>> {
         let anyfunc_table =
             unsafe { &*((**self.internal.tables).table as *mut crate::table::AnyfuncTable) };
-        let Anyfunc { func, env, sig_id } = anyfunc_table.backing[index.index()];
+        let Anyfunc {
+            func,
+            func_env,
+            sig_id,
+        } = anyfunc_table.backing[index.index()];
 
         let signature = SigRegistry.lookup_signature(unsafe { std::mem::transmute(sig_id.0) });
         let mut rets = vec![];
@@ -422,7 +426,8 @@ impl Ctx {
         };
 
         call_func_with_index_inner(
-            NonNull::new(env),
+            None,
+            NonNull::new(func_env),
             NonNull::new(func as *mut _).unwrap(),
             &signature,
             wasm,
@@ -514,7 +519,7 @@ pub struct FuncEnv {
 #[repr(C)]
 pub struct ImportedFunc {
     pub func: *const Func,
-    pub env: *mut FuncEnv,
+    pub func_env: *mut FuncEnv,
 }
 
 unsafe impl Send for ImportedFunc {}
@@ -525,7 +530,7 @@ impl ImportedFunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_env() -> u8 {
+    pub fn offset_func_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -627,7 +632,7 @@ pub struct SigId(pub u32);
 #[repr(C)]
 pub struct Anyfunc {
     pub func: *const Func,
-    pub env: *mut FuncEnv,
+    pub func_env: *mut FuncEnv,
     pub sig_id: SigId,
 }
 
@@ -638,7 +643,7 @@ impl Anyfunc {
     pub fn null() -> Self {
         Self {
             func: ptr::null(),
-            env: ptr::null_mut(),
+            func_env: ptr::null_mut(),
             sig_id: SigId(u32::max_value()),
         }
     }
@@ -648,7 +653,7 @@ impl Anyfunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_env() -> u8 {
+    pub fn offset_func_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 

@@ -46,18 +46,23 @@ impl fmt::Display for WasmTrapInfo {
 /// of the `Func` struct.
 pub trait Kind {}
 
-pub type Trampoline =
-    unsafe extern "C" fn(Option<NonNull<vm::FuncEnv>>, NonNull<vm::Func>, *const u64, *mut u64);
+pub type Trampoline = unsafe extern "C" fn(
+    func_env: Option<NonNull<vm::FuncEnv>>,
+    func: NonNull<vm::Func>,
+    args: *const u64,
+    rets: *mut u64,
+);
 
 pub type Invoke = unsafe extern "C" fn(
-    Trampoline,
-    Option<NonNull<vm::FuncEnv>>,
-    NonNull<vm::Func>,
-    *const u64,
-    *mut u64,
-    *mut WasmTrapInfo,
-    *mut Option<Box<dyn Any>>,
-    Option<NonNull<c_void>>,
+    trampoline: Trampoline,
+    vmctx: Option<NonNull<vm::Ctx>>,
+    func_env: Option<NonNull<vm::FuncEnv>>,
+    func: NonNull<vm::Func>,
+    args: *const u64,
+    rets: *mut u64,
+    trap_info: *mut WasmTrapInfo,
+    user_error: *mut Option<Box<dyn Any>>,
+    extra: Option<NonNull<c_void>>,
 ) -> bool;
 
 /// TODO(lachlan): Naming TBD.
@@ -119,8 +124,9 @@ pub trait WasmTypeList {
     unsafe fn call<Rets>(
         self,
         func: NonNull<vm::Func>,
+        func_env: Option<NonNull<vm::FuncEnv>>,
+        vmctx: Option<NonNull<vm::Ctx>>,
         wasm: Wasm,
-        env: Option<NonNull<vm::FuncEnv>>,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList;
@@ -169,7 +175,8 @@ where
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
     func: NonNull<vm::Func>,
-    env: Option<NonNull<vm::FuncEnv>>,
+    func_env: Option<NonNull<vm::FuncEnv>>,
+    vmctx: Option<NonNull<vm::Ctx>>,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
@@ -184,12 +191,14 @@ where
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
         func: NonNull<vm::Func>,
-        env: Option<NonNull<vm::FuncEnv>>,
+        func_env: Option<NonNull<vm::FuncEnv>>,
+        vmctx: Option<NonNull<vm::Ctx>>,
     ) -> Func<'a, Args, Rets, Wasm> {
         Func {
             inner,
             func,
-            env,
+            func_env,
+            vmctx,
             _phantom: PhantomData,
         }
     }
@@ -208,12 +217,13 @@ where
     where
         F: ExternalFunction<Args, Rets>,
     {
-        let (func, env) = func.to_raw();
+        let (func, func_env) = func.to_raw();
 
         Func {
             inner: Host(()),
             func,
-            env,
+            func_env,
+            vmctx: None,
             _phantom: PhantomData,
         }
     }
@@ -264,8 +274,9 @@ impl WasmTypeList for Infallible {
     unsafe fn call<Rets>(
         self,
         _: NonNull<vm::Func>,
-        _: Wasm,
         _: Option<NonNull<vm::FuncEnv>>,
+        _: Option<NonNull<vm::Ctx>>,
+        _: Wasm,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList,
@@ -310,8 +321,9 @@ where
     unsafe fn call<Rets>(
         self,
         func: NonNull<vm::Func>,
+        func_env: Option<NonNull<vm::FuncEnv>>,
+        vmctx: Option<NonNull<vm::Ctx>>,
         wasm: Wasm,
-        env: Option<NonNull<vm::FuncEnv>>,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList,
@@ -324,7 +336,8 @@ where
 
         if (wasm.invoke)(
             wasm.trampoline,
-            env,
+            vmctx,
+            func_env,
             func,
             args.as_ptr(),
             rets.as_mut().as_mut_ptr(),
@@ -350,7 +363,7 @@ where
     Rets: WasmTypeList,
 {
     pub fn call(&self, a: A) -> Result<Rets, RuntimeError> {
-        unsafe { <A as WasmTypeList>::call(a, self.func, self.inner, self.env) }
+        unsafe { <A as WasmTypeList>::call(a, self.func, self.func_env, self.vmctx, self.inner) }
     }
 }
 
@@ -402,8 +415,9 @@ macro_rules! impl_traits {
             unsafe fn call<Rets>(
                 self,
                 func: NonNull<vm::Func>,
+                func_env: Option<NonNull<vm::FuncEnv>>,
+                vmctx: Option<NonNull<vm::Ctx>>,
                 wasm: Wasm,
-                env: Option<NonNull<vm::FuncEnv>>,
             ) -> Result<Rets, RuntimeError>
             where
                 Rets: WasmTypeList
@@ -417,7 +431,8 @@ macro_rules! impl_traits {
 
                 if (wasm.invoke)(
                     wasm.trampoline,
-                    env,
+                    vmctx,
+                    func_env,
                     func,
                     args.as_ptr(),
                     rets.as_mut().as_mut_ptr(),
@@ -512,8 +527,9 @@ macro_rules! impl_traits {
                     <( $( $x ),* ) as WasmTypeList>::call(
                         ( $( $x ),* ),
                         self.func,
+                        self.func_env,
+                        self.vmctx,
                         self.inner,
-                        self.env,
                     )
                 }
             }
@@ -552,7 +568,7 @@ where
 {
     fn to_export(&self) -> Export {
         let func = unsafe { FuncPointer::new(self.func.as_ptr()) };
-        let ctx = if let Some(ptr) = self.env {
+        let ctx = if let Some(ptr) = self.func_env {
             Context::External(ptr.cast().as_ptr())
         } else {
             Context::Internal
