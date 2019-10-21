@@ -140,25 +140,27 @@ install:
 
 # Checks
 check-bench-singlepass:
-	cargo bench --all --no-run --no-default-features --features "backend-singlepass" \
+	cargo check --benches --all --no-default-features --features "backend-singlepass" \
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 check-bench-clif:
-	cargo bench --all --no-run --no-default-features --features "backend-cranelift" \
+	cargo check --benches --all --no-default-features --features "backend-cranelift" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
 	--exclude wasmer-middleware-common-tests
 check-bench-llvm:
-	cargo bench --all --no-run --no-default-features --features "backend-llvm" \
+	cargo check --benches --all --no-default-features --features "backend-llvm" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
 check-bench: check-bench-singlepass check-bench-llvm
 
+# TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
+# to https://github.com/rust-lang/cargo/issues/6745 .
+NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
+RUNTIME_CHECK = cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features
 check: check-bench
-	# TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
-	# to https://github.com/rust-lang/cargo/issues/6745 .
-	cargo check -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
-	cargo check --release -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
-	cargo check -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests --all-features
-	cargo check --release -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests --all-features
+	cargo check $(NOT_RUNTIME_CRATES)
+	cargo check --release $(NOT_RUNTIME_CRATES)
+	cargo check --all-features $(NOT_RUNTIME_CRATES)
+	cargo check --release --all-features $(NOT_RUNTIME_CRATES)
 	# wasmer-runtime doesn't work with all backends enabled at once.
 	#
 	# We test using manifest-path directly so as to disable the default.
@@ -172,18 +174,31 @@ check: check-bench
 	# at a time.
 	cargo check --manifest-path lib/runtime/Cargo.toml
 	cargo check --release --manifest-path lib/runtime/Cargo.toml
-	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,debug,llvm,singlepass,default-backend-singlepass
-	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,llvm,singlepass,default-backend-singlepass
-	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,debug,llvm,singlepass,default-backend-cranelift
-	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,llvm,singlepass,default-backend-cranelift
-	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,debug,llvm,singlepass,default-backend-llvm
-	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,cache,llvm,singlepass,default-backend-llvm
-	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=singlepass,default-backend-singlepass,debug
-	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=singlepass,default-backend-singlepass
-	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,default-backend-cranelift,debug
-	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=cranelift,default-backend-cranelift
-	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features --features=llvm,default-backend-llvm,debug
-	cargo check --release --manifest-path lib/runtime/Cargo.toml --no-default-features --features=llvm,default-backend-llvm
+
+	$(RUNTIME_CHECK) \
+		--features=cranelift,cache,debug,llvm,singlepass,default-backend-singlepass
+	$(RUNTIME_CHECK) --release \
+		--features=cranelift,cache,llvm,singlepass,default-backend-singlepass
+	$(RUNTIME_CHECK) \
+		--features=cranelift,cache,debug,llvm,singlepass,default-backend-cranelift
+	$(RUNTIME_CHECK) --release \
+		--features=cranelift,cache,llvm,singlepass,default-backend-cranelift
+	$(RUNTIME_CHECK) \
+		--features=cranelift,cache,debug,llvm,singlepass,default-backend-llvm
+	$(RUNTIME_CHECK) --release \
+		--features=cranelift,cache,llvm,singlepass,default-backend-llvm
+	$(RUNTIME_CHECK) \
+		--features=singlepass,default-backend-singlepass,debug
+	$(RUNTIME_CHECK) --release \
+		--features=singlepass,default-backend-singlepass
+	$(RUNTIME_CHECK) \
+		--features=cranelift,default-backend-cranelift,debug
+	$(RUNTIME_CHECK) --release \
+		--features=cranelift,default-backend-cranelift
+	$(RUNTIME_CHECK) \
+		--features=llvm,default-backend-llvm,debug
+	$(RUNTIME_CHECK) --release \
+		--features=llvm,default-backend-llvm
 
 # Release
 release:
