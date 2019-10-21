@@ -222,12 +222,6 @@ impl State {
         Ok((v1, v2, v3))
     }
 
-    /*
-    pub fn peek1(&self) -> Result<BasicValueEnum, BinaryReaderError> {
-        Ok(self.peek1_extra()?.0)
-    }
-     */
-
     pub fn peek1_extra(&self) -> Result<(BasicValueEnum, ExtraInfo), BinaryReaderError> {
         self.stack
             .get(self.stack.len() - 1)
@@ -253,13 +247,7 @@ impl State {
                 offset: -1isize as usize,
             })
     }
-    /*
-        pub fn popn_save(&mut self, n: usize) -> Result<Vec<BasicValueEnum>, BinaryReaderError> {
-            let v = self.peekn(n)?.to_vec();
-            self.popn(n)?;
-            Ok(v)
-        }
-    */
+
     pub fn popn_save_extra(
         &mut self,
         n: usize,
