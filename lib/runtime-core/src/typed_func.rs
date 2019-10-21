@@ -132,10 +132,19 @@ pub trait WasmTypeList {
         Rets: WasmTypeList;
 }
 
+pub trait ExternalFunctionKind {}
+
+pub struct ExplicitVmCtx();
+pub struct ClosedEnvironment();
+
+impl ExternalFunctionKind for ExplicitVmCtx {}
+impl ExternalFunctionKind for ClosedEnvironment {}
+
 /// Represents a function that can be converted to a `vm::Func`
 /// (function pointer) that can be called within WebAssembly.
-pub trait ExternalFunction<Args, Rets>
+pub trait ExternalFunction<Kind, Args, Rets>
 where
+    Kind: ExternalFunctionKind,
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
@@ -213,9 +222,10 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub fn new<F>(func: F) -> Func<'a, Args, Rets, Host>
+    pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
     where
-        F: ExternalFunction<Args, Rets>,
+        Kind: ExternalFunctionKind,
+        F: ExternalFunction<Kind, Args, Rets>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -342,7 +352,7 @@ macro_rules! impl_traits {
             {
                 #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
-                let args = [ $( $x.to_native().to_binary()),* ];
+                let args = [ $( $x.to_native().to_binary() ),* ];
                 let mut rets = Rets::empty_ret_array();
                 let mut trap = WasmTrapInfo::Unknown;
                 let mut user_error = None;
@@ -369,7 +379,28 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<( $( $x ),* ), Rets> for FN
+        impl<'a $( , $x )*, Rets> Func<'a, ( $( $x ),* ), Rets, Wasm>
+        where
+            $( $x: WasmExternType, )*
+            Rets: WasmTypeList,
+        {
+            #[allow(non_snake_case)]
+            pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+                #[allow(unused_parens)]
+                unsafe {
+                    <( $( $x ),* ) as WasmTypeList>::call(
+                        ( $( $x ),* ),
+                        self.func,
+                        self.func_env,
+                        self.vmctx,
+                        self.inner,
+                    )
+                }
+            }
+        }
+
+        // Generic implementation for `Fn` (without `&mut Ctx` as first argument).
+        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ClosedEnvironment, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
@@ -384,7 +415,7 @@ macro_rules! impl_traits {
                     None
                 };
 
-                /// This is required for the llvm backend to be able to unwind through this function.
+                /// This is required for the LLVM backend to be able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
                 extern fn wrap<$( $x, )* Rets, Trap, FN>(
                     env: *mut vm::FuncEnv
@@ -419,11 +450,12 @@ macro_rules! impl_traits {
 
                     /*
                     unsafe {
-                        (&*ctx.module).runnable_module.do_early_trap(err)
+                        let vmctx: &mut vm::Ctx = unsafe { &mut *(env as *mut vm::Ctx) };
+                        (&*vmctx.module).runnable_module.do_early_trap(err)
                     }
-                     */
+                    */
                     eprintln!("early trap ahhh");
-                    ::std::process::exit(1)
+                    ::std::process::exit(1);
                 }
 
                 (
@@ -433,23 +465,59 @@ macro_rules! impl_traits {
             }
         }
 
-        impl<'a $( , $x )*, Rets> Func<'a, ( $( $x ),* ), Rets, Wasm>
+        // Specific implementation for `Fn` (with a `&mut Ctx` as first argument).
+        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
+            Trap: TrapEarly<Rets>,
+            FN: Fn( &mut vm::Ctx $( , $x )* ) -> Trap + 'static,
         {
             #[allow(non_snake_case)]
-            pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
-                #[allow(unused_parens)]
-                unsafe {
-                    <( $( $x ),* ) as WasmTypeList>::call(
-                        ( $( $x ),* ),
-                        self.func,
-                        self.func_env,
-                        self.vmctx,
-                        self.inner,
+            fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
+                if mem::size_of::<Self>() == 0 {
+                    /// This is required for the LLVM backend to be able to unwind through this function.
+                    #[cfg_attr(nightly, unwind(allowed))]
+                    extern fn wrap<$( $x, )* Rets, Trap, FN>(
+                        vmctx: &mut vm::Ctx
+                        $( , $x: <$x as WasmExternType>::Native )*
+                    ) -> Rets::CStruct
+                    where
+                        $( $x: WasmExternType, )*
+                        Rets: WasmTypeList,
+                        Trap: TrapEarly<Rets>,
+                        FN: Fn( &mut vm::Ctx $( , $x )* ) -> Trap + 'static,
+                    {
+                        let func: FN = unsafe { mem::transmute_copy(&()) };
+
+                        let err = match panic::catch_unwind(
+                            panic::AssertUnwindSafe(
+                                || {
+                                    func(vmctx $( , WasmExternType::from_native($x) )* ).report()
+                                }
+                            )
+                        ) {
+                            Ok(Ok(returns)) => return returns.into_c_struct(),
+                            Ok(Err(err)) => {
+                                let b: Box<_> = err.into();
+                                b as Box<dyn Any>
+                            },
+                            Err(err) => err,
+                        };
+
+                        unsafe {
+                            (&*vmctx.module).runnable_module.do_early_trap(err)
+                        }
+                    }
+
+                    (
+                        NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
+                        None,
                     )
+                } else {
+                    panic!("yolo");
                 }
+
             }
         }
     };
