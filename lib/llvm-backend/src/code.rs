@@ -2778,7 +2778,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::F32Min => {
                 // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsics
+                // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let (v1, v2) = state.pop2()?;
 
@@ -2832,7 +2832,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::F64Min => {
                 // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsics
+                // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let (v1, v2) = state.pop2()?;
 
@@ -2886,7 +2886,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::F32x4Min => {
                 // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsics
+                // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let v1 = v128_into_f32x4(builder, intrinsics, v1, i1);
@@ -2952,7 +2952,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::F64x2Min => {
                 // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsics
+                // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let v1 = v128_into_f64x2(builder, intrinsics, v1, i1);
@@ -3017,8 +3017,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(res);
             }
             Operator::F32Max => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsics
+                // This implements the same logic as LLVM's @llvm.maximum
+                // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let (v1, v2) = state.pop2()?;
 
@@ -3070,8 +3070,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 state.push1(res);
             }
             Operator::F64Max => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsics
+                // This implements the same logic as LLVM's @llvm.maximum
+                // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let (v1, v2) = state.pop2()?;
 
@@ -3124,7 +3124,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::F32x4Max => {
                 // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsics
+                // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let v1 = v128_into_f32x4(builder, intrinsics, v1, i1);
@@ -3189,7 +3189,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             }
             Operator::F64x2Max => {
                 // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsics
+                // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let v1 = v128_into_f64x2(builder, intrinsics, v1, i1);
