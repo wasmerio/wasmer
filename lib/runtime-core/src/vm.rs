@@ -753,8 +753,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            ImportedFunc::offset_env() as usize,
-            offset_of!(ImportedFunc => env).get_byte_offset(),
+            ImportedFunc::offset_func_env() as usize,
+            offset_of!(ImportedFunc => func_env).get_byte_offset(),
         );
     }
 
@@ -800,8 +800,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            Anyfunc::offset_env() as usize,
-            offset_of!(Anyfunc => env).get_byte_offset(),
+            Anyfunc::offset_func_env() as usize,
+            offset_of!(Anyfunc => func_env).get_byte_offset(),
         );
 
         assert_eq!(
