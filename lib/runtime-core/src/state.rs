@@ -811,10 +811,10 @@ pub mod x64 {
     pub unsafe fn read_stack<'a, I: Iterator<Item = &'a CodeVersion>, F: Fn() -> I + 'a>(
         versions: F,
         mut stack: *const u64,
-        initially_known_registers: [Option<u64>; 24],
+        initially_known_registers: [Option<u64>; 32],
         mut initial_address: Option<u64>,
     ) -> ExecutionStateImage {
-        let mut known_registers: [Option<u64>; 24] = initially_known_registers;
+        let mut known_registers: [Option<u64>; 32] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
         let mut was_baseline = true;
 
