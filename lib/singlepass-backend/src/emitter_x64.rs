@@ -36,7 +36,7 @@ pub enum Size {
     S64,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
 pub enum XMMOrMemory {
     XMM(XMM),
@@ -105,6 +105,11 @@ pub trait Emitter {
     fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR);
     fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR);
 
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
+    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
@@ -136,6 +141,12 @@ pub trait Emitter {
     fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
+    fn emit_vcmpunordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpunordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
     fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
@@ -163,6 +174,9 @@ pub trait Emitter {
     fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
     fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
     fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
+
+    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
+    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
 
     fn emit_test_gpr_64(&mut self, reg: GPR);
 
@@ -369,6 +383,14 @@ macro_rules! avx_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rx((x as u8))),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rx((x as u8))),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rx((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rx((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rx((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rx((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rx((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rx((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rx((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rx((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rx((x as u8))),
                 },
                 XMMOrMemory::Memory(base, disp) => match src1 {
                     XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, [Rq((base as u8)) + disp]),
@@ -379,6 +401,14 @@ macro_rules! avx_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, [Rq((base as u8)) + disp]),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, [Rq((base as u8)) + disp]),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -398,6 +428,14 @@ macro_rules! avx_i2f_64_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rq((x as u8))),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rq((x as u8))),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rq((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rq((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rq((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rq((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rq((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rq((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rq((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rq((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rq((x as u8))),
                 },
                 GPROrMemory::Memory(base, disp) => match src1 {
                     XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, QWORD [Rq((base as u8)) + disp]),
@@ -408,6 +446,14 @@ macro_rules! avx_i2f_64_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, QWORD [Rq((base as u8)) + disp]),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, QWORD [Rq((base as u8)) + disp]),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, QWORD [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -427,6 +473,14 @@ macro_rules! avx_i2f_32_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rd((x as u8))),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rd((x as u8))),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rd((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rd((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rd((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rd((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rd((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rd((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rd((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rd((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rd((x as u8))),
                 },
                 GPROrMemory::Memory(base, disp) => match src1 {
                     XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, DWORD [Rq((base as u8)) + disp]),
@@ -437,6 +491,14 @@ macro_rules! avx_i2f_32_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, DWORD [Rq((base as u8)) + disp]),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, DWORD [Rq((base as u8)) + disp]),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, DWORD [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -945,6 +1007,39 @@ impl Emitter for Assembler {
         dynasm!(self ; cmovae Rq(dst as u8), Rq(src as u8));
     }
 
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+        match (src, dst) {
+            (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => {
+                dynasm!(self ; movaps Rx(dst as u8), Rx(src as u8))
+            }
+            (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => {
+                dynasm!(self ; movaps Rx(dst as u8), [Rq(base as u8) + disp])
+            }
+            (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => {
+                dynasm!(self ; movaps [Rq(base as u8) + disp], Rx(src as u8))
+            }
+            _ => panic!("singlepass can't emit VMOVAPS {:?} {:?}", src, dst),
+        };
+    }
+
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+        match (src, dst) {
+            (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => {
+                dynasm!(self ; movapd Rx(dst as u8), Rx(src as u8))
+            }
+            (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => {
+                dynasm!(self ; movapd Rx(dst as u8), [Rq(base as u8) + disp])
+            }
+            (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => {
+                dynasm!(self ; movapd [Rq(base as u8) + disp], Rx(src as u8))
+            }
+            _ => panic!("singlepass can't emit VMOVAPD {:?} {:?}", src, dst),
+        };
+    }
+
+    avx_fn!(vxorps, emit_vxorps);
+    avx_fn!(vxorpd, emit_vxorpd);
+
     avx_fn!(vaddss, emit_vaddss);
     avx_fn!(vaddsd, emit_vaddsd);
 
@@ -981,6 +1076,12 @@ impl Emitter for Assembler {
     avx_fn!(vcmpgess, emit_vcmpgess);
     avx_fn!(vcmpgesd, emit_vcmpgesd);
 
+    avx_fn!(vcmpunordss, emit_vcmpunordss);
+    avx_fn!(vcmpunordsd, emit_vcmpunordsd);
+
+    avx_fn!(vcmpordss, emit_vcmpordss);
+    avx_fn!(vcmpordsd, emit_vcmpordsd);
+
     avx_fn!(vsqrtss, emit_vsqrtss);
     avx_fn!(vsqrtsd, emit_vsqrtsd);
 
@@ -1000,6 +1101,28 @@ impl Emitter for Assembler {
     avx_i2f_32_fn!(vcvtsi2sd, emit_vcvtsi2sd_32);
     avx_i2f_64_fn!(vcvtsi2ss, emit_vcvtsi2ss_64);
     avx_i2f_64_fn!(vcvtsi2sd, emit_vcvtsi2sd_64);
+
+    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+        match src2 {
+            XMMOrMemory::XMM(src2) => {
+                dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8))
+            }
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
+            }
+        }
+    }
+
+    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+        match src2 {
+            XMMOrMemory::XMM(src2) => {
+                dynasm!(self ; vblendvpd Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8))
+            }
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; vblendvpd Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
+            }
+        }
+    }
 
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
