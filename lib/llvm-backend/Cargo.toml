@@ -11,7 +11,6 @@ wasmparser = "0.39.1"
 smallvec = "0.6"
 goblin = "0.0.24"
 libc = "0.2.60"
-capstone = { version = "0.6", optional = true }
 byteorder = "1"
 
 [dependencies.inkwell]
@@ -38,4 +37,3 @@ wabt = "0.9.1"
 
 [features]
 debug = ["wasmer-runtime-core/debug"]
-disasm = ["capstone"]

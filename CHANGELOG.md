@@ -6,7 +6,9 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 
-- [#861](https://github.com/wasmerio/wasmer/pull/861) Add information when `unimplemented!` macro is called
+- [#861](https://github.com/wasmerio/wasmer/pull/861) Add descriptions to `unimplemented!` macro in various places
+- [#897](https://github.com/wasmerio/wasmer/pull/897) Removes special casing of stdin, stdout, and stderr in WASI.  Closing these files now works.  Removes `stdin`, `stdout`, and `stderr` from `WasiFS`, replaced by the methods `stdout`, `stdout_mut`, and so on.
+- [#863](https://github.com/wasmerio/wasmer/pull/863) Fix min and max for cases involving NaN and negative zero when using the LLVM backend.
 
 ## 0.8.0 - 2019-10-02
 

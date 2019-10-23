@@ -6,7 +6,9 @@ use inkwell::{
     types::{
         BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VectorType, VoidType,
     },
-    values::{BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue},
+    values::{
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, VectorValue,
+    },
     AddressSpace,
 };
 use std::collections::HashMap;
@@ -46,16 +48,6 @@ pub struct Intrinsics {
     pub sqrt_f64: FunctionValue,
     pub sqrt_f32x4: FunctionValue,
     pub sqrt_f64x2: FunctionValue,
-
-    pub minimum_f32: FunctionValue,
-    pub minimum_f64: FunctionValue,
-    pub minimum_f32x4: FunctionValue,
-    pub minimum_f64x2: FunctionValue,
-
-    pub maximum_f32: FunctionValue,
-    pub maximum_f64: FunctionValue,
-    pub maximum_f32x4: FunctionValue,
-    pub maximum_f64x2: FunctionValue,
 
     pub ceil_f32: FunctionValue,
     pub ceil_f64: FunctionValue,
@@ -125,6 +117,8 @@ pub struct Intrinsics {
     pub i128_zero: IntValue,
     pub f32_zero: FloatValue,
     pub f64_zero: FloatValue,
+    pub f32x4_zero: VectorValue,
+    pub f64x2_zero: VectorValue,
 
     pub trap_unreachable: BasicValueEnum,
     pub trap_call_indirect_sig: BasicValueEnum,
@@ -191,6 +185,8 @@ impl Intrinsics {
         let i128_zero = i128_ty.const_int(0, false);
         let f32_zero = f32_ty.const_float(0.0);
         let f64_zero = f64_ty.const_float(0.0);
+        let f32x4_zero = f32x4_ty.const_zero();
+        let f64x2_zero = f64x2_ty.const_zero();
 
         let i1_ty_basic = i1_ty.as_basic_type_enum();
         let i32_ty_basic = i32_ty.as_basic_type_enum();
@@ -303,8 +299,6 @@ impl Intrinsics {
 
         let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
         let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
-        let ret_f32x4_take_f32x4_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic, f32x4_ty_basic], false);
-        let ret_f64x2_take_f64x2_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic, f64x2_ty_basic], false);
 
         let ret_i32_take_ctx_i32_i32 = i32_ty.fn_type(
             &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
@@ -328,32 +322,6 @@ impl Intrinsics {
             sqrt_f64: module.add_function("llvm.sqrt.f64", ret_f64_take_f64, None),
             sqrt_f32x4: module.add_function("llvm.sqrt.v4f32", ret_f32x4_take_f32x4, None),
             sqrt_f64x2: module.add_function("llvm.sqrt.v2f64", ret_f64x2_take_f64x2, None),
-
-            minimum_f32: module.add_function("llvm.minnum.f32", ret_f32_take_f32_f32, None),
-            minimum_f64: module.add_function("llvm.minnum.f64", ret_f64_take_f64_f64, None),
-            minimum_f32x4: module.add_function(
-                "llvm.minnum.v4f32",
-                ret_f32x4_take_f32x4_f32x4,
-                None,
-            ),
-            minimum_f64x2: module.add_function(
-                "llvm.minnum.v2f64",
-                ret_f64x2_take_f64x2_f64x2,
-                None,
-            ),
-
-            maximum_f32: module.add_function("llvm.maxnum.f32", ret_f32_take_f32_f32, None),
-            maximum_f64: module.add_function("llvm.maxnum.f64", ret_f64_take_f64_f64, None),
-            maximum_f32x4: module.add_function(
-                "llvm.maxnum.v4f32",
-                ret_f32x4_take_f32x4_f32x4,
-                None,
-            ),
-            maximum_f64x2: module.add_function(
-                "llvm.maxnum.v2f64",
-                ret_f64x2_take_f64x2_f64x2,
-                None,
-            ),
 
             ceil_f32: module.add_function("llvm.ceil.f32", ret_f32_take_f32, None),
             ceil_f64: module.add_function("llvm.ceil.f64", ret_f64_take_f64, None),
@@ -455,6 +423,8 @@ impl Intrinsics {
             i128_zero,
             f32_zero,
             f64_zero,
+            f32x4_zero,
+            f64x2_zero,
 
             trap_unreachable: i32_zero.as_basic_value_enum(),
             trap_call_indirect_sig: i32_ty.const_int(1, false).as_basic_value_enum(),
