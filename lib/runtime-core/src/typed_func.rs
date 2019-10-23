@@ -433,7 +433,7 @@ macro_rules! impl_traits {
                         unsafe { mem::transmute(&()) }
                     };
 
-                    let _err = match panic::catch_unwind(
+                    let err = match panic::catch_unwind(
                         panic::AssertUnwindSafe(
                             || {
                                 func( $( WasmExternType::from_native($x) ),* ).report()
@@ -448,14 +448,10 @@ macro_rules! impl_traits {
                         Err(err) => err,
                     };
 
-                    /*
                     unsafe {
-                        let vmctx: &mut vm::Ctx = unsafe { &mut *(env as *mut vm::Ctx) };
+                        let vmctx: &mut vm::Ctx = &mut *(env as *mut vm::Ctx);
                         (&*vmctx.module).runnable_module.do_early_trap(err)
                     }
-                    */
-                    eprintln!("early trap ahhh");
-                    ::std::process::exit(1);
                 }
 
                 (
