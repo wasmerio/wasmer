@@ -49,16 +49,6 @@ pub struct Intrinsics {
     pub sqrt_f32x4: FunctionValue,
     pub sqrt_f64x2: FunctionValue,
 
-    pub minimum_f32: FunctionValue,
-    pub minimum_f64: FunctionValue,
-    pub minimum_f32x4: FunctionValue,
-    pub minimum_f64x2: FunctionValue,
-
-    pub maximum_f32: FunctionValue,
-    pub maximum_f64: FunctionValue,
-    pub maximum_f32x4: FunctionValue,
-    pub maximum_f64x2: FunctionValue,
-
     pub ceil_f32: FunctionValue,
     pub ceil_f64: FunctionValue,
 
@@ -309,8 +299,6 @@ impl Intrinsics {
 
         let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
         let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
-        let ret_f32x4_take_f32x4_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic, f32x4_ty_basic], false);
-        let ret_f64x2_take_f64x2_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic, f64x2_ty_basic], false);
 
         let ret_i32_take_ctx_i32_i32 = i32_ty.fn_type(
             &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
@@ -334,32 +322,6 @@ impl Intrinsics {
             sqrt_f64: module.add_function("llvm.sqrt.f64", ret_f64_take_f64, None),
             sqrt_f32x4: module.add_function("llvm.sqrt.v4f32", ret_f32x4_take_f32x4, None),
             sqrt_f64x2: module.add_function("llvm.sqrt.v2f64", ret_f64x2_take_f64x2, None),
-
-            minimum_f32: module.add_function("llvm.minnum.f32", ret_f32_take_f32_f32, None),
-            minimum_f64: module.add_function("llvm.minnum.f64", ret_f64_take_f64_f64, None),
-            minimum_f32x4: module.add_function(
-                "llvm.minnum.v4f32",
-                ret_f32x4_take_f32x4_f32x4,
-                None,
-            ),
-            minimum_f64x2: module.add_function(
-                "llvm.minnum.v2f64",
-                ret_f64x2_take_f64x2_f64x2,
-                None,
-            ),
-
-            maximum_f32: module.add_function("llvm.maxnum.f32", ret_f32_take_f32_f32, None),
-            maximum_f64: module.add_function("llvm.maxnum.f64", ret_f64_take_f64_f64, None),
-            maximum_f32x4: module.add_function(
-                "llvm.maxnum.v4f32",
-                ret_f32x4_take_f32x4_f32x4,
-                None,
-            ),
-            maximum_f64x2: module.add_function(
-                "llvm.maxnum.v2f64",
-                ret_f64x2_take_f64x2_f64x2,
-                None,
-            ),
 
             ceil_f32: module.add_function("llvm.ceil.f32", ret_f32_take_f32, None),
             ceil_f64: module.add_function("llvm.ceil.f64", ret_f64_take_f64, None),
