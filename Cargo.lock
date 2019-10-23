@@ -1669,6 +1669,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-runtime-core-tests"
+version = "0.7.0"
+dependencies = [
+ "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-clif-backend 0.8.0",
+ "wasmer-llvm-backend 0.8.0",
+ "wasmer-runtime-core 0.8.0",
+ "wasmer-singlepass-backend 0.8.0",
+]
+
+[[package]]
 name = "wasmer-singlepass-backend"
 version = "0.8.0"
 dependencies = [
