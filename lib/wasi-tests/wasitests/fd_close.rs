@@ -23,9 +23,17 @@ fn main() {
 
     #[cfg(target_os = "wasi")]
     {
+        let file_fd = file.as_raw_fd();
         let stdout_fd = std::io::stdout().as_raw_fd();
         let stderr_fd = std::io::stderr().as_raw_fd();
         let stdin_fd = std::io::stdin().as_raw_fd();
+
+        let result = unsafe { fd_close(file_fd) };
+        if result == 0 {
+            println!("Successfully closed file!")
+        } else {
+            println!("Could not close file");
+        }
 
         let result = unsafe { fd_close(stderr_fd) };
         if result == 0 {
@@ -48,6 +56,7 @@ fn main() {
     }
     #[cfg(not(target_os = "wasi"))]
     {
+        println!("Successfully closed file!");
         println!("Successfully closed stderr!");
         println!("Successfully closed stdin!");
     }
