@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::{
-    backend::{Backend, CacheGen, Token},
+    backend::{Backend, CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -676,6 +676,7 @@ pub struct LLVMModuleCodeGenerator {
     personality_func: FunctionValue,
     module: Module,
     stackmaps: Rc<RefCell<StackmapRegistry>>,
+    track_state: bool,
 }
 
 pub struct LLVMFunctionCodeGenerator {
@@ -693,6 +694,7 @@ pub struct LLVMFunctionCodeGenerator {
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     index: usize,
     opcode_offset: usize,
+    track_state: bool,
 }
 
 impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
@@ -768,27 +770,29 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             let builder = self.builder.as_ref().unwrap();
             let intrinsics = self.intrinsics.as_ref().unwrap();
 
-            let mut stackmaps = self.stackmaps.borrow_mut();
-            emit_stack_map(
-                &module_info,
-                &intrinsics,
-                &builder,
-                self.index,
-                &mut *stackmaps,
-                StackmapEntryKind::FunctionHeader,
-                &self.locals,
-                &state,
-                self.ctx.as_mut().unwrap(),
-                ::std::usize::MAX,
-            );
-            finalize_opcode_stack_map(
-                &intrinsics,
-                &builder,
-                self.index,
-                &mut *stackmaps,
-                StackmapEntryKind::FunctionHeader,
-                ::std::usize::MAX,
-            );
+            if self.track_state {
+                let mut stackmaps = self.stackmaps.borrow_mut();
+                emit_stack_map(
+                    &module_info,
+                    &intrinsics,
+                    &builder,
+                    self.index,
+                    &mut *stackmaps,
+                    StackmapEntryKind::FunctionHeader,
+                    &self.locals,
+                    &state,
+                    self.ctx.as_mut().unwrap(),
+                    ::std::usize::MAX,
+                );
+                finalize_opcode_stack_map(
+                    &intrinsics,
+                    &builder,
+                    self.index,
+                    &mut *stackmaps,
+                    StackmapEntryKind::FunctionHeader,
+                    ::std::usize::MAX,
+                );
+            }
         }
 
         Ok(())
@@ -918,33 +922,35 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
                 builder.position_at_end(&loop_body);
 
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    emit_stack_map(
-                        &info,
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Loop,
-                        &self.locals,
-                        state,
-                        ctx,
-                        offset,
-                    );
-                    let signal_mem = ctx.signal_mem();
-                    let iv = builder
-                        .build_store(signal_mem, context.i8_type().const_int(0 as u64, false));
-                    // Any 'store' can be made volatile.
-                    iv.set_volatile(true).unwrap();
-                    finalize_opcode_stack_map(
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Loop,
-                        offset,
-                    );
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Loop,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        );
+                        let signal_mem = ctx.signal_mem();
+                        let iv = builder
+                            .build_store(signal_mem, context.i8_type().const_int(0 as u64, false));
+                        // Any 'store' can be made volatile.
+                        iv.set_volatile(true).unwrap();
+                        finalize_opcode_stack_map(
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Loop,
+                            offset,
+                        );
+                    }
                 }
 
                 state.push_loop(loop_body, loop_next, phis);
@@ -1215,28 +1221,30 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 // Comment out this `if` block to allow spectests to pass.
                 // TODO: fix this
                 if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    emit_stack_map(
-                        &info,
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Trappable,
-                        &self.locals,
-                        state,
-                        ctx,
-                        offset,
-                    );
-                    builder.build_call(intrinsics.trap, &[], "trap");
-                    finalize_opcode_stack_map(
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Trappable,
-                        offset,
-                    );
+                    if self.track_state {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Trappable,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        );
+                        builder.build_call(intrinsics.trap, &[], "trap");
+                        finalize_opcode_stack_map(
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Trappable,
+                            offset,
+                        );
+                    }
                 }
 
                 builder.build_call(
@@ -1495,32 +1503,36 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 };
 
                 state.popn(func_sig.params().len())?;
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    emit_stack_map(
-                        &info,
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Call,
-                        &self.locals,
-                        state,
-                        ctx,
-                        offset,
-                    )
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        )
+                    }
                 }
                 let call_site = builder.build_call(func_ptr, &params, &state.var_name());
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    finalize_opcode_stack_map(
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Call,
-                        offset,
-                    )
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        finalize_opcode_stack_map(
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            offset,
+                        )
+                    }
                 }
 
                 if let Some(basic_value) = call_site.try_as_basic_value().left() {
@@ -1704,32 +1716,36 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     "typed_func_ptr",
                 );
 
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    emit_stack_map(
-                        &info,
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Call,
-                        &self.locals,
-                        state,
-                        ctx,
-                        offset,
-                    )
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        )
+                    }
                 }
                 let call_site = builder.build_call(typed_func_ptr, &args, "indirect_call");
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    finalize_opcode_stack_map(
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Call,
-                        offset,
-                    )
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        finalize_opcode_stack_map(
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            offset,
+                        )
+                    }
                 }
 
                 match wasmer_fn_sig.returns() {
@@ -7242,6 +7258,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             func_import_count: 0,
             personality_func,
             stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
+            track_state: false,
         }
     }
 
@@ -7341,6 +7358,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             stackmaps: self.stackmaps.clone(),
             index: local_func_index,
             opcode_offset: 0,
+            track_state: self.track_state,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -7414,6 +7432,11 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             module_info,
         );
         Ok((backend, Box::new(cache_gen)))
+    }
+
+    fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
+        self.track_state = config.track_state;
+        Ok(())
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
