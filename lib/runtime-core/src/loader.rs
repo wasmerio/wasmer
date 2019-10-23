@@ -22,11 +22,11 @@ pub trait Instance {
     type Error: Debug;
     fn call(&mut self, id: usize, args: &[Value]) -> Result<u128, Self::Error>;
     fn read_memory(&mut self, _offset: u32, _len: u32) -> Result<Vec<u8>, Self::Error> {
-        unimplemented!()
+        unimplemented!("Instance::read_memory")
     }
 
     fn write_memory(&mut self, _offset: u32, _len: u32, _buf: &[u8]) -> Result<(), Self::Error> {
-        unimplemented!()
+        unimplemented!("Instance::write_memory")
     }
 }
 
@@ -122,15 +122,15 @@ unsafe impl Sync for CodeMemory {}
 #[cfg(not(unix))]
 impl CodeMemory {
     pub fn new(_size: usize) -> CodeMemory {
-        unimplemented!();
+        unimplemented!("CodeMemory::new");
     }
 
     pub fn make_executable(&self) {
-        unimplemented!();
+        unimplemented!("CodeMemory::make_executable");
     }
 
     pub fn make_writable(&self) {
-        unimplemented!();
+        unimplemented!("CodeMemory::make_writable");
     }
 }
 
