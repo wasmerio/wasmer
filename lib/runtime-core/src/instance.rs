@@ -96,26 +96,26 @@ impl Instance {
             // We know that the start function takes no arguments and returns no values.
             // Therefore, we can call it without doing any signature checking, etc.
 
-            let func_ptr = match start_index.local_or_import(&instance.module.info) {
-                LocalOrImport::Local(local_func_index) => instance
-                    .module
-                    .runnable_module
-                    .get_func(&instance.module.info, local_func_index)
-                    .unwrap(),
-                LocalOrImport::Import(import_func_index) => NonNull::new(
-                    instance.inner.import_backing.vm_functions[import_func_index].func as *mut _,
-                )
-                .unwrap(),
-            };
+            let (func_ptr, func_env_ptr): (_, Option<NonNull<vm::FuncEnv>>) =
+                match start_index.local_or_import(&instance.module.info) {
+                    LocalOrImport::Local(local_func_index) => (
+                        instance
+                            .module
+                            .runnable_module
+                            .get_func(&instance.module.info, local_func_index)
+                            .unwrap(),
+                        NonNull::new(instance.inner.vmctx).map(|pointer| pointer.cast()),
+                    ),
+                    LocalOrImport::Import(imported_func_index) => {
+                        let imported_func =
+                            &instance.inner.import_backing.vm_functions[imported_func_index];
 
-            let env_ptr = match start_index.local_or_import(&instance.module.info) {
-                LocalOrImport::Local(_) => {
-                    NonNull::new(instance.inner.vmctx).map(|pointer| pointer.cast())
-                }
-                LocalOrImport::Import(imported_func_index) => NonNull::new(
-                    instance.inner.import_backing.vm_functions[imported_func_index].func_env,
-                ),
-            };
+                        (
+                            NonNull::new(imported_func.func as *mut _).unwrap(),
+                            NonNull::new(imported_func.func_env),
+                        )
+                    }
+                };
 
             let sig_index = *instance
                 .module
@@ -134,7 +134,7 @@ impl Instance {
                 Func::from_raw_parts(
                     wasm_trampoline,
                     func_ptr,
-                    env_ptr,
+                    func_env_ptr,
                     NonNull::new(instance.inner.vmctx),
                 )
             };
@@ -207,25 +207,24 @@ impl Instance {
                 .get_trampoline(&self.module.info, sig_index)
                 .unwrap();
 
-            let func_ptr = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(local_func_index) => self
-                    .module
-                    .runnable_module
-                    .get_func(&self.module.info, local_func_index)
-                    .unwrap(),
-                LocalOrImport::Import(import_func_index) => NonNull::new(
-                    self.inner.import_backing.vm_functions[import_func_index].func as *mut _,
-                )
-                .unwrap(),
-            };
-
-            let func_env_ptr = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(_) => {
-                    NonNull::new(self.inner.vmctx).map(|pointer| pointer.cast())
-                }
-                LocalOrImport::Import(imported_func_index) => NonNull::new(
-                    self.inner.import_backing.vm_functions[imported_func_index].func_env,
+            let (func_ptr, func_env_ptr): (_, Option<NonNull<vm::FuncEnv>>) = match func_index
+                .local_or_import(&self.module.info)
+            {
+                LocalOrImport::Local(local_func_index) => (
+                    self.module
+                        .runnable_module
+                        .get_func(&self.module.info, local_func_index)
+                        .unwrap(),
+                    NonNull::new(self.inner.vmctx).map(|pointer| pointer.cast()),
                 ),
+                LocalOrImport::Import(import_func_index) => {
+                    let imported_func = &self.inner.import_backing.vm_functions[import_func_index];
+
+                    (
+                        NonNull::new(imported_func.func as *mut _).unwrap(),
+                        NonNull::new(imported_func.func_env),
+                    )
+                }
             };
 
             let typed_func: Func<Args, Rets, Wasm> = unsafe {
@@ -463,6 +462,7 @@ impl InstanceInner {
             ),
             LocalOrImport::Import(imported_func_index) => {
                 let imported_func = &self.import_backing.vm_functions[imported_func_index];
+
                 (
                     imported_func.func as *const _,
                     Context::External(imported_func.func_env as _), // cast `*mut vm::Ctx` to `*mut vm::Func`
@@ -578,21 +578,21 @@ fn call_func_with_index(
 
     let signature = &info.signatures[sig_index];
 
-    let func_ptr = match func_index.local_or_import(info) {
-        LocalOrImport::Local(local_func_index) => {
-            runnable.get_func(info, local_func_index).unwrap()
-        }
-        LocalOrImport::Import(import_func_index) => {
-            NonNull::new(import_backing.vm_functions[import_func_index].func as *mut _).unwrap()
-        }
-    };
+    let (func_ptr, func_env_ptr): (_, Option<NonNull<vm::FuncEnv>>) =
+        match func_index.local_or_import(info) {
+            LocalOrImport::Local(local_func_index) => (
+                runnable.get_func(info, local_func_index).unwrap(),
+                vmctx.map(|pointer| pointer.cast()),
+            ),
+            LocalOrImport::Import(import_func_index) => {
+                let imported_func = &import_backing.vm_functions[import_func_index];
 
-    let func_env_ptr = match func_index.local_or_import(info) {
-        LocalOrImport::Local(_) => vmctx.map(|pointer| pointer.cast()),
-        LocalOrImport::Import(imported_func_index) => {
-            NonNull::new(import_backing.vm_functions[imported_func_index].func_env)
-        }
-    };
+                (
+                    NonNull::new(imported_func.func as *mut _).unwrap(),
+                    NonNull::new(imported_func.func_env),
+                )
+            }
+        };
 
     let wasm = runnable
         .get_trampoline(info, sig_index)
