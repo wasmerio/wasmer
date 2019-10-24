@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Context {
-    External(*mut vm::Ctx),
+    External(*mut vm::FuncEnv),
     Internal,
 }
 

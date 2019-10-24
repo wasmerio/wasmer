@@ -418,7 +418,7 @@ impl InstanceInner {
                 Export::Function {
                     func,
                     ctx: match ctx {
-                        Context::Internal => Context::External(self.vmctx),
+                        Context::Internal => Context::External(self.vmctx as *mut vm::FuncEnv),
                         ctx @ Context::External(_) => ctx,
                     },
                     signature,
@@ -465,7 +465,7 @@ impl InstanceInner {
 
                 (
                     imported_func.func as *const _,
-                    Context::External(imported_func.func_env as _), // cast `*mut vm::Ctx` to `*mut vm::Func`
+                    Context::External(imported_func.func_env),
                 )
             }
         };

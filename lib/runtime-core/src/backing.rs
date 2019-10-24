@@ -378,7 +378,7 @@ impl LocalBacking {
                                         .unwrap()
                                         .as_ptr()
                                         as *const vm::Func,
-                                    vmctx as _, // cast `*mut vm::Ctx` to `*mut vm::FuncEnv`
+                                    vmctx as *mut vm::FuncEnv,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
                                     let vm::ImportedFunc { func, func_env } =
@@ -415,7 +415,7 @@ impl LocalBacking {
                                         .unwrap()
                                         .as_ptr()
                                         as *const vm::Func,
-                                    vmctx as _, // cast `*mut vm::Ctx` to `*mut vm::FuncEnv`
+                                    vmctx as *mut vm::FuncEnv,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
                                     let vm::ImportedFunc { func, func_env } =
@@ -582,9 +582,9 @@ fn import_functions(
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
                         func_env: match ctx {
-                            Context::External(ctx) => ctx,
-                            Context::Internal => vmctx,
-                        } as _, // cast `*mut vm::Ctx` to `*mut vm::FuncEnv`
+                            Context::External(func_env) => func_env,
+                            Context::Internal => vmctx as *mut vm::FuncEnv,
+                        },
                     });
                 } else {
                     link_errors.push(LinkError::IncorrectImportSignature {
