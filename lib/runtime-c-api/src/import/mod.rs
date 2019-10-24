@@ -100,7 +100,7 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
     };
     if import.is_null() || import_export_value.is_null() {
         update_last_error(CApiError {
-            msg: "pointer to import and import_export_value must not be null".to_string(),
+            msg: "pointers to import and import_export_value must not be null".to_string(),
         });
         return wasmer_result_t::WASMER_ERROR;
     }
@@ -227,11 +227,13 @@ pub unsafe extern "C" fn wasmer_import_object_get_functions(
 
 #[no_mangle]
 /// Frees the memory acquired in `wasmer_import_object_get_functions`
+///
+/// This function does not free the memory in `wasmer_import_object_t`;
+/// it only frees memory allocated while querying a `wasmer_import_object_t`.
 pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
     imports: *mut wasmer_import_t,
     imports_len: u32,
 ) {
-    // what's our null check policy here?
     let imports: &[wasmer_import_t] = &*slice::from_raw_parts_mut(imports, imports_len as usize);
     for import in imports {
         let _namespace: Vec<u8> = Vec::from_raw_parts(

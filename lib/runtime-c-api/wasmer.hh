@@ -391,6 +391,9 @@ wasmer_result_t wasmer_import_object_get_import(const wasmer_import_object_t *im
                                                 uint32_t tag);
 
 /// Frees the memory acquired in `wasmer_import_object_get_functions`
+///
+/// This function does not free the memory in `wasmer_import_object_t`;
+/// it only frees memory allocated while querying a `wasmer_import_object_t`.
 void wasmer_import_object_imports_destroy(wasmer_import_t *imports, uint32_t imports_len);
 
 /// Creates a new empty import object.
