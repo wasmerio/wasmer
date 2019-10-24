@@ -89,12 +89,15 @@ wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llv
 # Backends
 singlepass: spectests-singlepass emtests-singlepass middleware-singlepass wasitests-singlepass
 	cargo test -p wasmer-singlepass-backend --release
+	cargo test -p wasmer-runtime-core-tests --no-default-features --features backend-singlepass
 
 cranelift: spectests-cranelift emtests-cranelift middleware-cranelift wasitests-cranelift
 	cargo test -p wasmer-clif-backend --release
+	cargo test -p wasmer-runtime-core-tests
 
 llvm: spectests-llvm emtests-llvm wasitests-llvm
 	cargo test -p wasmer-llvm-backend --release
+	cargo test -p wasmer-runtime-core-tests --no-default-features --features backend-llvm
 
 
 # All tests
