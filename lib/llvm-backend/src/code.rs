@@ -426,17 +426,9 @@ fn resolve_memory_ptr(
     ptr_ty: PointerType,
     value_size: usize,
 ) -> Result<PointerValue, BinaryReaderError> {
-    // Ignore alignment hint for the time being.
-    let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
-    let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
-    let var_offset_i32 = state.pop1()?.into_int_value();
-    let var_offset =
-        builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
-    let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
-    let end_offset = builder.build_int_add(effective_offset, value_size_v, &state.var_name());
+    // Look up the memory base (as pointer) and bounds (as unsigned integer).
     let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics);
-
-    let mem_base_int = match memory_cache {
+    let (mem_base, mem_bound) = match memory_cache {
         MemoryCache::Dynamic {
             ptr_to_base_ptr,
             ptr_to_bounds,
@@ -445,66 +437,71 @@ fn resolve_memory_ptr(
                 .build_load(ptr_to_base_ptr, "base")
                 .into_pointer_value();
             let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
-
-            let base_as_int = builder.build_ptr_to_int(base, intrinsics.i64_ty, "base_as_int");
-
-            let base_in_bounds_1 = builder.build_int_compare(
-                IntPredicate::ULE,
-                end_offset,
-                bounds,
-                "base_in_bounds_1",
-            );
-            let base_in_bounds_2 = builder.build_int_compare(
-                IntPredicate::ULT,
-                effective_offset,
-                end_offset,
-                "base_in_bounds_2",
-            );
-            let base_in_bounds =
-                builder.build_and(base_in_bounds_1, base_in_bounds_2, "base_in_bounds");
-
-            let base_in_bounds = builder
-                .build_call(
-                    intrinsics.expect_i1,
-                    &[
-                        base_in_bounds.as_basic_value_enum(),
-                        intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
-                    ],
-                    "base_in_bounds_expect",
-                )
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-
-            let in_bounds_continue_block =
-                context.append_basic_block(function, "in_bounds_continue_block");
-            let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
-            builder.build_conditional_branch(
-                base_in_bounds,
-                &in_bounds_continue_block,
-                &not_in_bounds_block,
-            );
-            builder.position_at_end(&not_in_bounds_block);
-            builder.build_call(
-                intrinsics.throw_trap,
-                &[intrinsics.trap_memory_oob],
-                "throw",
-            );
-            builder.build_unreachable();
-            builder.position_at_end(&in_bounds_continue_block);
-
-            base_as_int
+            (base, bounds)
         }
-        MemoryCache::Static {
-            base_ptr,
-            bounds: _,
-        } => builder.build_ptr_to_int(base_ptr, intrinsics.i64_ty, "base_as_int"),
+        MemoryCache::Static { base_ptr, bounds } => (base_ptr, bounds),
     };
+    let mem_base = builder
+        .build_bitcast(mem_base, intrinsics.i8_ptr_ty, &state.var_name())
+        .into_pointer_value();
 
-    let effective_address_int =
-        builder.build_int_add(mem_base_int, effective_offset, &state.var_name());
-    Ok(builder.build_int_to_ptr(effective_address_int, ptr_ty, &state.var_name()))
+    // Compute the offset over the memory_base.
+    let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
+    let var_offset_i32 = state.pop1()?.into_int_value();
+    let var_offset =
+        builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
+    let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
+
+    if let MemoryCache::Dynamic { .. } = memory_cache {
+        // If the memory is dynamic, do a bounds check. For static we rely on
+        // the size being a multiple of the page size and hitting a reserved
+        // but unreadable memory.
+        let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
+        let load_offset_end =
+            builder.build_int_add(effective_offset, value_size_v, &state.var_name());
+
+        let ptr_in_bounds = builder.build_int_compare(
+            IntPredicate::ULE,
+            load_offset_end,
+            mem_bound,
+            &state.var_name(),
+        );
+        let ptr_in_bounds = builder
+            .build_call(
+                intrinsics.expect_i1,
+                &[
+                    ptr_in_bounds.as_basic_value_enum(),
+                    intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                ],
+                "ptr_in_bounds_expect",
+            )
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_int_value();
+
+        let in_bounds_continue_block =
+            context.append_basic_block(function, "in_bounds_continue_block");
+        let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
+        builder.build_conditional_branch(
+            ptr_in_bounds,
+            &in_bounds_continue_block,
+            &not_in_bounds_block,
+        );
+        builder.position_at_end(&not_in_bounds_block);
+        builder.build_call(
+            intrinsics.throw_trap,
+            &[intrinsics.trap_memory_oob],
+            "throw",
+        );
+        builder.build_unreachable();
+        builder.position_at_end(&in_bounds_continue_block);
+    }
+
+    let ptr = unsafe { builder.build_gep(mem_base, &[effective_offset], &state.var_name()) };
+    Ok(builder
+        .build_bitcast(ptr, ptr_ty, &state.var_name())
+        .into_pointer_value())
 }
 
 fn emit_stack_map(
