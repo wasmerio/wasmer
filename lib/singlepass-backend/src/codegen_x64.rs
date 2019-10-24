@@ -10,7 +10,7 @@ use std::ptr::NonNull;
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap},
-    ptr,
+    mem, ptr,
     sync::{Arc, RwLock},
 };
 use wasmer_runtime_core::{
@@ -39,7 +39,7 @@ use wasmparser::{MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as Wp
 
 lazy_static! {
     /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
-    static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u64, stack_base: *const u64, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
+    static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u64, stack_base: *const u64, func_env: *mut vm::FuncEnv, target: *const vm::Func) -> u64 = {
         let mut assembler = Assembler::new().unwrap();
         let offset = assembler.offset();
         dynasm!(
@@ -57,7 +57,7 @@ lazy_static! {
             ; mov r13, rdx
             ; mov r12, rcx
 
-            ; mov rdi, r13 // ctx
+            ; mov rdi, r13 // func_env
 
             ; sub r14, 8
             ; cmp r14, r15
@@ -119,8 +119,8 @@ lazy_static! {
             ; ret
         );
         let buf = assembler.finalize().unwrap();
-        let ret = unsafe { ::std::mem::transmute(buf.ptr(offset)) };
-        ::std::mem::forget(buf);
+        let ret = unsafe { mem::transmute(buf.ptr(offset)) };
+        mem::forget(buf);
         ret
     };
 }
@@ -256,7 +256,7 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
-        use std::{ffi::c_void, mem, slice};
+        use std::{ffi::c_void, slice};
         use wasmer_runtime_core::typed_func::{Trampoline, WasmTrapInfo};
 
         unsafe extern "C" fn invoke(
@@ -286,7 +286,7 @@ impl RunnableModule for X64ExecutionContext {
                         args_reverse.as_ptr(),
                         args_reverse.as_ptr().offset(args_reverse.len() as isize),
                         func_env
-                            .map(|pointer| pointer.cast().as_ptr())
+                            .map(|pointer| pointer.as_ptr())
                             .unwrap_or_else(ptr::null_mut),
                         func.as_ptr(),
                     )
