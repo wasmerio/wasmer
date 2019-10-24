@@ -721,7 +721,7 @@ mod tests {
                 CommandKind::AssertUninstantiable {
                     module: _,
                     message: _,
-                } => println!("AssertUninstantiable not yet implmented "),
+                } => println!("AssertUninstantiable not yet implemented "),
                 CommandKind::AssertExhaustion { action, message: _ } => {
                     match action {
                         Action::Invoke {
