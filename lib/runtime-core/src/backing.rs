@@ -15,14 +15,14 @@ use crate::{
     },
     vm,
 };
-use std::{fmt::Debug, slice};
+use std::{fmt, fmt::Debug, ptr, slice};
 
 pub const INTERNALS_SIZE: usize = 256;
 
 pub(crate) struct Internals(pub(crate) [u64; INTERNALS_SIZE]);
 
 impl Debug for Internals {
-    fn fmt(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "Internals({:?})", &self.0[..])
     }
 }
@@ -535,7 +535,6 @@ impl ImportBacking {
                 memories,
                 tables,
                 globals,
-
                 vm_functions,
                 vm_memories,
                 vm_tables,
@@ -614,8 +613,8 @@ fn import_functions(
             None => {
                 if imports.allow_missing_functions {
                     functions.push(vm::ImportedFunc {
-                        func: ::std::ptr::null(),
-                        func_env: ::std::ptr::null_mut(),
+                        func: ptr::null(),
+                        func_env: ptr::null_mut(),
                     });
                 } else {
                     link_errors.push(LinkError::ImportNotFound {
