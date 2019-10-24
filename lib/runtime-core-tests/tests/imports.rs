@@ -136,7 +136,15 @@ fn imported_functions_forms() {
                         assert!(false, "Unexpected error, cannot compare it.")
                     }
                 }
-                _ => assert!(false, "Unexpected assertion."),
+                (result, expected_value) => assert!(
+                    false,
+                    format!(
+                        "Unexpected assertion for `{}`: left = `{:?}`, right = `{:?}`.",
+                        stringify!($function),
+                        result,
+                        expected_value
+                    )
+                ),
             }
         };
     }
