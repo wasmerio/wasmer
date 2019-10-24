@@ -409,13 +409,20 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
-                let env: Option<NonNull<vm::FuncEnv>> = if mem::size_of::<Self>() != 0 {
-                    NonNull::new(Box::leak(Box::new(self))).map(|pointer| pointer.cast())
-                } else {
-                    None
-                };
+                let env: Option<NonNull<vm::FuncEnv>> =
+                    // `FN` is a function pointer, or a closure
+                    // _without_ a captured environment.
+                    if mem::size_of::<Self>() == 0 {
+                        None
+                    }
+                    // `FN` is a closure _with_ a captured
+                    // environment. Grab it.
+                    else {
+                        NonNull::new(Box::leak(Box::new(self))).map(|pointer| pointer.cast())
+                    };
 
-                /// This is required for the LLVM backend to be able to unwind through this function.
+                // This is required for the LLVM backend to be able to
+                // unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
                 extern fn wrap<$( $x, )* Rets, Trap, FN>(
                     env: *mut vm::FuncEnv
@@ -427,11 +434,27 @@ macro_rules! impl_traits {
                     Trap: TrapEarly<Rets>,
                     FN: Fn( $( $x ),* ) -> Trap + 'static,
                 {
-                    let func: &FN = if mem::size_of::<FN>() != 0 {
-                        unsafe { &*(env as *const FN) }
-                    } else {
-                        unsafe { mem::transmute(&()) }
-                    };
+                    let (func, vmctx): (&FN, Option<&mut vm::Ctx>) =
+                        // `FN` is a function pointer, or a closure
+                        // _without_ a captured
+                        // environment. Consequently `env` holds a
+                        // pointer to `vm::Ctx`.
+                        if mem::size_of::<FN>() == 0 {
+                            (
+                                unsafe { mem::transmute(&()) },
+                                Some(unsafe { &mut *(env as *mut vm::Ctx) }),
+                            )
+                        }
+                        // `FN` is a closure _with_ a captured
+                        // environment. `env` effectively represents
+                        // the closure environment, and we don't have
+                        // a pointer to `vm::Ctx`.
+                        else {
+                            (
+                                unsafe { &*(env as *const FN) },
+                                None
+                            )
+                        };
 
                     let err = match panic::catch_unwind(
                         panic::AssertUnwindSafe(
@@ -448,9 +471,14 @@ macro_rules! impl_traits {
                         Err(err) => err,
                     };
 
-                    unsafe {
-                        let vmctx: &mut vm::Ctx = &mut *(env as *mut vm::Ctx);
-                        (&*vmctx.module).runnable_module.do_early_trap(err)
+                    match vmctx {
+                        Some(vmctx) => {
+                            unsafe { (&*vmctx.module).runnable_module.do_early_trap(err) }
+                        },
+                        None => {
+                            eprintln!("yolo");
+                            ::std::process::exit(1)
+                        }
                     }
                 }
 
@@ -471,8 +499,11 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
+                // `FN` is a function pointer, or a closure _without_
+                // a captured environment.
                 if mem::size_of::<Self>() == 0 {
-                    /// This is required for the LLVM backend to be able to unwind through this function.
+                    // This is required for the LLVM backend to be
+                    // able to unwind through this function.
                     #[cfg_attr(nightly, unwind(allowed))]
                     extern fn wrap<$( $x, )* Rets, Trap, FN>(
                         vmctx: &mut vm::Ctx
@@ -510,10 +541,19 @@ macro_rules! impl_traits {
                         NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
                         None,
                     )
-                } else {
-                    panic!("yolo");
                 }
-
+                // `FN` is a closure _with_ a captured
+                // environment. Since it also has a `&mut vm::Ctx` as
+                // its first argument, `vm::FuncEnv` has 2 pointers to
+                // hold, and it is impossible (it represents only 1
+                // pointer). It is OK-ish to panic: It happens during
+                // runtime (at compile-time would be far better) but
+                // it happens when `Func::new` is called, so when the
+                // import object is built, which happens before the
+                // module instantiation and its execution.
+                else {
+                    panic!("A closure cannot capture its environment while having `&mut vm::Ctx` as its first argument.");
+                }
             }
         }
     };
