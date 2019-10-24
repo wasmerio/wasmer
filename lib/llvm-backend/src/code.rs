@@ -682,6 +682,7 @@ pub struct LLVMModuleCodeGenerator {
 pub struct LLVMFunctionCodeGenerator {
     context: Option<Context>,
     builder: Option<Builder>,
+    alloca_builder: Option<Builder>,
     intrinsics: Option<Intrinsics>,
     state: State,
     function: FunctionValue,
@@ -706,12 +707,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
+    fn feed_local(&mut self, ty: WpType, count: usize) -> Result<(), CodegenError> {
         let param_len = self.num_params;
 
-        let mut local_idx = 0;
-        //            let (count, ty) = local?;
-        let count = n;
         let wasmer_ty = type_to_type(ty)?;
 
         let intrinsics = self.intrinsics.as_ref().unwrap();
@@ -726,14 +724,22 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         };
 
         let builder = self.builder.as_ref().unwrap();
+        let alloca_builder = self.alloca_builder.as_ref().unwrap();
 
-        for _ in 0..count {
-            let alloca = builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
-
+        for local_idx in 0..count {
+            let alloca =
+                alloca_builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
             builder.build_store(alloca, default_value);
-
+            if local_idx == 0 {
+                alloca_builder.position_before(
+                    &alloca
+                        .as_instruction()
+                        .unwrap()
+                        .get_next_instruction()
+                        .unwrap(),
+                );
+            }
             self.locals.push(alloca);
-            local_idx += 1;
         }
         Ok(())
     }
@@ -7301,6 +7307,8 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         let mut state = State::new();
         let entry_block = context.append_basic_block(&function, "entry");
+        let alloca_builder = context.create_builder();
+        alloca_builder.position_at_end(&entry_block);
 
         let return_block = context.append_basic_block(&function, "return");
         builder.position_at_end(&return_block);
@@ -7322,20 +7330,23 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
                 .skip(1)
                 .enumerate()
                 .map(|(index, param)| {
-                    //let ty = param.get_type();
                     let real_ty = func_sig.params()[index];
                     let real_ty_llvm = type_to_llvm(&intrinsics, real_ty);
-
-                    let alloca = builder.build_alloca(real_ty_llvm, &format!("local{}", index));
-
-                    //if real_ty_llvm != ty {
+                    let alloca =
+                        alloca_builder.build_alloca(real_ty_llvm, &format!("local{}", index));
                     builder.build_store(
                         alloca,
                         builder.build_bitcast(param, real_ty_llvm, &state.var_name()),
                     );
-                    /*} else {
-                        builder.build_store(alloca, param);
-                    }*/
+                    if index == 0 {
+                        alloca_builder.position_before(
+                            &alloca
+                                .as_instruction()
+                                .unwrap()
+                                .get_next_instruction()
+                                .unwrap(),
+                        );
+                    }
                     alloca
                 }),
         );
@@ -7347,6 +7358,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             state,
             context: Some(context),
             builder: Some(builder),
+            alloca_builder: Some(alloca_builder),
             intrinsics: Some(intrinsics),
             function,
             func_sig: func_sig,
