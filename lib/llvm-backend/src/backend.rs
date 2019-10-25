@@ -4,8 +4,7 @@ use crate::structs::{Callbacks, LLVMModule, LLVMResult, MemProtect};
 use inkwell::{
     memory_buffer::MemoryBuffer,
     module::Module,
-    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
-    OptimizationLevel,
+    targets::{FileType, TargetMachine},
 };
 use libc::c_char;
 use std::{
@@ -172,28 +171,8 @@ impl LLVMBackend {
         _intrinsics: Intrinsics,
         _stackmaps: &StackmapRegistry,
         _module_info: &ModuleInfo,
+        target_machine: &TargetMachine,
     ) -> (Self, LLVMCache) {
-        Target::initialize_x86(&InitializationConfig {
-            asm_parser: true,
-            asm_printer: true,
-            base: true,
-            disassembler: true,
-            info: true,
-            machine_code: true,
-        });
-        let triple = TargetMachine::get_default_triple().to_string();
-        let target = Target::from_triple(&triple).unwrap();
-        let target_machine = target
-            .create_target_machine(
-                &triple,
-                &TargetMachine::get_host_cpu_name().to_string(),
-                &TargetMachine::get_host_cpu_features().to_string(),
-                OptimizationLevel::Aggressive,
-                RelocMode::Static,
-                CodeModel::Large,
-            )
-            .unwrap();
-
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();

@@ -3,12 +3,13 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
+    targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine},
     types::{BasicType, BasicTypeEnum, FunctionType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
         VectorValue,
     },
-    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate,
+    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate, OptimizationLevel,
 };
 use smallvec::SmallVec;
 use std::cell::RefCell;
@@ -674,6 +675,7 @@ pub struct LLVMModuleCodeGenerator {
     module: Module,
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     track_state: bool,
+    target_machine: TargetMachine,
 }
 
 pub struct LLVMFunctionCodeGenerator {
@@ -7237,6 +7239,31 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     fn new() -> LLVMModuleCodeGenerator {
         let context = Context::create();
         let module = context.create_module("module");
+
+        Target::initialize_x86(&InitializationConfig {
+            asm_parser: true,
+            asm_printer: true,
+            base: true,
+            disassembler: true,
+            info: true,
+            machine_code: true,
+        });
+        let triple = TargetMachine::get_default_triple().to_string();
+        let target = Target::from_triple(&triple).unwrap();
+        let target_machine = target
+            .create_target_machine(
+                &triple,
+                &TargetMachine::get_host_cpu_name().to_string(),
+                &TargetMachine::get_host_cpu_features().to_string(),
+                OptimizationLevel::Aggressive,
+                RelocMode::Static,
+                CodeModel::Large,
+            )
+            .unwrap();
+
+        module.set_target(&target);
+        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
+
         let builder = context.create_builder();
 
         let intrinsics = Intrinsics::declare(&module, &context);
@@ -7262,6 +7289,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             personality_func,
             stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
             track_state: false,
+            target_machine: target_machine,
         }
     }
 
@@ -7439,6 +7467,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             self.intrinsics.take().unwrap(),
             &*stackmaps,
             module_info,
+            &self.target_machine,
         );
         Ok((backend, Box::new(cache_gen)))
     }
