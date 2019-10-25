@@ -36,11 +36,11 @@ pub fn printf(_ctx: &mut Ctx, memory_offset: i32, extra: i32) -> i32 {
 /// chroot
 pub fn chroot(_ctx: &mut Ctx, _name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
-    unimplemented!()
+    unimplemented!("emscripten::chroot")
 }
 
 /// getpwuid
 pub fn getpwuid(_ctx: &mut Ctx, _uid: i32) -> i32 {
     debug!("emscripten::getpwuid");
-    unimplemented!()
+    unimplemented!("emscripten::getpwuid")
 }

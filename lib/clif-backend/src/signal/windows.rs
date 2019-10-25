@@ -110,5 +110,5 @@ pub fn call_protected(
 
 pub unsafe fn trigger_trap() -> ! {
     // TODO
-    unimplemented!();
+    unimplemented!("windows::trigger_trap");
 }

@@ -10,7 +10,7 @@ use crate::{
 
 // +*****************************+
 // |       LOCAL MEMORIES        |
-// +****************************+
+// +*****************************+
 
 pub unsafe extern "C" fn local_static_memory_grow(
     ctx: &mut vm::Ctx,
@@ -72,7 +72,7 @@ pub unsafe extern "C" fn local_dynamic_memory_size(
 
 // +*****************************+
 // |      IMPORTED MEMORIES      |
-// +****************************+
+// +*****************************+
 
 pub unsafe extern "C" fn imported_static_memory_grow(
     ctx: &mut vm::Ctx,
@@ -140,7 +140,7 @@ pub unsafe extern "C" fn imported_dynamic_memory_size(
 
 // +*****************************+
 // |        LOCAL TABLES         |
-// +****************************+
+// +*****************************+
 
 pub unsafe extern "C" fn local_table_grow(
     ctx: &mut vm::Ctx,
@@ -150,11 +150,11 @@ pub unsafe extern "C" fn local_table_grow(
     let _ = table_index;
     let _ = delta;
     let _ = ctx;
-    unimplemented!()
+    unimplemented!("vmcalls::local_table_grow")
 }
 
 pub unsafe extern "C" fn local_table_size(ctx: &vm::Ctx, table_index: LocalTableIndex) -> u32 {
     let _ = table_index;
     let _ = ctx;
-    unimplemented!()
+    unimplemented!("vmcalls::local_table_size")
 }

@@ -67,9 +67,29 @@ impl ControlFrame {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
+pub enum ExtraInfo {
+    None,
+
+    // This values is required to be arithmetic 32-bit NaN (or 32x4) by the WAsm
+    // machine, but which might not be in the LLVM value. The conversion to
+    // arithmetic NaN is pending. It is required for correctness.
+    PendingF32NaN,
+
+    // This values is required to be arithmetic 64-bit NaN (or 64x2) by the WAsm
+    // machine, but which might not be in the LLVM value. The conversion to
+    // arithmetic NaN is pending. It is required for correctness.
+    PendingF64NaN,
+}
+impl Default for ExtraInfo {
+    fn default() -> Self {
+        ExtraInfo::None
+    }
+}
+
 #[derive(Debug)]
 pub struct State {
-    pub stack: Vec<BasicValueEnum>,
+    pub stack: Vec<(BasicValueEnum, ExtraInfo)>,
     control_stack: Vec<ControlFrame>,
     value_counter: Cell<usize>,
 
@@ -145,10 +165,18 @@ impl State {
     }
 
     pub fn push1<T: BasicValue>(&mut self, value: T) {
-        self.stack.push(value.as_basic_value_enum())
+        self.push1_extra(value, ExtraInfo::None);
+    }
+
+    pub fn push1_extra<T: BasicValue>(&mut self, value: T, info: ExtraInfo) {
+        self.stack.push((value.as_basic_value_enum(), info));
     }
 
     pub fn pop1(&mut self) -> Result<BasicValueEnum, BinaryReaderError> {
+        Ok(self.pop1_extra()?.0)
+    }
+
+    pub fn pop1_extra(&mut self) -> Result<(BasicValueEnum, ExtraInfo), BinaryReaderError> {
         self.stack.pop().ok_or(BinaryReaderError {
             message: "invalid value stack",
             offset: -1isize as usize,
@@ -161,6 +189,14 @@ impl State {
         Ok((v1, v2))
     }
 
+    pub fn pop2_extra(
+        &mut self,
+    ) -> Result<((BasicValueEnum, ExtraInfo), (BasicValueEnum, ExtraInfo)), BinaryReaderError> {
+        let v2 = self.pop1_extra()?;
+        let v1 = self.pop1_extra()?;
+        Ok((v1, v2))
+    }
+
     pub fn pop3(
         &mut self,
     ) -> Result<(BasicValueEnum, BasicValueEnum, BasicValueEnum), BinaryReaderError> {
@@ -170,7 +206,23 @@ impl State {
         Ok((v1, v2, v3))
     }
 
-    pub fn peek1(&self) -> Result<BasicValueEnum, BinaryReaderError> {
+    pub fn pop3_extra(
+        &mut self,
+    ) -> Result<
+        (
+            (BasicValueEnum, ExtraInfo),
+            (BasicValueEnum, ExtraInfo),
+            (BasicValueEnum, ExtraInfo),
+        ),
+        BinaryReaderError,
+    > {
+        let v3 = self.pop1_extra()?;
+        let v2 = self.pop1_extra()?;
+        let v1 = self.pop1_extra()?;
+        Ok((v1, v2, v3))
+    }
+
+    pub fn peek1_extra(&self) -> Result<(BasicValueEnum, ExtraInfo), BinaryReaderError> {
         self.stack
             .get(self.stack.len() - 1)
             .ok_or(BinaryReaderError {
@@ -180,7 +232,14 @@ impl State {
             .map(|v| *v)
     }
 
-    pub fn peekn(&self, n: usize) -> Result<&[BasicValueEnum], BinaryReaderError> {
+    pub fn peekn(&self, n: usize) -> Result<Vec<BasicValueEnum>, BinaryReaderError> {
+        Ok(self.peekn_extra(n)?.iter().map(|x| x.0).collect())
+    }
+
+    pub fn peekn_extra(
+        &self,
+        n: usize,
+    ) -> Result<&[(BasicValueEnum, ExtraInfo)], BinaryReaderError> {
         self.stack
             .get(self.stack.len() - n..)
             .ok_or(BinaryReaderError {
@@ -189,8 +248,11 @@ impl State {
             })
     }
 
-    pub fn popn_save(&mut self, n: usize) -> Result<Vec<BasicValueEnum>, BinaryReaderError> {
-        let v = self.peekn(n)?.to_vec();
+    pub fn popn_save_extra(
+        &mut self,
+        n: usize,
+    ) -> Result<Vec<(BasicValueEnum, ExtraInfo)>, BinaryReaderError> {
+        let v = self.peekn_extra(n)?.to_vec();
         self.popn(n)?;
         Ok(v)
     }
