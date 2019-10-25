@@ -371,7 +371,8 @@ wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_objec
                                             const wasmer_import_t *imports,
                                             unsigned int imports_len);
 
-/// Call `wasmer_import_object_imports_destroy` to free the memory allocated by this function
+/// Call `wasmer_import_object_imports_destroy` to free the memory allocated by this function.
+/// This function return -1 on error.
 int32_t wasmer_import_object_get_functions(const wasmer_import_object_t *import_object,
                                            wasmer_import_t *imports,
                                            uint32_t imports_len);
@@ -389,6 +390,11 @@ wasmer_result_t wasmer_import_object_get_import(const wasmer_import_object_t *im
                                                 wasmer_import_t *import,
                                                 wasmer_import_export_value *import_export_value,
                                                 uint32_t tag);
+
+/// Get the number of functions that an import object contains.
+/// The result of this is useful as an argument to `wasmer_import_object_get_functions`.
+/// This function returns -1 on error.
+int32_t wasmer_import_object_get_num_functions(const wasmer_import_object_t *import_object);
 
 /// Frees the memory acquired in `wasmer_import_object_get_functions`
 ///

@@ -170,7 +170,35 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
 }
 
 #[no_mangle]
-/// Call `wasmer_import_object_imports_destroy` to free the memory allocated by this function
+/// Get the number of functions that an import object contains.
+/// The result of this is useful as an argument to `wasmer_import_object_get_functions`.
+/// This function returns -1 on error.
+pub unsafe extern "C" fn wasmer_import_object_get_num_functions(
+    import_object: *const wasmer_import_object_t,
+) -> i32 {
+    if import_object.is_null() {
+        update_last_error(CApiError {
+            msg: "import_object must not be null".to_owned(),
+        });
+        return -1;
+    }
+    let import_object: &ImportObject = &*(import_object as *const ImportObject);
+    import_object
+        .clone_ref()
+        .into_iter()
+        .filter(|(_, _, e)| {
+            if let Export::Function { .. } = e {
+                true
+            } else {
+                false
+            }
+        })
+        .count() as i32
+}
+
+#[no_mangle]
+/// Call `wasmer_import_object_imports_destroy` to free the memory allocated by this function.
+/// This function return -1 on error.
 pub unsafe extern "C" fn wasmer_import_object_get_functions(
     import_object: *const wasmer_import_object_t,
     imports: *mut wasmer_import_t,
@@ -178,11 +206,11 @@ pub unsafe extern "C" fn wasmer_import_object_get_functions(
 ) -> i32 {
     if import_object.is_null() || imports.is_null() {
         update_last_error(CApiError {
-            msg: format!("import_object and imports must not be null"),
+            msg: "import_object and imports must not be null".to_owned(),
         });
         return -1;
     }
-    let import_object: &mut ImportObject = &mut *(import_object as *mut ImportObject);
+    let import_object: &ImportObject = &*(import_object as *const ImportObject);
 
     let mut i = 0;
     for (namespace, name, export) in import_object.clone_ref().into_iter() {
