@@ -3,19 +3,20 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
+    targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine},
     types::{BasicType, BasicTypeEnum, FunctionType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
         VectorValue,
     },
-    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate,
+    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate, OptimizationLevel,
 };
 use smallvec::SmallVec;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::{
-    backend::{Backend, CacheGen, Token},
+    backend::{Backend, CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -558,17 +559,9 @@ fn resolve_memory_ptr(
     ptr_ty: PointerType,
     value_size: usize,
 ) -> Result<PointerValue, BinaryReaderError> {
-    // Ignore alignment hint for the time being.
-    let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
-    let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
-    let var_offset_i32 = state.pop1()?.into_int_value();
-    let var_offset =
-        builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
-    let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
-    let end_offset = builder.build_int_add(effective_offset, value_size_v, &state.var_name());
+    // Look up the memory base (as pointer) and bounds (as unsigned integer).
     let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics);
-
-    let mem_base_int = match memory_cache {
+    let (mem_base, mem_bound) = match memory_cache {
         MemoryCache::Dynamic {
             ptr_to_base_ptr,
             ptr_to_bounds,
@@ -577,66 +570,71 @@ fn resolve_memory_ptr(
                 .build_load(ptr_to_base_ptr, "base")
                 .into_pointer_value();
             let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
-
-            let base_as_int = builder.build_ptr_to_int(base, intrinsics.i64_ty, "base_as_int");
-
-            let base_in_bounds_1 = builder.build_int_compare(
-                IntPredicate::ULE,
-                end_offset,
-                bounds,
-                "base_in_bounds_1",
-            );
-            let base_in_bounds_2 = builder.build_int_compare(
-                IntPredicate::ULT,
-                effective_offset,
-                end_offset,
-                "base_in_bounds_2",
-            );
-            let base_in_bounds =
-                builder.build_and(base_in_bounds_1, base_in_bounds_2, "base_in_bounds");
-
-            let base_in_bounds = builder
-                .build_call(
-                    intrinsics.expect_i1,
-                    &[
-                        base_in_bounds.as_basic_value_enum(),
-                        intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
-                    ],
-                    "base_in_bounds_expect",
-                )
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-
-            let in_bounds_continue_block =
-                context.append_basic_block(function, "in_bounds_continue_block");
-            let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
-            builder.build_conditional_branch(
-                base_in_bounds,
-                &in_bounds_continue_block,
-                &not_in_bounds_block,
-            );
-            builder.position_at_end(&not_in_bounds_block);
-            builder.build_call(
-                intrinsics.throw_trap,
-                &[intrinsics.trap_memory_oob],
-                "throw",
-            );
-            builder.build_unreachable();
-            builder.position_at_end(&in_bounds_continue_block);
-
-            base_as_int
+            (base, bounds)
         }
-        MemoryCache::Static {
-            base_ptr,
-            bounds: _,
-        } => builder.build_ptr_to_int(base_ptr, intrinsics.i64_ty, "base_as_int"),
+        MemoryCache::Static { base_ptr, bounds } => (base_ptr, bounds),
     };
+    let mem_base = builder
+        .build_bitcast(mem_base, intrinsics.i8_ptr_ty, &state.var_name())
+        .into_pointer_value();
 
-    let effective_address_int =
-        builder.build_int_add(mem_base_int, effective_offset, &state.var_name());
-    Ok(builder.build_int_to_ptr(effective_address_int, ptr_ty, &state.var_name()))
+    // Compute the offset over the memory_base.
+    let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
+    let var_offset_i32 = state.pop1()?.into_int_value();
+    let var_offset =
+        builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
+    let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
+
+    if let MemoryCache::Dynamic { .. } = memory_cache {
+        // If the memory is dynamic, do a bounds check. For static we rely on
+        // the size being a multiple of the page size and hitting a reserved
+        // but unreadable memory.
+        let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
+        let load_offset_end =
+            builder.build_int_add(effective_offset, value_size_v, &state.var_name());
+
+        let ptr_in_bounds = builder.build_int_compare(
+            IntPredicate::ULE,
+            load_offset_end,
+            mem_bound,
+            &state.var_name(),
+        );
+        let ptr_in_bounds = builder
+            .build_call(
+                intrinsics.expect_i1,
+                &[
+                    ptr_in_bounds.as_basic_value_enum(),
+                    intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                ],
+                "ptr_in_bounds_expect",
+            )
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_int_value();
+
+        let in_bounds_continue_block =
+            context.append_basic_block(function, "in_bounds_continue_block");
+        let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
+        builder.build_conditional_branch(
+            ptr_in_bounds,
+            &in_bounds_continue_block,
+            &not_in_bounds_block,
+        );
+        builder.position_at_end(&not_in_bounds_block);
+        builder.build_call(
+            intrinsics.throw_trap,
+            &[intrinsics.trap_memory_oob],
+            "throw",
+        );
+        builder.build_unreachable();
+        builder.position_at_end(&in_bounds_continue_block);
+    }
+
+    let ptr = unsafe { builder.build_gep(mem_base, &[effective_offset], &state.var_name()) };
+    Ok(builder
+        .build_bitcast(ptr, ptr_ty, &state.var_name())
+        .into_pointer_value())
 }
 
 fn emit_stack_map(
@@ -808,11 +806,14 @@ pub struct LLVMModuleCodeGenerator {
     personality_func: FunctionValue,
     module: Module,
     stackmaps: Rc<RefCell<StackmapRegistry>>,
+    track_state: bool,
+    target_machine: TargetMachine,
 }
 
 pub struct LLVMFunctionCodeGenerator {
     context: Option<Context>,
     builder: Option<Builder>,
+    alloca_builder: Option<Builder>,
     intrinsics: Option<Intrinsics>,
     state: State,
     function: FunctionValue,
@@ -825,6 +826,7 @@ pub struct LLVMFunctionCodeGenerator {
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     index: usize,
     opcode_offset: usize,
+    track_state: bool,
 }
 
 impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
@@ -836,12 +838,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
+    fn feed_local(&mut self, ty: WpType, count: usize) -> Result<(), CodegenError> {
         let param_len = self.num_params;
 
-        let mut local_idx = 0;
-        //            let (count, ty) = local?;
-        let count = n;
         let wasmer_ty = type_to_type(ty)?;
 
         let intrinsics = self.intrinsics.as_ref().unwrap();
@@ -856,14 +855,22 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         };
 
         let builder = self.builder.as_ref().unwrap();
+        let alloca_builder = self.alloca_builder.as_ref().unwrap();
 
-        for _ in 0..count {
-            let alloca = builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
-
+        for local_idx in 0..count {
+            let alloca =
+                alloca_builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
             builder.build_store(alloca, default_value);
-
+            if local_idx == 0 {
+                alloca_builder.position_before(
+                    &alloca
+                        .as_instruction()
+                        .unwrap()
+                        .get_next_instruction()
+                        .unwrap(),
+                );
+            }
             self.locals.push(alloca);
-            local_idx += 1;
         }
         Ok(())
     }
@@ -900,27 +907,29 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             let builder = self.builder.as_ref().unwrap();
             let intrinsics = self.intrinsics.as_ref().unwrap();
 
-            let mut stackmaps = self.stackmaps.borrow_mut();
-            emit_stack_map(
-                &module_info,
-                &intrinsics,
-                &builder,
-                self.index,
-                &mut *stackmaps,
-                StackmapEntryKind::FunctionHeader,
-                &self.locals,
-                &state,
-                self.ctx.as_mut().unwrap(),
-                ::std::usize::MAX,
-            );
-            finalize_opcode_stack_map(
-                &intrinsics,
-                &builder,
-                self.index,
-                &mut *stackmaps,
-                StackmapEntryKind::FunctionHeader,
-                ::std::usize::MAX,
-            );
+            if self.track_state {
+                let mut stackmaps = self.stackmaps.borrow_mut();
+                emit_stack_map(
+                    &module_info,
+                    &intrinsics,
+                    &builder,
+                    self.index,
+                    &mut *stackmaps,
+                    StackmapEntryKind::FunctionHeader,
+                    &self.locals,
+                    &state,
+                    self.ctx.as_mut().unwrap(),
+                    ::std::usize::MAX,
+                );
+                finalize_opcode_stack_map(
+                    &intrinsics,
+                    &builder,
+                    self.index,
+                    &mut *stackmaps,
+                    StackmapEntryKind::FunctionHeader,
+                    ::std::usize::MAX,
+                );
+            }
         }
 
         Ok(())
@@ -1050,33 +1059,35 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
                 builder.position_at_end(&loop_body);
 
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    emit_stack_map(
-                        &info,
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Loop,
-                        &self.locals,
-                        state,
-                        ctx,
-                        offset,
-                    );
-                    let signal_mem = ctx.signal_mem();
-                    let iv = builder
-                        .build_store(signal_mem, context.i8_type().const_int(0 as u64, false));
-                    // Any 'store' can be made volatile.
-                    iv.set_volatile(true).unwrap();
-                    finalize_opcode_stack_map(
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Loop,
-                        offset,
-                    );
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Loop,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        );
+                        let signal_mem = ctx.signal_mem();
+                        let iv = builder
+                            .build_store(signal_mem, context.i8_type().const_int(0 as u64, false));
+                        // Any 'store' can be made volatile.
+                        iv.set_volatile(true).unwrap();
+                        finalize_opcode_stack_map(
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Loop,
+                            offset,
+                        );
+                    }
                 }
 
                 state.push_loop(loop_body, loop_next, phis);
@@ -1358,28 +1369,30 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 // Comment out this `if` block to allow spectests to pass.
                 // TODO: fix this
                 if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    emit_stack_map(
-                        &info,
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Trappable,
-                        &self.locals,
-                        state,
-                        ctx,
-                        offset,
-                    );
-                    builder.build_call(intrinsics.trap, &[], "trap");
-                    finalize_opcode_stack_map(
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Trappable,
-                        offset,
-                    );
+                    if self.track_state {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Trappable,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        );
+                        builder.build_call(intrinsics.trap, &[], "trap");
+                        finalize_opcode_stack_map(
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Trappable,
+                            offset,
+                        );
+                    }
                 }
 
                 builder.build_call(
@@ -1659,32 +1672,36 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 };
 
                 state.popn(func_sig.params().len())?;
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    emit_stack_map(
-                        &info,
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Call,
-                        &self.locals,
-                        state,
-                        ctx,
-                        offset,
-                    )
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        )
+                    }
                 }
                 let call_site = builder.build_call(func_ptr, &params, &state.var_name());
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    finalize_opcode_stack_map(
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Call,
-                        offset,
-                    )
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        finalize_opcode_stack_map(
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            offset,
+                        )
+                    }
                 }
 
                 if let Some(basic_value) = call_site.try_as_basic_value().left() {
@@ -1875,32 +1892,36 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     "typed_func_ptr",
                 );
 
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    emit_stack_map(
-                        &info,
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Call,
-                        &self.locals,
-                        state,
-                        ctx,
-                        offset,
-                    )
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        )
+                    }
                 }
                 let call_site = builder.build_call(typed_func_ptr, &args, "indirect_call");
-                if let Some(offset) = opcode_offset {
-                    let mut stackmaps = self.stackmaps.borrow_mut();
-                    finalize_opcode_stack_map(
-                        intrinsics,
-                        builder,
-                        self.index,
-                        &mut *stackmaps,
-                        StackmapEntryKind::Call,
-                        offset,
-                    )
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        finalize_opcode_stack_map(
+                            intrinsics,
+                            builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            offset,
+                        )
+                    }
                 }
 
                 match wasmer_fn_sig.returns() {
@@ -7260,6 +7281,31 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     fn new() -> LLVMModuleCodeGenerator {
         let context = Context::create();
         let module = context.create_module("module");
+
+        Target::initialize_x86(&InitializationConfig {
+            asm_parser: true,
+            asm_printer: true,
+            base: true,
+            disassembler: true,
+            info: true,
+            machine_code: true,
+        });
+        let triple = TargetMachine::get_default_triple().to_string();
+        let target = Target::from_triple(&triple).unwrap();
+        let target_machine = target
+            .create_target_machine(
+                &triple,
+                &TargetMachine::get_host_cpu_name().to_string(),
+                &TargetMachine::get_host_cpu_features().to_string(),
+                OptimizationLevel::Aggressive,
+                RelocMode::Static,
+                CodeModel::Large,
+            )
+            .unwrap();
+
+        module.set_target(&target);
+        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
+
         let builder = context.create_builder();
 
         let intrinsics = Intrinsics::declare(&module, &context);
@@ -7284,6 +7330,8 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             func_import_count: 0,
             personality_func,
             stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
+            track_state: false,
+            target_machine: target_machine,
         }
     }
 
@@ -7326,6 +7374,8 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
 
         let mut state = State::new();
         let entry_block = context.append_basic_block(&function, "entry");
+        let alloca_builder = context.create_builder();
+        alloca_builder.position_at_end(&entry_block);
 
         let return_block = context.append_basic_block(&function, "return");
         builder.position_at_end(&return_block);
@@ -7347,20 +7397,23 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
                 .skip(1)
                 .enumerate()
                 .map(|(index, param)| {
-                    //let ty = param.get_type();
                     let real_ty = func_sig.params()[index];
                     let real_ty_llvm = type_to_llvm(&intrinsics, real_ty);
-
-                    let alloca = builder.build_alloca(real_ty_llvm, &format!("local{}", index));
-
-                    //if real_ty_llvm != ty {
+                    let alloca =
+                        alloca_builder.build_alloca(real_ty_llvm, &format!("local{}", index));
                     builder.build_store(
                         alloca,
                         builder.build_bitcast(param, real_ty_llvm, &state.var_name()),
                     );
-                    /*} else {
-                        builder.build_store(alloca, param);
-                    }*/
+                    if index == 0 {
+                        alloca_builder.position_before(
+                            &alloca
+                                .as_instruction()
+                                .unwrap()
+                                .get_next_instruction()
+                                .unwrap(),
+                        );
+                    }
                     alloca
                 }),
         );
@@ -7372,6 +7425,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             state,
             context: Some(context),
             builder: Some(builder),
+            alloca_builder: Some(alloca_builder),
             intrinsics: Some(intrinsics),
             function,
             func_sig: func_sig,
@@ -7383,6 +7437,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             stackmaps: self.stackmaps.clone(),
             index: local_func_index,
             opcode_offset: 0,
+            track_state: self.track_state,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -7454,8 +7509,14 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             self.intrinsics.take().unwrap(),
             &*stackmaps,
             module_info,
+            &self.target_machine,
         );
         Ok((backend, Box::new(cache_gen)))
+    }
+
+    fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
+        self.track_state = config.track_state;
+        Ok(())
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {

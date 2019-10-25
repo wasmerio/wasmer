@@ -105,7 +105,7 @@ impl binemit::RelocSink for RelocSink {
         _ebb_offset: binemit::CodeOffset,
     ) {
         // This should use the `offsets` field of `ir::Function`.
-        unimplemented!();
+        unimplemented!("RelocSink::reloc_ebb");
     }
     fn reloc_external(
         &mut self,
@@ -146,7 +146,7 @@ impl binemit::RelocSink for RelocSink {
 
                         DYNAMIC_MEM_GROW => VmCallKind::DynamicMemoryGrow,
                         DYNAMIC_MEM_SIZE => VmCallKind::DynamicMemorySize,
-                        _ => unimplemented!(),
+                        _ => unimplemented!("reloc_external VmCall::Local {}", index),
                     })),
                     IMPORT_NAMESPACE => RelocationType::VmCall(VmCall::Import(match index {
                         STATIC_MEM_GROW => VmCallKind::StaticMemoryGrow,
@@ -157,10 +157,10 @@ impl binemit::RelocSink for RelocSink {
 
                         DYNAMIC_MEM_GROW => VmCallKind::DynamicMemoryGrow,
                         DYNAMIC_MEM_SIZE => VmCallKind::DynamicMemorySize,
-                        _ => unimplemented!(),
+                        _ => unimplemented!("reloc_external VmCall::Import {}", index),
                     })),
                     SIG_NAMESPACE => RelocationType::Signature(SigIndex::new(index as usize)),
-                    _ => unimplemented!(),
+                    _ => unimplemented!("reloc_external SigIndex {}", index),
                 };
                 self.external_relocs.push(ExternalRelocation {
                     reloc,
@@ -204,7 +204,7 @@ impl binemit::RelocSink for RelocSink {
     }
 
     fn reloc_constant(&mut self, _: u32, _: cranelift_codegen::binemit::Reloc, _: u32) {
-        unimplemented!()
+        unimplemented!("RelocSink::reloc_constant")
     }
 
     fn reloc_jt(
@@ -213,7 +213,7 @@ impl binemit::RelocSink for RelocSink {
         _reloc: binemit::Reloc,
         _jt: ir::JumpTable,
     ) {
-        unimplemented!();
+        unimplemented!("RelocSink::reloc_jt");
     }
 }
 

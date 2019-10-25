@@ -177,8 +177,8 @@ struct Run {
 
     /// Whether or not state tracking should be disabled during compilation.
     /// State tracking is necessary for tier switching and backtracing.
-    #[structopt(long = "no-track-state")]
-    no_track_state: bool,
+    #[structopt(long = "track-state")]
+    track_state: bool,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
@@ -419,7 +419,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         }
     }
 
-    let track_state = !options.no_track_state;
+    let track_state = options.track_state;
 
     #[cfg(feature = "loader-kernel")]
     let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
