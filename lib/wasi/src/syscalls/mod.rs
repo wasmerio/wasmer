@@ -15,7 +15,6 @@ use crate::{
     },
     ExitCode,
 };
-use rand::{thread_rng, Rng};
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::{Infallible, TryInto};
@@ -2453,17 +2452,18 @@ pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
 ///     The number of bytes that will be written
 pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __wasi_errno_t {
     debug!("wasi::random_get buf_len: {}", buf_len);
-    let mut rng = thread_rng();
     let memory = ctx.memory(0);
 
     let buf = wasi_try!(buf.deref(memory, 0, buf_len));
 
-    unsafe {
+    let res = unsafe {
         let u8_buffer = &mut *(buf as *const [_] as *mut [_] as *mut [u8]);
-        thread_rng().fill(u8_buffer);
+        getrandom::getrandom(u8_buffer)
+    };
+    match res {
+        Ok(()) => __WASI_ESUCCESS,
+        Err(_) => __WASI_EIO,
     }
-
-    __WASI_ESUCCESS
 }
 
 /// ### `sched_yield()`

@@ -2,7 +2,6 @@ use crate::utils::{copy_cstr_into_wasm, get_cstr_path};
 use crate::varargs::VarArgs;
 use libc::mkdir;
 use libc::open;
-use rand::Rng;
 use std::env;
 use std::ffi::CString;
 use std::fs::File;
@@ -39,7 +38,8 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
             let ptr = tmp_dir_c_str.as_ptr() as *const i8;
             let mut urandom_file = File::create(tmp_dir).unwrap();
             // create some random bytes and put them into the file
-            let random_bytes = rand::thread_rng().gen::<[u8; 32]>();
+            let mut random_bytes = [0u8; 32];
+            getrandom::getrandom(&mut random_bytes).unwrap();
             let _ = urandom_file.write_all(&random_bytes).unwrap();
             // put the file path string into wasm memory
             let urandom_file_offset = unsafe { copy_cstr_into_wasm(ctx, ptr) };
