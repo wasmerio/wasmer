@@ -2462,7 +2462,7 @@ pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __was
     };
     match res {
         Ok(()) => __WASI_ESUCCESS,
-        Err(_) => __WASI_ERNGFAILURE,
+        Err(_) => __WASI_EIO,
     }
 }
 

@@ -147,7 +147,6 @@ pub const __WASI_ETIMEDOUT: u16 = 73;
 pub const __WASI_ETXTBSY: u16 = 74;
 pub const __WASI_EXDEV: u16 = 75;
 pub const __WASI_ENOTCAPABLE: u16 = 76;
-pub const __WASI_ERNGFAILURE: u16 = 77;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
