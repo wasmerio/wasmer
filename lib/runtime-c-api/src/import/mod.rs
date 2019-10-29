@@ -315,7 +315,9 @@ pub unsafe extern "C" fn wasmer_import_object_iter_at_end(
 pub unsafe extern "C" fn wasmer_import_object_iter_destroy(
     import_object_iter: *mut wasmer_import_object_iter_t,
 ) {
-    let _ = Box::from_raw(import_object_iter as *mut WasmerImportObjectIterator);
+    if !import_object_iter.is_null() {
+        let _ = Box::from_raw(import_object_iter as *mut WasmerImportObjectIterator);
+    }
 }
 
 /// Frees the memory allocated in `wasmer_import_object_iter_next`
@@ -327,6 +329,9 @@ pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
     imports: *mut wasmer_import_t,
     imports_len: u32,
 ) {
+    if imports.is_null() {
+        return;
+    }
     let imports: &[wasmer_import_t] = &*slice::from_raw_parts_mut(imports, imports_len as usize);
     for import in imports {
         let _namespace: Vec<u8> = Vec::from_raw_parts(

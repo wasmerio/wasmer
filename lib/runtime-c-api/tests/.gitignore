@@ -25,3 +25,5 @@ test-tables
 test-validate
 test-context
 test-module-import-instantiate
+test-wasi-import-object
+
