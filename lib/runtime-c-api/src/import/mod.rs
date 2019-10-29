@@ -13,7 +13,7 @@ use std::{convert::TryFrom, ffi::c_void, ptr, slice, sync::Arc};
 use wasmer_runtime::{Global, Memory, Module, Table};
 use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer},
-    import::ImportObject,
+    import::{ImportObject, ImportObjectIterator},
     module::ImportName,
     types::{FuncSig, Type},
 };
@@ -41,6 +41,10 @@ pub struct wasmer_import_descriptor_t;
 #[derive(Clone)]
 pub struct wasmer_import_descriptors_t;
 
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_import_object_iter_t;
+
 /// Creates a new empty import object.
 /// See also `wasmer_import_object_append`
 #[allow(clippy::cast_ptr_alignment)]
@@ -58,12 +62,11 @@ mod wasi;
 pub use self::wasi::*;
 
 /// Gets an entry from an ImportObject at the name and namespace.
-/// Stores an immutable reference to `name` and `namespace` in `import`.
+/// Stores `name`, `namespace`, and `import_export_value` in `import`.
+/// Thus these must remain valid for the lifetime of `import`.
 ///
 /// The caller owns all data involved.
-/// `import_export_value` will be written to based on `tag`, `import_export_value` must be
-/// initialized to point to the type specified by `tag`.  Failure to do so may result
-/// in data corruption or undefined behavior.
+/// `import_export_value` will be written to based on `tag`.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_object_get_import(
     import_object: *const wasmer_import_object_t,
@@ -169,95 +172,157 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
     }
 }
 
+/// private wrapper data type used for casting
+#[repr(C)]
+struct WasmerImportObjectIterator(
+    std::iter::Peekable<Box<dyn Iterator<Item = <ImportObjectIterator as Iterator>::Item>>>,
+);
+
+/// Create an iterator over the functions in the import object.
+/// Get the next import with `wasmer_import_object_iter_next`
+/// Free the iterator with `wasmer_import_object_iter_destroy`
 #[no_mangle]
-/// Get the number of functions that an import object contains.
-/// The result of this is useful as an argument to `wasmer_import_object_get_functions`.
-/// This function returns -1 on error.
-pub unsafe extern "C" fn wasmer_import_object_get_num_functions(
+pub unsafe extern "C" fn wasmer_import_object_iterate_functions(
     import_object: *const wasmer_import_object_t,
-) -> i32 {
+) -> *mut wasmer_import_object_iter_t {
     if import_object.is_null() {
         update_last_error(CApiError {
             msg: "import_object must not be null".to_owned(),
         });
-        return -1;
+        return std::ptr::null_mut();
     }
     let import_object: &ImportObject = &*(import_object as *const ImportObject);
-    import_object
-        .clone_ref()
-        .into_iter()
-        .filter(|(_, _, e)| {
-            if let Export::Function { .. } = e {
-                true
-            } else {
-                false
-            }
-        })
-        .count() as i32
+    let iter_inner = Box::new(import_object.clone_ref().into_iter().filter(|(_, _, e)| {
+        if let Export::Function { .. } = e {
+            true
+        } else {
+            false
+        }
+    })) as Box<dyn Iterator<Item = <ImportObjectIterator as Iterator>::Item>>;
+    let iterator = Box::new(WasmerImportObjectIterator(iter_inner.peekable()));
+
+    Box::into_raw(iterator) as *mut wasmer_import_object_iter_t
 }
 
+/// Writes the next value to `import`.  `WASMER_ERROR` is returned if there
+/// was an error or there's nothing left to return.
+///
+/// To free the memory allocated here, pass the import to `wasmer_import_object_imports_destroy`.
+/// To check if the iterator is done, use `wasmer_import_object_iter_at_end`.
 #[no_mangle]
-/// Call `wasmer_import_object_imports_destroy` to free the memory allocated by this function.
-/// This function return -1 on error.
-pub unsafe extern "C" fn wasmer_import_object_get_functions(
-    import_object: *const wasmer_import_object_t,
-    imports: *mut wasmer_import_t,
-    imports_len: u32,
-) -> i32 {
-    if import_object.is_null() || imports.is_null() {
+pub unsafe extern "C" fn wasmer_import_object_iter_next(
+    import_object_iter: *mut wasmer_import_object_iter_t,
+    import: *mut wasmer_import_t,
+) -> wasmer_result_t {
+    if import_object_iter.is_null() || import.is_null() {
         update_last_error(CApiError {
-            msg: "import_object and imports must not be null".to_owned(),
+            msg: "import_object_iter and import must not be null".to_owned(),
         });
-        return -1;
+        return wasmer_result_t::WASMER_ERROR;
     }
-    let import_object: &ImportObject = &*(import_object as *const ImportObject);
 
-    let mut i = 0;
-    for (namespace, name, export) in import_object.clone_ref().into_iter() {
-        if i + 1 > imports_len {
-            return i as i32;
-        }
+    let iter = &mut *(import_object_iter as *mut WasmerImportObjectIterator);
+    let out = &mut *import;
+    // TODO: the copying here can be optimized away, we just need to use a different type of
+    // iterator internally
+    if let Some((namespace, name, export)) = iter.0.next() {
+        let ns = {
+            let mut n = namespace.clone();
+            n.shrink_to_fit();
+            n.into_bytes()
+        };
+        let ns_bytes = wasmer_byte_array {
+            bytes: ns.as_ptr(),
+            bytes_len: ns.len() as u32,
+        };
+
+        let name = {
+            let mut n = name.clone();
+            n.shrink_to_fit();
+            n.into_bytes()
+        };
+        let name_bytes = wasmer_byte_array {
+            bytes: name.as_ptr(),
+            bytes_len: name.len() as u32,
+        };
+
+        out.module_name = ns_bytes;
+        out.import_name = name_bytes;
+
+        std::mem::forget(ns);
+        std::mem::forget(name);
+
         match export {
             Export::Function { .. } => {
-                let ns = namespace.clone().into_bytes();
-                let ns_bytes = wasmer_byte_array {
-                    bytes: ns.as_ptr(),
-                    bytes_len: ns.len() as u32,
-                };
-                std::mem::forget(ns);
-
-                let name = name.clone().into_bytes();
-                let name_bytes = wasmer_byte_array {
-                    bytes: name.as_ptr(),
-                    bytes_len: name.len() as u32,
-                };
-                std::mem::forget(name);
-
                 let func = Box::new(export.clone());
 
-                let new_entry = wasmer_import_t {
-                    module_name: ns_bytes,
-                    import_name: name_bytes,
-                    tag: wasmer_import_export_kind::WASM_FUNCTION,
-                    value: wasmer_import_export_value {
-                        func: Box::into_raw(func) as *mut _ as *const _,
-                    },
+                out.tag = wasmer_import_export_kind::WASM_FUNCTION;
+                out.value = wasmer_import_export_value {
+                    func: Box::into_raw(func) as *mut _ as *const _,
                 };
-                *imports.add(i as usize) = new_entry;
-                i += 1;
             }
-            _ => (),
-        }
-    }
+            Export::Global(global) => {
+                let glbl = Box::new(global.clone());
 
-    return i as i32;
+                out.tag = wasmer_import_export_kind::WASM_GLOBAL;
+                out.value = wasmer_import_export_value {
+                    global: Box::into_raw(glbl) as *mut _ as *const _,
+                };
+            }
+            Export::Memory(memory) => {
+                let mem = Box::new(memory.clone());
+
+                out.tag = wasmer_import_export_kind::WASM_MEMORY;
+                out.value = wasmer_import_export_value {
+                    memory: Box::into_raw(mem) as *mut _ as *const _,
+                };
+            }
+            Export::Table(table) => {
+                let tbl = Box::new(table.clone());
+
+                out.tag = wasmer_import_export_kind::WASM_TABLE;
+                out.value = wasmer_import_export_value {
+                    memory: Box::into_raw(tbl) as *mut _ as *const _,
+                };
+            }
+        }
+
+        wasmer_result_t::WASMER_OK
+    } else {
+        wasmer_result_t::WASMER_ERROR
+    }
 }
 
+/// Returns true if further calls to `wasmer_import_object_iter_next` will
+/// not return any new data
 #[no_mangle]
-/// Frees the memory acquired in `wasmer_import_object_get_functions`
+pub unsafe extern "C" fn wasmer_import_object_iter_at_end(
+    import_object_iter: *mut wasmer_import_object_iter_t,
+) -> bool {
+    if import_object_iter.is_null() {
+        update_last_error(CApiError {
+            msg: "import_object_iter must not be null".to_owned(),
+        });
+        return true;
+    }
+    let iter = &mut *(import_object_iter as *mut WasmerImportObjectIterator);
+
+    iter.0.peek().is_none()
+}
+
+/// Frees the memory allocated by `wasmer_import_object_iterate_functions`
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_import_object_iter_destroy(
+    import_object_iter: *mut wasmer_import_object_iter_t,
+) {
+    let _ = Box::from_raw(import_object_iter as *mut WasmerImportObjectIterator);
+}
+
+/// Frees the memory allocated in `wasmer_import_object_iter_next`
 ///
 /// This function does not free the memory in `wasmer_import_object_t`;
 /// it only frees memory allocated while querying a `wasmer_import_object_t`.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
     imports: *mut wasmer_import_t,
     imports_len: u32,

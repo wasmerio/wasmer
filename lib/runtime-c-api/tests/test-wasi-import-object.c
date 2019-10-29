@@ -217,34 +217,26 @@ int main()
     assert(call_result == WASMER_OK);
     assert(host_print_called);
 
-    int32_t num_functions = wasmer_import_object_get_num_functions(import_object);
-    if (num_functions == -1) {
-        print_wasmer_error();
-        return -1;
-    }
-    wasmer_import_t *func_array = malloc(sizeof(wasmer_import_t) * num_functions);
-    assert(func_array);
+    wasmer_import_object_iter_t *func_iter = wasmer_import_object_iterate_functions(import_object);
 
-    int32_t num_returned = wasmer_import_object_get_functions(import_object, func_array, num_functions);
-    if (num_functions == -1) {
-            print_wasmer_error();
-            return -1;
-    }
-    assert(num_functions == num_returned);
+    puts("Functions in import object:");
+    while ( !wasmer_import_object_iter_at_end(func_iter) ) {
+            wasmer_import_t import;
+            wasmer_result_t result = wasmer_import_object_iter_next(func_iter, &import);
+            assert(result == WASMER_OK);
 
-    printf("Found %d functions in import object:\n", num_returned);
-    for (int i = 0; i < num_returned; ++i) {
-            print_byte_array(&func_array[i].module_name);
+            print_byte_array(&import.module_name);
             putchar(' ');
-            print_byte_array(&func_array[i].import_name);
+            print_byte_array(&import.import_name);
             putchar('\n');
-            assert(func_array[i].tag == WASM_FUNCTION);
-            assert(func_array[i].value.func);
+
+            assert(import.tag == WASM_FUNCTION);
+            assert(import.value.func);
+            wasmer_import_object_imports_destroy(&import, 1);
     }
+    wasmer_import_object_iter_destroy(func_iter);
 
     // Use *_destroy methods to cleanup as specified in the header documentation
-    wasmer_import_object_imports_destroy(func_array, num_returned);
-    free(func_array);
     wasmer_import_func_destroy(func);
     wasmer_global_destroy(global);
     wasmer_memory_destroy(memory);

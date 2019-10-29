@@ -138,6 +138,10 @@ typedef struct {
 
 typedef struct {
 
+} wasmer_import_object_iter_t;
+
+typedef struct {
+
 } wasmer_instance_t;
 
 typedef struct {
@@ -470,21 +474,12 @@ wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_objec
                                             unsigned int imports_len);
 
 /**
- * Call `wasmer_import_object_imports_destroy` to free the memory allocated by this function.
- * This function return -1 on error.
- */
-int32_t wasmer_import_object_get_functions(const wasmer_import_object_t *import_object,
-                                           wasmer_import_t *imports,
-                                           uint32_t imports_len);
-
-/**
  * Gets an entry from an ImportObject at the name and namespace.
- * Stores an immutable reference to `name` and `namespace` in `import`.
+ * Stores `name`, `namespace`, and `import_export_value` in `import`.
+ * Thus these must remain valid for the lifetime of `import`.
  *
  * The caller owns all data involved.
- * `import_export_value` will be written to based on `tag`, `import_export_value` must be
- * initialized to point to the type specified by `tag`.  Failure to do so may result
- * in data corruption or undefined behavior.
+ * `import_export_value` will be written to based on `tag`.
  */
 wasmer_result_t wasmer_import_object_get_import(const wasmer_import_object_t *import_object,
                                                 wasmer_byte_array namespace_,
@@ -494,19 +489,40 @@ wasmer_result_t wasmer_import_object_get_import(const wasmer_import_object_t *im
                                                 uint32_t tag);
 
 /**
- * Get the number of functions that an import object contains.
- * The result of this is useful as an argument to `wasmer_import_object_get_functions`.
- * This function returns -1 on error.
- */
-int32_t wasmer_import_object_get_num_functions(const wasmer_import_object_t *import_object);
-
-/**
- * Frees the memory acquired in `wasmer_import_object_get_functions`
+ * Frees the memory allocated in `wasmer_import_object_iter_next`
  *
  * This function does not free the memory in `wasmer_import_object_t`;
  * it only frees memory allocated while querying a `wasmer_import_object_t`.
  */
 void wasmer_import_object_imports_destroy(wasmer_import_t *imports, uint32_t imports_len);
+
+/**
+ * Returns true if further calls to `wasmer_import_object_iter_next` will
+ * not return any new data
+ */
+bool wasmer_import_object_iter_at_end(wasmer_import_object_iter_t *import_object_iter);
+
+/**
+ * Frees the memory allocated by `wasmer_import_object_iterate_functions`
+ */
+void wasmer_import_object_iter_destroy(wasmer_import_object_iter_t *import_object_iter);
+
+/**
+ * Writes the next value to `import`.  `WASMER_ERROR` is returned if there
+ * was an error or there's nothing left to return.
+ *
+ * To free the memory allocated here, pass the import to `wasmer_import_object_imports_destroy`.
+ * To check if the iterator is done, use `wasmer_import_object_iter_at_end`.
+ */
+wasmer_result_t wasmer_import_object_iter_next(wasmer_import_object_iter_t *import_object_iter,
+                                               wasmer_import_t *import);
+
+/**
+ * Create an iterator over the functions in the import object.
+ * Get the next import with `wasmer_import_object_iter_next`
+ * Free the iterator with `wasmer_import_object_iter_destroy`
+ */
+wasmer_import_object_iter_t *wasmer_import_object_iterate_functions(const wasmer_import_object_t *import_object);
 
 /**
  * Creates a new empty import object.
