@@ -3,6 +3,7 @@
 ## **[Unreleased]**
 
 - [#883](https://github.com/wasmerio/wasmer/pull/883) Allow floating point operations to have arbitrary inputs, even including SNaNs.
+- [#856](https://github.com/wasmerio/wasmer/pull/856) Expose methods in the runtime C API to get a WASI import object
 
 ## 0.9.0 - 2019-10-23
 
