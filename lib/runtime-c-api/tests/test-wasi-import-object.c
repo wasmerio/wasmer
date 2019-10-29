@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 
-bool static host_print_called = false;
+static bool host_print_called = false;
 
 // Host function that will be imported into the Web Assembly Instance
 void host_print(const wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
