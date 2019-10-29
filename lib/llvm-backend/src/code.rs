@@ -7316,15 +7316,13 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             Some(Linkage::External),
         );
 
-        let signatures = Map::new();
-
         LLVMModuleCodeGenerator {
             context: Some(context),
             builder: Some(builder),
             intrinsics: Some(intrinsics),
             module,
             functions: vec![],
-            signatures,
+            signatures: Map::new(),
             signatures_raw: Map::new(),
             function_signatures: None,
             func_import_count: 0,
