@@ -124,16 +124,27 @@ pub trait WasmTypeList {
         self,
         f: NonNull<vm::Func>,
         wasm: Wasm,
-        ctx: *mut Ctx,
+        ctx: *mut vm::Ctx,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList;
 }
 
+/// Empty trait to specify the kind of `ExternalFunction`: With or
+/// without a `vm::Ctx` argument.
+pub trait ExternalFunctionKind {}
+
+pub struct ExplicitVmCtx {}
+pub struct ImplicitVmCtx {}
+
+impl ExternalFunctionKind for ExplicitVmCtx {}
+impl ExternalFunctionKind for ImplicitVmCtx {}
+
 /// Represents a function that can be converted to a `vm::Func`
 /// (function pointer) that can be called within WebAssembly.
-pub trait ExternalFunction<Args, Rets>
+pub trait ExternalFunction<Kind, Args, Rets>
 where
+    Kind: ExternalFunctionKind,
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
@@ -208,9 +219,10 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub fn new<F>(f: F) -> Func<'a, Args, Rets, Host>
+    pub fn new<F, Kind>(f: F) -> Func<'a, Args, Rets, Host>
     where
-        F: ExternalFunction<Args, Rets>,
+        Kind: ExternalFunctionKind,
+        F: ExternalFunction<Kind, Args, Rets>,
     {
         Func {
             inner: Host(()),
@@ -438,7 +450,7 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<( $( $x ),* ), Rets> for FN
+        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
@@ -451,20 +463,20 @@ macro_rules! impl_traits {
                     /// This is required for the llvm backend to be able to unwind through this function.
                     #[cfg_attr(nightly, unwind(allowed))]
                     extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                        ctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                        vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
                     ) -> Rets::CStruct
                     where
                         $( $x: WasmExternType, )*
                         Rets: WasmTypeList,
                         Trap: TrapEarly<Rets>,
-                        FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap,
+                        FN: Fn(&mut vm::Ctx, $( $x, )*) -> Trap,
                     {
                         let f: FN = unsafe { mem::transmute_copy(&()) };
 
                         let err = match panic::catch_unwind(
                             panic::AssertUnwindSafe(
                                 || {
-                                    f(ctx $( , WasmExternType::from_native($x) )* ).report()
+                                    f(vmctx $( , WasmExternType::from_native($x) )* ).report()
                                 }
                             )
                         ) {
@@ -477,7 +489,7 @@ macro_rules! impl_traits {
                         };
 
                         unsafe {
-                            (&*ctx.module).runnable_module.do_early_trap(err)
+                            (&*vmctx.module).runnable_module.do_early_trap(err)
                         }
                     }
 
@@ -490,7 +502,65 @@ macro_rules! impl_traits {
                     );
 
                     NonNull::new(unsafe {
-                        ::std::mem::transmute_copy::<_, *mut vm::Func>(self)
+                        mem::transmute_copy::<_, *mut vm::Func>(self)
+                    }).unwrap()
+                }
+            }
+        }
+
+        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        where
+            $( $x: WasmExternType, )*
+            Rets: WasmTypeList,
+            Trap: TrapEarly<Rets>,
+            FN: Fn($( $x, )*) -> Trap,
+        {
+            #[allow(non_snake_case)]
+            fn to_raw(&self) -> NonNull<vm::Func> {
+                if mem::size_of::<Self>() == 0 {
+                    /// This is required for the llvm backend to be able to unwind through this function.
+                    #[cfg_attr(nightly, unwind(allowed))]
+                    extern fn wrap<$( $x, )* Rets, Trap, FN>(
+                        vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                    ) -> Rets::CStruct
+                    where
+                        $( $x: WasmExternType, )*
+                        Rets: WasmTypeList,
+                        Trap: TrapEarly<Rets>,
+                        FN: Fn($( $x, )*) -> Trap,
+                    {
+                        let f: FN = unsafe { mem::transmute_copy(&()) };
+
+                        let err = match panic::catch_unwind(
+                            panic::AssertUnwindSafe(
+                                || {
+                                    f($( WasmExternType::from_native($x), )* ).report()
+                                }
+                            )
+                        ) {
+                            Ok(Ok(returns)) => return returns.into_c_struct(),
+                            Ok(Err(err)) => {
+                                let b: Box<_> = err.into();
+                                b as Box<dyn Any>
+                            },
+                            Err(err) => err,
+                        };
+
+                        unsafe {
+                            (&*vmctx.module).runnable_module.do_early_trap(err)
+                        }
+                    }
+
+                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap()
+                } else {
+                    assert_eq!(
+                        mem::size_of::<Self>(),
+                        mem::size_of::<usize>(),
+                        "you cannot use a closure that captures state for `Func`."
+                    );
+
+                    NonNull::new(unsafe {
+                        mem::transmute_copy::<_, *mut vm::Func>(self)
                     }).unwrap()
                 }
             }
