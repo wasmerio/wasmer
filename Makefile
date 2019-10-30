@@ -89,12 +89,15 @@ wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llv
 # Backends
 singlepass: spectests-singlepass emtests-singlepass middleware-singlepass wasitests-singlepass
 	cargo test -p wasmer-singlepass-backend --release
+	cargo test -p wasmer-runtime-core-tests --release --no-default-features --features backend-singlepass
 
 cranelift: spectests-cranelift emtests-cranelift middleware-cranelift wasitests-cranelift
 	cargo test -p wasmer-clif-backend --release
+	cargo test -p wasmer-runtime-core-tests --release
 
 llvm: spectests-llvm emtests-llvm wasitests-llvm
 	cargo test -p wasmer-llvm-backend --release
+	cargo test -p wasmer-runtime-core-tests --release --no-default-features --features backend-llvm
 
 
 # All tests
@@ -108,7 +111,20 @@ test-capi: capi
 capi-test: test-capi
 
 test-rest:
-	cargo test --release --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-wasi --exclude wasmer-middleware-common --exclude wasmer-middleware-common-tests --exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-wasi-tests --exclude wasmer-emscripten-tests
+	cargo test --release \
+		--all \
+		--exclude wasmer-runtime-c-api \
+		--exclude wasmer-emscripten \
+		--exclude wasmer-spectests \
+		--exclude wasmer-wasi \
+		--exclude wasmer-middleware-common \
+		--exclude wasmer-middleware-common-tests \
+		--exclude wasmer-singlepass-backend \
+		--exclude wasmer-clif-backend \
+		--exclude wasmer-llvm-backend \
+		--exclude wasmer-wasi-tests \
+		--exclude wasmer-emscripten-tests \
+		--exclude wasmer-runtime-core-tests
 
 circleci-clean:
 	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
