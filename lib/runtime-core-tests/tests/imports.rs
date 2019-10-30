@@ -10,11 +10,19 @@ fn imported_functions_forms() {
 (module
   (type $type (func (param i32) (result i32)))
   (import "env" "memory" (memory 1 1))
+  (import "env" "callback_fn" (func $callback_fn (type $type)))
   (import "env" "callback_fn_with_vmctx" (func $callback_fn_with_vmctx (type $type)))
+  (import "env" "callback_fn_trap" (func $callback_fn_trap (type $type)))
   (import "env" "callback_fn_trap_with_vmctx" (func $callback_fn_trap_with_vmctx (type $type)))
+  (func (export "function_fn") (type $type)
+    get_local 0
+    call $callback_fn)
   (func (export "function_fn_with_vmctx") (type $type)
     get_local 0
     call $callback_fn_with_vmctx)
+  (func (export "function_fn_trap") (type $type)
+    get_local 0
+    call $callback_fn_trap)
   (func (export "function_fn_trap_with_vmctx") (type $type)
     get_local 0
     call $callback_fn_trap_with_vmctx))
@@ -31,7 +39,9 @@ fn imported_functions_forms() {
     let import_object = imports! {
         "env" => {
             "memory" => memory.clone(),
+            "callback_fn" => Func::new(callback_fn),
             "callback_fn_with_vmctx" => Func::new(callback_fn_with_vmctx),
+            "callback_fn_trap" => Func::new(callback_fn_trap),
             "callback_fn_trap_with_vmctx" => Func::new(callback_fn_trap_with_vmctx),
         },
     };
@@ -88,7 +98,14 @@ fn imported_functions_forms() {
         };
     }
 
+    call_and_assert!(function_fn, Ok(2));
     call_and_assert!(function_fn_with_vmctx, Ok(2 + SHIFT));
+    call_and_assert!(
+        function_fn_trap,
+        Err(RuntimeError::Error {
+            data: Box::new(format!("foo {}", 1))
+        })
+    );
     call_and_assert!(
         function_fn_trap_with_vmctx,
         Err(RuntimeError::Error {
@@ -97,11 +114,19 @@ fn imported_functions_forms() {
     );
 }
 
+fn callback_fn(n: i32) -> Result<i32, ()> {
+    Ok(n + 1)
+}
+
 fn callback_fn_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
     let memory = vmctx.memory(0);
     let shift: i32 = memory.view()[0].get();
 
     Ok(shift + n + 1)
+}
+
+fn callback_fn_trap(n: i32) -> Result<i32, String> {
+    Err(format!("foo {}", n))
 }
 
 fn callback_fn_trap_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, String> {

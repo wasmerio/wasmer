@@ -643,7 +643,12 @@ mod tests {
                     vec![$($x),*].iter().sum()
                 }
 
+                fn without_vmctx($($x: i32),*) -> i32 {
+                    vec![$($x),*].iter().sum()
+                }
+
                 let _func = Func::new(with_vmctx);
+                let _func = Func::new(without_vmctx);
             }
         }
     }
@@ -654,7 +659,12 @@ mod tests {
             0
         }
 
+        fn bar() -> i32 {
+            0
+        }
+
         let _ = Func::new(foo);
+        let _ = Func::new(bar);
     }
 
     test_func_arity_n!(test_func_arity_1, a);
