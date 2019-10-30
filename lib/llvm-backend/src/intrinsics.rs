@@ -7,12 +7,15 @@ use inkwell::{
         BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VectorType, VoidType,
     },
     values::{
-        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, VectorValue,
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
+        MetadataValue, PointerValue, VectorValue,
     },
     AddressSpace,
 };
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::rc::Rc;
 use wasmer_runtime_core::{
     memory::MemoryType,
     module::ModuleInfo,
@@ -653,7 +656,12 @@ impl<'a> CtxType<'a> {
         ptr
     }
 
-    pub fn memory(&mut self, index: MemoryIndex, intrinsics: &Intrinsics) -> MemoryCache {
+    pub fn memory(
+        &mut self,
+        index: MemoryIndex,
+        intrinsics: &Intrinsics,
+        module: Rc<RefCell<Module>>,
+    ) -> MemoryCache {
         let (cached_memories, info, ctx_ptr_value, cache_builder) = (
             &mut self.cached_memories,
             self.info,
@@ -690,6 +698,13 @@ impl<'a> CtxType<'a> {
             let memory_array_ptr = cache_builder
                 .build_load(memory_array_ptr_ptr, "memory_array_ptr")
                 .into_pointer_value();
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "memory_array",
+                memory_array_ptr.as_instruction_value().unwrap(),
+                None,
+            );
             let const_index = intrinsics.i32_ty.const_int(index, false);
             let memory_ptr_ptr = unsafe {
                 cache_builder.build_in_bounds_gep(
@@ -701,6 +716,13 @@ impl<'a> CtxType<'a> {
             let memory_ptr = cache_builder
                 .build_load(memory_ptr_ptr, "memory_ptr")
                 .into_pointer_value();
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "memory_ptr",
+                memory_ptr.as_instruction_value().unwrap(),
+                Some(index as u32),
+            );
 
             let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
                 (
@@ -714,14 +736,29 @@ impl<'a> CtxType<'a> {
                     ptr_to_base_ptr,
                     ptr_to_bounds,
                 },
-                MemoryType::Static | MemoryType::SharedStatic => MemoryCache::Static {
-                    base_ptr: cache_builder
+                MemoryType::Static | MemoryType::SharedStatic => {
+                    let base_ptr = cache_builder
                         .build_load(ptr_to_base_ptr, "base")
-                        .into_pointer_value(),
-                    bounds: cache_builder
+                        .into_pointer_value();
+                    let bounds = cache_builder
                         .build_load(ptr_to_bounds, "bounds")
-                        .into_int_value(),
-                },
+                        .into_int_value();
+                    tbaa_label(
+                        module.clone(),
+                        intrinsics,
+                        "memory_base",
+                        base_ptr.as_instruction_value().unwrap(),
+                        Some(index as u32),
+                    );
+                    tbaa_label(
+                        module.clone(),
+                        intrinsics,
+                        "memory_bounds",
+                        bounds.as_instruction_value().unwrap(),
+                        Some(index as u32),
+                    );
+                    MemoryCache::Static { base_ptr, bounds }
+                }
             }
         })
     }
@@ -730,6 +767,7 @@ impl<'a> CtxType<'a> {
         &mut self,
         index: TableIndex,
         intrinsics: &Intrinsics,
+        module: Rc<RefCell<Module>>,
     ) -> (PointerValue, PointerValue) {
         let (cached_tables, info, ctx_ptr_value, cache_builder) = (
             &mut self.cached_tables,
@@ -768,6 +806,13 @@ impl<'a> CtxType<'a> {
             let table_array_ptr = cache_builder
                 .build_load(table_array_ptr_ptr, "table_array_ptr")
                 .into_pointer_value();
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "context_field_ptr_to_tables",
+                table_array_ptr.as_instruction_value().unwrap(),
+                None,
+            );
             let const_index = intrinsics.i32_ty.const_int(index, false);
             let table_ptr_ptr = unsafe {
                 cache_builder.build_in_bounds_gep(table_array_ptr, &[const_index], "table_ptr_ptr")
@@ -775,6 +820,13 @@ impl<'a> CtxType<'a> {
             let table_ptr = cache_builder
                 .build_load(table_ptr_ptr, "table_ptr")
                 .into_pointer_value();
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "table_ptr",
+                table_array_ptr.as_instruction_value().unwrap(),
+                Some(index as u32),
+            );
 
             let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
                 (
@@ -796,15 +848,30 @@ impl<'a> CtxType<'a> {
         &mut self,
         index: TableIndex,
         intrinsics: &Intrinsics,
+        module: Rc<RefCell<Module>>,
         builder: &Builder,
     ) -> (PointerValue, IntValue) {
-        let (ptr_to_base_ptr, ptr_to_bounds) = self.table_prepare(index, intrinsics);
-        (
-            builder
-                .build_load(ptr_to_base_ptr, "base_ptr")
-                .into_pointer_value(),
-            builder.build_load(ptr_to_bounds, "bounds").into_int_value(),
-        )
+        let (ptr_to_base_ptr, ptr_to_bounds) =
+            self.table_prepare(index, intrinsics, module.clone());
+        let base_ptr = builder
+            .build_load(ptr_to_base_ptr, "base_ptr")
+            .into_pointer_value();
+        let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
+        tbaa_label(
+            module.clone(),
+            intrinsics,
+            "table_base_ptr",
+            base_ptr.as_instruction_value().unwrap(),
+            Some(index.index() as u32),
+        );
+        tbaa_label(
+            module.clone(),
+            intrinsics,
+            "table_bounds",
+            bounds.as_instruction_value().unwrap(),
+            Some(index.index() as u32),
+        );
+        (base_ptr, bounds)
     }
 
     pub fn local_func(
@@ -812,6 +879,7 @@ impl<'a> CtxType<'a> {
         index: LocalFuncIndex,
         fn_ty: FunctionType,
         intrinsics: &Intrinsics,
+        module: Rc<RefCell<Module>>,
         builder: &Builder,
     ) -> PointerValue {
         let local_func_array_ptr_ptr = unsafe {
@@ -824,6 +892,13 @@ impl<'a> CtxType<'a> {
         let local_func_array_ptr = builder
             .build_load(local_func_array_ptr_ptr, "local_func_array_ptr")
             .into_pointer_value();
+        tbaa_label(
+            module.clone(),
+            intrinsics,
+            "context_field_ptr_to_local_funcs",
+            local_func_array_ptr.as_instruction_value().unwrap(),
+            None,
+        );
         let local_func_ptr_ptr = unsafe {
             builder.build_in_bounds_gep(
                 local_func_array_ptr,
@@ -834,6 +909,13 @@ impl<'a> CtxType<'a> {
         let local_func_ptr = builder
             .build_load(local_func_ptr_ptr, "local_func_ptr")
             .into_pointer_value();
+        tbaa_label(
+            module.clone(),
+            intrinsics,
+            "local_func_ptr",
+            local_func_ptr.as_instruction_value().unwrap(),
+            Some(index.index() as u32),
+        );
         builder.build_pointer_cast(
             local_func_ptr,
             fn_ty.ptr_type(AddressSpace::Generic),
@@ -875,7 +957,12 @@ impl<'a> CtxType<'a> {
         })
     }
 
-    pub fn global_cache(&mut self, index: GlobalIndex, intrinsics: &Intrinsics) -> GlobalCache {
+    pub fn global_cache(
+        &mut self,
+        index: GlobalIndex,
+        intrinsics: &Intrinsics,
+        module: Rc<RefCell<Module>>,
+    ) -> GlobalCache {
         let (cached_globals, ctx_ptr_value, info, cache_builder) = (
             &mut self.cached_globals,
             self.ctx_ptr_value,
@@ -923,6 +1010,13 @@ impl<'a> CtxType<'a> {
             let global_array_ptr = cache_builder
                 .build_load(globals_array_ptr_ptr, "global_array_ptr")
                 .into_pointer_value();
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "context_field_ptr_to_globals",
+                globals_array_ptr_ptr.as_instruction_value().unwrap(),
+                None,
+            );
             let const_index = intrinsics.i32_ty.const_int(index, false);
             let global_ptr_ptr = unsafe {
                 cache_builder.build_in_bounds_gep(
@@ -934,6 +1028,13 @@ impl<'a> CtxType<'a> {
             let global_ptr = cache_builder
                 .build_load(global_ptr_ptr, "global_ptr")
                 .into_pointer_value();
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "global_ptr",
+                globals_array_ptr_ptr.as_instruction_value().unwrap(),
+                Some(index as u32),
+            );
 
             let global_ptr_typed =
                 cache_builder.build_pointer_cast(global_ptr, llvm_ptr_ty, "global_ptr_typed");
@@ -943,9 +1044,15 @@ impl<'a> CtxType<'a> {
                     ptr_to_value: global_ptr_typed,
                 }
             } else {
-                GlobalCache::Const {
-                    value: cache_builder.build_load(global_ptr_typed, "global_value"),
-                }
+                let value = cache_builder.build_load(global_ptr_typed, "global_value");
+                tbaa_label(
+                    module.clone(),
+                    intrinsics,
+                    "global",
+                    value.as_instruction_value().unwrap(),
+                    Some(index as u32),
+                );
+                GlobalCache::Const { value }
             }
         })
     }
@@ -954,6 +1061,7 @@ impl<'a> CtxType<'a> {
         &mut self,
         index: ImportedFuncIndex,
         intrinsics: &Intrinsics,
+        module: Rc<RefCell<Module>>,
     ) -> (PointerValue, PointerValue) {
         let (cached_imported_functions, ctx_ptr_value, cache_builder) = (
             &mut self.cached_imported_functions,
@@ -972,6 +1080,13 @@ impl<'a> CtxType<'a> {
             let func_array_ptr = cache_builder
                 .build_load(func_array_ptr_ptr, "func_array_ptr")
                 .into_pointer_value();
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "context_field_ptr_to_imported_funcs",
+                func_array_ptr.as_instruction_value().unwrap(),
+                None,
+            );
             let const_index = intrinsics.i32_ty.const_int(index.index() as u64, false);
             let imported_func_ptr = unsafe {
                 cache_builder.build_in_bounds_gep(
@@ -993,6 +1108,20 @@ impl<'a> CtxType<'a> {
             let ctx_ptr = cache_builder
                 .build_load(ctx_ptr_ptr, "ctx_ptr")
                 .into_pointer_value();
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "imported_func_ptr",
+                func_ptr.as_instruction_value().unwrap(),
+                Some(index.index() as u32),
+            );
+            tbaa_label(
+                module.clone(),
+                intrinsics,
+                "imported_func_ctx_ptr",
+                ctx_ptr.as_instruction_value().unwrap(),
+                Some(index.index() as u32),
+            );
 
             ImportedFuncCache { func_ptr, ctx_ptr }
         });
@@ -1004,6 +1133,7 @@ impl<'a> CtxType<'a> {
         &mut self,
         index: usize,
         intrinsics: &Intrinsics,
+        module: Rc<RefCell<Module>>,
         builder: &Builder,
     ) -> PointerValue {
         assert!(index < INTERNALS_SIZE);
@@ -1018,6 +1148,13 @@ impl<'a> CtxType<'a> {
         let local_internals_ptr = builder
             .build_load(local_internals_ptr_ptr, "local_internals_ptr")
             .into_pointer_value();
+        tbaa_label(
+            module.clone(),
+            intrinsics,
+            "context_field_ptr_to_internals",
+            local_internals_ptr_ptr.as_instruction_value().unwrap(),
+            None,
+        );
         unsafe {
             builder.build_in_bounds_gep(
                 local_internals_ptr,
@@ -1026,4 +1163,44 @@ impl<'a> CtxType<'a> {
             )
         }
     }
+}
+
+pub fn tbaa_label(
+    module: Rc<RefCell<Module>>,
+    intrinsics: &Intrinsics,
+    label: &str,
+    instruction: InstructionValue,
+    index: Option<u32>,
+) {
+    let module = module.borrow_mut();
+    let context = module.get_context();
+
+    module.add_global_metadata("wasmer_tbaa_root", &MetadataValue::create_node(&[]));
+    let tbaa_root = module.get_global_metadata("wasmer_tbaa_root")[0];
+
+    let label = if let Some(idx) = index {
+        format!("{}{}", label, idx)
+    } else {
+        label.to_string()
+    };
+    let type_label = context.metadata_string(label.as_str());
+    module.add_global_metadata(
+        label.as_str(),
+        &MetadataValue::create_node(&[type_label.into(), tbaa_root.into()]),
+    );
+    let type_tbaa = module.get_global_metadata(label.as_str())[0];
+
+    let label = label + "_memop";
+    module.add_global_metadata(
+        label.as_str(),
+        &MetadataValue::create_node(&[
+            type_tbaa.into(),
+            type_tbaa.into(),
+            intrinsics.i64_zero.into(),
+        ]),
+    );
+    let type_tbaa = module.get_global_metadata(label.as_str())[0];
+
+    let tbaa_kind = context.get_kind_id("tbaa");
+    instruction.set_metadata(type_tbaa, tbaa_kind);
 }

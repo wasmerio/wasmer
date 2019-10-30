@@ -6,8 +6,8 @@ use inkwell::{
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine},
     types::{BasicType, BasicTypeEnum, FunctionType, PointerType, VectorType},
     values::{
-        BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
-        MetadataValue, PhiValue, PointerValue, VectorValue,
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
+        VectorValue,
     },
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate, OptimizationLevel,
 };
@@ -29,7 +29,7 @@ use wasmer_runtime_core::{
 use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
 
 use crate::backend::LLVMBackend;
-use crate::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
+use crate::intrinsics::{tbaa_label, CtxType, GlobalCache, Intrinsics, MemoryCache};
 use crate::read_info::{blocktype_to_type, type_to_type};
 use crate::stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic};
 use crate::state::{ControlFrame, ExtraInfo, IfElseState, State};
@@ -561,7 +561,7 @@ fn resolve_memory_ptr(
     value_size: usize,
 ) -> Result<PointerValue, BinaryReaderError> {
     // Look up the memory base (as pointer) and bounds (as unsigned integer).
-    let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics);
+    let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics, module.clone());
     let (mem_base, mem_bound) = match memory_cache {
         MemoryCache::Dynamic {
             ptr_to_base_ptr,
@@ -650,46 +650,6 @@ fn resolve_memory_ptr(
     Ok(builder
         .build_bitcast(ptr, ptr_ty, &state.var_name())
         .into_pointer_value())
-}
-
-fn tbaa_label(
-    module: Rc<RefCell<Module>>,
-    intrinsics: &Intrinsics,
-    label: &str,
-    instruction: InstructionValue,
-    index: Option<u32>,
-) {
-    let module = module.borrow_mut();
-    let context = module.get_context();
-
-    module.add_global_metadata("wasmer_tbaa_root", &MetadataValue::create_node(&[]));
-    let tbaa_root = module.get_global_metadata("wasmer_tbaa_root")[0];
-
-    let label = if let Some(idx) = index {
-        format!("{}{}", label, idx)
-    } else {
-        label.to_string()
-    };
-    let type_label = context.metadata_string(label.as_str());
-    module.add_global_metadata(
-        label.as_str(),
-        &MetadataValue::create_node(&[type_label.into(), tbaa_root.into()]),
-    );
-    let type_tbaa = module.get_global_metadata(label.as_str())[0];
-
-    let label = label + "_memop";
-    module.add_global_metadata(
-        label.as_str(),
-        &MetadataValue::create_node(&[
-            type_tbaa.into(),
-            type_tbaa.into(),
-            intrinsics.i64_zero.into(),
-        ]),
-    );
-    let type_tbaa = module.get_global_metadata(label.as_str())[0];
-
-    let tbaa_kind = context.get_kind_id("tbaa");
-    instruction.set_metadata(type_tbaa, tbaa_kind);
 }
 
 fn emit_stack_map(
@@ -1027,17 +987,33 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     InternalEvent::GetInternal(idx) => {
                         if state.reachable {
                             let idx = idx as usize;
-                            let field_ptr = ctx.internal_field(idx, intrinsics, builder);
+                            let field_ptr =
+                                ctx.internal_field(idx, intrinsics, self.module.clone(), builder);
                             let result = builder.build_load(field_ptr, "get_internal");
+                            tbaa_label(
+                                self.module.clone(),
+                                intrinsics,
+                                "internal",
+                                result.as_instruction_value().unwrap(),
+                                Some(idx as u32),
+                            );
                             state.push1(result);
                         }
                     }
                     InternalEvent::SetInternal(idx) => {
                         if state.reachable {
                             let idx = idx as usize;
-                            let field_ptr = ctx.internal_field(idx, intrinsics, builder);
+                            let field_ptr =
+                                ctx.internal_field(idx, intrinsics, self.module.clone(), builder);
                             let v = state.pop1()?;
-                            builder.build_store(field_ptr, v);
+                            let store = builder.build_store(field_ptr, v);
+                            tbaa_label(
+                                self.module.clone(),
+                                intrinsics,
+                                "internal",
+                                store,
+                                Some(idx as u32),
+                            );
                         }
                     }
                 }
@@ -1622,7 +1598,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
 
             Operator::GetGlobal { global_index } => {
                 let index = GlobalIndex::new(global_index as usize);
-                let global_cache = ctx.global_cache(index, intrinsics);
+                let global_cache = ctx.global_cache(index, intrinsics, self.module.clone());
                 match global_cache {
                     GlobalCache::Const { value } => {
                         state.push1(value);
@@ -1644,7 +1620,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let (value, info) = state.pop1_extra()?;
                 let value = apply_pending_canonicalization(builder, intrinsics, value, info);
                 let index = GlobalIndex::new(global_index as usize);
-                let global_cache = ctx.global_cache(index, intrinsics);
+                let global_cache = ctx.global_cache(index, intrinsics, self.module.clone());
                 match global_cache {
                     GlobalCache::Mut { ptr_to_value } => {
                         let store = builder.build_store(ptr_to_value, value);
@@ -1712,14 +1688,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                             )
                             .collect();
 
-                        let func_ptr =
-                            ctx.local_func(local_func_index, llvm_sig, intrinsics, builder);
+                        let func_ptr = ctx.local_func(
+                            local_func_index,
+                            llvm_sig,
+                            intrinsics,
+                            self.module.clone(),
+                            builder,
+                        );
 
                         (params, func_ptr)
                     }
                     LocalOrImport::Import(import_func_index) => {
                         let (func_ptr_untyped, ctx_ptr) =
-                            ctx.imported_func(import_func_index, intrinsics);
+                            ctx.imported_func(import_func_index, intrinsics, self.module.clone());
 
                         let params: Vec<_> = std::iter::once(ctx_ptr.as_basic_value_enum())
                             .chain(
@@ -1822,8 +1803,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::CallIndirect { index, table_index } => {
                 let sig_index = SigIndex::new(index as usize);
                 let expected_dynamic_sigindex = ctx.dynamic_sigindex(sig_index, intrinsics);
-                let (table_base, table_bound) =
-                    ctx.table(TableIndex::new(table_index as usize), intrinsics, builder);
+                let (table_base, table_bound) = ctx.table(
+                    TableIndex::new(table_index as usize),
+                    intrinsics,
+                    self.module.clone(),
+                    builder,
+                );
                 let func_index = state.pop1()?.into_int_value();
 
                 // We assume the table has the `anyfunc` element type.
@@ -7814,11 +7799,11 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         if cfg!(test) {
             pass_manager.add_verifier_pass();
         }
+        pass_manager.add_type_based_alias_analysis_pass();
         pass_manager.add_lower_expect_intrinsic_pass();
         pass_manager.add_scalar_repl_aggregates_pass();
         pass_manager.add_instruction_combining_pass();
         pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_type_based_alias_analysis_pass();
         pass_manager.add_gvn_pass();
         pass_manager.add_jump_threading_pass();
         pass_manager.add_correlated_value_propagation_pass();
