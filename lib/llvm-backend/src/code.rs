@@ -5787,6 +5787,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -5822,6 +5829,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -5855,6 +5869,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I64AtomicRmw8UAdd { ref memarg } => {
@@ -5889,6 +5910,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -5924,6 +5952,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -5959,6 +5994,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -5992,6 +6034,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I32AtomicRmw8USub { ref memarg } => {
@@ -6026,6 +6075,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6061,6 +6117,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6094,6 +6157,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I64AtomicRmw8USub { ref memarg } => {
@@ -6128,6 +6198,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6163,6 +6240,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6198,6 +6282,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6231,6 +6322,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I32AtomicRmw8UAnd { ref memarg } => {
@@ -6265,6 +6363,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6300,6 +6405,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6333,6 +6445,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I64AtomicRmw8UAnd { ref memarg } => {
@@ -6367,6 +6486,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6402,6 +6528,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6437,6 +6570,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6470,6 +6610,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I32AtomicRmw8UOr { ref memarg } => {
@@ -6504,6 +6651,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6539,6 +6693,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6572,6 +6733,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6607,6 +6775,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6642,6 +6817,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6677,6 +6859,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6710,6 +6899,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I32AtomicRmw8UXor { ref memarg } => {
@@ -6744,6 +6940,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6779,6 +6982,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6812,6 +7022,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I64AtomicRmw8UXor { ref memarg } => {
@@ -6846,6 +7063,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6881,6 +7105,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6916,6 +7147,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -6949,6 +7187,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I32AtomicRmw8UXchg { ref memarg } => {
@@ -6983,6 +7228,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -7018,6 +7270,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i32_ty, &state.var_name());
                 state.push1(old);
             }
@@ -7051,6 +7310,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I64AtomicRmw8UXchg { ref memarg } => {
@@ -7085,6 +7351,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -7120,6 +7393,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -7155,6 +7435,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_int_z_extend(old, intrinsics.i64_ty, &state.var_name());
                 state.push1(old);
             }
@@ -7188,6 +7475,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 state.push1(old);
             }
             Operator::I32AtomicRmw8UCmpxchg { ref memarg } => {
@@ -7226,6 +7520,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
@@ -7269,6 +7570,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
@@ -7308,6 +7616,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_extract_value(old, 0, "").unwrap();
                 state.push1(old);
             }
@@ -7347,6 +7662,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
@@ -7390,6 +7712,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
@@ -7433,6 +7762,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
@@ -7472,6 +7808,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                         AtomicOrdering::SequentiallyConsistent,
                     )
                     .unwrap();
+                tbaa_label(
+                    self.module.clone(),
+                    intrinsics,
+                    "memory",
+                    old.as_instruction_value().unwrap(),
+                    Some(0),
+                );
                 let old = builder.build_extract_value(old, 0, "").unwrap();
                 state.push1(old);
             }
