@@ -6,8 +6,8 @@ use inkwell::{
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine},
     types::{BasicType, BasicTypeEnum, FunctionType, PointerType, VectorType},
     values::{
-        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, MetadataValue, PhiValue,
-        PointerValue, VectorValue,
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
+        MetadataValue, PhiValue, PointerValue, VectorValue,
     },
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate, OptimizationLevel,
 };
@@ -647,6 +647,41 @@ fn resolve_memory_ptr(
         .into_pointer_value())
 }
 
+fn local_tbaa(
+    module: Rc<RefCell<Module>>,
+    intrinsics: &Intrinsics,
+    instruction: InstructionValue,
+    index: u32,
+) {
+    let module = module.borrow_mut();
+    let context = module.get_context();
+
+    module.add_global_metadata("wasmer_tbaa_root", &MetadataValue::create_node(&[]));
+    let tbaa_root = module.get_global_metadata("wasmer_tbaa_root")[0];
+
+    let name = format!("local {}", index);
+    let local = context.metadata_string(name.as_str());
+    module.add_global_metadata(
+        name.as_str(),
+        &MetadataValue::create_node(&[local.into(), tbaa_root.into()]),
+    );
+    let local_tbaa = module.get_global_metadata(name.as_str())[0];
+
+    let name = name + "_memop";
+    module.add_global_metadata(
+        name.as_str(),
+        &MetadataValue::create_node(&[
+            local_tbaa.into(),
+            local_tbaa.into(),
+            intrinsics.i64_zero.into(),
+        ]),
+    );
+    let local_tbaa = module.get_global_metadata(name.as_str())[0];
+
+    let tbaa_kind = context.get_kind_id("tbaa");
+    instruction.set_metadata(local_tbaa, tbaa_kind);
+}
+
 fn emit_stack_map(
     _module_info: &ModuleInfo,
     intrinsics: &Intrinsics,
@@ -814,7 +849,7 @@ pub struct LLVMModuleCodeGenerator {
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
     func_import_count: usize,
     personality_func: FunctionValue,
-    module: Module,
+    module: Rc<RefCell<Module>>,
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     track_state: bool,
     target_machine: TargetMachine,
@@ -842,6 +877,7 @@ pub struct LLVMFunctionCodeGenerator {
     index: usize,
     opcode_offset: usize,
     track_state: bool,
+    module: Rc<RefCell<Module>>,
     memory_tbaa: MetadataValue,
     locals_tbaa: MetadataValue,
     globals_tbaa: MetadataValue,
@@ -1548,10 +1584,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::GetLocal { local_index } => {
                 let pointer_value = locals[local_index as usize];
                 let v = builder.build_load(pointer_value, &state.var_name());
-                let tbaa_kind = context.get_kind_id("tbaa");
-                v.as_instruction_value()
-                    .unwrap()
-                    .set_metadata(self.locals_tbaa, tbaa_kind);
+                local_tbaa(
+                    self.module.clone(),
+                    intrinsics,
+                    v.as_instruction_value().unwrap(),
+                    local_index,
+                );
                 state.push1(v);
             }
             Operator::SetLocal { local_index } => {
@@ -1559,16 +1597,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let (v, i) = state.pop1_extra()?;
                 let v = apply_pending_canonicalization(builder, intrinsics, v, i);
                 let store = builder.build_store(pointer_value, v);
-                let tbaa_kind = context.get_kind_id("tbaa");
-                store.set_metadata(self.locals_tbaa, tbaa_kind);
+                local_tbaa(self.module.clone(), intrinsics, store, local_index);
             }
             Operator::TeeLocal { local_index } => {
                 let pointer_value = locals[local_index as usize];
                 let (v, i) = state.peek1_extra()?;
                 let v = apply_pending_canonicalization(builder, intrinsics, v, i);
                 let store = builder.build_store(pointer_value, v);
-                let tbaa_kind = context.get_kind_id("tbaa");
-                store.set_metadata(self.locals_tbaa, tbaa_kind);
+                local_tbaa(self.module.clone(), intrinsics, store, local_index);
             }
 
             Operator::GetGlobal { global_index } => {
@@ -7752,7 +7788,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             context: Some(context),
             builder: Some(builder),
             intrinsics: Some(intrinsics),
-            module,
+            module: Rc::new(RefCell::new(module)),
             functions: vec![],
             signatures: Map::new(),
             signatures_raw: Map::new(),
@@ -7800,7 +7836,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             [FuncIndex::new(self.func_import_count + self.functions.len())];
         let func_sig = self.signatures_raw[sig_id].clone();
 
-        let function = self.module.add_function(
+        let function = self.module.borrow_mut().add_function(
             &format!("fn{}", self.func_import_count + self.functions.len()),
             self.signatures[sig_id],
             Some(Linkage::External),
@@ -7873,6 +7909,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             index: local_func_index,
             opcode_offset: 0,
             track_state: self.track_state,
+            module: self.module.clone(),
             memory_tbaa: self.memory_tbaa,
             locals_tbaa: self.locals_tbaa,
             globals_tbaa: self.globals_tbaa,
@@ -7906,7 +7943,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         generate_trampolines(
             module_info,
             &self.signatures,
-            &self.module,
+            &self.module.borrow_mut(),
             self.context.as_ref().unwrap(),
             self.builder.as_ref().unwrap(),
             self.intrinsics.as_ref().unwrap(),
@@ -7916,7 +7953,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         })?;
 
         if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.pre_opt_ir } {
-            self.module.print_to_file(path).unwrap();
+            self.module.borrow_mut().print_to_file(path).unwrap();
         }
 
         let pass_manager = PassManager::create(());
@@ -7937,16 +7974,16 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         pass_manager.add_cfg_simplification_pass();
         pass_manager.add_bit_tracking_dce_pass();
         pass_manager.add_slp_vectorize_pass();
-        pass_manager.run_on(&self.module);
+        pass_manager.run_on(&*self.module.borrow_mut());
 
         if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.post_opt_ir } {
-            self.module.print_to_file(path).unwrap();
+            self.module.borrow_mut().print_to_file(path).unwrap();
         }
 
         let stackmaps = self.stackmaps.borrow();
 
         let (backend, cache_gen) = LLVMBackend::new(
-            self.module,
+            self.module.clone(),
             self.intrinsics.take().unwrap(),
             &*stackmaps,
             module_info,
