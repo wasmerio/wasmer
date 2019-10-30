@@ -25,7 +25,7 @@ generate: generate-spectests generate-emtests generate-wasitests
 
 # Spectests
 spectests-singlepass:
-	cargo +nightly test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture
+	cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture
 
 spectests-cranelift:
 	cargo test --manifest-path lib/spectests/Cargo.toml --release --features clif -- --nocapture
@@ -88,8 +88,8 @@ wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llv
 
 # Backends
 singlepass: spectests-singlepass emtests-singlepass middleware-singlepass wasitests-singlepass
-	cargo +nightly test -p wasmer-singlepass-backend --release
-	cargo +nightly test -p wasmer-runtime-core-tests --release --no-default-features --features backend-singlepass
+	cargo test -p wasmer-singlepass-backend --release
+	cargo test -p wasmer-runtime-core-tests --release --no-default-features --features backend-singlepass
 
 cranelift: spectests-cranelift emtests-cranelift middleware-cranelift wasitests-cranelift
 	cargo test -p wasmer-clif-backend --release
