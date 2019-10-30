@@ -514,7 +514,7 @@ dependencies = [
 [[package]]
 name = "inkwell"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/inkwell?branch=llvm8-0#57e192cdccd6cde6ee5ee0a7e0b280490126d5c6"
+source = "git+https://github.com/wasmerio/inkwell?branch=llvm8-0#10d180807ce6e621ae13d74001bf5677b0e1f179"
 dependencies = [
  "either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "enum-methods 0.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -528,7 +528,7 @@ dependencies = [
 [[package]]
 name = "inkwell_internal_macros"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/inkwell?branch=llvm8-0#57e192cdccd6cde6ee5ee0a7e0b280490126d5c6"
+source = "git+https://github.com/wasmerio/inkwell?branch=llvm8-0#10d180807ce6e621ae13d74001bf5677b0e1f179"
 dependencies = [
  "cargo_toml 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",

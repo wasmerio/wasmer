@@ -6,8 +6,8 @@ use inkwell::{
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine},
     types::{BasicType, BasicTypeEnum, FunctionType, PointerType, VectorType},
     values::{
-        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
-        VectorValue,
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, MetadataValue, PhiValue,
+        PointerValue, VectorValue,
     },
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate, OptimizationLevel,
 };
@@ -558,6 +558,8 @@ fn resolve_memory_ptr(
     memarg: &MemoryImmediate,
     ptr_ty: PointerType,
     value_size: usize,
+    context_field_ptr_to_base_tbaa: MetadataValue,
+    context_field_ptr_to_bounds_tbaa: MetadataValue,
 ) -> Result<PointerValue, BinaryReaderError> {
     // Look up the memory base (as pointer) and bounds (as unsigned integer).
     let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics);
@@ -570,6 +572,14 @@ fn resolve_memory_ptr(
                 .build_load(ptr_to_base_ptr, "base")
                 .into_pointer_value();
             let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
+            let tbaa_kind = context.get_kind_id("tbaa");
+            base.as_instruction_value()
+                .unwrap()
+                .set_metadata(context_field_ptr_to_base_tbaa, tbaa_kind);
+            bounds
+                .as_instruction_value()
+                .unwrap()
+                .set_metadata(context_field_ptr_to_bounds_tbaa, tbaa_kind);
             (base, bounds)
         }
         MemoryCache::Static { base_ptr, bounds } => (base_ptr, bounds),
@@ -808,6 +818,11 @@ pub struct LLVMModuleCodeGenerator {
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     track_state: bool,
     target_machine: TargetMachine,
+    memory_tbaa: MetadataValue,
+    locals_tbaa: MetadataValue,
+    globals_tbaa: MetadataValue,
+    context_field_ptr_to_base_tbaa: MetadataValue,
+    context_field_ptr_to_bounds_tbaa: MetadataValue,
 }
 
 pub struct LLVMFunctionCodeGenerator {
@@ -827,6 +842,11 @@ pub struct LLVMFunctionCodeGenerator {
     index: usize,
     opcode_offset: usize,
     track_state: bool,
+    memory_tbaa: MetadataValue,
+    locals_tbaa: MetadataValue,
+    globals_tbaa: MetadataValue,
+    context_field_ptr_to_base_tbaa: MetadataValue,
+    context_field_ptr_to_bounds_tbaa: MetadataValue,
 }
 
 impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
@@ -1528,19 +1548,27 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::GetLocal { local_index } => {
                 let pointer_value = locals[local_index as usize];
                 let v = builder.build_load(pointer_value, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                v.as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.locals_tbaa, tbaa_kind);
                 state.push1(v);
             }
             Operator::SetLocal { local_index } => {
                 let pointer_value = locals[local_index as usize];
                 let (v, i) = state.pop1_extra()?;
                 let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                builder.build_store(pointer_value, v);
+                let store = builder.build_store(pointer_value, v);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.locals_tbaa, tbaa_kind);
             }
             Operator::TeeLocal { local_index } => {
                 let pointer_value = locals[local_index as usize];
                 let (v, i) = state.peek1_extra()?;
                 let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                builder.build_store(pointer_value, v);
+                let store = builder.build_store(pointer_value, v);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.locals_tbaa, tbaa_kind);
             }
 
             Operator::GetGlobal { global_index } => {
@@ -1552,6 +1580,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     }
                     GlobalCache::Mut { ptr_to_value } => {
                         let value = builder.build_load(ptr_to_value, "global_value");
+                        let tbaa_kind = context.get_kind_id("tbaa");
+                        value
+                            .as_instruction_value()
+                            .unwrap()
+                            .set_metadata(self.locals_tbaa, tbaa_kind);
                         state.push1(value);
                     }
                 }
@@ -1563,7 +1596,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let global_cache = ctx.global_cache(index, intrinsics);
                 match global_cache {
                     GlobalCache::Mut { ptr_to_value } => {
-                        builder.build_store(ptr_to_value, value);
+                        let store = builder.build_store(ptr_to_value, value);
+                        let tbaa_kind = context.get_kind_id("tbaa");
+                        store.set_metadata(self.globals_tbaa, tbaa_kind);
                     }
                     GlobalCache::Const { value: _ } => {
                         return Err(CodegenError {
@@ -4360,8 +4395,15 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I64Load { ref memarg } => {
@@ -4375,8 +4417,15 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::F32Load { ref memarg } => {
@@ -4390,8 +4439,15 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.f32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::F64Load { ref memarg } => {
@@ -4405,8 +4461,15 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.f64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::V128Load { ref memarg } => {
@@ -4420,8 +4483,15 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i128_ptr_ty,
                     16,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
 
@@ -4437,8 +4507,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
-                builder.build_store(effective_address, value);
+                let store = builder.build_store(effective_address, value);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I64Store { ref memarg } => {
                 let value = state.pop1()?;
@@ -4452,8 +4526,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
-                builder.build_store(effective_address, value);
+                let store = builder.build_store(effective_address, value);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::F32Store { ref memarg } => {
                 let (v, i) = state.pop1_extra()?;
@@ -4468,8 +4546,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.f32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
-                builder.build_store(effective_address, v);
+                let store = builder.build_store(effective_address, v);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::F64Store { ref memarg } => {
                 let (v, i) = state.pop1_extra()?;
@@ -4484,8 +4566,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.f64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
-                builder.build_store(effective_address, v);
+                let store = builder.build_store(effective_address, v);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::V128Store { ref memarg } => {
                 let (v, i) = state.pop1_extra()?;
@@ -4500,10 +4586,13 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i128_ptr_ty,
                     16,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
-                builder.build_store(effective_address, v);
+                let store = builder.build_store(effective_address, v);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
-
             Operator::I32Load8S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
                     builder,
@@ -4515,12 +4604,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I32Load16S { ref memarg } => {
@@ -4534,12 +4630,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I64Load8S { ref memarg } => {
@@ -4553,12 +4656,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I64Load16S { ref memarg } => {
@@ -4572,12 +4682,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I64Load32S { ref memarg } => {
@@ -4591,12 +4708,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
 
@@ -4611,12 +4735,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I32Load16U { ref memarg } => {
@@ -4630,12 +4761,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I64Load8U { ref memarg } => {
@@ -4649,12 +4787,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I64Load16U { ref memarg } => {
@@ -4668,12 +4813,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I64Load32U { ref memarg } => {
@@ -4687,12 +4839,19 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let tbaa_kind = context.get_kind_id("tbaa");
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
 
@@ -4708,10 +4867,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
-                builder.build_store(effective_address, narrow_value);
+                let store = builder.build_store(effective_address, narrow_value);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -4725,10 +4888,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
-                builder.build_store(effective_address, narrow_value);
+                let store = builder.build_store(effective_address, narrow_value);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I64Store32 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -4742,10 +4909,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
-                builder.build_store(effective_address, narrow_value);
+                let store = builder.build_store(effective_address, narrow_value);
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I8x16Neg => {
                 let (v, i) = state.pop1_extra()?;
@@ -5046,8 +5217,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let elem = builder.build_load(effective_address, "").into_int_value();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                elem.as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 let res = splat_vector(
                     builder,
                     intrinsics,
@@ -5069,8 +5246,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let elem = builder.build_load(effective_address, "").into_int_value();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                elem.as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 let res = splat_vector(
                     builder,
                     intrinsics,
@@ -5092,8 +5275,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let elem = builder.build_load(effective_address, "").into_int_value();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                elem.as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 let res = splat_vector(
                     builder,
                     intrinsics,
@@ -5115,8 +5304,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 let elem = builder.build_load(effective_address, "").into_int_value();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                elem.as_instruction_value()
+                    .unwrap()
+                    .set_metadata(self.memory_tbaa, tbaa_kind);
                 let res = splat_vector(
                     builder,
                     intrinsics,
@@ -5147,6 +5342,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5161,6 +5358,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(4).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                load.set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I64AtomicLoad { ref memarg } => {
@@ -5174,6 +5373,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5188,6 +5389,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(8).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                load.set_metadata(self.memory_tbaa, tbaa_kind);
                 state.push1(result);
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
@@ -5201,6 +5404,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5217,6 +5422,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(1).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                load.set_metadata(self.memory_tbaa, tbaa_kind);
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
@@ -5232,6 +5439,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5248,6 +5457,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(2).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                load.set_metadata(self.memory_tbaa, tbaa_kind);
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1(result);
@@ -5263,6 +5474,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5279,6 +5492,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(1).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                load.set_metadata(self.memory_tbaa, tbaa_kind);
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
@@ -5294,6 +5509,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5310,6 +5527,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(2).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                load.set_metadata(self.memory_tbaa, tbaa_kind);
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
@@ -5325,6 +5544,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5341,6 +5562,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(4).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                load.set_metadata(self.memory_tbaa, tbaa_kind);
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1(result);
@@ -5357,6 +5580,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5371,6 +5596,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I64AtomicStore { ref memarg } => {
                 let value = state.pop1()?;
@@ -5384,6 +5611,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5398,6 +5627,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I32AtomicStore8 { ref memarg } | Operator::I64AtomicStore8 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -5411,6 +5642,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5427,6 +5660,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I32AtomicStore16 { ref memarg }
             | Operator::I64AtomicStore16 { ref memarg } => {
@@ -5441,6 +5676,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5457,6 +5694,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I64AtomicStore32 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -5470,6 +5709,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5486,6 +5727,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
+                let tbaa_kind = context.get_kind_id("tbaa");
+                store.set_metadata(self.memory_tbaa, tbaa_kind);
             }
             Operator::I32AtomicRmw8UAdd { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -5499,6 +5742,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5533,6 +5778,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5567,6 +5814,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5598,6 +5847,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5632,6 +5883,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5666,6 +5919,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5700,6 +5955,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5731,6 +5988,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5765,6 +6024,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5799,6 +6060,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5830,6 +6093,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5864,6 +6129,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5898,6 +6165,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5932,6 +6201,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5963,6 +6234,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -5997,6 +6270,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6031,6 +6306,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6062,6 +6339,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6096,6 +6375,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6130,6 +6411,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6164,6 +6447,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6195,6 +6480,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6229,6 +6516,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6263,6 +6552,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6295,6 +6586,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6329,6 +6622,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6363,6 +6658,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6397,6 +6694,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6428,6 +6727,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6462,6 +6763,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6496,6 +6799,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6527,6 +6832,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6561,6 +6868,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6595,6 +6904,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6629,6 +6940,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6660,6 +6973,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6694,6 +7009,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6728,6 +7045,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6759,6 +7078,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6793,6 +7114,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6827,6 +7150,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6861,6 +7186,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6893,6 +7220,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6935,6 +7264,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -6977,6 +7308,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -7011,6 +7344,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i8_ptr_ty,
                     1,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -7053,6 +7388,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i16_ptr_ty,
                     2,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -7095,6 +7432,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i32_ptr_ty,
                     4,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -7137,6 +7476,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     memarg,
                     intrinsics.i64_ptr_ty,
                     8,
+                    self.context_field_ptr_to_base_tbaa,
+                    self.context_field_ptr_to_bounds_tbaa,
                 )?;
                 trap_if_misaligned(
                     builder,
@@ -7316,6 +7657,97 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             Some(Linkage::External),
         );
 
+        module.add_global_metadata("wasmer_tbaa_root", &MetadataValue::create_node(&[]));
+        let tbaa_root = module.get_global_metadata("wasmer_tbaa_root")[0];
+        let memory = context.metadata_string("memory");
+        module.add_global_metadata(
+            "memory",
+            &MetadataValue::create_node(&[memory.into(), tbaa_root.into()]),
+        );
+        let memory_tbaa = module.get_global_metadata("memory")[0];
+        module.add_global_metadata(
+            "memory_memop",
+            &MetadataValue::create_node(&[
+                memory_tbaa.into(),
+                memory_tbaa.into(),
+                intrinsics.i64_zero.into(),
+            ]),
+        );
+        let memory_tbaa = module.get_global_metadata("memory_memop")[0];
+
+        let locals = context.metadata_string("locals");
+        module.add_global_metadata(
+            "locals",
+            &MetadataValue::create_node(&[locals.into(), tbaa_root.into()]),
+        );
+        let locals_tbaa = module.get_global_metadata("locals")[0];
+        module.add_global_metadata(
+            "locals_memop",
+            &MetadataValue::create_node(&[
+                locals_tbaa.into(),
+                locals_tbaa.into(),
+                intrinsics.i64_zero.into(),
+            ]),
+        );
+        let locals_tbaa = module.get_global_metadata("locals_memop")[0];
+
+        let globals = context.metadata_string("globals");
+        module.add_global_metadata(
+            "globals",
+            &MetadataValue::create_node(&[globals.into(), tbaa_root.into()]),
+        );
+        let globals_tbaa = module.get_global_metadata("globals")[0];
+        module.add_global_metadata(
+            "globals_memop",
+            &MetadataValue::create_node(&[
+                globals_tbaa.into(),
+                globals_tbaa.into(),
+                intrinsics.i64_zero.into(),
+            ]),
+        );
+        let globals_tbaa = module.get_global_metadata("globals_memop")[0];
+
+        let context_field_ptr_to_base_tbaa =
+            context.metadata_string("context_field_ptr_to_base_tbaa");
+        module.add_global_metadata(
+            "context_field_ptr_to_base_tbaa",
+            &MetadataValue::create_node(&[context_field_ptr_to_base_tbaa.into(), tbaa_root.into()]),
+        );
+        let context_field_ptr_to_base_tbaa =
+            module.get_global_metadata("context_field_ptr_to_base_tbaa")[0];
+        module.add_global_metadata(
+            "context_field_ptr_to_base_tbaa_memop",
+            &MetadataValue::create_node(&[
+                context_field_ptr_to_base_tbaa.into(),
+                context_field_ptr_to_base_tbaa.into(),
+                intrinsics.i64_zero.into(),
+            ]),
+        );
+        let context_field_ptr_to_base_tbaa =
+            module.get_global_metadata("context_field_ptr_to_base_tbaa_memop")[0];
+
+        let context_field_ptr_to_bounds_tbaa =
+            context.metadata_string("context_field_ptr_to_bounds_tbaa");
+        module.add_global_metadata(
+            "context_field_ptr_to_bounds_tbaa",
+            &MetadataValue::create_node(&[
+                context_field_ptr_to_bounds_tbaa.into(),
+                tbaa_root.into(),
+            ]),
+        );
+        let context_field_ptr_to_bounds_tbaa =
+            module.get_global_metadata("context_field_ptr_to_bounds_tbaa")[0];
+        module.add_global_metadata(
+            "context_field_ptr_to_bounds_tbaa_memop",
+            &MetadataValue::create_node(&[
+                context_field_ptr_to_bounds_tbaa.into(),
+                context_field_ptr_to_bounds_tbaa.into(),
+                intrinsics.i64_zero.into(),
+            ]),
+        );
+        let context_field_ptr_to_bounds_tbaa =
+            module.get_global_metadata("context_field_ptr_to_bounds_tbaa_memop")[0];
+
         LLVMModuleCodeGenerator {
             context: Some(context),
             builder: Some(builder),
@@ -7329,7 +7761,12 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             personality_func,
             stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
             track_state: false,
-            target_machine: target_machine,
+            target_machine,
+            memory_tbaa,
+            locals_tbaa,
+            globals_tbaa,
+            context_field_ptr_to_base_tbaa,
+            context_field_ptr_to_bounds_tbaa,
         }
     }
 
@@ -7436,6 +7873,11 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             index: local_func_index,
             opcode_offset: 0,
             track_state: self.track_state,
+            memory_tbaa: self.memory_tbaa,
+            locals_tbaa: self.locals_tbaa,
+            globals_tbaa: self.globals_tbaa,
+            context_field_ptr_to_base_tbaa: self.context_field_ptr_to_base_tbaa,
+            context_field_ptr_to_bounds_tbaa: self.context_field_ptr_to_bounds_tbaa,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -7485,6 +7927,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         pass_manager.add_scalar_repl_aggregates_pass();
         pass_manager.add_instruction_combining_pass();
         pass_manager.add_cfg_simplification_pass();
+        pass_manager.add_type_based_alias_analysis_pass();
         pass_manager.add_gvn_pass();
         pass_manager.add_jump_threading_pass();
         pass_manager.add_correlated_value_propagation_pass();
