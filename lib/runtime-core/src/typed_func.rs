@@ -3,7 +3,7 @@ use crate::{
     export::{Context, Export, FuncPointer},
     import::IsExport,
     types::{FuncSig, NativeWasmType, Type, WasmExternType},
-    vm::{self, Ctx},
+    vm,
 };
 use std::{
     any::Any,
@@ -52,10 +52,10 @@ impl fmt::Display for WasmTrapInfo {
 /// of the `Func` struct.
 pub trait Kind {}
 
-pub type Trampoline = unsafe extern "C" fn(*mut Ctx, NonNull<vm::Func>, *const u64, *mut u64);
+pub type Trampoline = unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64);
 pub type Invoke = unsafe extern "C" fn(
     Trampoline,
-    *mut Ctx,
+    *mut vm::Ctx,
     NonNull<vm::Func>,
     *const u64,
     *mut u64,
@@ -173,7 +173,7 @@ where
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
     f: NonNull<vm::Func>,
-    ctx: *mut Ctx,
+    ctx: *mut vm::Ctx,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
@@ -188,7 +188,7 @@ where
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
         f: NonNull<vm::Func>,
-        ctx: *mut Ctx,
+        ctx: *mut vm::Ctx,
     ) -> Func<'a, Args, Rets, Wasm> {
         Func {
             inner,
@@ -267,7 +267,7 @@ impl WasmTypeList for Infallible {
         self,
         _: NonNull<vm::Func>,
         _: Wasm,
-        _: *mut Ctx,
+        _: *mut vm::Ctx,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList,
@@ -313,7 +313,7 @@ where
         self,
         f: NonNull<vm::Func>,
         wasm: Wasm,
-        ctx: *mut Ctx,
+        ctx: *mut vm::Ctx,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList,
@@ -405,7 +405,7 @@ macro_rules! impl_traits {
                 self,
                 f: NonNull<vm::Func>,
                 wasm: Wasm,
-                ctx: *mut Ctx,
+                ctx: *mut vm::Ctx,
             ) -> Result<Rets, RuntimeError>
             where
                 Rets: WasmTypeList
@@ -443,7 +443,7 @@ macro_rules! impl_traits {
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn(&mut Ctx $( , $x )*) -> Trap,
+            FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap,
         {
             #[allow(non_snake_case)]
             fn to_raw(&self) -> NonNull<vm::Func> {
@@ -451,13 +451,13 @@ macro_rules! impl_traits {
                     /// This is required for the llvm backend to be able to unwind through this function.
                     #[cfg_attr(nightly, unwind(allowed))]
                     extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                        ctx: &mut Ctx $( , $x: <$x as WasmExternType>::Native )*
+                        ctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
                     ) -> Rets::CStruct
                     where
                         $( $x: WasmExternType, )*
                         Rets: WasmTypeList,
                         Trap: TrapEarly<Rets>,
-                        FN: Fn(&mut Ctx $( , $x )*) -> Trap,
+                        FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap,
                     {
                         let f: FN = unsafe { mem::transmute_copy(&()) };
 
@@ -564,7 +564,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_call() {
-        fn foo(_ctx: &mut Ctx, a: i32, b: i32) -> (i32, i32) {
+        fn foo(_ctx: &mut vm::Ctx, a: i32, b: i32) -> (i32, i32) {
             (a, b)
         }
 
@@ -575,7 +575,7 @@ mod tests {
     fn test_imports() {
         use crate::{func, imports};
 
-        fn foo(_ctx: &mut Ctx, a: i32) -> i32 {
+        fn foo(_ctx: &mut vm::Ctx, a: i32) -> i32 {
             a
         }
 
