@@ -131,10 +131,32 @@ pub trait WasmTypeList {
 }
 
 /// Empty trait to specify the kind of `ExternalFunction`: With or
-/// without a `vm::Ctx` argument.
+/// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
+/// `ImplicitVmCtx` structures.
+///
+/// This type is never aimed to be used by a user. It is used by the
+/// trait system to automatically generate an appropriate `wrap`
+/// function.
 pub trait ExternalFunctionKind {}
 
+/// This empty structure indicates that an external function must
+/// contain an explicit `vm::Ctx` argument (at first position).
+///
+/// ```rs,ignore
+/// fn add_one(_: mut &vm::Ctx, x: i32) -> i32 {
+///     x + 1
+/// }
+/// ```
 pub struct ExplicitVmCtx {}
+
+/// This empty structure indicates that an external function has no
+/// `vm::Ctx` argument (at first position). Its signature is:
+///
+/// ```rs,ignore
+/// fn add_one(x: i32) -> i32 {
+///     x + 1
+/// }
+/// ```
 pub struct ImplicitVmCtx {}
 
 impl ExternalFunctionKind for ExplicitVmCtx {}
