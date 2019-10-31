@@ -15,7 +15,7 @@ use crate::{
     },
     vm,
 };
-use std::{fmt::Debug, slice};
+use std::{fmt::Debug, ptr, slice};
 
 pub const INTERNALS_SIZE: usize = 256;
 
@@ -384,7 +384,7 @@ impl LocalBacking {
                                 LocalOrImport::Import(imported_func_index) => {
                                     let vm::ImportedFunc { func, vmctx } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx)
+                                    (func, vmctx as _)
                                 }
                             };
 
@@ -417,7 +417,7 @@ impl LocalBacking {
                                 LocalOrImport::Import(imported_func_index) => {
                                     let vm::ImportedFunc { func, vmctx } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx)
+                                    (func, vmctx as _)
                                 }
                             };
 
@@ -541,6 +541,15 @@ impl ImportBacking {
     }
 }
 
+impl Drop for ImportBacking {
+    fn drop(&mut self) {
+        for (_imported_func_index, imported_func) in (*self.vm_functions).iter_mut() {
+            let _: Box<vm::FuncCtx> = unsafe { Box::from_raw(imported_func.vmctx) };
+            imported_func.vmctx = ptr::null_mut();
+        }
+    }
+}
+
 fn import_functions(
     module: &ModuleInner,
     imports: &ImportObject,
@@ -564,6 +573,7 @@ fn import_functions(
 
         let import =
             imports.maybe_with_namespace(namespace, |namespace| namespace.get_export(name));
+        dbg!(vmctx);
         match import {
             Some(Export::Function {
                 func,
@@ -573,9 +583,16 @@ fn import_functions(
                 if *expected_sig == *signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
-                        vmctx: match ctx {
-                            Context::External(ctx) => ctx,
-                            Context::Internal => vmctx,
+                        vmctx: {
+                            let _ = match ctx {
+                                Context::External(ctx) => ctx,
+                                Context::Internal => vmctx,
+                            };
+
+                            Box::into_raw(Box::new(vm::FuncCtx {
+                                vmctx,
+                                func_env: ptr::null_mut(),
+                            }))
                         },
                     });
                 } else {

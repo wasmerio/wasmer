@@ -111,7 +111,7 @@ impl Instance {
             let ctx_ptr = match start_index.local_or_import(&instance.module.info) {
                 LocalOrImport::Local(_) => instance.inner.vmctx,
                 LocalOrImport::Import(imported_func_index) => {
-                    instance.inner.import_backing.vm_functions[imported_func_index].vmctx
+                    instance.inner.import_backing.vm_functions[imported_func_index].vmctx as _
                 }
             };
 
@@ -196,7 +196,7 @@ impl Instance {
             let ctx = match func_index.local_or_import(&self.module.info) {
                 LocalOrImport::Local(_) => self.inner.vmctx,
                 LocalOrImport::Import(imported_func_index) => {
-                    self.inner.import_backing.vm_functions[imported_func_index].vmctx
+                    self.inner.import_backing.vm_functions[imported_func_index].vmctx as _
                 }
             };
 
@@ -449,7 +449,7 @@ impl InstanceInner {
                 let imported_func = &self.import_backing.vm_functions[imported_func_index];
                 (
                     imported_func.func as *const _,
-                    Context::External(imported_func.vmctx),
+                    Context::External(imported_func.vmctx as _),
                 )
             }
         };
@@ -575,7 +575,7 @@ fn call_func_with_index(
     let ctx_ptr = match func_index.local_or_import(info) {
         LocalOrImport::Local(_) => local_ctx,
         LocalOrImport::Import(imported_func_index) => {
-            import_backing.vm_functions[imported_func_index].vmctx
+            import_backing.vm_functions[imported_func_index].vmctx as _
         }
     };
 

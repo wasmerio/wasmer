@@ -490,7 +490,7 @@ macro_rules! impl_traits {
                     /// This is required for the llvm backend to be able to unwind through this function.
                     #[cfg_attr(nightly, unwind(allowed))]
                     extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                        vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                        func_ctx: &mut vm::FuncCtx $( , $x: <$x as WasmExternType>::Native )*
                     ) -> Rets::CStruct
                     where
                         $( $x: WasmExternType, )*
@@ -498,6 +498,7 @@ macro_rules! impl_traits {
                         Trap: TrapEarly<Rets>,
                         FN: Fn(&mut vm::Ctx, $( $x, )*) -> Trap,
                     {
+                        let vmctx = unsafe { &mut *func_ctx.vmctx };
                         let f: FN = unsafe { mem::transmute_copy(&()) };
 
                         let err = match panic::catch_unwind(
@@ -548,7 +549,7 @@ macro_rules! impl_traits {
                     /// This is required for the llvm backend to be able to unwind through this function.
                     #[cfg_attr(nightly, unwind(allowed))]
                     extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                        vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                        func_ctx: &mut vm::FuncCtx $( , $x: <$x as WasmExternType>::Native )*
                     ) -> Rets::CStruct
                     where
                         $( $x: WasmExternType, )*
@@ -556,6 +557,7 @@ macro_rules! impl_traits {
                         Trap: TrapEarly<Rets>,
                         FN: Fn($( $x, )*) -> Trap,
                     {
+                        let vmctx = unsafe { &mut *func_ctx.vmctx };
                         let f: FN = unsafe { mem::transmute_copy(&()) };
 
                         let err = match panic::catch_unwind(
