@@ -1,6 +1,8 @@
 use super::stackmap::StackmapRegistry;
-use crate::intrinsics::Intrinsics;
-use crate::structs::{Callbacks, LLVMModule, LLVMResult, MemProtect};
+use crate::{
+    intrinsics::Intrinsics,
+    structs::{Callbacks, LLVMModule, LLVMResult, MemProtect},
+};
 use inkwell::{
     memory_buffer::MemoryBuffer,
     module::Module,
@@ -27,7 +29,7 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     state::ModuleStateMap,
     structures::TypedIndex,
-    typed_func::{Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
@@ -57,7 +59,7 @@ extern "C" {
 
     #[allow(improper_ctypes)]
     fn invoke_trampoline(
-        trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
+        trampoline: Trampoline,
         vmctx_ptr: *mut vm::Ctx,
         func_ptr: NonNull<vm::Func>,
         params: *const u64,
@@ -387,12 +389,7 @@ impl RunnableModule for LLVMBackend {
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
-        let trampoline: unsafe extern "C" fn(
-            *mut vm::Ctx,
-            NonNull<vm::Func>,
-            *const u64,
-            *mut u64,
-        ) = unsafe {
+        let trampoline: Trampoline = unsafe {
             let name = if cfg!(target_os = "macos") {
                 format!("_trmp{}", sig_index.index())
             } else {
