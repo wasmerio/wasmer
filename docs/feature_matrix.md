@@ -18,7 +18,7 @@
 | - | :-: | :-: | :-: |
 | Cranelift Backend | ✅ | ✅ | ✅ |
 | LLVM Backend | ✅ | ✅ | ✅ |
-| Singlepass Backend | #347 | ✅ | ✅ |
+| Singlepass Backend | [#347](https://github.com/wasmerio/wasmer/issues/347) | ✅ | ✅ |
 | WASI | ✅ | ✅ | ✅* |
 
 * `poll_fd` is not fully implemented for Windows yet
