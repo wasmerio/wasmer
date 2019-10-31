@@ -670,30 +670,33 @@ impl<'a> CtxType<'a> {
         );
 
         *cached_memories.entry(index).or_insert_with(|| {
-            let (memory_array_ptr_ptr, index, memory_type) = match index.local_or_import(info) {
-                LocalOrImport::Local(local_mem_index) => (
-                    unsafe {
-                        cache_builder.build_struct_gep(
-                            ctx_ptr_value,
-                            offset_to_index(Ctx::offset_memories()),
-                            "memory_array_ptr_ptr",
-                        )
-                    },
-                    local_mem_index.index() as u64,
-                    info.memories[local_mem_index].memory_type(),
-                ),
-                LocalOrImport::Import(import_mem_index) => (
-                    unsafe {
-                        cache_builder.build_struct_gep(
-                            ctx_ptr_value,
-                            offset_to_index(Ctx::offset_imported_memories()),
-                            "memory_array_ptr_ptr",
-                        )
-                    },
-                    import_mem_index.index() as u64,
-                    info.imported_memories[import_mem_index].1.memory_type(),
-                ),
-            };
+            let (memory_array_ptr_ptr, index, memory_type, field_name) =
+                match index.local_or_import(info) {
+                    LocalOrImport::Local(local_mem_index) => (
+                        unsafe {
+                            cache_builder.build_struct_gep(
+                                ctx_ptr_value,
+                                offset_to_index(Ctx::offset_memories()),
+                                "memory_array_ptr_ptr",
+                            )
+                        },
+                        local_mem_index.index() as u64,
+                        info.memories[local_mem_index].memory_type(),
+                        "context_field_ptr_to_local_memory",
+                    ),
+                    LocalOrImport::Import(import_mem_index) => (
+                        unsafe {
+                            cache_builder.build_struct_gep(
+                                ctx_ptr_value,
+                                offset_to_index(Ctx::offset_imported_memories()),
+                                "memory_array_ptr_ptr",
+                            )
+                        },
+                        import_mem_index.index() as u64,
+                        info.imported_memories[import_mem_index].1.memory_type(),
+                        "context_field_ptr_to_imported_memory",
+                    ),
+                };
 
             let memory_array_ptr = cache_builder
                 .build_load(memory_array_ptr_ptr, "memory_array_ptr")
@@ -701,7 +704,7 @@ impl<'a> CtxType<'a> {
             tbaa_label(
                 module.clone(),
                 intrinsics,
-                "memory_array",
+                field_name,
                 memory_array_ptr.as_instruction_value().unwrap(),
                 None,
             );
@@ -746,14 +749,14 @@ impl<'a> CtxType<'a> {
                     tbaa_label(
                         module.clone(),
                         intrinsics,
-                        "memory_base",
+                        "static_memory_base",
                         base_ptr.as_instruction_value().unwrap(),
                         Some(index as u32),
                     );
                     tbaa_label(
                         module.clone(),
                         intrinsics,
-                        "memory_bounds",
+                        "static_memory_bounds",
                         bounds.as_instruction_value().unwrap(),
                         Some(index as u32),
                     );
@@ -780,7 +783,7 @@ impl<'a> CtxType<'a> {
             ptr_to_base_ptr,
             ptr_to_bounds,
         } = *cached_tables.entry(index).or_insert_with(|| {
-            let (table_array_ptr_ptr, index) = match index.local_or_import(info) {
+            let (table_array_ptr_ptr, index, field_name) = match index.local_or_import(info) {
                 LocalOrImport::Local(local_table_index) => (
                     unsafe {
                         cache_builder.build_struct_gep(
@@ -790,6 +793,7 @@ impl<'a> CtxType<'a> {
                         )
                     },
                     local_table_index.index() as u64,
+                    "context_field_ptr_to_local_table",
                 ),
                 LocalOrImport::Import(import_table_index) => (
                     unsafe {
@@ -800,6 +804,7 @@ impl<'a> CtxType<'a> {
                         )
                     },
                     import_table_index.index() as u64,
+                    "context_field_ptr_to_import_table",
                 ),
             };
 
@@ -809,7 +814,7 @@ impl<'a> CtxType<'a> {
             tbaa_label(
                 module.clone(),
                 intrinsics,
-                "context_field_ptr_to_tables",
+                field_name,
                 table_array_ptr.as_instruction_value().unwrap(),
                 None,
             );
@@ -971,7 +976,7 @@ impl<'a> CtxType<'a> {
         );
 
         *cached_globals.entry(index).or_insert_with(|| {
-            let (globals_array_ptr_ptr, index, mutable, wasmer_ty) =
+            let (globals_array_ptr_ptr, index, mutable, wasmer_ty, field_name) =
                 match index.local_or_import(info) {
                     LocalOrImport::Local(local_global_index) => {
                         let desc = info.globals[local_global_index].desc;
@@ -986,6 +991,7 @@ impl<'a> CtxType<'a> {
                             local_global_index.index() as u64,
                             desc.mutable,
                             desc.ty,
+                            "context_field_ptr_to_local_globals",
                         )
                     }
                     LocalOrImport::Import(import_global_index) => {
@@ -1001,6 +1007,7 @@ impl<'a> CtxType<'a> {
                             import_global_index.index() as u64,
                             desc.mutable,
                             desc.ty,
+                            "context_field_ptr_to_imported_globals",
                         )
                     }
                 };
@@ -1013,7 +1020,7 @@ impl<'a> CtxType<'a> {
             tbaa_label(
                 module.clone(),
                 intrinsics,
-                "context_field_ptr_to_globals",
+                field_name,
                 globals_array_ptr_ptr.as_instruction_value().unwrap(),
                 None,
             );

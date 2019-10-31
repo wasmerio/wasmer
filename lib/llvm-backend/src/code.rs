@@ -577,16 +577,16 @@ fn resolve_memory_ptr(
             tbaa_label(
                 module.clone(),
                 intrinsics,
-                "context_field_ptr_to_base",
+                "dynamic_memory_base",
                 base.as_instruction_value().unwrap(),
-                None,
+                Some(0),
             );
             tbaa_label(
                 module.clone(),
                 intrinsics,
-                "context_field_ptr_to_bounds",
+                "dynamic_memory_bounds",
                 bounds.as_instruction_value().unwrap(),
-                None,
+                Some(0),
             );
             (base, bounds)
         }
