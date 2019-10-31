@@ -33,7 +33,8 @@ Current ideas:
 - Metering
 - Caching
 
-;; TODO: expand this table, it's focused on new features that we haven't implemented yet and doesn't list all language integrations
+> TODO: expand this table, it's focused on new features that we haven't implemented yet and doesn't list all language integrations
+
 | &nbsp; | Rust | C / C++ | Go | Python | Ruby |
 | - | :-: | :-: | :-: | :-: | :-: |
 | Terminate in host call | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
