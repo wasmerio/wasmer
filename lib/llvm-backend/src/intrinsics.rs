@@ -1165,6 +1165,8 @@ impl<'a> CtxType<'a> {
     }
 }
 
+// Given an instruction that operates on memory, mark the access as not aliasing
+// other memory accesses which have a different (label, index) pair.
 pub fn tbaa_label(
     module: Rc<RefCell<Module>>,
     intrinsics: &Intrinsics,
@@ -1172,12 +1174,27 @@ pub fn tbaa_label(
     instruction: InstructionValue,
     index: Option<u32>,
 ) {
+    // To convey to LLVM that two pointers must be pointing to distinct memory,
+    // we use LLVM's Type Based Aliasing Analysis, or TBAA, to mark the memory
+    // operations as having different types whose pointers may not alias.
+    //
+    // See the LLVM documentation at
+    //   https://llvm.org/docs/LangRef.html#tbaa-metadata
+    //
+    // LLVM TBAA supports many features, but we use it in a simple way, with
+    // only scalar types that are children of the root node. Every TBAA type we
+    // declare is `noalias` with the others:
+    //   https://llvm.org/docs/AliasAnalysis.html#must-may-and-no-alias-responses
+
     let module = module.borrow_mut();
     let context = module.get_context();
 
+    // `!wasmer_tbaa_root = {}`, the TBAA root node for wasmer.
     module.add_global_metadata("wasmer_tbaa_root", &MetadataValue::create_node(&[]));
     let tbaa_root = module.get_global_metadata("wasmer_tbaa_root")[0];
 
+    // Construct (or look up) the type descriptor, for example
+    //   `!"local 0" = !{!"local 0", !wasmer_tbaa_root}`.
     let label = if let Some(idx) = index {
         format!("{}{}", label, idx)
     } else {
@@ -1190,6 +1207,12 @@ pub fn tbaa_label(
     );
     let type_tbaa = module.get_global_metadata(label.as_str())[0];
 
+    // Construct (or look up) the access tag, which is a struct of the form
+    // (base type, acess type, offset).
+    //
+    // "If BaseTy is a scalar type, Offset must be 0 and BaseTy and AccessTy
+    // must be the same".
+    //   -- https://llvm.org/docs/LangRef.html#tbaa-metadata
     let label = label + "_memop";
     module.add_global_metadata(
         label.as_str(),
@@ -1201,6 +1224,7 @@ pub fn tbaa_label(
     );
     let type_tbaa = module.get_global_metadata(label.as_str())[0];
 
+    // Attach the access tag to the instruction.
     let tbaa_kind = context.get_kind_id("tbaa");
     instruction.set_metadata(type_tbaa, tbaa_kind);
 }
