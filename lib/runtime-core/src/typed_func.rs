@@ -3,7 +3,7 @@ use crate::{
     export::{Context, Export, FuncPointer},
     import::IsExport,
     types::{FuncSig, NativeWasmType, Type, WasmExternType},
-    vm::{self, Ctx},
+    vm,
 };
 use std::{
     any::Any,
@@ -52,16 +52,21 @@ impl fmt::Display for WasmTrapInfo {
 /// of the `Func` struct.
 pub trait Kind {}
 
-pub type Trampoline = unsafe extern "C" fn(*mut Ctx, NonNull<vm::Func>, *const u64, *mut u64);
+pub type Trampoline = unsafe extern "C" fn(
+    vmctx: *mut vm::Ctx,
+    func: NonNull<vm::Func>,
+    args: *const u64,
+    rets: *mut u64,
+);
 pub type Invoke = unsafe extern "C" fn(
-    Trampoline,
-    *mut Ctx,
-    NonNull<vm::Func>,
-    *const u64,
-    *mut u64,
-    *mut WasmTrapInfo,
-    *mut Option<Box<dyn Any>>,
-    Option<NonNull<c_void>>,
+    trampoline: Trampoline,
+    vmctx: *mut vm::Ctx,
+    func: NonNull<vm::Func>,
+    args: *const u64,
+    rets: *mut u64,
+    trap_info: *mut WasmTrapInfo,
+    user_error: *mut Option<Box<dyn Any>>,
+    extra: Option<NonNull<c_void>>,
 ) -> bool;
 
 /// TODO(lachlan): Naming TBD.
@@ -124,16 +129,49 @@ pub trait WasmTypeList {
         self,
         f: NonNull<vm::Func>,
         wasm: Wasm,
-        ctx: *mut Ctx,
+        ctx: *mut vm::Ctx,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList;
 }
 
+/// Empty trait to specify the kind of `ExternalFunction`: With or
+/// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
+/// `ImplicitVmCtx` structures.
+///
+/// This type is never aimed to be used by a user. It is used by the
+/// trait system to automatically generate an appropriate `wrap`
+/// function.
+pub trait ExternalFunctionKind {}
+
+/// This empty structure indicates that an external function must
+/// contain an explicit `vm::Ctx` argument (at first position).
+///
+/// ```rs,ignore
+/// fn add_one(_: mut &vm::Ctx, x: i32) -> i32 {
+///     x + 1
+/// }
+/// ```
+pub struct ExplicitVmCtx {}
+
+/// This empty structure indicates that an external function has no
+/// `vm::Ctx` argument (at first position). Its signature is:
+///
+/// ```rs,ignore
+/// fn add_one(x: i32) -> i32 {
+///     x + 1
+/// }
+/// ```
+pub struct ImplicitVmCtx {}
+
+impl ExternalFunctionKind for ExplicitVmCtx {}
+impl ExternalFunctionKind for ImplicitVmCtx {}
+
 /// Represents a function that can be converted to a `vm::Func`
 /// (function pointer) that can be called within WebAssembly.
-pub trait ExternalFunction<Args, Rets>
+pub trait ExternalFunction<Kind, Args, Rets>
 where
+    Kind: ExternalFunctionKind,
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
@@ -173,7 +211,7 @@ where
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
     f: NonNull<vm::Func>,
-    ctx: *mut Ctx,
+    ctx: *mut vm::Ctx,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
@@ -188,7 +226,7 @@ where
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
         f: NonNull<vm::Func>,
-        ctx: *mut Ctx,
+        ctx: *mut vm::Ctx,
     ) -> Func<'a, Args, Rets, Wasm> {
         Func {
             inner,
@@ -208,9 +246,10 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub fn new<F>(f: F) -> Func<'a, Args, Rets, Host>
+    pub fn new<F, Kind>(f: F) -> Func<'a, Args, Rets, Host>
     where
-        F: ExternalFunction<Args, Rets>,
+        Kind: ExternalFunctionKind,
+        F: ExternalFunction<Kind, Args, Rets>,
     {
         Func {
             inner: Host(()),
@@ -267,7 +306,7 @@ impl WasmTypeList for Infallible {
         self,
         _: NonNull<vm::Func>,
         _: Wasm,
-        _: *mut Ctx,
+        _: *mut vm::Ctx,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList,
@@ -313,7 +352,7 @@ where
         self,
         f: NonNull<vm::Func>,
         wasm: Wasm,
-        ctx: *mut Ctx,
+        ctx: *mut vm::Ctx,
     ) -> Result<Rets, RuntimeError>
     where
         Rets: WasmTypeList,
@@ -405,7 +444,7 @@ macro_rules! impl_traits {
                 self,
                 f: NonNull<vm::Func>,
                 wasm: Wasm,
-                ctx: *mut Ctx,
+                ctx: *mut vm::Ctx,
             ) -> Result<Rets, RuntimeError>
             where
                 Rets: WasmTypeList
@@ -438,12 +477,12 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<( $( $x ),* ), Rets> for FN
+        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn(&mut Ctx $( , $x )*) -> Trap,
+            FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap,
         {
             #[allow(non_snake_case)]
             fn to_raw(&self) -> NonNull<vm::Func> {
@@ -451,20 +490,20 @@ macro_rules! impl_traits {
                     /// This is required for the llvm backend to be able to unwind through this function.
                     #[cfg_attr(nightly, unwind(allowed))]
                     extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                        ctx: &mut Ctx $( , $x: <$x as WasmExternType>::Native )*
+                        vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
                     ) -> Rets::CStruct
                     where
                         $( $x: WasmExternType, )*
                         Rets: WasmTypeList,
                         Trap: TrapEarly<Rets>,
-                        FN: Fn(&mut Ctx $( , $x )*) -> Trap,
+                        FN: Fn(&mut vm::Ctx, $( $x, )*) -> Trap,
                     {
                         let f: FN = unsafe { mem::transmute_copy(&()) };
 
                         let err = match panic::catch_unwind(
                             panic::AssertUnwindSafe(
                                 || {
-                                    f(ctx $( , WasmExternType::from_native($x) )* ).report()
+                                    f(vmctx $( , WasmExternType::from_native($x) )* ).report()
                                 }
                             )
                         ) {
@@ -477,7 +516,7 @@ macro_rules! impl_traits {
                         };
 
                         unsafe {
-                            (&*ctx.module).runnable_module.do_early_trap(err)
+                            (&*vmctx.module).runnable_module.do_early_trap(err)
                         }
                     }
 
@@ -490,7 +529,65 @@ macro_rules! impl_traits {
                     );
 
                     NonNull::new(unsafe {
-                        ::std::mem::transmute_copy::<_, *mut vm::Func>(self)
+                        mem::transmute_copy::<_, *mut vm::Func>(self)
+                    }).unwrap()
+                }
+            }
+        }
+
+        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        where
+            $( $x: WasmExternType, )*
+            Rets: WasmTypeList,
+            Trap: TrapEarly<Rets>,
+            FN: Fn($( $x, )*) -> Trap,
+        {
+            #[allow(non_snake_case)]
+            fn to_raw(&self) -> NonNull<vm::Func> {
+                if mem::size_of::<Self>() == 0 {
+                    /// This is required for the llvm backend to be able to unwind through this function.
+                    #[cfg_attr(nightly, unwind(allowed))]
+                    extern fn wrap<$( $x, )* Rets, Trap, FN>(
+                        vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                    ) -> Rets::CStruct
+                    where
+                        $( $x: WasmExternType, )*
+                        Rets: WasmTypeList,
+                        Trap: TrapEarly<Rets>,
+                        FN: Fn($( $x, )*) -> Trap,
+                    {
+                        let f: FN = unsafe { mem::transmute_copy(&()) };
+
+                        let err = match panic::catch_unwind(
+                            panic::AssertUnwindSafe(
+                                || {
+                                    f($( WasmExternType::from_native($x), )* ).report()
+                                }
+                            )
+                        ) {
+                            Ok(Ok(returns)) => return returns.into_c_struct(),
+                            Ok(Err(err)) => {
+                                let b: Box<_> = err.into();
+                                b as Box<dyn Any>
+                            },
+                            Err(err) => err,
+                        };
+
+                        unsafe {
+                            (&*vmctx.module).runnable_module.do_early_trap(err)
+                        }
+                    }
+
+                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap()
+                } else {
+                    assert_eq!(
+                        mem::size_of::<Self>(),
+                        mem::size_of::<usize>(),
+                        "you cannot use a closure that captures state for `Func`."
+                    );
+
+                    NonNull::new(unsafe {
+                        mem::transmute_copy::<_, *mut vm::Func>(self)
                     }).unwrap()
                 }
             }
@@ -562,9 +659,57 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    macro_rules! test_func_arity_n {
+        ($test_name:ident, $($x:ident),*) => {
+            #[test]
+            fn $test_name() {
+                use crate::vm;
+
+                fn with_vmctx(_: &mut vm::Ctx, $($x: i32),*) -> i32 {
+                    vec![$($x),*].iter().sum()
+                }
+
+                fn without_vmctx($($x: i32),*) -> i32 {
+                    vec![$($x),*].iter().sum()
+                }
+
+                let _func = Func::new(with_vmctx);
+                let _func = Func::new(without_vmctx);
+            }
+        }
+    }
+
+    #[test]
+    fn test_func_arity_0() {
+        fn foo(_: &mut vm::Ctx) -> i32 {
+            0
+        }
+
+        fn bar() -> i32 {
+            0
+        }
+
+        let _ = Func::new(foo);
+        let _ = Func::new(bar);
+    }
+
+    test_func_arity_n!(test_func_arity_1, a);
+    test_func_arity_n!(test_func_arity_2, a, b);
+    test_func_arity_n!(test_func_arity_3, a, b, c);
+    test_func_arity_n!(test_func_arity_4, a, b, c, d);
+    test_func_arity_n!(test_func_arity_5, a, b, c, d, e);
+    test_func_arity_n!(test_func_arity_6, a, b, c, d, e, f);
+    test_func_arity_n!(test_func_arity_7, a, b, c, d, e, f, g);
+    test_func_arity_n!(test_func_arity_8, a, b, c, d, e, f, g, h);
+    test_func_arity_n!(test_func_arity_9, a, b, c, d, e, f, g, h, i);
+    test_func_arity_n!(test_func_arity_10, a, b, c, d, e, f, g, h, i, j);
+    test_func_arity_n!(test_func_arity_11, a, b, c, d, e, f, g, h, i, j, k);
+    test_func_arity_n!(test_func_arity_12, a, b, c, d, e, f, g, h, i, j, k, l);
+
     #[test]
     fn test_call() {
-        fn foo(_ctx: &mut Ctx, a: i32, b: i32) -> (i32, i32) {
+        fn foo(_ctx: &mut vm::Ctx, a: i32, b: i32) -> (i32, i32) {
             (a, b)
         }
 
@@ -575,7 +720,7 @@ mod tests {
     fn test_imports() {
         use crate::{func, imports};
 
-        fn foo(_ctx: &mut Ctx, a: i32) -> i32 {
+        fn foo(_ctx: &mut vm::Ctx, a: i32) -> i32 {
             a
         }
 

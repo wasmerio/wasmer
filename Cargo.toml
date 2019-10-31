@@ -43,6 +43,7 @@ members = [
     "lib/singlepass-backend",
     "lib/runtime",
     "lib/runtime-core",
+    "lib/runtime-core-tests",
     "lib/emscripten",
     "lib/spectests",
     "lib/win-exception-handler",
