@@ -1183,7 +1183,8 @@ pub fn tbaa_label(
     //
     // LLVM TBAA supports many features, but we use it in a simple way, with
     // only scalar types that are children of the root node. Every TBAA type we
-    // declare is `noalias` with the others:
+    // declare is NoAlias with the others. See NoAlias, PartialAlias,
+    // MayAlias and MustAlias in the LLVM documentation:
     //   https://llvm.org/docs/AliasAnalysis.html#must-may-and-no-alias-responses
 
     let module = module.borrow_mut();
