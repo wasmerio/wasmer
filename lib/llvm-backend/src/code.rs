@@ -1,3 +1,11 @@
+use crate::{
+    backend::LLVMBackend,
+    intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache},
+    read_info::{blocktype_to_type, type_to_type},
+    stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
+    state::{ControlFrame, ExtraInfo, IfElseState, State},
+    trampolines::generate_trampolines,
+};
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -12,9 +20,11 @@ use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate, OptimizationLevel,
 };
 use smallvec::SmallVec;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::{Arc, RwLock};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, RwLock},
+};
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
@@ -27,13 +37,6 @@ use wasmer_runtime_core::{
     },
 };
 use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
-
-use crate::backend::LLVMBackend;
-use crate::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
-use crate::read_info::{blocktype_to_type, type_to_type};
-use crate::stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic};
-use crate::state::{ControlFrame, ExtraInfo, IfElseState, State};
-use crate::trampolines::generate_trampolines;
 
 fn func_sig_to_llvm(
     context: &Context,

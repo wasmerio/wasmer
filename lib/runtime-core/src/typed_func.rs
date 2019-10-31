@@ -52,16 +52,21 @@ impl fmt::Display for WasmTrapInfo {
 /// of the `Func` struct.
 pub trait Kind {}
 
-pub type Trampoline = unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64);
+pub type Trampoline = unsafe extern "C" fn(
+    vmctx: *mut vm::Ctx,
+    func: NonNull<vm::Func>,
+    args: *const u64,
+    rets: *mut u64,
+);
 pub type Invoke = unsafe extern "C" fn(
-    Trampoline,
-    *mut vm::Ctx,
-    NonNull<vm::Func>,
-    *const u64,
-    *mut u64,
-    *mut WasmTrapInfo,
-    *mut Option<Box<dyn Any>>,
-    Option<NonNull<c_void>>,
+    trampoline: Trampoline,
+    vmctx: *mut vm::Ctx,
+    func: NonNull<vm::Func>,
+    args: *const u64,
+    rets: *mut u64,
+    trap_info: *mut WasmTrapInfo,
+    user_error: *mut Option<Box<dyn Any>>,
+    extra: Option<NonNull<c_void>>,
 ) -> bool;
 
 /// TODO(lachlan): Naming TBD.

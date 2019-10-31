@@ -13,7 +13,7 @@ use crate::{
 };
 use libc::{c_int, c_uint};
 use std::{ptr, slice};
-use wasmer_runtime::{Instance, Memory, Module, Value};
+use wasmer_runtime::{Instance, Module, Value};
 use wasmer_runtime_core::{export::Export, module::ExportIndex};
 
 /// Intermediate representation of an `Export` instance that is
@@ -384,7 +384,8 @@ pub unsafe extern "C" fn wasmer_export_to_memory(
     let export = &named_export.export;
 
     if let Export::Memory(exported_memory) = export {
-        *memory = exported_memory as *const Memory as *mut wasmer_memory_t;
+        let mem = Box::new(exported_memory.clone());
+        *memory = Box::into_raw(mem) as *mut wasmer_memory_t;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {

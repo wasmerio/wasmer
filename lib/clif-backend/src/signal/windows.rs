@@ -1,24 +1,30 @@
-use crate::relocation::{TrapCode, TrapData};
-use crate::signal::{CallProtError, HandlerData};
-use crate::trampoline::Trampoline;
-use std::cell::Cell;
-use std::ffi::c_void;
-use std::ptr::{self, NonNull};
-use wasmer_runtime_core::typed_func::WasmTrapInfo;
-use wasmer_runtime_core::vm::Ctx;
-use wasmer_runtime_core::vm::Func;
+use crate::{
+    relocation::{TrapCode, TrapData},
+    signal::{CallProtError, HandlerData},
+};
+use std::{
+    cell::Cell,
+    ffi::c_void,
+    ptr::{self, NonNull},
+};
+use wasmer_runtime_core::{
+    typed_func::{Trampoline, WasmTrapInfo},
+    vm::{Ctx, Func},
+};
 use wasmer_win_exception_handler::CallProtectedData;
 pub use wasmer_win_exception_handler::_call_protected;
-use winapi::shared::minwindef::DWORD;
-use winapi::um::minwinbase::{
-    EXCEPTION_ACCESS_VIOLATION, EXCEPTION_ARRAY_BOUNDS_EXCEEDED, EXCEPTION_BREAKPOINT,
-    EXCEPTION_DATATYPE_MISALIGNMENT, EXCEPTION_FLT_DENORMAL_OPERAND, EXCEPTION_FLT_DIVIDE_BY_ZERO,
-    EXCEPTION_FLT_INEXACT_RESULT, EXCEPTION_FLT_INVALID_OPERATION, EXCEPTION_FLT_OVERFLOW,
-    EXCEPTION_FLT_STACK_CHECK, EXCEPTION_FLT_UNDERFLOW, EXCEPTION_GUARD_PAGE,
-    EXCEPTION_ILLEGAL_INSTRUCTION, EXCEPTION_INT_DIVIDE_BY_ZERO, EXCEPTION_INT_OVERFLOW,
-    EXCEPTION_INVALID_HANDLE, EXCEPTION_IN_PAGE_ERROR, EXCEPTION_NONCONTINUABLE_EXCEPTION,
-    EXCEPTION_POSSIBLE_DEADLOCK, EXCEPTION_PRIV_INSTRUCTION, EXCEPTION_SINGLE_STEP,
-    EXCEPTION_STACK_OVERFLOW,
+use winapi::{
+    shared::minwindef::DWORD,
+    um::minwinbase::{
+        EXCEPTION_ACCESS_VIOLATION, EXCEPTION_ARRAY_BOUNDS_EXCEEDED, EXCEPTION_BREAKPOINT,
+        EXCEPTION_DATATYPE_MISALIGNMENT, EXCEPTION_FLT_DENORMAL_OPERAND,
+        EXCEPTION_FLT_DIVIDE_BY_ZERO, EXCEPTION_FLT_INEXACT_RESULT,
+        EXCEPTION_FLT_INVALID_OPERATION, EXCEPTION_FLT_OVERFLOW, EXCEPTION_FLT_STACK_CHECK,
+        EXCEPTION_FLT_UNDERFLOW, EXCEPTION_GUARD_PAGE, EXCEPTION_ILLEGAL_INSTRUCTION,
+        EXCEPTION_INT_DIVIDE_BY_ZERO, EXCEPTION_INT_OVERFLOW, EXCEPTION_INVALID_HANDLE,
+        EXCEPTION_IN_PAGE_ERROR, EXCEPTION_NONCONTINUABLE_EXCEPTION, EXCEPTION_POSSIBLE_DEADLOCK,
+        EXCEPTION_PRIV_INSTRUCTION, EXCEPTION_SINGLE_STEP, EXCEPTION_STACK_OVERFLOW,
+    },
 };
 
 thread_local! {

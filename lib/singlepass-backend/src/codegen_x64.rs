@@ -7,8 +7,12 @@ use smallvec::SmallVec;
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap},
+    ffi::c_void,
+    iter, mem,
     ptr::NonNull,
+    slice,
     sync::{Arc, RwLock},
+    usize,
 };
 use wasmer_runtime_core::{
     backend::{
@@ -25,7 +29,7 @@ use wasmer_runtime_core::{
         ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
-    typed_func::Wasm,
+    typed_func::{Trampoline, Wasm, WasmTrapInfo},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
@@ -116,8 +120,8 @@ lazy_static! {
             ; ret
         );
         let buf = assembler.finalize().unwrap();
-        let ret = unsafe { ::std::mem::transmute(buf.ptr(offset)) };
-        ::std::mem::forget(buf);
+        let ret = unsafe { mem::transmute(buf.ptr(offset)) };
+        mem::forget(buf);
         ret
     };
 }
@@ -225,7 +229,7 @@ impl RunnableModule for X64ExecutionContext {
         14:      41 ff e3        jmpq    *%r11
         */
         #[repr(packed)]
-        struct Trampoline {
+        struct LocalTrampoline {
             movabsq_rax: [u8; 2],
             addr_rax: u64,
             movabsq_r11: [u8; 2],
@@ -236,7 +240,7 @@ impl RunnableModule for X64ExecutionContext {
         self.code.make_writable();
 
         let trampoline = &mut *(self.function_pointers[self.func_import_count + idx].0
-            as *const Trampoline as *mut Trampoline);
+            as *const LocalTrampoline as *mut LocalTrampoline);
         trampoline.movabsq_rax[0] = 0x48;
         trampoline.movabsq_rax[1] = 0xb8;
         trampoline.addr_rax = target_address as u64;
@@ -253,16 +257,8 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
-        use std::ffi::c_void;
-        use wasmer_runtime_core::typed_func::WasmTrapInfo;
-
         unsafe extern "C" fn invoke(
-            _trampoline: unsafe extern "C" fn(
-                *mut vm::Ctx,
-                NonNull<vm::Func>,
-                *const u64,
-                *mut u64,
-            ),
+            _trampoline: Trampoline,
             ctx: *mut vm::Ctx,
             func: NonNull<vm::Func>,
             args: *const u64,
@@ -273,12 +269,10 @@ impl RunnableModule for X64ExecutionContext {
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
             let execution_context =
-                ::std::mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
+                mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
 
-            let args = std::slice::from_raw_parts(
-                args,
-                num_params_plus_one.unwrap().as_ptr() as usize - 1,
-            );
+            let args =
+                slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
             let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
             let ret = match protect_unix::call_protected(
                 || {
@@ -1735,7 +1729,7 @@ impl X64FunctionCode {
         control_stack: &mut [ControlFrame],
     ) -> usize {
         if !m.track_state {
-            return ::std::usize::MAX;
+            return usize::MAX;
         }
         let last_frame = control_stack.last_mut().unwrap();
         let mut diff = m.state.diff(&last_frame.state);
@@ -1851,7 +1845,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Location::GPR(GPR::RAX),
         );
 
-        assert_eq!(self.machine.state.wasm_inst_offset, ::std::usize::MAX);
+        assert_eq!(self.machine.state.wasm_inst_offset, usize::MAX);
 
         Ok(())
     }
@@ -4721,7 +4715,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a| {
                         a.emit_call_location(Location::GPR(GPR::RAX));
                     },
-                    ::std::iter::once(Location::Imm32(memory_index.index() as u32)),
+                    iter::once(Location::Imm32(memory_index.index() as u32)),
                     None,
                 );
                 let ret = self.machine.acquire_locations(
@@ -4760,8 +4754,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a| {
                         a.emit_call_location(Location::GPR(GPR::RAX));
                     },
-                    ::std::iter::once(Location::Imm32(memory_index.index() as u32))
-                        .chain(::std::iter::once(param_pages)),
+                    iter::once(Location::Imm32(memory_index.index() as u32))
+                        .chain(iter::once(param_pages)),
                     None,
                 );
 
