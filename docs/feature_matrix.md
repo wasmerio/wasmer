@@ -13,6 +13,16 @@
 | WASI | ✅ | ✅ | ✅ |
 | WASMER_BACKTRACE | ✅ | ⬜ | ⬜ |
 
+## Operating System
+| &nbsp; | GNU Linux | Mac OSX | Windows NT |
+| - | :-: | :-: | :-: |
+| Cranelift Backend | ✅ | ✅ | ✅ |
+| LLVM Backend | ✅ | ✅ | ✅ |
+| Singlepass Backend | [#347](https://github.com/wasmerio/wasmer/issues/347) | ✅ | ✅ |
+| WASI | ✅ | ✅ | ✅* |
+
+* `poll_fd` is not fully implemented for Windows yet
+
 ## Language integration
 
 TODO: define a set of features that are relevant and mark them here
