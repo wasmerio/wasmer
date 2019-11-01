@@ -602,7 +602,7 @@ fn resolve_memory_ptr(
                 IntPredicate::ULE,
                 intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
             );
-            if ptr_in_bounds.is_constant_int() {
+            if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
                 Some(ptr_in_bounds)
             } else {
                 None
