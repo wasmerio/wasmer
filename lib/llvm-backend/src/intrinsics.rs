@@ -21,6 +21,7 @@ use wasmer_runtime_core::{
         GlobalIndex, ImportedFuncIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
+    units::Pages,
     vm::{Ctx, INTERNALS_SIZE},
 };
 
@@ -559,11 +560,15 @@ pub enum MemoryCache {
     Dynamic {
         ptr_to_base_ptr: PointerValue,
         ptr_to_bounds: PointerValue,
+        minimum: Pages,
+        maximum: Option<Pages>,
     },
     /// The memory is always in the same place.
     Static {
         base_ptr: PointerValue,
         bounds: IntValue,
+        minimum: Pages,
+        maximum: Option<Pages>,
     },
 }
 
@@ -662,30 +667,35 @@ impl<'a> CtxType<'a> {
         );
 
         *cached_memories.entry(index).or_insert_with(|| {
-            let (memory_array_ptr_ptr, index, memory_type) = match index.local_or_import(info) {
-                LocalOrImport::Local(local_mem_index) => (
-                    unsafe {
-                        cache_builder.build_struct_gep(
-                            ctx_ptr_value,
-                            offset_to_index(Ctx::offset_memories()),
-                            "memory_array_ptr_ptr",
-                        )
-                    },
-                    local_mem_index.index() as u64,
-                    info.memories[local_mem_index].memory_type(),
-                ),
-                LocalOrImport::Import(import_mem_index) => (
-                    unsafe {
-                        cache_builder.build_struct_gep(
-                            ctx_ptr_value,
-                            offset_to_index(Ctx::offset_imported_memories()),
-                            "memory_array_ptr_ptr",
-                        )
-                    },
-                    import_mem_index.index() as u64,
-                    info.imported_memories[import_mem_index].1.memory_type(),
-                ),
-            };
+            let (memory_array_ptr_ptr, index, memory_type, minimum, maximum) =
+                match index.local_or_import(info) {
+                    LocalOrImport::Local(local_mem_index) => (
+                        unsafe {
+                            cache_builder.build_struct_gep(
+                                ctx_ptr_value,
+                                offset_to_index(Ctx::offset_memories()),
+                                "memory_array_ptr_ptr",
+                            )
+                        },
+                        local_mem_index.index() as u64,
+                        info.memories[local_mem_index].memory_type(),
+                        info.memories[local_mem_index].minimum,
+                        info.memories[local_mem_index].maximum,
+                    ),
+                    LocalOrImport::Import(import_mem_index) => (
+                        unsafe {
+                            cache_builder.build_struct_gep(
+                                ctx_ptr_value,
+                                offset_to_index(Ctx::offset_imported_memories()),
+                                "memory_array_ptr_ptr",
+                            )
+                        },
+                        import_mem_index.index() as u64,
+                        info.imported_memories[import_mem_index].1.memory_type(),
+                        info.imported_memories[import_mem_index].1.minimum,
+                        info.imported_memories[import_mem_index].1.maximum,
+                    ),
+                };
 
             let memory_array_ptr = cache_builder
                 .build_load(memory_array_ptr_ptr, "memory_array_ptr")
@@ -713,6 +723,8 @@ impl<'a> CtxType<'a> {
                 MemoryType::Dynamic => MemoryCache::Dynamic {
                     ptr_to_base_ptr,
                     ptr_to_bounds,
+                    minimum,
+                    maximum,
                 },
                 MemoryType::Static | MemoryType::SharedStatic => MemoryCache::Static {
                     base_ptr: cache_builder
@@ -721,6 +733,8 @@ impl<'a> CtxType<'a> {
                     bounds: cache_builder
                         .build_load(ptr_to_bounds, "bounds")
                         .into_int_value(),
+                    minimum,
+                    maximum,
                 },
             }
         })
