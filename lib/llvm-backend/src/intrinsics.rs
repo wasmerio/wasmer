@@ -24,6 +24,7 @@ use wasmer_runtime_core::{
         GlobalIndex, ImportedFuncIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
     },
+    units::Pages,
     vm::{Ctx, INTERNALS_SIZE},
 };
 
@@ -562,11 +563,15 @@ pub enum MemoryCache {
     Dynamic {
         ptr_to_base_ptr: PointerValue,
         ptr_to_bounds: PointerValue,
+        minimum: Pages,
+        maximum: Option<Pages>,
     },
     /// The memory is always in the same place.
     Static {
         base_ptr: PointerValue,
         bounds: IntValue,
+        minimum: Pages,
+        maximum: Option<Pages>,
     },
 }
 
@@ -670,7 +675,7 @@ impl<'a> CtxType<'a> {
         );
 
         *cached_memories.entry(index).or_insert_with(|| {
-            let (memory_array_ptr_ptr, index, memory_type, field_name) =
+            let (memory_array_ptr_ptr, index, memory_type, minimum, maximum, field_name) =
                 match index.local_or_import(info) {
                     LocalOrImport::Local(local_mem_index) => (
                         unsafe {
@@ -682,6 +687,8 @@ impl<'a> CtxType<'a> {
                         },
                         local_mem_index.index() as u64,
                         info.memories[local_mem_index].memory_type(),
+                        info.memories[local_mem_index].minimum,
+                        info.memories[local_mem_index].maximum,
                         "context_field_ptr_to_local_memory",
                     ),
                     LocalOrImport::Import(import_mem_index) => (
@@ -694,6 +701,8 @@ impl<'a> CtxType<'a> {
                         },
                         import_mem_index.index() as u64,
                         info.imported_memories[import_mem_index].1.memory_type(),
+                        info.imported_memories[import_mem_index].1.minimum,
+                        info.imported_memories[import_mem_index].1.maximum,
                         "context_field_ptr_to_imported_memory",
                     ),
                 };
@@ -738,6 +747,8 @@ impl<'a> CtxType<'a> {
                 MemoryType::Dynamic => MemoryCache::Dynamic {
                     ptr_to_base_ptr,
                     ptr_to_bounds,
+                    minimum,
+                    maximum,
                 },
                 MemoryType::Static | MemoryType::SharedStatic => {
                     let base_ptr = cache_builder
@@ -760,7 +771,12 @@ impl<'a> CtxType<'a> {
                         bounds.as_instruction_value().unwrap(),
                         Some(index as u32),
                     );
-                    MemoryCache::Static { base_ptr, bounds }
+                    MemoryCache::Static {
+                        base_ptr,
+                        bounds,
+                        minimum,
+                        maximum,
+                    }
                 }
             }
         })

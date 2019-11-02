@@ -565,10 +565,12 @@ fn resolve_memory_ptr(
 ) -> Result<PointerValue, BinaryReaderError> {
     // Look up the memory base (as pointer) and bounds (as unsigned integer).
     let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics, module.clone());
-    let (mem_base, mem_bound) = match memory_cache {
+    let (mem_base, mem_bound, minimum, _maximum) = match memory_cache {
         MemoryCache::Dynamic {
             ptr_to_base_ptr,
             ptr_to_bounds,
+            minimum,
+            maximum,
         } => {
             let base = builder
                 .build_load(ptr_to_base_ptr, "base")
@@ -588,9 +590,14 @@ fn resolve_memory_ptr(
                 bounds.as_instruction_value().unwrap(),
                 Some(0),
             );
-            (base, bounds)
+            (base, bounds, minimum, maximum)
         }
-        MemoryCache::Static { base_ptr, bounds } => (base_ptr, bounds),
+        MemoryCache::Static {
+            base_ptr,
+            bounds,
+            minimum,
+            maximum,
+        } => (base_ptr, bounds, minimum, maximum),
     };
     let mem_base = builder
         .build_bitcast(mem_base, intrinsics.i8_ptr_ty, &state.var_name())
@@ -605,48 +612,72 @@ fn resolve_memory_ptr(
 
     if let MemoryCache::Dynamic { .. } = memory_cache {
         // If the memory is dynamic, do a bounds check. For static we rely on
-        // the size being a multiple of the page size and hitting a reserved
-        // but unreadable memory.
+        // the size being a multiple of the page size and hitting a guard page.
         let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
-        let load_offset_end =
-            builder.build_int_add(effective_offset, value_size_v, &state.var_name());
+        let ptr_in_bounds = if effective_offset.is_const() {
+            let load_offset_end = effective_offset.const_add(value_size_v);
+            let ptr_in_bounds = load_offset_end.const_int_compare(
+                IntPredicate::ULE,
+                intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
+            );
+            if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
+                Some(ptr_in_bounds)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+        .unwrap_or_else(|| {
+            let load_offset_end =
+                builder.build_int_add(effective_offset, value_size_v, &state.var_name());
 
-        let ptr_in_bounds = builder.build_int_compare(
-            IntPredicate::ULE,
-            load_offset_end,
-            mem_bound,
-            &state.var_name(),
-        );
-        let ptr_in_bounds = builder
-            .build_call(
-                intrinsics.expect_i1,
-                &[
-                    ptr_in_bounds.as_basic_value_enum(),
-                    intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
-                ],
-                "ptr_in_bounds_expect",
+            builder.build_int_compare(
+                IntPredicate::ULE,
+                load_offset_end,
+                mem_bound,
+                &state.var_name(),
             )
-            .try_as_basic_value()
-            .left()
-            .unwrap()
-            .into_int_value();
+        });
+        if !ptr_in_bounds.is_constant_int()
+            || ptr_in_bounds.get_zero_extended_constant().unwrap() != 1
+        {
+            // LLVM may have folded this into 'i1 true' in which case we know
+            // the pointer is in bounds. LLVM may also have folded it into a
+            // constant expression, not known to be either true or false yet.
+            // If it's false, unknown-but-constant, or not-a-constant, emit a
+            // runtime bounds check. LLVM may yet succeed at optimizing it away.
+            let ptr_in_bounds = builder
+                .build_call(
+                    intrinsics.expect_i1,
+                    &[
+                        ptr_in_bounds.as_basic_value_enum(),
+                        intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                    ],
+                    "ptr_in_bounds_expect",
+                )
+                .try_as_basic_value()
+                .left()
+                .unwrap()
+                .into_int_value();
 
-        let in_bounds_continue_block =
-            context.append_basic_block(function, "in_bounds_continue_block");
-        let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
-        builder.build_conditional_branch(
-            ptr_in_bounds,
-            &in_bounds_continue_block,
-            &not_in_bounds_block,
-        );
-        builder.position_at_end(&not_in_bounds_block);
-        builder.build_call(
-            intrinsics.throw_trap,
-            &[intrinsics.trap_memory_oob],
-            "throw",
-        );
-        builder.build_unreachable();
-        builder.position_at_end(&in_bounds_continue_block);
+            let in_bounds_continue_block =
+                context.append_basic_block(function, "in_bounds_continue_block");
+            let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
+            builder.build_conditional_branch(
+                ptr_in_bounds,
+                &in_bounds_continue_block,
+                &not_in_bounds_block,
+            );
+            builder.position_at_end(&not_in_bounds_block);
+            builder.build_call(
+                intrinsics.throw_trap,
+                &[intrinsics.trap_memory_oob],
+                "throw",
+            );
+            builder.build_unreachable();
+            builder.position_at_end(&in_bounds_continue_block);
+        }
     }
 
     let ptr = unsafe { builder.build_gep(mem_base, &[effective_offset], &state.var_name()) };
