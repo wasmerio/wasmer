@@ -1198,8 +1198,13 @@ pub fn tbaa_label(
     let context = module.get_context();
 
     // `!wasmer_tbaa_root = {}`, the TBAA root node for wasmer.
-    module.add_global_metadata("wasmer_tbaa_root", &MetadataValue::create_node(&[]));
-    let tbaa_root = module.get_global_metadata("wasmer_tbaa_root")[0];
+    let tbaa_root = module
+        .get_global_metadata("wasmer_tbaa_root")
+        .pop()
+        .unwrap_or_else(|| {
+            module.add_global_metadata("wasmer_tbaa_root", &MetadataValue::create_node(&[]));
+            module.get_global_metadata("wasmer_tbaa_root")[0]
+        });
 
     // Construct (or look up) the type descriptor, for example
     //   `!"local 0" = !{!"local 0", !wasmer_tbaa_root}`.
@@ -1209,28 +1214,38 @@ pub fn tbaa_label(
         label.to_string()
     };
     let type_label = context.metadata_string(label.as_str());
-    module.add_global_metadata(
-        label.as_str(),
-        &MetadataValue::create_node(&[type_label.into(), tbaa_root.into()]),
-    );
-    let type_tbaa = module.get_global_metadata(label.as_str())[0];
+    let type_tbaa = module
+        .get_global_metadata(label.as_str())
+        .pop()
+        .unwrap_or_else(|| {
+            module.add_global_metadata(
+                label.as_str(),
+                &MetadataValue::create_node(&[type_label.into(), tbaa_root.into()]),
+            );
+            module.get_global_metadata(label.as_str())[0]
+        });
 
     // Construct (or look up) the access tag, which is a struct of the form
-    // (base type, acess type, offset).
+    // (base type, access type, offset).
     //
     // "If BaseTy is a scalar type, Offset must be 0 and BaseTy and AccessTy
     // must be the same".
     //   -- https://llvm.org/docs/LangRef.html#tbaa-metadata
     let label = label + "_memop";
-    module.add_global_metadata(
-        label.as_str(),
-        &MetadataValue::create_node(&[
-            type_tbaa.into(),
-            type_tbaa.into(),
-            intrinsics.i64_zero.into(),
-        ]),
-    );
-    let type_tbaa = module.get_global_metadata(label.as_str())[0];
+    let type_tbaa = module
+        .get_global_metadata(label.as_str())
+        .pop()
+        .unwrap_or_else(|| {
+            module.add_global_metadata(
+                label.as_str(),
+                &MetadataValue::create_node(&[
+                    type_tbaa.into(),
+                    type_tbaa.into(),
+                    intrinsics.i64_zero.into(),
+                ]),
+            );
+            module.get_global_metadata(label.as_str())[0]
+        });
 
     // Attach the access tag to the instruction.
     let tbaa_kind = context.get_kind_id("tbaa");
