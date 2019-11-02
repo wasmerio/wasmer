@@ -11,12 +11,14 @@ use inkwell::{
 use libc::c_char;
 use std::{
     any::Any,
+    cell::RefCell,
     ffi::{c_void, CString},
     fs::File,
     io::Write,
     mem,
     ops::Deref,
     ptr::{self, NonNull},
+    rc::Rc,
     slice, str,
     sync::{Arc, Once},
 };
@@ -169,14 +171,14 @@ pub struct LLVMBackend {
 
 impl LLVMBackend {
     pub fn new(
-        module: Module,
+        module: Rc<RefCell<Module>>,
         _intrinsics: Intrinsics,
         _stackmaps: &StackmapRegistry,
         _module_info: &ModuleInfo,
         target_machine: &TargetMachine,
     ) -> (Self, LLVMCache) {
         let memory_buffer = target_machine
-            .write_to_memory_buffer(&module, FileType::Object)
+            .write_to_memory_buffer(&module.borrow_mut(), FileType::Object)
             .unwrap();
         let mem_buf_slice = memory_buffer.as_slice();
 
