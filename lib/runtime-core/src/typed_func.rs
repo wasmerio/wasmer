@@ -498,7 +498,7 @@ macro_rules! impl_traits {
                         Trap: TrapEarly<Rets>,
                         FN: Fn(&mut vm::Ctx, $( $x, )*) -> Trap,
                     {
-                        let vmctx = unsafe { &mut *func_ctx.vmctx };
+                        let vmctx = unsafe { func_ctx.vmctx.as_mut() };
                         let f: FN = unsafe { mem::transmute_copy(&()) };
 
                         let err = match panic::catch_unwind(
@@ -557,7 +557,7 @@ macro_rules! impl_traits {
                         Trap: TrapEarly<Rets>,
                         FN: Fn($( $x, )*) -> Trap,
                     {
-                        let vmctx = unsafe { &mut *func_ctx.vmctx };
+                        let vmctx = unsafe { func_ctx.vmctx.as_mut() };
                         let f: FN = unsafe { mem::transmute_copy(&()) };
 
                         let err = match panic::catch_unwind(

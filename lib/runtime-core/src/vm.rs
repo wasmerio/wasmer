@@ -512,7 +512,7 @@ pub struct FuncEnv {
 #[derive(Debug)]
 #[repr(C)]
 pub struct FuncCtx {
-    pub vmctx: *mut Ctx,
+    pub vmctx: NonNull<Ctx>,
     pub func_env: *mut FuncEnv,
 }
 
@@ -521,7 +521,7 @@ pub struct FuncCtx {
 #[repr(C)]
 pub struct ImportedFunc {
     pub func: *const Func,
-    pub vmctx: *mut FuncCtx,
+    pub func_ctx: NonNull<FuncCtx>,
 }
 
 // manually implemented because ImportedFunc contains raw pointers directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO: review this, shouldn't `Ctx` be Send?))

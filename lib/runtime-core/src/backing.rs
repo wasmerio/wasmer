@@ -15,7 +15,11 @@ use crate::{
     },
     vm,
 };
-use std::{fmt::Debug, ptr, slice};
+use std::{
+    fmt::Debug,
+    ptr::{self, NonNull},
+    slice,
+};
 
 pub const INTERNALS_SIZE: usize = 256;
 
@@ -382,9 +386,9 @@ impl LocalBacking {
                                     vmctx,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, vmctx } =
+                                    let vm::ImportedFunc { func, func_ctx } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx as _)
+                                    (func, unsafe { func_ctx.as_ref() }.vmctx.as_ptr())
                                 }
                             };
 
@@ -415,9 +419,9 @@ impl LocalBacking {
                                     vmctx,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, vmctx } =
+                                    let vm::ImportedFunc { func, func_ctx } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx as _)
+                                    (func, unsafe { func_ctx.as_ref() }.vmctx.as_ptr())
                                 }
                             };
 
@@ -544,8 +548,7 @@ impl ImportBacking {
 impl Drop for ImportBacking {
     fn drop(&mut self) {
         for (_imported_func_index, imported_func) in (*self.vm_functions).iter_mut() {
-            let _: Box<vm::FuncCtx> = unsafe { Box::from_raw(imported_func.vmctx) };
-            imported_func.vmctx = ptr::null_mut();
+            let _: Box<vm::FuncCtx> = unsafe { Box::from_raw(imported_func.func_ctx.as_ptr()) };
         }
     }
 }
@@ -583,16 +586,17 @@ fn import_functions(
                 if *expected_sig == *signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
-                        vmctx: {
+                        func_ctx: {
                             let _ = match ctx {
                                 Context::External(ctx) => ctx,
                                 Context::Internal => vmctx,
                             };
 
-                            Box::into_raw(Box::new(vm::FuncCtx {
-                                vmctx,
+                            NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
+                                vmctx: NonNull::new(vmctx).expect("`vmctx` must not be null."),
                                 func_env: ptr::null_mut(),
-                            }))
+                            })))
+                            .unwrap()
                         },
                     });
                 } else {
@@ -622,8 +626,8 @@ fn import_functions(
             None => {
                 if imports.allow_missing_functions {
                     functions.push(vm::ImportedFunc {
-                        func: ::std::ptr::null(),
-                        vmctx: ::std::ptr::null_mut(),
+                        func: ptr::null(),
+                        func_ctx: unsafe { NonNull::new_unchecked(ptr::null_mut()) }, // TODO: Non-sense…
                     });
                 } else {
                     link_errors.push(LinkError::ImportNotFound {
