@@ -586,18 +586,18 @@ fn import_functions(
                 if *expected_sig == *signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
-                        func_ctx: {
-                            let _ = match ctx {
-                                Context::External(ctx) => ctx,
-                                Context::Internal => vmctx,
-                            };
-
-                            NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
-                                vmctx: NonNull::new(vmctx).expect("`vmctx` must not be null."),
-                                func_env: ptr::null_mut(),
-                            })))
-                            .unwrap()
-                        },
+                        func_ctx: NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
+                            vmctx: NonNull::new(vmctx).expect("`vmctx` must not be null."),
+                            func_env: match ctx {
+                                Context::External(ctx) => {
+                                    NonNull::new(ctx).map(|pointer| {
+                                        pointer.cast() // `*mut vm::FuncEnv` was casted to `*mut vm::Ctx` to fit in `Context::External`. Cast it back.
+                                    })
+                                }
+                                Context::Internal => None,
+                            },
+                        })))
+                        .unwrap(),
                     });
                 } else {
                     link_errors.push(LinkError::IncorrectImportSignature {

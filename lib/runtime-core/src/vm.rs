@@ -512,16 +512,16 @@ pub struct FuncEnv {
 #[derive(Debug)]
 #[repr(C)]
 pub struct FuncCtx {
-    pub vmctx: NonNull<Ctx>,
-    pub func_env: *mut FuncEnv,
+    pub(crate) vmctx: NonNull<Ctx>,
+    pub(crate) func_env: Option<NonNull<FuncEnv>>,
 }
 
 /// An imported function, which contains the vmctx that owns this function.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
-    pub func: *const Func,
-    pub func_ctx: NonNull<FuncCtx>,
+    pub(crate) func: *const Func,
+    pub(crate) func_ctx: NonNull<FuncCtx>,
 }
 
 // manually implemented because ImportedFunc contains raw pointers

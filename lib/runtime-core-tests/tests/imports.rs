@@ -12,33 +12,46 @@ fn imported_functions_forms() {
   (import "env" "memory" (memory 1 1))
   (import "env" "callback_fn" (func $callback_fn (type $type)))
   (import "env" "callback_closure" (func $callback_closure (type $type)))
+  (import "env" "callback_closure_with_env" (func $callback_closure_with_env (type $type)))
   (import "env" "callback_fn_with_vmctx" (func $callback_fn_with_vmctx (type $type)))
   (import "env" "callback_closure_with_vmctx" (func $callback_closure_with_vmctx (type $type)))
   (import "env" "callback_fn_trap" (func $callback_fn_trap (type $type)))
   (import "env" "callback_closure_trap" (func $callback_closure_trap (type $type)))
   (import "env" "callback_fn_trap_with_vmctx" (func $callback_fn_trap_with_vmctx (type $type)))
   (import "env" "callback_closure_trap_with_vmctx" (func $callback_closure_trap_with_vmctx (type $type)))
+
   (func (export "function_fn") (type $type)
     get_local 0
     call $callback_fn)
+
   (func (export "function_closure") (type $type)
     get_local 0
     call $callback_closure)
+
+  (func (export "function_closure_with_env") (type $type)
+    get_local 0
+    call $callback_closure_with_env)
+
   (func (export "function_fn_with_vmctx") (type $type)
     get_local 0
     call $callback_fn_with_vmctx)
+
   (func (export "function_closure_with_vmctx") (type $type)
     get_local 0
     call $callback_closure_with_vmctx)
+
   (func (export "function_fn_trap") (type $type)
     get_local 0
     call $callback_fn_trap)
+
   (func (export "function_closure_trap") (type $type)
     get_local 0
     call $callback_closure_trap)
+
   (func (export "function_fn_trap_with_vmctx") (type $type)
     get_local 0
     call $callback_fn_trap_with_vmctx)
+
   (func (export "function_closure_trap_with_vmctx") (type $type)
     get_local 0
     call $callback_closure_trap_with_vmctx))
@@ -51,6 +64,7 @@ fn imported_functions_forms() {
 
     const SHIFT: i32 = 10;
     memory.view()[0].set(SHIFT);
+    let shift = 100;
 
     let import_object = imports! {
         "env" => {
@@ -58,6 +72,9 @@ fn imported_functions_forms() {
             "callback_fn" => Func::new(callback_fn),
             "callback_closure" => Func::new(|n: i32| -> Result<i32, ()> {
                 Ok(n + 1)
+            }),
+            "callback_closure_with_env" => Func::new(move |n: i32| -> Result<i32, ()> {
+                Ok(shift + n + 1)
             }),
             "callback_fn_with_vmctx" => Func::new(callback_fn_with_vmctx),
             "callback_closure_with_vmctx" => Func::new(|vmctx: &mut vm::Ctx, n: i32| -> Result<i32, ()> {
@@ -134,6 +151,7 @@ fn imported_functions_forms() {
 
     call_and_assert!(function_fn, Ok(2));
     call_and_assert!(function_closure, Ok(2));
+    call_and_assert!(function_closure_with_env, Ok(2 + shift));
     call_and_assert!(function_fn_with_vmctx, Ok(2 + SHIFT));
     call_and_assert!(function_closure_with_vmctx, Ok(2 + SHIFT));
     call_and_assert!(
