@@ -547,6 +547,7 @@ impl ImportBacking {
 
 impl Drop for ImportBacking {
     fn drop(&mut self) {
+        // Properly drop the `vm::FuncCtx` in `vm::ImportedFunc`.
         for (_imported_func_index, imported_func) in (*self.vm_functions).iter_mut() {
             let _: Box<vm::FuncCtx> = unsafe { Box::from_raw(imported_func.func_ctx.as_ptr()) };
         }
@@ -587,12 +588,17 @@ fn import_functions(
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
                         func_ctx: NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
+                            //                      ^^^^^^^^ `vm::FuncCtx` is purposely leaked.
+                            //                               It is dropped by the specific `Drop`
+                            //                               implementation of `ImportBacking`.
                             vmctx: NonNull::new(vmctx).expect("`vmctx` must not be null."),
                             func_env: match ctx {
                                 Context::External(ctx) => {
-                                    NonNull::new(ctx).map(|pointer| {
-                                        pointer.cast() // `*mut vm::FuncEnv` was casted to `*mut vm::Ctx` to fit in `Context::External`. Cast it back.
-                                    })
+                                    NonNull::new(ctx).map(NonNull::cast)
+                                    //                    ^^^^^^^^^^^^^
+                                    //                    `*mut vm::FuncEnv` was casted to
+                                    //                    `*mut vm::Ctx` to fit in
+                                    //                    `Context::External`. Cast it back.
                                 }
                                 Context::Internal => None,
                             },
