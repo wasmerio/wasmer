@@ -15,10 +15,12 @@ fn imported_functions_forms() {
   (import "env" "callback_closure_with_env" (func $callback_closure_with_env (type $type)))
   (import "env" "callback_fn_with_vmctx" (func $callback_fn_with_vmctx (type $type)))
   (import "env" "callback_closure_with_vmctx" (func $callback_closure_with_vmctx (type $type)))
+  (import "env" "callback_closure_with_vmctx_and_env" (func $callback_closure_with_vmctx_and_env (type $type)))
   (import "env" "callback_fn_trap" (func $callback_fn_trap (type $type)))
   (import "env" "callback_closure_trap" (func $callback_closure_trap (type $type)))
   (import "env" "callback_fn_trap_with_vmctx" (func $callback_fn_trap_with_vmctx (type $type)))
   (import "env" "callback_closure_trap_with_vmctx" (func $callback_closure_trap_with_vmctx (type $type)))
+  (import "env" "callback_closure_trap_with_vmctx_and_env" (func $callback_closure_trap_with_vmctx_and_env (type $type)))
 
   (func (export "function_fn") (type $type)
     get_local 0
@@ -40,6 +42,10 @@ fn imported_functions_forms() {
     get_local 0
     call $callback_closure_with_vmctx)
 
+  (func (export "function_closure_with_vmctx_and_env") (type $type)
+    get_local 0
+    call $callback_closure_with_vmctx_and_env)
+
   (func (export "function_fn_trap") (type $type)
     get_local 0
     call $callback_fn_trap)
@@ -54,7 +60,11 @@ fn imported_functions_forms() {
 
   (func (export "function_closure_trap_with_vmctx") (type $type)
     get_local 0
-    call $callback_closure_trap_with_vmctx))
+    call $callback_closure_trap_with_vmctx)
+
+  (func (export "function_closure_trap_with_vmctx_and_env") (type $type)
+    get_local 0
+    call $callback_closure_trap_with_vmctx_and_env))
 "#;
 
     let wasm_binary = wat2wasm(MODULE.as_bytes()).expect("WAST not valid or malformed");
@@ -69,30 +79,66 @@ fn imported_functions_forms() {
     let import_object = imports! {
         "env" => {
             "memory" => memory.clone(),
+
+            // Regular function.
             "callback_fn" => Func::new(callback_fn),
+
+            // Closure without a captured environment.
             "callback_closure" => Func::new(|n: i32| -> Result<i32, ()> {
                 Ok(n + 1)
             }),
+
+            // Closure with a captured environment (a single variable + an instance of `Memory`).
             "callback_closure_with_env" => Func::new(move |n: i32| -> Result<i32, ()> {
+                let shift = shift + memory.view::<i32>()[0].get();
+
                 Ok(shift + n + 1)
             }),
+
+            // Regular function with an explicit `vmctx`.
             "callback_fn_with_vmctx" => Func::new(callback_fn_with_vmctx),
+
+            // Closure without a captured environment but with an explicit `vmctx`.
             "callback_closure_with_vmctx" => Func::new(|vmctx: &mut vm::Ctx, n: i32| -> Result<i32, ()> {
                 let memory = vmctx.memory(0);
                 let shift: i32 = memory.view()[0].get();
 
                 Ok(shift + n + 1)
             }),
+
+            // Closure with a captured environment (a single variable) and with an explicit `vmctx`.
+            "callback_closure_with_vmctx_and_env" => Func::new(move |vmctx: &mut vm::Ctx, n: i32| -> Result<i32, ()> {
+                let memory = vmctx.memory(0);
+                let shift = shift + memory.view::<i32>()[0].get();
+
+                Ok(shift + n + 1)
+            }),
+
+            // Trap a regular function.
             "callback_fn_trap" => Func::new(callback_fn_trap),
+
+            // Trap a closure without a captured environment.
             "callback_closure_trap" => Func::new(|n: i32| -> Result<i32, String> {
                 Err(format!("bar {}", n + 1))
             }),
+
+            // Trap a regular function with an explicit `vmctx`.
             "callback_fn_trap_with_vmctx" => Func::new(callback_fn_trap_with_vmctx),
+
+            // Trap a closure without a captured environment but with an explicit `vmctx`.
             "callback_closure_trap_with_vmctx" => Func::new(|vmctx: &mut vm::Ctx, n: i32| -> Result<i32, String> {
                 let memory = vmctx.memory(0);
                 let shift: i32 = memory.view()[0].get();
 
                 Err(format!("qux {}", shift + n + 1))
+            }),
+
+            // Trap a closure with a captured environment (a single variable) and with an explicit `vmctx`.
+            "callback_closure_trap_with_vmctx_and_env" => Func::new(move |vmctx: &mut vm::Ctx, n: i32| -> Result<i32, String> {
+                let memory = vmctx.memory(0);
+                let shift = shift + memory.view::<i32>()[0].get();
+
+                Err(format!("! {}", shift + n + 1))
             }),
         },
     };
@@ -151,9 +197,10 @@ fn imported_functions_forms() {
 
     call_and_assert!(function_fn, Ok(2));
     call_and_assert!(function_closure, Ok(2));
-    call_and_assert!(function_closure_with_env, Ok(2 + shift));
+    call_and_assert!(function_closure_with_env, Ok(2 + shift + SHIFT));
     call_and_assert!(function_fn_with_vmctx, Ok(2 + SHIFT));
     call_and_assert!(function_closure_with_vmctx, Ok(2 + SHIFT));
+    call_and_assert!(function_closure_with_vmctx_and_env, Ok(2 + shift + SHIFT));
     call_and_assert!(
         function_fn_trap,
         Err(RuntimeError::Error {
@@ -176,6 +223,12 @@ fn imported_functions_forms() {
         function_closure_trap_with_vmctx,
         Err(RuntimeError::Error {
             data: Box::new(format!("qux {}", 2 + SHIFT))
+        })
+    );
+    call_and_assert!(
+        function_closure_trap_with_vmctx_and_env,
+        Err(RuntimeError::Error {
+            data: Box::new(format!("! {}", 2 + shift + SHIFT))
         })
     );
 }
