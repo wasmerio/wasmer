@@ -60,7 +60,8 @@ middleware-cranelift:
 	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features clif
 
 middleware-llvm:
-	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features llvm
+# TODO: remove workaround for https://github.com/wasmerio/wasmer/issues/927
+	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features llvm -- --test-threads=1
 
 middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
