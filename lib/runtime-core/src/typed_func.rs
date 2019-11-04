@@ -503,12 +503,8 @@ macro_rules! impl_traits {
                     Trap: TrapEarly<Rets>,
                     FN: Fn(&mut vm::Ctx, $( $x, )*) -> Trap,
                 {
-                    dbg!(func_ctx.vmctx.as_ptr());
-
                     let vmctx = unsafe { func_ctx.vmctx.as_mut() };
                     let func_env = func_ctx.func_env;
-
-                    dbg!(func_env);
 
                     let func: &FN = match func_env {
                         Some(func_env) => unsafe {
@@ -551,8 +547,6 @@ macro_rules! impl_traits {
                         NonNull::new(Box::into_raw(Box::new(self))).map(NonNull::cast)
                     };
 
-                dbg!(func_env);
-
                 (
                     NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
                     func_env
@@ -580,12 +574,8 @@ macro_rules! impl_traits {
                     Trap: TrapEarly<Rets>,
                     FN: Fn($( $x, )*) -> Trap,
                 {
-                    dbg!(func_ctx.vmctx.as_ptr());
-
                     let vmctx = unsafe { func_ctx.vmctx.as_mut() };
                     let func_env = func_ctx.func_env;
-
-                    dbg!(func_env);
 
                     let func: &FN = match func_env {
                         Some(func_env) => unsafe {
@@ -627,8 +617,6 @@ macro_rules! impl_traits {
                     else {
                         NonNull::new(Box::into_raw(Box::new(self))).map(NonNull::cast)
                     };
-
-                dbg!(func_env);
 
                 (
                     NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),

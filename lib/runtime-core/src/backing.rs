@@ -576,7 +576,7 @@ fn import_functions(
 
         let import =
             imports.maybe_with_namespace(namespace, |namespace| namespace.get_export(name));
-        dbg!(vmctx);
+
         match import {
             Some(Export::Function {
                 func,
