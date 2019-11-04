@@ -498,25 +498,33 @@ impl Ctx {
     }
 }
 
-/// Used to provide type safety (ish) for passing around function pointers.
+/// Represents a function pointer. It is mostly used in the
+/// `typed_func` module within the `wrap` functions, to wrap imported
+/// functions.
 #[repr(C)]
 pub struct Func {
     _private: [u8; 0],
 }
 
+/// Represents a function environment pointer, like a captured
+/// environment of a closure. It is mostly used in the `typed_func`
+/// module within the `wrap` functions, to wrap imported functions.
 #[repr(C)]
 pub struct FuncEnv {
     _private: [u8; 0],
 }
 
+/// Represents a function context. It is used by imported function
+/// only.
 #[derive(Debug)]
 #[repr(C)]
-pub struct FuncCtx {
+pub(crate) struct FuncCtx {
     pub(crate) vmctx: NonNull<Ctx>,
     pub(crate) func_env: Option<NonNull<FuncEnv>>,
 }
 
-/// An imported function, which contains the vmctx that owns this function.
+/// An imported function is a function pointer associated to a
+/// function context.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
@@ -524,7 +532,7 @@ pub struct ImportedFunc {
     pub(crate) func_ctx: NonNull<FuncCtx>,
 }
 
-// manually implemented because ImportedFunc contains raw pointers
+// Manually implemented because ImportedFunc contains raw pointers
 // directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO:
 // review this, shouldn't `Ctx` be Send?))
 unsafe impl Send for ImportedFunc {}
