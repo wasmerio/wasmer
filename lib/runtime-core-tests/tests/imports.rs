@@ -1,11 +1,64 @@
 use wasmer_runtime_core::{
     compile_with, error::RuntimeError, imports, memory::Memory, typed_func::Func,
-    types::MemoryDescriptor, units::Pages, vm,
+    types::MemoryDescriptor, units::Pages, vm, Instance,
 };
 use wasmer_runtime_core_tests::{get_compiler, wat2wasm};
 
-#[test]
-fn imported_functions_forms() {
+macro_rules! call_and_assert {
+    ($instance:ident, $function:ident, $expected_value:expr) => {
+        let $function: Func<i32, i32> = $instance.func(stringify!($function)).unwrap();
+
+        let result = $function.call(1);
+
+        match (result, $expected_value) {
+            (Ok(value), expected_value) => assert_eq!(
+                Ok(value),
+                expected_value,
+                concat!("Expected right when calling `", stringify!($function), "`.")
+            ),
+            (
+                Err(RuntimeError::Error { data }),
+                Err(RuntimeError::Error {
+                    data: expected_data,
+                }),
+            ) => {
+                if let (Some(data), Some(expected_data)) = (
+                    data.downcast_ref::<&str>(),
+                    expected_data.downcast_ref::<&str>(),
+                ) {
+                    assert_eq!(
+                        data, expected_data,
+                        concat!("Expected right when calling `", stringify!($function), "`.")
+                    )
+                } else if let (Some(data), Some(expected_data)) = (
+                    data.downcast_ref::<String>(),
+                    expected_data.downcast_ref::<String>(),
+                ) {
+                    assert_eq!(
+                        data, expected_data,
+                        concat!("Expected right when calling `", stringify!($function), "`.")
+                    )
+                } else {
+                    assert!(false, "Unexpected error, cannot compare it.")
+                }
+            }
+            (result, expected_value) => assert!(
+                false,
+                format!(
+                    "Unexpected assertion for `{}`: left = `{:?}`, right = `{:?}`.",
+                    stringify!($function),
+                    result,
+                    expected_value
+                )
+            ),
+        }
+    };
+}
+
+const SHIFT: i32 = 10;
+const shift: i32 = 100;
+
+fn imported_functions_forms(test: &dyn Fn(&Instance)) {
     const MODULE: &str = r#"
 (module
   (type $type (func (param i32) (result i32)))
@@ -72,9 +125,7 @@ fn imported_functions_forms() {
     let memory_descriptor = MemoryDescriptor::new(Pages(1), Some(Pages(1)), false).unwrap();
     let memory = Memory::new(memory_descriptor).unwrap();
 
-    const SHIFT: i32 = 10;
     memory.view()[0].set(SHIFT);
-    let shift = 100;
 
     let import_object = imports! {
         "env" => {
@@ -90,9 +141,9 @@ fn imported_functions_forms() {
 
             // Closure with a captured environment (a single variable + an instance of `Memory`).
             "callback_closure_with_env" => Func::new(move |n: i32| -> Result<i32, ()> {
-                let shift = shift + memory.view::<i32>()[0].get();
+                let shift_ = shift + memory.view::<i32>()[0].get();
 
-                Ok(shift + n + 1)
+                Ok(shift_ + n + 1)
             }),
 
             // Regular function with an explicit `vmctx`.
@@ -101,17 +152,17 @@ fn imported_functions_forms() {
             // Closure without a captured environment but with an explicit `vmctx`.
             "callback_closure_with_vmctx" => Func::new(|vmctx: &mut vm::Ctx, n: i32| -> Result<i32, ()> {
                 let memory = vmctx.memory(0);
-                let shift: i32 = memory.view()[0].get();
+                let shift_: i32 = memory.view()[0].get();
 
-                Ok(shift + n + 1)
+                Ok(shift_ + n + 1)
             }),
 
             // Closure with a captured environment (a single variable) and with an explicit `vmctx`.
             "callback_closure_with_vmctx_and_env" => Func::new(move |vmctx: &mut vm::Ctx, n: i32| -> Result<i32, ()> {
                 let memory = vmctx.memory(0);
-                let shift = shift + memory.view::<i32>()[0].get();
+                let shift_ = shift + memory.view::<i32>()[0].get();
 
-                Ok(shift + n + 1)
+                Ok(shift_ + n + 1)
             }),
 
             // Trap a regular function.
@@ -128,109 +179,23 @@ fn imported_functions_forms() {
             // Trap a closure without a captured environment but with an explicit `vmctx`.
             "callback_closure_trap_with_vmctx" => Func::new(|vmctx: &mut vm::Ctx, n: i32| -> Result<i32, String> {
                 let memory = vmctx.memory(0);
-                let shift: i32 = memory.view()[0].get();
+                let shift_: i32 = memory.view()[0].get();
 
-                Err(format!("qux {}", shift + n + 1))
+                Err(format!("qux {}", shift_ + n + 1))
             }),
 
             // Trap a closure with a captured environment (a single variable) and with an explicit `vmctx`.
             "callback_closure_trap_with_vmctx_and_env" => Func::new(move |vmctx: &mut vm::Ctx, n: i32| -> Result<i32, String> {
                 let memory = vmctx.memory(0);
-                let shift = shift + memory.view::<i32>()[0].get();
+                let shift_ = shift + memory.view::<i32>()[0].get();
 
-                Err(format!("! {}", shift + n + 1))
+                Err(format!("! {}", shift_ + n + 1))
             }),
         },
     };
     let instance = module.instantiate(&import_object).unwrap();
 
-    macro_rules! call_and_assert {
-        ($function:ident, $expected_value:expr) => {
-            let $function: Func<i32, i32> = instance.func(stringify!($function)).unwrap();
-
-            let result = $function.call(1);
-
-            match (result, $expected_value) {
-                (Ok(value), expected_value) => assert_eq!(
-                    Ok(value),
-                    expected_value,
-                    concat!("Expected right when calling `", stringify!($function), "`.")
-                ),
-                (
-                    Err(RuntimeError::Error { data }),
-                    Err(RuntimeError::Error {
-                        data: expected_data,
-                    }),
-                ) => {
-                    if let (Some(data), Some(expected_data)) = (
-                        data.downcast_ref::<&str>(),
-                        expected_data.downcast_ref::<&str>(),
-                    ) {
-                        assert_eq!(
-                            data, expected_data,
-                            concat!("Expected right when calling `", stringify!($function), "`.")
-                        )
-                    } else if let (Some(data), Some(expected_data)) = (
-                        data.downcast_ref::<String>(),
-                        expected_data.downcast_ref::<String>(),
-                    ) {
-                        assert_eq!(
-                            data, expected_data,
-                            concat!("Expected right when calling `", stringify!($function), "`.")
-                        )
-                    } else {
-                        assert!(false, "Unexpected error, cannot compare it.")
-                    }
-                }
-                (result, expected_value) => assert!(
-                    false,
-                    format!(
-                        "Unexpected assertion for `{}`: left = `{:?}`, right = `{:?}`.",
-                        stringify!($function),
-                        result,
-                        expected_value
-                    )
-                ),
-            }
-        };
-    }
-
-    call_and_assert!(function_fn, Ok(2));
-    call_and_assert!(function_closure, Ok(2));
-    call_and_assert!(function_closure_with_env, Ok(2 + shift + SHIFT));
-    call_and_assert!(function_fn_with_vmctx, Ok(2 + SHIFT));
-    call_and_assert!(function_closure_with_vmctx, Ok(2 + SHIFT));
-    call_and_assert!(function_closure_with_vmctx_and_env, Ok(2 + shift + SHIFT));
-    call_and_assert!(
-        function_fn_trap,
-        Err(RuntimeError::Error {
-            data: Box::new(format!("foo {}", 2))
-        })
-    );
-    call_and_assert!(
-        function_closure_trap,
-        Err(RuntimeError::Error {
-            data: Box::new(format!("bar {}", 2))
-        })
-    );
-    call_and_assert!(
-        function_fn_trap_with_vmctx,
-        Err(RuntimeError::Error {
-            data: Box::new(format!("baz {}", 2 + SHIFT))
-        })
-    );
-    call_and_assert!(
-        function_closure_trap_with_vmctx,
-        Err(RuntimeError::Error {
-            data: Box::new(format!("qux {}", 2 + SHIFT))
-        })
-    );
-    call_and_assert!(
-        function_closure_trap_with_vmctx_and_env,
-        Err(RuntimeError::Error {
-            data: Box::new(format!("! {}", 2 + shift + SHIFT))
-        })
-    );
+    test(&instance);
 }
 
 fn callback_fn(n: i32) -> Result<i32, ()> {
@@ -239,9 +204,9 @@ fn callback_fn(n: i32) -> Result<i32, ()> {
 
 fn callback_fn_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
     let memory = vmctx.memory(0);
-    let shift: i32 = memory.view()[0].get();
+    let shift_: i32 = memory.view()[0].get();
 
-    Ok(shift + n + 1)
+    Ok(shift_ + n + 1)
 }
 
 fn callback_fn_trap(n: i32) -> Result<i32, String> {
@@ -250,7 +215,72 @@ fn callback_fn_trap(n: i32) -> Result<i32, String> {
 
 fn callback_fn_trap_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, String> {
     let memory = vmctx.memory(0);
-    let shift: i32 = memory.view()[0].get();
+    let shift_: i32 = memory.view()[0].get();
 
-    Err(format!("baz {}", shift + n + 1))
+    Err(format!("baz {}", shift_ + n + 1))
 }
+
+macro_rules! test {
+    ($test_name:ident, $function:ident, $expected_value:expr) => {
+        #[test]
+        fn $test_name() {
+            imported_functions_forms(&|instance| {
+                call_and_assert!(instance, $function, $expected_value);
+            });
+        }
+    };
+}
+
+test!(test_fn, function_fn, Ok(2));
+test!(test_closure, function_closure, Ok(2));
+test!(
+    test_closure_with_env,
+    function_closure_with_env,
+    Ok(2 + shift + SHIFT)
+);
+test!(test_fn_with_vmctx, function_fn_with_vmctx, Ok(2 + SHIFT));
+test!(
+    test_closure_with_vmctx,
+    function_closure_with_vmctx,
+    Ok(2 + SHIFT)
+);
+test!(
+    test_closure_with_vmctx_and_env,
+    function_closure_with_vmctx_and_env,
+    Ok(2 + shift + SHIFT)
+);
+test!(
+    test_fn_trap,
+    function_fn_trap,
+    Err(RuntimeError::Error {
+        data: Box::new(format!("foo {}", 2))
+    })
+);
+test!(
+    test_closure_trap,
+    function_closure_trap,
+    Err(RuntimeError::Error {
+        data: Box::new(format!("bar {}", 2))
+    })
+);
+test!(
+    test_fn_trap_with_vmctx,
+    function_fn_trap_with_vmctx,
+    Err(RuntimeError::Error {
+        data: Box::new(format!("baz {}", 2 + SHIFT))
+    })
+);
+test!(
+    test_closure_trap_with_vmctx,
+    function_closure_trap_with_vmctx,
+    Err(RuntimeError::Error {
+        data: Box::new(format!("qux {}", 2 + SHIFT))
+    })
+);
+test!(
+    test_closure_trap_with_vmctx_and_env,
+    function_closure_trap_with_vmctx_and_env,
+    Err(RuntimeError::Error {
+        data: Box::new(format!("! {}", 2 + shift + SHIFT))
+    })
+);
