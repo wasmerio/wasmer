@@ -92,6 +92,7 @@ pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
 pub use wasmer_runtime_core::import::ImportObject;
 pub use wasmer_runtime_core::instance::{DynFunc, Instance};
+pub use wasmer_runtime_core::memory::ptr::{Array, Item, WasmPtr};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::table::Table;
