@@ -524,7 +524,9 @@ pub struct ImportedFunc {
     pub func_ctx: NonNull<FuncCtx>,
 }
 
-// manually implemented because ImportedFunc contains raw pointers directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO: review this, shouldn't `Ctx` be Send?))
+// manually implemented because ImportedFunc contains raw pointers
+// directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO:
+// review this, shouldn't `Ctx` be Send?))
 unsafe impl Send for ImportedFunc {}
 
 impl ImportedFunc {
@@ -533,7 +535,7 @@ impl ImportedFunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_vmctx() -> u8 {
+    pub fn offset_func_ctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -756,8 +758,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            ImportedFunc::offset_vmctx() as usize,
-            offset_of!(ImportedFunc => vmctx).get_byte_offset(),
+            ImportedFunc::offset_func_ctx() as usize,
+            offset_of!(ImportedFunc => func_ctx).get_byte_offset(),
         );
     }
 
