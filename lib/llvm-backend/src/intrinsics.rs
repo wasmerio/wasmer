@@ -8,7 +8,7 @@ use inkwell::{
     },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
-        MetadataValue, PointerValue, VectorValue,
+        PointerValue, VectorValue,
     },
     AddressSpace,
 };
@@ -1218,7 +1218,7 @@ pub fn tbaa_label(
         .get_global_metadata("wasmer_tbaa_root")
         .pop()
         .unwrap_or_else(|| {
-            module.add_global_metadata("wasmer_tbaa_root", &MetadataValue::create_node(&[]));
+            module.add_global_metadata("wasmer_tbaa_root", &context.metadata_node(&[]));
             module.get_global_metadata("wasmer_tbaa_root")[0]
         });
 
@@ -1236,7 +1236,7 @@ pub fn tbaa_label(
         .unwrap_or_else(|| {
             module.add_global_metadata(
                 label.as_str(),
-                &MetadataValue::create_node(&[type_label.into(), tbaa_root.into()]),
+                &context.metadata_node(&[type_label.into(), tbaa_root.into()]),
             );
             module.get_global_metadata(label.as_str())[0]
         });
@@ -1254,7 +1254,7 @@ pub fn tbaa_label(
         .unwrap_or_else(|| {
             module.add_global_metadata(
                 label.as_str(),
-                &MetadataValue::create_node(&[
+                &context.metadata_node(&[
                     type_tbaa.into(),
                     type_tbaa.into(),
                     intrinsics.i64_zero.into(),
