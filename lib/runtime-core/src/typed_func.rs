@@ -208,7 +208,6 @@ where
 }
 
 /// Represents a function that can be used by WebAssembly.
-#[allow(dead_code)]
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
     func: NonNull<vm::Func>,
@@ -492,7 +491,14 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
-                /// This is required for the llvm backend to be able to unwind through this function.
+                // The `wrap` function is a wrapper around the
+                // imported function. It manages the argument passed
+                // to the imported function (in this case, the
+                // `vmctx` along with the regular WebAssembly
+                // arguments), and it manages the trapping.
+                //
+                // It is also required for the LLVM backend to be
+                // able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
                 extern fn wrap<$( $x, )* Rets, Trap, FN>(
                     func_ctx: &mut vm::FuncCtx $( , $x: <$x as WasmExternType>::Native )*
@@ -503,22 +509,36 @@ macro_rules! impl_traits {
                     Trap: TrapEarly<Rets>,
                     FN: Fn(&mut vm::Ctx, $( $x, )*) -> Trap,
                 {
+                    // Extract `vm::Ctx` from `vm::FuncCtx`. The
+                    // pointer is always non-null.
                     let vmctx = unsafe { func_ctx.vmctx.as_mut() };
+
+                    // Extract `vm::FuncEnv` from `vm::FuncCtx`.
                     let func_env = func_ctx.func_env;
 
                     let func: &FN = match func_env {
+                        // The imported function is a closure with a
+                        // captured environment.
                         Some(func_env) => unsafe {
                             let func: NonNull<FN> = func_env.cast();
 
                             &*func.as_ptr()
                         },
+
+                        // The imported function is a regular function
+                        // or a closure without a captured
+                        // environment.
                         None => unsafe { mem::transmute_copy(&()) }
                     };
 
+                    // Catch unwind in case of errors.
                     let err = match panic::catch_unwind(
                         panic::AssertUnwindSafe(
                             || {
                                 func(vmctx $( , WasmExternType::from_native($x) )* ).report()
+                                //   ^^^^^ The imported function
+                                //         expects `vm::Ctx` as first
+                                //         argument; provide it.
                             }
                         )
                     ) {
@@ -530,11 +550,15 @@ macro_rules! impl_traits {
                         Err(err) => err,
                     };
 
+                    // At this point, there is an error that needs to
+                    // be trapped.
                     unsafe {
                         (&*vmctx.module).runnable_module.do_early_trap(err)
                     }
                 }
 
+                // Extract the captured environment of the imported
+                // function if any.
                 let func_env: Option<NonNull<vm::FuncEnv>> =
                     // `FN` is a function pointer, or a closure
                     // _without_ a captured environment.
@@ -563,7 +587,14 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
-                /// This is required for the llvm backend to be able to unwind through this function.
+                // The `wrap` function is a wrapper around the
+                // imported function. It manages the argument passed
+                // to the imported function (in this case, only the
+                // regular WebAssembly arguments), and it manages the
+                // trapping.
+                //
+                // It is also required for the LLVM backend to be
+                // able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
                 extern fn wrap<$( $x, )* Rets, Trap, FN>(
                     func_ctx: &mut vm::FuncCtx $( , $x: <$x as WasmExternType>::Native )*
@@ -574,18 +605,29 @@ macro_rules! impl_traits {
                     Trap: TrapEarly<Rets>,
                     FN: Fn($( $x, )*) -> Trap,
                 {
+                    // Extract `vm::Ctx` from `vm::FuncCtx`. The
+                    // pointer is always non-null.
                     let vmctx = unsafe { func_ctx.vmctx.as_mut() };
+
+                    // Extract `vm::FuncEnv` from `vm::FuncCtx`.
                     let func_env = func_ctx.func_env;
 
                     let func: &FN = match func_env {
+                        // The imported function is a closure with a
+                        // captured environment.
                         Some(func_env) => unsafe {
                             let func: NonNull<FN> = func_env.cast();
 
                             &*func.as_ptr()
                         },
+
+                        // The imported function is a regular function
+                        // or a closure without a captured
+                        // environment.
                         None => unsafe { mem::transmute_copy(&()) }
                     };
 
+                    // Catch unwind in case of errors.
                     let err = match panic::catch_unwind(
                         panic::AssertUnwindSafe(
                             || {
@@ -601,11 +643,15 @@ macro_rules! impl_traits {
                         Err(err) => err,
                     };
 
+                    // At this point, there is an error that needs to
+                    // be trapped.
                     unsafe {
                         (&*vmctx.module).runnable_module.do_early_trap(err)
                     }
                 }
 
+                // Extract the captured environment of the imported
+                // function if any.
                 let func_env: Option<NonNull<vm::FuncEnv>> =
                     // `FN` is a function pointer, or a closure
                     // _without_ a captured environment.
