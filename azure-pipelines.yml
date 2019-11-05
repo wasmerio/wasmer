@@ -60,6 +60,10 @@ jobs:
           cat /proc/meminfo
         displayName: System info - Extended (Linux)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+      - bash: |
+          sysctl -a | grep machdep.cpu
+        displayName: System info - Extended (Mac)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
         displayName: Tests (*nix)
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))

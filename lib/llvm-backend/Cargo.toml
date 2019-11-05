@@ -1,17 +1,16 @@
 [package]
 name = "wasmer-llvm-backend"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.8.0" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.9.0" }
 wasmparser = "0.39.1"
 smallvec = "0.6"
 goblin = "0.0.24"
 libc = "0.2.60"
-capstone = { version = "0.6", optional = true }
 byteorder = "1"
 
 [dependencies.inkwell]
@@ -38,4 +37,3 @@ wabt = "0.9.1"
 
 [features]
 debug = ["wasmer-runtime-core/debug"]
-disasm = ["capstone"]

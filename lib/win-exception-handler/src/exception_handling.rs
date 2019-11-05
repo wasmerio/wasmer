@@ -1,7 +1,9 @@
 use std::ptr::NonNull;
-use wasmer_runtime_core::vm::{Ctx, Func};
+use wasmer_runtime_core::{
+    typed_func::Trampoline,
+    vm::{Ctx, Func},
+};
 
-type Trampoline = unsafe extern "C" fn(*mut Ctx, NonNull<Func>, *const u64, *mut u64);
 type CallProtectedResult = Result<(), CallProtectedData>;
 
 #[repr(C)]

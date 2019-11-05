@@ -259,7 +259,7 @@ pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         ftruncate64(_fd, _length)
     }
     #[cfg(target_os = "macos")]
-    unimplemented!()
+    unimplemented!("emscripten::___syscall194 (ftruncate64) {}", _which)
 }
 
 /// lchown
@@ -1111,6 +1111,6 @@ pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
     #[cfg(target_os = "macos")]
     {
-        unimplemented!()
+        unimplemented!("emscripten::___syscall324 (fallocate) {}", _which)
     }
 }

@@ -916,15 +916,15 @@ mod vm_ctx_tests {
             }
 
             fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
-                unimplemented!()
+                unimplemented!("generate_module::get_trampoline")
             }
             unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
-                unimplemented!()
+                unimplemented!("generate_module::do_early_trap")
             }
         }
         impl CacheGen for Placeholder {
             fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
-                unimplemented!()
+                unimplemented!("generate_module::generate_cache")
             }
         }
 

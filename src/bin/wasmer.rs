@@ -23,7 +23,7 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
-use wasmer_llvm_backend::LLVMCompiler;
+use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
     Func, Value, VERSION,
@@ -109,7 +109,7 @@ pub struct LLVMCLIOptions {
     post_opt_ir: Option<PathBuf>,
 
     /// Emit LLVM generated native code object file.
-    #[structopt(long = "backend-llvm-object-file", parse(from_os_str))]
+    #[structopt(long = "llvm-object-file", parse(from_os_str))]
     obj_file: Option<PathBuf>,
 }
 
@@ -177,8 +177,8 @@ struct Run {
 
     /// Whether or not state tracking should be disabled during compilation.
     /// State tracking is necessary for tier switching and backtracing.
-    #[structopt(long = "no-track-state")]
-    no_track_state: bool,
+    #[structopt(long = "track-state")]
+    track_state: bool,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
@@ -405,7 +405,21 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         None => return Err("the requested backend is not enabled".into()),
     };
 
-    let track_state = !options.no_track_state;
+    #[cfg(feature = "backend-llvm")]
+    {
+        if options.backend == Backend::LLVM {
+            let options = options.backend_llvm_options.clone();
+            unsafe {
+                wasmer_llvm_backend::GLOBAL_OPTIONS = LLVMOptions {
+                    pre_opt_ir: options.pre_opt_ir,
+                    post_opt_ir: options.post_opt_ir,
+                    obj_file: options.obj_file,
+                }
+            }
+        }
+    }
+
+    let track_state = options.track_state;
 
     #[cfg(feature = "loader-kernel")]
     let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {

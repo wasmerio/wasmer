@@ -1,21 +1,24 @@
 use super::stackmap::StackmapRegistry;
-use crate::intrinsics::Intrinsics;
-use crate::structs::{Callbacks, LLVMModule, LLVMResult, MemProtect};
+use crate::{
+    intrinsics::Intrinsics,
+    structs::{Callbacks, LLVMModule, LLVMResult, MemProtect},
+};
 use inkwell::{
     memory_buffer::MemoryBuffer,
     module::Module,
-    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
-    OptimizationLevel,
+    targets::{FileType, TargetMachine},
 };
 use libc::c_char;
 use std::{
     any::Any,
+    cell::RefCell,
     ffi::{c_void, CString},
     fs::File,
     io::Write,
     mem,
     ops::Deref,
     ptr::{self, NonNull},
+    rc::Rc,
     slice, str,
     sync::{Arc, Once},
 };
@@ -28,7 +31,7 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     state::ModuleStateMap,
     structures::TypedIndex,
-    typed_func::{Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
@@ -58,7 +61,7 @@ extern "C" {
 
     #[allow(improper_ctypes)]
     fn invoke_trampoline(
-        trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
+        trampoline: Trampoline,
         vmctx_ptr: *mut vm::Ctx,
         func_ptr: NonNull<vm::Func>,
         params: *const u64,
@@ -168,34 +171,14 @@ pub struct LLVMBackend {
 
 impl LLVMBackend {
     pub fn new(
-        module: Module,
+        module: Rc<RefCell<Module>>,
         _intrinsics: Intrinsics,
         _stackmaps: &StackmapRegistry,
         _module_info: &ModuleInfo,
+        target_machine: &TargetMachine,
     ) -> (Self, LLVMCache) {
-        Target::initialize_x86(&InitializationConfig {
-            asm_parser: true,
-            asm_printer: true,
-            base: true,
-            disassembler: true,
-            info: true,
-            machine_code: true,
-        });
-        let triple = TargetMachine::get_default_triple().to_string();
-        let target = Target::from_triple(&triple).unwrap();
-        let target_machine = target
-            .create_target_machine(
-                &triple,
-                &TargetMachine::get_host_cpu_name().to_string(),
-                &TargetMachine::get_host_cpu_features().to_string(),
-                OptimizationLevel::Aggressive,
-                RelocMode::Static,
-                CodeModel::Large,
-            )
-            .unwrap();
-
         let memory_buffer = target_machine
-            .write_to_memory_buffer(&module, FileType::Object)
+            .write_to_memory_buffer(&module.borrow_mut(), FileType::Object)
             .unwrap();
         let mem_buf_slice = memory_buffer.as_slice();
 
@@ -408,12 +391,7 @@ impl RunnableModule for LLVMBackend {
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
-        let trampoline: unsafe extern "C" fn(
-            *mut vm::Ctx,
-            NonNull<vm::Func>,
-            *const u64,
-            *mut u64,
-        ) = unsafe {
+        let trampoline: Trampoline = unsafe {
             let name = if cfg!(target_os = "macos") {
                 format!("_trmp{}", sig_index.index())
             } else {
@@ -475,35 +453,5 @@ impl CacheGen for LLVMCache {
         }
 
         Ok(([].as_ref().into(), memory))
-    }
-}
-
-#[cfg(feature = "disasm")]
-unsafe fn disass_ptr(ptr: *const u8, size: usize, inst_count: usize) {
-    use capstone::arch::BuildsCapstone;
-    let mut cs = capstone::Capstone::new() // Call builder-pattern
-        .x86() // X86 architecture
-        .mode(capstone::arch::x86::ArchMode::Mode64) // 64-bit mode
-        .detail(true) // Generate extra instruction details
-        .build()
-        .expect("Failed to create Capstone object");
-
-    // Get disassembled instructions
-    let insns = cs
-        .disasm_count(
-            std::slice::from_raw_parts(ptr, size),
-            ptr as u64,
-            inst_count,
-        )
-        .expect("Failed to disassemble");
-
-    println!("count = {}", insns.len());
-    for insn in insns.iter() {
-        println!(
-            "0x{:x}: {:6} {}",
-            insn.address(),
-            insn.mnemonic().unwrap_or(""),
-            insn.op_str().unwrap_or("")
-        );
     }
 }
