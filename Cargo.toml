@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -43,6 +43,7 @@ members = [
     "lib/singlepass-backend",
     "lib/runtime",
     "lib/runtime-core",
+    "lib/runtime-core-tests",
     "lib/emscripten",
     "lib/spectests",
     "lib/win-exception-handler",

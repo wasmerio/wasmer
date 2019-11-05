@@ -1,10 +1,19 @@
 # Changelog
 
-All PRs to the Wasmer repository must add to this file.
-
-Blocks of changes will separated by version increments.
-
 ## **[Unreleased]**
+
+- [#921](https://github.com/wasmerio/wasmer/pull/921) In LLVM backend, annotate all memory accesses with TBAA metadata.
+- [#883](https://github.com/wasmerio/wasmer/pull/883) Allow floating point operations to have arbitrary inputs, even including SNaNs.
+- [#856](https://github.com/wasmerio/wasmer/pull/856) Expose methods in the runtime C API to get a WASI import object
+
+## 0.9.0 - 2019-10-23
+
+Special thanks to @alocquet for their contributions!
+
+- [#898](https://github.com/wasmerio/wasmer/pull/898) State tracking is now disabled by default in the LLVM backend. It can be enabled with `--track-state`.
+- [#861](https://github.com/wasmerio/wasmer/pull/861) Add descriptions to `unimplemented!` macro in various places
+- [#897](https://github.com/wasmerio/wasmer/pull/897) Removes special casing of stdin, stdout, and stderr in WASI.  Closing these files now works.  Removes `stdin`, `stdout`, and `stderr` from `WasiFS`, replaced by the methods `stdout`, `stdout_mut`, and so on.
+- [#863](https://github.com/wasmerio/wasmer/pull/863) Fix min and max for cases involving NaN and negative zero when using the LLVM backend.
 
 - [#849](https://github.com/wasmerio/wasmer/pull/849) Change emscripten arguments flag `--` semantics to expect list of integer instead of a single string
 - [#848](https://github.com/wasmerio/wasmer/issues/848) Fix panic when running wasmer binary with non-existant `--em-entrypoint` function

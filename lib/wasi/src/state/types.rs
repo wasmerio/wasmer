@@ -49,6 +49,8 @@ pub enum WasiFsError {
     NotConnected,
     /// The requested file or directory could not be found
     EntityNotFound,
+    /// The requested device couldn't be accessed
+    NoDevice,
     /// Caller was not allowed to perform this operation
     PermissionDenied,
     /// The operation did not complete within the given amount of time
@@ -80,6 +82,7 @@ impl WasiFsError {
             __WASI_EINTR => WasiFsError::Interrupted,
             __WASI_EINVAL => WasiFsError::InvalidInput,
             __WASI_ENOTCONN => WasiFsError::NotConnected,
+            __WASI_ENODEV => WasiFsError::NoDevice,
             __WASI_ENOENT => WasiFsError::EntityNotFound,
             __WASI_EPERM => WasiFsError::PermissionDenied,
             __WASI_ETIMEDOUT => WasiFsError::TimedOut,
@@ -105,6 +108,7 @@ impl WasiFsError {
             WasiFsError::InvalidFd => __WASI_EBADF,
             WasiFsError::InvalidInput => __WASI_EINVAL,
             WasiFsError::IOError => __WASI_EIO,
+            WasiFsError::NoDevice => __WASI_ENODEV,
             WasiFsError::NotAFile => __WASI_EINVAL,
             WasiFsError::NotConnected => __WASI_ENOTCONN,
             WasiFsError::EntityNotFound => __WASI_ENOENT,

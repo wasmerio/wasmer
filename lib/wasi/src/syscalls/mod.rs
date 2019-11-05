@@ -15,7 +15,6 @@ use crate::{
     },
     ExitCode,
 };
-use rand::{thread_rng, Rng};
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::{Infallible, TryInto};
@@ -374,6 +373,7 @@ pub fn fd_allocate(
 ///     If `fd` is invalid or not open
 pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_close");
+    debug!("=> fd={}", fd);
     let state = get_wasi_state(ctx);
 
     let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
@@ -662,7 +662,15 @@ pub fn fd_pread(
     let state = get_wasi_state(ctx);
 
     let bytes_read = match fd {
-        __WASI_STDIN_FILENO => wasi_try!(read_bytes(&mut state.fs.stdin, memory, iov_cells)),
+        __WASI_STDIN_FILENO => {
+            if let Some(ref mut stdin) =
+                wasi_try!(state.fs.stdin_mut().map_err(WasiFsError::into_wasi_err))
+            {
+                wasi_try!(read_bytes(stdin, memory, iov_cells))
+            } else {
+                return __WASI_EBADF;
+            }
+        }
         __WASI_STDOUT_FILENO => return __WASI_EINVAL,
         __WASI_STDERR_FILENO => return __WASI_EINVAL,
         _ => {
@@ -802,8 +810,24 @@ pub fn fd_pwrite(
 
     let bytes_written = match fd {
         __WASI_STDIN_FILENO => return __WASI_EINVAL,
-        __WASI_STDOUT_FILENO => wasi_try!(write_bytes(&mut state.fs.stdout, memory, iovs_arr_cell)),
-        __WASI_STDERR_FILENO => wasi_try!(write_bytes(&mut state.fs.stderr, memory, iovs_arr_cell)),
+        __WASI_STDOUT_FILENO => {
+            if let Some(ref mut stdout) =
+                wasi_try!(state.fs.stdout_mut().map_err(WasiFsError::into_wasi_err))
+            {
+                wasi_try!(write_bytes(stdout, memory, iovs_arr_cell))
+            } else {
+                return __WASI_EBADF;
+            }
+        }
+        __WASI_STDERR_FILENO => {
+            if let Some(ref mut stderr) =
+                wasi_try!(state.fs.stderr_mut().map_err(WasiFsError::into_wasi_err))
+            {
+                wasi_try!(write_bytes(stderr, memory, iovs_arr_cell))
+            } else {
+                return __WASI_EBADF;
+            }
+        }
         _ => {
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
@@ -872,7 +896,15 @@ pub fn fd_read(
     let state = get_wasi_state(ctx);
 
     let bytes_read = match fd {
-        __WASI_STDIN_FILENO => wasi_try!(read_bytes(&mut state.fs.stdin, memory, iovs_arr_cell)),
+        __WASI_STDIN_FILENO => {
+            if let Some(ref mut stdin) =
+                wasi_try!(state.fs.stdin_mut().map_err(WasiFsError::into_wasi_err))
+            {
+                wasi_try!(read_bytes(stdin, memory, iovs_arr_cell))
+            } else {
+                return __WASI_EBADF;
+            }
+        }
         __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => return __WASI_EINVAL,
         _ => {
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
@@ -1211,8 +1243,24 @@ pub fn fd_write(
 
     let bytes_written = match fd {
         __WASI_STDIN_FILENO => return __WASI_EINVAL,
-        __WASI_STDOUT_FILENO => wasi_try!(write_bytes(&mut state.fs.stdout, memory, iovs_arr_cell)),
-        __WASI_STDERR_FILENO => wasi_try!(write_bytes(&mut state.fs.stderr, memory, iovs_arr_cell)),
+        __WASI_STDOUT_FILENO => {
+            if let Some(ref mut stdout) =
+                wasi_try!(state.fs.stdout_mut().map_err(WasiFsError::into_wasi_err))
+            {
+                wasi_try!(write_bytes(stdout, memory, iovs_arr_cell))
+            } else {
+                return __WASI_EBADF;
+            }
+        }
+        __WASI_STDERR_FILENO => {
+            if let Some(ref mut stderr) =
+                wasi_try!(state.fs.stderr_mut().map_err(WasiFsError::into_wasi_err))
+            {
+                wasi_try!(write_bytes(stderr, memory, iovs_arr_cell))
+            } else {
+                return __WASI_EBADF;
+            }
+        }
         _ => {
             let state = get_wasi_state(ctx);
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
@@ -2292,9 +2340,21 @@ pub fn poll_oneoff(
 
         if let Some(fd) = fd {
             let wasi_file_ref: &dyn WasiFile = match fd {
-                __WASI_STDERR_FILENO => state.fs.stderr.as_ref(),
-                __WASI_STDIN_FILENO => state.fs.stdin.as_ref(),
-                __WASI_STDOUT_FILENO => state.fs.stdout.as_ref(),
+                __WASI_STDERR_FILENO => wasi_try!(
+                    wasi_try!(state.fs.stderr().map_err(WasiFsError::into_wasi_err)).as_ref(),
+                    __WASI_EBADF
+                )
+                .as_ref(),
+                __WASI_STDIN_FILENO => wasi_try!(
+                    wasi_try!(state.fs.stdin().map_err(WasiFsError::into_wasi_err)).as_ref(),
+                    __WASI_EBADF
+                )
+                .as_ref(),
+                __WASI_STDOUT_FILENO => wasi_try!(
+                    wasi_try!(state.fs.stdout().map_err(WasiFsError::into_wasi_err)).as_ref(),
+                    __WASI_EBADF
+                )
+                .as_ref(),
                 _ => {
                     let fd_entry = wasi_try!(state.fs.get_fd(fd));
                     let inode = fd_entry.inode;
@@ -2392,17 +2452,18 @@ pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
 ///     The number of bytes that will be written
 pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __wasi_errno_t {
     debug!("wasi::random_get buf_len: {}", buf_len);
-    let mut rng = thread_rng();
     let memory = ctx.memory(0);
 
     let buf = wasi_try!(buf.deref(memory, 0, buf_len));
 
-    unsafe {
+    let res = unsafe {
         let u8_buffer = &mut *(buf as *const [_] as *mut [_] as *mut [u8]);
-        thread_rng().fill(u8_buffer);
+        getrandom::getrandom(u8_buffer)
+    };
+    match res {
+        Ok(()) => __WASI_ESUCCESS,
+        Err(_) => __WASI_EIO,
     }
-
-    __WASI_ESUCCESS
 }
 
 /// ### `sched_yield()`

@@ -674,6 +674,37 @@ pub mod x64 {
 
         stack_offset -= 1;
         stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM15).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM14).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM13).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM12).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM11).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM10).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM9).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM8).to_index().0].unwrap_or(0);
+        stack_offset -= 1;
+        stack[stack_offset] =
             known_registers[X64Register::XMM(XMM::XMM7).to_index().0].unwrap_or(0);
 
         stack_offset -= 1;
@@ -780,10 +811,10 @@ pub mod x64 {
     pub unsafe fn read_stack<'a, I: Iterator<Item = &'a CodeVersion>, F: Fn() -> I + 'a>(
         versions: F,
         mut stack: *const u64,
-        initially_known_registers: [Option<u64>; 24],
+        initially_known_registers: [Option<u64>; 32],
         mut initial_address: Option<u64>,
     ) -> ExecutionStateImage {
-        let mut known_registers: [Option<u64>; 24] = initially_known_registers;
+        let mut known_registers: [Option<u64>; 32] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
         let mut was_baseline = true;
 
@@ -1023,6 +1054,14 @@ pub mod x64 {
         XMM5,
         XMM6,
         XMM7,
+        XMM8,
+        XMM9,
+        XMM10,
+        XMM11,
+        XMM12,
+        XMM13,
+        XMM14,
+        XMM15,
     }
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -1066,6 +1105,14 @@ pub mod x64 {
                 22 => X64Register::XMM(XMM::XMM5),
                 23 => X64Register::XMM(XMM::XMM6),
                 24 => X64Register::XMM(XMM::XMM7),
+                25 => X64Register::XMM(XMM::XMM8),
+                26 => X64Register::XMM(XMM::XMM9),
+                27 => X64Register::XMM(XMM::XMM10),
+                28 => X64Register::XMM(XMM::XMM11),
+                29 => X64Register::XMM(XMM::XMM12),
+                30 => X64Register::XMM(XMM::XMM13),
+                31 => X64Register::XMM(XMM::XMM14),
+                32 => X64Register::XMM(XMM::XMM15),
                 _ => return None,
             })
         }
