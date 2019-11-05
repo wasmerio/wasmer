@@ -554,18 +554,24 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         // Emits a tail call trampoline that loads the address of the target import function
         // from Ctx and jumps to it.
 
+        let imported_funcs_addr = vm::Ctx::offset_imported_funcs();
+        let imported_func = vm::ImportedFunc::size() as usize * id;
+        let imported_func_addr = imported_func + vm::ImportedFunc::offset_func() as usize;
+        let imported_func_ctx_addr = imported_func + vm::ImportedFunc::offset_func_ctx() as usize;
+
         a.emit_mov(
             Size::S64,
-            Location::Memory(GPR::RDI, vm::Ctx::offset_imported_funcs() as i32),
+            Location::Memory(GPR::RDI, imported_funcs_addr as i32),
             Location::GPR(GPR::RAX),
         );
         a.emit_mov(
             Size::S64,
-            Location::Memory(
-                GPR::RAX,
-                (vm::ImportedFunc::size() as usize * id + vm::ImportedFunc::offset_func() as usize)
-                    as i32,
-            ),
+            Location::Memory(GPR::RAX, imported_func_ctx_addr as i32),
+            Location::GPR(GPR::RDI),
+        );
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RAX, imported_func_addr as i32),
             Location::GPR(GPR::RAX),
         );
         a.emit_jmp_location(Location::GPR(GPR::RAX));
