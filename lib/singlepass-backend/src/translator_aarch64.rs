@@ -117,6 +117,12 @@ pub fn get_aarch64_assembler() -> Assembler {
     a
 }
 
+const X_TMP1: u32 = 27;
+const X_TMP2: u32 = 26;
+const X_TMP3: u32 = 25;
+const V_TMP1: u32 = 28;
+const V_TMP2: u32 = 27;
+
 macro_rules! binop_imm32_gpr {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
@@ -367,6 +373,45 @@ macro_rules! binop_shift {
                 );
             },
             _ => $otherwise
+        }
+    }
+}
+
+macro_rules! avx_fn {
+    ($ins:ident, $width:ident, $width_int:ident, $name:ident) => {
+        fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+            match src2 {
+                XMMOrMemory::XMM(src2) => dynasm!(self ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src1).v()), $width(map_xmm(src2).v())),
+                XMMOrMemory::Memory(base, disp) => {
+                    if disp >= 0 {
+                        dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
+                    } else {
+                        dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
+                    }
+
+                    dynasm!(self
+                        ; ldr $width_int(X_TMP1), [x_tmp3]
+                        ; mov v_tmp1.$width[0], $width_int(X_TMP1)
+                        ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src1).v()), $width(V_TMP1)
+                    );
+                }
+            }
+        }
+    }
+}
+
+macro_rules! avx_fn_unop {
+    ($ins:ident, $width:ident, $name:ident) => {
+        fn $name(&mut self, src1: XMM, _src2: XMMOrMemory, dst: XMM) {
+            dynasm!(self ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src1).v()));
+        }
+    }
+}
+
+macro_rules! avx_fn_cvt {
+    ($ins:ident, $width_src:ident, $width_dst:ident, $name:ident) => {
+        fn $name(&mut self, src1: XMM, _src2: XMMOrMemory, dst: XMM) {
+            dynasm!(self ; $ins $width_dst(map_xmm(dst).v()), $width_src(map_xmm(src1).v()));
         }
     }
 }
@@ -1281,49 +1326,37 @@ impl Emitter for Assembler {
         dynasm!(self ; .dword 0 ; .dword 29)
     }
 
-    fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
+    avx_fn!(fadd, S, W, emit_vaddss);
+    avx_fn!(fsub, S, W, emit_vsubss);
+    avx_fn!(fmul, S, W, emit_vmulss);
+    avx_fn!(fdiv, S, W, emit_vdivss);
+    avx_fn!(fmax, S, W, emit_vmaxss);
+    avx_fn!(fmin, S, W, emit_vminss);
+    avx_fn!(fcmgt, S, W, emit_vcmpgtss);
+    avx_fn!(fcmge, S, W, emit_vcmpgess);
+    avx_fn!(fcmeq, S, W, emit_vcmpeqss);
+    avx_fn_unop!(fsqrt, S, emit_vsqrtss);
+    avx_fn_unop!(frintn, S, emit_vroundss_nearest); // to nearest with ties to even
+    avx_fn_unop!(frintm, S, emit_vroundss_floor); // toward minus infinity
+    avx_fn_unop!(frintp, S, emit_vroundss_ceil); // toward positive infinity
+    avx_fn_unop!(frintz, S, emit_vroundss_trunc); // toward zero
+    avx_fn_cvt!(fcvt, S, D, emit_vcvtss2sd);
 
-    fn emit_vcmpeqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vcmpeqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
+    avx_fn!(fadd, D, X, emit_vaddsd);
+    avx_fn!(fsub, D, X, emit_vsubsd);
+    avx_fn!(fmul, D, X, emit_vmulsd);
+    avx_fn!(fdiv, D, X, emit_vdivsd);
+    avx_fn!(fmax, D, X, emit_vmaxsd);
+    avx_fn!(fmin, D, X, emit_vminsd);
+    avx_fn!(fcmgt, D, X, emit_vcmpgtsd);
+    avx_fn!(fcmge, D, X, emit_vcmpgesd);
+    avx_fn!(fcmeq, D, X, emit_vcmpeqsd);
+    avx_fn_unop!(fsqrt, D, emit_vsqrtsd);
+    avx_fn_unop!(frintn, D, emit_vroundsd_nearest); // to nearest with ties to even
+    avx_fn_unop!(frintm, D, emit_vroundsd_floor); // toward minus infinity
+    avx_fn_unop!(frintp, D, emit_vroundsd_ceil); // toward positive infinity
+    avx_fn_unop!(frintz, D, emit_vroundsd_trunc); // toward zero
+    avx_fn_cvt!(fcvt, D, S, emit_vcvtsd2ss);
 
     fn emit_vcmpneqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         dynasm!(self ; .dword 0 ; .dword 29)
@@ -1346,58 +1379,6 @@ impl Emitter for Assembler {
         dynasm!(self ; .dword 0 ; .dword 29)
     }
 
-    fn emit_vcmpgtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vcmpgtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-
-    fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-
-    fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-
-    fn emit_vroundss_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vroundss_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vroundss_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vroundss_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vroundsd_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-
-    fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
 
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
         dynasm!(self ; .dword 0 ; .dword 29)
