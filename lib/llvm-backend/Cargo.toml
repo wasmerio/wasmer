@@ -18,8 +18,8 @@ libc = "0.2.60"
 byteorder = "1"
 
 [dependencies.inkwell]
-git = "https://github.com/wasmerio/inkwell"
-branch = "llvm8-0"
+git = "https://github.com/TheDan64/inkwell"
+rev = "781620e9fa30e51a6e03bd0d49b5f5bb7a782520"
 default-features = false
 features = ["llvm8-0", "target-x86"]
 
