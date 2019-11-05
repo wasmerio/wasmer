@@ -290,7 +290,7 @@ extern "C" fn signal_trap_handler(
                     );
                     es_image.print_backtrace_if_needed();
                 }
-                // Just let the error propagate otherrwise
+                // Just let the error propagate otherwise
             }
 
             true
