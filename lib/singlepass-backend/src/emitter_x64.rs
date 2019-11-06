@@ -193,6 +193,10 @@ pub trait Emitter {
     fn arch_emit_f64_convert_si64(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
     fn arch_emit_f64_convert_ui32(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
     fn arch_emit_f64_convert_ui64(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
+
+    fn arch_has_fneg(&self) -> bool { false }
+    fn arch_emit_f32_neg(&mut self, _src: XMM, _dst: XMM) { unimplemented!() }
+    fn arch_emit_f64_neg(&mut self, _src: XMM, _dst: XMM) { unimplemented!() }
 }
 
 fn _dummy(a: &mut Assembler) {

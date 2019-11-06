@@ -1453,6 +1453,14 @@ impl Emitter for Assembler {
         dynasm!(self ; ucvtf D(map_xmm(dst).v()), X(map_gpr(src).x()));
     }
 
+    fn arch_has_fneg(&self) -> bool { true }
+    fn arch_emit_f32_neg(&mut self, src: XMM, dst: XMM) {
+        dynasm!(self ; fneg S(map_xmm(dst).v()), S(map_xmm(src).v()));
+    }
+    fn arch_emit_f64_neg(&mut self, src: XMM, dst: XMM) {
+        dynasm!(self ; fneg D(map_xmm(dst).v()), D(map_xmm(src).v()));
+    }
+
     // These instructions are only used in itruncf-type/fconverti-type opcodes.
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
         unimplemented!();

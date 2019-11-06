@@ -2969,11 +2969,34 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_mov(Size::S32, loc, Location::GPR(tmp));
-                a.emit_btc_gpr_imm8_32(31, tmp);
-                a.emit_mov(Size::S32, Location::GPR(tmp), ret);
-                self.machine.release_temp_gpr(tmp);
+
+                if a.arch_has_fneg() {
+                    let tmp = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp),
+                    );
+                    a.arch_emit_f32_neg(tmp, tmp);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::XMM(tmp),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp);
+                } else {
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
+                    a.emit_mov(Size::S32, loc, Location::GPR(tmp));
+                    a.emit_btc_gpr_imm8_32(31, tmp);
+                    a.emit_mov(Size::S32, Location::GPR(tmp), ret);
+                    self.machine.release_temp_gpr(tmp);
+                }
             }
 
             Operator::F64Const { value } => {
@@ -3162,11 +3185,33 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_mov(Size::S64, loc, Location::GPR(tmp));
-                a.emit_btc_gpr_imm8_64(63, tmp);
-                a.emit_mov(Size::S64, Location::GPR(tmp), ret);
-                self.machine.release_temp_gpr(tmp);
+                if a.arch_has_fneg() {
+                    let tmp = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::XMM(tmp),
+                    );
+                    a.arch_emit_f64_neg(tmp, tmp);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::XMM(tmp),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp);
+                } else {
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
+                    a.emit_mov(Size::S64, loc, Location::GPR(tmp));
+                    a.emit_btc_gpr_imm8_64(63, tmp);
+                    a.emit_mov(Size::S64, Location::GPR(tmp), ret);
+                    self.machine.release_temp_gpr(tmp);
+                }
             }
 
             Operator::F64PromoteF32 => Self::emit_fp_unop_avx(
