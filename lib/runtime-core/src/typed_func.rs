@@ -517,18 +517,18 @@ macro_rules! impl_traits {
                     let func_env = func_ctx.func_env;
 
                     let func: &FN = match func_env {
-                        // The imported function is a closure with a
-                        // captured environment.
+                        // The imported function is a regular
+                        // function, a closure without a captured
+                        // environmet, or a closure with a captured
+                        // environment.
                         Some(func_env) => unsafe {
                             let func: NonNull<FN> = func_env.cast();
 
                             &*func.as_ptr()
                         },
 
-                        // The imported function is a regular function
-                        // or a closure without a captured
-                        // environment.
-                        None => unsafe { mem::transmute_copy(&()) }
+                        // This branch is supposed to be unreachable.
+                        None => unreachable!()
                     };
 
                     // Catch unwind in case of errors.
@@ -563,7 +563,7 @@ macro_rules! impl_traits {
                     // `FN` is a function pointer, or a closure
                     // _without_ a captured environment.
                     if mem::size_of::<Self>() == 0 {
-                        None
+                        NonNull::new(&self as *const _ as *mut vm::FuncEnv)
                     }
                     // `FN` is a closure _with_ a captured
                     // environment. Grab it.
@@ -613,18 +613,18 @@ macro_rules! impl_traits {
                     let func_env = func_ctx.func_env;
 
                     let func: &FN = match func_env {
-                        // The imported function is a closure with a
-                        // captured environment.
+                        // The imported function is a regular
+                        // function, a closure without a captured
+                        // environmet, or a closure with a captured
+                        // environment.
                         Some(func_env) => unsafe {
                             let func: NonNull<FN> = func_env.cast();
 
                             &*func.as_ptr()
                         },
 
-                        // The imported function is a regular function
-                        // or a closure without a captured
-                        // environment.
-                        None => unsafe { mem::transmute_copy(&()) }
+                        // This branch is supposed to be unreachable.
+                        None => unreachable!()
                     };
 
                     // Catch unwind in case of errors.
@@ -656,7 +656,7 @@ macro_rules! impl_traits {
                     // `FN` is a function pointer, or a closure
                     // _without_ a captured environment.
                     if mem::size_of::<Self>() == 0 {
-                        None
+                        NonNull::new(&self as *const _ as *mut vm::FuncEnv)
                     }
                     // `FN` is a closure _with_ a captured
                     // environment. Grab it.

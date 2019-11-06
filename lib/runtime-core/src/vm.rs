@@ -514,12 +514,18 @@ pub struct FuncEnv {
     _private: [u8; 0],
 }
 
-/// Represents a function context. It is used by imported function
+/// Represents a function context. It is used by imported functions
 /// only.
 #[derive(Debug)]
 #[repr(C)]
 pub(crate) struct FuncCtx {
+    /// The `Ctx` pointer.
     pub(crate) vmctx: NonNull<Ctx>,
+
+    /// A pointer to the function environment. It is used by imported
+    /// functions only to store the pointer to the real host function,
+    /// whether it is a regular function, or a closure with or without
+    /// a captured environment.
     pub(crate) func_env: Option<NonNull<FuncEnv>>,
 }
 
