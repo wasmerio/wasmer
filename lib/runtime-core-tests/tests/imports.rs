@@ -63,6 +63,7 @@ const SHIFT: i32 = 10;
 /// The shift that is captured in the environment of a closure. The
 /// value is part of the result returned by the imported function if
 /// the closure captures its environment properly.
+#[allow(non_upper_case_globals)]
 const shift: i32 = 100;
 
 fn imported_functions_forms(test: &dyn Fn(&Instance)) {
