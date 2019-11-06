@@ -4,6 +4,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::cell::Cell;
+use std::ops::Add;
 use wasmparser::BinaryReaderError;
 
 #[derive(Debug)]
@@ -68,22 +69,75 @@ impl ControlFrame {
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
-pub enum ExtraInfo {
-    None,
-
-    // This values is required to be arithmetic 32-bit NaN (or 32x4) by the WAsm
+pub struct ExtraInfo {
+    state: u8,
+}
+impl ExtraInfo {
+    // This value is required to be arithmetic 32-bit NaN (or 32x4) by the WAsm
     // machine, but which might not be in the LLVM value. The conversion to
     // arithmetic NaN is pending. It is required for correctness.
-    PendingF32NaN,
+    pub fn pending_f32_nan() -> ExtraInfo {
+        ExtraInfo { state: 1 }
+    }
 
-    // This values is required to be arithmetic 64-bit NaN (or 64x2) by the WAsm
+    // This value is required to be arithmetic 64-bit NaN (or 64x2) by the WAsm
     // machine, but which might not be in the LLVM value. The conversion to
     // arithmetic NaN is pending. It is required for correctness.
-    PendingF64NaN,
+    pub fn pending_f64_nan() -> ExtraInfo {
+        ExtraInfo { state: 2 }
+    }
+
+    // This value either does not contain a 32-bit NaN, or it contains an
+    // arithmetic NaN. In SIMD, applies to all 4 lanes.
+    pub fn arithmetic_f32() -> ExtraInfo {
+        ExtraInfo { state: 4 }
+    }
+
+    // This value either does not contain a 64-bit NaN, or it contains an
+    // arithmetic NaN. In SIMD, applies to both lanes.
+    pub fn arithmetic_f64() -> ExtraInfo {
+        ExtraInfo { state: 8 }
+    }
+
+    pub fn has_pending_f32_nan(&self) -> bool {
+        self.state & ExtraInfo::pending_f32_nan().state != 0
+    }
+    pub fn has_pending_f64_nan(&self) -> bool {
+        self.state & ExtraInfo::pending_f64_nan().state != 0
+    }
+    pub fn is_arithmetic_f32(&self) -> bool {
+        self.state & ExtraInfo::arithmetic_f32().state != 0
+    }
+    pub fn is_arithmetic_f64(&self) -> bool {
+        self.state & ExtraInfo::arithmetic_f64().state != 0
+    }
 }
 impl Default for ExtraInfo {
     fn default() -> Self {
-        ExtraInfo::None
+        ExtraInfo { state: 0 }
+    }
+}
+impl Add for ExtraInfo {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        assert!(self.has_pending_f32_nan() && other.has_pending_f64_nan());
+        assert!(self.has_pending_f64_nan() && other.has_pending_f32_nan());
+        ExtraInfo {
+            state: if self.is_arithmetic_f32() || other.is_arithmetic_f32() {
+                ExtraInfo::arithmetic_f32().state
+            } else if self.has_pending_f32_nan() || other.has_pending_f32_nan() {
+                ExtraInfo::pending_f32_nan().state
+            } else {
+                0
+            } + if self.is_arithmetic_f64() || other.is_arithmetic_f64() {
+                ExtraInfo::arithmetic_f64().state
+            } else if self.has_pending_f64_nan() || other.has_pending_f64_nan() {
+                ExtraInfo::pending_f64_nan().state
+            } else {
+                0
+            },
+        }
     }
 }
 
@@ -165,7 +219,7 @@ impl State {
     }
 
     pub fn push1<T: BasicValue>(&mut self, value: T) {
-        self.push1_extra(value, ExtraInfo::None);
+        self.push1_extra(value, Default::default());
     }
 
     pub fn push1_extra<T: BasicValue>(&mut self, value: T, info: ExtraInfo) {
