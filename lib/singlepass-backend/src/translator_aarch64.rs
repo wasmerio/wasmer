@@ -400,6 +400,57 @@ macro_rules! avx_fn {
     }
 }
 
+macro_rules! avx_fn_bitwise_inv {
+    ($ins:ident, $width:ident, $width_int:ident, $name:ident) => {
+        fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+            match src2 {
+                XMMOrMemory::XMM(src2) => dynasm!(self ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src1).v()), $width(map_xmm(src2).v())),
+                XMMOrMemory::Memory(base, disp) => {
+                    if disp >= 0 {
+                        dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
+                    } else {
+                        dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
+                    }
+
+                    dynasm!(self
+                        ; ldr $width_int(X_TMP1), [x_tmp3]
+                        ; mov v_tmp1.$width[0], $width_int(X_TMP1)
+                        ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src1).v()), $width(V_TMP1)
+                    );
+                }
+            }
+            dynasm!(self
+                ; mov $width_int(X_TMP1), V(map_xmm(dst).v()).$width[0]
+                ; mvn $width_int(X_TMP1), $width_int(X_TMP1)
+                ; mov V(map_xmm(dst).v()).$width[0], $width_int(X_TMP1)
+            );
+        }
+    }
+}
+
+macro_rules! avx_fn_reversed {
+    ($ins:ident, $width:ident, $width_int:ident, $name:ident) => {
+        fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+            match src2 {
+                XMMOrMemory::XMM(src2) => dynasm!(self ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src2).v()), $width(map_xmm(src1).v())),
+                XMMOrMemory::Memory(base, disp) => {
+                    if disp >= 0 {
+                        dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
+                    } else {
+                        dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
+                    }
+
+                    dynasm!(self
+                        ; ldr $width_int(X_TMP1), [x_tmp3]
+                        ; mov v_tmp1.$width[0], $width_int(X_TMP1)
+                        ; $ins $width(map_xmm(dst).v()), $width(V_TMP1), $width(map_xmm(src1).v())
+                    );
+                }
+            }
+        }
+    }
+}
+
 macro_rules! avx_fn_unop {
     ($ins:ident, $width:ident, $name:ident) => {
         fn $name(&mut self, src1: XMM, _src2: XMMOrMemory, dst: XMM) {
@@ -1312,20 +1363,6 @@ impl Emitter for Assembler {
         }
     }
 
-    // TODO: These instructions are only used in FP opcodes. Implement later.
-    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
-    }
-
     avx_fn!(fadd, S, W, emit_vaddss);
     avx_fn!(fsub, S, W, emit_vsubss);
     avx_fn!(fmul, S, W, emit_vmulss);
@@ -1333,8 +1370,11 @@ impl Emitter for Assembler {
     avx_fn!(fmax, S, W, emit_vmaxss);
     avx_fn!(fmin, S, W, emit_vminss);
     avx_fn!(fcmgt, S, W, emit_vcmpgtss);
+    avx_fn_reversed!(fcmgt, S, W, emit_vcmpltss); // b gt a <=> a lt b
     avx_fn!(fcmge, S, W, emit_vcmpgess);
+    avx_fn_bitwise_inv!(fcmgt, S, W, emit_vcmpless); // a not gt b <=> a le b
     avx_fn!(fcmeq, S, W, emit_vcmpeqss);
+    avx_fn_bitwise_inv!(fcmeq, S, W, emit_vcmpneqss); // a not eq b <=> a neq b
     avx_fn_unop!(fsqrt, S, emit_vsqrtss);
     avx_fn_unop!(frintn, S, emit_vroundss_nearest); // to nearest with ties to even
     avx_fn_unop!(frintm, S, emit_vroundss_floor); // toward minus infinity
@@ -1349,8 +1389,11 @@ impl Emitter for Assembler {
     avx_fn!(fmax, D, X, emit_vmaxsd);
     avx_fn!(fmin, D, X, emit_vminsd);
     avx_fn!(fcmgt, D, X, emit_vcmpgtsd);
+    avx_fn_reversed!(fcmgt, D, X, emit_vcmpltsd); // b gt a <=> a lt b
     avx_fn!(fcmge, D, X, emit_vcmpgesd);
+    avx_fn_bitwise_inv!(fcmgt, D, X, emit_vcmplesd); // a not gt b <=> a le b
     avx_fn!(fcmeq, D, X, emit_vcmpeqsd);
+    avx_fn_bitwise_inv!(fcmeq, D, X, emit_vcmpneqsd); // a not eq b <=> a neq b
     avx_fn_unop!(fsqrt, D, emit_vsqrtsd);
     avx_fn_unop!(frintn, D, emit_vroundsd_nearest); // to nearest with ties to even
     avx_fn_unop!(frintm, D, emit_vroundsd_floor); // toward minus infinity
@@ -1358,63 +1401,103 @@ impl Emitter for Assembler {
     avx_fn_unop!(frintz, D, emit_vroundsd_trunc); // toward zero
     avx_fn_cvt!(fcvt, D, S, emit_vcvtsd2ss);
 
-    fn emit_vcmpneqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+    fn arch_has_itruncf(&self) -> bool { true }
+    fn arch_emit_i32_trunc_sf32(&mut self, src: XMM, dst: GPR) {
+        dynasm!(self ; fcvtzs W(map_gpr(dst).x()), S(map_xmm(src).v()));
     }
-    fn emit_vcmpneqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+    fn arch_emit_i32_trunc_sf64(&mut self, src: XMM, dst: GPR) {
+        dynasm!(self ; fcvtzs W(map_gpr(dst).x()), D(map_xmm(src).v()));
+    }
+    fn arch_emit_i32_trunc_uf32(&mut self, src: XMM, dst: GPR) {
+        dynasm!(self ; fcvtzu W(map_gpr(dst).x()), S(map_xmm(src).v()));
+    }
+    fn arch_emit_i32_trunc_uf64(&mut self, src: XMM, dst: GPR) {
+        dynasm!(self ; fcvtzu W(map_gpr(dst).x()), D(map_xmm(src).v()));
+    }
+    fn arch_emit_i64_trunc_sf32(&mut self, src: XMM, dst: GPR) {
+        dynasm!(self ; fcvtzs X(map_gpr(dst).x()), S(map_xmm(src).v()));
+    }
+    fn arch_emit_i64_trunc_sf64(&mut self, src: XMM, dst: GPR) {
+        dynasm!(self ; fcvtzs X(map_gpr(dst).x()), D(map_xmm(src).v()));
+    }
+    fn arch_emit_i64_trunc_uf32(&mut self, src: XMM, dst: GPR) {
+        dynasm!(self ; fcvtzu X(map_gpr(dst).x()), S(map_xmm(src).v()));
+    }
+    fn arch_emit_i64_trunc_uf64(&mut self, src: XMM, dst: GPR) {
+        dynasm!(self ; fcvtzu X(map_gpr(dst).x()), D(map_xmm(src).v()));
     }
 
-    fn emit_vcmpltss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+    fn arch_has_fconverti(&self) -> bool { true }
+    fn arch_emit_f32_convert_si32(&mut self, src: GPR, dst: XMM) {
+        dynasm!(self ; scvtf S(map_xmm(dst).v()), W(map_gpr(src).x()));
     }
-    fn emit_vcmpltsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+    fn arch_emit_f32_convert_si64(&mut self, src: GPR, dst: XMM) {
+        dynasm!(self ; scvtf S(map_xmm(dst).v()), X(map_gpr(src).x()));
+    }
+    fn arch_emit_f32_convert_ui32(&mut self, src: GPR, dst: XMM) {
+        dynasm!(self ; ucvtf S(map_xmm(dst).v()), W(map_gpr(src).x()));
+    }
+    fn arch_emit_f32_convert_ui64(&mut self, src: GPR, dst: XMM) {
+        dynasm!(self ; ucvtf S(map_xmm(dst).v()), X(map_gpr(src).x()));
+    }
+    fn arch_emit_f64_convert_si32(&mut self, src: GPR, dst: XMM) {
+        dynasm!(self ; scvtf D(map_xmm(dst).v()), W(map_gpr(src).x()));
+    }
+    fn arch_emit_f64_convert_si64(&mut self, src: GPR, dst: XMM) {
+        dynasm!(self ; scvtf D(map_xmm(dst).v()), X(map_gpr(src).x()));
+    }
+    fn arch_emit_f64_convert_ui32(&mut self, src: GPR, dst: XMM) {
+        dynasm!(self ; ucvtf D(map_xmm(dst).v()), W(map_gpr(src).x()));
+    }
+    fn arch_emit_f64_convert_ui64(&mut self, src: GPR, dst: XMM) {
+        dynasm!(self ; ucvtf D(map_xmm(dst).v()), X(map_gpr(src).x()));
     }
 
-    fn emit_vcmpless(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+    // These instructions are only used in itruncf-type/fconverti-type opcodes.
+    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
+        unimplemented!();
     }
-    fn emit_vcmplesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
+        unimplemented!();
     }
-
-
+    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {
+        unimplemented!();
+    }
+    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) {
+        unimplemented!();
+    }
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
     fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
-
     fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
     fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
     fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
     fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
-
     fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
     fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
     fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
     fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
-
     fn emit_test_gpr_64(&mut self, reg: GPR) {
-        dynasm!(self ; .dword 0 ; .dword 29)
+        unimplemented!();
     }
 
     fn emit_ud2(&mut self) {

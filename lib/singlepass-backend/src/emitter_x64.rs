@@ -173,6 +173,26 @@ pub trait Emitter {
 
     fn emit_homomorphic_host_redirection(&mut self, target: GPR);
     fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType);
+
+    fn arch_has_itruncf(&self) -> bool { false }
+    fn arch_emit_i32_trunc_sf32(&mut self, _src: XMM, _dst: GPR) { unimplemented!() }
+    fn arch_emit_i32_trunc_sf64(&mut self, _src: XMM, _dst: GPR) { unimplemented!() }
+    fn arch_emit_i32_trunc_uf32(&mut self, _src: XMM, _dst: GPR) { unimplemented!() }
+    fn arch_emit_i32_trunc_uf64(&mut self, _src: XMM, _dst: GPR) { unimplemented!() }
+    fn arch_emit_i64_trunc_sf32(&mut self, _src: XMM, _dst: GPR) { unimplemented!() }
+    fn arch_emit_i64_trunc_sf64(&mut self, _src: XMM, _dst: GPR) { unimplemented!() }
+    fn arch_emit_i64_trunc_uf32(&mut self, _src: XMM, _dst: GPR) { unimplemented!() }
+    fn arch_emit_i64_trunc_uf64(&mut self, _src: XMM, _dst: GPR) { unimplemented!() }
+
+    fn arch_has_fconverti(&self) -> bool { false }
+    fn arch_emit_f32_convert_si32(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
+    fn arch_emit_f32_convert_si64(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
+    fn arch_emit_f32_convert_ui32(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
+    fn arch_emit_f32_convert_ui64(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
+    fn arch_emit_f64_convert_si32(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
+    fn arch_emit_f64_convert_si64(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
+    fn arch_emit_f64_convert_ui32(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
+    fn arch_emit_f64_convert_ui64(&mut self, _src: GPR, _dst: XMM) { unimplemented!() }
 }
 
 fn _dummy(a: &mut Assembler) {

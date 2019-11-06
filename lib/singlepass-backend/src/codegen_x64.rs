@@ -3277,24 +3277,48 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                Self::emit_f32_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
+                if a.arch_has_itruncf() {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    a.arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::GPR(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    Self::emit_f32_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
 
-                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                    a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
-                self.machine.release_temp_xmm(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                }
             }
 
             Operator::I32TruncSF32 => {
@@ -3306,30 +3330,55 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                Self::emit_f32_int_conv_check(
-                    a,
-                    &mut self.machine,
-                    tmp_in,
-                    -2147483904.0,
-                    2147483648.0,
-                );
+                if a.arch_has_itruncf() {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    a.arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::GPR(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    Self::emit_f32_int_conv_check(
+                        a,
+                        &mut self.machine,
+                        tmp_in,
+                        -2147483904.0,
+                        2147483648.0,
+                    );
 
-                self.machine.release_temp_xmm(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                    a.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                }
             }
 
             Operator::I64TruncSF32 => {
@@ -3341,47 +3390,57 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                Self::emit_f32_int_conv_check(
-                    a,
-                    &mut self.machine,
-                    tmp_in,
-                    -9223373136366403584.0,
-                    9223372036854775808.0,
-                );
-                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                if a.arch_has_itruncf() {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    a.arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::GPR(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.machine.release_temp_xmm(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    Self::emit_f32_int_conv_check(
+                        a,
+                        &mut self.machine,
+                        tmp_in,
+                        -9223373136366403584.0,
+                        9223372036854775808.0,
+                    );
+                    a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                }
             }
 
             Operator::I64TruncUF32 => {
-                /*
-                    ; movq xmm5, r15
-                    ; mov r15d, 1593835520u32 as i32 //float 9.22337203E+18
-                    ; movd xmm1, r15d
-                    ; movd xmm2, Rd(reg as u8)
-                    ; movd xmm3, Rd(reg as u8)
-                    ; subss xmm2, xmm1
-                    ; cvttss2si Rq(reg as u8), xmm2
-                    ; mov r15, QWORD 0x8000000000000000u64 as i64
-                    ; xor r15, Rq(reg as u8)
-                    ; cvttss2si Rq(reg as u8), xmm3
-                    ; ucomiss xmm3, xmm1
-                    ; cmovae Rq(reg as u8), r15
-                    ; movq r15, xmm5
-                */
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -3390,54 +3449,79 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                Self::emit_f32_int_conv_check(
-                    a,
-                    &mut self.machine,
-                    tmp_in,
-                    -1.0,
-                    18446744073709551616.0,
-                );
+                if a.arch_has_itruncf() {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    a.arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::GPR(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
-                let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
-                let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    Self::emit_f32_int_conv_check(
+                        a,
+                        &mut self.machine,
+                        tmp_in,
+                        -1.0,
+                        18446744073709551616.0,
+                    );
 
-                a.emit_mov(
-                    Size::S32,
-                    Location::Imm32(1593835520u32),
-                    Location::GPR(tmp),
-                ); //float 9.22337203E+18
-                a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
-                a.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                a.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(
-                    Size::S64,
-                    Location::Imm64(0x8000000000000000u64),
-                    Location::GPR(tmp),
-                );
-                a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                a.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                a.emit_cmovae_gpr_64(tmp, tmp_out);
-                a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                    let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
+                    let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
+                    let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
 
-                self.machine.release_temp_xmm(tmp_x2);
-                self.machine.release_temp_xmm(tmp_x1);
-                self.machine.release_temp_gpr(tmp);
-                self.machine.release_temp_xmm(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                    a.emit_mov(
+                        Size::S32,
+                        Location::Imm32(1593835520u32),
+                        Location::GPR(tmp),
+                    ); //float 9.22337203E+18
+                    a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
+                    a.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
+                    a.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                    a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Imm64(0x8000000000000000u64),
+                        Location::GPR(tmp),
+                    );
+                    a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                    a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                    a.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                    a.emit_cmovae_gpr_64(tmp, tmp_out);
+                    a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+
+                    self.machine.release_temp_xmm(tmp_x2);
+                    self.machine.release_temp_xmm(tmp_x1);
+                    self.machine.release_temp_gpr(tmp);
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                }
             }
 
             Operator::I32TruncUF64 => {
@@ -3449,24 +3533,49 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                Self::emit_f64_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
+                if a.arch_has_itruncf() {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    a.arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::GPR(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    Self::emit_f64_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
 
-                self.machine.release_temp_xmm(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                    a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                }
             }
 
             Operator::I32TruncSF64 => {
@@ -3478,35 +3587,60 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                let real_in = match loc {
-                    Location::Imm32(_) | Location::Imm64(_) => {
-                        a.emit_mov(Size::S64, loc, Location::GPR(tmp_out));
-                        a.emit_mov(Size::S64, Location::GPR(tmp_out), Location::XMM(tmp_in));
-                        tmp_in
-                    }
-                    Location::XMM(x) => x,
-                    _ => {
-                        a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
-                        tmp_in
-                    }
-                };
+                if a.arch_has_itruncf() {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    a.arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::GPR(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                Self::emit_f64_int_conv_check(
-                    a,
-                    &mut self.machine,
-                    real_in,
-                    -2147483649.0,
-                    2147483648.0,
-                );
+                    let real_in = match loc {
+                        Location::Imm32(_) | Location::Imm64(_) => {
+                            a.emit_mov(Size::S64, loc, Location::GPR(tmp_out));
+                            a.emit_mov(Size::S64, Location::GPR(tmp_out), Location::XMM(tmp_in));
+                            tmp_in
+                        }
+                        Location::XMM(x) => x,
+                        _ => {
+                            a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                            tmp_in
+                        }
+                    };
 
-                a.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
-                a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                    Self::emit_f64_int_conv_check(
+                        a,
+                        &mut self.machine,
+                        real_in,
+                        -2147483649.0,
+                        2147483648.0,
+                    );
 
-                self.machine.release_temp_xmm(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                    a.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
+                    a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                }
             }
 
             Operator::I64TruncSF64 => {
@@ -3518,30 +3652,55 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                Self::emit_f64_int_conv_check(
-                    a,
-                    &mut self.machine,
-                    tmp_in,
-                    -9223372036854777856.0,
-                    9223372036854775808.0,
-                );
+                if a.arch_has_itruncf() {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    a.arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::GPR(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    Self::emit_f64_int_conv_check(
+                        a,
+                        &mut self.machine,
+                        tmp_in,
+                        -9223372036854777856.0,
+                        9223372036854775808.0,
+                    );
 
-                self.machine.release_temp_xmm(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                    a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                }
             }
 
             Operator::I64TruncUF64 => {
@@ -3553,54 +3712,79 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                Self::emit_f64_int_conv_check(
-                    a,
-                    &mut self.machine,
-                    tmp_in,
-                    -1.0,
-                    18446744073709551616.0,
-                );
+                if a.arch_has_itruncf() {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    a.arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::GPR(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
-                let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
-                let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::XMM(tmp_in),
+                    );
+                    Self::emit_f64_int_conv_check(
+                        a,
+                        &mut self.machine,
+                        tmp_in,
+                        -1.0,
+                        18446744073709551616.0,
+                    );
 
-                a.emit_mov(
-                    Size::S64,
-                    Location::Imm64(4890909195324358656u64),
-                    Location::GPR(tmp),
-                ); //double 9.2233720368547758E+18
-                a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
-                a.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                a.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(
-                    Size::S64,
-                    Location::Imm64(0x8000000000000000u64),
-                    Location::GPR(tmp),
-                );
-                a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                a.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                a.emit_cmovae_gpr_64(tmp, tmp_out);
-                a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                    let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
+                    let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
+                    let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
 
-                self.machine.release_temp_xmm(tmp_x2);
-                self.machine.release_temp_xmm(tmp_x1);
-                self.machine.release_temp_gpr(tmp);
-                self.machine.release_temp_xmm(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Imm64(4890909195324358656u64),
+                        Location::GPR(tmp),
+                    ); //double 9.2233720368547758E+18
+                    a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
+                    a.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
+                    a.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                    a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Imm64(0x8000000000000000u64),
+                        Location::GPR(tmp),
+                    );
+                    a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                    a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                    a.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                    a.emit_cmovae_gpr_64(tmp, tmp_out);
+                    a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+
+                    self.machine.release_temp_xmm(tmp_x2);
+                    self.machine.release_temp_xmm(tmp_x1);
+                    self.machine.release_temp_gpr(tmp);
+                    self.machine.release_temp_xmm(tmp_in);
+                    self.machine.release_temp_gpr(tmp_out);
+                }
             }
 
             Operator::F32ConvertSI32 => {
@@ -3612,15 +3796,40 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
-                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                a.emit_vcvtsi2ss_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                if a.arch_has_fconverti() {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::GPR(tmp_in),
+                    );
+                    a.arch_emit_f32_convert_si32(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::XMM(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                self.machine.release_temp_gpr(tmp_in);
-                self.machine.release_temp_xmm(tmp_out);
+                    a.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+                    a.emit_vcvtsi2ss_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                }
             }
             Operator::F32ConvertUI32 => {
                 let loc =
@@ -3631,15 +3840,39 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
-                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                if a.arch_has_fconverti() {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::GPR(tmp_in),
+                    );
+                    a.arch_emit_f32_convert_ui32(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::XMM(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                    a.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+                    a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
 
-                self.machine.release_temp_gpr(tmp_in);
-                self.machine.release_temp_xmm(tmp_out);
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                }
             }
             Operator::F32ConvertSI64 => {
                 let loc =
@@ -3650,15 +3883,39 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
-                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                if a.arch_has_fconverti() {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::GPR(tmp_in),
+                    );
+                    a.arch_emit_f32_convert_si64(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::XMM(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                    a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                    a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
 
-                self.machine.release_temp_gpr(tmp_in);
-                self.machine.release_temp_xmm(tmp_out);
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                }
             }
             Operator::F32ConvertUI64 => {
                 let loc =
@@ -3669,31 +3926,55 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
-                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
+                if a.arch_has_fconverti() {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::GPR(tmp_in),
+                    );
+                    a.arch_emit_f32_convert_ui64(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::XMM(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
 
-                let do_convert = a.get_label();
-                let end_convert = a.get_label();
+                    let do_convert = a.get_label();
+                    let end_convert = a.get_label();
 
-                a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                a.emit_test_gpr_64(tmp_in);
-                a.emit_jmp(Condition::Signed, do_convert);
-                a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_jmp(Condition::None, end_convert);
-                a.emit_label(do_convert);
-                a.emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
-                a.emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
-                a.emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
-                a.emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
-                a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_vaddss(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
-                a.emit_label(end_convert);
-                a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                    a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                    a.emit_test_gpr_64(tmp_in);
+                    a.emit_jmp(Condition::Signed, do_convert);
+                    a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_jmp(Condition::None, end_convert);
+                    a.emit_label(do_convert);
+                    a.emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
+                    a.emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
+                    a.emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
+                    a.emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
+                    a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_vaddss(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
+                    a.emit_label(end_convert);
+                    a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
 
-                self.machine.release_temp_gpr(tmp);
-                self.machine.release_temp_gpr(tmp_in);
-                self.machine.release_temp_xmm(tmp_out);
+                    self.machine.release_temp_gpr(tmp);
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                }
             }
 
             Operator::F64ConvertSI32 => {
@@ -3705,15 +3986,40 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
-                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                a.emit_vcvtsi2sd_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                if a.arch_has_fconverti() {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::GPR(tmp_in),
+                    );
+                    a.arch_emit_f64_convert_si32(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::XMM(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                self.machine.release_temp_gpr(tmp_in);
-                self.machine.release_temp_xmm(tmp_out);
+                    a.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+                    a.emit_vcvtsi2sd_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                }
             }
             Operator::F64ConvertUI32 => {
                 let loc =
@@ -3724,15 +4030,40 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
-                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                a.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                if a.arch_has_fconverti() {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S32,
+                        loc,
+                        Location::GPR(tmp_in),
+                    );
+                    a.arch_emit_f64_convert_ui32(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::XMM(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                self.machine.release_temp_gpr(tmp_in);
-                self.machine.release_temp_xmm(tmp_out);
+                    a.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+                    a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                }
             }
             Operator::F64ConvertSI64 => {
                 let loc =
@@ -3743,15 +4074,40 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
-                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                if a.arch_has_fconverti() {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::GPR(tmp_in),
+                    );
+                    a.arch_emit_f64_convert_si64(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::XMM(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                self.machine.release_temp_gpr(tmp_in);
-                self.machine.release_temp_xmm(tmp_out);
+                    a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                    a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                }
             }
             Operator::F64ConvertUI64 => {
                 let loc =
@@ -3762,31 +4118,56 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
-                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
 
-                let do_convert = a.get_label();
-                let end_convert = a.get_label();
+                if a.arch_has_fconverti() {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::GPR(tmp_in),
+                    );
+                    a.arch_emit_f64_convert_ui64(tmp_in, tmp_out);
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::XMM(tmp_out),
+                        ret,
+                    );
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                } else {
+                    let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
 
-                a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                a.emit_test_gpr_64(tmp_in);
-                a.emit_jmp(Condition::Signed, do_convert);
-                a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_jmp(Condition::None, end_convert);
-                a.emit_label(do_convert);
-                a.emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
-                a.emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
-                a.emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
-                a.emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
-                a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                a.emit_vaddsd(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
-                a.emit_label(end_convert);
-                a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                    let do_convert = a.get_label();
+                    let end_convert = a.get_label();
 
-                self.machine.release_temp_gpr(tmp);
-                self.machine.release_temp_gpr(tmp_in);
-                self.machine.release_temp_xmm(tmp_out);
+                    a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                    a.emit_test_gpr_64(tmp_in);
+                    a.emit_jmp(Condition::Signed, do_convert);
+                    a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_jmp(Condition::None, end_convert);
+                    a.emit_label(do_convert);
+                    a.emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
+                    a.emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
+                    a.emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
+                    a.emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
+                    a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    a.emit_vaddsd(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
+                    a.emit_label(end_convert);
+                    a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+
+                    self.machine.release_temp_gpr(tmp);
+                    self.machine.release_temp_gpr(tmp_in);
+                    self.machine.release_temp_xmm(tmp_out);
+                }
             }
 
             Operator::Call { function_index } => {
