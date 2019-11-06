@@ -519,7 +519,7 @@ macro_rules! impl_traits {
                     let func: &FN = match func_env {
                         // The imported function is a regular
                         // function, a closure without a captured
-                        // environmet, or a closure with a captured
+                        // environment, or a closure with a captured
                         // environment.
                         Some(func_env) => unsafe {
                             let func: NonNull<FN> = func_env.cast();
@@ -566,7 +566,7 @@ macro_rules! impl_traits {
                         NonNull::new(&self as *const _ as *mut vm::FuncEnv)
                     }
                     // `FN` is a closure _with_ a captured
-                    // environment. Grab it.
+                    // environment.
                     else {
                         NonNull::new(Box::into_raw(Box::new(self))).map(NonNull::cast)
                     };
@@ -615,7 +615,7 @@ macro_rules! impl_traits {
                     let func: &FN = match func_env {
                         // The imported function is a regular
                         // function, a closure without a captured
-                        // environmet, or a closure with a captured
+                        // environment, or a closure with a captured
                         // environment.
                         Some(func_env) => unsafe {
                             let func: NonNull<FN> = func_env.cast();
@@ -659,7 +659,7 @@ macro_rules! impl_traits {
                         NonNull::new(&self as *const _ as *mut vm::FuncEnv)
                     }
                     // `FN` is a closure _with_ a captured
-                    // environment. Grab it.
+                    // environment.
                     else {
                         NonNull::new(Box::into_raw(Box::new(self))).map(NonNull::cast)
                     };
