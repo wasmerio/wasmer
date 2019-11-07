@@ -227,12 +227,13 @@ where
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
         func: NonNull<vm::Func>,
+        func_env: Option<NonNull<vm::FuncEnv>>,
         vmctx: *mut vm::Ctx,
     ) -> Func<'a, Args, Rets, Wasm> {
         Func {
             inner,
             func,
-            func_env: None,
+            func_env,
             vmctx,
             _phantom: PhantomData,
         }
@@ -724,7 +725,7 @@ where
     fn to_export(&self) -> Export {
         let func = unsafe { FuncPointer::new(self.func.as_ptr()) };
         let ctx = match self.func_env {
-            Some(func_env) => Context::ExternalWithEnv(self.vmctx, func_env),
+            func_env @ Some(_) => Context::ExternalWithEnv(self.vmctx, func_env),
             None => Context::Internal,
         };
         let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));

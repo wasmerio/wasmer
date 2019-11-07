@@ -600,11 +600,11 @@ fn import_functions(
                                         vmctx_
                                     }
                                 }
-                                _ => vmctx,
+                                Context::Internal => vmctx,
                             })
                             .expect("`vmctx` must not be null."),
                             func_env: match ctx {
-                                Context::ExternalWithEnv(_, func_env) => Some(func_env),
+                                Context::ExternalWithEnv(_, func_env) => func_env,
                                 _ => None,
                             },
                         })))

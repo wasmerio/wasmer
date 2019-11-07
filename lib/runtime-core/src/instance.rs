@@ -133,7 +133,7 @@ impl Instance {
                 .expect("wasm trampoline");
 
             let start_func: Func<(), (), Wasm> =
-                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, ctx_ptr) };
+                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, None, ctx_ptr) };
 
             start_func.call()?;
         }
@@ -214,20 +214,26 @@ impl Instance {
                 .get_trampoline(&self.module.info, sig_index)
                 .unwrap();
 
-            let func_ptr = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(local_func_index) => self
-                    .module
-                    .runnable_module
-                    .get_func(&self.module.info, local_func_index)
-                    .unwrap(),
-                LocalOrImport::Import(import_func_index) => NonNull::new(
-                    self.inner.import_backing.vm_functions[import_func_index].func as *mut _,
-                )
-                .unwrap(),
+            let (func_ptr, func_env) = match func_index.local_or_import(&self.module.info) {
+                LocalOrImport::Local(local_func_index) => (
+                    self.module
+                        .runnable_module
+                        .get_func(&self.module.info, local_func_index)
+                        .unwrap(),
+                    None,
+                ),
+                LocalOrImport::Import(import_func_index) => {
+                    let imported_func = &self.inner.import_backing.vm_functions[import_func_index];
+
+                    (
+                        NonNull::new(imported_func.func as *mut _).unwrap(),
+                        unsafe { imported_func.func_ctx.as_ref() }.func_env,
+                    )
+                }
             };
 
             let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, ctx) };
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
 
             Ok(typed_func)
         } else {
@@ -413,7 +419,7 @@ impl InstanceInner {
                     ctx: match ctx {
                         Context::Internal => Context::External(self.vmctx),
                         ctx @ Context::External(_) => ctx,
-                        func_ctx @ Context::ExternalWithEnv(_, _) => func_ctx,
+                        ctx @ Context::ExternalWithEnv(_, _) => ctx,
                     },
                     signature,
                 }
@@ -456,9 +462,11 @@ impl InstanceInner {
             ),
             LocalOrImport::Import(imported_func_index) => {
                 let imported_func = &self.import_backing.vm_functions[imported_func_index];
+                let func_ctx = unsafe { imported_func.func_ctx.as_ref() };
+
                 (
                     imported_func.func as *const _,
-                    Context::External(unsafe { imported_func.func_ctx.as_ref() }.vmctx.as_ptr()),
+                    Context::ExternalWithEnv(func_ctx.vmctx.as_ptr(), func_ctx.func_env),
                 )
             }
         };

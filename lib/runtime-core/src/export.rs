@@ -8,7 +8,7 @@ use std::{ptr::NonNull, sync::Arc};
 #[derive(Debug, Copy, Clone)]
 pub enum Context {
     External(*mut vm::Ctx),
-    ExternalWithEnv(*mut vm::Ctx, NonNull<vm::FuncEnv>),
+    ExternalWithEnv(*mut vm::Ctx, Option<NonNull<vm::FuncEnv>>),
     Internal,
 }
 
