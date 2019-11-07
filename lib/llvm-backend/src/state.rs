@@ -159,8 +159,16 @@ impl BitAnd for ExtraInfo {
     type Output = Self;
     fn bitand(self, other: Self) -> Self {
         // Pending canonicalizations are not safe to discard, or even reorder.
-        assert!(self.has_pending_f32_nan() == other.has_pending_f32_nan());
-        assert!(self.has_pending_f64_nan() == other.has_pending_f64_nan());
+        assert!(
+            self.has_pending_f32_nan() == other.has_pending_f32_nan()
+                || self.is_arithmetic_f32()
+                || other.is_arithmetic_f32()
+        );
+        assert!(
+            self.has_pending_f64_nan() == other.has_pending_f64_nan()
+                || self.is_arithmetic_f64()
+                || other.is_arithmetic_f64()
+        );
         let info = match (
             self.is_arithmetic_f32() && other.is_arithmetic_f32(),
             self.is_arithmetic_f64() && other.is_arithmetic_f64(),
