@@ -1055,7 +1055,7 @@ impl<'a> CtxType<'a> {
                 module.clone(),
                 intrinsics,
                 "global_ptr",
-                globals_array_ptr_ptr.as_instruction_value().unwrap(),
+                global_ptr.as_instruction_value().unwrap(),
                 Some(index as u32),
             );
 
