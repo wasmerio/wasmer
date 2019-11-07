@@ -2907,110 +2907,122 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             Operator::F32Add => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let i1 = i1 | ExtraInfo::pending_f32_nan();
-                let i2 = i2 | ExtraInfo::pending_f32_nan();
                 let res = builder.build_float_add(v1, v2, &state.var_name());
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                );
             }
             Operator::F64Add => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let i1 = i1 | ExtraInfo::pending_f64_nan();
-                let i2 = i2 | ExtraInfo::pending_f64_nan();
                 let res = builder.build_float_add(v1, v2, &state.var_name());
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                );
             }
             Operator::F32x4Add => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, i1) = v128_into_f32x4(builder, intrinsics, v1, i1);
                 let (v2, i2) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let i1 = i1 | ExtraInfo::pending_f32_nan();
-                let i2 = i2 | ExtraInfo::pending_f32_nan();
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                );
             }
             Operator::F64x2Add => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, i1) = v128_into_f64x2(builder, intrinsics, v1, i1);
                 let (v2, i2) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let i1 = i1 | ExtraInfo::pending_f64_nan();
-                let i2 = i2 | ExtraInfo::pending_f64_nan();
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                );
             }
             Operator::F32Sub => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let i1 = i1 | ExtraInfo::pending_f32_nan();
-                let i2 = i2 | ExtraInfo::pending_f32_nan();
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                );
             }
             Operator::F64Sub => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let i1 = i1 | ExtraInfo::pending_f64_nan();
-                let i2 = i2 | ExtraInfo::pending_f64_nan();
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                );
             }
             Operator::F32x4Sub => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, i1) = v128_into_f32x4(builder, intrinsics, v1, i1);
                 let (v2, i2) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let i1 = i1 | ExtraInfo::pending_f32_nan();
-                let i2 = i2 | ExtraInfo::pending_f32_nan();
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                );
             }
             Operator::F64x2Sub => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, i1) = v128_into_f64x2(builder, intrinsics, v1, i1);
                 let (v2, i2) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let i1 = i1 | ExtraInfo::pending_f64_nan();
-                let i2 = i2 | ExtraInfo::pending_f64_nan();
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                );
             }
             Operator::F32Mul => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let i1 = i1 | ExtraInfo::pending_f32_nan();
-                let i2 = i2 | ExtraInfo::pending_f32_nan();
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                );
             }
             Operator::F64Mul => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let i1 = i1 | ExtraInfo::pending_f64_nan();
-                let i2 = i2 | ExtraInfo::pending_f64_nan();
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                );
             }
             Operator::F32x4Mul => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, i1) = v128_into_f32x4(builder, intrinsics, v1, i1);
                 let (v2, i2) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let i1 = i1 | ExtraInfo::pending_f32_nan();
-                let i2 = i2 | ExtraInfo::pending_f32_nan();
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                );
             }
             Operator::F64x2Mul => {
                 let ((v1, i1), (v2, i2)) = state.pop2_extra()?;
                 let (v1, i1) = v128_into_f64x2(builder, intrinsics, v1, i1);
                 let (v2, i2) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let i1 = i1 | ExtraInfo::pending_f64_nan();
-                let i2 = i2 | ExtraInfo::pending_f64_nan();
                 let res = builder.build_float_mul(v1, v2, &state.var_name());
                 let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
-                state.push1_extra(res, i1 & i2);
+                state.push1_extra(
+                    res,
+                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                );
             }
             Operator::F32Div => {
                 let (v1, v2) = state.pop2()?;
