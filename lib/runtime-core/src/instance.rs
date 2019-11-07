@@ -413,6 +413,7 @@ impl InstanceInner {
                     ctx: match ctx {
                         Context::Internal => Context::External(self.vmctx),
                         ctx @ Context::External(_) => ctx,
+                        func_ctx @ Context::ExternalWithEnv(_, _) => func_ctx,
                     },
                     signature,
                 }
@@ -463,7 +464,6 @@ impl InstanceInner {
         };
 
         let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
-        // let signature = &module.info.signatures[sig_index];
 
         (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }

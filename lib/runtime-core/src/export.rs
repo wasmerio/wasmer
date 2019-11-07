@@ -3,11 +3,12 @@ use crate::{
     module::ModuleInner, table::Table, types::FuncSig, vm,
 };
 use indexmap::map::Iter as IndexMapIter;
-use std::sync::Arc;
+use std::{ptr::NonNull, sync::Arc};
 
 #[derive(Debug, Copy, Clone)]
 pub enum Context {
     External(*mut vm::Ctx),
+    ExternalWithEnv(*mut vm::Ctx, NonNull<vm::FuncEnv>),
     Internal,
 }
 

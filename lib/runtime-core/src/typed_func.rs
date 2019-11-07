@@ -724,11 +724,7 @@ where
     fn to_export(&self) -> Export {
         let func = unsafe { FuncPointer::new(self.func.as_ptr()) };
         let ctx = match self.func_env {
-            Some(func_env) => Context::External(func_env.cast().as_ptr()),
-            //                                           ^^^^^^
-            //                                           `Context::External` expects a `vm::Ctx`.
-            //                                           Casting to `vm::FuncCtx` happens in the
-            //                                           `backing` module.
+            Some(func_env) => Context::ExternalWithEnv(self.vmctx, func_env),
             None => Context::Internal,
         };
         let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));

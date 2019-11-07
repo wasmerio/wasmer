@@ -591,16 +591,21 @@ fn import_functions(
                             //                      ^^^^^^^^ `vm::FuncCtx` is purposely leaked.
                             //                               It is dropped by the specific `Drop`
                             //                               implementation of `ImportBacking`.
-                            vmctx: NonNull::new(vmctx).expect("`vmctx` must not be null."),
-                            func_env: match ctx {
-                                Context::External(ctx) => {
-                                    NonNull::new(ctx).map(NonNull::cast)
-                                    //                    ^^^^^^^^^^^^^
-                                    //                    `*mut vm::FuncEnv` was casted to
-                                    //                    `*mut vm::Ctx` to fit in
-                                    //                    `Context::External`. Cast it back.
+                            vmctx: NonNull::new(match ctx {
+                                Context::External(vmctx) => vmctx,
+                                Context::ExternalWithEnv(vmctx_, _) => {
+                                    if vmctx_.is_null() {
+                                        vmctx
+                                    } else {
+                                        vmctx_
+                                    }
                                 }
-                                Context::Internal => None,
+                                _ => vmctx,
+                            })
+                            .expect("`vmctx` must not be null."),
+                            func_env: match ctx {
+                                Context::ExternalWithEnv(_, func_env) => Some(func_env),
+                                _ => None,
                             },
                         })))
                         .unwrap(),
