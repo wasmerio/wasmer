@@ -115,7 +115,7 @@ impl ExtraInfo {
     pub fn strip_pending(&self) -> ExtraInfo {
         ExtraInfo {
             state: self.state
-                & !(ExtraInfo::arithmetic_f32().state | ExtraInfo::arithmetic_f64().state),
+                & !(ExtraInfo::pending_f32_nan().state | ExtraInfo::pending_f64_nan().state),
         }
     }
 }
@@ -154,13 +154,14 @@ impl BitOrAssign for ExtraInfo {
     }
 }
 
-// Intersection for ExtraInfo. Does not check the "pending" bits, since those
-// aren't safe to discard (or even to reorder). Callers are assumed to be in a
-// situation where the result will have a pending bit set unconditionally.
+// Intersection for ExtraInfo.
 impl BitAnd for ExtraInfo {
     type Output = Self;
     fn bitand(self, other: Self) -> Self {
-        match (
+        // Pending canonicalizations are not safe to discard, or even reorder.
+        assert!(self.has_pending_f32_nan() == other.has_pending_f32_nan());
+        assert!(self.has_pending_f64_nan() == other.has_pending_f64_nan());
+        let info = match (
             self.is_arithmetic_f32() && other.is_arithmetic_f32(),
             self.is_arithmetic_f64() && other.is_arithmetic_f64(),
         ) {
@@ -168,7 +169,14 @@ impl BitAnd for ExtraInfo {
             (true, false) => ExtraInfo::arithmetic_f32(),
             (false, true) => ExtraInfo::arithmetic_f64(),
             (true, true) => ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
-        }
+        };
+        let info = match (self.has_pending_f32_nan(), self.has_pending_f64_nan()) {
+            (false, false) => info,
+            (true, false) => info | ExtraInfo::pending_f32_nan(),
+            (false, true) => info | ExtraInfo::pending_f64_nan(),
+            (true, true) => panic!(""),
+        };
+        info
     }
 }
 
