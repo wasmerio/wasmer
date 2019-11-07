@@ -4,7 +4,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::cell::Cell;
-use std::ops::Add;
+use std::ops::{BitAnd, BitOr, BitOrAssign};
 use wasmparser::BinaryReaderError;
 
 #[derive(Debug)]
@@ -111,18 +111,26 @@ impl ExtraInfo {
     pub fn is_arithmetic_f64(&self) -> bool {
         self.state & ExtraInfo::arithmetic_f64().state != 0
     }
+
+    pub fn strip_pending(&self) -> ExtraInfo {
+        ExtraInfo {
+            state: self.state
+                & !(ExtraInfo::arithmetic_f32().state | ExtraInfo::arithmetic_f64().state),
+        }
+    }
 }
 impl Default for ExtraInfo {
     fn default() -> Self {
         ExtraInfo { state: 0 }
     }
 }
-impl Add for ExtraInfo {
+// Union two ExtraInfos.
+impl BitOr for ExtraInfo {
     type Output = Self;
 
-    fn add(self, other: Self) -> Self {
-        assert!(self.has_pending_f32_nan() && other.has_pending_f64_nan());
-        assert!(self.has_pending_f64_nan() && other.has_pending_f32_nan());
+    fn bitor(self, other: Self) -> Self {
+        assert!(!(self.has_pending_f32_nan() && other.has_pending_f64_nan()));
+        assert!(!(self.has_pending_f64_nan() && other.has_pending_f32_nan()));
         ExtraInfo {
             state: if self.is_arithmetic_f32() || other.is_arithmetic_f32() {
                 ExtraInfo::arithmetic_f32().state
@@ -137,6 +145,29 @@ impl Add for ExtraInfo {
             } else {
                 0
             },
+        }
+    }
+}
+impl BitOrAssign for ExtraInfo {
+    fn bitor_assign(&mut self, other: Self) {
+        *self = *self | other;
+    }
+}
+
+// Intersection for ExtraInfo. Does not check the "pending" bits, since those
+// aren't safe to discard (or even to reorder). Callers are assumed to be in a
+// situation where the result will have a pending bit set unconditionally.
+impl BitAnd for ExtraInfo {
+    type Output = Self;
+    fn bitand(self, other: Self) -> Self {
+        match (
+            self.is_arithmetic_f32() && other.is_arithmetic_f32(),
+            self.is_arithmetic_f64() && other.is_arithmetic_f64(),
+        ) {
+            (false, false) => Default::default(),
+            (true, false) => ExtraInfo::arithmetic_f32(),
+            (false, true) => ExtraInfo::arithmetic_f64(),
+            (true, true) => ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
         }
     }
 }
@@ -249,15 +280,6 @@ impl State {
         let v2 = self.pop1_extra()?;
         let v1 = self.pop1_extra()?;
         Ok((v1, v2))
-    }
-
-    pub fn pop3(
-        &mut self,
-    ) -> Result<(BasicValueEnum, BasicValueEnum, BasicValueEnum), BinaryReaderError> {
-        let v3 = self.pop1()?;
-        let v2 = self.pop1()?;
-        let v1 = self.pop1()?;
-        Ok((v1, v2, v3))
     }
 
     pub fn pop3_extra(
