@@ -1037,7 +1037,7 @@ impl<'a> CtxType<'a> {
                 module.clone(),
                 intrinsics,
                 field_name,
-                globals_array_ptr_ptr.as_instruction_value().unwrap(),
+                global_array_ptr.as_instruction_value().unwrap(),
                 None,
             );
             let const_index = intrinsics.i32_ty.const_int(index, false);
