@@ -22,6 +22,7 @@ use inkwell::{
 use smallvec::SmallVec;
 use std::{
     cell::RefCell,
+    collections::HashMap,
     rc::Rc,
     sync::{Arc, RwLock},
 };
@@ -851,6 +852,7 @@ pub struct LLVMModuleCodeGenerator {
     signatures: Map<SigIndex, FunctionType>,
     signatures_raw: Map<SigIndex, FuncSig>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
+    llvm_functions: HashMap<FuncIndex, FunctionValue>,
     func_import_count: usize,
     personality_func: FunctionValue,
     module: Rc<RefCell<Module>>,
@@ -8019,6 +8021,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             signatures: Map::new(),
             signatures_raw: Map::new(),
             function_signatures: None,
+            llvm_functions: HashMap::new(),
             func_import_count: 0,
             personality_func,
             stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
@@ -8053,15 +8056,11 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             ),
         };
 
-        let sig_id = self.function_signatures.as_ref().unwrap()
-            [FuncIndex::new(self.func_import_count + self.functions.len())];
+        let func_index = FuncIndex::new(self.func_import_count + self.functions.len());
+        let sig_id = self.function_signatures.as_ref().unwrap()[func_index];
         let func_sig = self.signatures_raw[sig_id].clone();
 
-        let function = self.module.borrow_mut().add_function(
-            &format!("fn{}", self.func_import_count + self.functions.len()),
-            self.signatures[sig_id],
-            Some(Linkage::External),
-        );
+        let function = &self.llvm_functions[&func_index];
         function.set_personality_function(self.personality_func);
 
         let mut state = State::new();
@@ -8119,7 +8118,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             builder: Some(builder),
             alloca_builder: Some(alloca_builder),
             intrinsics: Some(intrinsics),
-            function,
+            function: *function,
             func_sig: func_sig,
             locals,
             signatures: self.signatures.clone(),
@@ -8233,6 +8232,14 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         &mut self,
         assoc: Map<FuncIndex, SigIndex>,
     ) -> Result<(), CodegenError> {
+        for (index, sig_id) in &assoc {
+            let function = self.module.borrow_mut().add_function(
+                &format!("fn{}", index.index()),
+                self.signatures[*sig_id],
+                Some(Linkage::External),
+            );
+            self.llvm_functions.insert(index, function);
+        }
         self.function_signatures = Some(Arc::new(assoc));
         Ok(())
     }
