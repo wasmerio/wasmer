@@ -83,7 +83,7 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         .arg("+nightly")
         .arg("--target=wasm32-wasi")
         .arg("-C")
-        .arg("opt-level=s")
+        .arg("opt-level=z")
         .arg(file)
         .arg("-o")
         .arg(&wasm_out_name)
