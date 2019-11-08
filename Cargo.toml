@@ -7,6 +7,7 @@ repository = "https://github.com/wasmerio/wasmer"
 publish = true
 description = "High-Performance WebAssembly JIT interpreter"
 license = "MIT"
+default-run = "wasmer"
 include = [
     "examples/**/*",
     "src/**/*",
