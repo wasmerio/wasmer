@@ -8228,12 +8228,14 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         assoc: Map<FuncIndex, SigIndex>,
     ) -> Result<(), CodegenError> {
         for (index, sig_id) in &assoc {
-            let function = self.module.borrow_mut().add_function(
-                &format!("fn{}", index.index()),
-                self.signatures[*sig_id],
-                Some(Linkage::External),
-            );
-            self.llvm_functions.borrow_mut().insert(index, function);
+            if index.index() >= self.func_import_count {
+                let function = self.module.borrow_mut().add_function(
+                    &format!("fn{}", index.index()),
+                    self.signatures[*sig_id],
+                    Some(Linkage::External),
+                );
+                self.llvm_functions.borrow_mut().insert(index, function);
+            }
         }
         self.function_signatures = Some(Arc::new(assoc));
         Ok(())
