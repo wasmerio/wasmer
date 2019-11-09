@@ -35,14 +35,17 @@ fn main() {
         file_handle.write(STR2.as_bytes()).unwrap();
     }
 
-    let mut file_handle = OpenOptions::new()
-        .read(true)
-        .open(&file)
-        .expect("Couldn't reopen file to read");
+    {
+        let mut file_handle = OpenOptions::new()
+            .read(true)
+            .open(&file)
+            .expect("Couldn't reopen file to read");
 
-    let mut test = String::new();
-    file_handle.read_to_string(&mut test);
+        let mut test = String::new();
+        file_handle.read_to_string(&mut test);
 
-    assert_eq!(&test, &format!("{}{}", STR1, STR2));
-    println!("{:?}", &test);
+        assert_eq!(&test, &format!("{}{}", STR1, STR2));
+        println!("{:?}", &test);
+    }
+    std::fs::remove_file(&file).unwrap();
 }
