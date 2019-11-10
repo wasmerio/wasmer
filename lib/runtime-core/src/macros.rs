@@ -1,3 +1,5 @@
+/// Prints a log message with args, similar to println, when the debug feature is enabled.
+/// If the debug feature is disabled, arguments are not evaluated or printed.
 #[macro_export]
 #[cfg(feature = "debug")]
 macro_rules! debug {
