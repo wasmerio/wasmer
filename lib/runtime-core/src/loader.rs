@@ -133,14 +133,17 @@ unsafe impl Sync for CodeMemory {}
 
 #[cfg(not(unix))]
 impl CodeMemory {
+    /// Creates a new code memory with the given size.
     pub fn new(_size: usize) -> CodeMemory {
         unimplemented!("CodeMemory::new");
     }
 
+    /// Makes this code memory executable.
     pub fn make_executable(&self) {
         unimplemented!("CodeMemory::make_executable");
     }
 
+    /// Makes this code memory writable.
     pub fn make_writable(&self) {
         unimplemented!("CodeMemory::make_writable");
     }
