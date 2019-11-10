@@ -1,0 +1,9 @@
+arch:
+  - arm64
+
+language: rust
+rust:
+  - nightly
+
+script:
+  - make spectests-singlepass
