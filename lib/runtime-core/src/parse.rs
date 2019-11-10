@@ -136,11 +136,13 @@ pub fn read_module<
                             .push((import_name, table_desc));
                     }
                     ImportSectionEntryType::Memory(memory_ty) => {
-                        let mem_desc = MemoryDescriptor {
-                            minimum: Pages(memory_ty.limits.initial),
-                            maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
-                            shared: memory_ty.shared,
-                        };
+                        let mem_desc = MemoryDescriptor::new(
+                            Pages(memory_ty.limits.initial),
+                            memory_ty.limits.maximum.map(|max| Pages(max)),
+                            memory_ty.shared,
+                        )
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+
                         info.write()
                             .unwrap()
                             .imported_memories
@@ -172,11 +174,12 @@ pub fn read_module<
                 info.write().unwrap().tables.push(table_desc);
             }
             ParserState::MemorySectionEntry(memory_ty) => {
-                let mem_desc = MemoryDescriptor {
-                    minimum: Pages(memory_ty.limits.initial),
-                    maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
-                    shared: memory_ty.shared,
-                };
+                let mem_desc = MemoryDescriptor::new(
+                    Pages(memory_ty.limits.initial),
+                    memory_ty.limits.maximum.map(|max| Pages(max)),
+                    memory_ty.shared,
+                )
+                .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
 
                 info.write().unwrap().memories.push(mem_desc);
             }
@@ -392,14 +395,19 @@ pub fn read_module<
 }
 
 pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
-    Ok(match ty {
-        WpType::I32 => Type::I32,
-        WpType::I64 => Type::I64,
-        WpType::F32 => Type::F32,
-        WpType::F64 => Type::F64,
-        WpType::V128 => Type::V128,
-        _ => panic!("broken invariant, invalid type"),
-    })
+    match ty {
+        WpType::I32 => Ok(Type::I32),
+        WpType::I64 => Ok(Type::I64),
+        WpType::F32 => Ok(Type::F32),
+        WpType::F64 => Ok(Type::F64),
+        WpType::V128 => Ok(Type::V128),
+        _ => {
+            return Err(BinaryReaderError {
+                message: "broken invariant, invalid type",
+                offset: -1isize as usize,
+            });
+        }
+    }
 }
 
 pub fn type_to_wp_type(ty: Type) -> WpType {

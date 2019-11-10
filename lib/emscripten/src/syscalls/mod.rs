@@ -10,7 +10,10 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
-use crate::utils::{copy_stat_into_wasm, get_cstr_path, get_current_directory};
+use crate::{
+    ptr::{Array, WasmPtr},
+    utils::{copy_stat_into_wasm, get_cstr_path, get_current_directory},
+};
 
 use super::varargs::VarArgs;
 use byteorder::{ByteOrder, LittleEndian};
@@ -40,10 +43,7 @@ use libc::{
     write,
     // ENOTTY,
 };
-use wasmer_runtime_core::{
-    memory::ptr::{Array, WasmPtr},
-    vm::Ctx,
-};
+use wasmer_runtime_core::vm::Ctx;
 
 use super::env;
 use std::cell::Cell;

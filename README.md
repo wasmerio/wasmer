@@ -21,7 +21,7 @@
 
 ## Introduction
 
-[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime, for running WebAssembly [outside of the Browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
+[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
 
 Install the Wasmer CLI with:
 
@@ -44,9 +44,10 @@ Wasmer runtime can be used as a library embedded in different languages, so you 
 | ![PHP logo](./docs/assets/languages/php.svg) | [**PHP**](https://github.com/wasmerio/php-ext-wasm) | Wasmer | actively developed | <a href="https://pecl.php.net/package/wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/php-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/php-ext-wasm?style=flat-square) |
 | ![Ruby logo](./docs/assets/languages/ruby.svg) | [**Ruby**](https://github.com/wasmerio/ruby-ext-wasm) | Wasmer | actively developed | <a href="https://rubygems.org/gems/wasmer" target="_blank">![last release](https://img.shields.io/gem/v/wasmer?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/ruby-ext-wasm?style=flat-square) |
 | ![Postgres logo](./docs/assets/languages/postgres.svg) | [**Postgres**](https://github.com/wasmerio/postgres-ext-wasm) | Wasmer | actively developed | <a href="https://github.com/wasmerio/postgres-ext-wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/postgres-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/postgres-ext-wasm?style=flat-square) |
+| ![JS Logo](./docs/assets/languages/js.svg) | [**JavaScript**](https://github.com/wasmerio/wasmer-js) | Wasmer | actively developed | <a href="https://www.npmjs.com/package/@wasmer/wasi" target="_blank">![last release](https://img.shields.io/npm/v/@wasmer/wasi?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer-js?style=flat-square) |
 | ![C# logo](./docs/assets/languages/csharp.svg) | [**C#/.Net**](https://github.com/migueldeicaza/WasmerSharp) | [Miguel de Icaza](https://github.com/migueldeicaza) | actively developed | <a href="https://www.nuget.org/packages/WasmerSharp/" target="_blank">![last release](https://img.shields.io/nuget/v/WasmerSharp?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/migueldeicaza/WasmerSharp?style=flat-square) |
 | ![R logo](./docs/assets/languages/r.svg) | [**R**](https://github.com/dirkschumacher/wasmr) | [Dirk Schumacher](https://github.com/dirkschumacher) | actively developed | | ![number of Github stars](https://img.shields.io/github/stars/dirkschumacher/wasmr?style=flat-square) |
-| ![Swift logo](./docs/assets/languages/swift.svg) | [**Swift**](https://github.com/markmals/swift-ext-wasm) | [Mark Malström](https://github.com/markmals/) | passively maintened | | ![number of Github stars](https://img.shields.io/github/stars/markmals/swift-ext-wasm?style=flat-square) |
+| ![Swift logo](./docs/assets/languages/swift.svg) | [**Swift**](https://github.com/markmals/swift-ext-wasm) | [Mark Malström](https://github.com/markmals/) | passively maintained | | ![number of Github stars](https://img.shields.io/github/stars/markmals/swift-ext-wasm?style=flat-square) |
 | ❓ | [your language is missing?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=) | | | |
 
 ### Usage
@@ -63,12 +64,12 @@ wasmer run examples/lua.wasm
 
 *You can find more `wasm/wat` examples in the [examples](./examples) directory.*
 
-#### With WAPM
+#### With wapm
 
 Installing Wasmer through `wasmer.io` includes
 [`wapm`](https://github.com/wasmerio/wapm-cli), the [WebAssembly Package Manager](https://wapm.io/).
 
-Wapm allows you to easily download, run, and distribute WebAssembly binaries.
+wapm allows you to easily download, run, and distribute WebAssembly binaries.
 
 ```sh
 # Install cowsay globally
@@ -87,7 +88,7 @@ Wasmer is structured into different directories:
 
 - [`src`](./src): code related to the Wasmer executable itself
 - [`lib`](./lib): modularized libraries that Wasmer uses under the hood
-- [`examples`](./examples): some useful examples to getting started with Wasmer
+- [`examples`](./examples): some useful examples for getting started with Wasmer
 
 ## Dependencies
 
@@ -118,7 +119,7 @@ If you have [Homebrew](https://brew.sh/) installed:
 brew install cmake
 ```
 
-Or, in case you have [MacPorts](https://www.macports.org/install.php):
+Or, if you have [MacPorts](https://www.macports.org/install.php):
 
 ```sh
 sudo port install cmake
@@ -136,6 +137,7 @@ sudo port install cmake
 ```sh
 sudo apt install cmake pkg-config libssl-dev
 ```
+
   </p>
 </details>
 
@@ -148,6 +150,7 @@ sudo apt install cmake pkg-config libssl-dev
 ```sh
 pkg install cmake
 ```
+
   </p>
 </details>
 
@@ -157,7 +160,7 @@ pkg install cmake
 
 #### Windows (MSVC)
 
-Windows support is _experimental_. WASI is fully supported, but Emscripten support is on the works (this means
+Windows support is _experimental_. WASI is fully supported, but Emscripten support is in the works (this means
 nginx and Lua do not work on Windows - you can track the progress on [this issue](https://github.com/wasmerio/wasmer/issues/176)).
 
 1. Install [Visual Studio](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=15)
@@ -173,24 +176,27 @@ nginx and Lua do not work on Windows - you can track the progress on [this issue
 5. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
 
 6. Install [LLVM 8.0](https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe)
-  </p>
-</details>
+     </p>
+   </details>
 
 ## Building
-[![Rustc Version 1.36+](https://img.shields.io/badge/rustc-1.36+-red.svg?style=flat-square)](https://blog.rust-lang.org/2019/07/04/Rust-1.36.0.html)
+
+[![Rustc Version 1.38+](https://img.shields.io/badge/rustc-1.37+-red.svg?style=flat-square)](https://blog.rust-lang.org/2019/09/26/Rust-1.38.0.html)
 
 Wasmer is built with [Cargo](https://crates.io/), the Rust package manager.
 
 The Singlepass backend requires nightly, so if you want to use it,
 
 Set Rust Nightly:
+
 ```
 rustup default nightly
 ```
 
-Otherwise an up to date (see badge above) verison of stable Rust will work.
+Otherwise an up to date (see badge above) version of stable Rust will work.
 
 And install Wasmer
+
 ```sh
 # checkout code
 git clone https://github.com/wasmerio/wasmer.git
@@ -236,7 +242,6 @@ Each integration can be tested separately:
 * Middleware: `make middleware`
 * C API: `make capi`
 
-
 ## Benchmarking
 
 Benchmarks can be run with:
@@ -258,7 +263,7 @@ Below are some of the goals of this project (in order of priority):
 - [x] It should be fast _(partially achieved)_
 - [x] Support WASI - released in [0.3.0](https://github.com/wasmerio/wasmer/releases/tag/0.3.0)
 - [x] Support Emscripten calls _(in the works)_
-- [ ] Support Go js ABI calls
+- [ ] Support Go JS ABI calls
 
 ## Architecture
 

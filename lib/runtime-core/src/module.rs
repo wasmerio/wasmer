@@ -29,7 +29,7 @@ pub struct ModuleInner {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleInfo {
-    // This are strictly local and the typsystem ensures that.
+    // This are strictly local and the typesystem ensures that.
     pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,
     pub globals: Map<LocalGlobalIndex, GlobalInit>,
     pub tables: Map<LocalTableIndex, TableDescriptor>,

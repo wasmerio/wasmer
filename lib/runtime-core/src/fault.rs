@@ -228,7 +228,7 @@ pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
 
         // NOTE: Keep this consistent with `image-loading-*.s`.
         stack[end_offset - 4 - 10] = &mut ctx as *mut Context<F, R> as usize as u64; // rdi
-        const NUM_SAVED_REGISTERS: usize = 23;
+        const NUM_SAVED_REGISTERS: usize = 31;
         let stack_begin = stack
             .as_mut_ptr()
             .offset((end_offset - 4 - NUM_SAVED_REGISTERS) as isize);
@@ -352,17 +352,14 @@ extern "C" fn signal_trap_handler(
                 let image = build_instance_image(ctx, es_image);
                 unwind_result = Box::new(image);
             } else {
-                use colored::*;
                 if es_image.frames.len() > 0 {
                     eprintln!(
                         "\n{}",
                         "Wasmer encountered an error while running your WebAssembly program."
-                            .bold()
-                            .red()
                     );
                     es_image.print_backtrace_if_needed();
                 }
-                // Just let the error propagate otherrwise
+                // Just let the error propagate otherwise
             }
 
             true
@@ -420,7 +417,7 @@ unsafe fn install_sighandler() {
 pub struct FaultInfo {
     pub faulting_addr: *const c_void,
     pub ip: &'static Cell<usize>,
-    pub known_registers: [Option<u64>; 24],
+    pub known_registers: [Option<u64>; 32],
 }
 
 impl FaultInfo {
@@ -533,7 +530,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     let ucontext = ucontext as *mut ucontext_t;
     let gregs = &mut (*ucontext).uc_mcontext.gregs;
 
-    let mut known_registers: [Option<u64>; 24] = [None; 24];
+    let mut known_registers: [Option<u64>; 32] = [None; 32];
     known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[REG_R15 as usize] as _);
     known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs[REG_R14 as usize] as _);
     known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(gregs[REG_R13 as usize] as _);
@@ -552,10 +549,8 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[REG_RBP as usize] as _);
     known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[REG_RSP as usize] as _);
 
-    // WSL bug
     if !(*ucontext).uc_mcontext.fpregs.is_null() {
         let fpregs = &*(*ucontext).uc_mcontext.fpregs;
-
         known_registers[X64Register::XMM(XMM::XMM0).to_index().0] = Some(read_xmm(&fpregs._xmm[0]));
         known_registers[X64Register::XMM(XMM::XMM1).to_index().0] = Some(read_xmm(&fpregs._xmm[1]));
         known_registers[X64Register::XMM(XMM::XMM2).to_index().0] = Some(read_xmm(&fpregs._xmm[2]));
@@ -564,6 +559,14 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
         known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(read_xmm(&fpregs._xmm[5]));
         known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(read_xmm(&fpregs._xmm[6]));
         known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
+        known_registers[X64Register::XMM(XMM::XMM8).to_index().0] = Some(read_xmm(&fpregs._xmm[8]));
+        known_registers[X64Register::XMM(XMM::XMM9).to_index().0] = Some(read_xmm(&fpregs._xmm[9]));
+        known_registers[X64Register::XMM(XMM::XMM10).to_index().0] = Some(read_xmm(&fpregs._xmm[10]));
+        known_registers[X64Register::XMM(XMM::XMM11).to_index().0] = Some(read_xmm(&fpregs._xmm[11]));
+        known_registers[X64Register::XMM(XMM::XMM12).to_index().0] = Some(read_xmm(&fpregs._xmm[12]));
+        known_registers[X64Register::XMM(XMM::XMM13).to_index().0] = Some(read_xmm(&fpregs._xmm[13]));
+        known_registers[X64Register::XMM(XMM::XMM14).to_index().0] = Some(read_xmm(&fpregs._xmm[14]));
+        known_registers[X64Register::XMM(XMM::XMM15).to_index().0] = Some(read_xmm(&fpregs._xmm[15]));
     }
 
     FaultInfo {
@@ -618,8 +621,17 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     }
     #[repr(C)]
     struct fpstate {
-        _unused: [u8; 168],
-        xmm: [[u64; 2]; 8],
+        _cwd: u16,
+        _swd: u16,
+        _ftw: u16,
+        _fop: u16,
+        _rip: u64,
+        _rdp: u64,
+        _mxcsr: u32,
+        _mxcr_mask: u32,
+        _st: [[u16; 8]; 8],
+        xmm: [[u64; 2]; 16],
+        _padding: [u32; 24],
     }
     #[allow(dead_code)]
     #[repr(C)]
@@ -636,7 +648,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     let ss = &mut (*(*ucontext).uc_mcontext).ss;
     let fs = &(*(*ucontext).uc_mcontext).fs;
 
-    let mut known_registers: [Option<u64>; 24] = [None; 24];
+    let mut known_registers: [Option<u64>; 32] = [None; 32];
 
     known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(ss.r15);
     known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(ss.r14);
@@ -664,6 +676,14 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(fs.xmm[5][0]);
     known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(fs.xmm[6][0]);
     known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(fs.xmm[7][0]);
+    known_registers[X64Register::XMM(XMM::XMM8).to_index().0] = Some(fs.xmm[8][0]);
+    known_registers[X64Register::XMM(XMM::XMM9).to_index().0] = Some(fs.xmm[9][0]);
+    known_registers[X64Register::XMM(XMM::XMM10).to_index().0] = Some(fs.xmm[10][0]);
+    known_registers[X64Register::XMM(XMM::XMM11).to_index().0] = Some(fs.xmm[11][0]);
+    known_registers[X64Register::XMM(XMM::XMM12).to_index().0] = Some(fs.xmm[12][0]);
+    known_registers[X64Register::XMM(XMM::XMM13).to_index().0] = Some(fs.xmm[13][0]);
+    known_registers[X64Register::XMM(XMM::XMM14).to_index().0] = Some(fs.xmm[14][0]);
+    known_registers[X64Register::XMM(XMM::XMM15).to_index().0] = Some(fs.xmm[15][0]);
 
     FaultInfo {
         faulting_addr: si_addr,

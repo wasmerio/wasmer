@@ -305,7 +305,7 @@ impl ExecutionStateImage {
 
         if let Ok(x) = env::var("WASMER_BACKTRACE") {
             if x == "1" {
-                eprintln!("{}", self.colored_output());
+                eprintln!("{}", self.output());
                 return;
             }
         }
@@ -313,9 +313,7 @@ impl ExecutionStateImage {
         eprintln!("Run with `WASMER_BACKTRACE=1` environment variable to display a backtrace.");
     }
 
-    pub fn colored_output(&self) -> String {
-        use colored::*;
-
+    pub fn output(&self) -> String {
         fn join_strings(x: impl Iterator<Item = String>, sep: &str) -> String {
             let mut ret = String::new();
             let mut first = true;
@@ -343,8 +341,6 @@ impl ExecutionStateImage {
                             i,
                             x.map(|x| format!("{}", x))
                                 .unwrap_or_else(|| "?".to_string())
-                                .bold()
-                                .cyan()
                         )
                     }),
                     ", ",
@@ -355,27 +351,23 @@ impl ExecutionStateImage {
         let mut ret = String::new();
 
         if self.frames.len() == 0 {
-            ret += &"Unknown fault address, cannot read stack.".yellow();
+            ret += &"Unknown fault address, cannot read stack.";
             ret += "\n";
         } else {
-            ret += &"Backtrace:".bold();
+            ret += &"Backtrace:";
             ret += "\n";
             for (i, f) in self.frames.iter().enumerate() {
-                ret += &format!("* Frame {} @ Local function {}", i, f.local_function_id).bold();
+                ret += &format!("* Frame {} @ Local function {}", i, f.local_function_id);
                 ret += "\n";
+                ret += &format!("  {} {}\n", "Offset:", format!("{}", f.wasm_inst_offset),);
                 ret += &format!(
                     "  {} {}\n",
-                    "Offset:".bold().yellow(),
-                    format!("{}", f.wasm_inst_offset).bold().cyan(),
-                );
-                ret += &format!(
-                    "  {} {}\n",
-                    "Locals:".bold().yellow(),
+                    "Locals:",
                     format_optional_u64_sequence(&f.locals)
                 );
                 ret += &format!(
                     "  {} {}\n\n",
-                    "Stack:".bold().yellow(),
+                    "Stack:",
                     format_optional_u64_sequence(&f.stack)
                 );
             }
@@ -434,6 +426,14 @@ pub mod x64_decl {
         XMM5,
         XMM6,
         XMM7,
+        XMM8,
+        XMM9,
+        XMM10,
+        XMM11,
+        XMM12,
+        XMM13,
+        XMM14,
+        XMM15,
     }
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -767,6 +767,37 @@ pub mod x64 {
 
         stack_offset -= 1;
         stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM15).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM14).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM13).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM12).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM11).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM10).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM9).to_index().0].unwrap_or(0);
+
+        stack_offset -= 1;
+        stack[stack_offset] =
+            known_registers[X64Register::XMM(XMM::XMM8).to_index().0].unwrap_or(0);
+        stack_offset -= 1;
+        stack[stack_offset] =
             known_registers[X64Register::XMM(XMM::XMM7).to_index().0].unwrap_or(0);
 
         stack_offset -= 1;
@@ -873,11 +904,11 @@ pub mod x64 {
     pub unsafe fn read_stack<'a, I: Iterator<Item = &'a CodeVersion>, F: Fn() -> I + 'a>(
         versions: F,
         mut stack: *const u64,
-        initially_known_registers: [Option<u64>; 24],
+        initially_known_registers: [Option<u64>; 32],
         mut initial_address: Option<u64>,
         max_depth: Option<usize>,
     ) -> ExecutionStateImage {
-        let mut known_registers: [Option<u64>; 24] = initially_known_registers;
+        let mut known_registers: [Option<u64>; 32] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
         let mut was_baseline = true;
 

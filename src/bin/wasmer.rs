@@ -23,7 +23,7 @@ use structopt::StructOpt;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
-use wasmer_llvm_backend::LLVMCompiler;
+use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
     Func, Value, VERSION,
@@ -51,7 +51,7 @@ mod wasmer_wasi {
     pub fn generate_import_object(
         _args: Vec<Vec<u8>>,
         _envs: Vec<Vec<u8>>,
-        _preopened_files: Vec<String>,
+        _preopened_files: Vec<std::path::PathBuf>,
         _mapped_dirs: Vec<(String, std::path::PathBuf)>,
     ) -> ImportObject {
         unimplemented!()
@@ -59,10 +59,10 @@ mod wasmer_wasi {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "wasmer", about = "Wasm execution runtime.")]
+#[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
 /// The options for the wasmer Command Line Interface
 enum CLIOptions {
-    /// Run a WebAssembly file. Formats accepted: wasm, wast
+    /// Run a WebAssembly file. Formats accepted: wasm, wat
     #[structopt(name = "run")]
     Run(Run),
 
@@ -107,13 +107,13 @@ pub struct LLVMCLIOptions {
     post_opt_ir: Option<PathBuf>,
 
     /// Emit LLVM generated native code object file.
-    #[structopt(long = "backend-llvm-object-file", parse(from_os_str))]
+    #[structopt(long = "llvm-object-file", parse(from_os_str))]
     obj_file: Option<PathBuf>,
 }
 
 #[derive(Debug, StructOpt, Clone)]
 struct Run {
-    // Disable the cache
+    /// Disable the cache
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
@@ -125,7 +125,8 @@ struct Run {
     #[structopt(
         long = "backend",
         default_value = "cranelift",
-        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+        case_insensitive = true,
+        possible_values = Backend::variants(),
     )]
     backend: Backend,
 
@@ -139,7 +140,7 @@ struct Run {
 
     /// WASI pre-opened directory
     #[structopt(long = "dir", multiple = true, group = "wasi")]
-    pre_opened_directories: Vec<String>,
+    pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the wasm module
     #[structopt(long = "mapdir", multiple = true)]
@@ -152,7 +153,8 @@ struct Run {
     /// Custom code loader
     #[structopt(
         long = "loader",
-        raw(possible_values = "LoaderName::variants()", case_insensitive = "true")
+        case_insensitive = true,
+        possible_values = LoaderName::variants(),
     )]
     loader: Option<LoaderName>,
 
@@ -166,14 +168,15 @@ struct Run {
     #[structopt(
         long = "optimized-backends",
         multiple = true,
-        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+        case_insensitive = true,
+        possible_values = Backend::variants(),
     )]
     optimized_backends: Vec<Backend>,
 
     /// Whether or not state tracking should be disabled during compilation.
     /// State tracking is necessary for tier switching and backtracing.
-    #[structopt(long = "no-track-state")]
-    no_track_state: bool,
+    #[structopt(long = "track-state")]
+    track_state: bool,
 
     // Enable the CallTrace middleware.
     #[structopt(long = "call-trace")]
@@ -203,7 +206,7 @@ struct Run {
     features: PrestandardFeatures,
 
     /// Application arguments
-    #[structopt(name = "--", raw(multiple = "true"))]
+    #[structopt(name = "--", multiple = true)]
     args: Vec<String>,
 }
 
@@ -408,7 +411,21 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         None => return Err("the requested backend is not enabled".into()),
     };
 
-    let track_state = !options.no_track_state;
+    #[cfg(feature = "backend-llvm")]
+    {
+        if options.backend == Backend::LLVM {
+            let options = options.backend_llvm_options.clone();
+            unsafe {
+                wasmer_llvm_backend::GLOBAL_OPTIONS = LLVMOptions {
+                    pre_opt_ir: options.pre_opt_ir,
+                    post_opt_ir: options.post_opt_ir,
+                    obj_file: options.obj_file,
+                }
+            }
+        }
+    }
+
+    let track_state = options.track_state;
 
     #[cfg(feature = "loader-kernel")]
     let is_kernel_loader = if let Some(LoaderName::Kernel) = options.loader {
@@ -515,19 +532,19 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         import_object.allow_missing_functions = true; // Import initialization might be left to the loader.
         let instance = module
             .instantiate(&import_object)
-            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+            .map_err(|e| format!("Can't instantiate loader module: {:?}", e))?;
 
-        let args: Vec<Value> = options
-            .args
-            .iter()
-            .map(|arg| arg.as_str())
-            .map(|x| {
-                Value::I32(x.parse().expect(&format!(
+        let mut args: Vec<Value> = Vec::new();
+        for arg in options.args.iter() {
+            let x = arg.as_str().parse().map_err(|_| {
+                format!(
                     "Can't parse the provided argument {:?} as a integer",
-                    x
-                )))
-            })
-            .collect();
+                    arg.as_str()
+                )
+            })?;
+            args.push(Value::I32(x));
+        }
+
         let index = instance
             .resolve_func("_start")
             .expect("The loader requires a _start function to be present in the module");
@@ -554,7 +571,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let import_object = wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals);
         let mut instance = module
             .instantiate(&import_object)
-            .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+            .map_err(|e| format!("Can't instantiate emscripten module: {:?}", e))?;
 
         wasmer_emscripten::run_emscripten_instance(
             &module,
@@ -594,7 +611,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             #[allow(unused_mut)] // mut used in feature
             let mut instance = module
                 .instantiate(&import_object)
-                .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+                .map_err(|e| format!("Can't instantiate WASI module: {:?}", e))?;
 
             let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
 
@@ -686,12 +703,17 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            let args: Vec<Value> = options
-                .args
-                .iter()
-                .map(|arg| arg.as_str())
-                .map(|x| Value::I32(x.parse().unwrap()))
-                .collect();
+            let mut args: Vec<Value> = Vec::new();
+            for arg in options.args.iter() {
+                let x = arg.as_str().parse().map_err(|_| {
+                    format!(
+                        "Can't parse the provided argument {:?} as a integer",
+                        arg.as_str()
+                    )
+                })?;
+                args.push(Value::I32(x));
+            }
+
             let result = instance
                 .dyn_func("main")
                 .map_err(|e| format!("{:?}", e))?
@@ -761,7 +783,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
             }
             "backtrace" | "bt" => {
                 if let Some(ref image) = ctx.image {
-                    println!("{}", image.execution_state.colored_output());
+                    println!("{}", image.execution_state.output());
                 } else {
                     println!("State not available");
                 }
@@ -781,7 +803,7 @@ fn run(options: Run) {
     match execute_wasm(&options) {
         Ok(()) => {}
         Err(message) => {
-            eprintln!("execute_wasm: {:?}", message);
+            eprintln!("Error: {}", message);
             exit(1);
         }
     }

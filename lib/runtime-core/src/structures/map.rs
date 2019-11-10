@@ -39,6 +39,10 @@ where
         self.elems.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.elems.is_empty()
+    }
+
     pub fn push(&mut self, value: V) -> K {
         let len = self.len();
         self.elems.push(value);

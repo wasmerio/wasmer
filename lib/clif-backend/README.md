@@ -1,21 +1,21 @@
 <p align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="400" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
+    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://circleci.com/gh/wasmerio/wasmer/">
-    <img src="https://img.shields.io/circleci/project/github/wasmerio/wasmer/master.svg" alt="Build Status">
+  <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
+    <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
   </a>
   <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+    <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
   </a>
   <a href="https://spectrum.chat/wasmer">
     <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
   </a>
   <a href="https://crates.io/crates/wasmer-clif-backend">
-    <img src="https://img.shields.io/crates/d/wasmer-clif-backend.svg" alt="Number of downloads from crates.io">
+    <img src="https://img.shields.io/crates/d/wasmer-clif-backend.svg?style=flat-square" alt="Number of downloads from crates.io">
   </a>
   <a href="https://docs.rs/wasmer-clif-backend">
     <img src="https://docs.rs/wasmer-clif-backend/badge.svg" alt="Read our API documentation">
@@ -36,7 +36,7 @@ This crate represents the Cranelift backend integration for Wasmer.
 
 If you are using the `wasmer` CLI, you can specify the backend with:
 
-```bash
+```sh
 wasmer run program.wasm --backend=cranelift
 ```
 

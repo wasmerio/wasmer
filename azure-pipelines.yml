@@ -22,7 +22,7 @@ jobs:
       - script: cargo fmt --all -- --check
         displayName: Lint
     variables:
-      rust_toolchain: stable
+      rust_toolchain: '1.38.0'
 
   - job: Test
     strategy:
@@ -39,7 +39,7 @@ jobs:
           CARGO_HTTP_CHECK_REVOKE: false
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: stable
+          rust_toolchain: '1.38.0'
     pool:
       vmImage: $(imageName)
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
@@ -50,6 +50,20 @@ jobs:
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
+      - bash: |
+          hostname
+          uname -a
+        displayName: System info (*nix)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: |
+          cat /proc/cpuinfo
+          cat /proc/meminfo
+        displayName: System info - Extended (Linux)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+      - bash: |
+          sysctl -a | grep machdep.cpu
+        displayName: System info - Extended (Mac)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
         displayName: Tests (*nix)
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
@@ -86,7 +100,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: stable
+          rust_toolchain: '1.38.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
@@ -149,7 +163,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: stable
+          rust_toolchain: '1.38.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)

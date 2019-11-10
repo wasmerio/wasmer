@@ -147,7 +147,6 @@ pub fn validating_parser_config(features: &Features) -> wasmparser::ValidatingPa
             enable_bulk_memory: false,
             enable_multi_value: false,
         },
-        mutable_global_imports: true,
     }
 }
 

@@ -92,6 +92,7 @@ pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
 pub use wasmer_runtime_core::import::ImportObject;
 pub use wasmer_runtime_core::instance::{DynFunc, Instance};
+pub use wasmer_runtime_core::memory::ptr::{Array, Item, WasmPtr};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::table::Table;
@@ -189,6 +190,10 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
 }
 
 /// Get a single instance of the default compiler to use.
+///
+/// The output of this function can be controlled by the mutually
+/// exclusive `default-backend-llvm`, `default-backend-singlepass`,
+/// and `default-backend-cranelift` feature flags.
 pub fn default_compiler() -> impl Compiler {
     #[cfg(any(
         all(
@@ -219,6 +224,11 @@ pub fn default_compiler() -> impl Compiler {
     DefaultCompiler::new()
 }
 
+/// Get the `Compiler` as a trait object for the given `Backend`.
+/// Returns `Option` because support for the requested `Compiler` may
+/// not be enabled by feature flags.
+///
+/// To get a list of the enabled backends as strings, call `Backend::variants()`.
 pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
     match backend {
         #[cfg(feature = "cranelift")]
@@ -241,5 +251,5 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
     }
 }
 
-/// The current version of this crate
+/// The current version of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

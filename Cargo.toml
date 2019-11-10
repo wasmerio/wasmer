@@ -1,12 +1,13 @@
 [package]
 name = "wasmer"
-version = "0.6.0"
+version = "0.9.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
 publish = true
 description = "High-Performance WebAssembly JIT interpreter"
 license = "MIT"
+default-run = "wasmer"
 include = [
     "examples/**/*",
     "src/**/*",
@@ -19,15 +20,14 @@ include = [
 ]
 
 [dependencies]
-byteorder = "1.3.2"
-errno = "0.2.4"
-structopt = "0.2.18"
+byteorder = "1.3"
+errno = "0.2"
+structopt = "0.3"
 wabt = "0.9.1"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
-# wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
@@ -43,8 +43,8 @@ members = [
     "lib/clif-backend",
     "lib/singlepass-backend",
     "lib/runtime",
-    # "lib/runtime-abi",
     "lib/runtime-core",
+    "lib/runtime-core-tests",
     "lib/emscripten",
     "lib/spectests",
     "lib/win-exception-handler",
@@ -59,13 +59,14 @@ members = [
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
     "examples/plugin-for-example",
-    "examples/hello_world"
+    "examples/parallel",
+    "examples/parallel-guest",
 ]
 
 [build-dependencies]
 wabt = "0.9.1"
-glob = "0.3.0"
-rustc_version = "0.2.3"
+glob = "0.3"
+rustc_version = "0.2"
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] } # used by the plugin example
@@ -101,8 +102,11 @@ backend-singlepass = [
 ]
 wasi = ["wasmer-wasi"]
 managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
-# vfs = ["wasmer-runtime-abi"]
 
 [[example]]
 name = "plugin"
+crate-type = ["bin"]
+
+[[example]]
+name = "callback"
 crate-type = ["bin"]

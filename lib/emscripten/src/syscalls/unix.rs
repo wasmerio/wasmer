@@ -1,4 +1,4 @@
-use crate::varargs::VarArgs;
+use crate::{ptr::WasmPtr, varargs::VarArgs};
 #[cfg(target_os = "macos")]
 use libc::size_t;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
@@ -111,7 +111,7 @@ fn translate_ioctl(wasm_ioctl: u32) -> c_ulong {
 
 #[allow(unused_imports)]
 use std::ffi::CStr;
-use wasmer_runtime_core::{memory::ptr::WasmPtr, vm::Ctx};
+use wasmer_runtime_core::vm::Ctx;
 
 use crate::env::EmSockAddr;
 use crate::utils::{self, get_cstr_path};
@@ -259,7 +259,7 @@ pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         ftruncate64(_fd, _length)
     }
     #[cfg(target_os = "macos")]
-    unimplemented!()
+    unimplemented!("emscripten::___syscall194 (ftruncate64) {}", _which)
 }
 
 /// lchown
@@ -1111,6 +1111,6 @@ pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
     #[cfg(target_os = "macos")]
     {
-        unimplemented!()
+        unimplemented!("emscripten::___syscall324 (fallocate) {}", _which)
     }
 }

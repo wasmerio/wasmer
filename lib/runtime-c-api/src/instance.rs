@@ -75,6 +75,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
 
         let namespace = namespaces.entry(module_name).or_insert_with(Namespace::new);
 
+        // TODO check that tag is actually in bounds here
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
                 let mem = import.value.memory as *mut Memory;
