@@ -12,3 +12,7 @@ addons:
   apt:
     packages:
       - cmake
+
+branches:
+  only:
+  - feature/singlepass-aarch64
