@@ -465,7 +465,7 @@ pub trait LocalImport {
 #[rustfmt::skip]
 macro_rules! define_map_index {
     ($ty:ident) => {
-        /// Typed Index for $ty
+        /// Typed Index
         #[derive(Serialize, Deserialize)]
         #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct $ty (u32);

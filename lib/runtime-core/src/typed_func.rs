@@ -420,7 +420,7 @@ where
 
 macro_rules! impl_traits {
     ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
-        /// $struct_name for typed funcs.
+        /// Struct for typed funcs.
         #[repr($repr)]
         pub struct $struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
         where
