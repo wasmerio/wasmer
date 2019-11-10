@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#942](https://github.com/wasmerio/wasmer/pull/942) Deny missing docs in runtime core and add missing docs
 - [#936](https://github.com/wasmerio/wasmer/pull/939) Fix bug causing attempts to append to files with WASI to delete the contents of the file
 - [#940](https://github.com/wasmerio/wasmer/pull/940) Update supported Rust version to 1.38+
 - [#921](https://github.com/wasmerio/wasmer/pull/921) In LLVM backend, annotate all memory accesses with TBAA metadata.
