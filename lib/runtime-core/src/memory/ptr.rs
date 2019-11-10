@@ -12,9 +12,12 @@ use crate::{
 };
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 
+/// Array.
 pub struct Array;
+/// Item.
 pub struct Item;
 
+/// A pointer to a Wasm item.
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = Item> {
     offset: u32,
@@ -22,6 +25,7 @@ pub struct WasmPtr<T: Copy, Ty = Item> {
 }
 
 impl<T: Copy, Ty> WasmPtr<T, Ty> {
+    /// Create a new `WasmPtr` at the given offset.
     #[inline]
     pub fn new(offset: u32) -> Self {
         Self {
@@ -30,6 +34,7 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
         }
     }
 
+    /// Get the offset for this `WasmPtr`.
     #[inline]
     pub fn offset(self) -> u32 {
         self.offset
@@ -44,6 +49,7 @@ fn align_pointer(ptr: usize, align: usize) -> usize {
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
+    /// Dereference this `WasmPtr`.
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
         if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
@@ -58,6 +64,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
         }
     }
 
+    /// Mutable dereference this `WasmPtr`.
     #[inline]
     pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<&'a mut Cell<T>> {
         if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
@@ -72,6 +79,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
+    /// Dereference this `WasmPtr`.
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
         // gets the size of the item in the array with padding added such that
@@ -94,6 +102,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         }
     }
 
+    /// Mutable dereference this `WasmPtr`.
     #[inline]
     pub unsafe fn deref_mut<'a>(
         self,
@@ -119,6 +128,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         Some(cell_ptrs)
     }
 
+    /// Get a UTF-8 string representation of this `WasmPtr` with the given length.
     pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
         if self.offset as usize + str_len as usize > memory.size().bytes().0 {
             return None;

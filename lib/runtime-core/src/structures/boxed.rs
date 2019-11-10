@@ -5,6 +5,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+/// Boxed map.
 #[derive(Debug, Clone)]
 pub struct BoxedMap<K, V>
 where

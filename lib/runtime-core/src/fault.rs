@@ -1,4 +1,8 @@
+//! The fault module contains the implementation for handling breakpoints, traps, and signals
+//! for wasm code.
+
 pub mod raw {
+    //! The raw module contains required externed function interfaces for the fault module.
     use std::ffi::c_void;
 
     extern "C" {
@@ -40,13 +44,19 @@ struct UnwindInfo {
     payload: Option<Box<dyn Any>>, // out
 }
 
+/// A store for boundary register preservation.
 #[repr(packed)]
 #[derive(Default, Copy, Clone)]
 pub struct BoundaryRegisterPreservation {
+    /// R15.
     pub r15: u64,
+    /// R14.
     pub r14: u64,
+    /// R13.
     pub r13: u64,
+    /// R12.
     pub r12: u64,
+    /// RBX.
     pub rbx: u64,
 }
 
@@ -58,6 +68,7 @@ thread_local! {
     static BOUNDARY_REGISTER_PRESERVATION: UnsafeCell<BoundaryRegisterPreservation> = UnsafeCell::new(BoundaryRegisterPreservation::default());
 }
 
+/// Gets a mutable pointer to the `BoundaryRegisterPreservation`.
 #[no_mangle]
 pub unsafe extern "C" fn get_boundary_register_preservation() -> *mut BoundaryRegisterPreservation {
     BOUNDARY_REGISTER_PRESERVATION.with(|x| x.get())
@@ -89,10 +100,12 @@ lazy_static! {
 }
 static INTERRUPT_SIGNAL_DELIVERED: AtomicBool = AtomicBool::new(false);
 
+/// Returns a boolean indicating if SIGINT triggered the fault.
 pub fn was_sigint_triggered_fault() -> bool {
     WAS_SIGINT_TRIGGERED.with(|x| x.get())
 }
 
+/// Runs a callback function with the given `Ctx`.
 pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
     let addr = CURRENT_CTX.with(|x| x.get());
     let old = *addr;
@@ -102,18 +115,22 @@ pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
     ret
 }
 
+/// Pushes a new `CodeVersion` to the current code versions.
 pub fn push_code_version(version: CodeVersion) {
     CURRENT_CODE_VERSIONS.with(|x| x.borrow_mut().push(version));
 }
 
+/// Pops a `CodeVersion` from the current code versions.
 pub fn pop_code_version() -> Option<CodeVersion> {
     CURRENT_CODE_VERSIONS.with(|x| x.borrow_mut().pop())
 }
 
+/// Gets the wasm interrupt signal mem.
 pub unsafe fn get_wasm_interrupt_signal_mem() -> *mut u8 {
     INTERRUPT_SIGNAL_MEM.0
 }
 
+/// Sets the wasm interrupt on the given `Ctx`.
 pub unsafe fn set_wasm_interrupt_on_ctx(ctx: *mut vm::Ctx) {
     if mprotect(
         (&*ctx).internal.interrupt_signal_mem as _,
@@ -125,6 +142,7 @@ pub unsafe fn set_wasm_interrupt_on_ctx(ctx: *mut vm::Ctx) {
     }
 }
 
+/// Sets a wasm interrupt.
 pub unsafe fn set_wasm_interrupt() {
     let mem: *mut u8 = INTERRUPT_SIGNAL_MEM.0;
     if mprotect(mem as _, INTERRUPT_SIGNAL_MEM_SIZE, PROT_NONE) < 0 {
@@ -132,6 +150,7 @@ pub unsafe fn set_wasm_interrupt() {
     }
 }
 
+/// Clears the wasm interrupt.
 pub unsafe fn clear_wasm_interrupt() {
     let mem: *mut u8 = INTERRUPT_SIGNAL_MEM.0;
     if mprotect(mem as _, INTERRUPT_SIGNAL_MEM_SIZE, PROT_READ | PROT_WRITE) < 0 {
@@ -139,6 +158,7 @@ pub unsafe fn clear_wasm_interrupt() {
     }
 }
 
+/// Catches an unsafe unwind with the given functions and breakpoints.
 pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     f: F,
     breakpoints: Option<BreakpointMap>,
@@ -164,6 +184,7 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     }
 }
 
+/// Begins an unsafe unwind.
 pub unsafe fn begin_unsafe_unwind(e: Box<dyn Any>) -> ! {
     let unwind = UNWIND.with(|x| x.get());
     let inner = (*unwind)
@@ -181,6 +202,7 @@ unsafe fn with_breakpoint_map<R, F: FnOnce(Option<&BreakpointMap>) -> R>(f: F) -
     f(inner.breakpoints.as_ref())
 }
 
+/// Allocates and runs with the given stack size and closure.
 pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
     struct Context<F: FnOnce() -> R, R> {
         f: Option<F>,
@@ -316,6 +338,7 @@ extern "C" fn sigint_handler(
     }
 }
 
+/// Ensure the signal handler is installed.
 pub fn ensure_sighandler() {
     INSTALL_SIGHANDLER.call_once(|| unsafe {
         install_sighandler();
@@ -344,9 +367,13 @@ unsafe fn install_sighandler() {
     sigaction(SIGINT, &sa_interrupt).unwrap();
 }
 
+/// Info about the fault
 pub struct FaultInfo {
+    /// Faulting address.
     pub faulting_addr: *const c_void,
+    /// Instruction pointer.
     pub ip: *const c_void,
+    /// Known registers.
     pub known_registers: [Option<u64>; 32],
 }
 
@@ -421,6 +448,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     }
 }
 
+/// Get fault info from siginfo and ucontext.
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
     #[allow(dead_code)]

@@ -1,12 +1,17 @@
+//! The units module provides common WebAssembly units like `Pages` and conversion functions into
+//! other units.
 use crate::error::PageError;
 use std::{
     fmt,
     ops::{Add, Sub},
 };
 
+/// The page size in bytes of a wasm page.
 pub const WASM_PAGE_SIZE: usize = 65_536;
+/// Tbe max number of wasm pages allowed.
 pub const WASM_MAX_PAGES: usize = 65_536;
 // From emscripten resize_heap implementation
+/// The minimum number of wasm pages allowed.
 pub const WASM_MIN_PAGES: usize = 256;
 
 /// Units of WebAssembly pages (as specified to be 65,536 bytes).
@@ -14,6 +19,7 @@ pub const WASM_MIN_PAGES: usize = 256;
 pub struct Pages(pub u32);
 
 impl Pages {
+    /// Checked add of Pages to Pages.
     pub fn checked_add(self, rhs: Pages) -> Result<Pages, PageError> {
         let added = (self.0 as usize) + (rhs.0 as usize);
         if added <= WASM_MAX_PAGES {
@@ -27,6 +33,7 @@ impl Pages {
         }
     }
 
+    /// Calculate number of bytes from pages.
     pub fn bytes(self) -> Bytes {
         self.into()
     }
