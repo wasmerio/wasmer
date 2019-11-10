@@ -1,3 +1,5 @@
+//! The tiering module supports switching between code compiled with different optimization levels
+//! as runtime.
 use crate::backend::{Compiler, CompilerConfig};
 use crate::compile_with_config;
 use crate::fault::{
@@ -22,12 +24,17 @@ impl<F: FnOnce()> Drop for Defer<F> {
     }
 }
 
+/// Kind of shell exit operation.
 pub enum ShellExitOperation {
+    /// Operation to continue with an instance image.
     ContinueWith(InstanceImage),
 }
 
+/// Context for an interactive shell.
 pub struct InteractiveShellContext {
+    /// Optional instance image.
     pub image: Option<InstanceImage>,
+    /// Flag to indicate patching.
     pub patched: bool,
 }
 
@@ -70,6 +77,7 @@ unsafe fn do_optimize(
     }
 }
 
+/// Runs an instance with tiering.
 pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     module_info: &ModuleInfo,
     wasm_binary: &[u8],

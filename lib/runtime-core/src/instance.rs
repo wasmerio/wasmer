@@ -1,3 +1,5 @@
+//! The instance module contains the implementation data structures and helper functions used to
+//! manipulate and access wasm instances.
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
@@ -48,6 +50,7 @@ impl Drop for InstanceInner {
 ///
 /// [`ImportObject`]: struct.ImportObject.html
 pub struct Instance {
+    /// Reference to the module used to instantiate this instance.
     pub module: Arc<ModuleInner>,
     inner: Pin<Box<InstanceInner>>,
     #[allow(dead_code)]
@@ -137,6 +140,7 @@ impl Instance {
         Ok(instance)
     }
 
+    /// Load an `Instance` using the given loader.
     pub fn load<T: Loader>(&self, loader: T) -> ::std::result::Result<T::Instance, T::Error> {
         loader.load(&*self.module.runnable_module, &self.module.info, unsafe {
             &*self.inner.vmctx
@@ -230,6 +234,7 @@ impl Instance {
         }
     }
 
+    /// Resolve a function by name.
     pub fn resolve_func(&self, name: &str) -> ResolveResult<usize> {
         let export_index =
             self.module
@@ -381,10 +386,12 @@ impl Instance {
         Module::new(Arc::clone(&self.module))
     }
 
+    /// Get the value of an internal field
     pub fn get_internal(&self, field: &InternalField) -> u64 {
         self.inner.backing.internals.0[field.index()]
     }
 
+    /// Set the value of an internal field.
     pub fn set_internal(&mut self, field: &InternalField, value: u64) {
         self.inner.backing.internals.0[field.index()] = value;
     }
@@ -774,10 +781,12 @@ impl<'a> DynFunc<'a> {
         Ok(results)
     }
 
+    /// Gets the signature of this `Dynfunc`.
     pub fn signature(&self) -> &FuncSig {
         &*self.signature
     }
 
+    /// Gets a const pointer to the function represent by this `DynFunc`.
     pub fn raw(&self) -> *const vm::Func {
         match self.func_index.local_or_import(&self.module.info) {
             LocalOrImport::Local(local_func_index) => self

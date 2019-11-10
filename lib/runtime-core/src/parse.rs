@@ -1,3 +1,6 @@
+//! The parse module contains common data structures and functions using to parse wasm files into
+//! runtime data structures.
+
 use crate::codegen::*;
 use crate::{
     backend::{Backend, CompilerConfig, RunnableModule},
@@ -22,9 +25,12 @@ use wasmparser::{
     WasmDecoder,
 };
 
+/// Kind of load error.
 #[derive(Debug)]
 pub enum LoadError {
+    /// Parse error.
     Parse(BinaryReaderError),
+    /// Code generation error.
     Codegen(String),
 }
 
@@ -42,6 +48,8 @@ impl From<BinaryReaderError> for LoadError {
     }
 }
 
+/// Read wasm binary into module data using the given backend, module code generator, middlewares,
+/// and compiler configuration.
 pub fn read_module<
     MCG: ModuleCodeGenerator<FCG, RM, E>,
     FCG: FunctionCodeGenerator<E>,
@@ -394,6 +402,7 @@ pub fn read_module<
     Ok(info)
 }
 
+/// Convert given `WpType` to `Type`.
 pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
     match ty {
         WpType::I32 => Ok(Type::I32),
@@ -410,6 +419,7 @@ pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
     }
 }
 
+/// Convert given `Type` to `WpType`.
 pub fn type_to_wp_type(ty: Type) -> WpType {
     match ty {
         Type::I32 => WpType::I32,

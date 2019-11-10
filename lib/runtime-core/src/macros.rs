@@ -1,3 +1,5 @@
+/// Prints a log message with args, similar to println, when the debug feature is enabled.
+/// If the debug feature is disabled, arguments are not evaluated or printed.
 #[macro_export]
 #[cfg(feature = "debug")]
 macro_rules! debug {
@@ -11,6 +13,8 @@ macro_rules! debug {
     }, line!(), $($arg)*));
 }
 
+/// Prints a log message with args, similar to println, when the debug feature is enabled.
+/// If the debug feature is disabled, arguments are not evaluated or printed.
 #[macro_export]
 #[cfg(not(feature = "debug"))]
 macro_rules! debug {
@@ -18,6 +22,8 @@ macro_rules! debug {
     ($fmt:expr, $($arg:tt)*) => {};
 }
 
+/// Prints a log message with args, similar to println, when the trace feature is enabled.
+/// If the trace feature is disabled, arguments are not evaluated or printed.
 #[macro_export]
 #[cfg(feature = "trace")]
 macro_rules! trace {
@@ -29,6 +35,8 @@ macro_rules! trace {
     }
 }
 
+/// Prints a log message with args, similar to println, when the trace feature is enabled.
+/// If the trace feature is disabled, arguments are not evaluated or printed.
 #[macro_export]
 #[cfg(not(feature = "trace"))]
 macro_rules! trace {
@@ -36,6 +44,7 @@ macro_rules! trace {
     ($fmt:expr, $($arg:tt)*) => {};
 }
 
+/// Helper macro to create a new `Func` object using the provided function pointer.
 #[macro_export]
 macro_rules! func {
     ($func:path) => {{
