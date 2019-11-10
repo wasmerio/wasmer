@@ -1209,7 +1209,9 @@ impl Emitter for Assembler {
     fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location) {
         unimplemented!("aarch64: bsf");
     }
-    fn arch_has_xzcnt(&self) -> bool { true }
+    fn arch_has_xzcnt(&self) -> bool {
+        true
+    }
     fn arch_emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         emit_clz_variant(self, sz, &src, &dst, false);
     }
@@ -1461,7 +1463,9 @@ impl Emitter for Assembler {
     avx_fn_unop!(frintz, D, emit_vroundsd_trunc); // toward zero
     avx_fn_cvt!(fcvt, D, S, emit_vcvtsd2ss);
 
-    fn arch_has_itruncf(&self) -> bool { true }
+    fn arch_has_itruncf(&self) -> bool {
+        true
+    }
     fn arch_emit_i32_trunc_sf32(&mut self, src: XMM, dst: GPR) {
         dynasm!(self ; fcvtzs W(map_gpr(dst).x()), S(map_xmm(src).v()));
     }
@@ -1487,7 +1491,9 @@ impl Emitter for Assembler {
         dynasm!(self ; fcvtzu X(map_gpr(dst).x()), D(map_xmm(src).v()));
     }
 
-    fn arch_has_fconverti(&self) -> bool { true }
+    fn arch_has_fconverti(&self) -> bool {
+        true
+    }
     fn arch_emit_f32_convert_si32(&mut self, src: GPR, dst: XMM) {
         dynasm!(self ; scvtf S(map_xmm(dst).v()), W(map_gpr(src).x()));
     }
@@ -1513,7 +1519,9 @@ impl Emitter for Assembler {
         dynasm!(self ; ucvtf D(map_xmm(dst).v()), X(map_gpr(src).x()));
     }
 
-    fn arch_has_fneg(&self) -> bool { true }
+    fn arch_has_fneg(&self) -> bool {
+        true
+    }
     fn arch_emit_f32_neg(&mut self, src: XMM, dst: XMM) {
         dynasm!(self ; fneg S(map_xmm(dst).v()), S(map_xmm(src).v()));
     }

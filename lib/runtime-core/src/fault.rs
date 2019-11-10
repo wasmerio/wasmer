@@ -561,12 +561,18 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
         known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
         known_registers[X64Register::XMM(XMM::XMM8).to_index().0] = Some(read_xmm(&fpregs._xmm[8]));
         known_registers[X64Register::XMM(XMM::XMM9).to_index().0] = Some(read_xmm(&fpregs._xmm[9]));
-        known_registers[X64Register::XMM(XMM::XMM10).to_index().0] = Some(read_xmm(&fpregs._xmm[10]));
-        known_registers[X64Register::XMM(XMM::XMM11).to_index().0] = Some(read_xmm(&fpregs._xmm[11]));
-        known_registers[X64Register::XMM(XMM::XMM12).to_index().0] = Some(read_xmm(&fpregs._xmm[12]));
-        known_registers[X64Register::XMM(XMM::XMM13).to_index().0] = Some(read_xmm(&fpregs._xmm[13]));
-        known_registers[X64Register::XMM(XMM::XMM14).to_index().0] = Some(read_xmm(&fpregs._xmm[14]));
-        known_registers[X64Register::XMM(XMM::XMM15).to_index().0] = Some(read_xmm(&fpregs._xmm[15]));
+        known_registers[X64Register::XMM(XMM::XMM10).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[10]));
+        known_registers[X64Register::XMM(XMM::XMM11).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[11]));
+        known_registers[X64Register::XMM(XMM::XMM12).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[12]));
+        known_registers[X64Register::XMM(XMM::XMM13).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[13]));
+        known_registers[X64Register::XMM(XMM::XMM14).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[14]));
+        known_registers[X64Register::XMM(XMM::XMM15).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[15]));
     }
 
     FaultInfo {
