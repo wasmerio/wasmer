@@ -577,7 +577,7 @@ pub struct LocalTable {
 unsafe impl Send for LocalTable {}
 
 impl LocalTable {
-    /// Offset base.
+    /// Offset to base.
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)

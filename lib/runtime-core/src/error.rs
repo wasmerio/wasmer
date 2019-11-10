@@ -6,16 +6,22 @@ use std::any::Any;
 
 /// Aliases the standard `Result` type as `Result` within this module.
 pub type Result<T> = std::result::Result<T, Error>;
+/// Result of an attempt to compile the provided WebAssembly module into a `Module`.
 /// Aliases the standard `Result` with `CompileError` as the default error type.
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
+/// Result of an attempt to link the provided WebAssembly instance.
 /// Aliases the standard `Result` with `Vec<LinkError>` as the default error type.
 pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
+/// Result of an attempt to run the provided WebAssembly instance.
 /// Aliases the standard `Result` with `RuntimeError` as the default error type.
 pub type RuntimeResult<T> = std::result::Result<T, RuntimeError>;
+/// Result of an attempt to call the provided WebAssembly instance.
 /// Aliases the standard `Result` with `CallError` as the default error type.
 pub type CallResult<T> = std::result::Result<T, CallError>;
+/// Result of an attempt to resolve a WebAssembly function by name.
 /// Aliases the standard `Result` with `ResolveError` as the default error type.
 pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
+/// Result of an attempt to parse bytes into a WebAssembly module.
 /// Aliases the standard `Result` with `ParseError` as the default error type.
 pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
