@@ -377,6 +377,7 @@ pub struct FaultInfo {
     pub known_registers: [Option<u64>; 32],
 }
 
+/// Gets fault info for the given siginfo and context pointers.
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
     use libc::{
