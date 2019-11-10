@@ -2012,7 +2012,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             .as_mut()
                             .unwrap()
                             .insert(a.get_offset(), callback);
-                        Self::mark_trappable(a, &self.machine, &mut self.fsm, &mut self.control_stack);
+                        Self::mark_trappable(
+                            a,
+                            &self.machine,
+                            &mut self.fsm,
+                            &mut self.control_stack,
+                        );
                         a.emit_inline_breakpoint(InlineBreakpointType::Middleware);
                     }
                     InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {}
