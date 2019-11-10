@@ -7,3 +7,8 @@ rust:
 
 script:
   - make spectests-singlepass
+
+addons:
+  apt:
+    packages:
+      - cmake
