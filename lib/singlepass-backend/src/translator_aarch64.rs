@@ -94,6 +94,14 @@ pub fn map_xmm(xmm: XMM) -> AV {
         XMM5 => AV(5),
         XMM6 => AV(6),
         XMM7 => AV(7),
+        XMM8 => AV(8),
+        XMM9 => AV(9),
+        XMM10 => AV(10),
+        XMM11 => AV(11),
+        XMM12 => AV(12),
+        XMM13 => AV(13),
+        XMM14 => AV(14),
+        XMM15 => AV(15),
     }
 }
 
@@ -1195,11 +1203,21 @@ impl Emitter for Assembler {
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(orr, self, sz, src, dst, { unreachable!("or") });
     }
-    fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("aarch64: bsr");
+    }
+    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("aarch64: bsf");
+    }
+    fn arch_has_xzcnt(&self) -> bool { true }
+    fn arch_emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         emit_clz_variant(self, sz, &src, &dst, false);
     }
-    fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) {
+    fn arch_emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         emit_clz_variant(self, sz, &src, &dst, true);
+    }
+    fn emit_neg(&mut self, sz: Size, value: Location) {
+        unimplemented!("aarch64: neg");
     }
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
         match sz {
@@ -1361,6 +1379,48 @@ impl Emitter for Assembler {
             }
             _ => unreachable!(),
         }
+    }
+
+    fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("aarch64: xchg")
+    }
+    fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("aarch64: xadd")
+    }
+    fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location) {
+        unimplemented!("aarch64: cmpxchg")
+    }
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+        unimplemented!("aarch64: vmovaps")
+    }
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+        unimplemented!("aarch64: vmovapd")
+    }
+    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("aarch64: vxorps")
+    }
+    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("aarch64: vxorpd")
+    }
+    fn emit_vcmpunordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("aarch64: vcmpunordss")
+    }
+    fn emit_vcmpunordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("aarch64: vcmpunordsd")
+    }
+
+    fn emit_vcmpordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("aarch64: vcmpordss")
+    }
+    fn emit_vcmpordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+        unimplemented!("aarch64: vcmpordsd")
+    }
+
+    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+        unimplemented!("aarch64: vblendvps")
+    }
+    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+        unimplemented!("aarch64: vblendvpd")
     }
 
     avx_fn!(fadd, S, W, emit_vaddss);

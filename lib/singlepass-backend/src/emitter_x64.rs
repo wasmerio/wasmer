@@ -215,6 +215,10 @@ pub trait Emitter {
     fn arch_has_fneg(&self) -> bool { false }
     fn arch_emit_f32_neg(&mut self, _src: XMM, _dst: XMM) { unimplemented!() }
     fn arch_emit_f64_neg(&mut self, _src: XMM, _dst: XMM) { unimplemented!() }
+
+    fn arch_has_xzcnt(&self) -> bool { false }
+    fn arch_emit_lzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) { unimplemented!() }
+    fn arch_emit_tzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) { unimplemented!() }
 }
 
 fn _dummy(a: &mut Assembler) {
