@@ -253,15 +253,15 @@ impl Clone for Memory {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {
-    /// No protection.
+    /// Read/write/exec allowed.
     None,
-    /// Read protection.
+    /// Read only.
     Read,
-    /// Read/write protection.
+    /// Read/write only.
     ReadWrite,
-    /// Read/exec protection.
+    /// Read/exec only.
     ReadExec,
-    /// Read/write/exec protection.
+    /// Read/write/exec only.
     ReadWriteExec,
 }
 
