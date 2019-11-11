@@ -691,7 +691,9 @@ impl FuncEnvironment for FunctionEnvironment {
     }
 
     /// Generates a call IR with `callee` and `call_args` and inserts it at `pos`
-    /// TODO: add support for imported functions
+    ///
+    /// It's about generating code that calls a local or imported function; in
+    /// WebAssembly: `(call $foo)`.
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,
@@ -771,14 +773,23 @@ impl FuncEnvironment for FunctionEnvironment {
                         readonly: true,
                     });
 
+                let imported_func_ctx_vmctx_addr =
+                    pos.func.create_global_value(ir::GlobalValueData::Load {
+                        base: imported_func_ctx_addr,
+                        offset: (0 as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
+
                 let imported_func_addr = pos.ins().global_value(ptr_type, imported_func_addr);
-                let imported_func_ctx_addr =
-                    pos.ins().global_value(ptr_type, imported_func_ctx_addr);
+                let imported_func_ctx_vmctx_addr = pos
+                    .ins()
+                    .global_value(ptr_type, imported_func_ctx_vmctx_addr);
 
                 let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
-                args.push(imported_func_ctx_addr);
+                args.push(imported_func_ctx_vmctx_addr);
                 args.extend(call_args.iter().cloned());
 
                 Ok(pos
