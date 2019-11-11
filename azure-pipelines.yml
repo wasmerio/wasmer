@@ -232,7 +232,7 @@ jobs:
           # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
           isDraft: false
           isPreRelease: false
-          assets: '$(Build.ArtifactStagingDirectory)'
+          assets: '$(Build.ArtifactStagingDirectory)/**'
 
   - job: Docs
     pool:
