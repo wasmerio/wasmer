@@ -220,10 +220,15 @@ jobs:
         displayName: "Create GitHub Release"
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         inputs:
-          gitHubConnection: wasmer
-          repositoryName: wasmerio/wasmer
-          tag: dev
-          assets: $(Build.ArtifactStagingDirectory)
+          gitHubConnection: 'wasmer'
+          repositoryName: 'wasmerio/wasmer'
+          action: 'create'
+          target: '$(Build.SourceVersion)'
+          tagSource: 'auto'
+          # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
+          isDraft: false
+          isPreRelease: false
+          assets: '$(Build.ArtifactStagingDirectory)/*'
 
   - job: Docs
     pool:
