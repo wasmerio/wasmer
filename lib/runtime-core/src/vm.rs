@@ -501,18 +501,14 @@ impl Ctx {
 /// Represents a function pointer. It is mostly used in the
 /// `typed_func` module within the `wrap` functions, to wrap imported
 /// functions.
-#[repr(C)]
-pub struct Func {
-    _private: [u8; 0],
-}
+#[repr(transparent)]
+pub struct Func(pub(self) *mut c_void);
 
 /// Represents a function environment pointer, like a captured
 /// environment of a closure. It is mostly used in the `typed_func`
 /// module within the `wrap` functions, to wrap imported functions.
-#[repr(C)]
-pub struct FuncEnv {
-    _private: [u8; 0],
-}
+#[repr(transparent)]
+pub struct FuncEnv(pub(self) *mut c_void);
 
 /// Represents a function context. It is used by imported functions
 /// only.
