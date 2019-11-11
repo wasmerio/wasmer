@@ -558,6 +558,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         let imported_func = vm::ImportedFunc::size() as usize * id;
         let imported_func_addr = imported_func + vm::ImportedFunc::offset_func() as usize;
         let imported_func_ctx_addr = imported_func + vm::ImportedFunc::offset_func_ctx() as usize;
+        let imported_func_ctx_vmctx_addr = vm::FuncCtx::offset_vmctx() as usize;
 
         a.emit_mov(
             Size::S64,
@@ -567,6 +568,11 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         a.emit_mov(
             Size::S64,
             Location::Memory(GPR::RAX, imported_func_ctx_addr as i32),
+            Location::GPR(GPR::RDI),
+        );
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RDI, imported_func_ctx_vmctx_addr as i32),
             Location::GPR(GPR::RDI),
         );
         a.emit_mov(

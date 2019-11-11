@@ -776,7 +776,7 @@ impl FuncEnvironment for FunctionEnvironment {
                 let imported_func_ctx_vmctx_addr =
                     pos.func.create_global_value(ir::GlobalValueData::Load {
                         base: imported_func_ctx_addr,
-                        offset: (0 as i32).into(),
+                        offset: (vm::FuncCtx::offset_vmctx() as i32).into(),
                         global_type: ptr_type,
                         readonly: true,
                     });

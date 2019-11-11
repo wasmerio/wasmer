@@ -518,7 +518,7 @@ pub struct FuncEnv {
 /// only.
 #[derive(Debug)]
 #[repr(C)]
-pub(crate) struct FuncCtx {
+pub struct FuncCtx {
     /// The `Ctx` pointer.
     pub(crate) vmctx: NonNull<Ctx>,
 
@@ -527,6 +527,20 @@ pub(crate) struct FuncCtx {
     /// whether it is a regular function, or a closure with or without
     /// a captured environment.
     pub(crate) func_env: Option<NonNull<FuncEnv>>,
+}
+
+impl FuncCtx {
+    pub fn offset_vmctx() -> u8 {
+        0 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn offset_func_env() -> u8 {
+        1 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
+    }
 }
 
 /// An imported function is a function pointer associated to a
@@ -687,7 +701,9 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{Anyfunc, Ctx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable};
+    use super::{
+        Anyfunc, Ctx, FuncCtx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable,
+    };
 
     #[test]
     fn vmctx() {
@@ -761,6 +777,19 @@ mod vm_offset_tests {
         assert_eq!(
             Ctx::offset_local_functions() as usize,
             offset_of!(Ctx => local_functions).get_byte_offset(),
+        );
+    }
+
+    #[test]
+    fn func_ctx() {
+        assert_eq!(
+            FuncCtx::offset_vmctx() as usize,
+            offset_of!(FuncCtx => vmctx).get_byte_offset(),
+        );
+
+        assert_eq!(
+            FuncCtx::offset_func_env() as usize,
+            offset_of!(FuncCtx => func_env).get_byte_offset(),
         );
     }
 
