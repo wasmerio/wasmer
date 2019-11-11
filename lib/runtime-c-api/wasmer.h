@@ -1,3 +1,20 @@
+
+#ifndef WASMER_H_MACROS
+#define WASMER_H_MACROS
+#if MSVC
+#ifdef _M_AMD64
+#define ARCH_X86_64
+#endif
+#endif
+
+#if GCC
+#ifdef __x86_64__
+#define ARCH_X86_64
+#endif
+#endif
+#endif // WASMER_H_MACROS
+
+
 #ifndef WASMER_H
 #define WASMER_H
 
@@ -162,17 +179,23 @@ typedef struct {
 
 } wasmer_serialized_module_t;
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_buffer_builder_t;
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_callable_t;
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_buffer_t;
+#endif
 
 /**
  * Opens a directory that's visible to the WASI module as `alias` but
@@ -780,6 +803,7 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
  */
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Adds a callinfo trampoline to the builder.
  */
@@ -787,39 +811,52 @@ uintptr_t wasmer_trampoline_buffer_builder_add_callinfo_trampoline(wasmer_trampo
                                                                    const wasmer_trampoline_callable_t *func,
                                                                    const void *ctx,
                                                                    uint32_t num_params);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Adds a context trampoline to the builder.
  */
 uintptr_t wasmer_trampoline_buffer_builder_add_context_trampoline(wasmer_trampoline_buffer_builder_t *builder,
                                                                   const wasmer_trampoline_callable_t *func,
                                                                   const void *ctx);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Finalizes the trampoline builder into an executable buffer.
  */
 wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *builder);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Creates a new trampoline builder.
  */
 wasmer_trampoline_buffer_builder_t *wasmer_trampoline_buffer_builder_new(void);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Destroys the trampoline buffer if not null.
  */
 void wasmer_trampoline_buffer_destroy(wasmer_trampoline_buffer_t *buffer);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Returns the callable pointer for the trampoline with index `idx`.
  */
 const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(const wasmer_trampoline_buffer_t *buffer,
                                                                             uintptr_t idx);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Returns the context added by `add_context_trampoline`, from within the callee function.
  */
 void *wasmer_trampoline_get_context(void);
+#endif
 
 /**
  * Returns true for valid wasm bytes and false for invalid bytes
