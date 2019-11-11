@@ -110,3 +110,8 @@ crate-type = ["bin"]
 [[example]]
 name = "callback"
 crate-type = ["bin"]
+
+[patch.crates-io]
+# https://github.com/Elzair/page_size_rs/pull/1 - update to winapi 0.3.8 which is way faster to build
+page_size = { git = "https://github.com/EmbarkStudios/page_size_rs.git", rev = "8fb6f33" }  # branch update-winapi
+
