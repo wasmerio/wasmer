@@ -3,9 +3,7 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    types::{
-        BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VectorType, VoidType,
-    },
+    types::{BasicType, FloatType, IntType, PointerType, StructType, VectorType, VoidType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
         PointerValue, VectorValue,
@@ -21,8 +19,7 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     structures::TypedIndex,
     types::{
-        GlobalIndex, ImportedFuncIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
-        TableIndex, Type,
+        GlobalIndex, ImportedFuncIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
     },
     units::Pages,
     vm::{Ctx, INTERNALS_SIZE},
@@ -900,55 +897,6 @@ impl<'a> CtxType<'a> {
         (base_ptr, bounds)
     }
 
-    pub fn local_func(
-        &mut self,
-        index: LocalFuncIndex,
-        fn_ty: FunctionType,
-        intrinsics: &Intrinsics,
-        module: Rc<RefCell<Module>>,
-        builder: &Builder,
-    ) -> PointerValue {
-        let local_func_array_ptr_ptr = unsafe {
-            builder.build_struct_gep(
-                self.ctx_ptr_value,
-                offset_to_index(Ctx::offset_local_functions()),
-                "local_func_array_ptr_ptr",
-            )
-        };
-        let local_func_array_ptr = builder
-            .build_load(local_func_array_ptr_ptr, "local_func_array_ptr")
-            .into_pointer_value();
-        tbaa_label(
-            module.clone(),
-            intrinsics,
-            "context_field_ptr_to_local_funcs",
-            local_func_array_ptr.as_instruction_value().unwrap(),
-            None,
-        );
-        let local_func_ptr_ptr = unsafe {
-            builder.build_in_bounds_gep(
-                local_func_array_ptr,
-                &[intrinsics.i32_ty.const_int(index.index() as u64, false)],
-                "local_func_ptr_ptr",
-            )
-        };
-        let local_func_ptr = builder
-            .build_load(local_func_ptr_ptr, "local_func_ptr")
-            .into_pointer_value();
-        tbaa_label(
-            module.clone(),
-            intrinsics,
-            "local_func_ptr",
-            local_func_ptr.as_instruction_value().unwrap(),
-            Some(index.index() as u32),
-        );
-        builder.build_pointer_cast(
-            local_func_ptr,
-            fn_ty.ptr_type(AddressSpace::Generic),
-            "local_func_ptr",
-        )
-    }
-
     pub fn dynamic_sigindex(&mut self, index: SigIndex, intrinsics: &Intrinsics) -> IntValue {
         let (cached_sigindices, ctx_ptr_value, cache_builder) = (
             &mut self.cached_sigindices,
@@ -1042,7 +990,7 @@ impl<'a> CtxType<'a> {
                 module.clone(),
                 intrinsics,
                 field_name,
-                globals_array_ptr_ptr.as_instruction_value().unwrap(),
+                global_array_ptr.as_instruction_value().unwrap(),
                 None,
             );
             let const_index = intrinsics.i32_ty.const_int(index, false);
@@ -1060,7 +1008,7 @@ impl<'a> CtxType<'a> {
                 module.clone(),
                 intrinsics,
                 "global_ptr",
-                globals_array_ptr_ptr.as_instruction_value().unwrap(),
+                global_ptr.as_instruction_value().unwrap(),
                 Some(index as u32),
             );
 

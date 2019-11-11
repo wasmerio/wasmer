@@ -1,3 +1,5 @@
+//! The typed func module implements a way of representing a wasm function
+//! with the correct types from rust. Function calls using a typed func have a low overhead.
 use crate::{
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
@@ -16,14 +18,22 @@ use std::{
     sync::Arc,
 };
 
+/// Wasm trap info.
 #[repr(C)]
 pub enum WasmTrapInfo {
+    /// Unreachable trap.
     Unreachable = 0,
+    /// Call indirect incorrect signature trap.
     IncorrectCallIndirectSignature = 1,
+    /// Memory out of bounds trap.
     MemoryOutOfBounds = 2,
+    /// Call indirect out of bounds trap.
     CallIndirectOOB = 3,
+    /// Illegal arithmetic trap.
     IllegalArithmetic = 4,
+    /// Misaligned atomic access trap.
     MisalignedAtomicAccess = 5,
+    /// Unknown trap.
     Unknown,
 }
 
@@ -52,12 +62,15 @@ impl fmt::Display for WasmTrapInfo {
 /// of the `Func` struct.
 pub trait Kind {}
 
+/// Aliases to an extern "C" type used as a trampoline to a function.
 pub type Trampoline = unsafe extern "C" fn(
     vmctx: *mut vm::Ctx,
     func: NonNull<vm::Func>,
     args: *const u64,
     rets: *mut u64,
 );
+
+/// Aliases to an extern "C" type used to invoke a function.
 pub type Invoke = unsafe extern "C" fn(
     trampoline: Trampoline,
     vmctx: *mut vm::Ctx,
@@ -80,6 +93,7 @@ pub struct Wasm {
 }
 
 impl Wasm {
+    /// Create new `Wasm` from given parts.
     pub unsafe fn from_raw_parts(
         trampoline: Trampoline,
         invoke: Invoke,
@@ -102,8 +116,10 @@ impl Kind for Host {}
 
 /// Represents a list of WebAssembly values.
 pub trait WasmTypeList {
+    /// CStruct type.
     type CStruct;
 
+    /// Array of return values.
     type RetArray: AsMut<[u64]>;
 
     /// Construct `Self` based on an array of returned values.
@@ -175,14 +191,18 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
+    /// Conver to function pointer.
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
+/// Represents a TrapEarly type.
 pub trait TrapEarly<Rets>
 where
     Rets: WasmTypeList,
 {
+    /// The error type for this trait.
     type Error: 'static;
+    /// Get returns or error result.
     fn report(self) -> Result<Rets, Self::Error>;
 }
 
@@ -239,6 +259,7 @@ where
         }
     }
 
+    /// Get the underlying func pointer.
     pub fn get_vm_func(&self) -> NonNull<vm::Func> {
         self.func
     }
@@ -249,6 +270,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
+    /// Creates a new `Func`.
     pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
     where
         Kind: ExternalFunctionKind,
@@ -396,6 +418,7 @@ impl<'a, A: WasmExternType, Rets> Func<'a, (A,), Rets, Wasm>
 where
     Rets: WasmTypeList,
 {
+    /// Call wasm function and return results.
     pub fn call(&self, a: A) -> Result<Rets, RuntimeError> {
         unsafe { <A as WasmTypeList>::call(a, self.func, self.inner, self.vmctx) }
     }
@@ -403,6 +426,7 @@ where
 
 macro_rules! impl_traits {
     ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
+        /// Struct for typed funcs.
         #[repr($repr)]
         pub struct $struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
         where
@@ -715,6 +739,7 @@ macro_rules! impl_traits {
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
         {
+            /// Call the typed func and return results.
             #[allow(non_snake_case)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]

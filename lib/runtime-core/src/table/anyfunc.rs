@@ -17,11 +17,13 @@ enum AnyfuncInner<'a> {
     Managed(DynFunc<'a>),
 }
 
+/// Anyfunc data type.
 pub struct Anyfunc<'a> {
     inner: AnyfuncInner<'a>,
 }
 
 impl<'a> Anyfunc<'a> {
+    /// Create a new `Anyfunc`.
     pub unsafe fn new<Sig>(func: *const vm::Func, signature: Sig) -> Self
     where
         Sig: Into<Arc<FuncSig>>,

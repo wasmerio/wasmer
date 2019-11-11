@@ -1,12 +1,13 @@
 [package]
 name = "wasmer"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
 publish = true
 description = "High-Performance WebAssembly JIT interpreter"
 license = "MIT"
+default-run = "wasmer"
 include = [
     "examples/**/*",
     "src/**/*",

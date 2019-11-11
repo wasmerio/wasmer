@@ -21,6 +21,7 @@ use std::{
     slice,
 };
 
+/// Size of the array for internal instance usage
 pub const INTERNALS_SIZE: usize = 256;
 
 pub(crate) struct Internals(pub(crate) [u64; INTERNALS_SIZE]);
@@ -476,6 +477,8 @@ impl LocalBacking {
     }
 }
 
+/// The `ImportBacking` stores references to the imported resources of an Instance. This includes
+/// imported memories, tables, globals and functions.
 #[derive(Debug)]
 pub struct ImportBacking {
     pub(crate) memories: BoxedMap<ImportedMemoryIndex, Memory>,
@@ -492,6 +495,7 @@ pub struct ImportBacking {
 unsafe impl Send for ImportBacking {}
 
 impl ImportBacking {
+    /// Creates a new `ImportBacking` from the given `ModuleInner`, `ImportObject`, and `Ctx`.
     pub fn new(
         module: &ModuleInner,
         imports: &ImportObject,
@@ -540,6 +544,7 @@ impl ImportBacking {
         }
     }
 
+    /// Gets a `ImportedFunc` from the given `ImportedFuncIndex`.
     pub fn imported_func(&self, index: ImportedFuncIndex) -> vm::ImportedFunc {
         self.vm_functions[index].clone()
     }
