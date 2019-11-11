@@ -4,7 +4,7 @@
 
 ## 0.10.0 - 2019-11-11
 
-Special thanks to @newpavlov and @Maxgy for their contributions!
+Special thanks to [@newpavlov](https://github.com/newpavlov) and [@Maxgy](https://github.com/Maxgy) for their contributions!
 
 - [#942](https://github.com/wasmerio/wasmer/pull/942) Deny missing docs in runtime core and add missing docs
 - [#939](https://github.com/wasmerio/wasmer/pull/939) Fix bug causing attempts to append to files with WASI to delete the contents of the file
