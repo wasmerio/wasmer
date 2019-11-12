@@ -582,25 +582,38 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
         .map_err(|e| format!("{:?}", e))?;
     } else {
-        if cfg!(feature = "wasi") && wasmer_wasi::is_wasi_module(&module) {
-            let import_object = wasmer_wasi::generate_import_object(
-                if let Some(cn) = &options.command_name {
-                    [cn.clone()]
-                } else {
-                    [options.path.to_str().unwrap().to_owned()]
+        let wasi_version = wasmer_wasi::get_wasi_version(&module);
+        if cfg!(feature = "wasi") && wasi_version.is_some() {
+            let wasi_version = wasi_version.unwrap();
+            let args = if let Some(cn) = &options.command_name {
+                [cn.clone()]
+            } else {
+                [options.path.to_str().unwrap().to_owned()]
+            }
+            .iter()
+            .chain(options.args.iter())
+            .cloned()
+            .map(|arg| arg.into_bytes())
+            .collect();
+            let envs = env_vars
+                .into_iter()
+                .map(|(k, v)| format!("{}={}", k, v).into_bytes())
+                .collect();
+            let preopened_files = options.pre_opened_directories.clone();
+
+            let import_object = match wasi_version {
+                wasmer_wasi::WasiVersion::Snapshot0 => {
+                    wasmer_wasi::generate_import_object_snapshot0(
+                        args,
+                        envs,
+                        preopened_files,
+                        mapped_dirs,
+                    )
                 }
-                .iter()
-                .chain(options.args.iter())
-                .cloned()
-                .map(|arg| arg.into_bytes())
-                .collect(),
-                env_vars
-                    .into_iter()
-                    .map(|(k, v)| format!("{}={}", k, v).into_bytes())
-                    .collect(),
-                options.pre_opened_directories.clone(),
-                mapped_dirs,
-            );
+                wasmer_wasi::WasiVersion::Snapshot1 => {
+                    wasmer_wasi::generate_import_object(args, envs, preopened_files, mapped_dirs)
+                }
+            };
 
             #[allow(unused_mut)] // mut used in feature
             let mut instance = module

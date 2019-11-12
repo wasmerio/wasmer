@@ -1504,7 +1504,6 @@ dependencies = [
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.10.1",
- "wasmer-llvm-backend 0.10.1",
  "wasmer-runtime-core 0.10.1",
  "wasmer-singlepass-backend 0.10.1",
 ]

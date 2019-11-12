@@ -21,3 +21,8 @@ wasmer-runtime-core = { path = "../runtime-core", version = "0.10.1" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
+
+[features]
+# Enable support for the older snapshot0 WASI modules
+snapshot0 = []
+default = ["snapshot0"]

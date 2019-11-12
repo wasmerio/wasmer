@@ -416,7 +416,7 @@ pub struct __wasi_iovec_t {
 
 unsafe impl ValueType for __wasi_iovec_t {}
 
-pub type __wasi_linkcount_t = u32;
+pub type __wasi_linkcount_t = u64;
 
 pub type __wasi_lookupflags_t = u32;
 pub const __WASI_LOOKUP_SYMLINK_FOLLOW: u32 = 1 << 0;
@@ -559,7 +559,6 @@ pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u16 = 1 << 0;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct __wasi_subscription_clock_t {
-    pub userdata: __wasi_userdata_t,
     pub clock_id: __wasi_clockid_t,
     pub timeout: __wasi_timestamp_t,
     pub precision: __wasi_timestamp_t,
@@ -575,8 +574,8 @@ pub struct __wasi_subscription_fs_readwrite_t {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union __wasi_subscription_u {
-    clock: __wasi_subscription_clock_t,
-    fd_readwrite: __wasi_subscription_fs_readwrite_t,
+    pub clock: __wasi_subscription_clock_t,
+    pub fd_readwrite: __wasi_subscription_fs_readwrite_t,
 }
 
 #[derive(Copy, Clone)]
@@ -698,6 +697,59 @@ pub type __wasi_timestamp_t = u64;
 pub type __wasi_userdata_t = u64;
 
 pub type __wasi_whence_t = u8;
-pub const __WASI_WHENCE_CUR: u8 = 0;
-pub const __WASI_WHENCE_END: u8 = 1;
-pub const __WASI_WHENCE_SET: u8 = 2;
+pub const __WASI_WHENCE_SET: u8 = 0;
+pub const __WASI_WHENCE_CUR: u8 = 1;
+pub const __WASI_WHENCE_END: u8 = 2;
+
+pub mod snapshot0 {
+    use serde::{Deserialize, Serialize};
+    pub type __wasi_linkcount_t = u32;
+    use wasmer_runtime_core::types::ValueType;
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    #[repr(C)]
+    pub struct __wasi_subscription_clock_t {
+        pub userdata: super::__wasi_userdata_t,
+        pub clock_id: super::__wasi_clockid_t,
+        pub timeout: super::__wasi_timestamp_t,
+        pub precision: super::__wasi_timestamp_t,
+        pub flags: super::__wasi_subclockflags_t,
+    }
+
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub union __wasi_subscription_u {
+        pub clock: __wasi_subscription_clock_t,
+        pub fd_readwrite: super::__wasi_subscription_fs_readwrite_t,
+    }
+
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub struct __wasi_subscription_t {
+        pub userdata: super::__wasi_userdata_t,
+        pub type_: super::__wasi_eventtype_t,
+        pub u: __wasi_subscription_u,
+    }
+
+    unsafe impl ValueType for __wasi_subscription_t {}
+
+    pub type __wasi_whence_t = u8;
+    pub const __WASI_WHENCE_CUR: u8 = 0;
+    pub const __WASI_WHENCE_END: u8 = 1;
+    pub const __WASI_WHENCE_SET: u8 = 2;
+
+    #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[repr(C)]
+    pub struct __wasi_filestat_t {
+        pub st_dev: super::__wasi_device_t,
+        pub st_ino: super::__wasi_inode_t,
+        pub st_filetype: super::__wasi_filetype_t,
+        pub st_nlink: __wasi_linkcount_t,
+        pub st_size: super::__wasi_filesize_t,
+        pub st_atim: super::__wasi_timestamp_t,
+        pub st_mtim: super::__wasi_timestamp_t,
+        pub st_ctim: super::__wasi_timestamp_t,
+    }
+
+    unsafe impl ValueType for __wasi_filestat_t {}
+}
