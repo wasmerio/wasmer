@@ -1,0 +1,18 @@
+arch:
+  - arm64
+
+language: rust
+rust:
+  - nightly
+
+script:
+  - make spectests-singlepass
+
+addons:
+  apt:
+    packages:
+      - cmake
+
+branches:
+  only:
+  - feature/singlepass-aarch64
