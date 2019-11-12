@@ -476,7 +476,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     let ucontext = ucontext as *mut ucontext;
     let gregs = &(*ucontext).uc_mcontext.regs;
 
-    let mut known_registers: [Option<u64>; 24] = [None; 24];
+    let mut known_registers: [Option<u64>; 32] = [None; 32];
 
     known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[15] as _);
     known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs[14] as _);

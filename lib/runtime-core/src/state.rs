@@ -529,7 +529,7 @@ pub mod x64 {
 
         let mut last_stack_offset: u64 = 0; // rbp
 
-        let mut known_registers: [Option<u64>; 24] = [None; 24];
+        let mut known_registers: [Option<u64>; 32] = [None; 32];
 
         let local_functions_vec: Vec<&FunctionStateMap> =
             msm.local_functions.iter().map(|(_, v)| v).collect();
