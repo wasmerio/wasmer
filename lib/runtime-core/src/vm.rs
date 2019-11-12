@@ -838,15 +838,9 @@ mod vm_offset_tests {
 
     #[test]
     fn imported_func() {
-        assert_eq!(
-            ImportedFunc::offset_func() as usize,
-            offset_of!(ImportedFunc => func).get_byte_offset(),
-        );
+        assert_eq!(ImportedFunc::offset_func() as usize, 0);
 
-        assert_eq!(
-            ImportedFunc::offset_func_ctx() as usize,
-            offset_of!(ImportedFunc => func_ctx).get_byte_offset(),
-        );
+        assert_eq!(ImportedFunc::offset_func_ctx() as usize, 8);
     }
 
     #[test]
