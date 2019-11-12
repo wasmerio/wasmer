@@ -711,78 +711,136 @@ impl Anyfunc {
 mod vm_offset_tests {
     use super::{Anyfunc, Ctx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable};
 
+    // Inspired by https://internals.rust-lang.org/t/discussion-on-offset-of/7440/2.
+    macro_rules! offset_of {
+        ($struct:path, $field:ident) => {{
+            fn offset() -> usize {
+                use std::mem;
+
+                let structure = mem::MaybeUninit::<$struct>::uninit();
+
+                let &$struct {
+                    $field: ref field, ..
+                } = unsafe { &*structure.as_ptr() };
+
+                let offset =
+                    (field as *const _ as usize).wrapping_sub(&structure as *const _ as usize);
+
+                assert!((0..=mem::size_of_val(&structure)).contains(&offset));
+
+                offset
+            }
+
+            offset()
+        }};
+    }
+
+    #[test]
+    fn offset_of() {
+        use std::{mem, ptr::NonNull};
+
+        struct S0;
+
+        #[repr(C)]
+        struct S1 {
+            f1: u8,
+            f2: u16,
+            f3: u32,
+            f4: u64,
+            f5: u128,
+            f6: f32,
+            f7: f64,
+            f8: NonNull<S0>,
+            f9: Option<NonNull<S0>>,
+            f10: *mut S0,
+            z: u8,
+        }
+
+        assert_eq!(offset_of!(S1, f1), 0);
+        assert_eq!(offset_of!(S1, f2), 2);
+        assert_eq!(offset_of!(S1, f3), 4);
+        assert_eq!(offset_of!(S1, f4), 8);
+        assert_eq!(offset_of!(S1, f5), 16);
+        assert_eq!(offset_of!(S1, f6), 32);
+        assert_eq!(offset_of!(S1, f7), 40);
+        assert_eq!(offset_of!(S1, f8), 40 + mem::size_of::<usize>());
+        assert_eq!(offset_of!(S1, f9), 48 + mem::size_of::<usize>());
+        assert_eq!(offset_of!(S1, f10), 56 + mem::size_of::<usize>());
+        assert_eq!(offset_of!(S1, z), 64 + mem::size_of::<usize>());
+    }
+
     #[test]
     fn vmctx() {
-        assert_eq!(0usize, offset_of!(Ctx => internal).get_byte_offset(),);
+        assert_eq!(0usize, offset_of!(Ctx, internal));
 
         assert_eq!(
             Ctx::offset_memories() as usize,
-            offset_of!(InternalCtx => memories).get_byte_offset(),
+            offset_of!(InternalCtx, memories),
         );
 
         assert_eq!(
             Ctx::offset_tables() as usize,
-            offset_of!(InternalCtx => tables).get_byte_offset(),
+            offset_of!(InternalCtx, tables),
         );
 
         assert_eq!(
             Ctx::offset_globals() as usize,
-            offset_of!(InternalCtx => globals).get_byte_offset(),
+            offset_of!(InternalCtx, globals),
         );
 
         assert_eq!(
             Ctx::offset_imported_memories() as usize,
-            offset_of!(InternalCtx => imported_memories).get_byte_offset(),
+            offset_of!(InternalCtx, imported_memories),
         );
 
         assert_eq!(
             Ctx::offset_imported_tables() as usize,
-            offset_of!(InternalCtx => imported_tables).get_byte_offset(),
+            offset_of!(InternalCtx, imported_tables),
         );
 
         assert_eq!(
             Ctx::offset_imported_globals() as usize,
-            offset_of!(InternalCtx => imported_globals).get_byte_offset(),
+            offset_of!(InternalCtx, imported_globals),
         );
 
         assert_eq!(
             Ctx::offset_imported_funcs() as usize,
-            offset_of!(InternalCtx => imported_funcs).get_byte_offset(),
+            offset_of!(InternalCtx, imported_funcs),
         );
 
         assert_eq!(
             Ctx::offset_intrinsics() as usize,
-            offset_of!(InternalCtx => intrinsics).get_byte_offset(),
+            offset_of!(InternalCtx, intrinsics),
         );
 
         assert_eq!(
             Ctx::offset_stack_lower_bound() as usize,
-            offset_of!(InternalCtx => stack_lower_bound).get_byte_offset(),
+            offset_of!(InternalCtx, stack_lower_bound),
         );
 
         assert_eq!(
             Ctx::offset_memory_base() as usize,
-            offset_of!(InternalCtx => memory_base).get_byte_offset(),
+            offset_of!(InternalCtx, memory_base),
         );
 
         assert_eq!(
             Ctx::offset_memory_bound() as usize,
-            offset_of!(InternalCtx => memory_bound).get_byte_offset(),
+            offset_of!(InternalCtx, memory_bound),
         );
 
         assert_eq!(
             Ctx::offset_internals() as usize,
-            offset_of!(InternalCtx => internals).get_byte_offset(),
+            offset_of!(InternalCtx, internals),
         );
 
         assert_eq!(
             Ctx::offset_interrupt_signal_mem() as usize,
-            offset_of!(InternalCtx => interrupt_signal_mem).get_byte_offset(),
+            offset_of!(InternalCtx, interrupt_signal_mem),
         );
 
         assert_eq!(
             Ctx::offset_local_functions() as usize,
-            offset_of!(Ctx => local_functions).get_byte_offset(),
+            offset_of!(Ctx, local_functions),
         );
     }
 
@@ -790,12 +848,12 @@ mod vm_offset_tests {
     fn imported_func() {
         assert_eq!(
             ImportedFunc::offset_func() as usize,
-            offset_of!(ImportedFunc => func).get_byte_offset(),
+            offset_of!(ImportedFunc, func),
         );
 
         assert_eq!(
             ImportedFunc::offset_vmctx() as usize,
-            offset_of!(ImportedFunc => vmctx).get_byte_offset(),
+            offset_of!(ImportedFunc, vmctx),
         );
     }
 
@@ -803,12 +861,12 @@ mod vm_offset_tests {
     fn local_table() {
         assert_eq!(
             LocalTable::offset_base() as usize,
-            offset_of!(LocalTable => base).get_byte_offset(),
+            offset_of!(LocalTable, base),
         );
 
         assert_eq!(
             LocalTable::offset_count() as usize,
-            offset_of!(LocalTable => count).get_byte_offset(),
+            offset_of!(LocalTable, count),
         );
     }
 
@@ -816,12 +874,12 @@ mod vm_offset_tests {
     fn local_memory() {
         assert_eq!(
             LocalMemory::offset_base() as usize,
-            offset_of!(LocalMemory => base).get_byte_offset(),
+            offset_of!(LocalMemory, base),
         );
 
         assert_eq!(
             LocalMemory::offset_bound() as usize,
-            offset_of!(LocalMemory => bound).get_byte_offset(),
+            offset_of!(LocalMemory, bound),
         );
     }
 
@@ -829,25 +887,19 @@ mod vm_offset_tests {
     fn local_global() {
         assert_eq!(
             LocalGlobal::offset_data() as usize,
-            offset_of!(LocalGlobal => data).get_byte_offset(),
+            offset_of!(LocalGlobal, data),
         );
     }
 
     #[test]
     fn cc_anyfunc() {
-        assert_eq!(
-            Anyfunc::offset_func() as usize,
-            offset_of!(Anyfunc => func).get_byte_offset(),
-        );
+        assert_eq!(Anyfunc::offset_func() as usize, offset_of!(Anyfunc, func),);
 
-        assert_eq!(
-            Anyfunc::offset_vmctx() as usize,
-            offset_of!(Anyfunc => ctx).get_byte_offset(),
-        );
+        assert_eq!(Anyfunc::offset_vmctx() as usize, offset_of!(Anyfunc, ctx),);
 
         assert_eq!(
             Anyfunc::offset_sig_id() as usize,
-            offset_of!(Anyfunc => sig_id).get_byte_offset(),
+            offset_of!(Anyfunc, sig_id),
         );
     }
 }
