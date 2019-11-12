@@ -831,15 +831,9 @@ mod vm_offset_tests {
 
     #[test]
     fn func_ctx() {
-        assert_eq!(
-            FuncCtx::offset_vmctx() as usize,
-            offset_of!(FuncCtx => vmctx).get_byte_offset(),
-        );
+        assert_eq!(FuncCtx::offset_vmctx() as usize, 0,);
 
-        assert_eq!(
-            FuncCtx::offset_func_env() as usize,
-            offset_of!(FuncCtx => func_env).get_byte_offset(),
-        );
+        assert_eq!(FuncCtx::offset_func_env() as usize, 8,);
     }
 
     #[test]
