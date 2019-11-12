@@ -551,14 +551,17 @@ pub struct FuncCtx {
 }
 
 impl FuncCtx {
+    /// Offset to `vmctx`.
     pub fn offset_vmctx() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
+    /// Offset to `func_env`.
     pub fn offset_func_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
+    /// Size of a `FuncCtx`.
     pub fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
