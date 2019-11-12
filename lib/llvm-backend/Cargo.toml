@@ -1,12 +1,12 @@
 [package]
 name = "wasmer-llvm-backend"
-version = "0.10.0"
+version = "0.10.1"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.10.0" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.10.1" }
 wasmparser = "0.39.1"
 smallvec = "0.6"
 goblin = "0.0.24"

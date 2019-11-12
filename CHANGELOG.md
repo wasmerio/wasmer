@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+## 0.10.0 - 2019-11-11
+
 - [#952](https://github.com/wasmerio/wasmer/pull/952) Use C preprocessor to properly hide trampoline functions on Windows and non-x86_64 targets.
 
 ## 0.10.0 - 2019-11-11
