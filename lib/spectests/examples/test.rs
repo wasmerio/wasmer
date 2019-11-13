@@ -1,5 +1,4 @@
 use wabt::wat2wasm;
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime_core::{backend::Compiler, import::ImportObject, Instance};
 
 fn main() {

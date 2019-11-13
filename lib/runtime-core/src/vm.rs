@@ -523,24 +523,65 @@ impl Ctx {
     }
 }
 
-enum InnerFunc {}
-/// Used to provide type safety (ish) for passing around function pointers.
-/// The typesystem ensures this cannot be dereferenced since an
-/// empty enum cannot actually exist.
-#[repr(C)]
-pub struct Func(InnerFunc);
+/// Represents a function pointer. It is mostly used in the
+/// `typed_func` module within the `wrap` functions, to wrap imported
+/// functions.
+#[repr(transparent)]
+pub struct Func(pub(self) *mut c_void);
 
-/// An imported function, which contains the vmctx that owns this function.
+/// Represents a function environment pointer, like a captured
+/// environment of a closure. It is mostly used in the `typed_func`
+/// module within the `wrap` functions, to wrap imported functions.
+#[repr(transparent)]
+pub struct FuncEnv(pub(self) *mut c_void);
+
+/// Represents a function context. It is used by imported functions
+/// only.
+#[derive(Debug)]
+#[repr(C)]
+pub struct FuncCtx {
+    /// The `Ctx` pointer.
+    pub(crate) vmctx: NonNull<Ctx>,
+
+    /// A pointer to the function environment. It is used by imported
+    /// functions only to store the pointer to the real host function,
+    /// whether it is a regular function, or a closure with or without
+    /// a captured environment.
+    pub(crate) func_env: Option<NonNull<FuncEnv>>,
+}
+
+impl FuncCtx {
+    /// Offset to `vmctx`.
+    pub fn offset_vmctx() -> u8 {
+        0 * (mem::size_of::<usize>() as u8)
+    }
+
+    /// Offset to `func_env`.
+    pub fn offset_func_env() -> u8 {
+        1 * (mem::size_of::<usize>() as u8)
+    }
+
+    /// Size of a `FuncCtx`.
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
+    }
+}
+
+/// An imported function is a function pointer associated to a
+/// function context.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
     /// Const pointer to `Func`.
-    pub func: *const Func,
-    /// Mutable pointer to `Ctx`.
-    pub vmctx: *mut Ctx,
+    pub(crate) func: *const Func,
+
+    /// Mutable non-null pointer to `FuncCtx`.
+    pub(crate) func_ctx: NonNull<FuncCtx>,
 }
 
-// manually implemented because ImportedFunc contains raw pointers directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO: review this, shouldn't `Ctx` be Send?))
+// Manually implemented because ImportedFunc contains raw pointers
+// directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO:
+// review this, shouldn't `Ctx` be Send?))
 unsafe impl Send for ImportedFunc {}
 
 impl ImportedFunc {
@@ -550,8 +591,8 @@ impl ImportedFunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset to vmctx.
-    pub fn offset_vmctx() -> u8 {
+    /// Offset to func_ctx.
+    pub fn offset_func_ctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -709,7 +750,9 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{Anyfunc, Ctx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable};
+    use super::{
+        Anyfunc, Ctx, FuncCtx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable,
+    };
 
     // Inspired by https://internals.rust-lang.org/t/discussion-on-offset-of/7440/2.
     macro_rules! offset_of {
@@ -845,6 +888,13 @@ mod vm_offset_tests {
     }
 
     #[test]
+    fn func_ctx() {
+        assert_eq!(FuncCtx::offset_vmctx() as usize, 0,);
+
+        assert_eq!(FuncCtx::offset_func_env() as usize, 8,);
+    }
+
+    #[test]
     fn imported_func() {
         assert_eq!(
             ImportedFunc::offset_func() as usize,
@@ -852,8 +902,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            ImportedFunc::offset_vmctx() as usize,
-            offset_of!(ImportedFunc, vmctx),
+            ImportedFunc::offset_func_ctx() as usize,
+            offset_of!(ImportedFunc, func_ctx),
         );
     }
 

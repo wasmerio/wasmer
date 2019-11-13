@@ -192,7 +192,7 @@ where
     Rets: WasmTypeList,
 {
     /// Conver to function pointer.
-    fn to_raw(&self) -> NonNull<vm::Func>;
+    fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
 /// Represents a TrapEarly type.
@@ -230,8 +230,9 @@ where
 /// Represents a function that can be used by WebAssembly.
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
-    f: NonNull<vm::Func>,
-    ctx: *mut vm::Ctx,
+    func: NonNull<vm::Func>,
+    func_env: Option<NonNull<vm::FuncEnv>>,
+    vmctx: *mut vm::Ctx,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
@@ -245,20 +246,22 @@ where
 {
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
-        f: NonNull<vm::Func>,
-        ctx: *mut vm::Ctx,
+        func: NonNull<vm::Func>,
+        func_env: Option<NonNull<vm::FuncEnv>>,
+        vmctx: *mut vm::Ctx,
     ) -> Func<'a, Args, Rets, Wasm> {
         Func {
             inner,
-            f,
-            ctx,
+            func,
+            func_env,
+            vmctx,
             _phantom: PhantomData,
         }
     }
 
     /// Get the underlying func pointer.
     pub fn get_vm_func(&self) -> NonNull<vm::Func> {
-        self.f
+        self.func
     }
 }
 
@@ -268,15 +271,18 @@ where
     Rets: WasmTypeList,
 {
     /// Creates a new `Func`.
-    pub fn new<F, Kind>(f: F) -> Func<'a, Args, Rets, Host>
+    pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
     where
         Kind: ExternalFunctionKind,
         F: ExternalFunction<Kind, Args, Rets>,
     {
+        let (func, func_env) = func.to_raw();
+
         Func {
             inner: Host(()),
-            f: f.to_raw(),
-            ctx: ptr::null_mut(),
+            func,
+            func_env,
+            vmctx: ptr::null_mut(),
             _phantom: PhantomData,
         }
     }
@@ -414,7 +420,7 @@ where
 {
     /// Call wasm function and return results.
     pub fn call(&self, a: A) -> Result<Rets, RuntimeError> {
-        unsafe { <A as WasmTypeList>::call(a, self.f, self.inner, self.ctx) }
+        unsafe { <A as WasmTypeList>::call(a, self.func, self.inner, self.vmctx) }
     }
 }
 
@@ -506,56 +512,113 @@ macro_rules! impl_traits {
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap,
+            FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap + 'static,
         {
             #[allow(non_snake_case)]
-            fn to_raw(&self) -> NonNull<vm::Func> {
-                if mem::size_of::<Self>() == 0 {
-                    /// This is required for the llvm backend to be able to unwind through this function.
-                    #[cfg_attr(nightly, unwind(allowed))]
-                    extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                        vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
-                    ) -> Rets::CStruct
-                    where
-                        $( $x: WasmExternType, )*
-                        Rets: WasmTypeList,
-                        Trap: TrapEarly<Rets>,
-                        FN: Fn(&mut vm::Ctx, $( $x, )*) -> Trap,
-                    {
-                        let f: FN = unsafe { mem::transmute_copy(&()) };
+            fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
+                // The `wrap` function is a wrapper around the
+                // imported function. It manages the argument passed
+                // to the imported function (in this case, the
+                // `vmctx` along with the regular WebAssembly
+                // arguments), and it manages the trapping.
+                //
+                // It is also required for the LLVM backend to be
+                // able to unwind through this function.
+                #[cfg_attr(nightly, unwind(allowed))]
+                extern fn wrap<$( $x, )* Rets, Trap, FN>(
+                    vmctx: &vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                ) -> Rets::CStruct
+                where
+                    $( $x: WasmExternType, )*
+                    Rets: WasmTypeList,
+                    Trap: TrapEarly<Rets>,
+                    FN: Fn(&mut vm::Ctx, $( $x, )*) -> Trap,
+                {
+                    // Get the pointer to this `wrap` function.
+                    let self_pointer = wrap::<$( $x, )* Rets, Trap, FN> as *const vm::Func;
 
-                        let err = match panic::catch_unwind(
-                            panic::AssertUnwindSafe(
-                                || {
-                                    f(vmctx $( , WasmExternType::from_native($x) )* ).report()
-                                }
-                            )
-                        ) {
-                            Ok(Ok(returns)) => return returns.into_c_struct(),
-                            Ok(Err(err)) => {
-                                let b: Box<_> = err.into();
-                                b as Box<dyn Any>
-                            },
-                            Err(err) => err,
-                        };
+                    // Get the collection of imported functions.
+                    let vm_imported_functions = unsafe { &(*vmctx.import_backing).vm_functions };
 
-                        unsafe {
-                            (&*vmctx.module).runnable_module.do_early_trap(err)
-                        }
+                    // Retrieve the `vm::FuncCtx`.
+                    let mut func_ctx: NonNull<vm::FuncCtx> = vm_imported_functions
+                        .iter()
+                        .find_map(|(_, imported_func)| {
+                            if imported_func.func == self_pointer {
+                                Some(imported_func.func_ctx)
+                            } else {
+                                None
+                            }
+                        })
+                        .expect("Import backing is not well-formed, cannot find `func_ctx`.");
+                    let func_ctx = unsafe { func_ctx.as_mut() };
+
+                    // Extract `vm::Ctx` from `vm::FuncCtx`. The
+                    // pointer is always non-null.
+                    let vmctx = unsafe { func_ctx.vmctx.as_mut() };
+
+                    // Extract `vm::FuncEnv` from `vm::FuncCtx`.
+                    let func_env = func_ctx.func_env;
+
+                    let func: &FN = match func_env {
+                        // The imported function is a regular
+                        // function, a closure without a captured
+                        // environment, or a closure with a captured
+                        // environment.
+                        Some(func_env) => unsafe {
+                            let func: NonNull<FN> = func_env.cast();
+
+                            &*func.as_ptr()
+                        },
+
+                        // This branch is supposed to be unreachable.
+                        None => unreachable!()
+                    };
+
+                    // Catch unwind in case of errors.
+                    let err = match panic::catch_unwind(
+                        panic::AssertUnwindSafe(
+                            || {
+                                func(vmctx $( , WasmExternType::from_native($x) )* ).report()
+                                //   ^^^^^ The imported function
+                                //         expects `vm::Ctx` as first
+                                //         argument; provide it.
+                            }
+                        )
+                    ) {
+                        Ok(Ok(returns)) => return returns.into_c_struct(),
+                        Ok(Err(err)) => {
+                            let b: Box<_> = err.into();
+                            b as Box<dyn Any>
+                        },
+                        Err(err) => err,
+                    };
+
+                    // At this point, there is an error that needs to
+                    // be trapped.
+                    unsafe {
+                        (&*vmctx.module).runnable_module.do_early_trap(err)
                     }
-
-                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap()
-                } else {
-                    assert_eq!(
-                        mem::size_of::<Self>(),
-                        mem::size_of::<usize>(),
-                        "you cannot use a closure that captures state for `Func`."
-                    );
-
-                    NonNull::new(unsafe {
-                        mem::transmute_copy::<_, *mut vm::Func>(self)
-                    }).unwrap()
                 }
+
+                // Extract the captured environment of the imported
+                // function if any.
+                let func_env: Option<NonNull<vm::FuncEnv>> =
+                    // `FN` is a function pointer, or a closure
+                    // _without_ a captured environment.
+                    if mem::size_of::<Self>() == 0 {
+                        NonNull::new(&self as *const _ as *mut vm::FuncEnv)
+                    }
+                    // `FN` is a closure _with_ a captured
+                    // environment.
+                    else {
+                        NonNull::new(Box::into_raw(Box::new(self))).map(NonNull::cast)
+                    };
+
+                (
+                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
+                    func_env
+                )
             }
         }
 
@@ -564,56 +627,110 @@ macro_rules! impl_traits {
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn($( $x, )*) -> Trap,
+            FN: Fn($( $x, )*) -> Trap + 'static,
         {
             #[allow(non_snake_case)]
-            fn to_raw(&self) -> NonNull<vm::Func> {
-                if mem::size_of::<Self>() == 0 {
-                    /// This is required for the llvm backend to be able to unwind through this function.
-                    #[cfg_attr(nightly, unwind(allowed))]
-                    extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                        vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
-                    ) -> Rets::CStruct
-                    where
-                        $( $x: WasmExternType, )*
-                        Rets: WasmTypeList,
-                        Trap: TrapEarly<Rets>,
-                        FN: Fn($( $x, )*) -> Trap,
-                    {
-                        let f: FN = unsafe { mem::transmute_copy(&()) };
+            fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
+                // The `wrap` function is a wrapper around the
+                // imported function. It manages the argument passed
+                // to the imported function (in this case, only the
+                // regular WebAssembly arguments), and it manages the
+                // trapping.
+                //
+                // It is also required for the LLVM backend to be
+                // able to unwind through this function.
+                #[cfg_attr(nightly, unwind(allowed))]
+                extern fn wrap<$( $x, )* Rets, Trap, FN>(
+                    vmctx: &vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                ) -> Rets::CStruct
+                where
+                    $( $x: WasmExternType, )*
+                    Rets: WasmTypeList,
+                    Trap: TrapEarly<Rets>,
+                    FN: Fn($( $x, )*) -> Trap,
+                {
+                    // Get the pointer to this `wrap` function.
+                    let self_pointer = wrap::<$( $x, )* Rets, Trap, FN> as *const vm::Func;
 
-                        let err = match panic::catch_unwind(
-                            panic::AssertUnwindSafe(
-                                || {
-                                    f($( WasmExternType::from_native($x), )* ).report()
-                                }
-                            )
-                        ) {
-                            Ok(Ok(returns)) => return returns.into_c_struct(),
-                            Ok(Err(err)) => {
-                                let b: Box<_> = err.into();
-                                b as Box<dyn Any>
-                            },
-                            Err(err) => err,
-                        };
+                    // Get the collection of imported functions.
+                    let vm_imported_functions = unsafe { &(*vmctx.import_backing).vm_functions };
 
-                        unsafe {
-                            (&*vmctx.module).runnable_module.do_early_trap(err)
-                        }
+                    // Retrieve the `vm::FuncCtx`.
+                    let mut func_ctx: NonNull<vm::FuncCtx> = vm_imported_functions
+                        .iter()
+                        .find_map(|(_, imported_func)| {
+                            if imported_func.func == self_pointer {
+                                Some(imported_func.func_ctx)
+                            } else {
+                                None
+                            }
+                        })
+                        .expect("Import backing is not well-formed, cannot find `func_ctx`.");
+                    let func_ctx = unsafe { func_ctx.as_mut() };
+
+                    // Extract `vm::Ctx` from `vm::FuncCtx`. The
+                    // pointer is always non-null.
+                    let vmctx = unsafe { func_ctx.vmctx.as_mut() };
+
+                    // Extract `vm::FuncEnv` from `vm::FuncCtx`.
+                    let func_env = func_ctx.func_env;
+
+                    let func: &FN = match func_env {
+                        // The imported function is a regular
+                        // function, a closure without a captured
+                        // environment, or a closure with a captured
+                        // environment.
+                        Some(func_env) => unsafe {
+                            let func: NonNull<FN> = func_env.cast();
+
+                            &*func.as_ptr()
+                        },
+
+                        // This branch is supposed to be unreachable.
+                        None => unreachable!()
+                    };
+
+                    // Catch unwind in case of errors.
+                    let err = match panic::catch_unwind(
+                        panic::AssertUnwindSafe(
+                            || {
+                                func($( WasmExternType::from_native($x), )* ).report()
+                            }
+                        )
+                    ) {
+                        Ok(Ok(returns)) => return returns.into_c_struct(),
+                        Ok(Err(err)) => {
+                            let b: Box<_> = err.into();
+                            b as Box<dyn Any>
+                        },
+                        Err(err) => err,
+                    };
+
+                    // At this point, there is an error that needs to
+                    // be trapped.
+                    unsafe {
+                        (&*vmctx.module).runnable_module.do_early_trap(err)
                     }
-
-                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap()
-                } else {
-                    assert_eq!(
-                        mem::size_of::<Self>(),
-                        mem::size_of::<usize>(),
-                        "you cannot use a closure that captures state for `Func`."
-                    );
-
-                    NonNull::new(unsafe {
-                        mem::transmute_copy::<_, *mut vm::Func>(self)
-                    }).unwrap()
                 }
+
+                // Extract the captured environment of the imported
+                // function if any.
+                let func_env: Option<NonNull<vm::FuncEnv>> =
+                    // `FN` is a function pointer, or a closure
+                    // _without_ a captured environment.
+                    if mem::size_of::<Self>() == 0 {
+                        NonNull::new(&self as *const _ as *mut vm::FuncEnv)
+                    }
+                    // `FN` is a closure _with_ a captured
+                    // environment.
+                    else {
+                        NonNull::new(Box::into_raw(Box::new(self))).map(NonNull::cast)
+                    };
+
+                (
+                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
+                    func_env
+                )
             }
         }
 
@@ -629,9 +746,9 @@ macro_rules! impl_traits {
                 unsafe {
                     <( $( $x ),* ) as WasmTypeList>::call(
                         ( $( $x ),* ),
-                        self.f,
+                        self.func,
                         self.inner,
-                        self.ctx
+                        self.vmctx
                     )
                 }
             }
@@ -669,8 +786,11 @@ where
     Inner: Kind,
 {
     fn to_export(&self) -> Export {
-        let func = unsafe { FuncPointer::new(self.f.as_ptr()) };
-        let ctx = Context::Internal;
+        let func = unsafe { FuncPointer::new(self.func.as_ptr()) };
+        let ctx = match self.func_env {
+            func_env @ Some(_) => Context::ExternalWithEnv(self.vmctx, func_env),
+            None => Context::Internal,
+        };
         let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));
 
         Export::Function {
