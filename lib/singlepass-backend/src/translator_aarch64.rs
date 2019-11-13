@@ -1709,6 +1709,8 @@ impl Emitter for Assembler {
             ; .dword (ty as u8 as i32)
         );
     }
+
+    fn arch_supports_canonicalize_nan(&self) -> bool { false }
 }
 
 fn emit_clz_variant(

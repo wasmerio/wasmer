@@ -267,6 +267,8 @@ pub trait Emitter {
     fn arch_emit_tzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) {
         unimplemented!()
     }
+
+    fn arch_supports_canonicalize_nan(&self) -> bool { true }
 }
 
 fn _dummy(a: &mut Assembler) {
