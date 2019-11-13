@@ -5,6 +5,8 @@ repository = "https://github.com/wasmerio/wasmer"
 description = "Wasmer runtime single pass compiler backend"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+keywords = ["wasm", "webassembly", "compiler", "JIT", "AOT"]
+categories = ["wasm"]
 edition = "2018"
 readme = "README.md"
 
