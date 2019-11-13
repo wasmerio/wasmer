@@ -47,7 +47,7 @@ macro_rules! trace {
 /// Helper macro to create a new `Func` object using the provided function pointer.
 #[macro_export]
 macro_rules! func {
-    ($func:path) => {{
+    ($func:expr) => {{
         $crate::Func::new($func)
     }};
 }
