@@ -6,13 +6,18 @@ use crate::{
     module::ModuleInner, table::Table, types::FuncSig, vm,
 };
 use indexmap::map::Iter as IndexMapIter;
-use std::sync::Arc;
+use std::{ptr::NonNull, sync::Arc};
 
 /// A kind of Context.
 #[derive(Debug, Copy, Clone)]
 pub enum Context {
     /// External context include a mutable pointer to `Ctx`.
     External(*mut vm::Ctx),
+
+    /// External context with an environment include a mutable pointer
+    /// to `Ctx` and an optional non-null pointer to `FuncEnv`.
+    ExternalWithEnv(*mut vm::Ctx, Option<NonNull<vm::FuncEnv>>),
+
     /// Internal context.
     Internal,
 }

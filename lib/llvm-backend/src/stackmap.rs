@@ -161,7 +161,7 @@ impl StackmapEntry {
                 ValueSemantic::ImportedFuncCtx(idx) => MachineValue::VmctxDeref(vec![
                     Ctx::offset_imported_funcs() as usize,
                     vm::ImportedFunc::size() as usize * idx
-                        + vm::ImportedFunc::offset_vmctx() as usize,
+                        + vm::ImportedFunc::offset_func_ctx() as usize,
                     0,
                 ]),
                 ValueSemantic::DynamicSigindice(idx) => {
