@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#957](https://github.com/wasmerio/wasmer/pull/957) Change the meaning of `wasmer_wasi::is_wasi_module` to detect any type of WASI module, add support for new wasi snapshot_preview1
+
 ## 0.10.0 - 2019-11-11
 
 - [#952](https://github.com/wasmerio/wasmer/pull/952) Use C preprocessor to properly hide trampoline functions on Windows and non-x86_64 targets.

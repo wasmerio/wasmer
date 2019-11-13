@@ -12,7 +12,7 @@
 
 //! Wasmer's WASI implementation
 //!
-//! Use `generate_import_object` to create an `ImportObject`.  This `ImportObject`
+//! Use `generate_import_object` to create an [`ImportObject`].  This [`ImportObject`]
 //! can be combined with a module to create an `Instance` which can execute WASI
 //! Wasm functions.
 //!
@@ -47,7 +47,8 @@ pub struct ExitCode {
     pub code: syscalls::types::__wasi_exitcode_t,
 }
 
-/// Creates a Wasi [`ImportObject`] with [`WasiState`].
+/// Creates a Wasi [`ImportObject`] with [`WasiState`] with the latest snapshot
+/// of WASI.
 pub fn generate_import_object(
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
@@ -130,7 +131,7 @@ pub fn generate_import_object(
 }
 
 #[cfg(feature = "snapshot0")]
-/// Creates a Wasi [`ImportObject`] with [`WasiState`].
+/// Creates a legacy Wasi [`ImportObject`] with [`WasiState`].
 pub fn generate_import_object_snapshot0(
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
