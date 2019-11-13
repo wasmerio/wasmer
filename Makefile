@@ -25,7 +25,7 @@ generate: generate-spectests generate-emtests generate-wasitests
 
 # Spectests
 spectests-singlepass:
-	cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture
+	cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture --test-threads 1
 
 spectests-cranelift:
 	cargo test --manifest-path lib/spectests/Cargo.toml --release --features clif -- --nocapture
