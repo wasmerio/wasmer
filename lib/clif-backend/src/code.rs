@@ -54,6 +54,10 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         }
     }
 
+    fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {
+        unimplemented!("cross compilation is not available for clif backend")
+    }
+
     fn backend_id() -> Backend {
         Backend::Cranelift
     }
