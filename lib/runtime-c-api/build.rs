@@ -21,7 +21,7 @@ fn main() {
     #endif
   #endif
 
-  #if defined(GCC)
+  #if defined(GCC) || defined(__clang__)
     #if defined(__x86_64__)
       #define ARCH_X86_64
     #endif
