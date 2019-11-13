@@ -2,9 +2,9 @@
 //! state could read or updated at runtime. Use cases include generating stack traces, switching
 //! generated code from one tier to another, or serializing state of a running instace.
 
+use crate::backend::Backend;
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
-use crate::backend::Backend;
 
 /// An index to a register
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

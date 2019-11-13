@@ -544,11 +544,11 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 /// Get fault info from siginfo and ucontext.
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
+    use crate::state::x64::XMM;
     use libc::{
         _libc_xmmreg, ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8,
         REG_R9, REG_RAX, REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX, REG_RIP, REG_RSI, REG_RSP,
     };
-    use crate::state::x64::XMM;
 
     fn read_xmm(reg: &_libc_xmmreg) -> u64 {
         (reg.element[0] as u64) | ((reg.element[1] as u64) << 32)
