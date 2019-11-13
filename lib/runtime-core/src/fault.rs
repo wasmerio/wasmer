@@ -1,25 +1,34 @@
+//! The fault module contains the implementation for handling breakpoints, traps, and signals
+//! for wasm code.
+
 pub mod raw {
+    //! The raw module contains required externed function interfaces for the fault module.
     use std::ffi::c_void;
 
     #[cfg(target_arch = "x86_64")]
     extern "C" {
+        /// Load registers and return on the stack [stack_end..stack_begin].
         pub fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64;
+        /// Internal routine for switching into a backend without information about where registers are preserved.
         pub fn register_preservation_trampoline(); // NOT safe to call directly
     }
 
+    /// Internal routine for switching into a backend without information about where registers are preserved.
     #[cfg(not(target_arch = "x86_64"))]
     pub extern "C" fn register_preservation_trampoline() {
         unimplemented!("register_preservation_trampoline");
     }
 
     extern "C" {
+        /// libc setjmp
         pub fn setjmp(env: *mut c_void) -> i32;
+        /// libc longjmp
         pub fn longjmp(env: *mut c_void, val: i32) -> !;
     }
 }
 
 use crate::codegen::{BreakpointInfo, BreakpointMap};
-use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR, XMM};
+use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR};
 use crate::state::{CodeVersion, ExecutionStateImage};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
@@ -40,7 +49,7 @@ pub(crate) unsafe fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: 
 }
 
 #[cfg(not(target_arch = "x86_64"))]
-pub(crate) unsafe fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64 {
+pub(crate) unsafe fn run_on_alternative_stack(_stack_end: *mut u64, _stack_begin: *mut u64) -> u64 {
     unimplemented!("run_on_alternative_stack");
 }
 
@@ -55,13 +64,19 @@ struct UnwindInfo {
     payload: Option<Box<dyn Any>>, // out
 }
 
+/// A store for boundary register preservation.
 #[repr(packed)]
 #[derive(Default, Copy, Clone)]
 pub struct BoundaryRegisterPreservation {
+    /// R15.
     pub r15: u64,
+    /// R14.
     pub r14: u64,
+    /// R13.
     pub r13: u64,
+    /// R12.
     pub r12: u64,
+    /// RBX.
     pub rbx: u64,
 }
 
@@ -73,6 +88,7 @@ thread_local! {
     static BOUNDARY_REGISTER_PRESERVATION: UnsafeCell<BoundaryRegisterPreservation> = UnsafeCell::new(BoundaryRegisterPreservation::default());
 }
 
+/// Gets a mutable pointer to the `BoundaryRegisterPreservation`.
 #[no_mangle]
 pub unsafe extern "C" fn get_boundary_register_preservation() -> *mut BoundaryRegisterPreservation {
     BOUNDARY_REGISTER_PRESERVATION.with(|x| x.get())
@@ -104,10 +120,12 @@ lazy_static! {
 }
 static INTERRUPT_SIGNAL_DELIVERED: AtomicBool = AtomicBool::new(false);
 
+/// Returns a boolean indicating if SIGINT triggered the fault.
 pub fn was_sigint_triggered_fault() -> bool {
     WAS_SIGINT_TRIGGERED.with(|x| x.get())
 }
 
+/// Runs a callback function with the given `Ctx`.
 pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
     let addr = CURRENT_CTX.with(|x| x.get());
     let old = *addr;
@@ -117,18 +135,22 @@ pub unsafe fn with_ctx<R, F: FnOnce() -> R>(ctx: *mut vm::Ctx, cb: F) -> R {
     ret
 }
 
+/// Pushes a new `CodeVersion` to the current code versions.
 pub fn push_code_version(version: CodeVersion) {
     CURRENT_CODE_VERSIONS.with(|x| x.borrow_mut().push(version));
 }
 
+/// Pops a `CodeVersion` from the current code versions.
 pub fn pop_code_version() -> Option<CodeVersion> {
     CURRENT_CODE_VERSIONS.with(|x| x.borrow_mut().pop())
 }
 
+/// Gets the wasm interrupt signal mem.
 pub unsafe fn get_wasm_interrupt_signal_mem() -> *mut u8 {
     INTERRUPT_SIGNAL_MEM.0
 }
 
+/// Sets the wasm interrupt on the given `Ctx`.
 pub unsafe fn set_wasm_interrupt_on_ctx(ctx: *mut vm::Ctx) {
     if mprotect(
         (&*ctx).internal.interrupt_signal_mem as _,
@@ -140,6 +162,7 @@ pub unsafe fn set_wasm_interrupt_on_ctx(ctx: *mut vm::Ctx) {
     }
 }
 
+/// Sets a wasm interrupt.
 pub unsafe fn set_wasm_interrupt() {
     let mem: *mut u8 = INTERRUPT_SIGNAL_MEM.0;
     if mprotect(mem as _, INTERRUPT_SIGNAL_MEM_SIZE, PROT_NONE) < 0 {
@@ -147,6 +170,7 @@ pub unsafe fn set_wasm_interrupt() {
     }
 }
 
+/// Clears the wasm interrupt.
 pub unsafe fn clear_wasm_interrupt() {
     let mem: *mut u8 = INTERRUPT_SIGNAL_MEM.0;
     if mprotect(mem as _, INTERRUPT_SIGNAL_MEM_SIZE, PROT_READ | PROT_WRITE) < 0 {
@@ -154,6 +178,7 @@ pub unsafe fn clear_wasm_interrupt() {
     }
 }
 
+/// Catches an unsafe unwind with the given functions and breakpoints.
 pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     f: F,
     breakpoints: Option<BreakpointMap>,
@@ -179,6 +204,7 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     }
 }
 
+/// Begins an unsafe unwind.
 pub unsafe fn begin_unsafe_unwind(e: Box<dyn Any>) -> ! {
     let unwind = UNWIND.with(|x| x.get());
     let inner = (*unwind)
@@ -197,11 +223,13 @@ unsafe fn with_breakpoint_map<R, F: FnOnce(Option<&BreakpointMap>) -> R>(f: F) -
 }
 
 #[cfg(not(target_arch = "x86_64"))]
-pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
+/// Allocates and runs with the given stack size and closure.
+pub fn allocate_and_run<R, F: FnOnce() -> R>(_size: usize, f: F) -> R {
     f()
 }
 
 #[cfg(target_arch = "x86_64")]
+/// Allocates and runs with the given stack size and closure.
 pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
     struct Context<F: FnOnce() -> R, R> {
         f: Option<F>,
@@ -385,6 +413,7 @@ extern "C" fn sigint_handler(
     }
 }
 
+/// Ensure the signal handler is installed.
 pub fn ensure_sighandler() {
     INSTALL_SIGHANDLER.call_once(|| unsafe {
         install_sighandler();
@@ -414,13 +443,18 @@ unsafe fn install_sighandler() {
 }
 
 #[derive(Debug, Clone)]
+/// Info about the fault
 pub struct FaultInfo {
+    /// Faulting address.
     pub faulting_addr: *const c_void,
+    /// Instruction pointer.
     pub ip: &'static Cell<usize>,
+    /// Values of known registers.
     pub known_registers: [Option<u64>; 32],
 }
 
 impl FaultInfo {
+    /// Parses the stack and builds an execution state image.
     pub unsafe fn read_stack(&self, max_depth: Option<usize>) -> Option<ExecutionStateImage> {
         let rsp = match self.known_registers[X64Register::GPR(GPR::RSP).to_index().0] {
             Some(x) => x,
@@ -441,8 +475,10 @@ impl FaultInfo {
 }
 
 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+/// Get fault info from siginfo and ucontext.
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
     #[allow(dead_code)]
+    #[allow(non_camel_case_types)]
     #[repr(packed)]
     struct sigcontext {
         fault_address: u64,
@@ -454,6 +490,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     }
 
     #[allow(dead_code)]
+    #[allow(non_camel_case_types)]
     #[repr(packed)]
     struct ucontext {
         unknown: [u8; 176],
@@ -461,6 +498,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     }
 
     #[allow(dead_code)]
+    #[allow(non_camel_case_types)]
     #[repr(C)]
     struct siginfo_t {
         si_signo: i32,
@@ -504,11 +542,13 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+/// Get fault info from siginfo and ucontext.
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
     use libc::{
         _libc_xmmreg, ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8,
         REG_R9, REG_RAX, REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX, REG_RIP, REG_RSI, REG_RSP,
     };
+    use crate::state::x64::XMM;
 
     fn read_xmm(reg: &_libc_xmmreg) -> u64 {
         (reg.element[0] as u64) | ((reg.element[1] as u64) << 32)
@@ -582,8 +622,10 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     }
 }
 
+/// Get fault info from siginfo and ucontext.
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
+    use crate::state::x64::XMM;
     #[allow(dead_code)]
     #[repr(C)]
     struct ucontext_t {
