@@ -163,15 +163,52 @@ lazy_static! {
             ; ldr x9, >v_65536
             ; sub sp, sp, x9 // Pre-allocate the WASM stack
 
-            // return address
-            ; adr x9, >done
-            ; sub x28, x28, 8
-            ; str x9, [x28] // Keep this consistent with RSP mapping in translator_aarch64
+            ; mov x19, x0 // stack_top
+            ; mov x20, x1 // stack_base
 
             // ctx
             ; mov X(crate::translator_aarch64::map_gpr(GPR::RDI).x()), x2
 
-            // TODO: params
+            // params
+            ; cmp x20, x19
+            ; b.eq >end_copy_params
+            ; sub x20, x20, 8
+            ; ldr X(crate::translator_aarch64::map_gpr(GPR::RSI).x()), [x20]
+
+            ; cmp x20, x19
+            ; b.eq >end_copy_params
+            ; sub x20, x20, 8
+            ; ldr X(crate::translator_aarch64::map_gpr(GPR::RDX).x()), [x20]
+
+            ; cmp x20, x19
+            ; b.eq >end_copy_params
+            ; sub x20, x20, 8
+            ; ldr X(crate::translator_aarch64::map_gpr(GPR::RCX).x()), [x20]
+
+            ; cmp x20, x19
+            ; b.eq >end_copy_params
+            ; sub x20, x20, 8
+            ; ldr X(crate::translator_aarch64::map_gpr(GPR::R8).x()), [x20]
+
+            ; cmp x20, x19
+            ; b.eq >end_copy_params
+            ; sub x20, x20, 8
+            ; ldr X(crate::translator_aarch64::map_gpr(GPR::R9).x()), [x20]
+
+            ; copy_loop:
+            ; cmp x20, x19
+            ; b.eq >end_copy_params
+            ; ldr x21, [x19]
+            ; add x19, x19, 8
+            ; sub x28, x28, 8
+            ; str x21, [x28]
+            ; b <copy_loop
+            ; end_copy_params:
+
+            // return address
+            ; adr x9, >done
+            ; sub x28, x28, 8
+            ; str x9, [x28] // Keep this consistent with RSP mapping in translator_aarch64
 
             // Jump to target function!
             ; br x3
