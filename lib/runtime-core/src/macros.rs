@@ -94,12 +94,12 @@ macro_rules! func {
 ///
 /// [`ImportObject`]: struct.ImportObject.html
 ///
-/// # Note:
+/// # Note
 /// The `import` macro currently only supports
 /// importing functions.
 ///
 ///
-/// # Usage:
+/// # Usage
 /// ```
 /// # use wasmer_runtime_core::{imports, func};
 /// # use wasmer_runtime_core::vm::Ctx;
