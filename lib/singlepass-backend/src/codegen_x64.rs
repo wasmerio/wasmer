@@ -3153,10 +3153,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Assembler::emit_vmaxss,
                     );
                 } else {
-                    let src2 =
-                        get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                    let src1 =
-                        get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                    let src2 = get_location_released(
+                        a,
+                        &mut self.machine,
+                        self.value_stack.pop().unwrap(),
+                    );
+                    let src1 = get_location_released(
+                        a,
+                        &mut self.machine,
+                        self.value_stack.pop().unwrap(),
+                    );
                     let ret = self.machine.acquire_locations(
                         a,
                         &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3259,10 +3265,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Assembler::emit_vminss,
                     );
                 } else {
-                    let src2 =
-                        get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                    let src1 =
-                        get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                    let src2 = get_location_released(
+                        a,
+                        &mut self.machine,
+                        self.value_stack.pop().unwrap(),
+                    );
+                    let src1 = get_location_released(
+                        a,
+                        &mut self.machine,
+                        self.value_stack.pop().unwrap(),
+                    );
                     let ret = self.machine.acquire_locations(
                         a,
                         &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3565,10 +3577,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Assembler::emit_vmaxsd,
                     );
                 } else {
-                    let src2 =
-                        get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                    let src1 =
-                        get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                    let src2 = get_location_released(
+                        a,
+                        &mut self.machine,
+                        self.value_stack.pop().unwrap(),
+                    );
+                    let src1 = get_location_released(
+                        a,
+                        &mut self.machine,
+                        self.value_stack.pop().unwrap(),
+                    );
                     let ret = self.machine.acquire_locations(
                         a,
                         &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3671,10 +3689,16 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Assembler::emit_vminsd,
                     );
                 } else {
-                    let src2 =
-                        get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                    let src1 =
-                        get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                    let src2 = get_location_released(
+                        a,
+                        &mut self.machine,
+                        self.value_stack.pop().unwrap(),
+                    );
+                    let src1 = get_location_released(
+                        a,
+                        &mut self.machine,
+                        self.value_stack.pop().unwrap(),
+                    );
                     let ret = self.machine.acquire_locations(
                         a,
                         &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],

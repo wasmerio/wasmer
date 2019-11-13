@@ -268,7 +268,9 @@ pub trait Emitter {
         unimplemented!()
     }
 
-    fn arch_supports_canonicalize_nan(&self) -> bool { true }
+    fn arch_supports_canonicalize_nan(&self) -> bool {
+        true
+    }
 }
 
 fn _dummy(a: &mut Assembler) {

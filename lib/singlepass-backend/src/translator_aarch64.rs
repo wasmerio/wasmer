@@ -1710,7 +1710,9 @@ impl Emitter for Assembler {
         );
     }
 
-    fn arch_supports_canonicalize_nan(&self) -> bool { false }
+    fn arch_supports_canonicalize_nan(&self) -> bool {
+        false
+    }
 }
 
 fn emit_clz_variant(
