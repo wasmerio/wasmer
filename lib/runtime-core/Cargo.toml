@@ -5,6 +5,8 @@ description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "runtime"]
+categories = ["wasm"]
 edition = "2018"
 
 [dependencies]
