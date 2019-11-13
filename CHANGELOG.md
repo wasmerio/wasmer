@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#960](https://github.com/wasmerio/wasmer/pull/960) Fix `runtime-c-api` header files when compiled by clang.
 - [#925](https://github.com/wasmerio/wasmer/pull/925) Host functions can be closures with a captured environment.
 - [#917](https://github.com/wasmerio/wasmer/pull/917) Host functions (aka imported functions) may not have `&mut vm::Ctx` as first argument, i.e. the presence of the `&mut vm::Ctx` argument is optional.
 - [#915](https://github.com/wasmerio/wasmer/pull/915) All backends share the same definition of `Trampoline` (defined in `wasmer-runtime-core`).
