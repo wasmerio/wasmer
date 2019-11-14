@@ -5,6 +5,8 @@ repository = "https://github.com/wasmerio/wasmer"
 description = "Wasmer runtime common middlewares"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+keywords = ["wasm", "webassembly", "middleware", "metering"]
+categories = ["wasm"]
 edition = "2018"
 
 [dependencies]
