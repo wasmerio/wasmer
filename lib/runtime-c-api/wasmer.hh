@@ -1,18 +1,20 @@
 
 #if !defined(WASMER_H_MACROS)
-  #define WASMER_H_MACROS
-  #if defined(MSVC)
-    #if defined(_M_AMD64)
-      #define ARCH_X86_64
-    #endif
-  #endif
+#define WASMER_H_MACROS
 
-  #if defined(GCC) || defined(__clang__)
-    #if defined(__x86_64__)
-      #define ARCH_X86_64
-    #endif
-  #endif
+#if defined(MSVC)
+#if defined(_M_AMD64)
+#define ARCH_X86_64
 #endif
+#endif
+
+#if defined(GCC) || defined(__clang__)
+#if defined(__x86_64__)
+#define ARCH_X86_64
+#endif
+#endif
+
+#endif // WASMER_H_MACROS
 
 
 #ifndef WASMER_H
