@@ -1,17 +1,21 @@
-//! Wasm instance.
+//! Instantiate a module, call functions, and read exports.
 
 use crate::{
     error::{update_last_error, CApiError},
     export::{wasmer_exports_t, wasmer_import_export_kind, NamedExport, NamedExports},
-    import::wasmer_import_t,
+    import::{wasmer_import_object_t, wasmer_import_t},
     memory::wasmer_memory_t,
+    module::wasmer_module_t,
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_result_t,
 };
-use libc::{c_char, c_int, c_void, uint32_t, uint8_t};
+use libc::{c_char, c_int, c_void};
 use std::{collections::HashMap, ffi::CStr, slice};
-use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Table, Value};
-use wasmer_runtime_core::{export::Export, import::Namespace};
+use wasmer_runtime::{Ctx, Global, Instance, Memory, Module, Table, Value};
+use wasmer_runtime_core::{
+    export::Export,
+    import::{ImportObject, Namespace},
+};
 
 #[repr(C)]
 pub struct wasmer_instance_t;
@@ -29,8 +33,8 @@ pub struct wasmer_instance_context_t;
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instantiate(
     instance: *mut *mut wasmer_instance_t,
-    wasm_bytes: *mut uint8_t,
-    wasm_bytes_len: uint32_t,
+    wasm_bytes: *mut u8,
+    wasm_bytes_len: u32,
     imports: *mut wasmer_import_t,
     imports_len: c_int,
 ) -> wasmer_result_t {
@@ -71,6 +75,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
 
         let namespace = namespaces.entry(module_name).or_insert_with(Namespace::new);
 
+        // TODO check that tag is actually in bounds here
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
                 let mem = import.value.memory as *mut Memory;
@@ -99,17 +104,52 @@ pub unsafe extern "C" fn wasmer_instantiate(
     let result = wasmer_runtime::instantiate(bytes, &import_object);
     let new_instance = match result {
         Ok(instance) => instance,
-        Err(_error) => {
-            // TODO the trait bound `wasmer_runtime::error::Error: std::error::Error` is not satisfied
-            //update_last_error(error);
-            update_last_error(CApiError {
-                msg: "error instantiating".to_string(),
-            });
+        Err(error) => {
+            update_last_error(error);
             return wasmer_result_t::WASMER_ERROR;
         }
     };
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
+}
+
+/// Given:
+/// * A prepared `wasmer` import-object
+/// * A compiled wasmer module
+///
+/// Instantiates a wasmer instance
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_import_instantiate(
+    instance: *mut *mut wasmer_instance_t,
+    module: *const wasmer_module_t,
+    import_object: *const wasmer_import_object_t,
+) -> wasmer_result_t {
+    let import_object: &ImportObject = &*(import_object as *const ImportObject);
+    let module: &Module = &*(module as *const Module);
+
+    let new_instance: Instance = match module.instantiate(import_object) {
+        Ok(instance) => instance,
+        Err(error) => {
+            update_last_error(error);
+            return wasmer_result_t::WASMER_ERROR;
+        }
+    };
+    *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
+
+    return wasmer_result_t::WASMER_OK;
+}
+
+/// Extracts the instance's context and returns it.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_instance_context_get(
+    instance: *mut wasmer_instance_t,
+) -> *const wasmer_instance_context_t {
+    let instance_ref = &*(instance as *const Instance);
+
+    let ctx: *const Ctx = instance_ref.context() as *const _;
+
+    ctx as *const wasmer_instance_context_t
 }
 
 /// Calls an instances exported function by `name` with the provided parameters.
@@ -125,9 +165,9 @@ pub unsafe extern "C" fn wasmer_instance_call(
     instance: *mut wasmer_instance_t,
     name: *const c_char,
     params: *const wasmer_value_t,
-    params_len: c_int,
+    params_len: u32,
     results: *mut wasmer_value_t,
-    results_len: c_int,
+    results_len: u32,
 ) -> wasmer_result_t {
     if instance.is_null() {
         update_last_error(CApiError {
@@ -177,6 +217,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
                         tag: wasmer_value_tag::WASM_F64,
                         value: wasmer_value { F64: x },
                     },
+                    Value::V128(_) => unimplemented!("calling function with V128 parameter"),
                 };
                 results[0] = ret;
             }
@@ -229,7 +270,7 @@ pub extern "C" fn wasmer_instance_context_data_set(
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_memory(
     ctx: *const wasmer_instance_context_t,
-    _memory_idx: uint32_t,
+    _memory_idx: u32,
 ) -> *const wasmer_memory_t {
     let ctx = unsafe { &*(ctx as *const Ctx) };
     let memory = ctx.memory(0);

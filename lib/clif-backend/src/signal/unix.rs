@@ -1,5 +1,5 @@
 //! Installing signal handlers allows us to handle traps and out-of-bounds memory
-//! accesses that occur when runniing webassembly.
+//! accesses that occur when running WebAssembly.
 //!
 //! This code is inspired by: https://github.com/pepyakin/wasmtime/commit/625a2b6c0815b21996e111da51b9664feb174622
 //!
@@ -10,7 +10,7 @@
 //! unless you have memory unsafety elsewhere in your code.
 //!
 use crate::relocation::{TrapCode, TrapData};
-use crate::signal::HandlerData;
+use crate::signal::{CallProtError, HandlerData};
 use libc::{c_int, c_void, siginfo_t};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
@@ -18,7 +18,7 @@ use nix::sys::signal::{
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
-use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
+use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
@@ -62,7 +62,10 @@ pub unsafe fn trigger_trap() -> ! {
     longjmp(jmp_buf as *mut c_void, 0)
 }
 
-pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> RuntimeResult<T> {
+pub fn call_protected<T>(
+    handler_data: &HandlerData,
+    f: impl FnOnce() -> T,
+) -> Result<T, CallProtError> {
     unsafe {
         let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
         let prev_jmp_buf = *jmp_buf;
@@ -76,7 +79,7 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(RuntimeError::Panic { data })
+                Err(CallProtError::Error(data))
             } else {
                 let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
@@ -85,33 +88,21 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                     srcloc: _,
                 }) = handler_data.lookup(inst_ptr)
                 {
-                    Err(match Signal::from_c_int(signum) {
+                    Err(CallProtError::Trap(match Signal::from_c_int(signum) {
                         Ok(SIGILL) => match trapcode {
-                            TrapCode::BadSignature => RuntimeError::Trap {
-                                msg: "incorrect call_indirect signature".into(),
-                            },
-                            TrapCode::IndirectCallToNull => RuntimeError::Trap {
-                                msg: "indirect call to null".into(),
-                            },
-                            TrapCode::HeapOutOfBounds => RuntimeError::Trap {
-                                msg: "memory out-of-bounds access".into(),
-                            },
-                            TrapCode::TableOutOfBounds => RuntimeError::Trap {
-                                msg: "table out-of-bounds access".into(),
-                            },
-                            _ => RuntimeError::Trap {
-                                msg: "unknown trap".into(),
-                            },
+                            TrapCode::BadSignature => WasmTrapInfo::IncorrectCallIndirectSignature,
+                            TrapCode::IndirectCallToNull => WasmTrapInfo::CallIndirectOOB,
+                            TrapCode::HeapOutOfBounds => WasmTrapInfo::MemoryOutOfBounds,
+                            TrapCode::TableOutOfBounds => WasmTrapInfo::CallIndirectOOB,
+                            _ => WasmTrapInfo::Unknown,
                         },
-                        Ok(SIGSEGV) | Ok(SIGBUS) => RuntimeError::Trap {
-                            msg: "memory out-of-bounds access".into(),
-                        },
-                        Ok(SIGFPE) => RuntimeError::Trap {
-                            msg: "illegal arithmetic operation".into(),
-                        },
-                        _ => unimplemented!(),
-                    }
-                    .into())
+                        Ok(SIGSEGV) | Ok(SIGBUS) => WasmTrapInfo::MemoryOutOfBounds,
+                        Ok(SIGFPE) => WasmTrapInfo::IllegalArithmetic,
+                        _ => unimplemented!(
+                            "WasmTrapInfo::Unknown signal:{:?}",
+                            Signal::from_c_int(signum)
+                        ),
+                    }))
                 } else {
                     let signal = match Signal::from_c_int(signum) {
                         Ok(SIGFPE) => "floating-point exception",
@@ -119,13 +110,11 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                         Ok(SIGSEGV) => "segmentation violation",
                         Ok(SIGBUS) => "bus error",
                         Err(_) => "error while getting the Signal",
-                        _ => "unkown trapped signal",
+                        _ => "unknown trapped signal",
                     };
                     // When the trap-handler is fully implemented, this will return more information.
-                    Err(RuntimeError::Trap {
-                        msg: format!("unknown trap at {:p} - {}", faulting_addr, signal).into(),
-                    }
-                    .into())
+                    let s = format!("unknown trap at {:p} - {}", faulting_addr, signal);
+                    Err(CallProtError::Error(Box::new(s)))
                 }
             }
         } else {
@@ -150,6 +139,14 @@ pub unsafe fn do_unwind(signum: i32, siginfo: *const c_void, ucontext: *const c_
     CAUGHT_ADDRESSES.with(|cell| cell.set(get_faulting_addr_and_ip(siginfo, ucontext)));
 
     longjmp(jmp_buf as *mut ::nix::libc::c_void, signum)
+}
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+unsafe fn get_faulting_addr_and_ip(
+    _siginfo: *const c_void,
+    _ucontext: *const c_void,
+) -> (*const c_void, *const c_void) {
+    (::std::ptr::null(), ::std::ptr::null())
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
@@ -244,5 +241,6 @@ unsafe fn get_faulting_addr_and_ip(
 #[cfg(not(any(
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "x86_64"),
+    all(target_os = "linux", target_arch = "aarch64"),
 )))]
 compile_error!("This crate doesn't yet support compiling on operating systems other than linux and macos and architectures other than x86_64");

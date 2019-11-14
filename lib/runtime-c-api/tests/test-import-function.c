@@ -14,8 +14,15 @@ typedef struct {
   int value;
 } context_data;
 
+struct print_str_context {
+    int call_count;
+};
+
 void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
 {
+    struct print_str_context *local_context = wasmer_trampoline_get_context();
+    local_context->call_count++;
+
     const wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
     uint32_t mem_len = wasmer_memory_length(memory);
     uint8_t *mem_bytes = wasmer_memory_data(memory);
@@ -36,9 +43,22 @@ int main()
 {
     wasmer_value_tag params_sig[] = {WASM_I32, WASM_I32};
     wasmer_value_tag returns_sig[] = {};
+    struct print_str_context local_context = {
+        .call_count = 0
+    };
+
+    printf("Creating trampoline buffer\n");
+    wasmer_trampoline_buffer_builder_t *tbb = wasmer_trampoline_buffer_builder_new();
+    unsigned long print_str_idx = wasmer_trampoline_buffer_builder_add_context_trampoline(
+        tbb,
+        (wasmer_trampoline_callable_t *) print_str,
+        (void *) &local_context
+    );
+    wasmer_trampoline_buffer_t *tb = wasmer_trampoline_buffer_builder_build(tbb);
+    const wasmer_trampoline_callable_t *print_str_callable = wasmer_trampoline_buffer_get_trampoline(tb, print_str_idx);
 
     printf("Creating new func\n");
-    wasmer_import_func_t *func = wasmer_import_func_new((void (*)(void *)) print_str, params_sig, 2, returns_sig, 0);
+    wasmer_import_func_t *func = wasmer_import_func_new((void (*)(void *)) print_str_callable, params_sig, 2, returns_sig, 0);
     wasmer_import_t import;
 
     char *module_name = "env";
@@ -95,7 +115,10 @@ int main()
     assert(ptr_len == 13);
     assert(0 == strcmp(actual_str, "Hello, World!"));
     assert(context_data_value == actual_context_data_value);
+    assert(local_context.call_count == 1);
 
+    printf("Destroying trampoline buffer\n");
+    wasmer_trampoline_buffer_destroy(tb);
     printf("Destroying func\n");
     wasmer_import_func_destroy(func);
     printf("Destroy instance\n");

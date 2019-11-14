@@ -5,7 +5,8 @@ use std::ffi::CString;
 use std::mem;
 use std::os::raw::c_char;
 
-use crate::env::call_malloc;
+use crate::env::{call_malloc, EmAddrInfo};
+use crate::ptr::WasmPtr;
 use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
 use wasmer_runtime_core::vm::Ctx;
 
@@ -130,4 +131,20 @@ pub fn _sysconf(_ctx: &mut Ctx, name: c_int) -> c_long {
     let _ = name;
     // stub because sysconf is not valid on windows
     0
+}
+
+pub fn _gai_strerror(_ctx: &mut Ctx, _ecode: i32) -> i32 {
+    debug!("emscripten::_gai_strerror({}) - stub", _ecode);
+    -1
+}
+
+pub fn _getaddrinfo(
+    _ctx: &mut Ctx,
+    _node_ptr: WasmPtr<c_char>,
+    _service_str_ptr: WasmPtr<c_char>,
+    _hints_ptr: WasmPtr<EmAddrInfo>,
+    _res_val_ptr: WasmPtr<WasmPtr<EmAddrInfo>>,
+) -> i32 {
+    debug!("emscripten::_getaddrinfo -- stub");
+    -1
 }

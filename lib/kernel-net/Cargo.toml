@@ -1,0 +1,9 @@
+[package]
+name = "kernel-net"
+version = "0.1.0"
+authors = ["Heyang Zhou <zhy20000919@hotmail.com>"]
+edition = "2018"
+
+[dependencies]
+#runtime = "0.3.0-alpha.4"
+#runtime-raw = "0.3.0-alpha.3"

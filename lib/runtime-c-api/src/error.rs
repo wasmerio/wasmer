@@ -1,4 +1,4 @@
-//! Errors.
+//! Read runtime errors.
 
 use libc::{c_char, c_int};
 use std::cell::RefCell;
@@ -8,17 +8,17 @@ use std::ptr;
 use std::slice;
 
 thread_local! {
-    static LAST_ERROR: RefCell<Option<Box<Error>>> = RefCell::new(None);
+    static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);
 }
 
-pub(crate) fn update_last_error<E: Error + 'static>(err: E) {
+pub fn update_last_error<E: Error + 'static>(err: E) {
     LAST_ERROR.with(|prev| {
         *prev.borrow_mut() = Some(Box::new(err));
     });
 }
 
 /// Retrieve the most recent error, clearing it in the process.
-pub(crate) fn take_last_error() -> Option<Box<Error>> {
+pub(crate) fn take_last_error() -> Option<Box<dyn Error>> {
     LAST_ERROR.with(|prev| prev.borrow_mut().take())
 }
 
@@ -61,19 +61,19 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
         return -1;
     }
 
-    let last_error = match take_last_error() {
-        Some(err) => err,
+    let error_message = match take_last_error() {
+        Some(err) => err.to_string(),
         None => return 0,
     };
 
-    let error_message = last_error.to_string();
+    let length = length as usize;
 
-    let buffer = slice::from_raw_parts_mut(buffer as *mut u8, length as usize);
-
-    if error_message.len() >= buffer.len() {
-        // buffer to small for err  message
+    if error_message.len() >= length {
+        // buffer is too small to hold the error message
         return -1;
     }
+
+    let buffer = slice::from_raw_parts_mut(buffer as *mut u8, length);
 
     ptr::copy_nonoverlapping(
         error_message.as_ptr(),
@@ -85,12 +85,12 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
     // accidentally read into garbage.
     buffer[error_message.len()] = 0;
 
-    error_message.len() as c_int
+    error_message.len() as c_int + 1
 }
 
 #[derive(Debug)]
-pub(crate) struct CApiError {
-    pub(crate) msg: String,
+pub struct CApiError {
+    pub msg: String,
 }
 
 impl Display for CApiError {

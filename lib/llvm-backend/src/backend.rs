@@ -1,20 +1,24 @@
-use crate::intrinsics::Intrinsics;
+use super::stackmap::StackmapRegistry;
+use crate::{
+    intrinsics::Intrinsics,
+    structs::{Callbacks, LLVMModule, LLVMResult, MemProtect},
+};
 use inkwell::{
     memory_buffer::MemoryBuffer,
     module::Module,
-    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
-    OptimizationLevel,
+    targets::{FileType, TargetMachine},
 };
-use libc::{
-    c_char, mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE, PROT_READ,
-    PROT_WRITE,
-};
+use libc::c_char;
 use std::{
     any::Any,
+    cell::RefCell,
     ffi::{c_void, CString},
+    fs::File,
+    io::Write,
     mem,
     ops::Deref,
     ptr::{self, NonNull},
+    rc::Rc,
     slice, str,
     sync::{Arc, Once},
 };
@@ -25,47 +29,12 @@ use wasmer_runtime_core::{
     },
     cache::Error as CacheError,
     module::ModuleInfo,
+    state::ModuleStateMap,
     structures::TypedIndex,
-    typed_func::{Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
-
-#[repr(C)]
-struct LLVMModule {
-    _private: [u8; 0],
-}
-
-#[allow(non_camel_case_types, dead_code)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(C)]
-enum MemProtect {
-    NONE,
-    READ,
-    READ_WRITE,
-    READ_EXECUTE,
-}
-
-#[allow(non_camel_case_types, dead_code)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(C)]
-enum LLVMResult {
-    OK,
-    ALLOCATE_FAILURE,
-    PROTECT_FAILURE,
-    DEALLOC_FAILURE,
-    OBJECT_LOAD_FAILURE,
-}
-
-#[repr(C)]
-struct Callbacks {
-    alloc_memory: extern "C" fn(usize, MemProtect, &mut *mut u8, &mut usize) -> LLVMResult,
-    protect_memory: extern "C" fn(*mut u8, usize, MemProtect) -> LLVMResult,
-    dealloc_memory: extern "C" fn(*mut u8, usize) -> LLVMResult,
-
-    lookup_vm_symbol: extern "C" fn(*const c_char, usize) -> *const vm::Func,
-    visit_fde: extern "C" fn(*mut u8, usize, extern "C" fn(*mut u8)),
-}
 
 extern "C" {
     fn module_load(
@@ -76,8 +45,13 @@ extern "C" {
     ) -> LLVMResult;
     fn module_delete(module: *mut LLVMModule);
     fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
+    fn llvm_backend_get_stack_map_ptr(module: *const LLVMModule) -> *const u8;
+    fn llvm_backend_get_stack_map_size(module: *const LLVMModule) -> usize;
+    fn llvm_backend_get_code_ptr(module: *const LLVMModule) -> *const u8;
+    fn llvm_backend_get_code_size(module: *const LLVMModule) -> usize;
 
-    fn throw_trap(ty: i32);
+    fn throw_trap(ty: i32) -> !;
+    fn throw_breakpoint(ty: i64) -> !;
 
     /// This should be the same as spliting up the fat pointer into two arguments,
     /// but this is cleaner, I think?
@@ -87,80 +61,35 @@ extern "C" {
 
     #[allow(improper_ctypes)]
     fn invoke_trampoline(
-        trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
+        trampoline: Trampoline,
         vmctx_ptr: *mut vm::Ctx,
         func_ptr: NonNull<vm::Func>,
         params: *const u64,
         results: *mut u64,
         trap_out: *mut WasmTrapInfo,
+        user_error: *mut Option<Box<dyn Any>>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
 
-fn get_callbacks() -> Callbacks {
-    fn round_up_to_page_size(size: usize) -> usize {
-        (size + (4096 - 1)) & !(4096 - 1)
-    }
+static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
 
+fn get_callbacks() -> Callbacks {
     extern "C" fn alloc_memory(
         size: usize,
         protect: MemProtect,
         ptr_out: &mut *mut u8,
         size_out: &mut usize,
     ) -> LLVMResult {
-        let size = round_up_to_page_size(size);
-        let ptr = unsafe {
-            mmap(
-                ptr::null_mut(),
-                size,
-                match protect {
-                    MemProtect::NONE => PROT_NONE,
-                    MemProtect::READ => PROT_READ,
-                    MemProtect::READ_WRITE => PROT_READ | PROT_WRITE,
-                    MemProtect::READ_EXECUTE => PROT_READ | PROT_EXEC,
-                },
-                MAP_PRIVATE | MAP_ANON,
-                -1,
-                0,
-            )
-        };
-        if ptr as isize == -1 {
-            return LLVMResult::ALLOCATE_FAILURE;
-        }
-        *ptr_out = ptr as _;
-        *size_out = size;
-        LLVMResult::OK
+        unsafe { crate::platform::alloc_memory(size, protect, ptr_out, size_out) }
     }
 
     extern "C" fn protect_memory(ptr: *mut u8, size: usize, protect: MemProtect) -> LLVMResult {
-        let res = unsafe {
-            mprotect(
-                ptr as _,
-                round_up_to_page_size(size),
-                match protect {
-                    MemProtect::NONE => PROT_NONE,
-                    MemProtect::READ => PROT_READ,
-                    MemProtect::READ_WRITE => PROT_READ | PROT_WRITE,
-                    MemProtect::READ_EXECUTE => PROT_READ | PROT_EXEC,
-                },
-            )
-        };
-
-        if res == 0 {
-            LLVMResult::OK
-        } else {
-            LLVMResult::PROTECT_FAILURE
-        }
+        unsafe { crate::platform::protect_memory(ptr, size, protect) }
     }
 
     extern "C" fn dealloc_memory(ptr: *mut u8, size: usize) -> LLVMResult {
-        let res = unsafe { munmap(ptr as _, round_up_to_page_size(size)) };
-
-        if res == 0 {
-            LLVMResult::OK
-        } else {
-            LLVMResult::DEALLOC_FAILURE
-        }
+        unsafe { crate::platform::dealloc_memory(ptr, size) }
     }
 
     extern "C" fn lookup_vm_symbol(name_ptr: *const c_char, length: usize) -> *const vm::Func {
@@ -187,7 +116,13 @@ fn get_callbacks() -> Callbacks {
             fn_name!("vm.memory.grow.static.local") => vmcalls::local_static_memory_grow as _,
             fn_name!("vm.memory.size.static.local") => vmcalls::local_static_memory_size as _,
 
+            fn_name!("vm.memory.grow.dynamic.import") => vmcalls::imported_dynamic_memory_grow as _,
+            fn_name!("vm.memory.size.dynamic.import") => vmcalls::imported_dynamic_memory_size as _,
+            fn_name!("vm.memory.grow.static.import") => vmcalls::imported_static_memory_grow as _,
+            fn_name!("vm.memory.size.static.import") => vmcalls::imported_static_memory_size as _,
+
             fn_name!("vm.exception.trap") => throw_trap as _,
+            fn_name!("vm.breakpoint") => throw_breakpoint as _,
 
             _ => ptr::null(),
         }
@@ -230,35 +165,30 @@ pub struct LLVMBackend {
     module: *mut LLVMModule,
     #[allow(dead_code)]
     buffer: Arc<Buffer>,
+    msm: Option<ModuleStateMap>,
+    local_func_id_to_offset: Vec<usize>,
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, _intrinsics: Intrinsics) -> (Self, LLVMCache) {
-        Target::initialize_x86(&InitializationConfig {
-            asm_parser: true,
-            asm_printer: true,
-            base: true,
-            disassembler: true,
-            info: true,
-            machine_code: true,
-        });
-        let triple = TargetMachine::get_default_triple().to_string();
-        let target = Target::from_triple(&triple).unwrap();
-        let target_machine = target
-            .create_target_machine(
-                &triple,
-                &TargetMachine::get_host_cpu_name().to_string(),
-                &TargetMachine::get_host_cpu_features().to_string(),
-                OptimizationLevel::Aggressive,
-                RelocMode::PIC,
-                CodeModel::Default,
-            )
-            .unwrap();
-
+    pub fn new(
+        module: Rc<RefCell<Module>>,
+        _intrinsics: Intrinsics,
+        _stackmaps: &StackmapRegistry,
+        _module_info: &ModuleInfo,
+        target_machine: &TargetMachine,
+    ) -> (Self, LLVMCache) {
         let memory_buffer = target_machine
-            .write_to_memory_buffer(&module, FileType::Object)
+            .write_to_memory_buffer(&module.borrow_mut(), FileType::Object)
             .unwrap();
         let mem_buf_slice = memory_buffer.as_slice();
+
+        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.obj_file } {
+            let mut file = File::create(path).unwrap();
+            let mut pos = 0;
+            while pos < mem_buf_slice.len() {
+                pos += file.write(&mem_buf_slice[pos..]).unwrap();
+            }
+        }
 
         let callbacks = get_callbacks();
         let mut module: *mut LLVMModule = ptr::null_mut();
@@ -272,22 +202,134 @@ impl LLVMBackend {
             )
         };
 
-        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
-
-        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
-            crate::platform::install_signal_handler();
-        });
-
         if res != LLVMResult::OK {
             panic!("failed to load object")
         }
 
         let buffer = Arc::new(Buffer::LlvmMemory(memory_buffer));
 
+        #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
+        {
+            use super::stackmap::{self, StkMapRecord, StkSizeRecord};
+            use std::collections::BTreeMap;
+
+            let stackmaps = _stackmaps;
+            let module_info = _module_info;
+
+            let raw_stackmap = unsafe {
+                std::slice::from_raw_parts(
+                    llvm_backend_get_stack_map_ptr(module),
+                    llvm_backend_get_stack_map_size(module),
+                )
+            };
+            if raw_stackmap.len() > 0 {
+                let map = stackmap::StackMap::parse(raw_stackmap).unwrap();
+
+                let (code_ptr, code_size) = unsafe {
+                    (
+                        llvm_backend_get_code_ptr(module),
+                        llvm_backend_get_code_size(module),
+                    )
+                };
+                let mut msm = ModuleStateMap {
+                    local_functions: Default::default(),
+                    total_size: code_size,
+                };
+
+                let num_local_functions =
+                    module_info.func_assoc.len() - module_info.imported_functions.len();
+                let mut local_func_id_to_addr: Vec<usize> = Vec::with_capacity(num_local_functions);
+
+                // All local functions.
+                for index in module_info.imported_functions.len()..module_info.func_assoc.len() {
+                    let name = if cfg!(target_os = "macos") {
+                        format!("_fn{}", index)
+                    } else {
+                        format!("fn{}", index)
+                    };
+
+                    let c_str = CString::new(name).unwrap();
+                    let ptr = unsafe { get_func_symbol(module, c_str.as_ptr()) };
+
+                    assert!(!ptr.is_null());
+                    local_func_id_to_addr.push(ptr as usize);
+                }
+
+                let mut addr_to_size_record: BTreeMap<usize, &StkSizeRecord> = BTreeMap::new();
+
+                for record in &map.stk_size_records {
+                    addr_to_size_record.insert(record.function_address as usize, record);
+                }
+
+                let mut map_records: BTreeMap<usize, &StkMapRecord> = BTreeMap::new();
+
+                for record in &map.stk_map_records {
+                    map_records.insert(record.patchpoint_id as usize, record);
+                }
+
+                for ((start_id, start_entry), (end_id, end_entry)) in stackmaps
+                    .entries
+                    .iter()
+                    .enumerate()
+                    .step_by(2)
+                    .zip(stackmaps.entries.iter().enumerate().skip(1).step_by(2))
+                {
+                    if let Some(map_record) = map_records.get(&start_id) {
+                        assert_eq!(start_id, map_record.patchpoint_id as usize);
+                        assert!(start_entry.is_start);
+                        assert!(!end_entry.is_start);
+
+                        let end_record = map_records.get(&end_id);
+
+                        let addr = local_func_id_to_addr[start_entry.local_function_id];
+                        let size_record = *addr_to_size_record
+                            .get(&addr)
+                            .expect("size_record not found");
+
+                        start_entry.populate_msm(
+                            module_info,
+                            code_ptr as usize,
+                            &map,
+                            size_record,
+                            map_record,
+                            end_record.map(|x| (end_entry, *x)),
+                            &mut msm,
+                        );
+                    } else {
+                        // The record is optimized out.
+                    }
+                }
+
+                let code_ptr = unsafe { llvm_backend_get_code_ptr(module) } as usize;
+                let code_len = unsafe { llvm_backend_get_code_size(module) } as usize;
+
+                let local_func_id_to_offset: Vec<usize> = local_func_id_to_addr
+                    .iter()
+                    .map(|&x| {
+                        assert!(x >= code_ptr && x < code_ptr + code_len);
+                        x - code_ptr
+                    })
+                    .collect();
+
+                return (
+                    Self {
+                        module,
+                        buffer: Arc::clone(&buffer),
+                        msm: Some(msm),
+                        local_func_id_to_offset,
+                    },
+                    LLVMCache { buffer },
+                );
+            }
+        }
+
+        // Stackmap is not supported on this platform, or this module contains no functions so no stackmaps.
         (
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
+                msm: None,
+                local_func_id_to_offset: vec![],
             },
             LLVMCache { buffer },
         )
@@ -297,7 +339,7 @@ impl LLVMBackend {
         let callbacks = get_callbacks();
         let mut module: *mut LLVMModule = ptr::null_mut();
 
-        let slice = unsafe { memory.as_slice() };
+        let slice = memory.as_slice();
 
         let res = module_load(slice.as_ptr(), slice.len(), callbacks, &mut module);
 
@@ -305,9 +347,7 @@ impl LLVMBackend {
             return Err("failed to load object".to_string());
         }
 
-        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
-
-        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
+        SIGNAL_HANDLER_INSTALLED.call_once(|| {
             crate::platform::install_signal_handler();
         });
 
@@ -317,6 +357,8 @@ impl LLVMBackend {
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
+                msm: None,
+                local_func_id_to_offset: vec![],
             },
             LLVMCache { buffer },
         ))
@@ -349,12 +391,7 @@ impl RunnableModule for LLVMBackend {
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
-        let trampoline: unsafe extern "C" fn(
-            *mut vm::Ctx,
-            NonNull<vm::Func>,
-            *const u64,
-            *mut u64,
-        ) = unsafe {
+        let trampoline: Trampoline = unsafe {
             let name = if cfg!(target_os = "macos") {
                 format!("_trmp{}", sig_index.index())
             } else {
@@ -368,7 +405,28 @@ impl RunnableModule for LLVMBackend {
             mem::transmute(symbol)
         };
 
+        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
+            crate::platform::install_signal_handler();
+        });
+
         Some(unsafe { Wasm::from_raw_parts(trampoline, invoke_trampoline, None) })
+    }
+
+    fn get_code(&self) -> Option<&[u8]> {
+        Some(unsafe {
+            std::slice::from_raw_parts(
+                llvm_backend_get_code_ptr(self.module),
+                llvm_backend_get_code_size(self.module),
+            )
+        })
+    }
+
+    fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
+        Some(self.local_func_id_to_offset.clone())
+    }
+
+    fn get_module_state_map(&self) -> Option<ModuleStateMap> {
+        self.msm.clone()
     }
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
@@ -395,35 +453,5 @@ impl CacheGen for LLVMCache {
         }
 
         Ok(([].as_ref().into(), memory))
-    }
-}
-
-#[cfg(feature = "disasm")]
-unsafe fn disass_ptr(ptr: *const u8, size: usize, inst_count: usize) {
-    use capstone::arch::BuildsCapstone;
-    let mut cs = capstone::Capstone::new() // Call builder-pattern
-        .x86() // X86 architecture
-        .mode(capstone::arch::x86::ArchMode::Mode64) // 64-bit mode
-        .detail(true) // Generate extra instruction details
-        .build()
-        .expect("Failed to create Capstone object");
-
-    // Get disassembled instructions
-    let insns = cs
-        .disasm_count(
-            std::slice::from_raw_parts(ptr, size),
-            ptr as u64,
-            inst_count,
-        )
-        .expect("Failed to disassemble");
-
-    println!("count = {}", insns.len());
-    for insn in insns.iter() {
-        println!(
-            "0x{:x}: {:6} {}",
-            insn.address(),
-            insn.mnemonic().unwrap_or(""),
-            insn.op_str().unwrap_or("")
-        );
     }
 }

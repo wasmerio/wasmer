@@ -1,6 +1,5 @@
-//! Wasm values.
+//! Create and map Rust to WebAssembly values.
 
-use libc::{int32_t, int64_t};
 use wasmer_runtime::Value;
 use wasmer_runtime_core::types::Type;
 
@@ -18,8 +17,8 @@ pub enum wasmer_value_tag {
 #[derive(Clone, Copy)]
 #[allow(non_snake_case)]
 pub union wasmer_value {
-    pub I32: int32_t,
-    pub I64: int64_t,
+    pub I32: i32,
+    pub I64: i64,
     pub F32: f32,
     pub F64: f64,
 }
@@ -52,7 +51,7 @@ impl From<wasmer_value_t> for Value {
                     tag: wasmer_value_tag::WASM_F64,
                     value: wasmer_value { F64 },
                 } => Value::F64(F64),
-                _ => panic!("not implemented"),
+                _ => unreachable!("unknown WASM type"),
             }
         }
     }
@@ -77,6 +76,7 @@ impl From<Value> for wasmer_value_t {
                 tag: wasmer_value_tag::WASM_F64,
                 value: wasmer_value { F64: x },
             },
+            Value::V128(_) => unimplemented!("V128 not supported in C API"),
         }
     }
 }
@@ -89,7 +89,7 @@ impl From<Type> for wasmer_value_tag {
             Type::I64 => wasmer_value_tag::WASM_I64,
             Type::F32 => wasmer_value_tag::WASM_F32,
             Type::F64 => wasmer_value_tag::WASM_F64,
-            _ => panic!("not implemented"),
+            Type::V128 => unreachable!("V128 not supported in C API"),
         }
     }
 }
@@ -102,7 +102,7 @@ impl From<wasmer_value_tag> for Type {
             wasmer_value_tag::WASM_I64 => Type::I64,
             wasmer_value_tag::WASM_F32 => Type::F32,
             wasmer_value_tag::WASM_F64 => Type::F64,
-            _ => panic!("not implemented"),
+            _ => unreachable!("unknown WASM type"),
         }
     }
 }
@@ -114,6 +114,7 @@ impl From<&wasmer_runtime::wasm::Type> for wasmer_value_tag {
             Type::I64 => wasmer_value_tag::WASM_I64,
             Type::F32 => wasmer_value_tag::WASM_F32,
             Type::F64 => wasmer_value_tag::WASM_F64,
+            Type::V128 => unimplemented!("V128 not supported in C API"),
         }
     }
 }

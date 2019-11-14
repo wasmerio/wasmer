@@ -20,30 +20,37 @@ impl<K, V> SliceMap<K, V>
 where
     K: TypedIndex,
 {
+    /// Gets a reference to the value at the given index.
     pub fn get(&self, index: K) -> Option<&V> {
         self.slice.get(index.index())
     }
 
+    /// Gets a mutable reference to the value at the given index.
     pub fn get_mut(&mut self, index: K) -> Option<&mut V> {
         self.slice.get_mut(index.index())
     }
 
+    /// Gets the length of this slice map.
     pub fn len(&self) -> usize {
         self.slice.len()
     }
 
+    /// Returns an iterator for this slice map.
     pub fn iter(&self) -> Iter<K, V> {
         Iter::new(self.slice.iter())
     }
 
+    /// Returns a mutable iterator for this slice map.
     pub fn iter_mut(&mut self) -> IterMut<K, V> {
         IterMut::new(self.slice.iter_mut())
     }
 
+    /// Gets a pointer to the `SliceMap`.
     pub fn as_ptr(&self) -> *const V {
         self as *const SliceMap<K, V> as *const V
     }
 
+    /// Gets a mutable pointer to the `SliceMap`.
     pub fn as_mut_ptr(&mut self) -> *mut V {
         self as *mut SliceMap<K, V> as *mut V
     }

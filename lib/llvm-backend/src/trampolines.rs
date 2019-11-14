@@ -20,7 +20,7 @@ pub fn generate_trampolines(
     context: &Context,
     builder: &Builder,
     intrinsics: &Intrinsics,
-) {
+) -> Result<(), String> {
     for (sig_index, sig) in info.signatures.iter() {
         let func_type = signatures[sig_index];
 
@@ -42,8 +42,9 @@ pub fn generate_trampolines(
             Some(Linkage::External),
         );
 
-        generate_trampoline(trampoline_func, sig, context, builder, intrinsics);
+        generate_trampoline(trampoline_func, sig, context, builder, intrinsics)?;
     }
+    Ok(())
 }
 
 fn generate_trampoline(
@@ -52,7 +53,7 @@ fn generate_trampoline(
     context: &Context,
     builder: &Builder,
     intrinsics: &Intrinsics,
-) {
+) -> Result<(), String> {
     let entry_block = context.append_basic_block(&trampoline_func, "entry");
     builder.position_at_end(&entry_block);
 
@@ -64,20 +65,20 @@ fn generate_trampoline(
             args_ptr.into_pointer_value(),
             returns_ptr.into_pointer_value(),
         ),
-        _ => unimplemented!(),
+        _ => return Err("trampoline function unimplemented".to_string()),
     };
 
     let cast_ptr_ty = |wasmer_ty| match wasmer_ty {
-        Type::I32 => intrinsics.i32_ptr_ty,
-        Type::I64 => intrinsics.i64_ptr_ty,
-        Type::F32 => intrinsics.f32_ptr_ty,
-        Type::F64 => intrinsics.f64_ptr_ty,
+        Type::I32 | Type::F32 => intrinsics.i32_ptr_ty,
+        Type::I64 | Type::F64 => intrinsics.i64_ptr_ty,
+        Type::V128 => intrinsics.i128_ptr_ty,
     };
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
     args_vec.push(vmctx_ptr);
 
-    for (i, param_ty) in func_sig.params().iter().enumerate() {
+    let mut i = 0;
+    for param_ty in func_sig.params().iter() {
         let index = intrinsics.i32_ty.const_int(i as _, false);
         let item_pointer = unsafe { builder.build_in_bounds_gep(args_ptr, &[index], "arg_ptr") };
 
@@ -88,6 +89,10 @@ fn generate_trampoline(
 
         let arg = builder.build_load(typed_item_pointer, "arg");
         args_vec.push(arg);
+        i = i + 1;
+        if *param_ty == Type::V128 {
+            i = i + 1;
+        }
     }
 
     let call_site = builder.build_call(func_ptr, &args_vec, "call");
@@ -104,8 +109,11 @@ fn generate_trampoline(
                 call_site.try_as_basic_value().left().unwrap(),
             );
         }
-        _ => unimplemented!("multi-value returns"),
+        _ => {
+            return Err("trampoline function multi-value returns unimplemented".to_string());
+        }
     }
 
     builder.build_return(None);
+    Ok(())
 }

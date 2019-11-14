@@ -1,10 +1,6 @@
 status = [
-    "ci/circleci: lint",
-    "ci/circleci: test",
-    "ci/circleci: test-macos",
-    "ci/circleci: test-rust-nightly",
-    "continuous-integration/appveyor/branch"
+    "wasmerio.wasmer"
 ]
 required_approvals = 1
-timeout_sec = 900
+timeout_sec = 7200
 delete_merged_branches = true 

@@ -1,126 +1,55 @@
+#![deny(
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+#![cfg_attr(not(target_os = "windows"), deny(dead_code))]
 #![cfg_attr(nightly, feature(unwind_attributes))]
-
-use wasmer_runtime_core::{
-    backend::{Compiler, CompilerConfig, Token},
-    cache::{Artifact, Error as CacheError},
-    error::CompileError,
-    module::ModuleInner,
-};
-use wasmparser::{self, WasmDecoder};
+#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
 mod backend;
 mod code;
 mod intrinsics;
 mod platform;
 mod read_info;
+mod stackmap;
 mod state;
+mod structs;
 mod trampolines;
 
-pub struct LLVMCompiler {
-    _private: (),
+use std::path::PathBuf;
+
+pub use code::LLVMFunctionCodeGenerator as FunctionCodeGenerator;
+pub use code::LLVMModuleCodeGenerator as ModuleCodeGenerator;
+
+use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
+
+pub type LLVMCompiler = SimpleStreamingCompilerGen<
+    code::LLVMModuleCodeGenerator,
+    code::LLVMFunctionCodeGenerator,
+    backend::LLVMBackend,
+    code::CodegenError,
+>;
+
+#[derive(Debug, Clone)]
+/// LLVM backend flags.
+pub struct LLVMOptions {
+    /// Emit LLVM IR before optimization pipeline.
+    pub pre_opt_ir: Option<PathBuf>,
+
+    /// Emit LLVM IR after optimization pipeline.
+    pub post_opt_ir: Option<PathBuf>,
+
+    /// Emit LLVM generated native code object file.
+    pub obj_file: Option<PathBuf>,
 }
 
-impl LLVMCompiler {
-    pub fn new() -> Self {
-        Self { _private: () }
-    }
-}
-
-impl Compiler for LLVMCompiler {
-    fn compile(
-        &self,
-        wasm: &[u8],
-        compiler_config: CompilerConfig,
-        _: Token,
-    ) -> Result<ModuleInner, CompileError> {
-        validate(wasm)?;
-
-        let (info, code_reader) = read_info::read_module(wasm, compiler_config).unwrap();
-        let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
-
-        let (backend, cache_gen) = backend::LLVMBackend::new(module, intrinsics);
-
-        Ok(ModuleInner {
-            runnable_module: Box::new(backend),
-            cache_gen: Box::new(cache_gen),
-
-            info,
-        })
-    }
-
-    unsafe fn from_cache(&self, artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        let (info, _, memory) = artifact.consume();
-        let (backend, cache_gen) =
-            backend::LLVMBackend::from_buffer(memory).map_err(CacheError::DeserializeError)?;
-
-        Ok(ModuleInner {
-            runnable_module: Box::new(backend),
-            cache_gen: Box::new(cache_gen),
-
-            info,
-        })
-    }
-}
-
-fn validate(bytes: &[u8]) -> Result<(), CompileError> {
-    let mut parser = wasmparser::ValidatingParser::new(
-        bytes,
-        Some(wasmparser::ValidatingParserConfig {
-            operator_config: wasmparser::OperatorValidatorConfig {
-                enable_threads: false,
-                enable_reference_types: false,
-                enable_simd: false,
-                enable_bulk_memory: false,
-            },
-            mutable_global_imports: false,
-        }),
-    );
-
-    loop {
-        let state = parser.read();
-        match *state {
-            wasmparser::ParserState::EndWasm => break Ok(()),
-            wasmparser::ParserState::Error(err) => Err(CompileError::ValidationError {
-                msg: err.message.to_string(),
-            })?,
-            _ => {}
-        }
-    }
-}
-
-#[test]
-fn test_read_module() {
-    use std::mem::transmute;
-    use wabt::wat2wasm;
-    use wasmer_runtime_core::{
-        backend::RunnableModule, structures::TypedIndex, types::LocalFuncIndex, vm,
-    };
-    // let wasm = include_bytes!("../../spectests/examples/simple/simple.wasm") as &[u8];
-    let wat = r#"
-        (module
-        (type $t0 (func (param i32) (result i32)))
-        (type $t1 (func (result i32)))
-        (memory 1)
-        (global $g0 (mut i32) (i32.const 0))
-        (func $foo (type $t0) (param i32) (result i32)
-            get_local 0
-        ))
-    "#;
-    let wasm = wat2wasm(wat).unwrap();
-
-    let (info, code_reader) = read_info::read_module(&wasm, Default::default()).unwrap();
-
-    let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
-
-    let (backend, _) = backend::LLVMBackend::new(module, intrinsics);
-
-    let func_ptr = backend.get_func(&info, LocalFuncIndex::new(0)).unwrap();
-
-    println!("func_ptr: {:p}", func_ptr.as_ptr());
-
-    unsafe {
-        let func: unsafe extern "C" fn(*mut vm::Ctx, i32) -> i32 = transmute(func_ptr);
-        let result = func(0 as _, 42);
-        println!("result: {}", result);
-    }
-}
+pub static mut GLOBAL_OPTIONS: LLVMOptions = LLVMOptions {
+    pre_opt_ir: None,
+    post_opt_ir: None,
+    obj_file: None,
+};

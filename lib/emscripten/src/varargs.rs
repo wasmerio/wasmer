@@ -1,8 +1,7 @@
 use std::mem;
-use wasmer_runtime_core::{
-    types::{Type, WasmExternType},
-    vm::Ctx,
-};
+use wasmer_runtime_core::{types::WasmExternType, vm::Ctx};
+// use std::ffi::CStr;
+use std::os::raw::c_char;
 
 #[repr(transparent)]
 #[derive(Copy, Clone)]
@@ -16,15 +15,23 @@ impl VarArgs {
         self.pointer += mem::size_of::<T>() as u32;
         unsafe { (ptr as *const T).read() }
     }
+
+    // pub fn getStr<'a>(&mut self, ctx: &mut Ctx) -> &'a CStr {
+    pub fn get_str(&mut self, ctx: &mut Ctx) -> *const c_char {
+        let ptr_addr: u32 = self.get(ctx);
+        let ptr = emscripten_memory_pointer!(ctx.memory(0), ptr_addr) as *const c_char;
+        ptr
+        // unsafe { CStr::from_ptr(ptr) }
+    }
 }
 
 unsafe impl WasmExternType for VarArgs {
-    const TYPE: Type = Type::I32;
+    type Native = i32;
 
-    fn to_bits(self) -> u64 {
-        self.pointer as u64
+    fn to_native(self) -> Self::Native {
+        self.pointer as _
     }
-    fn from_bits(n: u64) -> Self {
+    fn from_native(n: Self::Native) -> Self {
         Self { pointer: n as u32 }
     }
 }
