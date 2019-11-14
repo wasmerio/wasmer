@@ -89,10 +89,10 @@
   (start $main)
 )
 
-(module
-  (func $print (import "spectest" "print"))
-  (start $print)
-)
+;; (module
+;;   (func $print (import "spectest" "print"))
+;;   (start $print)
+;; )
 
 (assert_trap
   (module (func $main (unreachable)) (start $main))
