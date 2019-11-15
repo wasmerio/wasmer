@@ -4469,6 +4469,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     4,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4492,6 +4497,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     8,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4515,6 +4525,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     4,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4538,6 +4553,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     8,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4561,6 +4581,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     16,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
+                result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4586,6 +4611,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     4,
                 )?;
                 let store = builder.build_store(effective_address, value);
+                store.set_alignment(1).unwrap();
                 tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
             }
             Operator::I64Store { ref memarg } => {
@@ -4603,6 +4629,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     8,
                 )?;
                 let store = builder.build_store(effective_address, value);
+                store.set_alignment(1).unwrap();
                 tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
             }
             Operator::F32Store { ref memarg } => {
@@ -4621,6 +4648,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     4,
                 )?;
                 let store = builder.build_store(effective_address, v);
+                store.set_alignment(1).unwrap();
                 tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
             }
             Operator::F64Store { ref memarg } => {
@@ -4639,6 +4667,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     8,
                 )?;
                 let store = builder.build_store(effective_address, v);
+                store.set_alignment(1).unwrap();
                 tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
             }
             Operator::V128Store { ref memarg } => {
@@ -4657,6 +4686,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     16,
                 )?;
                 let store = builder.build_store(effective_address, v);
+                store.set_alignment(1).unwrap();
                 tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
             }
             Operator::I32Load8S { ref memarg } => {
@@ -4672,9 +4702,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics.i8_ptr_ty,
                     1,
                 )?;
-                let narrow_result = builder
-                    .build_load(effective_address, &state.var_name())
-                    .into_int_value();
+                let narrow_result = builder.build_load(effective_address, &state.var_name());
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4682,8 +4715,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result =
-                    builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                let result = builder.build_int_s_extend(
+                    narrow_result.into_int_value(),
+                    intrinsics.i32_ty,
+                    &state.var_name(),
+                );
                 state.push1(result);
             }
             Operator::I32Load16S { ref memarg } => {
@@ -4700,6 +4736,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     2,
                 )?;
                 let narrow_result = builder.build_load(effective_address, &state.var_name());
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4730,6 +4771,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4757,6 +4803,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_result = builder
                     .build_load(effective_address, &state.var_name())
                     .into_int_value();
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4781,9 +4832,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics.i32_ptr_ty,
                     4,
                 )?;
-                let narrow_result = builder
-                    .build_load(effective_address, &state.var_name())
-                    .into_int_value();
+                let narrow_result = builder.build_load(effective_address, &state.var_name());
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4791,8 +4845,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result =
-                    builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let result = builder.build_int_s_extend(
+                    narrow_result.into_int_value(),
+                    intrinsics.i64_ty,
+                    &state.var_name(),
+                );
                 state.push1(result);
             }
 
@@ -4809,9 +4866,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics.i8_ptr_ty,
                     1,
                 )?;
-                let narrow_result = builder
-                    .build_load(effective_address, &state.var_name())
-                    .into_int_value();
+                let narrow_result = builder.build_load(effective_address, &state.var_name());
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4819,8 +4879,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result =
-                    builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                let result = builder.build_int_z_extend(
+                    narrow_result.into_int_value(),
+                    intrinsics.i32_ty,
+                    &state.var_name(),
+                );
                 state.push1(result);
             }
             Operator::I32Load16U { ref memarg } => {
@@ -4836,9 +4899,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics.i16_ptr_ty,
                     2,
                 )?;
-                let narrow_result = builder
-                    .build_load(effective_address, &state.var_name())
-                    .into_int_value();
+                let narrow_result = builder.build_load(effective_address, &state.var_name());
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4846,8 +4912,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result =
-                    builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                let result = builder.build_int_z_extend(
+                    narrow_result.into_int_value(),
+                    intrinsics.i32_ty,
+                    &state.var_name(),
+                );
                 state.push1(result);
             }
             Operator::I64Load8U { ref memarg } => {
@@ -4863,9 +4932,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics.i8_ptr_ty,
                     1,
                 )?;
-                let narrow_result = builder
-                    .build_load(effective_address, &state.var_name())
-                    .into_int_value();
+                let narrow_result = builder.build_load(effective_address, &state.var_name());
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4873,8 +4945,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result =
-                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let result = builder.build_int_z_extend(
+                    narrow_result.into_int_value(),
+                    intrinsics.i64_ty,
+                    &state.var_name(),
+                );
                 state.push1(result);
             }
             Operator::I64Load16U { ref memarg } => {
@@ -4890,9 +4965,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics.i16_ptr_ty,
                     2,
                 )?;
-                let narrow_result = builder
-                    .build_load(effective_address, &state.var_name())
-                    .into_int_value();
+                let narrow_result = builder.build_load(effective_address, &state.var_name());
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4900,8 +4978,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result =
-                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let result = builder.build_int_z_extend(
+                    narrow_result.into_int_value(),
+                    intrinsics.i64_ty,
+                    &state.var_name(),
+                );
                 state.push1(result);
             }
             Operator::I64Load32U { ref memarg } => {
@@ -4917,9 +4998,12 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     intrinsics.i32_ptr_ty,
                     4,
                 )?;
-                let narrow_result = builder
-                    .build_load(effective_address, &state.var_name())
-                    .into_int_value();
+                let narrow_result = builder.build_load(effective_address, &state.var_name());
+                narrow_result
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -4927,8 +5011,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result =
-                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                let result = builder.build_int_z_extend(
+                    narrow_result.into_int_value(),
+                    intrinsics.i64_ty,
+                    &state.var_name(),
+                );
                 state.push1(result);
             }
 
@@ -4949,6 +5036,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
                 let store = builder.build_store(effective_address, narrow_value);
+                store.set_alignment(1).unwrap();
                 tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
             }
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
@@ -4968,6 +5056,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
                 let store = builder.build_store(effective_address, narrow_value);
+                store.set_alignment(1).unwrap();
                 tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
             }
             Operator::I64Store32 { ref memarg } => {
@@ -4987,6 +5076,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let narrow_value =
                     builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
                 let store = builder.build_store(effective_address, narrow_value);
+                store.set_alignment(1).unwrap();
                 tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
             }
             Operator::I8x16Neg => {
@@ -5291,6 +5381,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     1,
                 )?;
                 let elem = builder.build_load(effective_address, "");
+                elem.as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -5322,6 +5416,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     2,
                 )?;
                 let elem = builder.build_load(effective_address, "");
+                elem.as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -5353,6 +5451,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     4,
                 )?;
                 let elem = builder.build_load(effective_address, "");
+                elem.as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
@@ -5384,6 +5486,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     8,
                 )?;
                 let elem = builder.build_load(effective_address, "");
+                elem.as_instruction_value()
+                    .unwrap()
+                    .set_alignment(1)
+                    .unwrap();
                 tbaa_label(
                     self.module.clone(),
                     intrinsics,
