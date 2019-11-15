@@ -2,5 +2,6 @@
 **
 !lib/**
 !src/**
+!examples/**
 !Cargo.toml
 !Cargo.lock
