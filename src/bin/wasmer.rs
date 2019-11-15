@@ -132,6 +132,10 @@ struct Run {
     )]
     backend: Backend,
 
+    /// Invoke a specified function
+    #[structopt(long = "invoke", short = "i")]
+    invoke: Option<String>,
+
     /// Emscripten symbol map
     #[structopt(long = "em-symbol-map", parse(from_os_str), group = "emscripten")]
     em_symbol_map: Option<PathBuf>,
@@ -683,8 +687,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 args.push(Value::I32(x));
             }
 
+            let invoke_fn = match options.invoke.as_ref() {
+                Some(fun) => fun,
+                _ => "main",
+            };
             instance
-                .dyn_func("main")
+                .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
