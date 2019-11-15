@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+## 0.10.2 - 2019-11-15
+
 - [#968](https://github.com/wasmerio/wasmer/pull/968) Added `--invoke` option to the command
 - [#960](https://github.com/wasmerio/wasmer/pull/960) Fix `runtime-c-api` header files when compiled by clang.
 - [#925](https://github.com/wasmerio/wasmer/pull/925) Host functions can be closures with a captured environment.
