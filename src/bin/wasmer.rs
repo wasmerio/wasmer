@@ -687,7 +687,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 args.push(Value::I32(x));
             }
 
-            let invoke_fn = options.invoke.clone().unwrap_or("main".to_owned());
+            let invoke_fn = match options.invoke.as_ref() {
+                Some(fun) => fun,
+                _ => "main",
+            };
             instance
                 .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
