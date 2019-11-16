@@ -394,6 +394,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     if !utils::is_wasm_binary(&wasm_binary) {
         let mut features = wabt::Features::new();
+        features.enable_sign_extension();
         if options.features.simd || options.features.all {
             features.enable_simd();
         }

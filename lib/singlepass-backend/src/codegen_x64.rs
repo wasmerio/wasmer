@@ -666,7 +666,11 @@ impl X64FunctionCode {
                 a.emit_mov(Size::S64, src, Location::GPR(tmp_src));
                 src = Location::GPR(tmp_src);
             }
-            Location::Memory(_, _) | Location::GPR(_) => {}
+            Location::GPR(_) => {
+                a.emit_mov(Size::S64, src, Location::GPR(tmp_src));
+                src = Location::GPR(tmp_src);
+            }
+            Location::Memory(_, _) => {}
             _ => unreachable!(),
         }
 
@@ -2947,6 +2951,125 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Size::S64,
                     ret,
                 );
+            }
+            Operator::I32Extend8S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
+                a.emit_and(Size::S32, Location::Imm32(0xFF), Location::GPR(tmpg1));
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S8,
+                    Location::GPR(tmpg1),
+                    Size::S32,
+                    ret,
+                );
+                self.machine.release_temp_gpr(tmpg1);
+            }
+            Operator::I32Extend16S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
+                a.emit_and(Size::S32, Location::Imm32(0xFFFF), Location::GPR(tmpg1));
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S16,
+                    Location::GPR(tmpg1),
+                    Size::S32,
+                    ret,
+                );
+                self.machine.release_temp_gpr(tmpg1);
+            }
+            Operator::I64Extend8S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
+                a.emit_and(Size::S32, Location::Imm32(0xFF), Location::GPR(tmpg1));
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S8,
+                    Location::GPR(tmpg1),
+                    Size::S64,
+                    ret,
+                );
+                self.machine.release_temp_gpr(tmpg1);
+            }
+            Operator::I64Extend16S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
+                a.emit_and(Size::S32, Location::Imm32(0xFFFF), Location::GPR(tmpg1));
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S16,
+                    Location::GPR(tmpg1),
+                    Size::S64,
+                    ret,
+                );
+                self.machine.release_temp_gpr(tmpg1);
+            }
+            Operator::I64Extend32S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S32,
+                    Location::GPR(tmpg1),
+                    Size::S64,
+                    ret,
+                );
+                self.machine.release_temp_gpr(tmpg1);
             }
             Operator::I32WrapI64 => {
                 let loc =
