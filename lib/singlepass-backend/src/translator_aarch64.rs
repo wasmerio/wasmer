@@ -1248,9 +1248,12 @@ impl Emitter for Assembler {
                             self
                             ; mov v_tmp1.S[0], w_tmp1
                             ; cnt v_tmp1.B16, v_tmp1.B16
-                            ; mov W(map_gpr(dst).x()), v_tmp1.S[0]
-                            ; add W(map_gpr(dst).x()), W(map_gpr(dst).x()), W(map_gpr(dst).x()), lsr 16
-                            ; and W(map_gpr(dst).x()), W(map_gpr(dst).x()), 31
+                            ; mov w_tmp1, v_tmp1.S[0]
+                            ; mov W(map_gpr(dst).x()), w_tmp1
+                            ; add W(map_gpr(dst).x()), W(map_gpr(dst).x()), w_tmp1, lsr 8
+                            ; add W(map_gpr(dst).x()), W(map_gpr(dst).x()), w_tmp1, lsr 16
+                            ; add W(map_gpr(dst).x()), W(map_gpr(dst).x()), w_tmp1, lsr 24
+                            ; and W(map_gpr(dst).x()), W(map_gpr(dst).x()), 255
                         );
                     }
                     _ => unreachable!(),
@@ -1283,10 +1286,14 @@ impl Emitter for Assembler {
                             ; cnt v_tmp1.B16, v_tmp1.B16
                             ; mov x_tmp1, v_tmp1.D[0]
                             ; mov X(map_gpr(dst).x()), x_tmp1
+                            ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 8
                             ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 16
+                            ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 24
                             ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 32
+                            ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 40
                             ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 48
-                            ; and X(map_gpr(dst).x()), X(map_gpr(dst).x()), 63
+                            ; add X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1, lsr 56
+                            ; and X(map_gpr(dst).x()), X(map_gpr(dst).x()), 255
                         );
                     }
                     _ => unreachable!(),

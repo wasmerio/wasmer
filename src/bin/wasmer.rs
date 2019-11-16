@@ -723,7 +723,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 Some(fun) => fun,
                 _ => "main",
             };
-            instance
+            let result = instance
                 .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
