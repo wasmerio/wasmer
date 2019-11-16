@@ -75,6 +75,13 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     /// Creates a new module code generator.
     fn new() -> Self;
 
+    /// Creates a new module code generator for specified target.
+    fn new_with_target(
+        triple: Option<String>,
+        cpu_name: Option<String>,
+        cpu_features: Option<String>,
+    ) -> Self;
+
     /// Returns the backend id associated with this MCG.
     fn backend_id() -> Backend;
 
@@ -207,7 +214,14 @@ impl<
             validate_with_features(wasm, &compiler_config.features)?;
         }
 
-        let mut mcg = MCG::new();
+        let mut mcg = match MCG::backend_id() {
+            Backend::LLVM => MCG::new_with_target(
+                compiler_config.triple.clone(),
+                compiler_config.cpu_name.clone(),
+                compiler_config.cpu_features.clone(),
+            ),
+            _ => MCG::new(),
+        };
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(
             wasm,
