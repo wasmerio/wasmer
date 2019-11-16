@@ -447,6 +447,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     simd: options.features.simd || options.features.all,
                     threads: options.features.threads || options.features.all,
                 },
+                ..Default::default()
             },
             &*compiler,
         )
