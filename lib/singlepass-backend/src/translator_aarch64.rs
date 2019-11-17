@@ -408,39 +408,18 @@ macro_rules! avx_fn {
     }
 }
 
-macro_rules! avx_fn_bitwise_inv {
-    ($ins:ident, $width:ident, $width_int:ident, $name:ident) => {
+macro_rules! avx_cmp {
+    ($cmpty:tt, $width:ident, $width_int:ident, $name:ident) => {
         fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
             match src2 {
-                XMMOrMemory::XMM(src2) => dynasm!(self ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src1).v()), $width(map_xmm(src2).v())),
-                XMMOrMemory::Memory(base, disp) => {
-                    if disp >= 0 {
-                        dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
-                    } else {
-                        dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
-                    }
-
-                    dynasm!(self
-                        ; ldr $width_int(X_TMP1), [x_tmp3]
-                        ; mov v_tmp1.$width[0], $width_int(X_TMP1)
-                        ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src1).v()), $width(V_TMP1)
+                XMMOrMemory::XMM(src2) => {
+                    dynasm!(
+                        self
+                        ; fcmpe $width(map_xmm(src1).v()), $width(map_xmm(src2).v())
+                        ; cset w_tmp1, $cmpty
+                        ; mov V(map_xmm(dst).v()).$width[0], $width_int(X_TMP1)
                     );
-                }
-            }
-            dynasm!(self
-                ; mov $width_int(X_TMP1), V(map_xmm(dst).v()).$width[0]
-                ; mvn $width_int(X_TMP1), $width_int(X_TMP1)
-                ; mov V(map_xmm(dst).v()).$width[0], $width_int(X_TMP1)
-            );
-        }
-    }
-}
-
-macro_rules! avx_fn_reversed {
-    ($ins:ident, $width:ident, $width_int:ident, $name:ident) => {
-        fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
-            match src2 {
-                XMMOrMemory::XMM(src2) => dynasm!(self ; $ins $width(map_xmm(dst).v()), $width(map_xmm(src2).v()), $width(map_xmm(src1).v())),
+                },
                 XMMOrMemory::Memory(base, disp) => {
                     if disp >= 0 {
                         dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
@@ -448,10 +427,13 @@ macro_rules! avx_fn_reversed {
                         dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                     }
 
-                    dynasm!(self
+                    dynasm!(
+                        self
                         ; ldr $width_int(X_TMP1), [x_tmp3]
                         ; mov v_tmp1.$width[0], $width_int(X_TMP1)
-                        ; $ins $width(map_xmm(dst).v()), $width(V_TMP1), $width(map_xmm(src1).v())
+                        ; fcmpe $width(map_xmm(src1).v()), $width(V_TMP1)
+                        ; cset w_tmp1, $cmpty
+                        ; mov V(map_xmm(dst).v()).$width[0], $width_int(X_TMP1)
                     );
                 }
             }
@@ -1438,12 +1420,12 @@ impl Emitter for Assembler {
     avx_fn!(fdiv, S, W, emit_vdivss);
     avx_fn!(fmax, S, W, emit_vmaxss);
     avx_fn!(fmin, S, W, emit_vminss);
-    avx_fn!(fcmgt, S, W, emit_vcmpgtss);
-    avx_fn_reversed!(fcmgt, S, W, emit_vcmpltss); // b gt a <=> a lt b
-    avx_fn!(fcmge, S, W, emit_vcmpgess);
-    avx_fn_bitwise_inv!(fcmgt, S, W, emit_vcmpless); // a not gt b <=> a le b
-    avx_fn!(fcmeq, S, W, emit_vcmpeqss);
-    avx_fn_bitwise_inv!(fcmeq, S, W, emit_vcmpneqss); // a not eq b <=> a neq b
+    avx_cmp!(gt, S, W, emit_vcmpgtss);
+    avx_cmp!(ge, S, W, emit_vcmpgess);
+    avx_cmp!(mi, S, W, emit_vcmpltss);
+    avx_cmp!(ls, S, W, emit_vcmpless);
+    avx_cmp!(eq, S, W, emit_vcmpeqss);
+    avx_cmp!(ne, S, W, emit_vcmpneqss);
     avx_fn_unop!(fsqrt, S, emit_vsqrtss);
     avx_fn_unop!(frintn, S, emit_vroundss_nearest); // to nearest with ties to even
     avx_fn_unop!(frintm, S, emit_vroundss_floor); // toward minus infinity
@@ -1457,12 +1439,12 @@ impl Emitter for Assembler {
     avx_fn!(fdiv, D, X, emit_vdivsd);
     avx_fn!(fmax, D, X, emit_vmaxsd);
     avx_fn!(fmin, D, X, emit_vminsd);
-    avx_fn!(fcmgt, D, X, emit_vcmpgtsd);
-    avx_fn_reversed!(fcmgt, D, X, emit_vcmpltsd); // b gt a <=> a lt b
-    avx_fn!(fcmge, D, X, emit_vcmpgesd);
-    avx_fn_bitwise_inv!(fcmgt, D, X, emit_vcmplesd); // a not gt b <=> a le b
-    avx_fn!(fcmeq, D, X, emit_vcmpeqsd);
-    avx_fn_bitwise_inv!(fcmeq, D, X, emit_vcmpneqsd); // a not eq b <=> a neq b
+    avx_cmp!(gt, D, X, emit_vcmpgtsd);
+    avx_cmp!(ge, D, X, emit_vcmpgesd);
+    avx_cmp!(mi, D, X, emit_vcmpltsd);
+    avx_cmp!(ls, D, X, emit_vcmplesd);
+    avx_cmp!(eq, D, X, emit_vcmpeqsd);
+    avx_cmp!(ne, D, X, emit_vcmpneqsd);
     avx_fn_unop!(fsqrt, D, emit_vsqrtsd);
     avx_fn_unop!(frintn, D, emit_vroundsd_nearest); // to nearest with ties to even
     avx_fn_unop!(frintm, D, emit_vroundsd_floor); // toward minus infinity

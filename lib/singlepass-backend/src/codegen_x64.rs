@@ -1336,7 +1336,10 @@ impl X64FunctionCode {
         value_stack.push(ret);
 
         Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret);
-        a.emit_and(Size::S32, Location::Imm32(1), ret); // FIXME: Why?
+
+        // Workaround for behavior inconsistency among different backing implementations.
+        // (all bits or only the least significant bit are set to one?)
+        a.emit_and(Size::S32, Location::Imm32(1), ret);
     }
 
     /// Floating point (AVX) binary operation with both operands popped from the virtual stack.
