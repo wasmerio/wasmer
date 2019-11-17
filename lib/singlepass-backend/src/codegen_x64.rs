@@ -206,9 +206,9 @@ lazy_static! {
             ; end_copy_params:
 
             // return address
-            ; adr x9, >done
+            ; adr x20, >done
             ; sub x28, x28, 8
-            ; str x9, [x28] // Keep this consistent with RSP mapping in translator_aarch64
+            ; str x20, [x28] // Keep this consistent with RSP mapping in translator_aarch64
 
             // Jump to target function!
             ; br x3
