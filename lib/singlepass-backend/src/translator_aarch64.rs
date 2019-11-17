@@ -1384,7 +1384,7 @@ impl Emitter for Assembler {
                 } else {
                     dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
                 }
-                dynasm!(self ; ldrh W(map_gpr(dst).x()), [x_tmp3]; sxtw X(map_gpr(dst).x()), W(map_gpr(dst).x()));
+                dynasm!(self ; ldr W(map_gpr(dst).x()), [x_tmp3]; sxtw X(map_gpr(dst).x()), W(map_gpr(dst).x()));
             }
             _ => unreachable!(),
         }
