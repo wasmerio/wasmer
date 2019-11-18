@@ -461,6 +461,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 enforce_stack_check: true,
                 track_state,
                 features: options.features.into_backend_features(),
+                ..Default::default()
             },
             &*compiler,
         )

@@ -8075,24 +8075,37 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     for LLVMModuleCodeGenerator
 {
     fn new() -> LLVMModuleCodeGenerator {
+        Self::new_with_target(None, None, None)
+    }
+
+    fn new_with_target(
+        triple: Option<String>,
+        cpu_name: Option<String>,
+        cpu_features: Option<String>,
+    ) -> LLVMModuleCodeGenerator {
         let context = Context::create();
         let module = context.create_module("module");
 
-        Target::initialize_x86(&InitializationConfig {
-            asm_parser: true,
-            asm_printer: true,
-            base: true,
-            disassembler: true,
-            info: true,
-            machine_code: true,
-        });
-        let triple = TargetMachine::get_default_triple().to_string();
+        let triple = triple.unwrap_or(TargetMachine::get_default_triple().to_string());
+
+        match triple {
+            _ if triple.starts_with("x86") => Target::initialize_x86(&InitializationConfig {
+                asm_parser: true,
+                asm_printer: true,
+                base: true,
+                disassembler: true,
+                info: true,
+                machine_code: true,
+            }),
+            _ => unimplemented!("compile to target other than x86-64 is not supported"),
+        }
+
         let target = Target::from_triple(&triple).unwrap();
         let target_machine = target
             .create_target_machine(
                 &triple,
-                &TargetMachine::get_host_cpu_name().to_string(),
-                &TargetMachine::get_host_cpu_features().to_string(),
+                &cpu_name.unwrap_or(TargetMachine::get_host_cpu_name().to_string()),
+                &cpu_features.unwrap_or(TargetMachine::get_host_cpu_features().to_string()),
                 OptimizationLevel::Aggressive,
                 RelocMode::Static,
                 CodeModel::Large,
