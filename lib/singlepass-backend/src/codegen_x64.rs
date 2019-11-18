@@ -2964,18 +2964,15 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
                 Self::emit_relaxed_zx_sx(
                     a,
                     &mut self.machine,
                     Assembler::emit_movsx,
                     Size::S8,
-                    Location::GPR(tmpg1),
+                    loc,
                     Size::S32,
                     ret,
                 );
-                self.machine.release_temp_gpr(tmpg1);
             }
             Operator::I32Extend16S => {
                 let loc =
@@ -2987,18 +2984,15 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
                 Self::emit_relaxed_zx_sx(
                     a,
                     &mut self.machine,
                     Assembler::emit_movsx,
                     Size::S16,
-                    Location::GPR(tmpg1),
+                    loc,
                     Size::S32,
                     ret,
                 );
-                self.machine.release_temp_gpr(tmpg1);
             }
             Operator::I64Extend8S => {
                 let loc =
@@ -3010,19 +3004,15 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
-                a.emit_and(Size::S32, Location::Imm32(0xFF), Location::GPR(tmpg1));
                 Self::emit_relaxed_zx_sx(
                     a,
                     &mut self.machine,
                     Assembler::emit_movsx,
                     Size::S8,
-                    Location::GPR(tmpg1),
+                    loc,
                     Size::S64,
                     ret,
                 );
-                self.machine.release_temp_gpr(tmpg1);
             }
             Operator::I64Extend16S => {
                 let loc =
@@ -3034,18 +3024,15 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
                 Self::emit_relaxed_zx_sx(
                     a,
                     &mut self.machine,
                     Assembler::emit_movsx,
                     Size::S16,
-                    Location::GPR(tmpg1),
+                    loc,
                     Size::S64,
                     ret,
                 );
-                self.machine.release_temp_gpr(tmpg1);
             }
             Operator::I64Extend32S => {
                 let loc =
@@ -3057,18 +3044,15 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
-                let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_mov(Size::S32, loc, Location::GPR(tmpg1));
                 Self::emit_relaxed_zx_sx(
                     a,
                     &mut self.machine,
                     Assembler::emit_movsx,
                     Size::S32,
-                    Location::GPR(tmpg1),
+                    loc,
                     Size::S64,
                     ret,
                 );
-                self.machine.release_temp_gpr(tmpg1);
             }
             Operator::I32WrapI64 => {
                 let loc =
