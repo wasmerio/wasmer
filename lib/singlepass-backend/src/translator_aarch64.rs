@@ -1702,6 +1702,78 @@ impl Emitter for Assembler {
     fn arch_supports_canonicalize_nan(&self) -> bool {
         false
     }
+
+    fn arch_requires_indirect_call_trampoline(&self) -> bool {
+        true
+    }
+
+    fn arch_emit_indirect_call_with_trampoline(&mut self, loc: Location) {
+        match loc {
+            Location::GPR(x) => {
+                dynasm!(self
+                    // Push return address.
+                    ; sub x_rsp, x_rsp, 8
+                    ; adr x_tmp1, >done
+                    ; str x_tmp1, [x_rsp]
+                );
+                dynasm!(self
+                    ; adr x_tmp1, >program_end
+                    ; cmp X(map_gpr(x).x()), x_tmp1
+                    ; b.ge >external
+                    ; adr x_tmp1, <program_begin
+                    ; cmp X(map_gpr(x).x()), x_tmp1
+                    ; b.lt >external
+                    ; br X(map_gpr(x).x())
+                    ; external:
+                );
+                self.emit_homomorphic_host_redirection(x);
+                dynasm!(self ; done: );
+            }
+            Location::Memory(base, disp) => {
+                if disp >= 0 {
+                    dynasm!(self ; b >after ; disp: ; .dword disp ; after: ; ldr w_tmp3, <disp ; add x_tmp3, x_tmp3, X(map_gpr(base).x()));
+                } else {
+                    dynasm!(self ; b >after ; disp: ; .dword -disp ; after: ; ldr w_tmp3, <disp ; sub x_tmp3, X(map_gpr(base).x()), x_tmp3);
+                }
+                dynasm!(self
+                    // Push return address.
+                    ; sub x_rsp, x_rsp, 8
+                    ; adr x_tmp1, >done
+                    ; str x_tmp1, [x_rsp]
+
+                    // Read memory.
+                    ; ldr X(map_gpr(GPR::RAX).x()), [x_tmp3]
+                );
+                dynasm!(self
+                    ; adr x_tmp1, >program_end
+                    ; cmp X(map_gpr(GPR::RAX).x()), x_tmp1
+                    ; b.ge >external
+                    ; adr x_tmp1, <program_begin
+                    ; cmp X(map_gpr(GPR::RAX).x()), x_tmp1
+                    ; b.lt >external
+                    ; br X(map_gpr(GPR::RAX).x())
+                    ; external:
+                );
+                self.emit_homomorphic_host_redirection(GPR::RAX);
+                dynasm!(self ; done: );
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn notify_begin(&mut self) {
+        dynasm!(
+            self
+            ; program_begin:
+        );
+    }
+
+    fn notify_end(&mut self) {
+        dynasm!(
+            self
+            ; program_end:
+        );
+    }
 }
 
 fn emit_clz_variant(

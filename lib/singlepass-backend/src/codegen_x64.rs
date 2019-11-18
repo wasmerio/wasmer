@@ -472,12 +472,15 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     for X64ModuleCodeGenerator
 {
     fn new() -> X64ModuleCodeGenerator {
+        let mut a = Assembler::new().unwrap();
+        a.notify_begin();
+
         X64ModuleCodeGenerator {
             functions: vec![],
             signatures: None,
             function_signatures: None,
             function_labels: Some(HashMap::new()),
-            assembler: Some(Assembler::new().unwrap()),
+            assembler: Some(a),
             func_import_count: 0,
             config: None,
         }
@@ -556,7 +559,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         mut self,
         _: &ModuleInfo,
     ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
-        let (assembler, function_labels, breakpoints) = match self.functions.last_mut() {
+        let (mut assembler, function_labels, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
                 x.function_labels.take().unwrap(),
@@ -569,6 +572,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             ),
         };
 
+        assembler.notify_end();
         let total_size = assembler.get_offset().0;
         let _output = assembler.finalize().unwrap();
         let mut output = CodeMemory::new(_output.len());
@@ -5139,10 +5143,17 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     |a| {
-                        a.emit_call_location(Location::Memory(
-                            GPR::RAX,
-                            (vm::Anyfunc::offset_func() as usize) as i32,
-                        ));
+                        if a.arch_requires_indirect_call_trampoline() {
+                            a.arch_emit_indirect_call_with_trampoline(Location::Memory(
+                                GPR::RAX,
+                                (vm::Anyfunc::offset_func() as usize) as i32,
+                            ));
+                        } else {
+                            a.emit_call_location(Location::Memory(
+                                GPR::RAX,
+                                (vm::Anyfunc::offset_func() as usize) as i32,
+                            ));
+                        }
                     },
                     params.iter().map(|x| *x),
                     Some((&mut self.fsm, &mut self.control_stack)),

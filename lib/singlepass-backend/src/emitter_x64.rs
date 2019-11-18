@@ -271,6 +271,17 @@ pub trait Emitter {
     fn arch_supports_canonicalize_nan(&self) -> bool {
         true
     }
+
+    fn arch_requires_indirect_call_trampoline(&self) -> bool {
+        false
+    }
+
+    fn arch_emit_indirect_call_with_trampoline(&mut self, _loc: Location) {
+        unimplemented!()
+    }
+
+    fn notify_begin(&mut self) {}
+    fn notify_end(&mut self) {}
 }
 
 fn _dummy(a: &mut Assembler) {
