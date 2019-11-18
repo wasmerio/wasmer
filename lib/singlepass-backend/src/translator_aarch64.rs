@@ -1744,7 +1744,28 @@ impl Emitter for Assembler {
     fn arch_emit_entry_trampoline(&mut self) {
         dynasm!(
             self
-            ; sub sp, sp, 96
+            ; mov x18, x28
+            ; mov x28, sp // WASM stack pointer
+            ; ldr x9, >v_65536
+            ; sub sp, sp, x9 // Pre-allocate the WASM stack
+            ; sub x28, x28, 16 // for the last two arguments
+
+            // Fixup param locations.
+            ; str x0, [sp, 0]
+            ; str x1, [sp, 8]
+            ; str x2, [sp, 16]
+            ; str x3, [sp, 24]
+            ; str x4, [sp, 32]
+            ; str x5, [sp, 40]
+            ; str x6, [x28, 0]
+            ; str x7, [x28, 8]
+            ; ldr X(map_gpr(GPR::RDI).x()), [sp, 0]
+            ; ldr X(map_gpr(GPR::RSI).x()), [sp, 8]
+            ; ldr X(map_gpr(GPR::RDX).x()), [sp, 16]
+            ; ldr X(map_gpr(GPR::RCX).x()), [sp, 24]
+            ; ldr X(map_gpr(GPR::R8).x()), [sp, 32]
+            ; ldr X(map_gpr(GPR::R9).x()), [sp, 40]
+
             ; str x19, [sp, 0]
             ; str x20, [sp, 8]
             ; str x21, [sp, 16]
@@ -1754,26 +1775,9 @@ impl Emitter for Assembler {
             ; str x25, [sp, 48]
             ; str x26, [sp, 56]
             ; str x27, [sp, 64]
-            ; str x28, [sp, 72]
+            ; str x18, [sp, 72] // previously x28
             ; str x29, [sp, 80]
             ; str x30, [sp, 88]
-            ; mov x28, sp // WASM stack pointer
-            ; ldr x9, >v_65536
-            ; sub sp, sp, x9 // Pre-allocate the WASM stack
-
-            // Fixup param locations.
-            ; str x0, [sp, 0]
-            ; str x1, [sp, 8]
-            ; str x2, [sp, 16]
-            ; str x3, [sp, 24]
-            ; str x4, [sp, 32]
-            ; str x5, [sp, 40]
-            ; ldr X(map_gpr(GPR::RDI).x()), [sp, 0]
-            ; ldr X(map_gpr(GPR::RSI).x()), [sp, 8]
-            ; ldr X(map_gpr(GPR::RDX).x()), [sp, 16]
-            ; ldr X(map_gpr(GPR::RCX).x()), [sp, 24]
-            ; ldr X(map_gpr(GPR::R8).x()), [sp, 32]
-            ; ldr X(map_gpr(GPR::R9).x()), [sp, 40]
 
             // return address
             ; adr x20, >done
@@ -1784,8 +1788,6 @@ impl Emitter for Assembler {
             ; b >real_entry
 
             ; done:
-            ; ldr x9, >v_65536
-            ; add sp, sp, x9 // Resume stack pointer
             ; ldr x19, [sp, 0]
             ; ldr x20, [sp, 8]
             ; ldr x21, [sp, 16]
@@ -1798,7 +1800,8 @@ impl Emitter for Assembler {
             ; ldr x28, [sp, 72]
             ; ldr x29, [sp, 80]
             ; ldr x30, [sp, 88]
-            ; add sp, sp, 96
+            ; ldr x9, >v_65536
+            ; add sp, sp, x9 // Resume stack pointer
             ; br x30 // LR
 
             ; v_65536:
