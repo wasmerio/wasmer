@@ -139,106 +139,6 @@ lazy_static! {
     };
 }
 
-#[cfg(target_arch = "aarch64")]
-lazy_static! {
-    /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
-    static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u64, stack_base: *const u64, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
-        let mut assembler = Assembler::new().unwrap();
-        let offset = assembler.offset();
-        dynasm!(
-            assembler
-            ; .arch aarch64
-            ; sub sp, sp, 80
-            ; str x19, [sp, 0]
-            ; str x20, [sp, 8]
-            ; str x21, [sp, 16]
-            ; str x22, [sp, 24]
-            ; str x23, [sp, 32]
-            ; str x24, [sp, 40]
-            ; str x25, [sp, 48]
-            ; str x26, [sp, 56]
-            ; str x27, [sp, 64]
-            ; str x28, [sp, 72]
-            ; mov x28, sp // WASM stack pointer
-            ; ldr x9, >v_65536
-            ; sub sp, sp, x9 // Pre-allocate the WASM stack
-
-            ; mov x19, x0 // stack_top
-            ; mov x20, x1 // stack_base
-
-            // ctx
-            ; mov X(crate::translator_aarch64::map_gpr(GPR::RDI).x()), x2
-
-            // params
-            ; cmp x20, x19
-            ; b.eq >end_copy_params
-            ; sub x20, x20, 8
-            ; ldr X(crate::translator_aarch64::map_gpr(GPR::RSI).x()), [x20]
-
-            ; cmp x20, x19
-            ; b.eq >end_copy_params
-            ; sub x20, x20, 8
-            ; ldr X(crate::translator_aarch64::map_gpr(GPR::RDX).x()), [x20]
-
-            ; cmp x20, x19
-            ; b.eq >end_copy_params
-            ; sub x20, x20, 8
-            ; ldr X(crate::translator_aarch64::map_gpr(GPR::RCX).x()), [x20]
-
-            ; cmp x20, x19
-            ; b.eq >end_copy_params
-            ; sub x20, x20, 8
-            ; ldr X(crate::translator_aarch64::map_gpr(GPR::R8).x()), [x20]
-
-            ; cmp x20, x19
-            ; b.eq >end_copy_params
-            ; sub x20, x20, 8
-            ; ldr X(crate::translator_aarch64::map_gpr(GPR::R9).x()), [x20]
-
-            ; copy_loop:
-            ; cmp x20, x19
-            ; b.eq >end_copy_params
-            ; ldr x21, [x19]
-            ; add x19, x19, 8
-            ; sub x28, x28, 8
-            ; str x21, [x28]
-            ; b <copy_loop
-            ; end_copy_params:
-
-            // return address
-            ; adr x20, >done
-            ; sub x28, x28, 8
-            ; str x20, [x28] // Keep this consistent with RSP mapping in translator_aarch64
-
-            // Jump to target function!
-            ; br x3
-
-            ; done:
-            ; ldr x9, >v_65536
-            ; add sp, sp, x9 // Resume stack pointer
-            ; ldr x19, [sp, 0]
-            ; ldr x20, [sp, 8]
-            ; ldr x21, [sp, 16]
-            ; ldr x22, [sp, 24]
-            ; ldr x23, [sp, 32]
-            ; ldr x24, [sp, 40]
-            ; ldr x25, [sp, 48]
-            ; ldr x26, [sp, 56]
-            ; ldr x27, [sp, 64]
-            ; ldr x28, [sp, 72]
-            ; add sp, sp, 80
-            ; br x30 // LR
-
-            ; v_65536:
-            ; .qword 1048576
-        );
-        let buf = assembler.finalize().unwrap();
-        let ret = unsafe { ::std::mem::transmute(buf.ptr(offset)) };
-        ::std::mem::forget(buf);
-        ret
-    };
-}
-
 pub struct X64ModuleCodeGenerator {
     functions: Vec<X64FunctionCode>,
     signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
@@ -389,12 +289,32 @@ impl RunnableModule for X64ExecutionContext {
             let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
             let ret = match protect_unix::call_protected(
                 || {
-                    CONSTRUCT_STACK_AND_CALL_WASM(
-                        args_reverse.as_ptr(),
-                        args_reverse.as_ptr().offset(args_reverse.len() as isize),
-                        ctx,
-                        func.as_ptr(),
-                    )
+                    #[cfg(target_arch = "x86_64")]
+                    {
+                        CONSTRUCT_STACK_AND_CALL_WASM(
+                            args_reverse.as_ptr(),
+                            args_reverse.as_ptr().offset(args_reverse.len() as isize),
+                            ctx,
+                            func.as_ptr(),
+                        )
+                    }
+                    #[cfg(target_arch = "aarch64")]
+                    {
+                        let callable: extern "C" fn(u64, u64, u64, u64, u64, u64) -> u64 =
+                            std::mem::transmute(func);
+                        if args.len() <= 5 {
+                            callable(
+                                ctx as u64,
+                                args.get(0).cloned().unwrap_or(0),
+                                args.get(1).cloned().unwrap_or(0),
+                                args.get(2).cloned().unwrap_or(0),
+                                args.get(3).cloned().unwrap_or(0),
+                                args.get(4).cloned().unwrap_or(0),
+                            )
+                        } else {
+                            panic!("aarch64 backend currently supports at most 5 arguments");
+                        }
+                    }
                 },
                 Some(execution_context.breakpoints.clone()),
             ) {
@@ -473,7 +393,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 {
     fn new() -> X64ModuleCodeGenerator {
         let mut a = Assembler::new().unwrap();
-        a.notify_begin();
 
         X64ModuleCodeGenerator {
             functions: vec![],
@@ -521,15 +440,12 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             .or_insert_with(|| (assembler.new_dynamic_label(), None));
 
         begin_label_info.1 = Some(begin_offset);
+        assembler.arch_emit_entry_trampoline();
         let begin_label = begin_label_info.0;
         let mut machine = Machine::new();
         machine.track_state = self.config.as_ref().unwrap().track_state;
 
-        dynasm!(
-            assembler
-            ; => begin_label
-            //; int 3
-        );
+        assembler.emit_label(begin_label);
         let code = X64FunctionCode {
             local_function_id: self.functions.len(),
 
@@ -572,7 +488,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             ),
         };
 
-        assembler.notify_end();
         let total_size = assembler.get_offset().0;
         let _output = assembler.finalize().unwrap();
         let mut output = CodeMemory::new(_output.len());
@@ -668,6 +583,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
 
         let a = self.assembler.as_mut().unwrap();
         let offset = a.offset();
+        a.arch_emit_entry_trampoline();
         let label = a.get_label();
         a.emit_label(label);
         labels.insert(id, (label, Some(offset)));

@@ -1716,16 +1716,6 @@ impl Emitter for Assembler {
                     ; adr x_tmp1, >done
                     ; str x_tmp1, [x_rsp]
                 );
-                dynasm!(self
-                    ; adr x_tmp1, >program_end
-                    ; cmp X(map_gpr(x).x()), x_tmp1
-                    ; b.ge >external
-                    ; adr x_tmp1, <program_begin
-                    ; cmp X(map_gpr(x).x()), x_tmp1
-                    ; b.lt >external
-                    ; br X(map_gpr(x).x())
-                    ; external:
-                );
                 self.emit_homomorphic_host_redirection(x);
                 dynasm!(self ; done: );
             }
@@ -1744,16 +1734,6 @@ impl Emitter for Assembler {
                     // Read memory.
                     ; ldr X(map_gpr(GPR::RAX).x()), [x_tmp3]
                 );
-                dynasm!(self
-                    ; adr x_tmp1, >program_end
-                    ; cmp X(map_gpr(GPR::RAX).x()), x_tmp1
-                    ; b.ge >external
-                    ; adr x_tmp1, <program_begin
-                    ; cmp X(map_gpr(GPR::RAX).x()), x_tmp1
-                    ; b.lt >external
-                    ; br X(map_gpr(GPR::RAX).x())
-                    ; external:
-                );
                 self.emit_homomorphic_host_redirection(GPR::RAX);
                 dynasm!(self ; done: );
             }
@@ -1761,18 +1741,71 @@ impl Emitter for Assembler {
         }
     }
 
-    fn notify_begin(&mut self) {
+    fn arch_emit_entry_trampoline(&mut self) {
         dynasm!(
             self
-            ; program_begin:
-        );
-    }
+            ; sub sp, sp, 96
+            ; str x19, [sp, 0]
+            ; str x20, [sp, 8]
+            ; str x21, [sp, 16]
+            ; str x22, [sp, 24]
+            ; str x23, [sp, 32]
+            ; str x24, [sp, 40]
+            ; str x25, [sp, 48]
+            ; str x26, [sp, 56]
+            ; str x27, [sp, 64]
+            ; str x28, [sp, 72]
+            ; str x29, [sp, 80]
+            ; str x30, [sp, 88]
+            ; mov x28, sp // WASM stack pointer
+            ; ldr x9, >v_65536
+            ; sub sp, sp, x9 // Pre-allocate the WASM stack
 
-    fn notify_end(&mut self) {
-        dynasm!(
-            self
-            ; program_end:
-        );
+            // Fixup param locations.
+            ; str x0, [sp, 0]
+            ; str x1, [sp, 8]
+            ; str x2, [sp, 16]
+            ; str x3, [sp, 24]
+            ; str x4, [sp, 32]
+            ; str x5, [sp, 40]
+            ; ldr X(map_gpr(GPR::RDI).x()), [sp, 0]
+            ; ldr X(map_gpr(GPR::RSI).x()), [sp, 8]
+            ; ldr X(map_gpr(GPR::RDX).x()), [sp, 16]
+            ; ldr X(map_gpr(GPR::RCX).x()), [sp, 24]
+            ; ldr X(map_gpr(GPR::R8).x()), [sp, 32]
+            ; ldr X(map_gpr(GPR::R9).x()), [sp, 40]
+
+            // return address
+            ; adr x20, >done
+            ; sub x28, x28, 8
+            ; str x20, [x28] // Keep this consistent with RSP mapping in translator_aarch64
+
+            // Jump to target function!
+            ; b >real_entry
+
+            ; done:
+            ; ldr x9, >v_65536
+            ; add sp, sp, x9 // Resume stack pointer
+            ; ldr x19, [sp, 0]
+            ; ldr x20, [sp, 8]
+            ; ldr x21, [sp, 16]
+            ; ldr x22, [sp, 24]
+            ; ldr x23, [sp, 32]
+            ; ldr x24, [sp, 40]
+            ; ldr x25, [sp, 48]
+            ; ldr x26, [sp, 56]
+            ; ldr x27, [sp, 64]
+            ; ldr x28, [sp, 72]
+            ; ldr x29, [sp, 80]
+            ; ldr x30, [sp, 88]
+            ; add sp, sp, 96
+            ; br x30 // LR
+
+            ; v_65536:
+            ; .qword 1048576
+
+            ; real_entry:
+        )
     }
 }
 

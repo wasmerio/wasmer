@@ -280,8 +280,8 @@ pub trait Emitter {
         unimplemented!()
     }
 
-    fn notify_begin(&mut self) {}
-    fn notify_end(&mut self) {}
+    // Emits entry trampoline just before the real function.
+    fn arch_emit_entry_trampoline(&mut self) {}
 }
 
 fn _dummy(a: &mut Assembler) {
