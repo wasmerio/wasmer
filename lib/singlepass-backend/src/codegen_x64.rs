@@ -302,18 +302,14 @@ impl RunnableModule for X64ExecutionContext {
                     {
                         let callable: extern "C" fn(u64, u64, u64, u64, u64, u64) -> u64 =
                             std::mem::transmute(func);
-                        if args.len() <= 5 {
-                            callable(
-                                ctx as u64,
-                                args.get(0).cloned().unwrap_or(0),
-                                args.get(1).cloned().unwrap_or(0),
-                                args.get(2).cloned().unwrap_or(0),
-                                args.get(3).cloned().unwrap_or(0),
-                                args.get(4).cloned().unwrap_or(0),
-                            )
-                        } else {
-                            panic!("aarch64 backend currently supports at most 5 arguments");
-                        }
+                        callable(
+                            ctx as u64,
+                            args.get(0).cloned().unwrap_or(0),
+                            args.get(1).cloned().unwrap_or(0),
+                            args.get(2).cloned().unwrap_or(0),
+                            args.get(3).cloned().unwrap_or(0),
+                            args.get(4).cloned().unwrap_or(0),
+                        );
                     }
                 },
                 Some(execution_context.breakpoints.clone()),
