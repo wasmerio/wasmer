@@ -1805,7 +1805,7 @@ impl Emitter for Assembler {
             ; br x30 // LR
 
             ; v_65536:
-            ; .qword 1048576
+            ; .qword 262144
 
             ; real_entry:
         )
