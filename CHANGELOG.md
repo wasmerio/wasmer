@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+## 0.10.2 - 2019-11-15
+
 - [#968](https://github.com/wasmerio/wasmer/pull/968) Added `--invoke` option to the command
 - [#971](https://github.com/wasmerio/wasmer/pull/971) In LLVM backend, use unaligned loads and stores for non-atomic accesses to wasmer memory.
 - [#960](https://github.com/wasmerio/wasmer/pull/960) Fix `runtime-c-api` header files when compiled by clang.
