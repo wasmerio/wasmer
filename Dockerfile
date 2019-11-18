@@ -1,4 +1,4 @@
-FROM circleci/rust:1.38.0-stretch as wasmer-build-env
+FROM circleci/rust:1.39.0-stretch as wasmer-build-env
 RUN sudo apt-get update && \
   sudo apt-get install -y --no-install-recommends \
   cmake \
