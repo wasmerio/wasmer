@@ -819,8 +819,14 @@ mod tests {
                     vec![$($x),*].iter().sum()
                 }
 
-                let _func = Func::new(with_vmctx);
-                let _func = Func::new(without_vmctx);
+                let _ = Func::new(with_vmctx);
+                let _ = Func::new(without_vmctx);
+                let _ = Func::new(|_: &mut vm::Ctx, $($x: i32),*| -> i32 {
+                    vec![$($x),*].iter().sum()
+                });
+                let _ = Func::new(|$($x: i32),*| -> i32 {
+                    vec![$($x),*].iter().sum()
+                });
             }
         }
     }
@@ -837,6 +843,8 @@ mod tests {
 
         let _ = Func::new(foo);
         let _ = Func::new(bar);
+        let _ = Func::new(|_: &mut vm::Ctx| -> i32 { 0 });
+        let _ = Func::new(|| -> i32 { 0 });
     }
 
     test_func_arity_n!(test_func_arity_1, a);
