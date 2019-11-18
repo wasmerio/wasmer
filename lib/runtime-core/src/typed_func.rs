@@ -458,8 +458,8 @@ macro_rules! impl_traits {
                 ( $( WasmExternType::from_native($x) ),* )
             }
 
+            #[allow(unused_parens, non_snake_case)]
             fn into_c_struct(self) -> Self::CStruct {
-                #[allow(unused_parens, non_snake_case)]
                 let ( $( $x ),* ) = self;
 
                 $struct_name ( $( WasmExternType::to_native($x) ),* )
@@ -469,7 +469,7 @@ macro_rules! impl_traits {
                 &[$( $x::Native::TYPE ),*]
             }
 
-            #[allow(non_snake_case)]
+            #[allow(unused_parens, non_snake_case)]
             unsafe fn call<Rets>(
                 self,
                 f: NonNull<vm::Func>,
@@ -479,7 +479,6 @@ macro_rules! impl_traits {
             where
                 Rets: WasmTypeList
             {
-                #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
                 let args = [ $( $x.to_native().to_binary()),* ];
                 let mut rets = Rets::empty_ret_array();
