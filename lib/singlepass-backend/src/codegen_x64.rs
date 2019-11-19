@@ -139,6 +139,44 @@ lazy_static! {
     };
 }
 
+#[cfg(target_arch = "aarch64")]
+#[repr(C)]
+struct CallCtx {
+    ctx: *mut vm::Ctx,
+    stack: *mut u64,
+    target: *mut u8,
+}
+
+#[cfg(target_arch = "aarch64")]
+lazy_static! {
+    /// Switches stack and executes the provided callback.
+    static ref SWITCH_STACK: unsafe extern "C" fn (stack: *mut u64, cb: extern "C" fn (*mut u8) -> u64, userdata: *mut u8) -> u64 = {
+        let mut assembler = Assembler::new().unwrap();
+        let offset = assembler.offset();
+        dynasm!(
+            assembler
+            ; .arch aarch64
+            ; sub x0, x0, 16
+            ; mov x8, sp
+            ; str x8, [x0, 0]
+            ; str x30, [x0, 8]
+            ; adr x30, >done
+            ; mov sp, x0
+            ; mov x0, x2
+            ; br x1
+            ; done:
+            ; ldr x30, [sp, 8]
+            ; ldr x8, [sp, 0]
+            ; mov sp, x8
+            ; br x30
+        );
+        let buf = assembler.finalize().unwrap();
+        let ret = unsafe { mem::transmute(buf.ptr(offset)) };
+        mem::forget(buf);
+        ret
+    };
+}
+
 pub struct X64ModuleCodeGenerator {
     functions: Vec<X64FunctionCode>,
     signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
@@ -300,77 +338,116 @@ impl RunnableModule for X64ExecutionContext {
                     }
                     #[cfg(target_arch = "aarch64")]
                     {
-                        // Fix this
-                        let callable: extern "C" fn(
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                            u64,
-                        ) -> u64 = std::mem::transmute(func);
-                        let mut args = args.iter();
-                        callable(
-                            ctx as u64,
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
-                            args.next().cloned().unwrap_or(0),
+                        struct CallCtx<'a> {
+                            args: &'a [u64],
+                            ctx: *mut vm::Ctx,
+                            callable: NonNull<vm::Func>,
+                        }
+                        extern "C" fn call_fn(f: *mut u8) -> u64 {
+                            unsafe {
+                                let f = &*(f as *const CallCtx);
+                                let callable: extern "C" fn(
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                    u64,
+                                )
+                                    -> u64 = std::mem::transmute(f.callable);
+                                let mut args = f.args.iter();
+                                callable(
+                                    f.ctx as u64,
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                    args.next().cloned().unwrap_or(0),
+                                )
+                            }
+                        }
+                        let mut cctx = CallCtx {
+                            args: &args,
+                            ctx: ctx,
+                            callable: func,
+                        };
+                        use libc::{
+                            mmap, mprotect, MAP_ANON, MAP_NORESERVE, MAP_PRIVATE, PROT_READ,
+                            PROT_WRITE,
+                        };
+                        const STACK_SIZE: usize = 1048576 * 1024; // 1GB of virtual addrss space for stack.
+                        let stack_ptr = unsafe {
+                            mmap(
+                                ::std::ptr::null_mut(),
+                                STACK_SIZE,
+                                PROT_READ | PROT_WRITE,
+                                MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,
+                                -1,
+                                0,
+                            )
+                        };
+                        if stack_ptr as isize == -1 {
+                            panic!("unable to allocate stack");
+                        }
+                        // TODO: Mark specific regions in the stack as PROT_NONE.
+                        SWITCH_STACK(
+                            (stack_ptr as *mut u8).offset(STACK_SIZE as isize) as *mut u64,
+                            call_fn,
+                            &mut cctx as *mut CallCtx as *mut u8,
                         )
                     }
                 },
