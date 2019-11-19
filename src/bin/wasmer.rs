@@ -860,27 +860,27 @@ fn validate(validate: Validate) {
     }
 }
 
-fn get_compiler_by_backend(backend: Backend, opts: &Run) -> Option<Box<dyn Compiler>> {
-    use wasmer_runtime_core::codegen::MiddlewareChain;
-    let opts = opts.clone();
-    let middlewares_gen = move || {
-        let mut middlewares = MiddlewareChain::new();
-        if opts.call_trace {
-            use wasmer_middleware_common::call_trace::CallTrace;
-            middlewares.push(CallTrace::new());
-        }
-        if opts.block_trace {
-            use wasmer_middleware_common::block_trace::BlockTrace;
-            middlewares.push(BlockTrace::new());
-        }
-        middlewares
-    };
-
+fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Compiler>> {
     Some(match backend {
         #[cfg(feature = "backend-singlepass")]
         Backend::Singlepass => {
             use wasmer_runtime_core::codegen::StreamingCompiler;
             use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
+            use wasmer_runtime_core::codegen::MiddlewareChain;
+
+            let opts = _opts.clone();
+            let middlewares_gen = move || {
+                let mut middlewares = MiddlewareChain::new();
+                if opts.call_trace {
+                    use wasmer_middleware_common::call_trace::CallTrace;
+                    middlewares.push(CallTrace::new());
+                }
+                if opts.block_trace {
+                    use wasmer_middleware_common::block_trace::BlockTrace;
+                    middlewares.push(BlockTrace::new());
+                }
+                middlewares
+            };
 
             let c: StreamingCompiler<SinglePassMCG, _, _, _, _> =
                 StreamingCompiler::new(middlewares_gen);
