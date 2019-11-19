@@ -1,4 +1,4 @@
-/*#![deny(
+#![deny(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -6,7 +6,7 @@
     unused_variables,
     unused_unsafe,
     unreachable_patterns
-)]*/
+)]
 #![feature(proc_macro_hygiene)]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
@@ -34,6 +34,7 @@ mod codegen_x64;
 mod emitter_x64;
 mod machine;
 pub mod protect_unix;
+#[cfg(target_arch = "aarch64")]
 mod translator_aarch64;
 
 pub use codegen_x64::X64FunctionCode as FunctionCodeGenerator;

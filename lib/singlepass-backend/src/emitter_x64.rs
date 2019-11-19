@@ -284,13 +284,6 @@ pub trait Emitter {
     fn arch_emit_entry_trampoline(&mut self) {}
 }
 
-fn _dummy(a: &mut Assembler) {
-    dynasm!(
-        self
-        ; .arch x64
-    );
-}
-
 macro_rules! unop_gpr {
     ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
         match ($sz, $loc) {

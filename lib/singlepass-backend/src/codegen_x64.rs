@@ -46,8 +46,10 @@ use wasmer_runtime_core::{
 };
 
 #[cfg(target_arch = "aarch64")]
+#[allow(dead_code)]
 static ARCH: Architecture = Architecture::Aarch64;
 #[cfg(target_arch = "x86_64")]
+#[allow(dead_code)]
 static ARCH: Architecture = Architecture::X64;
 
 #[cfg(target_arch = "x86_64")]
@@ -141,6 +143,7 @@ lazy_static! {
 
 #[cfg(target_arch = "aarch64")]
 #[repr(C)]
+#[allow(dead_code)]
 struct CallCtx {
     ctx: *mut vm::Ctx,
     stack: *mut u64,
@@ -324,11 +327,12 @@ impl RunnableModule for X64ExecutionContext {
 
             let args =
                 slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
-            let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
+
             let ret = match protect_unix::call_protected(
                 || {
                     #[cfg(target_arch = "x86_64")]
                     {
+                        let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
                         CONSTRUCT_STACK_AND_CALL_WASM(
                             args_reverse.as_ptr(),
                             args_reverse.as_ptr().offset(args_reverse.len() as isize),
@@ -430,16 +434,14 @@ impl RunnableModule for X64ExecutionContext {
                             PROT_WRITE,
                         };
                         const STACK_SIZE: usize = 1048576 * 1024; // 1GB of virtual address space for stack.
-                        let stack_ptr = unsafe {
-                            mmap(
-                                ::std::ptr::null_mut(),
-                                STACK_SIZE,
-                                PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,
-                                -1,
-                                0,
-                            )
-                        };
+                        let stack_ptr = mmap(
+                            ::std::ptr::null_mut(),
+                            STACK_SIZE,
+                            PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,
+                            -1,
+                            0,
+                        );
                         if stack_ptr as isize == -1 {
                             panic!("unable to allocate stack");
                         }
@@ -529,7 +531,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     for X64ModuleCodeGenerator
 {
     fn new() -> X64ModuleCodeGenerator {
-        let mut a = Assembler::new().unwrap();
+        let a = Assembler::new().unwrap();
 
         X64ModuleCodeGenerator {
             functions: vec![],
@@ -612,7 +614,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         mut self,
         _: &ModuleInfo,
     ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
-        let (mut assembler, function_labels, breakpoints) = match self.functions.last_mut() {
+        let (assembler, function_labels, breakpoints) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
                 x.function_labels.take().unwrap(),
@@ -797,6 +799,7 @@ impl X64FunctionCode {
             .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
     }
 
+    #[allow(dead_code)]
     fn mark_inline_breakpoint(
         a: &mut Assembler,
         m: &Machine,

@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use crate::codegen_x64::*;
 use crate::emitter_x64::*;
 use dynasmrt::{aarch64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use wasmer_runtime_core::backend::InlineBreakpointType;
@@ -106,7 +105,7 @@ pub fn map_xmm(xmm: XMM) -> AV {
 }
 
 pub fn get_aarch64_assembler() -> Assembler {
-    let mut a = Assembler::new().unwrap();
+    let a = Assembler::new().unwrap();
     dynasm!(
         a
         ; .arch aarch64
@@ -194,24 +193,6 @@ macro_rules! binop_imm32_mem {
                     ; ldr x_tmp2, [x_tmp3]
                     ; $ins x_tmp2, x_tmp2, x_tmp1
                     ; str x_tmp2, [x_tmp3]
-                );
-            },
-            _ => $otherwise
-        }
-    };
-}
-
-macro_rules! binop_imm64_gpr {
-    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
-        match ($sz, $src, $dst) {
-            (Size::S64, Location::Imm64(src), Location::GPR(dst)) => {
-                dynasm!($assembler
-                    ; b >after
-                    ; data:
-                    ; .qword src as i64
-                    ; after:
-                    ; ldr x_tmp1, <data
-                    ; $ins X(map_gpr(dst).x()), X(map_gpr(dst).x()), x_tmp1
                 );
             },
             _ => $otherwise
@@ -1185,10 +1166,10 @@ impl Emitter for Assembler {
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(orr, self, sz, src, dst, { unreachable!("or") });
     }
-    fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_bsr(&mut self, _sz: Size, _src: Location, _dst: Location) {
         unimplemented!("aarch64: bsr");
     }
-    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_bsf(&mut self, _sz: Size, _src: Location, _dst: Location) {
         unimplemented!("aarch64: bsf");
     }
     fn arch_has_xzcnt(&self) -> bool {
@@ -1200,7 +1181,7 @@ impl Emitter for Assembler {
     fn arch_emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         emit_clz_variant(self, sz, &src, &dst, true);
     }
-    fn emit_neg(&mut self, sz: Size, value: Location) {
+    fn emit_neg(&mut self, _sz: Size, _value: Location) {
         unimplemented!("aarch64: neg");
     }
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
@@ -1372,45 +1353,45 @@ impl Emitter for Assembler {
         }
     }
 
-    fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_xchg(&mut self, _sz: Size, _src: Location, _dst: Location) {
         unimplemented!("aarch64: xchg")
     }
-    fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_lock_xadd(&mut self, _sz: Size, _src: Location, _dst: Location) {
         unimplemented!("aarch64: xadd")
     }
-    fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location) {
+    fn emit_lock_cmpxchg(&mut self, _sz: Size, _src: Location, _dst: Location) {
         unimplemented!("aarch64: cmpxchg")
     }
-    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+    fn emit_vmovaps(&mut self, _src: XMMOrMemory, _dst: XMMOrMemory) {
         unimplemented!("aarch64: vmovaps")
     }
-    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+    fn emit_vmovapd(&mut self, _src: XMMOrMemory, _dst: XMMOrMemory) {
         unimplemented!("aarch64: vmovapd")
     }
-    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vxorps(&mut self, _src1: XMM, _src2: XMMOrMemory, _dst: XMM) {
         unimplemented!("aarch64: vxorps")
     }
-    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vxorpd(&mut self, _src1: XMM, _src2: XMMOrMemory, _dst: XMM) {
         unimplemented!("aarch64: vxorpd")
     }
-    fn emit_vcmpunordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpunordss(&mut self, _src1: XMM, _src2: XMMOrMemory, _dst: XMM) {
         unimplemented!("aarch64: vcmpunordss")
     }
-    fn emit_vcmpunordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpunordsd(&mut self, _src1: XMM, _src2: XMMOrMemory, _dst: XMM) {
         unimplemented!("aarch64: vcmpunordsd")
     }
 
-    fn emit_vcmpordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpordss(&mut self, _src1: XMM, _src2: XMMOrMemory, _dst: XMM) {
         unimplemented!("aarch64: vcmpordss")
     }
-    fn emit_vcmpordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vcmpordsd(&mut self, _src1: XMM, _src2: XMMOrMemory, _dst: XMM) {
         unimplemented!("aarch64: vcmpordsd")
     }
 
-    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+    fn emit_vblendvps(&mut self, _src1: XMM, _src2: XMMOrMemory, _mask: XMM, _dst: XMM) {
         unimplemented!("aarch64: vblendvps")
     }
-    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+    fn emit_vblendvpd(&mut self, _src1: XMM, _src2: XMMOrMemory, _mask: XMM, _dst: XMM) {
         unimplemented!("aarch64: vblendvpd")
     }
 
@@ -1518,50 +1499,49 @@ impl Emitter for Assembler {
         dynasm!(self ; fneg D(map_xmm(dst).v()), D(map_xmm(src).v()));
     }
 
-    // These instructions are only used in itruncf-type/fconverti-type opcodes.
-    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
+    fn emit_btc_gpr_imm8_32(&mut self, _src: u8, _dst: GPR) {
         unimplemented!();
     }
-    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
+    fn emit_btc_gpr_imm8_64(&mut self, _src: u8, _dst: GPR) {
         unimplemented!();
     }
-    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {
+    fn emit_cmovae_gpr_32(&mut self, _src: GPR, _dst: GPR) {
         unimplemented!();
     }
-    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) {
+    fn emit_cmovae_gpr_64(&mut self, _src: GPR, _dst: GPR) {
         unimplemented!();
     }
-    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
+    fn emit_ucomiss(&mut self, _src: XMMOrMemory, _dst: XMM) {
         unimplemented!();
     }
-    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
+    fn emit_ucomisd(&mut self, _src: XMMOrMemory, _dst: XMM) {
         unimplemented!();
     }
-    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
+    fn emit_cvttss2si_32(&mut self, _src: XMMOrMemory, _dst: GPR) {
         unimplemented!();
     }
-    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
+    fn emit_cvttss2si_64(&mut self, _src: XMMOrMemory, _dst: GPR) {
         unimplemented!();
     }
-    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
+    fn emit_cvttsd2si_32(&mut self, _src: XMMOrMemory, _dst: GPR) {
         unimplemented!();
     }
-    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
+    fn emit_cvttsd2si_64(&mut self, _src: XMMOrMemory, _dst: GPR) {
         unimplemented!();
     }
-    fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+    fn emit_vcvtsi2ss_32(&mut self, _src1: XMM, _src2: GPROrMemory, _dst: XMM) {
         unimplemented!();
     }
-    fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+    fn emit_vcvtsi2ss_64(&mut self, _src1: XMM, _src2: GPROrMemory, _dst: XMM) {
         unimplemented!();
     }
-    fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+    fn emit_vcvtsi2sd_32(&mut self, _src1: XMM, _src2: GPROrMemory, _dst: XMM) {
         unimplemented!();
     }
-    fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+    fn emit_vcvtsi2sd_64(&mut self, _src1: XMM, _src2: GPROrMemory, _dst: XMM) {
         unimplemented!();
     }
-    fn emit_test_gpr_64(&mut self, reg: GPR) {
+    fn emit_test_gpr_64(&mut self, _reg: GPR) {
         unimplemented!();
     }
 
