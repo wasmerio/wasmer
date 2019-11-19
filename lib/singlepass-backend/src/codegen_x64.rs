@@ -426,10 +426,10 @@ impl RunnableModule for X64ExecutionContext {
                             callable: func,
                         };
                         use libc::{
-                            mmap, mprotect, MAP_ANON, MAP_NORESERVE, MAP_PRIVATE, PROT_READ,
+                            mmap, munmap, MAP_ANON, MAP_NORESERVE, MAP_PRIVATE, PROT_READ,
                             PROT_WRITE,
                         };
-                        const STACK_SIZE: usize = 1048576 * 1024; // 1GB of virtual addrss space for stack.
+                        const STACK_SIZE: usize = 1048576 * 1024; // 1GB of virtual address space for stack.
                         let stack_ptr = unsafe {
                             mmap(
                                 ::std::ptr::null_mut(),
@@ -444,11 +444,13 @@ impl RunnableModule for X64ExecutionContext {
                             panic!("unable to allocate stack");
                         }
                         // TODO: Mark specific regions in the stack as PROT_NONE.
-                        SWITCH_STACK(
+                        let ret = SWITCH_STACK(
                             (stack_ptr as *mut u8).offset(STACK_SIZE as isize) as *mut u64,
                             call_fn,
                             &mut cctx as *mut CallCtx as *mut u8,
-                        )
+                        );
+                        munmap(stack_ptr, STACK_SIZE);
+                        ret
                     }
                 },
                 Some(execution_context.breakpoints.clone()),
