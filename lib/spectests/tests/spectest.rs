@@ -186,6 +186,7 @@ mod tests {
         let mut features = wabt::Features::new();
         features.enable_simd();
         features.enable_threads();
+        features.enable_sign_extension();
         let mut parser: ScriptParser =
             ScriptParser::from_source_and_name_with_features(&source, filename, features)
                 .expect(&format!("Failed to parse script {}", &filename));

@@ -205,7 +205,7 @@ jobs:
     dependsOn:
       - Build_CLI
       - Build_Library
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
     steps:
       # - download: current
       - task: DownloadPipelineArtifact@1
@@ -259,3 +259,4 @@ trigger:
   - master
   - staging
   - trying
+  - refs/tags/*
