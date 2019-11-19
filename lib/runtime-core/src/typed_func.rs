@@ -343,87 +343,6 @@ impl WasmTypeList for Infallible {
     }
 }
 
-impl<A> WasmTypeList for (A,)
-where
-    A: WasmExternType,
-{
-    type CStruct = S1<A>;
-    type RetArray = [u64; 1];
-
-    fn from_ret_array(array: Self::RetArray) -> Self {
-        (WasmExternType::from_native(NativeWasmType::from_binary(
-            array[0],
-        )),)
-    }
-
-    fn empty_ret_array() -> Self::RetArray {
-        [0u64]
-    }
-
-    fn from_c_struct(c_struct: Self::CStruct) -> Self {
-        let S1(a) = c_struct;
-        (WasmExternType::from_native(a),)
-    }
-
-    fn into_c_struct(self) -> Self::CStruct {
-        #[allow(unused_parens, non_snake_case)]
-        let (a,) = self;
-        S1(WasmExternType::to_native(a))
-    }
-
-    fn types() -> &'static [Type] {
-        &[A::Native::TYPE]
-    }
-
-    #[allow(non_snake_case)]
-    unsafe fn call<Rets>(
-        self,
-        f: NonNull<vm::Func>,
-        wasm: Wasm,
-        ctx: *mut vm::Ctx,
-    ) -> Result<Rets, RuntimeError>
-    where
-        Rets: WasmTypeList,
-    {
-        let (a,) = self;
-        let args = [a.to_native().to_binary()];
-        let mut rets = Rets::empty_ret_array();
-        let mut trap = WasmTrapInfo::Unknown;
-        let mut user_error = None;
-
-        if (wasm.invoke)(
-            wasm.trampoline,
-            ctx,
-            f,
-            args.as_ptr(),
-            rets.as_mut().as_mut_ptr(),
-            &mut trap,
-            &mut user_error,
-            wasm.invoke_env,
-        ) {
-            Ok(Rets::from_ret_array(rets))
-        } else {
-            if let Some(data) = user_error {
-                Err(RuntimeError::Error { data })
-            } else {
-                Err(RuntimeError::Trap {
-                    msg: trap.to_string().into(),
-                })
-            }
-        }
-    }
-}
-
-impl<'a, A: WasmExternType, Rets> Func<'a, (A,), Rets, Wasm>
-where
-    Rets: WasmTypeList,
-{
-    /// Call wasm function and return results.
-    pub fn call(&self, a: A) -> Result<Rets, RuntimeError> {
-        unsafe { <A as WasmTypeList>::call(a, self.func, self.inner, self.vmctx) }
-    }
-}
-
 macro_rules! impl_traits {
     ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
         /// Struct for typed funcs.
@@ -458,8 +377,8 @@ macro_rules! impl_traits {
                 ( $( WasmExternType::from_native($x) ),* )
             }
 
+            #[allow(unused_parens, non_snake_case)]
             fn into_c_struct(self) -> Self::CStruct {
-                #[allow(unused_parens, non_snake_case)]
                 let ( $( $x ),* ) = self;
 
                 $struct_name ( $( WasmExternType::to_native($x) ),* )
@@ -469,7 +388,7 @@ macro_rules! impl_traits {
                 &[$( $x::Native::TYPE ),*]
             }
 
-            #[allow(non_snake_case)]
+            #[allow(unused_parens, non_snake_case)]
             unsafe fn call<Rets>(
                 self,
                 f: NonNull<vm::Func>,
@@ -479,7 +398,6 @@ macro_rules! impl_traits {
             where
                 Rets: WasmTypeList
             {
-                #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
                 let args = [ $( $x.to_native().to_binary()),* ];
                 let mut rets = Rets::empty_ret_array();
@@ -819,8 +737,14 @@ mod tests {
                     vec![$($x),*].iter().sum()
                 }
 
-                let _func = Func::new(with_vmctx);
-                let _func = Func::new(without_vmctx);
+                let _ = Func::new(with_vmctx);
+                let _ = Func::new(without_vmctx);
+                let _ = Func::new(|_: &mut vm::Ctx, $($x: i32),*| -> i32 {
+                    vec![$($x),*].iter().sum()
+                });
+                let _ = Func::new(|$($x: i32),*| -> i32 {
+                    vec![$($x),*].iter().sum()
+                });
             }
         }
     }
@@ -837,6 +761,8 @@ mod tests {
 
         let _ = Func::new(foo);
         let _ = Func::new(bar);
+        let _ = Func::new(|_: &mut vm::Ctx| -> i32 { 0 });
+        let _ = Func::new(|| -> i32 { 0 });
     }
 
     test_func_arity_n!(test_func_arity_1, a);

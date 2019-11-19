@@ -857,32 +857,34 @@ impl X64FunctionCode {
         sz_dst: Size,
         dst: Location,
     ) {
-        let tmp_src = m.acquire_temp_gpr().unwrap();
-        let tmp_dst = m.acquire_temp_gpr().unwrap();
-
-        match src {
-            Location::Imm32(_) | Location::Imm64(_) => {
-                a.emit_mov(Size::S64, src, Location::GPR(tmp_src));
-                src = Location::GPR(tmp_src);
-            }
-            Location::Memory(_, _) | Location::GPR(_) => {}
-            _ => unreachable!(),
-        }
-
-        match dst {
+        let inner = |m: &mut Machine, a: &mut Assembler, src: Location| match dst {
             Location::Imm32(_) | Location::Imm64(_) => unreachable!(),
             Location::Memory(_, _) => {
+                let tmp_dst = m.acquire_temp_gpr().unwrap();
                 op(a, sz_src, src, sz_dst, Location::GPR(tmp_dst));
                 a.emit_mov(Size::S64, Location::GPR(tmp_dst), dst);
+
+                m.release_temp_gpr(tmp_dst);
             }
             Location::GPR(_) => {
                 op(a, sz_src, src, sz_dst, dst);
             }
             _ => unreachable!(),
-        }
+        };
 
-        m.release_temp_gpr(tmp_dst);
-        m.release_temp_gpr(tmp_src);
+        match src {
+            Location::Imm32(_) | Location::Imm64(_) => {
+                let tmp_src = m.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S64, src, Location::GPR(tmp_src));
+                src = Location::GPR(tmp_src);
+
+                inner(m, a, src);
+
+                m.release_temp_gpr(tmp_src);
+            }
+            Location::GPR(_) | Location::Memory(_, _) => inner(m, a, src),
+            _ => unreachable!(),
+        }
     }
 
     /// Moves `src` and `dst` to valid locations for generic instructions.
@@ -3163,6 +3165,106 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S32,
+                    loc,
+                    Size::S64,
+                    ret,
+                );
+            }
+            Operator::I32Extend8S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S8,
+                    loc,
+                    Size::S32,
+                    ret,
+                );
+            }
+            Operator::I32Extend16S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S16,
+                    loc,
+                    Size::S32,
+                    ret,
+                );
+            }
+            Operator::I64Extend8S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S8,
+                    loc,
+                    Size::S64,
+                    ret,
+                );
+            }
+            Operator::I64Extend16S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
+                Self::emit_relaxed_zx_sx(
+                    a,
+                    &mut self.machine,
+                    Assembler::emit_movsx,
+                    Size::S16,
+                    loc,
+                    Size::S64,
+                    ret,
+                );
+            }
+            Operator::I64Extend32S => {
+                let loc =
+                    get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(
+                    a,
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+
                 Self::emit_relaxed_zx_sx(
                     a,
                     &mut self.machine,
