@@ -2,6 +2,13 @@ use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLa
 use wasmer_runtime_core::backend::InlineBreakpointType;
 pub use wasmer_runtime_core::state::x64_decl::{GPR, XMM};
 
+fn _dummy(_a: &Assembler) {
+    dynasm!(
+        _a
+        ; .arch x64
+    );
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
     Imm8(u8),
