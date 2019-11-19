@@ -869,9 +869,9 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
     Some(match backend {
         #[cfg(feature = "backend-singlepass")]
         Backend::Singlepass => {
+            use wasmer_runtime_core::codegen::MiddlewareChain;
             use wasmer_runtime_core::codegen::StreamingCompiler;
             use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
-            use wasmer_runtime_core::codegen::MiddlewareChain;
 
             let opts = _opts.clone();
             let middlewares_gen = move || {
