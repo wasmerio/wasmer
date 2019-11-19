@@ -1637,7 +1637,7 @@ impl Emitter for Assembler {
         dynasm!(self ; .dword 0 ; .dword 1)
     }
 
-    fn emit_homomorphic_host_redirection(&mut self, target: GPR) {
+    fn emit_host_redirection(&mut self, target: GPR) {
         let target = map_gpr(target);
         dynasm!(
             self
@@ -1716,7 +1716,7 @@ impl Emitter for Assembler {
                     ; adr x_tmp1, >done
                     ; str x_tmp1, [x_rsp]
                 );
-                self.emit_homomorphic_host_redirection(x);
+                self.emit_host_redirection(x);
                 dynasm!(self ; done: );
             }
             Location::Memory(base, disp) => {
@@ -1734,7 +1734,7 @@ impl Emitter for Assembler {
                     // Read memory.
                     ; ldr X(map_gpr(GPR::RAX).x()), [x_tmp3]
                 );
-                self.emit_homomorphic_host_redirection(GPR::RAX);
+                self.emit_host_redirection(GPR::RAX);
                 dynasm!(self ; done: );
             }
             _ => unreachable!(),

@@ -754,7 +754,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             Location::Memory(GPR::RAX, imported_func_addr as i32),
             Location::GPR(GPR::RAX),
         );
-        a.emit_homomorphic_host_redirection(GPR::RAX);
+        a.emit_host_redirection(GPR::RAX);
 
         self.func_import_count += 1;
 
@@ -5444,7 +5444,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         let after = a.get_label();
                         a.emit_jmp(Condition::None, after);
                         a.emit_label(label);
-                        a.emit_homomorphic_host_redirection(GPR::RAX);
+                        a.emit_host_redirection(GPR::RAX);
                         a.emit_label(after);
                         a.emit_call_label(label);
                     },
@@ -5489,7 +5489,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         let after = a.get_label();
                         a.emit_jmp(Condition::None, after);
                         a.emit_label(label);
-                        a.emit_homomorphic_host_redirection(GPR::RAX);
+                        a.emit_host_redirection(GPR::RAX);
                         a.emit_label(after);
                         a.emit_call_label(label);
                     },

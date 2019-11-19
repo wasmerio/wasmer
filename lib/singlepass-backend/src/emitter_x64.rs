@@ -189,7 +189,7 @@ pub trait Emitter {
 
     fn emit_bkpt(&mut self);
 
-    fn emit_homomorphic_host_redirection(&mut self, target: GPR);
+    fn emit_host_redirection(&mut self, target: GPR);
     fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType);
 
     fn arch_has_itruncf(&self) -> bool {
@@ -1311,7 +1311,7 @@ impl Emitter for Assembler {
         dynasm!(self ; int 0x3);
     }
 
-    fn emit_homomorphic_host_redirection(&mut self, target: GPR) {
+    fn emit_host_redirection(&mut self, target: GPR) {
         self.emit_jmp_location(Location::GPR(target));
     }
 
