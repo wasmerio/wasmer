@@ -2,7 +2,13 @@
 
 ## **[Unreleased]**
 
+- [#987](https://github.com/wasmerio/wasmer/pull/987) Fix `runtime-c-api` header files when compiled by gnuc.
+
+## 0.10.2 - 2019-11-18
+
 - [#968](https://github.com/wasmerio/wasmer/pull/968) Added `--invoke` option to the command
+- [#964](https://github.com/wasmerio/wasmer/pull/964) Enable cross-compilation for specific target
+- [#971](https://github.com/wasmerio/wasmer/pull/971) In LLVM backend, use unaligned loads and stores for non-atomic accesses to wasmer memory.
 - [#960](https://github.com/wasmerio/wasmer/pull/960) Fix `runtime-c-api` header files when compiled by clang.
 - [#925](https://github.com/wasmerio/wasmer/pull/925) Host functions can be closures with a captured environment.
 - [#917](https://github.com/wasmerio/wasmer/pull/917) Host functions (aka imported functions) may not have `&mut vm::Ctx` as first argument, i.e. the presence of the `&mut vm::Ctx` argument is optional.

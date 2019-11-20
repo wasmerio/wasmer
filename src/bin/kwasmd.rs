@@ -63,6 +63,7 @@ fn handle_client(mut stream: UnixStream) {
             enforce_stack_check: true,
             track_state: false,
             features: Default::default(),
+            ..Default::default()
         },
         &SinglePassCompiler::new(),
     )
