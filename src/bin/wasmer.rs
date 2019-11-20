@@ -848,7 +848,7 @@ fn get_compiler_by_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
 }
 
 fn main() {
-    let options = StructOpt::from_iter_safe(env::args())
+    let options = CLIOptions::from_iter_safe(env::args())
         .unwrap_or_else(|_| CLIOptions::Run(Run::from_args()));
     match options {
         CLIOptions::Run(options) => run(options),
