@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#987](https://github.com/wasmerio/wasmer/pull/987) Fix `runtime-c-api` header files when compiled by gnuc.
+
 ## 0.10.2 - 2019-11-18
 
 - [#968](https://github.com/wasmerio/wasmer/pull/968) Added `--invoke` option to the command
