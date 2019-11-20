@@ -842,20 +842,8 @@ fn get_compiler_by_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
 }
 
 fn main() {
-    let options = {
-        let args: Vec<String> = env::args().into_iter().filter(|x| !x.starts_with("-")).collect();
-        match args.get(1).map_or("", |s| &s) {
-            // Default
-            "run" | "cache" | "validate" | "self_update" | "" => {
-                CLIOptions::from_args()
-            }
-            // Wasmer trying to run a file directly
-            _ => {
-                let run_options = Run::from_args();
-                CLIOptions::Run(run_options)
-            }
-        }
-    };
+    let options = StructOpt::from_iter_safe(env::args())
+        .unwrap_or_else(|_| CLIOptions::Run(Run::from_args()));
     match options {
         CLIOptions::Run(options) => run(options),
         #[cfg(not(target_os = "windows"))]
