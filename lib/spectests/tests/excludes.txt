@@ -12,10 +12,12 @@
 # Star line allows skipping an entire wast file
 #    clif:skip:simd.wast:*
 #
-# Excludes can also contain platform
+# Excludes can also contain target family
 #    clif:skip:data.wast:172:windows
 #    clif:skip:data.wast:172:unix
 #
+# Or target arch
+#    singlepass:skip:atomic.wast:*:*:aarch64
 
 # Cranelift
 clif:skip:atomic.wast:*        # Threads not implemented
