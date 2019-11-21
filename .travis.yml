@@ -11,8 +11,10 @@ cache:
 
 script:
   # Sccache
-  - curl -L https://github.com/mozilla/sccache/releases/download/0.2.10/sccache-0.2.10-x86_64-unknown-linux-musl.tar.gz | tar xzf -
-  - export RUSTC_WRAPPER=`pwd`/sccache-0.2.10-x86_64-unknown-linux-musl/sccache
+  # - curl -L https://github.com/mozilla/sccache/releases/download/0.2.10/sccache-0.2.10-x86_64-unknown-linux-musl.tar.gz | tar xzf -
+  # - export RUSTC_WRAPPER=`pwd`/sccache-0.2.10-x86_64-unknown-linux-musl/sccache
+  - cargo install sccache
+  - export RUSTC_WRAPPER=sccache
   - mkdir -p /home/travis/.sccache/
   - export SCCACHE_DIR="/home/travis/.sccache/"
   - SCCACHE_ERROR_LOG=`pwd`/sccache.log RUST_LOG=debug $RUSTC_WRAPPER --start-server
