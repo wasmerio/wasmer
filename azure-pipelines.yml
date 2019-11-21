@@ -123,7 +123,7 @@ jobs:
         displayName: Build (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
-          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+          make wapm
         displayName: Build WAPM
         condition: |
           eq(variables['Build.SourceBranch'], 'refs/heads/master')
