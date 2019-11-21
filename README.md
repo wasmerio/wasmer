@@ -167,15 +167,12 @@ nginx and Lua do not work on Windows - you can track the progress on [this issue
 
 2. Install [Rust for Windows](https://win.rustup.rs)
 
-3. Install [Python for Windows](https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
-   Make sure to enable "Add python.exe to Path" during installation.
-
-4. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default
+3. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default
    settings for the installer are fine).
 
-5. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
+4. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
 
-6. Install [LLVM 8.0](https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe)
+5. Install [LLVM 8.0](https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe)
      </p>
    </details>
 
