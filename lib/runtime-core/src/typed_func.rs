@@ -1,9 +1,11 @@
 //! The typed func module implements a way of representing a wasm function
 //! with the correct types from rust. Function calls using a typed func have a low overhead.
 use crate::{
+    backing::ImportBacking,
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
+    module::ModuleInner,
     types::{FuncSig, NativeWasmType, Type, WasmExternType},
     vm,
 };
@@ -211,6 +213,7 @@ where
     Rets: WasmTypeList,
 {
     type Error = Infallible;
+
     fn report(self) -> Result<Rets, Infallible> {
         Ok(self)
     }
@@ -222,7 +225,8 @@ where
     E: 'static,
 {
     type Error = E;
-    fn report(self) -> Result<Rets, E> {
+
+    fn report(self) -> Result<Rets, Self::Error> {
         self
     }
 }
@@ -343,6 +347,95 @@ impl WasmTypeList for Infallible {
     }
 }
 
+/// Helper to get the real host function to call.
+// It is used in the `to_raw` -> `wrap` functions, and it should
+// remain like this :-).
+#[inline(always)]
+fn wrap_get_func<'f, FN>(
+    import_backing: *const ImportBacking,
+    self_pointer: *const vm::Func,
+) -> &'f FN {
+    // Get the collection of imported functions.
+    let vm_imported_functions = unsafe { &(*import_backing).vm_functions };
+
+    // Retrieve the `vm::FuncCtx`.
+    let mut func_ctx: NonNull<vm::FuncCtx> = vm_imported_functions
+        .iter()
+        .find_map(|(_, imported_func)| {
+            if imported_func.func == self_pointer {
+                Some(imported_func.func_ctx)
+            } else {
+                None
+            }
+        })
+        .expect("Import backing is not well-formed, cannot find `func_ctx`.");
+    let func_ctx = unsafe { func_ctx.as_mut() };
+
+    // Extract `vm::FuncEnv` from `vm::FuncCtx`.
+    let func_env = func_ctx.func_env;
+
+    let func: &FN = match func_env {
+        // The imported function is a regular
+        // function, a closure without a captured
+        // environment, or a closure with a captured
+        // environment.
+        Some(func_env) => unsafe {
+            let func: NonNull<FN> = func_env.cast();
+
+            &*func.as_ptr()
+        },
+
+        // This branch is supposed to be unreachable.
+        None => unreachable!(),
+    };
+
+    func
+}
+
+/// Helper to call a host function safely.
+// It is used in the `to_raw` -> `wrap` functions, and it should
+// remain like this :-).
+#[inline(always)]
+fn wrap_call<Rets, Trap>(
+    module: *const ModuleInner,
+    executor: &(dyn Fn() -> Result<Rets, Trap::Error>),
+) -> Rets::CStruct
+where
+    Rets: WasmTypeList,
+    Trap: TrapEarly<Rets>,
+{
+    // Catch unwind in case of errors.
+    let err = match panic::catch_unwind(panic::AssertUnwindSafe(executor)) {
+        Ok(Ok(returns)) => return returns.into_c_struct(),
+        Ok(Err(err)) => {
+            let b: Box<_> = err.into();
+            b as Box<dyn Any>
+        }
+        Err(err) => err,
+    };
+
+    // At this point, there is an error that needs to
+    // be trapped.
+    unsafe { (&*module).runnable_module.do_early_trap(err) }
+}
+
+/// Helper to get function environment pointer of a host function.
+// It is used in the `to_raw` functions, and it should remain like
+// this :-).
+#[inline(always)]
+fn get_func_env<FN>(func: FN) -> Option<NonNull<vm::FuncEnv>> {
+    // `FN` is a function pointer, or a closure
+    // _without_ a captured environment.
+    if mem::size_of::<FN>() == 0 {
+        NonNull::new(&func as *const _ as *mut vm::FuncEnv)
+    }
+    // `FN` is a closure _with_ a captured
+    // environment.
+    else {
+        NonNull::new(Box::into_raw(Box::new(func))).map(NonNull::cast)
+    }
+}
+
 macro_rules! impl_traits {
     ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
         /// Struct for typed funcs.
@@ -444,7 +537,7 @@ macro_rules! impl_traits {
                 // able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
                 extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                    vmctx: &vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                    vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
                 ) -> Rets::CStruct
                 where
                     $( $x: WasmExternType, )*
@@ -455,87 +548,25 @@ macro_rules! impl_traits {
                     // Get the pointer to this `wrap` function.
                     let self_pointer = wrap::<$( $x, )* Rets, Trap, FN> as *const vm::Func;
 
-                    // Get the collection of imported functions.
-                    let vm_imported_functions = unsafe { &(*vmctx.import_backing).vm_functions };
+                    // Get the real host function to call.
+                    let func: &FN = wrap_get_func(vmctx.import_backing, self_pointer);
 
-                    // Retrieve the `vm::FuncCtx`.
-                    let mut func_ctx: NonNull<vm::FuncCtx> = vm_imported_functions
-                        .iter()
-                        .find_map(|(_, imported_func)| {
-                            if imported_func.func == self_pointer {
-                                Some(imported_func.func_ctx)
-                            } else {
-                                None
-                            }
-                        })
-                        .expect("Import backing is not well-formed, cannot find `func_ctx`.");
-                    let func_ctx = unsafe { func_ctx.as_mut() };
+                    wrap_call::<Rets, Trap>(
+                        vmctx.module,
+                        &|| {
+                            let vmctx = unsafe { &mut *(vmctx as *const _ as *mut _) };
 
-                    // Extract `vm::Ctx` from `vm::FuncCtx`. The
-                    // pointer is always non-null.
-                    let vmctx = unsafe { func_ctx.vmctx.as_mut() };
-
-                    // Extract `vm::FuncEnv` from `vm::FuncCtx`.
-                    let func_env = func_ctx.func_env;
-
-                    let func: &FN = match func_env {
-                        // The imported function is a regular
-                        // function, a closure without a captured
-                        // environment, or a closure with a captured
-                        // environment.
-                        Some(func_env) => unsafe {
-                            let func: NonNull<FN> = func_env.cast();
-
-                            &*func.as_ptr()
-                        },
-
-                        // This branch is supposed to be unreachable.
-                        None => unreachable!()
-                    };
-
-                    // Catch unwind in case of errors.
-                    let err = match panic::catch_unwind(
-                        panic::AssertUnwindSafe(
-                            || {
-                                func(vmctx $( , WasmExternType::from_native($x) )* ).report()
-                                //   ^^^^^ The imported function
-                                //         expects `vm::Ctx` as first
-                                //         argument; provide it.
-                            }
-                        )
-                    ) {
-                        Ok(Ok(returns)) => return returns.into_c_struct(),
-                        Ok(Err(err)) => {
-                            let b: Box<_> = err.into();
-                            b as Box<dyn Any>
-                        },
-                        Err(err) => err,
-                    };
-
-                    // At this point, there is an error that needs to
-                    // be trapped.
-                    unsafe {
-                        (&*vmctx.module).runnable_module.do_early_trap(err)
-                    }
+                            func(vmctx $( , WasmExternType::from_native($x) )* ).report()
+                            //   ^^^^^ The imported function
+                            //         expects `vm::Ctx` as first
+                            //         argument; provide it.
+                        }
+                    )
                 }
-
-                // Extract the captured environment of the imported
-                // function if any.
-                let func_env: Option<NonNull<vm::FuncEnv>> =
-                    // `FN` is a function pointer, or a closure
-                    // _without_ a captured environment.
-                    if mem::size_of::<Self>() == 0 {
-                        NonNull::new(&self as *const _ as *mut vm::FuncEnv)
-                    }
-                    // `FN` is a closure _with_ a captured
-                    // environment.
-                    else {
-                        NonNull::new(Box::into_raw(Box::new(self))).map(NonNull::cast)
-                    };
 
                 (
                     NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
-                    func_env
+                    get_func_env(self)
                 )
             }
         }
@@ -559,7 +590,7 @@ macro_rules! impl_traits {
                 // able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
                 extern fn wrap<$( $x, )* Rets, Trap, FN>(
-                    vmctx: &vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
+                    vmctx: &mut vm::Ctx $( , $x: <$x as WasmExternType>::Native )*
                 ) -> Rets::CStruct
                 where
                     $( $x: WasmExternType, )*
@@ -570,84 +601,21 @@ macro_rules! impl_traits {
                     // Get the pointer to this `wrap` function.
                     let self_pointer = wrap::<$( $x, )* Rets, Trap, FN> as *const vm::Func;
 
-                    // Get the collection of imported functions.
-                    let vm_imported_functions = unsafe { &(*vmctx.import_backing).vm_functions };
+                    // Get the real host function to call.
+                    let func: &FN = wrap_get_func(vmctx.import_backing, self_pointer);
 
-                    // Retrieve the `vm::FuncCtx`.
-                    let mut func_ctx: NonNull<vm::FuncCtx> = vm_imported_functions
-                        .iter()
-                        .find_map(|(_, imported_func)| {
-                            if imported_func.func == self_pointer {
-                                Some(imported_func.func_ctx)
-                            } else {
-                                None
-                            }
-                        })
-                        .expect("Import backing is not well-formed, cannot find `func_ctx`.");
-                    let func_ctx = unsafe { func_ctx.as_mut() };
-
-                    // Extract `vm::Ctx` from `vm::FuncCtx`. The
-                    // pointer is always non-null.
-                    let vmctx = unsafe { func_ctx.vmctx.as_mut() };
-
-                    // Extract `vm::FuncEnv` from `vm::FuncCtx`.
-                    let func_env = func_ctx.func_env;
-
-                    let func: &FN = match func_env {
-                        // The imported function is a regular
-                        // function, a closure without a captured
-                        // environment, or a closure with a captured
-                        // environment.
-                        Some(func_env) => unsafe {
-                            let func: NonNull<FN> = func_env.cast();
-
-                            &*func.as_ptr()
-                        },
-
-                        // This branch is supposed to be unreachable.
-                        None => unreachable!()
-                    };
-
-                    // Catch unwind in case of errors.
-                    let err = match panic::catch_unwind(
-                        panic::AssertUnwindSafe(
-                            || {
-                                func($( WasmExternType::from_native($x), )* ).report()
-                            }
-                        )
-                    ) {
-                        Ok(Ok(returns)) => return returns.into_c_struct(),
-                        Ok(Err(err)) => {
-                            let b: Box<_> = err.into();
-                            b as Box<dyn Any>
-                        },
-                        Err(err) => err,
-                    };
-
-                    // At this point, there is an error that needs to
-                    // be trapped.
-                    unsafe {
-                        (&*vmctx.module).runnable_module.do_early_trap(err)
-                    }
+                    // Call the host function.
+                    wrap_call::<Rets, Trap>(
+                        vmctx.module,
+                        &|| {
+                            func($( WasmExternType::from_native($x) ),* ).report()
+                        }
+                    )
                 }
-
-                // Extract the captured environment of the imported
-                // function if any.
-                let func_env: Option<NonNull<vm::FuncEnv>> =
-                    // `FN` is a function pointer, or a closure
-                    // _without_ a captured environment.
-                    if mem::size_of::<Self>() == 0 {
-                        NonNull::new(&self as *const _ as *mut vm::FuncEnv)
-                    }
-                    // `FN` is a closure _with_ a captured
-                    // environment.
-                    else {
-                        NonNull::new(Box::into_raw(Box::new(self))).map(NonNull::cast)
-                    };
 
                 (
                     NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
-                    func_env
+                    get_func_env(self)
                 )
             }
         }
