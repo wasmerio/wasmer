@@ -5,12 +5,35 @@ language: rust
 rust:
   - nightly
 
+cache:
+  directories:
+    - /home/travis/.sccache/
+
 script:
+  # Sccache
+  - curl -L https://github.com/mozilla/sccache/releases/download/0.2.10/sccache-0.2.10-x86_64-unknown-linux-musl.tar.gz | tar xzf -
+  - export RUSTC_WRAPPER=`pwd`/sccache-0.2.10-x86_64-unknown-linux-musl/sccache
+  - mkdir -p /home/travis/.sccache/
+  - export SCCACHE_DIR="/home/travis/.sccache/"
+  - SCCACHE_ERROR_LOG=`pwd`/sccache.log RUST_LOG=debug $RUSTC_WRAPPER --start-server
+  - $RUSTC_WRAPPER -s
+
+  # Tests
   - make spectests-singlepass
+
+  # Release
   - make release-singlepass
   - make wapm
   - make build-install
+  - mkdir -p artifacts
   - cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
+
+before_deploy:
+    # Set up git user name and tag this commit
+    - git config --local user.name "Syrus Akbary"
+    - git config --local user.email "syrus@wasmer.io"
+    - export TRAVIS_TAG="0.10.2"
+    - git tag $TRAVIS_TAG
 
 deploy:
   provider: releases
