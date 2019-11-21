@@ -129,6 +129,11 @@ pub struct CompilerConfig {
     pub enforce_stack_check: bool,
     pub track_state: bool,
     pub features: Features,
+
+    // target info used by LLVM
+    pub triple: Option<String>,
+    pub cpu_name: Option<String>,
+    pub cpu_features: Option<String>,
 }
 
 pub trait Compiler {

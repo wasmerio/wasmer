@@ -1,5 +1,6 @@
 #![deny(
     dead_code,
+    missing_docs,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -104,6 +105,8 @@ pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::{func, imports};
 
 pub mod memory {
+    //! The memory module contains the implementation data structures and helper functions used to
+    //! manipulate and access wasm memory.
     pub use wasmer_runtime_core::memory::{Atomically, Memory, MemoryView};
 }
 
@@ -117,6 +120,8 @@ pub mod wasm {
 }
 
 pub mod error {
+    //! The error module contains the data structures and helper functions used to implement errors that
+    //! are produced and returned from the wasmer runtime.
     pub use wasmer_runtime_core::cache::Error as CacheError;
     pub use wasmer_runtime_core::error::*;
 }

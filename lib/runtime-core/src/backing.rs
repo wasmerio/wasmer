@@ -77,7 +77,7 @@ impl LocalBacking {
             }
         };
         let mut tables = Self::generate_tables(module);
-        let mut globals = Self::generate_globals(module, imports);
+        let mut globals = Self::generate_globals(module, imports)?;
 
         // Ensure all initializers are valid before running finalizers
         Self::validate_memories(module, imports)?;
@@ -443,13 +443,22 @@ impl LocalBacking {
     fn generate_globals(
         module: &ModuleInner,
         imports: &ImportBacking,
-    ) -> BoxedMap<LocalGlobalIndex, Global> {
+    ) -> LinkResult<BoxedMap<LocalGlobalIndex, Global>> {
         let mut globals = Map::with_capacity(module.info.globals.len());
 
         for (_, global_init) in module.info.globals.iter() {
             let value = match &global_init.init {
                 Initializer::Const(value) => value.clone(),
                 Initializer::GetGlobal(import_global_index) => {
+                    if imports.globals.len() <= import_global_index.index() {
+                        return Err(vec![LinkError::Generic {
+                            message: format!(
+                                "Trying to read the `{:?}` global that is not properly initialized.",
+                                import_global_index.index()
+                            ),
+                        }]);
+                    }
+
                     imports.globals[*import_global_index].get()
                 }
             };
@@ -463,7 +472,7 @@ impl LocalBacking {
             globals.push(global);
         }
 
-        globals.into_boxed_map()
+        Ok(globals.into_boxed_map())
     }
 
     fn finalize_globals(
