@@ -130,9 +130,24 @@ pub fn generate_import_object(
     }
 }
 
-#[cfg(feature = "snapshot0")]
+/// Creates a Wasi [`ImportObject`] with [`WasiState`] for the given [`WasiVersion`].
+pub fn generate_import_object_for_version(
+    version: WasiVersion,
+    args: Vec<Vec<u8>>,
+    envs: Vec<Vec<u8>>,
+    preopened_files: Vec<PathBuf>,
+    mapped_dirs: Vec<(String, PathBuf)>,
+) -> ImportObject {
+    match version {
+        WasiVersion::Snapshot0 => {
+            generate_import_object_snapshot0(args, envs, preopened_files, mapped_dirs)
+        }
+        WasiVersion::Snapshot1 => generate_import_object(args, envs, preopened_files, mapped_dirs),
+    }
+}
+
 /// Creates a legacy Wasi [`ImportObject`] with [`WasiState`].
-pub fn generate_import_object_snapshot0(
+fn generate_import_object_snapshot0(
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
     preopened_files: Vec<PathBuf>,

@@ -5,7 +5,6 @@ pub mod unix;
 #[cfg(any(target_os = "windows"))]
 pub mod windows;
 
-#[cfg(any(feature = "snapshot0"))]
 pub mod legacy;
 
 use self::types::*;
