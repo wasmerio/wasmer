@@ -450,6 +450,11 @@ impl LocalBacking {
             let value = match &global_init.init {
                 Initializer::Const(value) => value.clone(),
                 Initializer::GetGlobal(import_global_index) => {
+                    // Skip if the global hasn't been initialized properly.
+                    if imports.globals.len() <= import_global_index.index() {
+                        continue;
+                    }
+
                     imports.globals[*import_global_index].get()
                 }
             };
