@@ -18,7 +18,7 @@ use std::process::exit;
 use std::str::FromStr;
 
 use std::collections::HashMap;
-use structopt::StructOpt;
+use structopt::{clap, StructOpt};
 
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
@@ -77,6 +77,29 @@ struct PrestandardFeatures {
     all: bool,
 }
 
+impl PrestandardFeatures {
+    /// Generate [`wabt::Features`] struct from CLI options
+    pub fn into_wabt_features(&self) -> wabt::Features {
+        let mut features = wabt::Features::new();
+        if self.simd || self.all {
+            features.enable_simd();
+        }
+        if self.threads || self.all {
+            features.enable_threads();
+        }
+        features.enable_sign_extension();
+        features
+    }
+
+    /// Generate [`Features`] struct from CLI options
+    pub fn into_backend_features(&self) -> Features {
+        Features {
+            simd: self.simd || self.all,
+            threads: self.threads || self.all,
+        }
+    }
+}
+
 #[cfg(feature = "backend-llvm")]
 #[derive(Debug, StructOpt, Clone)]
 /// LLVM backend flags.
@@ -112,6 +135,10 @@ struct Run {
         possible_values = Backend::variants(),
     )]
     backend: Backend,
+
+    /// Invoke a specified function
+    #[structopt(long = "invoke", short = "i")]
+    invoke: Option<String>,
 
     /// Emscripten symbol map
     #[structopt(long = "em-symbol-map", parse(from_os_str), group = "emscripten")]
@@ -471,13 +498,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     if !utils::is_wasm_binary(&wasm_binary) {
-        let mut features = wabt::Features::new();
-        if options.features.simd || options.features.all {
-            features.enable_simd();
-        }
-        if options.features.threads || options.features.all {
-            features.enable_threads();
-        }
+        let features = options.features.into_wabt_features();
         wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
@@ -521,10 +542,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
                 track_state,
-                features: Features {
-                    simd: options.features.simd || options.features.all,
-                    threads: options.features.threads || options.features.all,
-                },
+                features: options.features.into_backend_features(),
+                ..Default::default()
             },
             &*compiler,
         )
@@ -535,10 +554,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             CompilerConfig {
                 symbol_map: em_symbol_map.clone(),
                 track_state,
-                features: Features {
-                    simd: options.features.simd || options.features.all,
-                    threads: options.features.threads || options.features.all,
-                },
+                features: options.features.into_backend_features(),
                 ..Default::default()
             },
             &*compiler,
@@ -583,10 +599,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         CompilerConfig {
                             symbol_map: em_symbol_map.clone(),
                             track_state,
-                            features: Features {
-                                simd: options.features.simd || options.features.all,
-                                threads: options.features.threads || options.features.all,
-                            },
+                            features: options.features.into_backend_features(),
                             ..Default::default()
                         },
                         &*compiler,
@@ -697,8 +710,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 args.push(Value::I32(x));
             }
 
+            let invoke_fn = match options.invoke.as_ref() {
+                Some(fun) => fun,
+                _ => "main",
+            };
             instance
-                .dyn_func("main")
+                .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
@@ -812,10 +829,7 @@ fn validate_wasm(validate: Validate) -> Result<(), String> {
 
     wasmer_runtime_core::validate_and_report_errors_with_features(
         &wasm_binary,
-        Features {
-            simd: validate.features.simd || validate.features.all,
-            threads: validate.features.threads || validate.features.all,
-        },
+        validate.features.into_backend_features(),
     )
     .map_err(|err| format!("Validation failed: {}", err))?;
 
@@ -848,7 +862,19 @@ fn get_compiler_by_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
 }
 
 fn main() {
-    let options = CLIOptions::from_args();
+    // We try to run wasmer with the normal arguments.
+    // Eg. `wasmer <SUBCOMMAND>`
+    // In case that fails, we fallback trying the Run subcommand directly.
+    // Eg. `wasmer myfile.wasm --dir=.`
+    let options = CLIOptions::from_iter_safe(env::args()).unwrap_or_else(|e| {
+        match e.kind {
+            // This fixes a issue that:
+            // 1. Shows the version twice when doing `wasmer -V`
+            // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
+            clap::ErrorKind::VersionDisplayed | clap::ErrorKind::HelpDisplayed => e.exit(),
+            _ => CLIOptions::Run(Run::from_args()),
+        }
+    });
     match options {
         CLIOptions::Run(options) => run(options),
         #[cfg(not(target_os = "windows"))]

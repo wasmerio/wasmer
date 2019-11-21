@@ -18,6 +18,7 @@ mod tests {
     // TODO Files could be run with multiple threads
     // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
 
+    use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
 
     struct SpecFailure {
@@ -46,15 +47,14 @@ mod tests {
         pub fn add_failure(
             &mut self,
             failure: SpecFailure,
-            testkey: &str,
-            excludes: &HashMap<String, Exclude>,
+            _testkey: &str,
+            excludes: &Vec<Exclude>,
+            line: u64,
         ) {
-            if excludes.contains_key(testkey) {
-                self.allowed_failure += 1;
-                return;
-            }
-            let platform_key = format!("{}:{}", testkey, get_platform());
-            if excludes.contains_key(&platform_key) {
+            if excludes
+                .iter()
+                .any(|e| e.line_matches(line) && e.exclude_kind == ExcludeKind::Fail)
+            {
                 self.allowed_failure += 1;
                 return;
             }
@@ -104,13 +104,111 @@ mod tests {
     }
 
     #[cfg(unix)]
-    fn get_platform() -> &'static str {
+    fn get_target_family() -> &'static str {
         "unix"
     }
 
     #[cfg(windows)]
-    fn get_platform() -> &'static str {
+    fn get_target_family() -> &'static str {
         "windows"
+    }
+
+    fn get_target_arch() -> &'static str {
+        if cfg!(target_arch = "x86_64") {
+            "x86_64"
+        } else if cfg!(target_arch = "aarch64") {
+            "aarch64"
+        } else if cfg!(target_arch = "x86") {
+            "x86"
+        } else if cfg!(target_arch = "mips") {
+            "mips"
+        } else if cfg!(target_arch = "powerpc") {
+            "powerpc"
+        } else if cfg!(target_arch = "powerpc64") {
+            "powerpc64"
+        } else if cfg!(target_arch = "arm") {
+            "arm"
+        } else {
+            panic!("unknown target arch")
+        }
+    }
+
+    //  clif:skip:data.wast:172:unix:x86
+    #[allow(dead_code)]
+    struct Exclude {
+        backend: Option<String>,
+        exclude_kind: ExcludeKind,
+        file: String,
+        line: Option<u64>,
+        target_family: Option<String>,
+        target_arch: Option<String>,
+    }
+
+    impl Exclude {
+        fn line_matches(&self, value: u64) -> bool {
+            self.line.is_none() || self.line.unwrap() == value
+        }
+
+        fn line_exact_match(&self, value: u64) -> bool {
+            self.line.is_some() && self.line.unwrap() == value
+        }
+
+        fn matches_backend(&self, value: &str) -> bool {
+            self.backend.is_none() || self.backend.as_ref().unwrap() == value
+        }
+
+        fn matches_target_family(&self, value: &str) -> bool {
+            self.target_family.is_none() || self.target_family.as_ref().unwrap() == value
+        }
+
+        fn matches_target_arch(&self, value: &str) -> bool {
+            self.target_arch.is_none() || self.target_arch.as_ref().unwrap() == value
+        }
+
+        fn from(
+            backend: &str,
+            exclude_kind: &str,
+            file: &str,
+            line: &str,
+            target_family: &str,
+            target_arch: &str,
+        ) -> Exclude {
+            let backend: Option<String> = match backend {
+                "*" => None,
+                "clif" => Some("clif".to_string()),
+                "singlepass" => Some("singlepass".to_string()),
+                "llvm" => Some("llvm".to_string()),
+                _ => panic!("backend {:?} not recognized", backend),
+            };
+            let exclude_kind = match exclude_kind {
+                "skip" => ExcludeKind::Skip,
+                "fail" => ExcludeKind::Fail,
+                _ => panic!("exclude kind {:?} not recognized", exclude_kind),
+            };
+            let line = match line {
+                "*" => None,
+                _ => Some(
+                    line.parse::<u64>()
+                        .expect(&format!("expected * or int: {:?}", line)),
+                ),
+            };
+            let target_family = match target_family {
+                "*" => None,
+                _ => Some(target_family.to_string()),
+            };
+            let target_arch = match target_arch {
+                "*" => None,
+                _ => Some(target_arch.to_string()),
+            };
+            Exclude {
+                backend,
+                exclude_kind,
+                file: file.to_string(),
+                line,
+                target_family,
+                target_arch,
+            }
+        }
     }
 
     #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
@@ -160,7 +258,8 @@ mod tests {
 
     fn parse_and_run(
         path: &PathBuf,
-        excludes: &HashMap<String, Exclude>,
+        file_excludes: &HashSet<String>,
+        excludes: &HashMap<String, Vec<Exclude>>,
     ) -> Result<TestReport, String> {
         let mut test_report = TestReport {
             failures: vec![],
@@ -171,21 +270,16 @@ mod tests {
 
         let filename = path.file_name().unwrap().to_str().unwrap();
         let source = fs::read(&path).unwrap();
-        let backend = get_compiler_name();
 
-        let platform = get_platform();
-        let star_key = format!("{}:{}:*", backend, filename);
-        let platform_star_key = format!("{}:{}:*:{}", backend, filename, platform);
-        if (excludes.contains_key(&star_key) && *excludes.get(&star_key).unwrap() == Exclude::Skip)
-            || (excludes.contains_key(&platform_star_key)
-                && *excludes.get(&platform_star_key).unwrap() == Exclude::Skip)
-        {
+        // Entire file is excluded by line * and skip
+        if file_excludes.contains(filename) {
             return Ok(test_report);
         }
 
         let mut features = wabt::Features::new();
         features.enable_simd();
         features.enable_threads();
+        features.enable_sign_extension();
         let mut parser: ScriptParser =
             ScriptParser::from_source_and_name_with_features(&source, filename, features)
                 .expect(&format!("Failed to parse script {}", &filename));
@@ -197,21 +291,27 @@ mod tests {
 
         let mut registered_modules: HashMap<String, Arc<Mutex<Instance>>> = HashMap::new();
         //
+        let empty_excludes = vec![];
+        let excludes = if excludes.contains_key(filename) {
+            excludes.get(filename).unwrap()
+        } else {
+            &empty_excludes
+        };
+
+        let backend = get_compiler_name();
 
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
         {
             let test_key = format!("{}:{}:{}", backend, filename, line);
-            let test_platform_key = format!("{}:{}:{}:{}", backend, filename, line, platform);
             // Use this line to debug which test is running
             println!("Running test: {}", test_key);
 
-            if (excludes.contains_key(&test_key)
-                && *excludes.get(&test_key).unwrap() == Exclude::Skip)
-                || (excludes.contains_key(&test_platform_key)
-                    && *excludes.get(&test_platform_key).unwrap() == Exclude::Skip)
+            // Skip tests that match this line
+            if excludes
+                .iter()
+                .any(|e| e.line_exact_match(line) && e.exclude_kind == ExcludeKind::Skip)
             {
-                //                println!("Skipping test: {}", test_key);
                 continue;
             }
 
@@ -250,6 +350,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                             instance = None;
                         }
@@ -289,6 +390,7 @@ mod tests {
                                     },
                                     &test_key,
                                     excludes,
+                                    line,
                                 );
                             } else {
                                 let call_result = maybe_call_result.unwrap();
@@ -303,6 +405,7 @@ mod tests {
                                             },
                                             &test_key,
                                             excludes,
+                                            line,
                                         );
                                     }
                                     Ok(values) => {
@@ -319,7 +422,7 @@ mod tests {
                                                         "result {:?} ({:?}) does not match expected {:?} ({:?})",
                                                         v, to_hex(v.clone()), expected_value, to_hex(expected_value.clone())
                                                     ),
-                                                }, &test_key, excludes);
+                                                }, &test_key, excludes, line);
                                             } else {
                                                 test_report.count_passed();
                                             }
@@ -349,6 +452,7 @@ mod tests {
                                     },
                                     &test_key,
                                     excludes,
+                                    line,
                                 );
                             } else {
                                 let export: Export = maybe_call_result.unwrap();
@@ -372,6 +476,7 @@ mod tests {
                                                 },
                                                 &test_key,
                                                 excludes,
+                                                line,
                                             );
                                         }
                                     }
@@ -385,6 +490,7 @@ mod tests {
                                             },
                                             &test_key,
                                             excludes,
+                                            line,
                                         );
                                     }
                                 }
@@ -415,6 +521,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                         } else {
                             let call_result = maybe_call_result.unwrap();
@@ -429,6 +536,7 @@ mod tests {
                                         },
                                         &test_key,
                                         excludes,
+                                        line,
                                     );
                                 }
                                 Ok(values) => {
@@ -452,6 +560,7 @@ mod tests {
                                                 },
                                                 &test_key,
                                                 excludes,
+                                                line,
                                             );
                                         }
                                     }
@@ -483,6 +592,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                         } else {
                             let call_result = maybe_call_result.unwrap();
@@ -497,6 +607,7 @@ mod tests {
                                         },
                                         &test_key,
                                         excludes,
+                                        line,
                                     );
                                 }
                                 Ok(values) => {
@@ -520,6 +631,7 @@ mod tests {
                                                 },
                                                 &test_key,
                                                 excludes,
+                                                line,
                                             );
                                         }
                                     }
@@ -551,6 +663,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                         } else {
                             let call_result = maybe_call_result.unwrap();
@@ -568,6 +681,7 @@ mod tests {
                                                 },
                                                 &test_key,
                                                 excludes,
+                                                line,
                                             );
                                         }
                                         CallError::Runtime(r) => {
@@ -589,6 +703,7 @@ mod tests {
                                                         },
                                                         &test_key,
                                                         excludes,
+                                                        line,
                                                     );
                                                 }
                                             }
@@ -605,6 +720,7 @@ mod tests {
                                         },
                                         &test_key,
                                         excludes,
+                                        line,
                                     );
                                 }
                             }
@@ -648,6 +764,7 @@ mod tests {
                                     },
                                     &test_key,
                                     excludes,
+                                    line,
                                 );
                             }
                         }
@@ -661,6 +778,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                         }
                     }
@@ -703,6 +821,7 @@ mod tests {
                                     },
                                     &test_key,
                                     excludes,
+                                    line,
                                 );
                             }
                         }
@@ -716,6 +835,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                         }
                     }
@@ -754,6 +874,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                         }
                     };
@@ -785,6 +906,7 @@ mod tests {
                                     },
                                     &test_key,
                                     excludes,
+                                    line,
                                 );
                             } else {
                                 let call_result = maybe_call_result.unwrap();
@@ -806,6 +928,7 @@ mod tests {
                                             },
                                             &test_key,
                                             excludes,
+                                            line,
                                         );
                                     }
                                 }
@@ -844,6 +967,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                         }
                         Ok(result) => match result {
@@ -859,6 +983,7 @@ mod tests {
                                     },
                                     &test_key,
                                     excludes,
+                                    line,
                                 );
                             }
                             Err(e) => match e {
@@ -875,6 +1000,7 @@ mod tests {
                                         },
                                         &test_key,
                                         excludes,
+                                        line,
                                     );
                                 }
                             },
@@ -908,6 +1034,7 @@ mod tests {
                             },
                             &test_key,
                             excludes,
+                            line,
                         );
                     }
                 }
@@ -933,6 +1060,7 @@ mod tests {
                                 },
                                 &test_key,
                                 excludes,
+                                line,
                             );
                         } else {
                             let call_result = maybe_call_result.unwrap();
@@ -947,6 +1075,7 @@ mod tests {
                                         },
                                         &test_key,
                                         excludes,
+                                        line,
                                     );
                                 }
                                 Ok(_values) => {
@@ -1104,7 +1233,7 @@ mod tests {
     }
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-    enum Exclude {
+    enum ExcludeKind {
         Skip,
         Fail,
     }
@@ -1114,13 +1243,18 @@ mod tests {
     use std::io::{BufRead, BufReader};
 
     /// Reads the excludes.txt file into a hash map
-    fn read_excludes() -> HashMap<String, Exclude> {
+    fn read_excludes() -> (HashMap<String, Vec<Exclude>>, HashSet<String>) {
         let mut excludes_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         excludes_path.push("tests");
         excludes_path.push("excludes.txt");
         let input = File::open(excludes_path).unwrap();
         let buffered = BufReader::new(input);
         let mut result = HashMap::new();
+        let mut file_excludes = HashSet::new();
+        let current_backend = get_compiler_name();
+        let current_target_family = get_target_family();
+        let current_target_arch = get_target_arch();
+
         for line in buffered.lines() {
             let mut line = line.unwrap();
             if line.trim().is_empty() || line.starts_with("#") {
@@ -1135,26 +1269,53 @@ mod tests {
                 // <backend>:<exclude-kind>:<test-file-name>:<test-file-line>
                 let split: Vec<&str> = line.trim().split(':').collect();
 
-                let kind = match *split.get(1).unwrap() {
-                    "skip" => Exclude::Skip,
-                    "fail" => Exclude::Fail,
-                    _ => panic!("unknown exclude kind"),
+                let file = *split.get(2).unwrap();
+                let exclude = match split.len() {
+                    0..=3 => panic!("expected at least 4 exclude conditions"),
+                    4 => Exclude::from(
+                        *split.get(0).unwrap(),
+                        *split.get(1).unwrap(),
+                        *split.get(2).unwrap(),
+                        *split.get(3).unwrap(),
+                        "*",
+                        "*",
+                    ),
+                    5 => Exclude::from(
+                        *split.get(0).unwrap(),
+                        *split.get(1).unwrap(),
+                        *split.get(2).unwrap(),
+                        *split.get(3).unwrap(),
+                        *split.get(4).unwrap(),
+                        "*",
+                    ),
+                    6 => Exclude::from(
+                        *split.get(0).unwrap(),
+                        *split.get(1).unwrap(),
+                        *split.get(2).unwrap(),
+                        *split.get(3).unwrap(),
+                        *split.get(4).unwrap(),
+                        *split.get(5).unwrap(),
+                    ),
+                    _ => panic!("too many exclude conditions {}", split.len()),
                 };
-                let has_platform = split.len() > 4;
 
-                let backend = split.get(0).unwrap();
-                let testfile = split.get(2).unwrap();
-                let line = split.get(3).unwrap();
-                let key = if has_platform {
-                    let platform = split.get(4).unwrap();
-                    format!("{}:{}:{}:{}", backend, testfile, line, platform)
-                } else {
-                    format!("{}:{}:{}", backend, testfile, line)
-                };
-                result.insert(key, kind);
+                if exclude.matches_backend(current_backend)
+                    && exclude.matches_target_family(current_target_family)
+                    && exclude.matches_target_arch(current_target_arch)
+                {
+                    // Skip the whole file for line * and skip
+                    if exclude.line.is_none() && exclude.exclude_kind == ExcludeKind::Skip {
+                        file_excludes.insert(file.to_string());
+                    }
+
+                    if !result.contains_key(file) {
+                        result.insert(file.to_string(), vec![]);
+                    }
+                    result.get_mut(file).unwrap().push(exclude);
+                }
             }
         }
-        result
+        (result, file_excludes)
     }
 
     #[test]
@@ -1162,7 +1323,7 @@ mod tests {
         let mut success = true;
         let mut test_reports = vec![];
 
-        let excludes = read_excludes();
+        let (excludes, file_excludes) = read_excludes();
 
         let mut glob_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         glob_path.push("spectests");
@@ -1172,7 +1333,7 @@ mod tests {
         for entry in glob(glob_str).expect("Failed to read glob pattern") {
             match entry {
                 Ok(wast_path) => {
-                    let result = parse_and_run(&wast_path, &excludes);
+                    let result = parse_and_run(&wast_path, &file_excludes, &excludes);
                     match result {
                         Ok(test_report) => {
                             if test_report.has_failures() {
