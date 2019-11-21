@@ -36,7 +36,7 @@ before_deploy:
     - git config --local user.name "Syrus Akbary"
     - git config --local user.email "syrus@wasmer.io"
     - export TRAVIS_TAG="0.10.2"
-    - git tag $TRAVIS_TAG
+    # - git tag $TRAVIS_TAG
 
 deploy:
   provider: releases
