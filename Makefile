@@ -266,3 +266,6 @@ dep-graph:
 
 docs:
 	cargo doc --features=backend-singlepass,backend-llvm,wasi,managed
+
+wapm:
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
