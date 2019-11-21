@@ -9,7 +9,6 @@
 )]
 extern crate structopt;
 
-use clap;
 use std::env;
 use std::fs::{read_to_string, File};
 use std::io;
@@ -19,7 +18,7 @@ use std::process::exit;
 use std::str::FromStr;
 
 use std::collections::HashMap;
-use structopt::StructOpt;
+use structopt::{clap, StructOpt};
 
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
