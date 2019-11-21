@@ -8,13 +8,13 @@ rust:
 cache:
   directories:
     - /home/travis/.sccache/
-    - /home/travis/.cargo/bin/sccache
+    - /home/travis/.cargo/bin
 
 script:
   # Sccache
   # - curl -L https://github.com/mozilla/sccache/releases/download/0.2.10/sccache-0.2.10-x86_64-unknown-linux-musl.tar.gz | tar xzf -
   # - export RUSTC_WRAPPER=`pwd`/sccache-0.2.10-x86_64-unknown-linux-musl/sccache
-  - test -f /home/travis/.cargo/bin/sccache || cargo install sccache --force
+  - test -f /home/travis/.cargo/bin/sccache || cargo install sccache
   - export RUSTC_WRAPPER=/home/travis/.cargo/bin/sccache
   - mkdir -p /home/travis/.sccache/
   - export SCCACHE_DIR="/home/travis/.sccache/"
