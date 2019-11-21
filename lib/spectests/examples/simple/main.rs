@@ -1,15 +1,9 @@
 use wabt::wat2wasm;
 use wasmer_runtime::{
-    error,
-    func,
-    Global,
-    Memory,
-    imports,
-    compile,
-    Table,
-    Ctx,
+    compile, error, func, imports,
     types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
     units::Pages,
+    Ctx, Global, Memory, Table,
 };
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");

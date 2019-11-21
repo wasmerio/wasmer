@@ -5,8 +5,7 @@ macro_rules! assert_wasi_output {
         use wasmer_wasi::generate_import_object;
         let wasm_bytes = include_bytes!($file);
 
-        let module = wasmer_runtime::compile(&wasm_bytes[..])
-            .expect("WASM can't be compiled");
+        let module = wasmer_runtime::compile(&wasm_bytes[..]).expect("WASM can't be compiled");
 
         let import_object = generate_import_object(vec![], vec![], $po_dir_args, $mapdir_args);
 

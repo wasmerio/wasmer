@@ -217,21 +217,13 @@ mod tests {
     use std::path::PathBuf;
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
     use wasmer_runtime::{
-        CompilerConfig,
-        ImportObject,
-        LikeNamespace, 
-        Instance,
-        error::{CompileError},
-        Export,
-        Global,
-        Memory,
-        Table,
+        compile_with_config,
+        error::CompileError,
+        func, imports,
         types::{ElementType, MemoryDescriptor, TableDescriptor},
         units::Pages,
-        
-        Features,
-        func, imports, Ctx,
-        compile_with_config,
+        CompilerConfig, Ctx, Export, Features, Global, ImportObject, Instance, LikeNamespace,
+        Memory, Table,
     };
 
     fn parse_and_run(
@@ -306,11 +298,8 @@ mod tests {
                             },
                             ..Default::default()
                         };
-                        let module = compile_with_config(
-                            &module.into_vec(),
-                            config,
-                        )
-                        .expect("WASM can't be compiled");
+                        let module = compile_with_config(&module.into_vec(), config)
+                            .expect("WASM can't be compiled");
                         let i = module
                             .instantiate(&spectest_import_object)
                             .expect("WASM can't be instantiated");
@@ -715,10 +704,7 @@ mod tests {
                             },
                             ..Default::default()
                         };
-                        compile_with_config(
-                            &module.into_vec(),
-                            config,
-                        )
+                        compile_with_config(&module.into_vec(), config)
                     });
                     match result {
                         Ok(module) => {
@@ -770,10 +756,7 @@ mod tests {
                             },
                             ..Default::default()
                         };
-                        compile_with_config(
-                            &module.into_vec(),
-                            config,
-                        )
+                        compile_with_config(&module.into_vec(), config)
                     });
 
                     match result {
@@ -824,11 +807,8 @@ mod tests {
                         },
                         ..Default::default()
                     };
-                    let module = compile_with_config(
-                        &module.into_vec(),
-                        config,
-                    )
-                    .expect("WASM can't be compiled");
+                    let module = compile_with_config(&module.into_vec(), config)
+                        .expect("WASM can't be compiled");
                     let result = panic::catch_unwind(AssertUnwindSafe(|| {
                         module
                             .instantiate(&spectest_import_object)
@@ -922,11 +902,8 @@ mod tests {
                             },
                             ..Default::default()
                         };
-                        let module = compile_with_config(
-                            &module.into_vec(),
-                            config,
-                        )
-                        .expect("WASM can't be compiled");
+                        let module = compile_with_config(&module.into_vec(), config)
+                            .expect("WASM can't be compiled");
                         module.instantiate(&spectest_import_object)
                     }));
                     match result {
