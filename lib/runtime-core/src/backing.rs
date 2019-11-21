@@ -387,7 +387,7 @@ impl LocalBacking {
                                     vmctx,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, func_ctx } =
+                                    let vm::ImportedFunc { func, func_ctx, .. } =
                                         imports.vm_functions[imported_func_index];
                                     (func, unsafe { func_ctx.as_ref() }.vmctx.as_ptr())
                                 }
@@ -420,7 +420,7 @@ impl LocalBacking {
                                     vmctx,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, func_ctx } =
+                                    let vm::ImportedFunc { func, func_ctx, .. } =
                                         imports.vm_functions[imported_func_index];
                                     (func, unsafe { func_ctx.as_ref() }.vmctx.as_ptr())
                                 }
@@ -591,6 +591,7 @@ fn import_functions(
             }) => {
                 if *expected_sig == *signature {
                     functions.push(vm::ImportedFunc {
+                        index,
                         func: func.inner(),
                         func_ctx: NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
                             //                      ^^^^^^^^ `vm::FuncCtx` is purposely leaked.
@@ -642,6 +643,7 @@ fn import_functions(
             None => {
                 if imports.allow_missing_functions {
                     functions.push(vm::ImportedFunc {
+                        index: ImportedFuncIndex::new(0),
                         func: ptr::null(),
                         func_ctx: unsafe { NonNull::new_unchecked(ptr::null_mut()) }, // TODO: Non-sense…
                     });

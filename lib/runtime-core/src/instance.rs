@@ -136,7 +136,7 @@ impl Instance {
                 .expect("wasm trampoline");
 
             let start_func: Func<(), (), Wasm> =
-                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, None, ctx_ptr) };
+                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, None, None, ctx_ptr) };
 
             start_func.call()?;
         }
@@ -237,7 +237,7 @@ impl Instance {
             };
 
             let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, None, ctx) };
 
             Ok(typed_func)
         } else {

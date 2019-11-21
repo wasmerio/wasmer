@@ -6,7 +6,7 @@ use crate::{
     export::{Context, Export, FuncPointer},
     import::IsExport,
     module::ModuleInner,
-    types::{FuncSig, NativeWasmType, Type, WasmExternType},
+    types::{FuncSig, ImportedFuncIndex, NativeWasmType, Type, Value, WasmExternType},
     vm,
 };
 use std::{
@@ -153,14 +153,14 @@ pub trait WasmTypeList {
         Rets: WasmTypeList;
 }
 
-/// Empty trait to specify the kind of `ExternalFunction`: With or
+/// Empty trait to specify the kind of `HostFunction`: With or
 /// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
 /// `ImplicitVmCtx` structures.
 ///
 /// This type is never aimed to be used by a user. It is used by the
 /// trait system to automatically generate an appropriate `wrap`
 /// function.
-pub trait ExternalFunctionKind {}
+pub trait HostFunctionKind {}
 
 /// This empty structure indicates that an external function must
 /// contain an explicit `vm::Ctx` argument (at first position).
@@ -170,7 +170,8 @@ pub trait ExternalFunctionKind {}
 ///     x + 1
 /// }
 /// ```
-pub struct ExplicitVmCtx {}
+pub struct ExplicitVmCtx;
+impl HostFunctionKind for ExplicitVmCtx {}
 
 /// This empty structure indicates that an external function has no
 /// `vm::Ctx` argument (at first position). Its signature is:
@@ -180,20 +181,42 @@ pub struct ExplicitVmCtx {}
 ///     x + 1
 /// }
 /// ```
-pub struct ImplicitVmCtx {}
+pub struct ImplicitVmCtx;
+impl HostFunctionKind for ImplicitVmCtx {}
 
-impl ExternalFunctionKind for ExplicitVmCtx {}
-impl ExternalFunctionKind for ImplicitVmCtx {}
+pub trait Arity {}
+
+macro_rules! arity {
+    ($($arity:ident),*) => {
+        $(
+            #[derive(Debug)]
+            pub struct $arity;
+
+            impl Arity for $arity {}
+        )*
+    }
+}
+
+arity!(Zero, One, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Eleven, Twelve);
 
 /// Represents a function that can be converted to a `vm::Func`
 /// (function pointer) that can be called within WebAssembly.
-pub trait ExternalFunction<Kind, Args, Rets>
+pub trait HostFunction<Kind, Args, Rets>
 where
-    Kind: ExternalFunctionKind,
+    Kind: HostFunctionKind,
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
     /// Conver to function pointer.
+    fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
+}
+
+pub trait VariadicHostFunction<Kind, A, Rets>
+where
+    Kind: HostFunctionKind,
+    A: Arity,
+    Rets: WasmTypeList,
+{
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
@@ -204,6 +227,7 @@ where
 {
     /// The error type for this trait.
     type Error: 'static;
+
     /// Get returns or error result.
     fn report(self) -> Result<Rets, Self::Error>;
 }
@@ -236,6 +260,7 @@ pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
     func: NonNull<vm::Func>,
     func_env: Option<NonNull<vm::FuncEnv>>,
+    signature: Option<Arc<FuncSig>>,
     vmctx: *mut vm::Ctx,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
@@ -252,12 +277,14 @@ where
         inner: Wasm,
         func: NonNull<vm::Func>,
         func_env: Option<NonNull<vm::FuncEnv>>,
+        signature: Option<Arc<FuncSig>>,
         vmctx: *mut vm::Ctx,
     ) -> Func<'a, Args, Rets, Wasm> {
         Func {
             inner,
             func,
             func_env,
+            signature,
             vmctx,
             _phantom: PhantomData,
         }
@@ -275,10 +302,10 @@ where
     Rets: WasmTypeList,
 {
     /// Creates a new `Func`.
-    pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
+    pub fn new<F, Kind>(func: F) -> Self
     where
-        Kind: ExternalFunctionKind,
-        F: ExternalFunction<Kind, Args, Rets>,
+        Kind: HostFunctionKind,
+        F: HostFunction<Kind, Args, Rets>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -286,6 +313,57 @@ where
             inner: Host(()),
             func,
             func_env,
+            signature: None,
+            vmctx: ptr::null_mut(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, Rets> Func<'a, (), Rets, Host>
+where
+    Rets: WasmTypeList,
+{
+    /// Creates a new `Func` with a specific signature.
+    pub fn new_variadic<F, Trap>(func: F, arity: i8, signature: Arc<FuncSig>) -> Self
+    where
+        Trap: TrapEarly<Rets>,
+        F: Fn(&[Value]) -> Trap + 'static,
+    {
+        match arity {
+            0 => Self::new_variadic_resolved::<Zero, _, _>(func, signature),
+            1 => Self::new_variadic_resolved::<One, _, _>(func, signature),
+            2 => Self::new_variadic_resolved::<Two, _, _>(func, signature),
+            3 => Self::new_variadic_resolved::<Three, _, _>(func, signature),
+            4 => Self::new_variadic_resolved::<Four, _, _>(func, signature),
+            5 => Self::new_variadic_resolved::<Five, _, _>(func, signature),
+            6 => Self::new_variadic_resolved::<Six, _, _>(func, signature),
+            7 => Self::new_variadic_resolved::<Seven, _, _>(func, signature),
+            8 => Self::new_variadic_resolved::<Eight, _, _>(func, signature),
+            9 => Self::new_variadic_resolved::<Nine, _, _>(func, signature),
+            10 => Self::new_variadic_resolved::<Ten, _, _>(func, signature),
+            11 => Self::new_variadic_resolved::<Eleven, _, _>(func, signature),
+            12 => Self::new_variadic_resolved::<Twelve, _, _>(func, signature),
+            _ => unimplemented!("Host function can have 12 arguments maximum."),
+        }
+    }
+
+    fn new_variadic_resolved<A, F, Kind>(
+        func: F,
+        signature: Arc<FuncSig>,
+    ) -> Func<'a, (), Rets, Host>
+    where
+        A: Arity,
+        Kind: HostFunctionKind,
+        F: VariadicHostFunction<Kind, A, Rets>,
+    {
+        let (func, func_env) = func.to_raw();
+
+        Func {
+            inner: Host(()),
+            func,
+            func_env,
+            signature: Some(signature),
             vmctx: ptr::null_mut(),
             _phantom: PhantomData,
         }
@@ -354,16 +432,16 @@ impl WasmTypeList for Infallible {
 fn wrap_get_func<'f, FN>(
     import_backing: *const ImportBacking,
     self_pointer: *const vm::Func,
-) -> &'f FN {
+) -> (&'f FN, ImportedFuncIndex) {
     // Get the collection of imported functions.
     let vm_imported_functions = unsafe { &(*import_backing).vm_functions };
 
     // Retrieve the `vm::FuncCtx`.
-    let mut func_ctx: NonNull<vm::FuncCtx> = vm_imported_functions
+    let (mut func_ctx, index): (NonNull<vm::FuncCtx>, ImportedFuncIndex) = vm_imported_functions
         .iter()
         .find_map(|(_, imported_func)| {
             if imported_func.func == self_pointer {
-                Some(imported_func.func_ctx)
+                Some((imported_func.func_ctx, imported_func.index))
             } else {
                 None
             }
@@ -389,7 +467,7 @@ fn wrap_get_func<'f, FN>(
         None => unreachable!(),
     };
 
-    func
+    (func, index)
 }
 
 /// Helper to call a host function safely.
@@ -437,7 +515,7 @@ fn get_func_env<FN>(func: FN) -> Option<NonNull<vm::FuncEnv>> {
 }
 
 macro_rules! impl_traits {
-    ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
+    ( [$repr:ident] $struct_name:ident, $arity:ident, $( $x:ident ),* ) => {
         /// Struct for typed funcs.
         #[repr($repr)]
         pub struct $struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
@@ -452,8 +530,8 @@ macro_rules! impl_traits {
 
             type RetArray = [u64; count_idents!( $( $x ),* )];
 
+            #[allow(non_snake_case)]
             fn from_ret_array(array: Self::RetArray) -> Self {
-                #[allow(non_snake_case)]
                 let [ $( $x ),* ] = array;
 
                 ( $( WasmExternType::from_native(NativeWasmType::from_binary($x)) ),* )
@@ -463,8 +541,8 @@ macro_rules! impl_traits {
                 [0; count_idents!( $( $x ),* )]
             }
 
+            #[allow(non_snake_case)]
             fn from_c_struct(c_struct: Self::CStruct) -> Self {
-                #[allow(non_snake_case)]
                 let $struct_name ( $( $x ),* ) = c_struct;
 
                 ( $( WasmExternType::from_native($x) ),* )
@@ -518,7 +596,7 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
@@ -549,7 +627,7 @@ macro_rules! impl_traits {
                     let self_pointer = wrap::<$( $x, )* Rets, Trap, FN> as *const vm::Func;
 
                     // Get the real host function to call.
-                    let func: &FN = wrap_get_func(vmctx.import_backing, self_pointer);
+                    let (func, _): (&FN, _) = wrap_get_func(vmctx.import_backing, self_pointer);
 
                     wrap_call::<Rets, Trap>(
                         vmctx.module,
@@ -571,7 +649,7 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
@@ -602,7 +680,7 @@ macro_rules! impl_traits {
                     let self_pointer = wrap::<$( $x, )* Rets, Trap, FN> as *const vm::Func;
 
                     // Get the real host function to call.
-                    let func: &FN = wrap_get_func(vmctx.import_backing, self_pointer);
+                    let (func, _): (&FN, _) = wrap_get_func(vmctx.import_backing, self_pointer);
 
                     // Call the host function.
                     wrap_call::<Rets, Trap>(
@@ -615,6 +693,78 @@ macro_rules! impl_traits {
 
                 (
                     NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
+                    get_func_env(self)
+                )
+            }
+        }
+
+        impl<Rets, Trap, FN> VariadicHostFunction<ImplicitVmCtx, $arity, Rets> for FN
+        where
+            Rets: WasmTypeList,
+            Trap: TrapEarly<Rets>,
+            FN: Fn(&[Value]) -> Trap + 'static,
+        {
+            #[allow(non_snake_case)]
+            fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
+                // The `wrap` function is a wrapper around the
+                // imported function. It manages the argument passed
+                // to the imported function (in this case, only the
+                // regular WebAssembly arguments), and it manages the
+                // trapping.
+                //
+                // It is also required for the LLVM backend to be
+                // able to unwind through this function.
+                #[cfg_attr(nightly, unwind(allowed))]
+                extern fn wrap<Rets, Trap, FN>(
+                    vmctx: &mut vm::Ctx $( , $x: u64 )*
+                ) -> Rets::CStruct
+                where
+                    Rets: WasmTypeList,
+                    Trap: TrapEarly<Rets>,
+                    FN: Fn(&[Value]) -> Trap,
+                {
+                    // Get the pointer to this `wrap` function.
+                    let self_pointer = wrap::<Rets, Trap, FN> as *const vm::Func;
+
+                    // Get the real host function to call.
+                    let (func, func_index): (&FN, ImportedFuncIndex) = wrap_get_func(vmctx.import_backing, self_pointer);
+
+                    // Read the signature.
+                    let module_info = &unsafe{ &*vmctx.module }.info;
+                    let func_signature_index = module_info.func_assoc[func_index.convert_up(&module_info)];
+                    let func_signature = &module_info.signatures[func_signature_index];
+
+                    // Store all arguments in a single array.
+                    let arguments = &[ $($x),* ];
+
+                    // Call the host function.
+                    wrap_call::<Rets, Trap>(
+                        vmctx.module,
+                        &|| {
+                            // Map `u64` to `Value` based on the signature.
+                            let inputs: Vec<Value> = arguments
+                                .iter()
+                                .zip(func_signature.params().iter())
+                                .map(
+                                    |(argument, ty)| {
+                                        match ty {
+                                            Type::I32 => i32::from_binary(*argument).into(),
+                                            Type::I64 => i64::from_binary(*argument).into(),
+                                            Type::F32 => f32::from_binary(*argument).into(),
+                                            Type::F64 => f64::from_binary(*argument).into(),
+                                            _ => unimplemented!("Variadic host function doesn't support `v128` values."),
+                                        }
+                                    }
+                                )
+                                .collect();
+
+                            func(inputs.as_slice()).report()
+                        }
+                    )
+                }
+
+                (
+                    NonNull::new(wrap::<Rets, Trap, Self> as *mut vm::Func).unwrap(),
                     get_func_env(self)
                 )
             }
@@ -651,19 +801,19 @@ macro_rules! count_idents {
     }};
 }
 
-impl_traits!([C] S0,);
-impl_traits!([transparent] S1, A);
-impl_traits!([C] S2, A, B);
-impl_traits!([C] S3, A, B, C);
-impl_traits!([C] S4, A, B, C, D);
-impl_traits!([C] S5, A, B, C, D, E);
-impl_traits!([C] S6, A, B, C, D, E, F);
-impl_traits!([C] S7, A, B, C, D, E, F, G);
-impl_traits!([C] S8, A, B, C, D, E, F, G, H);
-impl_traits!([C] S9, A, B, C, D, E, F, G, H, I);
-impl_traits!([C] S10, A, B, C, D, E, F, G, H, I, J);
-impl_traits!([C] S11, A, B, C, D, E, F, G, H, I, J, K);
-impl_traits!([C] S12, A, B, C, D, E, F, G, H, I, J, K, L);
+impl_traits!([C] S0, Zero, );
+impl_traits!([transparent] S1, One, A);
+impl_traits!([C] S2, Two, A, B);
+impl_traits!([C] S3, Three, A, B, C);
+impl_traits!([C] S4, Four, A, B, C, D);
+impl_traits!([C] S5, Five, A, B, C, D, E);
+impl_traits!([C] S6, Six, A, B, C, D, E, F);
+impl_traits!([C] S7, Seven, A, B, C, D, E, F, G);
+impl_traits!([C] S8, Eight, A, B, C, D, E, F, G, H);
+impl_traits!([C] S9, Nine, A, B, C, D, E, F, G, H, I);
+impl_traits!([C] S10, Ten, A, B, C, D, E, F, G, H, I, J);
+impl_traits!([C] S11, Eleven, A, B, C, D, E, F, G, H, I, J, K);
+impl_traits!([C] S12, Twelve, A, B, C, D, E, F, G, H, I, J, K, L);
 
 impl<'a, Args, Rets, Inner> IsExport for Func<'a, Args, Rets, Inner>
 where
@@ -677,7 +827,10 @@ where
             func_env @ Some(_) => Context::ExternalWithEnv(self.vmctx, func_env),
             None => Context::Internal,
         };
-        let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));
+        let signature = match self.signature {
+            Some(ref signature) => signature.clone(),
+            None => Arc::new(FuncSig::new(Args::types(), Rets::types())),
+        };
 
         Export::Function {
             func,
@@ -690,6 +843,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    //use std::convert::TryInto;
 
     macro_rules! test_func_arity_n {
         ($test_name:ident, $($x:ident),*) => {
@@ -745,6 +899,56 @@ mod tests {
     test_func_arity_n!(test_func_arity_10, a, b, c, d, e, f, g, h, i, j);
     test_func_arity_n!(test_func_arity_11, a, b, c, d, e, f, g, h, i, j, k);
     test_func_arity_n!(test_func_arity_12, a, b, c, d, e, f, g, h, i, j, k, l);
+
+    #[test]
+    fn test_func_variadic() {
+        /*
+        fn with_vmctx_variadic(_: &mut vm::Ctx, inputs: &[Value]) -> i32 {
+            let x: i32 = (&inputs[0]).try_into().unwrap();
+            let y: i32 = (&inputs[1]).try_into().unwrap();
+
+            x + y
+        }
+
+        fn without_vmctx_variadic(inputs: &[Value]) -> i32 {
+            let x: i32 = (&inputs[0]).try_into().unwrap();
+            let y: i32 = (&inputs[1]).try_into().unwrap();
+
+            x + y
+        }
+
+        let _: Func<(i32, i32), i32, Host> = Func::new_with_signature(
+            with_vmctx_variadic,
+            Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
+        );
+        let _: Func<(i32, i32), i32, Host> = Func::new_with_signature(
+            without_vmctx_variadic,
+            Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
+        );
+        let _: Func<(i32, i32), i32, Host> = Func::new_with_signature(
+            |_: &mut vm::Ctx, inputs: &[Value]| -> i32 {
+                let x: i32 = (&inputs[0]).try_into().unwrap();
+                let y: i32 = (&inputs[1]).try_into().unwrap();
+
+                x + y
+            },
+            Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
+        );
+        */
+
+        let _ = Func::new_with_signature(
+            |_inputs: &[Value]| -> i32 {
+                /*
+                let x: i32 = (&inputs[0]).try_into().unwrap();
+                let y: i32 = (&inputs[1]).try_into().unwrap();
+
+                x + y
+                 */
+                42
+            },
+            Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
+        );
+    }
 
     #[test]
     fn test_call() {

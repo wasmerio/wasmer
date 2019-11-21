@@ -8,7 +8,7 @@ use crate::{
     module::{ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex, TableIndex, Value},
+    types::{ImportedFuncIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vmcalls,
 };
 use std::{
@@ -572,6 +572,9 @@ impl FuncCtx {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
+    /// Index of the imported function.
+    pub(crate) index: ImportedFuncIndex,
+
     /// Const pointer to `Func`.
     pub(crate) func: *const Func,
 
@@ -585,15 +588,21 @@ pub struct ImportedFunc {
 unsafe impl Send for ImportedFunc {}
 
 impl ImportedFunc {
+    /// Offset to index.
+    #[allow(clippy::erasing_op)] // TODO
+    pub fn offset_index() -> u8 {
+        0 * (mem::size_of::<usize>() as u8)
+    }
+
     /// Offset to func.
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_func() -> u8 {
-        0 * (mem::size_of::<usize>() as u8)
+        1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Offset to func_ctx.
     pub fn offset_func_ctx() -> u8 {
-        1 * (mem::size_of::<usize>() as u8)
+        2 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of an `ImportedFunc`.
@@ -896,6 +905,11 @@ mod vm_offset_tests {
 
     #[test]
     fn imported_func() {
+        assert_eq!(
+            ImportedFunc::offset_index() as usize,
+            offset_of!(ImportedFunc, index),
+        );
+
         assert_eq!(
             ImportedFunc::offset_func() as usize,
             offset_of!(ImportedFunc, func),
