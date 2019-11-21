@@ -74,7 +74,10 @@ pub struct BreakpointInfo<'a> {
 
 /// Information for a breakpoint
 #[cfg(not(unix))]
-pub struct BreakpointInfo {}
+pub struct BreakpointInfo {
+    /// Fault placeholder.
+    pub fault: Option<()>,
+}
 
 /// A trait that represents the functions needed to be implemented to generate code for a module.
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {
