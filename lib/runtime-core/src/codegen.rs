@@ -66,11 +66,15 @@ impl fmt::Debug for InternalEvent {
 }
 
 /// Information for a breakpoint
+#[cfg(unix)]
 pub struct BreakpointInfo<'a> {
     /// Fault.
-    #[cfg(unix)]
     pub fault: Option<&'a FaultInfo>,
 }
+
+/// Information for a breakpoint
+#[cfg(not(unix))]
+pub struct BreakpointInfo {}
 
 /// A trait that represents the functions needed to be implemented to generate code for a module.
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule, E: Debug> {
