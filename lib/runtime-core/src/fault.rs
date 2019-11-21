@@ -282,6 +282,9 @@ extern "C" fn signal_trap_handler(
     #[cfg(target_arch = "aarch64")]
     static ARCH: Architecture = Architecture::Aarch64;
 
+    let mut should_unwind = false;
+    let mut unwind_result: Box<dyn Any> = Box::new(());
+
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
         let early_return = allocate_and_run(TRAP_STACK_SIZE, || {
@@ -313,8 +316,9 @@ extern "C" fn signal_trap_handler(
                                             })
                                         });
                                     if let Some(Ok(())) = out {
-                                    } else {
-                                        println!("Failed calling middleware: {:?}", out);
+                                    } else if let Some(Err(e)) = out {
+                                        should_unwind = true;
+                                        unwind_result = e;
                                     }
                                 }
                                 _ => println!("Unknown breakpoint type: {:?}", ib.ty),
@@ -329,13 +333,14 @@ extern "C" fn signal_trap_handler(
                 false
             })
         });
+        if should_unwind {
+            begin_unsafe_unwind(unwind_result);
+        }
         if early_return {
             return;
         }
 
-        let mut unwind_result: Box<dyn Any> = Box::new(());
-
-        let should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
+        should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
             let mut is_suspend_signal = false;
 
             WAS_SIGINT_TRIGGERED.with(|x| x.set(false));
