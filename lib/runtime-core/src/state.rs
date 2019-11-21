@@ -477,6 +477,7 @@ impl InstanceImage {
 }
 
 /// Declarations for x86-64 registers.
+#[cfg(unix)]
 pub mod x64_decl {
     use super::*;
 
@@ -608,6 +609,7 @@ pub mod x64_decl {
     }
 }
 
+#[cfg(unix)]
 pub mod x64 {
     //! The x64 state module contains functions to generate state and code for x64 targets.
     pub use super::x64_decl::*;
