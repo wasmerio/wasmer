@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use structopt::{clap, StructOpt};
 
 use wasmer::*;
+#[cfg(feature = "backend-cranelift")]
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
 use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
@@ -144,10 +145,21 @@ struct Run {
     #[structopt(parse(from_os_str))]
     path: PathBuf,
 
-    // Disable the cache
+    /// Name of the backend to use. (x86_64)
+    #[cfg(target_arch = "x86_64")]
     #[structopt(
         long = "backend",
         default_value = "cranelift",
+        case_insensitive = true,
+        possible_values = Backend::variants(),
+    )]
+    backend: Backend,
+
+    /// Name of the backend to use. (aarch64)
+    #[cfg(target_arch = "aarch64")]
+    #[structopt(
+        long = "backend",
+        default_value = "singlepass",
         case_insensitive = true,
         possible_values = Backend::variants(),
     )]
@@ -893,6 +905,7 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
         }
         #[cfg(not(feature = "backend-singlepass"))]
         Backend::Singlepass => return None,
+        #[cfg(feature = "backend-cranelift")]
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
         #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),

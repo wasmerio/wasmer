@@ -24,7 +24,7 @@ byteorder = "1.3"
 errno = "0.2"
 structopt = "0.3"
 wabt = "0.9.1"
-wasmer-clif-backend = { path = "lib/clif-backend" }
+wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
@@ -73,7 +73,7 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi", "backend-cranelift"]
+default = ["fast-tests", "wasi"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]

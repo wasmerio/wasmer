@@ -102,7 +102,7 @@ llvm: spectests-llvm emtests-llvm wasitests-llvm
 
 # All tests
 capi:
-	cargo build --release
+	cargo build --release --features backend-cranelift
 	cargo build -p wasmer-runtime-c-api --release
 
 test-capi: capi
@@ -151,7 +151,7 @@ lint:
 precommit: lint test
 
 debug:
-	cargo build --release --features backend-singlepass,debug,trace
+	cargo build --release --features backend-cranelift,backend-singlepass,debug,trace
 
 install:
 	cargo install --path .
@@ -220,13 +220,13 @@ check: check-bench
 
 # Release
 release:
-	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
+	cargo build --release --features backend-cranelift,backend-singlepass,backend-llvm,loader-kernel
 
 # Only one backend (cranelift)
 release-clif:
 	# If you are on macOS, you will need mingw-w64 for cross compiling to Windows
 	# brew install mingw-w64
-	cargo build --release
+	cargo build --release --features backend-cranelift
 
 release-singlepass:
 	cargo build --release --features backend-singlepass
