@@ -8,7 +8,7 @@ rust:
 cache:
   directories:
     - /home/travis/.sccache/
-    - /home/travis/.cargo/bin
+    - /home/travis/.cargo/bin/
 
 script:
   # Sccache
@@ -45,6 +45,9 @@ deploy:
   api_key: $GITHUB_OAUTH_TOKEN
   # This is set to the previous artifacts are not deleted by travis
   skip_cleanup: true
+  on:
+    branch: feature/singlepass-aarch64
+
 
 addons:
   apt:
