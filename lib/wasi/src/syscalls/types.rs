@@ -752,4 +752,52 @@ pub mod snapshot0 {
     }
 
     unsafe impl ValueType for __wasi_filestat_t {}
+
+    impl std::fmt::Debug for __wasi_filestat_t {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let convert_ts_into_time_string = |ts| {
+                let tspec =
+                    time::Timespec::new(ts as i64 / 1_000_000_000, (ts % 1_000_000_000) as i32);
+                let tm = time::at(tspec);
+                let out_time = tm.rfc822();
+                format!("{} ({})", out_time, ts)
+            };
+            f.debug_struct("__wasi_filestat_t")
+                .field("st_dev", &self.st_dev)
+                .field("st_ino", &self.st_ino)
+                .field(
+                    "st_filetype",
+                    &format!(
+                        "{} ({})",
+                        super::wasi_filetype_to_name(self.st_filetype),
+                        self.st_filetype,
+                    ),
+                )
+                .field("st_nlink", &self.st_nlink)
+                .field("st_size", &self.st_size)
+                .field("st_atim", &convert_ts_into_time_string(self.st_atim))
+                .field("st_mtim", &convert_ts_into_time_string(self.st_mtim))
+                .field("st_ctim", &convert_ts_into_time_string(self.st_ctim))
+                .finish()
+        }
+    }
+
+    impl std::fmt::Debug for __wasi_subscription_t {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("__wasi_subscription_t")
+                .field("userdata", &self.userdata)
+                .field("type", &super::eventtype_to_str(self.type_))
+                .field(
+                    "u",
+                    match self.type_ {
+                        super::__WASI_EVENTTYPE_CLOCK => unsafe { &self.u.clock },
+                        super::__WASI_EVENTTYPE_FD_READ | super::__WASI_EVENTTYPE_FD_WRITE => unsafe {
+                            &self.u.fd_readwrite
+                        },
+                        _ => &"INVALID EVENTTYPE",
+                    },
+                )
+                .finish()
+        }
+    }
 }
