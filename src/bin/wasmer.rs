@@ -9,6 +9,7 @@
 )]
 extern crate structopt;
 
+use clap;
 use std::env;
 use std::fs::{read_to_string, File};
 use std::io;
@@ -16,7 +17,6 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
-use clap;
 
 use std::collections::HashMap;
 use structopt::StructOpt;
@@ -853,18 +853,15 @@ fn main() {
     // Eg. `wasmer <SUBCOMMAND>`
     // In case that fails, we fallback trying the Run subcommand directly.
     // Eg. `wasmer myfile.wasm --dir=.`
-    let options = CLIOptions::from_iter_safe(env::args())
-        .unwrap_or_else(|e| {
-            match e.kind {
-                // This fixes a issue that:
-                // 1. Shows the version twice when doing `wasmer -V`
-                // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
-                clap::ErrorKind::VersionDisplayed | clap::ErrorKind::HelpDisplayed => {
-                    e.exit()
-                }
-                _ => CLIOptions::Run(Run::from_args())
-            }
-        });
+    let options = CLIOptions::from_iter_safe(env::args()).unwrap_or_else(|e| {
+        match e.kind {
+            // This fixes a issue that:
+            // 1. Shows the version twice when doing `wasmer -V`
+            // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
+            clap::ErrorKind::VersionDisplayed | clap::ErrorKind::HelpDisplayed => e.exit(),
+            _ => CLIOptions::Run(Run::from_args()),
+        }
+    });
     match options {
         CLIOptions::Run(options) => run(options),
         #[cfg(not(target_os = "windows"))]
