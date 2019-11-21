@@ -6,7 +6,8 @@ use wasmer_runtime_core::{
     Instance,
 };
 
-static INTERNAL_FIELD: InternalField = InternalField::allocate();
+static INTERNAL_FIELD_USED: InternalField = InternalField::allocate();
+static INTERNAL_FIELD_LIMIT: InternalField = InternalField::allocate();
 
 /// Metering is a compiler middleware that calculates the cost of WebAssembly instructions at compile
 /// time and will count the cost of executed instructions at runtime. Within the Metering functionality,
@@ -21,16 +22,12 @@ static INTERNAL_FIELD: InternalField = InternalField::allocate();
 /// the same function calls so we can say that the metering is deterministic.
 ///
 pub struct Metering {
-    limit: u64,
     current_block: u64,
 }
 
 impl Metering {
-    pub fn new(limit: u64) -> Metering {
-        Metering {
-            limit,
-            current_block: 0,
-        }
+    pub fn new() -> Metering {
+        Metering { current_block: 0 }
     }
 }
 
@@ -65,14 +62,14 @@ impl FunctionMiddleware for Metering {
                     | Operator::CallIndirect { .. }
                     | Operator::Return => {
                         sink.push(Event::Internal(InternalEvent::GetInternal(
-                            INTERNAL_FIELD.index() as _,
+                            INTERNAL_FIELD_USED.index() as _,
                         )));
                         sink.push(Event::WasmOwned(Operator::I64Const {
                             value: self.current_block as i64,
                         }));
                         sink.push(Event::WasmOwned(Operator::I64Add));
                         sink.push(Event::Internal(InternalEvent::SetInternal(
-                            INTERNAL_FIELD.index() as _,
+                            INTERNAL_FIELD_USED.index() as _,
                         )));
                         self.current_block = 0;
                     }
@@ -85,11 +82,11 @@ impl FunctionMiddleware for Metering {
                     | Operator::Call { .. }
                     | Operator::CallIndirect { .. } => {
                         sink.push(Event::Internal(InternalEvent::GetInternal(
-                            INTERNAL_FIELD.index() as _,
+                            INTERNAL_FIELD_USED.index() as _,
                         )));
-                        sink.push(Event::WasmOwned(Operator::I64Const {
-                            value: self.limit as i64,
-                        }));
+                        sink.push(Event::Internal(InternalEvent::GetInternal(
+                            INTERNAL_FIELD_LIMIT.index() as _,
+                        )));
                         sink.push(Event::WasmOwned(Operator::I64GeU));
                         sink.push(Event::WasmOwned(Operator::If {
                             ty: WpTypeOrFuncType::Type(WpType::EmptyBlockType),
@@ -111,20 +108,36 @@ impl FunctionMiddleware for Metering {
 
 /// Returns the number of points used by an Instance.
 pub fn get_points_used(instance: &Instance) -> u64 {
-    instance.get_internal(&INTERNAL_FIELD)
+    instance.get_internal(&INTERNAL_FIELD_USED)
 }
 
 /// Sets the number of points used by an Instance.
 pub fn set_points_used(instance: &mut Instance, value: u64) {
-    instance.set_internal(&INTERNAL_FIELD, value);
+    instance.set_internal(&INTERNAL_FIELD_USED, value);
 }
 
 /// Returns the number of points used in a Ctx.
 pub fn get_points_used_ctx(ctx: &Ctx) -> u64 {
-    ctx.get_internal(&INTERNAL_FIELD)
+    ctx.get_internal(&INTERNAL_FIELD_USED)
 }
 
 /// Sets the number of points used in a Ctx.
 pub fn set_points_used_ctx(ctx: &mut Ctx, value: u64) {
-    ctx.set_internal(&INTERNAL_FIELD, value);
+    ctx.set_internal(&INTERNAL_FIELD_USED, value);
+}
+
+pub fn set_execution_limit(instance: &mut Instance, limit: u64) {
+    instance.set_internal(&INTERNAL_FIELD_LIMIT, limit);
+}
+
+pub fn set_execution_limit_ctx(ctx: &mut Ctx, limit: u64) {
+    ctx.set_internal(&INTERNAL_FIELD_LIMIT, limit);
+}
+
+pub fn get_execution_limit(instance: &Instance) -> u64 {
+    instance.get_internal(&INTERNAL_FIELD_LIMIT)
+}
+
+pub fn get_execution_limit_ctx(ctx: &Ctx) -> u64 {
+    ctx.get_internal(&INTERNAL_FIELD_LIMIT)
 }

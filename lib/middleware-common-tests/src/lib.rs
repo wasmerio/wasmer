@@ -12,22 +12,22 @@ mod tests {
     };
 
     #[cfg(feature = "llvm")]
-    fn get_compiler(limit: u64) -> (impl Compiler, Backend) {
+    fn get_compiler() -> (impl Compiler, Backend) {
         use wasmer_llvm_backend::ModuleCodeGenerator as LLVMMCG;
         let c: StreamingCompiler<LLVMMCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
-            chain.push(Metering::new(limit));
+            chain.push(Metering::new());
             chain
         });
         (c, Backend::LLVM)
     }
 
     #[cfg(feature = "singlepass")]
-    fn get_compiler(limit: u64) -> (impl Compiler, Backend) {
+    fn get_compiler() -> (impl Compiler, Backend) {
         use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
         let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
-            chain.push(Metering::new(limit));
+            chain.push(Metering::new());
             chain
         });
         (c, Backend::Singlepass)
@@ -37,7 +37,7 @@ mod tests {
     compile_error!("compiler not specified, activate a compiler via features");
 
     #[cfg(feature = "clif")]
-    fn get_compiler(_limit: u64) -> (impl Compiler, Backend) {
+    fn get_compiler() -> (impl Compiler, Backend) {
         compile_error!("cranelift does not implement metering");
         use wasmer_clif_backend::CraneliftCompiler;
         (CraneliftCompiler::new(), Backend::Cranelift)
@@ -108,12 +108,13 @@ mod tests {
 
         let limit = 100u64;
 
-        let (compiler, backend_id) = get_compiler(limit);
+        let (compiler, backend_id) = get_compiler();
         let module = compile_with(&wasm_binary, &compiler).unwrap();
 
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
 
+        set_limit(&mut instance, limit);
         set_points_used(&mut instance, 0u64);
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
@@ -149,12 +150,13 @@ mod tests {
 
         let limit = 100u64;
 
-        let (compiler, backend_id) = get_compiler(limit);
+        let (compiler, backend_id) = get_compiler();
         let module = compile_with(&wasm_binary, &compiler).unwrap();
 
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
 
+        set_limit(&mut instance, limit);
         set_points_used(&mut instance, 0u64);
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
