@@ -284,48 +284,50 @@ extern "C" fn signal_trap_handler(
 
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
-        let early_return = CURRENT_CODE_VERSIONS.with(|versions| {
-            let versions = versions.borrow();
-            for v in versions.iter() {
-                let magic_size = if let Some(x) = get_inline_breakpoint_size(ARCH, v.backend) {
-                    x
-                } else {
-                    continue;
-                };
-                let ip = fault.ip.get();
-                let end = v.base + v.msm.total_size;
-                if ip >= v.base && ip < end && ip + magic_size <= end {
-                    if let Some(ib) = read_inline_breakpoint(
-                        ARCH,
-                        v.backend,
-                        std::slice::from_raw_parts(ip as *const u8, magic_size),
-                    ) {
-                        match ib.ty {
-                            InlineBreakpointType::Trace => {}
-                            InlineBreakpointType::Middleware => {
-                                let out: Option<Result<(), Box<dyn Any>>> =
-                                    with_breakpoint_map(|bkpt_map| {
-                                        bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
-                                            x(BreakpointInfo {
-                                                fault: Some(&fault),
+        let early_return = allocate_and_run(TRAP_STACK_SIZE, || {
+            CURRENT_CODE_VERSIONS.with(|versions| {
+                let versions = versions.borrow();
+                for v in versions.iter() {
+                    let magic_size = if let Some(x) = get_inline_breakpoint_size(ARCH, v.backend) {
+                        x
+                    } else {
+                        continue;
+                    };
+                    let ip = fault.ip.get();
+                    let end = v.base + v.msm.total_size;
+                    if ip >= v.base && ip < end && ip + magic_size <= end {
+                        if let Some(ib) = read_inline_breakpoint(
+                            ARCH,
+                            v.backend,
+                            std::slice::from_raw_parts(ip as *const u8, magic_size),
+                        ) {
+                            match ib.ty {
+                                InlineBreakpointType::Trace => {}
+                                InlineBreakpointType::Middleware => {
+                                    let out: Option<Result<(), Box<dyn Any>>> =
+                                        with_breakpoint_map(|bkpt_map| {
+                                            bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
+                                                x(BreakpointInfo {
+                                                    fault: Some(&fault),
+                                                })
                                             })
-                                        })
-                                    });
-                                if let Some(Ok(())) = out {
-                                } else {
-                                    println!("Failed calling middleware: {:?}", out);
+                                        });
+                                    if let Some(Ok(())) = out {
+                                    } else {
+                                        println!("Failed calling middleware: {:?}", out);
+                                    }
                                 }
+                                _ => println!("Unknown breakpoint type: {:?}", ib.ty),
                             }
-                            _ => println!("Unknown breakpoint type: {:?}", ib.ty),
-                        }
 
-                        fault.ip.set(ip + magic_size);
-                        return true;
+                            fault.ip.set(ip + magic_size);
+                            return true;
+                        }
+                        break;
                     }
-                    break;
                 }
-            }
-            false
+                false
+            })
         });
         if early_return {
             return;
