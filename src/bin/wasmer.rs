@@ -692,18 +692,23 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     state::CodeVersion,
                 };
 
-                push_code_version(CodeVersion {
-                    baseline: true,
-                    msm: instance
-                        .module
-                        .runnable_module
-                        .get_module_state_map()
-                        .unwrap(),
-                    base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                    backend: options.backend,
-                });
+                let cv_pushed = if let Some(msm) =
+                    instance.module.runnable_module.get_module_state_map()
+                {
+                    push_code_version(CodeVersion {
+                        baseline: true,
+                        msm: msm,
+                        base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                        backend: options.backend,
+                    });
+                    true
+                } else {
+                    false
+                };
                 let result = start.call();
-                pop_code_version().unwrap();
+                if cv_pushed {
+                    pop_code_version().unwrap();
+                }
 
                 if let Err(ref err) = result {
                     match err {
