@@ -907,6 +907,8 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
         Backend::Singlepass => return None,
         #[cfg(feature = "backend-cranelift")]
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
+        #[cfg(not(feature = "backend-cranelift"))]
+        Backend::Cranelift => return None,
         #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
         #[cfg(not(feature = "backend-llvm"))]
