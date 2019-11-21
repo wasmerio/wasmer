@@ -2,7 +2,7 @@
 //! convert to other represenations.
 
 use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
-use std::borrow::Cow;
+use std::{borrow::Cow, convert::TryFrom};
 
 /// Represents a WebAssembly type.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -67,35 +67,32 @@ impl Value {
     }
 }
 
-impl From<i32> for Value {
-    fn from(i: i32) -> Self {
-        Value::I32(i)
-    }
+macro_rules! value_conversions {
+    ($native_type:ty, $value_variant:ident) => {
+        impl From<$native_type> for Value {
+            fn from(n: $native_type) -> Self {
+                Self::$value_variant(n)
+            }
+        }
+
+        impl TryFrom<&Value> for $native_type {
+            type Error = &'static str;
+
+            fn try_from(value: &Value) -> Result<Self, Self::Error> {
+                match value {
+                    Value::$value_variant(value) => Ok(*value),
+                    _ => Err("Invalid cast."),
+                }
+            }
+        }
+    };
 }
 
-impl From<i64> for Value {
-    fn from(i: i64) -> Self {
-        Value::I64(i)
-    }
-}
-
-impl From<f32> for Value {
-    fn from(f: f32) -> Self {
-        Value::F32(f)
-    }
-}
-
-impl From<f64> for Value {
-    fn from(f: f64) -> Self {
-        Value::F64(f)
-    }
-}
-
-impl From<u128> for Value {
-    fn from(v: u128) -> Self {
-        Value::V128(v)
-    }
-}
+value_conversions!(i32, I32);
+value_conversions!(i64, I64);
+value_conversions!(f32, F32);
+value_conversions!(f64, F64);
+value_conversions!(u128, V128);
 
 /// Represents a native wasm type.
 pub unsafe trait NativeWasmType: Copy + Into<Value>
