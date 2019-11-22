@@ -36,6 +36,7 @@ wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
 wasmer-middleware-common-tests = { path = "lib/middleware-common-tests", optional = true }
+wasmer-runtime-core-tests = { path = "lib/runtime-core-tests", optional = true }
 wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
 
 [workspace]
@@ -73,8 +74,10 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi", "backend-cranelift"]
+default = ["fast-tests", "wasi", "x86_64"]
 "loader-kernel" = ["wasmer-kernel-loader"]
+aarch64 = ["backend-singlepass"]
+x86_64 = ["backend-cranelift"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
@@ -84,6 +87,7 @@ backend-cranelift = [
     "wasmer-runtime-core/backend-cranelift",
     "wasmer-runtime/cranelift",
     "wasmer-middleware-common-tests/clif",
+    "wasmer-runtime-core-tests/backend-cranelift",
     "wasmer-wasi-tests/clif"
 ]
 backend-llvm = [
@@ -91,6 +95,7 @@ backend-llvm = [
     "wasmer-runtime-core/backend-llvm",
     "wasmer-runtime/llvm",
     "wasmer-middleware-common-tests/llvm",
+    "wasmer-runtime-core-tests/backend-llvm",
     "wasmer-wasi-tests/llvm"
 ]
 backend-singlepass = [
@@ -98,6 +103,7 @@ backend-singlepass = [
     "wasmer-runtime-core/backend-singlepass",
     "wasmer-runtime/singlepass",
     "wasmer-middleware-common-tests/singlepass",
+    "wasmer-runtime-core-tests/backend-singlepass",
     "wasmer-wasi-tests/singlepass"
 ]
 wasi = ["wasmer-wasi"]

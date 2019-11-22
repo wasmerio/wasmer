@@ -34,7 +34,7 @@ path = "../llvm-backend"
 optional = true
 
 [features]
-default = ["cranelift", "default-backend-cranelift"]
+default = ["cranelift"]
 cranelift = ["wasmer-clif-backend"]
 cache = ["cranelift"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]

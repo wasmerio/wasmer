@@ -1353,6 +1353,7 @@ dependencies = [
  "wasmer-middleware-common-tests 0.10.2",
  "wasmer-runtime 0.10.2",
  "wasmer-runtime-core 0.10.2",
+ "wasmer-runtime-core-tests 0.10.2",
  "wasmer-singlepass-backend 0.10.2",
  "wasmer-wasi 0.10.2",
  "wasmer-wasi-tests 0.10.2",
