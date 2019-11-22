@@ -31,7 +31,6 @@ fn main() {
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    println!("cargo:warning=detected target {}-{}", target_os, target_arch);
 
     if target_os == "linux" && target_arch == "x86_64" {
         cc::Build::new()

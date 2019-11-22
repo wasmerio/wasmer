@@ -8,6 +8,7 @@
 - [#990](https://github.com/wasmerio/wasmer/pull/990) Default wasmer CLI to `run`.  Wasmer will now attempt to parse unrecognized command line options as if they were applied to the run command: `wasmer mywasm.wasm --dir=.` now works!
 - [#987](https://github.com/wasmerio/wasmer/pull/987) Fix `runtime-c-api` header files when compiled by gnuc.
 - [#957](https://github.com/wasmerio/wasmer/pull/957) Change the meaning of `wasmer_wasi::is_wasi_module` to detect any type of WASI module, add support for new wasi snapshot_preview1
+- [#1003](https://github.com/wasmerio/wasmer/pull/1003) Fix `build.rs` in `runtime-core` to allow cross compilation
 
 ## 0.10.2 - 2019-11-18
 
