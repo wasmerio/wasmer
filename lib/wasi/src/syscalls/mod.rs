@@ -5,6 +5,8 @@ pub mod unix;
 #[cfg(any(target_os = "windows"))]
 pub mod windows;
 
+pub mod legacy;
+
 use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
