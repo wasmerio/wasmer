@@ -220,7 +220,7 @@ check: check-bench
 
 # Release
 release:
-	cargo build --release --features backend-cranelift,backend-singlepass,backend-llvm,loader-kernel
+	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel
 
 # Only one backend (cranelift)
 release-clif:
@@ -265,7 +265,7 @@ dep-graph:
 	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
 docs:
-	cargo doc --features=backend-singlepass,backend-llvm,wasi,managed
+	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed
 
 wapm:
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"

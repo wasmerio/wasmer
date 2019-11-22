@@ -77,6 +77,7 @@ default = ["fast-tests", "wasi"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
+docs = ["wasmer-runtime/docs"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
@@ -85,21 +86,18 @@ backend-cranelift = [
     "wasmer-runtime-core/backend-cranelift",
     "wasmer-runtime/cranelift",
     "wasmer-middleware-common-tests/clif",
-    "wasmer-wasi-tests/clif"
 ]
 backend-llvm = [
     "wasmer-llvm-backend",
     "wasmer-runtime-core/backend-llvm",
     "wasmer-runtime/llvm",
     "wasmer-middleware-common-tests/llvm",
-    "wasmer-wasi-tests/llvm"
 ]
 backend-singlepass = [
     "wasmer-singlepass-backend",
     "wasmer-runtime-core/backend-singlepass",
     "wasmer-runtime/singlepass",
     "wasmer-middleware-common-tests/singlepass",
-    "wasmer-wasi-tests/singlepass"
 ]
 wasi = ["wasmer-wasi"]
 managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
