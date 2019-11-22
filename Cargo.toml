@@ -77,6 +77,7 @@ default = ["fast-tests", "wasi", "backend-cranelift"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
+docs = ["wasmer-runtime/docs"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []

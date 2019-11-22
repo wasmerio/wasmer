@@ -208,12 +208,14 @@ pub fn default_compiler() -> impl Compiler {
     #[cfg(any(
         all(
             feature = "default-backend-llvm",
+            not(feature = "docs"),
             any(
                 feature = "default-backend-cranelift",
                 feature = "default-backend-singlepass"
             )
         ),
         all(
+            not(feature = "docs"),
             feature = "default-backend-cranelift",
             feature = "default-backend-singlepass"
         )
@@ -222,13 +224,13 @@ pub fn default_compiler() -> impl Compiler {
         "The `default-backend-X` features are mutually exclusive.  Please choose just one"
     );
 
-    #[cfg(feature = "default-backend-llvm")]
+    #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(feature = "default-backend-singlepass")]
+    #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
     use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
-    #[cfg(feature = "default-backend-cranelift")]
+    #[cfg(any(feature = "default-backend-singlepass", feature = "docs"))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     DefaultCompiler::new()
