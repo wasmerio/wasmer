@@ -220,13 +220,13 @@ check: check-bench
 
 # Release
 release:
-	cargo build --release --features backend-singlepass,backend-llvm,loader-kernel
+	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel
 
 # Only one backend (cranelift)
 release-clif:
 	# If you are on macOS, you will need mingw-w64 for cross compiling to Windows
 	# brew install mingw-w64
-	cargo build --release
+	cargo build --release --features backend-cranelift
 
 release-singlepass:
 	cargo build --release --features backend-singlepass
