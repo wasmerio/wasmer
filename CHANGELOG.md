@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+## 0.11.0 - 2019-11-22
+
 - [#713](https://github.com/wasmerio/wasmer/pull/713) Add AArch64 support for singlepass.
 - [#995](https://github.com/wasmerio/wasmer/pull/995) Detect when a global is read without being initialized (emit a proper error instead of panicking)
 - [#996](https://github.com/wasmerio/wasmer/pull/997) Refactored spectests, emtests and wasitests to use default compiler logic
