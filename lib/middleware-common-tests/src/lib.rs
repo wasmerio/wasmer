@@ -4,38 +4,43 @@ mod tests {
 
     use wasmer_middleware_common::metering::*;
     use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
-    use wasmer_runtime_core::{backend::Compiler, compile_with, imports, Func};
+    use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
+    use wasmer_runtime_core::state::CodeVersion;
+    use wasmer_runtime_core::{
+        backend::{Backend, Compiler},
+        compile_with, imports, Func,
+    };
 
     #[cfg(feature = "llvm")]
-    fn get_compiler(limit: u64) -> impl Compiler {
+    fn get_compiler(limit: u64) -> (impl Compiler, Backend) {
         use wasmer_llvm_backend::ModuleCodeGenerator as LLVMMCG;
         let c: StreamingCompiler<LLVMMCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
             chain.push(Metering::new(limit));
             chain
         });
-        c
+        (c, Backend::LLVM)
     }
 
     #[cfg(feature = "singlepass")]
-    fn get_compiler(limit: u64) -> impl Compiler {
+    fn get_compiler(limit: u64) -> (impl Compiler, Backend) {
         use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
         let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
             chain.push(Metering::new(limit));
             chain
         });
-        c
+        (c, Backend::Singlepass)
     }
 
     #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
     compile_error!("compiler not specified, activate a compiler via features");
 
     #[cfg(feature = "clif")]
-    fn get_compiler(_limit: u64) -> impl Compiler {
+    fn get_compiler(_limit: u64) -> (impl Compiler, Backend) {
         compile_error!("cranelift does not implement metering");
         use wasmer_clif_backend::CraneliftCompiler;
-        CraneliftCompiler::new()
+        (CraneliftCompiler::new(), Backend::Cranelift)
     }
 
     // Assemblyscript
@@ -103,7 +108,8 @@ mod tests {
 
         let limit = 100u64;
 
-        let module = compile_with(&wasm_binary, &get_compiler(limit)).unwrap();
+        let (compiler, backend_id) = get_compiler(limit);
+        let module = compile_with(&wasm_binary, &compiler).unwrap();
 
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
@@ -111,7 +117,23 @@ mod tests {
         set_points_used(&mut instance, 0u64);
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
+
+        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+            push_code_version(CodeVersion {
+                baseline: true,
+                msm: msm,
+                base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                backend: backend_id,
+            });
+            true
+        } else {
+            false
+        };
+
         let value = add_to.call(3, 4).unwrap();
+        if cv_pushed {
+            pop_code_version().unwrap();
+        }
 
         // verify it returns the correct value
         assert_eq!(value, 7);
@@ -127,7 +149,8 @@ mod tests {
 
         let limit = 100u64;
 
-        let module = compile_with(&wasm_binary, &get_compiler(limit)).unwrap();
+        let (compiler, backend_id) = get_compiler(limit);
+        let module = compile_with(&wasm_binary, &compiler).unwrap();
 
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
@@ -135,7 +158,22 @@ mod tests {
         set_points_used(&mut instance, 0u64);
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
+
+        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+            push_code_version(CodeVersion {
+                baseline: true,
+                msm: msm,
+                base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                backend: backend_id,
+            });
+            true
+        } else {
+            false
+        };
         let result = add_to.call(10_000_000, 4);
+        if cv_pushed {
+            pop_code_version().unwrap();
+        }
 
         let err = result.unwrap_err();
         match err {

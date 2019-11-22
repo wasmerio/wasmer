@@ -20,7 +20,7 @@ fn main() {
             let diff = millis - last_millis;
             if diff >= 100 {
                 record_count += 1;
-                println!("{}", (i - round_count) as f64 / diff as f64);
+                println!("{}", ((i - round_count) as u128) * 1000000 / diff );
                 last_millis = millis;
                 round_count = i;
             }
