@@ -1,46 +1,17 @@
 use wabt::wat2wasm;
-use wasmer_runtime_core::{
-    backend::Compiler,
-    error,
-    global::Global,
-    memory::Memory,
-    prelude::*,
-    table::Table,
+use wasmer_runtime::{
+    compile, error, func, imports,
     types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
     units::Pages,
+    Ctx, Global, Memory, Table,
 };
-
-#[cfg(feature = "clif")]
-fn get_compiler() -> impl Compiler {
-    use wasmer_clif_backend::CraneliftCompiler;
-    CraneliftCompiler::new()
-}
-
-#[cfg(feature = "llvm")]
-fn get_compiler() -> impl Compiler {
-    use wasmer_llvm_backend::LLVMCompiler;
-    LLVMCompiler::new()
-}
-
-#[cfg(feature = "singlepass")]
-fn get_compiler() -> impl Compiler {
-    use wasmer_singlepass_backend::SinglePassCompiler;
-    SinglePassCompiler::new()
-}
-
-#[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
-fn get_compiler() -> impl Compiler {
-    panic!("compiler not specified, activate a compiler via features");
-    use wasmer_clif_backend::CraneliftCompiler;
-    CraneliftCompiler::new()
-}
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
 fn main() -> error::Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
 
-    let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &get_compiler())?;
+    let inner_module = compile(&wasm_binary)?;
 
     let memory_desc = MemoryDescriptor::new(Pages(1), Some(Pages(1)), false).unwrap();
     let memory = Memory::new(memory_desc).unwrap();
@@ -71,7 +42,7 @@ fn main() -> error::Result<()> {
         "env" => inner_instance,
     };
 
-    let outer_module = wasmer_runtime_core::compile_with(EXAMPLE_WASM, &get_compiler())?;
+    let outer_module = compile(EXAMPLE_WASM)?;
     let outer_instance = outer_module.instantiate(&outer_imports)?;
     let ret = outer_instance.call("main", &[Value::I32(42)])?;
     println!("ret: {:?}", ret);
@@ -79,7 +50,7 @@ fn main() -> error::Result<()> {
     Ok(())
 }
 
-fn print_num(ctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
+fn print_num(ctx: &mut Ctx, n: i32) -> Result<i32, ()> {
     println!("print_num({})", n);
 
     let memory: &Memory = ctx.memory(0);

@@ -5,39 +5,12 @@ macro_rules! assert_emscripten_output {
             EmscriptenGlobals,
             generate_emscripten_env,
         };
-        use wasmer_runtime_core::{
-            backend::Compiler,
-        };
+        use wasmer_runtime::compile;
         use wasmer_dev_utils::stdio::StdioCapturer;
-
-        #[cfg(feature = "clif")]
-        fn get_compiler() -> impl Compiler {
-            use wasmer_clif_backend::CraneliftCompiler;
-            CraneliftCompiler::new()
-        }
-
-        #[cfg(feature = "llvm")]
-        fn get_compiler() -> impl Compiler {
-            use wasmer_llvm_backend::LLVMCompiler;
-            LLVMCompiler::new()
-        }
-
-        #[cfg(feature = "singlepass")]
-        fn get_compiler() -> impl Compiler {
-            use wasmer_singlepass_backend::SinglePassCompiler;
-            SinglePassCompiler::new()
-        }
-
-        #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
-        fn get_compiler() -> impl Compiler {
-            panic!("compiler not specified, activate a compiler via features");
-            use wasmer_clif_backend::CraneliftCompiler;
-            CraneliftCompiler::new()
-        }
 
         let wasm_bytes = include_bytes!($file);
 
-        let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &get_compiler())
+        let module = compile(&wasm_bytes[..])
             .expect("WASM can't be compiled");
 
 //        let module = compile(&wasm_bytes[..])

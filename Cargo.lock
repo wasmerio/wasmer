@@ -1431,7 +1431,7 @@ dependencies = [
  "wasmer-dev-utils 0.10.2",
  "wasmer-emscripten 0.10.2",
  "wasmer-llvm-backend 0.10.2",
- "wasmer-runtime-core 0.10.2",
+ "wasmer-runtime 0.10.2",
  "wasmer-singlepass-backend 0.10.2",
 ]
 
@@ -1569,7 +1569,7 @@ dependencies = [
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.10.2",
  "wasmer-llvm-backend 0.10.2",
- "wasmer-runtime-core 0.10.2",
+ "wasmer-runtime 0.10.2",
  "wasmer-singlepass-backend 0.10.2",
 ]
 
@@ -1599,7 +1599,6 @@ dependencies = [
  "wasmer-dev-utils 0.10.2",
  "wasmer-llvm-backend 0.10.2",
  "wasmer-runtime 0.10.2",
- "wasmer-runtime-core 0.10.2",
  "wasmer-singlepass-backend 0.10.2",
  "wasmer-wasi 0.10.2",
 ]

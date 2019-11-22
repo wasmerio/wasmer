@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod tests {
     use wabt::wat2wasm;
-    use wasmer_clif_backend::CraneliftCompiler;
-    use wasmer_runtime_core::{
+    use wasmer_runtime::{
         error::{CallError, RuntimeError},
-        import::ImportObject,
+        ImportObject,
     };
 
     // The semantics of stack overflow are documented at:
@@ -22,8 +21,7 @@ mod tests {
       (elem (;0;) (i32.const 0) 0))
     "#;
         let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-        let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new())
-            .expect("WASM can't be compiled");
+        let module = wasmer_runtime::compile(&wasm_binary[..]).expect("WASM can't be compiled");
         let instance = module
             .instantiate(&ImportObject::new())
             .expect("WASM can't be instantiated");
