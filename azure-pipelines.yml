@@ -104,7 +104,7 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: or(in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
     steps:
       - checkout: self
         submodules: true
@@ -167,7 +167,7 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: or(in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
     steps:
       - checkout: self
         submodules: true

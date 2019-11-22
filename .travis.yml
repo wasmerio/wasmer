@@ -60,3 +60,6 @@ branches:
   - master
   - staging
   - trying
+  # Making sure Travis runs on new Tags
+  - /^\d+\.\d+(\.\d+)?(-\S*)?$/
+  - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
