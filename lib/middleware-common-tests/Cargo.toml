@@ -10,13 +10,12 @@ publish = false
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.10.2" }
 wasmer-middleware-common = { path = "../middleware-common", version = "0.10.2" }
-wasmer-clif-backend = { path = "../clif-backend", version = "0.10.2", optional = true }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.10.2" }
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.10.2", optional = true }
 wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.10.2", optional = true }
 
 [features]
-default = ["clif"]
-clif = ["wasmer-clif-backend"]
+clif = []
 llvm = ["wasmer-llvm-backend"]
 singlepass = ["wasmer-singlepass-backend"]
 

@@ -15,7 +15,7 @@ wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.10.2"
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.10.2", optional = true }
 
 [features]
-default = []
+default = ["backend-cranelift"]
 backend-cranelift = ["wasmer-clif-backend"]
 backend-singlepass = ["wasmer-singlepass-backend"]
 backend-llvm = ["wasmer-llvm-backend"]
