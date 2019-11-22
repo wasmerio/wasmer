@@ -249,7 +249,6 @@ impl State {
 
         let new_len = self.stack.len() - n;
         Ok(&self.stack[new_len..])
-
     }
 
     pub fn popn_save_extra(
