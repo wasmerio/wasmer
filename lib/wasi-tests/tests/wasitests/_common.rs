@@ -2,7 +2,7 @@ macro_rules! assert_wasi_output {
     ($file:expr, $name:expr, $po_dir_args: expr, $mapdir_args:expr, $envvar_args:expr, $expected:expr) => {{
         use wasmer_dev_utils::stdio::StdioCapturer;
         use wasmer_runtime_core::{backend::Compiler, Func};
-        use wasmer_wasi::generate_import_object;
+        use wasmer_wasi::{generate_import_object_for_version, get_wasi_version};
 
         #[cfg(feature = "clif")]
         fn get_compiler() -> impl Compiler {
@@ -33,7 +33,15 @@ macro_rules! assert_wasi_output {
         let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &get_compiler())
             .expect("WASM can't be compiled");
 
-        let import_object = generate_import_object(vec![], vec![], $po_dir_args, $mapdir_args);
+        let wasi_version = get_wasi_version(&module).expect("WASI module");
+
+        let import_object = generate_import_object_for_version(
+            wasi_version,
+            vec![],
+            vec![],
+            $po_dir_args,
+            $mapdir_args,
+        );
 
         let instance = module
             .instantiate(&import_object)

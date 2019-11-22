@@ -27,7 +27,7 @@ use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
-    Func, Value, VERSION,
+    Value, VERSION,
 };
 #[cfg(feature = "managed")]
 use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
@@ -39,25 +39,6 @@ use wasmer_runtime_core::{
 };
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
-
-// stub module to make conditional compilation happy
-#[cfg(not(feature = "wasi"))]
-mod wasmer_wasi {
-    use wasmer_runtime_core::{import::ImportObject, module::Module};
-
-    pub fn is_wasi_module(_module: &Module) -> bool {
-        false
-    }
-
-    pub fn generate_import_object(
-        _args: Vec<Vec<u8>>,
-        _envs: Vec<Vec<u8>>,
-        _preopened_files: Vec<std::path::PathBuf>,
-        _mapped_dirs: Vec<(String, std::path::PathBuf)>,
-    ) -> ImportObject {
-        unimplemented!()
-    }
-}
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
@@ -353,6 +334,7 @@ fn get_mapped_dirs(input: &[String]) -> Result<Vec<(String, PathBuf)>, String> {
     Ok(md)
 }
 
+#[cfg(feature = "wasi")]
 fn get_env_var_args(input: &[String]) -> Result<Vec<(&str, &str)>, String> {
     let mut ev = vec![];
     for entry in input.iter() {
@@ -368,11 +350,148 @@ fn get_env_var_args(input: &[String]) -> Result<Vec<(&str, &str)>, String> {
     Ok(ev)
 }
 
+/// Helper function for `execute_wasm` (the `Run` command)
+#[cfg(feature = "wasi")]
+fn execute_wasi(
+    wasi_version: wasmer_wasi::WasiVersion,
+    options: &Run,
+    env_vars: Vec<(&str, &str)>,
+    module: wasmer_runtime_core::Module,
+    mapped_dirs: Vec<(String, PathBuf)>,
+    _wasm_binary: &[u8],
+) -> Result<(), String> {
+    let args = if let Some(cn) = &options.command_name {
+        [cn.clone()]
+    } else {
+        [options.path.to_str().unwrap().to_owned()]
+    }
+    .iter()
+    .chain(options.args.iter())
+    .cloned()
+    .map(|arg| arg.into_bytes())
+    .collect();
+    let envs = env_vars
+        .into_iter()
+        .map(|(k, v)| format!("{}={}", k, v).into_bytes())
+        .collect();
+    let preopened_files = options.pre_opened_directories.clone();
+
+    let import_object = wasmer_wasi::generate_import_object_for_version(
+        wasi_version,
+        args,
+        envs,
+        preopened_files,
+        mapped_dirs,
+    );
+
+    #[allow(unused_mut)] // mut used in feature
+    let mut instance = module
+        .instantiate(&import_object)
+        .map_err(|e| format!("Can't instantiate WASI module: {:?}", e))?;
+
+    let start: wasmer_runtime::Func<(), ()> =
+        instance.func("_start").map_err(|e| format!("{:?}", e))?;
+
+    #[cfg(feature = "managed")]
+    {
+        let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =
+            unsafe { ::std::mem::transmute(start.get_vm_func()) };
+
+        unsafe {
+            run_tiering(
+                module.info(),
+                &_wasm_binary,
+                if let Some(ref path) = options.resume {
+                    let mut f = File::open(path).unwrap();
+                    let mut out: Vec<u8> = vec![];
+                    f.read_to_end(&mut out).unwrap();
+                    Some(
+                        wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
+                            .expect("failed to decode image"),
+                    )
+                } else {
+                    None
+                },
+                &import_object,
+                start_raw,
+                &mut instance,
+                options.backend,
+                options
+                    .optimized_backends
+                    .iter()
+                    .map(
+                        |&backend| -> (Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
+                            let options = options.clone();
+                            (
+                                backend,
+                                Box::new(move || {
+                                    get_compiler_by_backend(backend, &options).unwrap()
+                                }),
+                            )
+                        },
+                    )
+                    .collect(),
+                interactive_shell,
+            )?
+        };
+    }
+
+    #[cfg(not(feature = "managed"))]
+    {
+        use wasmer_runtime::error::RuntimeError;
+        #[cfg(unix)]
+        use wasmer_runtime_core::{
+            fault::{pop_code_version, push_code_version},
+            state::CodeVersion,
+        };
+
+        let result;
+
+        #[cfg(unix)]
+        {
+            let cv_pushed =
+                if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+                    push_code_version(CodeVersion {
+                        baseline: true,
+                        msm: msm,
+                        base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                        backend: options.backend,
+                    });
+                    true
+                } else {
+                    false
+                };
+            result = start.call();
+            if cv_pushed {
+                pop_code_version().unwrap();
+            }
+        }
+        #[cfg(not(unix))]
+        {
+            result = start.call();
+        }
+
+        if let Err(ref err) = result {
+            match err {
+                RuntimeError::Trap { msg } => return Err(format!("wasm trap occured: {}", msg)),
+                RuntimeError::Error { data } => {
+                    if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
+                        std::process::exit(error_code.code as i32)
+                    }
+                }
+            }
+            return Err(format!("error: {:?}", err));
+        }
+    }
+    Ok(())
+}
+
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
     let disable_cache = options.disable_cache;
 
     let mapped_dirs = get_mapped_dirs(&options.mapped_dirs[..])?;
+    #[cfg(feature = "wasi")]
     let env_vars = get_env_var_args(&options.env_vars[..])?;
     let wasm_path = &options.path;
 
@@ -613,130 +732,23 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
         .map_err(|e| format!("{:?}", e))?;
     } else {
-        if cfg!(feature = "wasi") && wasmer_wasi::is_wasi_module(&module) {
-            let import_object = wasmer_wasi::generate_import_object(
-                if let Some(cn) = &options.command_name {
-                    [cn.clone()]
-                } else {
-                    [options.path.to_str().unwrap().to_owned()]
-                }
-                .iter()
-                .chain(options.args.iter())
-                .cloned()
-                .map(|arg| arg.into_bytes())
-                .collect(),
-                env_vars
-                    .into_iter()
-                    .map(|(k, v)| format!("{}={}", k, v).into_bytes())
-                    .collect(),
-                options.pre_opened_directories.clone(),
+        #[cfg(feature = "wasi")]
+        let wasi_version = wasmer_wasi::get_wasi_version(&module);
+        #[cfg(feature = "wasi")]
+        let is_wasi = wasi_version.is_some();
+        #[cfg(not(feature = "wasi"))]
+        let is_wasi = false;
+
+        if is_wasi {
+            #[cfg(feature = "wasi")]
+            execute_wasi(
+                wasi_version.unwrap(),
+                options,
+                env_vars,
+                module,
                 mapped_dirs,
-            );
-
-            #[allow(unused_mut)] // mut used in feature
-            let mut instance = module
-                .instantiate(&import_object)
-                .map_err(|e| format!("Can't instantiate WASI module: {:?}", e))?;
-
-            let start: Func<(), ()> = instance.func("_start").map_err(|e| format!("{:?}", e))?;
-
-            #[cfg(feature = "managed")]
-            {
-                let start_raw: extern "C" fn(&mut wasmer_runtime_core::vm::Ctx) =
-                    unsafe { ::std::mem::transmute(start.get_vm_func()) };
-
-                unsafe {
-                    run_tiering(
-                        module.info(),
-                        &wasm_binary,
-                        if let Some(ref path) = options.resume {
-                            let mut f = File::open(path).unwrap();
-                            let mut out: Vec<u8> = vec![];
-                            f.read_to_end(&mut out).unwrap();
-                            Some(
-                                wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
-                                    .expect("failed to decode image"),
-                            )
-                        } else {
-                            None
-                        },
-                        &import_object,
-                        start_raw,
-                        &mut instance,
-                        options.backend,
-                        options
-                            .optimized_backends
-                            .iter()
-                            .map(
-                                |&backend| -> (Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
-                                    let options = options.clone();
-                                    (
-                                        backend,
-                                        Box::new(move || {
-                                            get_compiler_by_backend(backend, &options).unwrap()
-                                        }),
-                                    )
-                                },
-                            )
-                            .collect(),
-                        interactive_shell,
-                    )?
-                };
-            }
-
-            #[cfg(not(feature = "managed"))]
-            {
-                use wasmer_runtime::error::RuntimeError;
-                #[cfg(unix)]
-                use wasmer_runtime_core::{
-                    fault::{pop_code_version, push_code_version},
-                    state::CodeVersion,
-                };
-
-                let result;
-
-                #[cfg(unix)]
-                {
-                    let cv_pushed =
-                        if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
-                            push_code_version(CodeVersion {
-                                baseline: true,
-                                msm: msm,
-                                base: instance.module.runnable_module.get_code().unwrap().as_ptr()
-                                    as usize,
-                                backend: options.backend,
-                            });
-                            true
-                        } else {
-                            false
-                        };
-                    result = start.call();
-                    if cv_pushed {
-                        pop_code_version().unwrap();
-                    }
-                }
-                #[cfg(not(unix))]
-                {
-                    result = start.call();
-                }
-
-                if let Err(ref err) = result {
-                    match err {
-                        RuntimeError::Trap { msg } => {
-                            return Err(format!("wasm trap occured: {}", msg))
-                        }
-                        #[cfg(feature = "wasi")]
-                        RuntimeError::Error { data } => {
-                            if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
-                                std::process::exit(error_code.code as i32)
-                            }
-                        }
-                        #[cfg(not(feature = "wasi"))]
-                        RuntimeError::Error { .. } => (),
-                    }
-                    return Err(format!("error: {:?}", err));
-                }
-            }
+                &wasm_binary,
+            )?;
         } else {
             let import_object = wasmer_runtime_core::import::ImportObject::new();
             let instance = module
