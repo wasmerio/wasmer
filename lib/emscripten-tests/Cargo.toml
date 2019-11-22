@@ -10,8 +10,8 @@ build = "build/mod.rs"
 
 [dependencies]
 wasmer-emscripten = { path = "../emscripten", version = "0.10.2" }
-wasmer-runtime-core = { path = "../runtime-core", version = "0.10.2" }
-wasmer-clif-backend = { path = "../clif-backend", version = "0.10.2" }
+wasmer-runtime = { path = "../runtime", version = "0.10.2", default-features = false }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.10.2", optional = true}
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.10.2", optional = true }
 wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.10.2", optional = true }
 
@@ -23,6 +23,6 @@ wasmer-dev-utils = { path = "../dev-utils", version = "0.10.2"}
 glob = "0.3"
 
 [features]
-clif = []
-llvm = ["wasmer-llvm-backend"]
-singlepass = ["wasmer-singlepass-backend"]
+clif = ["wasmer-clif-backend", "wasmer-runtime/default-backend-cranelift"]
+singlepass = ["wasmer-singlepass-backend", "wasmer-runtime/default-backend-singlepass"]
+llvm = ["wasmer-llvm-backend", "wasmer-runtime/default-backend-llvm"]
