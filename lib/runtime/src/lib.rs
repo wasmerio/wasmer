@@ -230,7 +230,7 @@ pub fn default_compiler() -> impl Compiler {
     #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
     use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
-    #[cfg(any(feature = "default-backend-singlepass", feature = "docs"))]
+    #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     DefaultCompiler::new()
