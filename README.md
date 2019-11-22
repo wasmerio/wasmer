@@ -235,7 +235,7 @@ Each integration can be tested separately:
 
 * Spec tests: `make spectests`
 * Emscripten: `make emtests`
-* WASI: `make wasi`
+* WASI: `make wasitests`
 * Middleware: `make middleware`
 * C API: `make capi`
 
