@@ -24,6 +24,7 @@ script:
   # Tests
   - make spectests-singlepass
 
+before_deploy:
   # Release
   - make release-singlepass
   - make wapm
@@ -31,12 +32,12 @@ script:
   - mkdir -p artifacts
   - cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
 
-before_deploy:
-    # Set up git user name and tag this commit
-    - git config --local user.name "Syrus Akbary"
-    - git config --local user.email "syrus@wasmer.io"
-    - export TRAVIS_TAG="0.10.2"
-    # - git tag $TRAVIS_TAG
+# before_deploy:
+#     # Set up git user name and tag this commit
+#     - git config --local user.name "Syrus Akbary"
+#     - git config --local user.email "syrus@wasmer.io"
+#     - export TRAVIS_TAG="0.10.2"
+#     # - git tag $TRAVIS_TAG
 
 deploy:
   provider: releases
@@ -46,8 +47,8 @@ deploy:
   # This is set to the previous artifacts are not deleted by travis
   skip_cleanup: true
   on:
-    branch: feature/singlepass-aarch64
-
+    tags: true
+    # branch: feature/singlepass-aarch64
 
 addons:
   apt:
@@ -56,4 +57,6 @@ addons:
 
 branches:
   only:
-  - feature/singlepass-aarch64
+  - master
+  - staging
+  - trying
