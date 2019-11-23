@@ -50,6 +50,7 @@ members = [
     "lib/win-exception-handler",
     "lib/runtime-c-api",
     "lib/llvm-backend",
+    "lib/llvm-backend-tests",
     "lib/wasi",
     "lib/middleware-common",
     "lib/kernel-loader",

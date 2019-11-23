@@ -1465,6 +1465,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-llvm-backend-tests"
+version = "0.10.2"
+dependencies = [
+ "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-llvm-backend 0.11.0",
+ "wasmer-runtime 0.11.0",
+ "wasmer-runtime-core 0.11.0",
+]
+
+[[package]]
 name = "wasmer-middleware-common"
 version = "0.11.0"
 dependencies = [
