@@ -114,7 +114,7 @@ mod tests {
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
 
-        set_limit(&mut instance, limit);
+        set_execution_limit(&mut instance, limit);
         set_points_used(&mut instance, 0u64);
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
@@ -140,7 +140,7 @@ mod tests {
         assert_eq!(value, 7);
 
         // verify it used the correct number of points
-        assert_eq!(get_points_used(&instance), 74);
+        assert_eq!(get_points_used(&instance), 70);
     }
 
     #[test]
@@ -156,7 +156,7 @@ mod tests {
         let import_object = imports! {};
         let mut instance = module.instantiate(&import_object).unwrap();
 
-        set_limit(&mut instance, limit);
+        set_execution_limit(&mut instance, limit);
         set_points_used(&mut instance, 0u64);
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
@@ -186,6 +186,52 @@ mod tests {
         }
 
         // verify it used the correct number of points
-        assert_eq!(get_points_used(&instance), 109); // Used points will be slightly more than `limit` because of the way we do gas checking.
+        assert_eq!(get_points_used(&instance), 104); // Used points will be slightly more than `limit` because of the way we do gas checking.
+    }
+    #[test]
+    fn test_traps_if_limit_is_short_by_one() {
+        use wasmer_runtime_core::error::RuntimeError;
+        let wasm_binary = wat2wasm(WAT).unwrap();
+
+        let limit = 69u64;
+
+        let (compiler, backend_id) = get_compiler();
+        let module = compile_with(&wasm_binary, &compiler).unwrap();
+
+        let import_object = imports! {};
+        let mut instance = module.instantiate(&import_object).unwrap();
+
+        set_execution_limit(&mut instance, limit);
+        set_points_used(&mut instance, 0u64);
+
+        let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
+
+        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+            push_code_version(CodeVersion {
+                baseline: true,
+                msm: msm,
+                base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                backend: backend_id,
+            });
+            true
+        } else {
+            false
+        };
+        let result = add_to.call(3, 4);
+        if cv_pushed {
+            pop_code_version().unwrap();
+        }
+
+        let err = result.unwrap_err();
+        println!("{:?}", err);
+        match err {
+            RuntimeError::Error { data } => {
+                assert!(data.downcast_ref::<ExecutionLimitExceededError>().is_some());
+            }
+            _ => unreachable!(),
+        }
+
+        // verify it used the correct number of points
+        assert_eq!(get_points_used(&instance), 70); // Used points will be slightly more than `limit` because of the way we do gas checking.
     }
 }
