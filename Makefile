@@ -97,6 +97,7 @@ cranelift: spectests-cranelift emtests-cranelift middleware-cranelift wasitests-
 
 llvm: spectests-llvm emtests-llvm wasitests-llvm
 	cargo test -p wasmer-llvm-backend --release
+	cargo test -p wasmer-llvm-backend-tests --release
 	cargo test -p wasmer-runtime-core-tests --release --no-default-features --features backend-llvm
 
 
