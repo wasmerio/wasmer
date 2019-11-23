@@ -8291,21 +8291,37 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         pass_manager.add_verifier_pass();
 
         pass_manager.add_type_based_alias_analysis_pass();
+        pass_manager.add_ipsccp_pass();
+        pass_manager.add_prune_eh_pass();
+        pass_manager.add_dead_arg_elimination_pass();
+        pass_manager.add_function_inlining_pass();
         pass_manager.add_lower_expect_intrinsic_pass();
         pass_manager.add_scalar_repl_aggregates_pass();
         pass_manager.add_instruction_combining_pass();
-        pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_gvn_pass();
         pass_manager.add_jump_threading_pass();
         pass_manager.add_correlated_value_propagation_pass();
-        pass_manager.add_sccp_pass();
+        pass_manager.add_cfg_simplification_pass();
+        pass_manager.add_reassociate_pass();
+        pass_manager.add_loop_rotate_pass();
+        pass_manager.add_loop_unswitch_pass();
+        pass_manager.add_ind_var_simplify_pass();
+        pass_manager.add_licm_pass();
+        pass_manager.add_loop_vectorize_pass();
+        pass_manager.add_instruction_combining_pass();
+        pass_manager.add_ipsccp_pass();
+        pass_manager.add_reassociate_pass();
+        pass_manager.add_cfg_simplification_pass();
+        pass_manager.add_gvn_pass();
+        pass_manager.add_memcpy_optimize_pass();
+        pass_manager.add_dead_store_elimination_pass();
+        pass_manager.add_bit_tracking_dce_pass();
         pass_manager.add_instruction_combining_pass();
         pass_manager.add_reassociate_pass();
         pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_bit_tracking_dce_pass();
         pass_manager.add_slp_vectorize_pass();
-        pass_manager.run_on(&*self.module.borrow_mut());
+        pass_manager.add_early_cse_pass();
 
+        pass_manager.run_on(&*self.module.borrow_mut());
         if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.post_opt_ir } {
             self.module.borrow_mut().print_to_file(path).unwrap();
         }
