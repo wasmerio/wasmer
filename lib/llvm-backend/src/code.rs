@@ -8286,9 +8286,10 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         }
 
         let pass_manager = PassManager::create(());
-        if cfg!(test) {
-            pass_manager.add_verifier_pass();
-        }
+
+        #[cfg(feature = "test")]
+        pass_manager.add_verifier_pass();
+
         pass_manager.add_type_based_alias_analysis_pass();
         pass_manager.add_lower_expect_intrinsic_pass();
         pass_manager.add_scalar_repl_aggregates_pass();

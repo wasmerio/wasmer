@@ -41,3 +41,4 @@ wabt = "0.9.1"
 
 [features]
 debug = ["wasmer-runtime-core/debug"]
+test = []
