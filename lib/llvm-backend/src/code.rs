@@ -1412,13 +1412,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 }
             }
             Operator::Return => {
-                let frame = state.outermost_frame()?;
                 let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
                     message: "not currently in a block",
                     offset: -1isize as usize,
                 })?;
-
-                builder.build_unconditional_branch(frame.br_dest());
 
                 let frame = state.outermost_frame()?;
                 for phi in frame.phis().to_vec().iter() {
@@ -1426,6 +1423,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     let arg = apply_pending_canonicalization(builder, intrinsics, arg, info);
                     phi.add_incoming(&[(&arg, &current_block)]);
                 }
+
+                let frame = state.outermost_frame()?;
+                builder.build_unconditional_branch(frame.br_dest());
 
                 state.reachable = false;
             }
