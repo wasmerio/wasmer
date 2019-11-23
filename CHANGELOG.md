@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#1009](https://github.com/wasmerio/wasmer/pull/1009) Enable LLVM verifier for all tests, add new llvm-backend-tests crate.
+
 ## 0.11.0 - 2019-11-22
 
 - [#713](https://github.com/wasmerio/wasmer/pull/713) Add AArch64 support for singlepass.
