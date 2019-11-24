@@ -1,6 +1,6 @@
 #![allow(unused, clippy::too_many_arguments)]
 pub mod types;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "freebsd", target_os = "linux", target_os = "macos"))]
 pub mod unix;
 #[cfg(any(target_os = "windows"))]
 pub mod windows;
@@ -23,7 +23,7 @@ use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
 use wasmer_runtime_core::{memory::Memory, vm::Ctx};
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "freebsd", target_os = "linux", target_os = "macos"))]
 pub use unix::*;
 
 #[cfg(any(target_os = "windows"))]

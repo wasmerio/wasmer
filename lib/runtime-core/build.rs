@@ -32,6 +32,11 @@ fn main() {
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
 
     match (target_os.as_str(), target_arch.as_str()) {
+        ("freebsd", "x86_64") => {
+            cc::Build::new()
+                .file("image-loading-freebsd-x86-64.s")
+                .compile("image-loading");
+        }
         ("linux", "x86_64") => {
             cc::Build::new()
                 .file("image-loading-linux-x86-64.s")
