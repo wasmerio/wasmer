@@ -2,6 +2,7 @@
 //! state could read or updated at runtime. Use cases include generating stack traces, switching
 //! generated code from one tier to another, or serializing state of a running instace.
 
+use crate::backend::Backend;
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
 
@@ -180,8 +181,11 @@ pub struct CodeVersion {
     /// `ModuleStateMap` for this code version.
     pub msm: ModuleStateMap,
 
-    /// A pointer to the machine code  for this module.
+    /// A pointer to the machine code for this module.
     pub base: usize,
+
+    /// The backend used to compile this module.
+    pub backend: Backend,
 }
 
 impl ModuleStateMap {
@@ -472,9 +476,143 @@ impl InstanceImage {
     }
 }
 
-#[cfg(all(unix, target_arch = "x86_64"))]
+/// Declarations for x86-64 registers.
+#[cfg(unix)]
+pub mod x64_decl {
+    use super::*;
+
+    /// General-purpose registers.
+    #[repr(u8)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+    pub enum GPR {
+        /// RAX register
+        RAX,
+        /// RCX register
+        RCX,
+        /// RDX register
+        RDX,
+        /// RBX register
+        RBX,
+        /// RSP register
+        RSP,
+        /// RBP register
+        RBP,
+        /// RSI register
+        RSI,
+        /// RDI register
+        RDI,
+        /// R8 register
+        R8,
+        /// R9 register
+        R9,
+        /// R10 register
+        R10,
+        /// R11 register
+        R11,
+        /// R12 register
+        R12,
+        /// R13 register
+        R13,
+        /// R14 register
+        R14,
+        /// R15 register
+        R15,
+    }
+
+    /// XMM registers.
+    #[repr(u8)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+    pub enum XMM {
+        /// XMM register 0
+        XMM0,
+        /// XMM register 1
+        XMM1,
+        /// XMM register 2
+        XMM2,
+        /// XMM register 3
+        XMM3,
+        /// XMM register 4
+        XMM4,
+        /// XMM register 5
+        XMM5,
+        /// XMM register 6
+        XMM6,
+        /// XMM register 7
+        XMM7,
+        /// XMM register 8
+        XMM8,
+        /// XMM register 9
+        XMM9,
+        /// XMM register 10
+        XMM10,
+        /// XMM register 11
+        XMM11,
+        /// XMM register 12
+        XMM12,
+        /// XMM register 13
+        XMM13,
+        /// XMM register 14
+        XMM14,
+        /// XMM register 15
+        XMM15,
+    }
+
+    /// A machine register under the x86-64 architecture.
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+    pub enum X64Register {
+        /// General-purpose registers.
+        GPR(GPR),
+        /// XMM (floating point/SIMD) registers.
+        XMM(XMM),
+    }
+
+    impl X64Register {
+        /// Returns the index of the register.
+        pub fn to_index(&self) -> RegisterIndex {
+            match *self {
+                X64Register::GPR(x) => RegisterIndex(x as usize),
+                X64Register::XMM(x) => RegisterIndex(x as usize + 16),
+            }
+        }
+
+        /// Converts a DWARD regnum to X64Register.
+        pub fn from_dwarf_regnum(x: u16) -> Option<X64Register> {
+            Some(match x {
+                0 => X64Register::GPR(GPR::RAX),
+                1 => X64Register::GPR(GPR::RDX),
+                2 => X64Register::GPR(GPR::RCX),
+                3 => X64Register::GPR(GPR::RBX),
+                4 => X64Register::GPR(GPR::RSI),
+                5 => X64Register::GPR(GPR::RDI),
+                6 => X64Register::GPR(GPR::RBP),
+                7 => X64Register::GPR(GPR::RSP),
+                8 => X64Register::GPR(GPR::R8),
+                9 => X64Register::GPR(GPR::R9),
+                10 => X64Register::GPR(GPR::R10),
+                11 => X64Register::GPR(GPR::R11),
+                12 => X64Register::GPR(GPR::R12),
+                13 => X64Register::GPR(GPR::R13),
+                14 => X64Register::GPR(GPR::R14),
+                15 => X64Register::GPR(GPR::R15),
+
+                17 => X64Register::XMM(XMM::XMM0),
+                18 => X64Register::XMM(XMM::XMM1),
+                19 => X64Register::XMM(XMM::XMM2),
+                20 => X64Register::XMM(XMM::XMM3),
+                21 => X64Register::XMM(XMM::XMM4),
+                22 => X64Register::XMM(XMM::XMM5),
+                23 => X64Register::XMM(XMM::XMM6),
+                24 => X64Register::XMM(XMM::XMM7),
+                _ => return None,
+            })
+        }
+    }
+}
+
+#[cfg(unix)]
 pub mod x64 {
     //! The x64 state module contains functions to generate state and code for x64 targets.
+    pub use super::x64_decl::*;
     use super::*;
     use crate::codegen::BreakpointMap;
     use crate::fault::{
@@ -522,7 +660,7 @@ pub mod x64 {
 
         let mut last_stack_offset: u64 = 0; // rbp
 
-        let mut known_registers: [Option<u64>; 24] = [None; 24];
+        let mut known_registers: [Option<u64>; 32] = [None; 32];
 
         let local_functions_vec: Vec<&FunctionStateMap> =
             msm.local_functions.iter().map(|(_, v)| v).collect();
@@ -902,12 +1040,19 @@ pub mod x64 {
         mut stack: *const u64,
         initially_known_registers: [Option<u64>; 32],
         mut initial_address: Option<u64>,
+        max_depth: Option<usize>,
     ) -> ExecutionStateImage {
         let mut known_registers: [Option<u64>; 32] = initially_known_registers;
         let mut results: Vec<WasmFunctionStateDump> = vec![];
         let mut was_baseline = true;
 
-        for _ in 0.. {
+        for depth in 0.. {
+            if let Some(max_depth) = max_depth {
+                if depth >= max_depth {
+                    return ExecutionStateImage { frames: results };
+                }
+            }
+
             let ret_addr = initial_address.take().unwrap_or_else(|| {
                 let x = *stack;
                 stack = stack.offset(1);
@@ -918,6 +1063,7 @@ pub mod x64 {
             let mut is_baseline: Option<bool> = None;
 
             for version in versions() {
+                //println!("Lookup IP: {:x}", ret_addr);
                 match version
                     .msm
                     .lookup_call_ip(ret_addr as usize, version.base)
@@ -1105,144 +1251,10 @@ pub mod x64 {
                 stack: wasm_stack,
                 locals: wasm_locals,
             };
+            //println!("WFS = {:?}", wfs);
             results.push(wfs);
         }
 
         unreachable!();
-    }
-
-    /// A kind of GPR register
-    #[repr(u8)]
-    #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-    pub enum GPR {
-        /// RAX Register
-        RAX,
-        /// RCX Register
-        RCX,
-        /// RDX Register
-        RDX,
-        /// RBX Register
-        RBX,
-        /// RSP Register
-        RSP,
-        /// RBP Register
-        RBP,
-        /// RSI Register
-        RSI,
-        /// RDI Register
-        RDI,
-        /// R8 Register
-        R8,
-        /// R9 Register
-        R9,
-        /// R10 Register
-        R10,
-        /// R11 Register
-        R11,
-        /// R12 Register
-        R12,
-        /// R13 Register
-        R13,
-        /// R14 Register
-        R14,
-        /// R15 Register
-        R15,
-    }
-
-    /// A kind of XMM register
-    #[repr(u8)]
-    #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-    pub enum XMM {
-        /// XMM0 Register
-        XMM0,
-        /// XMM1 Register
-        XMM1,
-        /// XMM2 Register
-        XMM2,
-        /// XMM3 Register
-        XMM3,
-        /// XMM4 Register
-        XMM4,
-        /// XMM5 Register
-        XMM5,
-        /// XMM6 Register
-        XMM6,
-        /// XMM7 Register
-        XMM7,
-        /// XMM8 Register
-        XMM8,
-        /// XMM9 Register
-        XMM9,
-        /// XMM10 Register
-        XMM10,
-        /// XMM11 Register
-        XMM11,
-        /// XMM12 Register
-        XMM12,
-        /// XMM13 Register
-        XMM13,
-        /// XMM14 Register
-        XMM14,
-        /// XMM15 Register
-        XMM15,
-    }
-
-    /// A kind of register belonging to the x64 register set
-    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-    pub enum X64Register {
-        /// A register belonging to the GPR register set
-        GPR(GPR),
-        /// A register belonging to the XMM register set
-        XMM(XMM),
-    }
-
-    impl X64Register {
-        /// Returns a `RegisterIndex` for the current `X64Register`.
-        pub fn to_index(&self) -> RegisterIndex {
-            match *self {
-                X64Register::GPR(x) => RegisterIndex(x as usize),
-                X64Register::XMM(x) => RegisterIndex(x as usize + 16),
-            }
-        }
-
-        /// Returns an `Option<X6Register>` for the given DWARF register integer number.
-        pub fn from_dwarf_regnum(x: u16) -> Option<X64Register> {
-            Some(match x {
-                0 => X64Register::GPR(GPR::RAX),
-                1 => X64Register::GPR(GPR::RDX),
-                2 => X64Register::GPR(GPR::RCX),
-                3 => X64Register::GPR(GPR::RBX),
-                4 => X64Register::GPR(GPR::RSI),
-                5 => X64Register::GPR(GPR::RDI),
-                6 => X64Register::GPR(GPR::RBP),
-                7 => X64Register::GPR(GPR::RSP),
-                8 => X64Register::GPR(GPR::R8),
-                9 => X64Register::GPR(GPR::R9),
-                10 => X64Register::GPR(GPR::R10),
-                11 => X64Register::GPR(GPR::R11),
-                12 => X64Register::GPR(GPR::R12),
-                13 => X64Register::GPR(GPR::R13),
-                14 => X64Register::GPR(GPR::R14),
-                15 => X64Register::GPR(GPR::R15),
-
-                17 => X64Register::XMM(XMM::XMM0),
-                18 => X64Register::XMM(XMM::XMM1),
-                19 => X64Register::XMM(XMM::XMM2),
-                20 => X64Register::XMM(XMM::XMM3),
-                21 => X64Register::XMM(XMM::XMM4),
-                22 => X64Register::XMM(XMM::XMM5),
-                23 => X64Register::XMM(XMM::XMM6),
-                24 => X64Register::XMM(XMM::XMM7),
-                25 => X64Register::XMM(XMM::XMM8),
-                26 => X64Register::XMM(XMM::XMM9),
-                27 => X64Register::XMM(XMM::XMM10),
-                28 => X64Register::XMM(XMM::XMM11),
-                29 => X64Register::XMM(XMM::XMM12),
-                30 => X64Register::XMM(XMM::XMM13),
-                31 => X64Register::XMM(XMM::XMM14),
-                32 => X64Register::XMM(XMM::XMM15),
-                _ => return None,
-            })
-        }
     }
 }

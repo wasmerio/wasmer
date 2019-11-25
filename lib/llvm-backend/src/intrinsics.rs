@@ -1132,7 +1132,7 @@ impl<'a> CtxType<'a> {
             module.clone(),
             intrinsics,
             "context_field_ptr_to_internals",
-            local_internals_ptr_ptr.as_instruction_value().unwrap(),
+            local_internals_ptr.as_instruction_value().unwrap(),
             None,
         );
         unsafe {

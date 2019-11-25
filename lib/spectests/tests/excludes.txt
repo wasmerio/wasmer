@@ -306,6 +306,8 @@ llvm:skip:simd_binaryen.wast:*:unix # Module - caught panic Any
 singlepass:skip:simd.wast:*          # SIMD not implemented
 singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
+singlepass:skip:atomic.wast:*:*:aarch64 # Threads not yet supported on singlepass
+
 singlepass:fail:address.wast:192 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:address.wast:194 # AssertTrap - expected trap, got []
 singlepass:fail:address.wast:195 # AssertTrap - expected trap, got []

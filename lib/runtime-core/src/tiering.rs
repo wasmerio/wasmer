@@ -1,6 +1,6 @@
 //! The tiering module supports switching between code compiled with different optimization levels
 //! as runtime.
-use crate::backend::{Compiler, CompilerConfig};
+use crate::backend::{Backend, Compiler, CompilerConfig};
 use crate::compile_with_config;
 use crate::fault::{
     catch_unsafe_unwind, ensure_sighandler, pop_code_version, push_code_version, with_ctx,
@@ -43,6 +43,7 @@ struct OptimizationState {
 }
 
 struct OptimizationOutcome {
+    backend_id: Backend,
     module: Module,
 }
 
@@ -53,6 +54,7 @@ unsafe impl Sync for CtxWrapper {}
 
 unsafe fn do_optimize(
     binary: &[u8],
+    backend_id: Backend,
     compiler: Box<dyn Compiler>,
     ctx: &Mutex<CtxWrapper>,
     state: &OptimizationState,
@@ -72,7 +74,7 @@ unsafe fn do_optimize(
 
     let ctx_inner = ctx.lock().unwrap();
     if !ctx_inner.0.is_null() {
-        *state.outcome.lock().unwrap() = Some(OptimizationOutcome { module });
+        *state.outcome.lock().unwrap() = Some(OptimizationOutcome { backend_id, module });
         set_wasm_interrupt_on_ctx(ctx_inner.0);
     }
 }
@@ -85,7 +87,8 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     import_object: &ImportObject,
     start_raw: extern "C" fn(&mut Ctx),
     baseline: &mut Instance,
-    optimized_backends: Vec<Box<dyn Fn() -> Box<dyn Compiler> + Send>>,
+    baseline_backend: Backend,
+    optimized_backends: Vec<(Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>)>,
     interactive_shell: F,
 ) -> Result<(), String> {
     ensure_sighandler();
@@ -107,9 +110,9 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
         let ctx_box = ctx_box.clone();
         let opt_state = opt_state.clone();
         ::std::thread::spawn(move || {
-            for backend in optimized_backends {
+            for (backend_id, backend) in optimized_backends {
                 if !ctx_box.lock().unwrap().0.is_null() {
-                    do_optimize(&wasm_binary, backend(), &ctx_box, &opt_state);
+                    do_optimize(&wasm_binary, backend_id, backend(), &ctx_box, &opt_state);
                 }
             }
         });
@@ -125,6 +128,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             .get_module_state_map()
             .unwrap(),
         base: baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+        backend: baseline_backend,
     });
     let n_versions: Cell<usize> = Cell::new(1);
 
@@ -135,7 +139,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     }));
 
     loop {
-        let new_optimized: Option<&mut Instance> = {
+        let new_optimized: Option<(Backend, &mut Instance)> = {
             let mut outcome = opt_state.outcome.lock().unwrap();
             if let Some(x) = outcome.take() {
                 let instance = x
@@ -144,12 +148,12 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
                 // Keep the optimized code alive.
                 optimized_instances.push(instance);
-                optimized_instances.last_mut()
+                optimized_instances.last_mut().map(|y| (x.backend_id, y))
             } else {
                 None
             }
         };
-        if let Some(optimized) = new_optimized {
+        if let Some((backend_id, optimized)) = new_optimized {
             let base = module_info.imported_functions.len();
             let code_ptr = optimized
                 .module
@@ -186,6 +190,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     .get_code()
                     .unwrap()
                     .as_ptr() as usize,
+                backend: backend_id,
             });
             n_versions.set(n_versions.get() + 1);
 

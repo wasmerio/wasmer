@@ -25,7 +25,7 @@ generate: generate-spectests generate-emtests generate-wasitests
 
 # Spectests
 spectests-singlepass:
-	cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture
+	cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture --test-threads 1
 
 spectests-cranelift:
 	cargo test --manifest-path lib/spectests/Cargo.toml --release --features clif -- --nocapture
@@ -97,12 +97,13 @@ cranelift: spectests-cranelift emtests-cranelift middleware-cranelift wasitests-
 
 llvm: spectests-llvm emtests-llvm wasitests-llvm
 	cargo test -p wasmer-llvm-backend --release
+	cargo test -p wasmer-llvm-backend-tests --release
 	cargo test -p wasmer-runtime-core-tests --release --no-default-features --features backend-llvm
 
 
 # All tests
 capi:
-	cargo build --release
+	cargo build --release --features backend-cranelift
 	cargo build -p wasmer-runtime-c-api --release
 
 test-capi: capi
@@ -151,7 +152,7 @@ lint:
 precommit: lint test
 
 debug:
-	cargo build --release --features backend-singlepass,debug,trace
+	cargo build --release --features backend-cranelift,backend-singlepass,debug,trace
 
 install:
 	cargo install --path .
@@ -265,4 +266,7 @@ dep-graph:
 	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
 docs:
-	cargo doc --features=backend-cranelift,backend-singlepass,backend-llvm,docs,wasi,managed
+	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed
+
+wapm:
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"

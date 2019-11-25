@@ -5,9 +5,11 @@ initArch() {
     if [ -n "$WASMER_ARCH" ]; then
         ARCH="$WASMER_ARCH"
     fi
+    # If you modify this list, please also modify install.sh
     case $ARCH in
         amd64) ARCH="amd64";;
         x86_64) ARCH="amd64";;
+        aarch64) ARCH="arm64";;
         i386) ARCH="386";;
         *) echo "Architecture ${ARCH} is not supported by this installation script"; exit 1;;
     esac

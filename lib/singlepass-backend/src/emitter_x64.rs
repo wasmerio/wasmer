@@ -1,5 +1,13 @@
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-pub use wasmer_runtime_core::state::x64::{GPR, XMM};
+use wasmer_runtime_core::backend::InlineBreakpointType;
+pub use wasmer_runtime_core::state::x64_decl::{GPR, XMM};
+
+fn _dummy(_a: &Assembler) {
+    dynasm!(
+        _a
+        ; .arch x64
+    );
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
@@ -56,6 +64,7 @@ pub trait Emitter {
 
     fn get_label(&mut self) -> Self::Label;
     fn get_offset(&self) -> Self::Offset;
+    fn get_jmp_instr_size(&self) -> u8;
 
     fn emit_u64(&mut self, x: u64);
 
@@ -186,6 +195,100 @@ pub trait Emitter {
     fn emit_call_location(&mut self, loc: Location);
 
     fn emit_bkpt(&mut self);
+
+    fn emit_host_redirection(&mut self, target: GPR);
+    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType);
+
+    fn arch_has_itruncf(&self) -> bool {
+        false
+    }
+    fn arch_emit_i32_trunc_sf32(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i32_trunc_sf64(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i32_trunc_uf32(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i32_trunc_uf64(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i64_trunc_sf32(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i64_trunc_sf64(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i64_trunc_uf32(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i64_trunc_uf64(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+
+    fn arch_has_fconverti(&self) -> bool {
+        false
+    }
+    fn arch_emit_f32_convert_si32(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f32_convert_si64(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f32_convert_ui32(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f32_convert_ui64(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_convert_si32(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_convert_si64(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_convert_ui32(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_convert_ui64(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+
+    fn arch_has_fneg(&self) -> bool {
+        false
+    }
+    fn arch_emit_f32_neg(&mut self, _src: XMM, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_neg(&mut self, _src: XMM, _dst: XMM) {
+        unimplemented!()
+    }
+
+    fn arch_has_xzcnt(&self) -> bool {
+        false
+    }
+    fn arch_emit_lzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) {
+        unimplemented!()
+    }
+    fn arch_emit_tzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) {
+        unimplemented!()
+    }
+
+    fn arch_supports_canonicalize_nan(&self) -> bool {
+        true
+    }
+
+    fn arch_requires_indirect_call_trampoline(&self) -> bool {
+        false
+    }
+
+    fn arch_emit_indirect_call_with_trampoline(&mut self, _loc: Location) {
+        unimplemented!()
+    }
+
+    // Emits entry trampoline just before the real function.
+    fn arch_emit_entry_trampoline(&mut self) {}
 }
 
 macro_rules! unop_gpr {
@@ -526,6 +629,10 @@ impl Emitter for Assembler {
 
     fn get_offset(&self) -> AssemblyOffset {
         self.offset()
+    }
+
+    fn get_jmp_instr_size(&self) -> u8 {
+        5
     }
 
     fn emit_u64(&mut self, x: u64) {
@@ -1158,5 +1265,18 @@ impl Emitter for Assembler {
 
     fn emit_bkpt(&mut self) {
         dynasm!(self ; int 0x3);
+    }
+
+    fn emit_host_redirection(&mut self, target: GPR) {
+        self.emit_jmp_location(Location::GPR(target));
+    }
+
+    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType) {
+        dynasm!(self
+            ; ud2
+            ; .byte 0x0f ; .byte (0xb9u8 as i8) // ud
+            ; int -1
+            ; .byte (ty as u8 as i8)
+        );
     }
 }

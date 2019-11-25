@@ -1,5 +1,7 @@
 //! The codegen module provides common functions and data structures used by multiple backends
 //! during the code generation process.
+#[cfg(unix)]
+use crate::fault::FaultInfo;
 use crate::{
     backend::RunnableModule,
     backend::{Backend, CacheGen, Compiler, CompilerConfig, Features, Token},
@@ -64,9 +66,17 @@ impl fmt::Debug for InternalEvent {
 }
 
 /// Information for a breakpoint
+#[cfg(unix)]
 pub struct BreakpointInfo<'a> {
     /// Fault.
-    pub fault: Option<&'a dyn Any>,
+    pub fault: Option<&'a FaultInfo>,
+}
+
+/// Information for a breakpoint
+#[cfg(not(unix))]
+pub struct BreakpointInfo {
+    /// Fault placeholder.
+    pub fault: Option<()>,
 }
 
 /// A trait that represents the functions needed to be implemented to generate code for a module.
