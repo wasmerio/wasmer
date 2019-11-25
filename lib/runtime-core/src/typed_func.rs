@@ -94,6 +94,8 @@ pub struct Wasm {
     pub(crate) invoke_env: Option<NonNull<c_void>>,
 }
 
+impl Kind for Wasm {}
+
 impl Wasm {
     /// Create new `Wasm` from given parts.
     pub unsafe fn from_raw_parts(
@@ -113,7 +115,6 @@ impl Wasm {
 /// by the host.
 pub struct Host(());
 
-impl Kind for Wasm {}
 impl Kind for Host {}
 
 /// Represents a list of WebAssembly values.
@@ -157,9 +158,10 @@ pub trait WasmTypeList {
 /// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
 /// `ImplicitVmCtx` structures.
 ///
-/// This type is never aimed to be used by a user. It is used by the
+/// This trait is never aimed to be used by a user. It is used by the
 /// trait system to automatically generate an appropriate `wrap`
 /// function.
+#[doc(hidden)]
 pub trait HostFunctionKind {}
 
 /// This empty structure indicates that an external function must
@@ -170,7 +172,9 @@ pub trait HostFunctionKind {}
 ///     x + 1
 /// }
 /// ```
+#[doc(hidden)]
 pub struct ExplicitVmCtx;
+
 impl HostFunctionKind for ExplicitVmCtx {}
 
 /// This empty structure indicates that an external function has no
@@ -181,15 +185,26 @@ impl HostFunctionKind for ExplicitVmCtx {}
 ///     x + 1
 /// }
 /// ```
+#[doc(hidden)]
 pub struct ImplicitVmCtx;
+
 impl HostFunctionKind for ImplicitVmCtx {}
 
+/// Empty trait to represent arity types, like `Zero`, `One` etc. It
+/// is used to monomorphize the `VariadicHostFunction` trait for each
+/// arity.
+///
+/// This trait is never aimed to be used by a user. It is used by the
+/// trait system only.
+#[doc(hidden)]
 pub trait Arity {}
 
 macro_rules! arity {
     ($($arity:ident),*) => {
         $(
+            /// Represent a specific arity. See the `Arity` trait.
             #[derive(Debug)]
+            #[doc(hidden)]
             pub struct $arity;
 
             impl Arity for $arity {}
@@ -207,16 +222,22 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    /// Conver to function pointer.
+    /// Convert to function pointer.
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
-pub trait VariadicHostFunction<Kind, A, Rets>
+/// Represents a function that can be converted to a `vm::Func`
+/// (function pointer) that can be called within WebAssembly.
+///
+/// All the function arguments are gathered in an array instead of
+/// being distributed.
+pub trait VariadicHostFunction<Kind, Rank, Rets>
 where
     Kind: HostFunctionKind,
-    A: Arity,
+    Rank: Arity,
     Rets: WasmTypeList,
 {
+    /// Convert to function pointer.
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
@@ -348,14 +369,15 @@ where
         }
     }
 
-    fn new_variadic_resolved<A, F, Kind>(
+    // Hack to dupe the type system.
+    fn new_variadic_resolved<Rank, F, Kind>(
         func: F,
         signature: Arc<FuncSig>,
     ) -> Func<'a, (), Rets, Host>
     where
-        A: Arity,
+        Rank: Arity,
         Kind: HostFunctionKind,
-        F: VariadicHostFunction<Kind, A, Rets>,
+        F: VariadicHostFunction<Kind, Rank, Rets>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -843,7 +865,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    //use std::convert::TryInto;
+    use std::convert::TryInto;
 
     macro_rules! test_func_arity_n {
         ($test_name:ident, $($x:ident),*) => {
@@ -909,6 +931,7 @@ mod tests {
 
             x + y
         }
+        */
 
         fn without_vmctx_variadic(inputs: &[Value]) -> i32 {
             let x: i32 = (&inputs[0]).try_into().unwrap();
@@ -917,35 +940,20 @@ mod tests {
             x + y
         }
 
-        let _: Func<(i32, i32), i32, Host> = Func::new_with_signature(
-            with_vmctx_variadic,
-            Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
-        );
-        let _: Func<(i32, i32), i32, Host> = Func::new_with_signature(
+        let _ = Func::new_variadic(
             without_vmctx_variadic,
+            2,
             Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
         );
-        let _: Func<(i32, i32), i32, Host> = Func::new_with_signature(
-            |_: &mut vm::Ctx, inputs: &[Value]| -> i32 {
+
+        let _ = Func::new_variadic(
+            |inputs: &[Value]| -> i32 {
                 let x: i32 = (&inputs[0]).try_into().unwrap();
                 let y: i32 = (&inputs[1]).try_into().unwrap();
 
                 x + y
             },
-            Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
-        );
-        */
-
-        let _ = Func::new_with_signature(
-            |_inputs: &[Value]| -> i32 {
-                /*
-                let x: i32 = (&inputs[0]).try_into().unwrap();
-                let y: i32 = (&inputs[1]).try_into().unwrap();
-
-                x + y
-                 */
-                42
-            },
+            2,
             Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
         );
     }
