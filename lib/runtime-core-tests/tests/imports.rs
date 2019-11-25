@@ -81,11 +81,11 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
   (import "env" "callback_fn" (func $callback_fn (type $type)))
   (import "env" "callback_closure" (func $callback_closure (type $type)))
   (import "env" "callback_closure_with_env" (func $callback_closure_with_env (type $type)))
-  (import "env" "callback_fn_variadic" (func $callback_fn_variadic (type $type)))
-  (import "env" "callback_closure_variadic" (func $callback_closure_variadic (type $type)))
   (import "env" "callback_fn_with_vmctx" (func $callback_fn_with_vmctx (type $type)))
   (import "env" "callback_closure_with_vmctx" (func $callback_closure_with_vmctx (type $type)))
   (import "env" "callback_closure_with_vmctx_and_env" (func $callback_closure_with_vmctx_and_env (type $type)))
+  (import "env" "callback_fn_variadic" (func $callback_fn_variadic (type $type)))
+  (import "env" "callback_closure_variadic" (func $callback_closure_variadic (type $type)))
   (import "env" "callback_fn_trap" (func $callback_fn_trap (type $type)))
   (import "env" "callback_closure_trap" (func $callback_closure_trap (type $type)))
   (import "env" "callback_fn_trap_with_vmctx" (func $callback_fn_trap_with_vmctx (type $type)))
@@ -104,14 +104,6 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
     get_local 0
     call $callback_closure_with_env)
 
-  (func (export "function_fn_variadic") (type $type)
-    get_local 0
-    call $callback_fn_variadic)
-
-  (func (export "function_closure_variadic") (type $type)
-    get_local 0
-    call $callback_closure_variadic)
-
   (func (export "function_fn_with_vmctx") (type $type)
     get_local 0
     call $callback_fn_with_vmctx)
@@ -123,6 +115,14 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
   (func (export "function_closure_with_vmctx_and_env") (type $type)
     get_local 0
     call $callback_closure_with_vmctx_and_env)
+
+  (func (export "function_fn_variadic") (type $type)
+    get_local 0
+    call $callback_fn_variadic)
+
+  (func (export "function_closure_variadic") (type $type)
+    get_local 0
+    call $callback_closure_variadic)
 
   (func (export "function_fn_trap") (type $type)
     get_local 0
@@ -171,24 +171,6 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
                 Ok(shift_ + n + 1)
             }),
 
-            // Regular “variadic” function.
-            "callback_fn_variadic" => Func::new_variadic(
-                callback_fn_variadic,
-                1,
-                Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32]))
-            ),
-
-            // “Variadic” closure.
-            "callback_closure_variadic" => Func::new_variadic(
-                |inputs: &[Value]| -> Result<i32, ()> {
-                    let n: i32 = (&inputs[0]).try_into().unwrap();
-
-                    Ok(n + 1)
-                },
-                1,
-                Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
-            ),
-
             // Regular function with an explicit `vmctx`.
             "callback_fn_with_vmctx" => Func::new(callback_fn_with_vmctx),
 
@@ -207,6 +189,26 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
 
                 Ok(shift_ + n + 1)
             }),
+
+            // Regular “variadic” function.
+            "callback_fn_variadic" => Func::new_variadic(
+                callback_fn_variadic,
+                1,
+                Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32]))
+            ),
+
+            // “Variadic” closure.
+            "callback_closure_variadic" => Func::new_variadic(
+                |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<i32, ()> {
+                    let memory = vmctx.memory(0);
+                    let shift_: i32 = memory.view()[0].get();
+                    let n: i32 = (&inputs[0]).try_into().unwrap();
+
+                    Ok(shift_ + n + 1)
+                },
+                1,
+                Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
+            ),
 
             // Trap a regular function.
             "callback_fn_trap" => Func::new(callback_fn_trap),
@@ -245,10 +247,12 @@ fn callback_fn(n: i32) -> Result<i32, ()> {
     Ok(n + 1)
 }
 
-fn callback_fn_variadic(inputs: &[Value]) -> Result<i32, ()> {
+fn callback_fn_variadic(vmctx: &mut vm::Ctx, inputs: &[Value]) -> Result<i32, ()> {
+    let memory = vmctx.memory(0);
+    let shift_: i32 = memory.view()[0].get();
     let n: i32 = (&inputs[0]).try_into().unwrap();
 
-    Ok(n + 1)
+    Ok(shift_ + n + 1)
 }
 
 fn callback_fn_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
@@ -287,8 +291,6 @@ test!(
     function_closure_with_env,
     Ok(2 + shift + SHIFT)
 );
-test!(test_fn_variadic, function_fn_variadic, Ok(2));
-test!(test_closure_variadic, function_closure_variadic, Ok(2));
 test!(test_fn_with_vmctx, function_fn_with_vmctx, Ok(2 + SHIFT));
 test!(
     test_closure_with_vmctx,
@@ -299,6 +301,12 @@ test!(
     test_closure_with_vmctx_and_env,
     function_closure_with_vmctx_and_env,
     Ok(2 + shift + SHIFT)
+);
+test!(test_fn_variadic, function_fn_variadic, Ok(2 + SHIFT));
+test!(
+    test_closure_variadic,
+    function_closure_variadic,
+    Ok(2 + SHIFT)
 );
 test!(
     test_fn_trap,

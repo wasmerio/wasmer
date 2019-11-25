@@ -349,7 +349,7 @@ where
     pub fn new_variadic<F, Trap>(func: F, arity: i8, signature: Arc<FuncSig>) -> Self
     where
         Trap: TrapEarly<Rets>,
-        F: Fn(&[Value]) -> Trap + 'static,
+        F: Fn(&mut vm::Ctx, &[Value]) -> Trap + 'static,
     {
         match arity {
             0 => Self::new_variadic_resolved::<Zero, _, _>(func, signature),
@@ -720,11 +720,11 @@ macro_rules! impl_traits {
             }
         }
 
-        impl<Rets, Trap, FN> VariadicHostFunction<ImplicitVmCtx, $arity, Rets> for FN
+        impl<Rets, Trap, FN> VariadicHostFunction<ExplicitVmCtx, $arity, Rets> for FN
         where
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn(&[Value]) -> Trap + 'static,
+            FN: Fn(&mut vm::Ctx, &[Value]) -> Trap + 'static,
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
@@ -743,7 +743,7 @@ macro_rules! impl_traits {
                 where
                     Rets: WasmTypeList,
                     Trap: TrapEarly<Rets>,
-                    FN: Fn(&[Value]) -> Trap,
+                    FN: Fn(&mut vm::Ctx, &[Value]) -> Trap,
                 {
                     // Get the pointer to this `wrap` function.
                     let self_pointer = wrap::<Rets, Trap, FN> as *const vm::Func;
@@ -780,7 +780,12 @@ macro_rules! impl_traits {
                                 )
                                 .collect();
 
-                            func(inputs.as_slice()).report()
+                            let vmctx = unsafe { &mut *(vmctx as *const _ as *mut _) };
+
+                            func(vmctx, inputs.as_slice()).report()
+                            //   ^^^^^ The imported function
+                            //         expects `vm::Ctx` as first
+                            //         argument; provide it.
                         }
                     )
                 }
@@ -924,30 +929,20 @@ mod tests {
 
     #[test]
     fn test_func_variadic() {
-        /*
         fn with_vmctx_variadic(_: &mut vm::Ctx, inputs: &[Value]) -> i32 {
             let x: i32 = (&inputs[0]).try_into().unwrap();
             let y: i32 = (&inputs[1]).try_into().unwrap();
 
             x + y
         }
-        */
-
-        fn without_vmctx_variadic(inputs: &[Value]) -> i32 {
-            let x: i32 = (&inputs[0]).try_into().unwrap();
-            let y: i32 = (&inputs[1]).try_into().unwrap();
-
-            x + y
-        }
 
         let _ = Func::new_variadic(
-            without_vmctx_variadic,
+            with_vmctx_variadic,
             2,
             Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
         );
-
         let _ = Func::new_variadic(
-            |inputs: &[Value]| -> i32 {
+            |_: &mut vm::Ctx, inputs: &[Value]| -> i32 {
                 let x: i32 = (&inputs[0]).try_into().unwrap();
                 let y: i32 = (&inputs[1]).try_into().unwrap();
 
