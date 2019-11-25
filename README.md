@@ -21,7 +21,7 @@
 
 ## Introduction
 
-[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
+[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/). Wasmer can be used standalone (via the CLI) and embedded in different languages, running in x86 and [ARM devices](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c).
 
 Install the Wasmer CLI with:
 
