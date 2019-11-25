@@ -37,6 +37,11 @@ where
         }
     }
 
+    /// Clears the map. Keeps the allocated memory for future use.
+    pub fn clear(&mut self) {
+        self.elems.clear();
+    }
+
     /// Returns the size of this map.
     pub fn len(&self) -> usize {
         self.elems.len()
