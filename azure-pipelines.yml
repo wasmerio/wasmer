@@ -104,7 +104,11 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: |
+      or(
+        in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'),
+        startsWith(variables['Build.SourceBranch'], 'refs/tags')
+      )
     steps:
       - checkout: self
         submodules: true
@@ -123,10 +127,10 @@ jobs:
         displayName: Build (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
-          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+          make wapm
         displayName: Build WAPM
         condition: |
-          eq(variables['Build.SourceBranch'], 'refs/heads/master')
+          startsWith(variables['Build.SourceBranch'], 'refs/tags')
       - bash: |
           make build-install
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
@@ -134,7 +138,7 @@ jobs:
         condition: |
           and(
             succeeded(),
-            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            startsWith(variables['Build.SourceBranch'], 'refs/tags'),
             not(eq(variables['Agent.OS'], 'Windows_NT'))
           )
       - bash: |
@@ -145,7 +149,7 @@ jobs:
         condition: |
           and(
             succeeded(),
-            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            startsWith(variables['Build.SourceBranch'], 'refs/tags'),
             eq(variables['Agent.OS'], 'Windows_NT')
           )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
@@ -167,7 +171,11 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: |
+      or(
+        in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'),
+        startsWith(variables['Build.SourceBranch'], 'refs/tags')
+      )
     steps:
       - checkout: self
         submodules: true
@@ -205,7 +213,8 @@ jobs:
     dependsOn:
       - Build_CLI
       - Build_Library
-    condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
+    condition: |
+      startsWith(variables['Build.SourceBranch'], 'refs/tags')
     steps:
       # - download: current
       - task: DownloadPipelineArtifact@1
@@ -220,7 +229,7 @@ jobs:
         displayName: Set the tag name as an environment variable
       - task: GithubRelease@0
         displayName: "Create GitHub Release"
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
         inputs:
           gitHubConnection: 'wasmer'
           repositoryName: 'wasmerio/wasmer'

@@ -1412,13 +1412,10 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 }
             }
             Operator::Return => {
-                let frame = state.outermost_frame()?;
                 let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
                     message: "not currently in a block",
                     offset: -1isize as usize,
                 })?;
-
-                builder.build_unconditional_branch(frame.br_dest());
 
                 let frame = state.outermost_frame()?;
                 for phi in frame.phis().to_vec().iter() {
@@ -1426,6 +1423,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     let arg = apply_pending_canonicalization(builder, intrinsics, arg, info);
                     phi.add_incoming(&[(&arg, &current_block)]);
                 }
+
+                let frame = state.outermost_frame()?;
+                builder.build_unconditional_branch(frame.br_dest());
 
                 state.reachable = false;
             }
@@ -8286,25 +8286,42 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         }
 
         let pass_manager = PassManager::create(());
-        if cfg!(test) {
-            pass_manager.add_verifier_pass();
-        }
+
+        #[cfg(feature = "test")]
+        pass_manager.add_verifier_pass();
+
         pass_manager.add_type_based_alias_analysis_pass();
+        pass_manager.add_ipsccp_pass();
+        pass_manager.add_prune_eh_pass();
+        pass_manager.add_dead_arg_elimination_pass();
+        pass_manager.add_function_inlining_pass();
         pass_manager.add_lower_expect_intrinsic_pass();
         pass_manager.add_scalar_repl_aggregates_pass();
         pass_manager.add_instruction_combining_pass();
-        pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_gvn_pass();
         pass_manager.add_jump_threading_pass();
         pass_manager.add_correlated_value_propagation_pass();
-        pass_manager.add_sccp_pass();
+        pass_manager.add_cfg_simplification_pass();
+        pass_manager.add_reassociate_pass();
+        pass_manager.add_loop_rotate_pass();
+        pass_manager.add_loop_unswitch_pass();
+        pass_manager.add_ind_var_simplify_pass();
+        pass_manager.add_licm_pass();
+        pass_manager.add_loop_vectorize_pass();
+        pass_manager.add_instruction_combining_pass();
+        pass_manager.add_ipsccp_pass();
+        pass_manager.add_reassociate_pass();
+        pass_manager.add_cfg_simplification_pass();
+        pass_manager.add_gvn_pass();
+        pass_manager.add_memcpy_optimize_pass();
+        pass_manager.add_dead_store_elimination_pass();
+        pass_manager.add_bit_tracking_dce_pass();
         pass_manager.add_instruction_combining_pass();
         pass_manager.add_reassociate_pass();
         pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_bit_tracking_dce_pass();
         pass_manager.add_slp_vectorize_pass();
-        pass_manager.run_on(&*self.module.borrow_mut());
+        pass_manager.add_early_cse_pass();
 
+        pass_manager.run_on(&*self.module.borrow_mut());
         if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.post_opt_ir } {
             self.module.borrow_mut().print_to_file(path).unwrap();
         }

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.10.2"
+version = "0.11.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -24,7 +24,7 @@ byteorder = "1.3"
 errno = "0.2"
 structopt = "0.3"
 wabt = "0.9.1"
-wasmer-clif-backend = { path = "lib/clif-backend" }
+wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
@@ -50,6 +50,7 @@ members = [
     "lib/win-exception-handler",
     "lib/runtime-c-api",
     "lib/llvm-backend",
+    "lib/llvm-backend-tests",
     "lib/wasi",
     "lib/middleware-common",
     "lib/kernel-loader",
@@ -73,7 +74,7 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi", "backend-cranelift"]
+default = ["fast-tests", "wasi"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
@@ -82,6 +83,7 @@ extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
 backend-cranelift = [
+    "wasmer-clif-backend",
     "wasmer-runtime-core/backend-cranelift",
     "wasmer-runtime/cranelift",
     "wasmer-middleware-common-tests/clif",

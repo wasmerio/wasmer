@@ -4,6 +4,7 @@ use wasmer_wasi::{state::*, *};
 
 use std::ffi::c_void;
 
+#[cfg(not(feature = "singlepass"))]
 #[test]
 fn serializing_works() {
     let args = vec![

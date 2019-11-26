@@ -72,6 +72,82 @@ impl std::str::FromStr for Backend {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum Architecture {
+    X64,
+    Aarch64,
+}
+
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
+pub enum InlineBreakpointType {
+    Trace,
+    Middleware,
+    Unknown,
+}
+
+#[derive(Clone, Debug)]
+pub struct InlineBreakpoint {
+    pub size: usize,
+    pub ty: InlineBreakpointType,
+}
+
+pub fn get_inline_breakpoint_size(arch: Architecture, backend: Backend) -> Option<usize> {
+    match (arch, backend) {
+        (Architecture::X64, Backend::Singlepass) => Some(7),
+        (Architecture::Aarch64, Backend::Singlepass) => Some(12),
+        _ => None,
+    }
+}
+
+pub fn read_inline_breakpoint(
+    arch: Architecture,
+    backend: Backend,
+    code: &[u8],
+) -> Option<InlineBreakpoint> {
+    match arch {
+        Architecture::X64 => match backend {
+            Backend::Singlepass => {
+                if code.len() < 7 {
+                    None
+                } else if &code[..6] == &[0x0f, 0x0b, 0x0f, 0xb9, 0xcd, 0xff] {
+                    // ud2 ud (int 0xff) code
+                    Some(InlineBreakpoint {
+                        size: 7,
+                        ty: match code[6] {
+                            0 => InlineBreakpointType::Trace,
+                            1 => InlineBreakpointType::Middleware,
+                            _ => InlineBreakpointType::Unknown,
+                        },
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        },
+        Architecture::Aarch64 => match backend {
+            Backend::Singlepass => {
+                if code.len() < 12 {
+                    None
+                } else if &code[..8] == &[0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff] {
+                    Some(InlineBreakpoint {
+                        size: 12,
+                        ty: match code[8] {
+                            0 => InlineBreakpointType::Trace,
+                            1 => InlineBreakpointType::Middleware,
+                            _ => InlineBreakpointType::Unknown,
+                        },
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        },
+    }
+}
+
 #[cfg(test)]
 mod backend_test {
     use super::*;

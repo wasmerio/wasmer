@@ -5,17 +5,31 @@ pub mod raw {
     //! The raw module contains required externed function interfaces for the fault module.
     use std::ffi::c_void;
 
+    #[cfg(target_arch = "x86_64")]
     extern "C" {
+        /// Load registers and return on the stack [stack_end..stack_begin].
         pub fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64;
+        /// Internal routine for switching into a backend without information about where registers are preserved.
         pub fn register_preservation_trampoline(); // NOT safe to call directly
+    }
+
+    /// Internal routine for switching into a backend without information about where registers are preserved.
+    #[cfg(not(target_arch = "x86_64"))]
+    pub extern "C" fn register_preservation_trampoline() {
+        unimplemented!("register_preservation_trampoline");
+    }
+
+    extern "C" {
+        /// libc setjmp
         pub fn setjmp(env: *mut c_void) -> i32;
+        /// libc longjmp
         pub fn longjmp(env: *mut c_void, val: i32) -> !;
     }
 }
 
 use crate::codegen::{BreakpointInfo, BreakpointMap};
-use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR, XMM};
-use crate::state::CodeVersion;
+use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR};
+use crate::state::{CodeVersion, ExecutionStateImage};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use nix::sys::signal::{
@@ -29,13 +43,19 @@ use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
 
+#[cfg(target_arch = "x86_64")]
 pub(crate) unsafe fn run_on_alternative_stack(stack_end: *mut u64, stack_begin: *mut u64) -> u64 {
     raw::run_on_alternative_stack(stack_end, stack_begin)
 }
 
+#[cfg(not(target_arch = "x86_64"))]
+pub(crate) unsafe fn run_on_alternative_stack(_stack_end: *mut u64, _stack_begin: *mut u64) -> u64 {
+    unimplemented!("run_on_alternative_stack");
+}
+
 const TRAP_STACK_SIZE: usize = 1048576; // 1MB
 
-const SETJMP_BUFFER_LEN: usize = 27;
+const SETJMP_BUFFER_LEN: usize = 128;
 type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 
 struct UnwindInfo {
@@ -202,6 +222,13 @@ unsafe fn with_breakpoint_map<R, F: FnOnce(Option<&BreakpointMap>) -> R>(f: F) -
     f(inner.breakpoints.as_ref())
 }
 
+#[cfg(not(target_arch = "x86_64"))]
+/// Allocates and runs with the given stack size and closure.
+pub fn allocate_and_run<R, F: FnOnce() -> R>(_size: usize, f: F) -> R {
+    f()
+}
+
+#[cfg(target_arch = "x86_64")]
 /// Allocates and runs with the given stack size and closure.
 pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
     struct Context<F: FnOnce() -> R, R> {
@@ -245,12 +272,75 @@ extern "C" fn signal_trap_handler(
     siginfo: *mut siginfo_t,
     ucontext: *mut c_void,
 ) {
+    use crate::backend::{
+        get_inline_breakpoint_size, read_inline_breakpoint, Architecture, InlineBreakpointType,
+    };
+
+    #[cfg(target_arch = "x86_64")]
+    static ARCH: Architecture = Architecture::X64;
+
+    #[cfg(target_arch = "aarch64")]
+    static ARCH: Architecture = Architecture::Aarch64;
+
+    let mut should_unwind = false;
+    let mut unwind_result: Box<dyn Any> = Box::new(());
+
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
+        let early_return = allocate_and_run(TRAP_STACK_SIZE, || {
+            CURRENT_CODE_VERSIONS.with(|versions| {
+                let versions = versions.borrow();
+                for v in versions.iter() {
+                    let magic_size = if let Some(x) = get_inline_breakpoint_size(ARCH, v.backend) {
+                        x
+                    } else {
+                        continue;
+                    };
+                    let ip = fault.ip.get();
+                    let end = v.base + v.msm.total_size;
+                    if ip >= v.base && ip < end && ip + magic_size <= end {
+                        if let Some(ib) = read_inline_breakpoint(
+                            ARCH,
+                            v.backend,
+                            std::slice::from_raw_parts(ip as *const u8, magic_size),
+                        ) {
+                            match ib.ty {
+                                InlineBreakpointType::Trace => {}
+                                InlineBreakpointType::Middleware => {
+                                    let out: Option<Result<(), Box<dyn Any>>> =
+                                        with_breakpoint_map(|bkpt_map| {
+                                            bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
+                                                x(BreakpointInfo {
+                                                    fault: Some(&fault),
+                                                })
+                                            })
+                                        });
+                                    if let Some(Ok(())) = out {
+                                    } else if let Some(Err(e)) = out {
+                                        should_unwind = true;
+                                        unwind_result = e;
+                                    }
+                                }
+                                _ => println!("Unknown breakpoint type: {:?}", ib.ty),
+                            }
 
-        let mut unwind_result: Box<dyn Any> = Box::new(());
+                            fault.ip.set(ip + magic_size);
+                            return true;
+                        }
+                        break;
+                    }
+                }
+                false
+            })
+        });
+        if should_unwind {
+            begin_unsafe_unwind(unwind_result);
+        }
+        if early_return {
+            return;
+        }
 
-        let should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
+        should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
             let mut is_suspend_signal = false;
 
             WAS_SIGINT_TRIGGERED.with(|x| x.set(false));
@@ -259,7 +349,7 @@ extern "C" fn signal_trap_handler(
                 Ok(SIGTRAP) => {
                     // breakpoint
                     let out: Option<Result<(), Box<dyn Any>>> = with_breakpoint_map(|bkpt_map| {
-                        bkpt_map.and_then(|x| x.get(&(fault.ip as usize))).map(|x| {
+                        bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| {
                             x(BreakpointInfo {
                                 fault: Some(&fault),
                             })
@@ -289,17 +379,9 @@ extern "C" fn signal_trap_handler(
             }
 
             let ctx: &mut vm::Ctx = &mut **CURRENT_CTX.with(|x| x.get());
-            let rsp = fault.known_registers[X64Register::GPR(GPR::RSP).to_index().0].unwrap();
-
-            let es_image = CURRENT_CODE_VERSIONS.with(|versions| {
-                let versions = versions.borrow();
-                read_stack(
-                    || versions.iter(),
-                    rsp as usize as *const u64,
-                    fault.known_registers,
-                    Some(fault.ip as usize as u64),
-                )
-            });
+            let es_image = fault
+                .read_stack(None)
+                .expect("fault.read_stack() failed. Broken invariants?");
 
             if is_suspend_signal {
                 let image = build_instance_image(ctx, es_image);
@@ -367,19 +449,109 @@ unsafe fn install_sighandler() {
     sigaction(SIGINT, &sa_interrupt).unwrap();
 }
 
+#[derive(Debug, Clone)]
 /// Info about the fault
 pub struct FaultInfo {
     /// Faulting address.
     pub faulting_addr: *const c_void,
     /// Instruction pointer.
-    pub ip: *const c_void,
-    /// Known registers.
+    pub ip: &'static Cell<usize>,
+    /// Values of known registers.
     pub known_registers: [Option<u64>; 32],
 }
 
-/// Gets fault info for the given siginfo and context pointers.
+impl FaultInfo {
+    /// Parses the stack and builds an execution state image.
+    pub unsafe fn read_stack(&self, max_depth: Option<usize>) -> Option<ExecutionStateImage> {
+        let rsp = match self.known_registers[X64Register::GPR(GPR::RSP).to_index().0] {
+            Some(x) => x,
+            None => return None,
+        };
+
+        Some(CURRENT_CODE_VERSIONS.with(|versions| {
+            let versions = versions.borrow();
+            read_stack(
+                || versions.iter(),
+                rsp as usize as *const u64,
+                self.known_registers,
+                Some(self.ip.get() as u64),
+                max_depth,
+            )
+        }))
+    }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+/// Get fault info from siginfo and ucontext.
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
+    #[allow(dead_code)]
+    #[allow(non_camel_case_types)]
+    #[repr(packed)]
+    struct sigcontext {
+        fault_address: u64,
+        regs: [u64; 31],
+        sp: u64,
+        pc: u64,
+        pstate: u64,
+        reserved: [u8; 4096],
+    }
+
+    #[allow(dead_code)]
+    #[allow(non_camel_case_types)]
+    #[repr(packed)]
+    struct ucontext {
+        unknown: [u8; 176],
+        uc_mcontext: sigcontext,
+    }
+
+    #[allow(dead_code)]
+    #[allow(non_camel_case_types)]
+    #[repr(C)]
+    struct siginfo_t {
+        si_signo: i32,
+        si_errno: i32,
+        si_code: i32,
+        si_addr: u64,
+        // ...
+    }
+
+    let siginfo = siginfo as *const siginfo_t;
+    let si_addr = (*siginfo).si_addr;
+
+    let ucontext = ucontext as *mut ucontext;
+    let gregs = &(*ucontext).uc_mcontext.regs;
+
+    let mut known_registers: [Option<u64>; 32] = [None; 32];
+
+    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[15] as _);
+    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs[14] as _);
+    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(gregs[13] as _);
+    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(gregs[12] as _);
+    known_registers[X64Register::GPR(GPR::R11).to_index().0] = Some(gregs[11] as _);
+    known_registers[X64Register::GPR(GPR::R10).to_index().0] = Some(gregs[10] as _);
+    known_registers[X64Register::GPR(GPR::R9).to_index().0] = Some(gregs[9] as _);
+    known_registers[X64Register::GPR(GPR::R8).to_index().0] = Some(gregs[8] as _);
+    known_registers[X64Register::GPR(GPR::RSI).to_index().0] = Some(gregs[6] as _);
+    known_registers[X64Register::GPR(GPR::RDI).to_index().0] = Some(gregs[7] as _);
+    known_registers[X64Register::GPR(GPR::RDX).to_index().0] = Some(gregs[2] as _);
+    known_registers[X64Register::GPR(GPR::RCX).to_index().0] = Some(gregs[1] as _);
+    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(gregs[3] as _);
+    known_registers[X64Register::GPR(GPR::RAX).to_index().0] = Some(gregs[0] as _);
+
+    known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[5] as _);
+    known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[28] as _);
+
+    FaultInfo {
+        faulting_addr: si_addr as usize as _,
+        ip: std::mem::transmute::<&mut u64, &'static Cell<usize>>(&mut (*ucontext).uc_mcontext.pc),
+        known_registers,
+    }
+}
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
+/// Get fault info from siginfo and ucontext.
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
+    use crate::state::x64::XMM;
     use libc::{
         _libc_xmmreg, ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8,
         REG_R9, REG_RAX, REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX, REG_RIP, REG_RSI, REG_RSP,
@@ -402,9 +574,8 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     let siginfo = siginfo as *const siginfo_t;
     let si_addr = (*siginfo).si_addr;
 
-    let ucontext = ucontext as *const ucontext_t;
-    let gregs = &(*ucontext).uc_mcontext.gregs;
-    let fpregs = &*(*ucontext).uc_mcontext.fpregs;
+    let ucontext = ucontext as *mut ucontext_t;
+    let gregs = &mut (*ucontext).uc_mcontext.gregs;
 
     let mut known_registers: [Option<u64>; 32] = [None; 32];
     known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs[REG_R15 as usize] as _);
@@ -425,33 +596,43 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[REG_RBP as usize] as _);
     known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[REG_RSP as usize] as _);
 
-    known_registers[X64Register::XMM(XMM::XMM0).to_index().0] = Some(read_xmm(&fpregs._xmm[0]));
-    known_registers[X64Register::XMM(XMM::XMM1).to_index().0] = Some(read_xmm(&fpregs._xmm[1]));
-    known_registers[X64Register::XMM(XMM::XMM2).to_index().0] = Some(read_xmm(&fpregs._xmm[2]));
-    known_registers[X64Register::XMM(XMM::XMM3).to_index().0] = Some(read_xmm(&fpregs._xmm[3]));
-    known_registers[X64Register::XMM(XMM::XMM4).to_index().0] = Some(read_xmm(&fpregs._xmm[4]));
-    known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(read_xmm(&fpregs._xmm[5]));
-    known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(read_xmm(&fpregs._xmm[6]));
-    known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
-    known_registers[X64Register::XMM(XMM::XMM8).to_index().0] = Some(read_xmm(&fpregs._xmm[8]));
-    known_registers[X64Register::XMM(XMM::XMM9).to_index().0] = Some(read_xmm(&fpregs._xmm[9]));
-    known_registers[X64Register::XMM(XMM::XMM10).to_index().0] = Some(read_xmm(&fpregs._xmm[10]));
-    known_registers[X64Register::XMM(XMM::XMM11).to_index().0] = Some(read_xmm(&fpregs._xmm[11]));
-    known_registers[X64Register::XMM(XMM::XMM12).to_index().0] = Some(read_xmm(&fpregs._xmm[12]));
-    known_registers[X64Register::XMM(XMM::XMM13).to_index().0] = Some(read_xmm(&fpregs._xmm[13]));
-    known_registers[X64Register::XMM(XMM::XMM14).to_index().0] = Some(read_xmm(&fpregs._xmm[14]));
-    known_registers[X64Register::XMM(XMM::XMM15).to_index().0] = Some(read_xmm(&fpregs._xmm[15]));
+    if !(*ucontext).uc_mcontext.fpregs.is_null() {
+        let fpregs = &*(*ucontext).uc_mcontext.fpregs;
+        known_registers[X64Register::XMM(XMM::XMM0).to_index().0] = Some(read_xmm(&fpregs._xmm[0]));
+        known_registers[X64Register::XMM(XMM::XMM1).to_index().0] = Some(read_xmm(&fpregs._xmm[1]));
+        known_registers[X64Register::XMM(XMM::XMM2).to_index().0] = Some(read_xmm(&fpregs._xmm[2]));
+        known_registers[X64Register::XMM(XMM::XMM3).to_index().0] = Some(read_xmm(&fpregs._xmm[3]));
+        known_registers[X64Register::XMM(XMM::XMM4).to_index().0] = Some(read_xmm(&fpregs._xmm[4]));
+        known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(read_xmm(&fpregs._xmm[5]));
+        known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(read_xmm(&fpregs._xmm[6]));
+        known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
+        known_registers[X64Register::XMM(XMM::XMM8).to_index().0] = Some(read_xmm(&fpregs._xmm[8]));
+        known_registers[X64Register::XMM(XMM::XMM9).to_index().0] = Some(read_xmm(&fpregs._xmm[9]));
+        known_registers[X64Register::XMM(XMM::XMM10).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[10]));
+        known_registers[X64Register::XMM(XMM::XMM11).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[11]));
+        known_registers[X64Register::XMM(XMM::XMM12).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[12]));
+        known_registers[X64Register::XMM(XMM::XMM13).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[13]));
+        known_registers[X64Register::XMM(XMM::XMM14).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[14]));
+        known_registers[X64Register::XMM(XMM::XMM15).to_index().0] =
+            Some(read_xmm(&fpregs._xmm[15]));
+    }
 
     FaultInfo {
         faulting_addr: si_addr as usize as _,
-        ip: gregs[REG_RIP as usize] as _,
+        ip: std::mem::transmute::<&mut i64, &'static Cell<usize>>(&mut gregs[REG_RIP as usize]),
         known_registers,
     }
 }
 
 /// Get fault info from siginfo and ucontext.
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) -> FaultInfo {
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
+    use crate::state::x64::XMM;
     #[allow(dead_code)]
     #[repr(C)]
     struct ucontext_t {
@@ -460,7 +641,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
         uc_stack: libc::stack_t,
         uc_link: *const ucontext_t,
         uc_mcsize: u64,
-        uc_mcontext: *const mcontext_t,
+        uc_mcontext: *mut mcontext_t,
     }
     #[repr(C)]
     struct exception_state {
@@ -518,8 +699,8 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
     let siginfo = siginfo as *const siginfo_t;
     let si_addr = (*siginfo).si_addr;
 
-    let ucontext = ucontext as *const ucontext_t;
-    let ss = &(*(*ucontext).uc_mcontext).ss;
+    let ucontext = ucontext as *mut ucontext_t;
+    let ss = &mut (*(*ucontext).uc_mcontext).ss;
     let fs = &(*(*ucontext).uc_mcontext).fs;
 
     let mut known_registers: [Option<u64>; 32] = [None; 32];
@@ -561,7 +742,7 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *const c_void) ->
 
     FaultInfo {
         faulting_addr: si_addr,
-        ip: ss.rip as _,
+        ip: std::mem::transmute::<&mut u64, &'static Cell<usize>>(&mut ss.rip),
         known_registers,
     }
 }

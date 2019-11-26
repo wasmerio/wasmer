@@ -208,6 +208,7 @@ initArch() {
         printf "$cyan> Using WASMER_ARCH ($WASMER_ARCH).$reset\n"
         ARCH="$WASMER_ARCH"
     fi
+    # If you modify this list, please also modify scripts/binary-name.sh
     case $ARCH in
         amd64) ARCH="amd64";;
         x86_64) ARCH="amd64";;

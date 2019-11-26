@@ -1,5 +1,5 @@
-PREVIOUS_VERSION='0.10.1'
-NEXT_VERSION='0.10.2'
+PREVIOUS_VERSION='0.10.2'
+NEXT_VERSION='0.11.0'
 
 # quick hack
 fd Cargo.toml --exec sed -i '' "s/version = \"$PREVIOUS_VERSION\"/version = \"$NEXT_VERSION\"/"

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-llvm-backend"
-version = "0.10.2"
+version = "0.11.0"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,7 +10,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.10.2" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.11.0" }
 wasmparser = "0.39.1"
 smallvec = "0.6"
 goblin = "0.0.24"
@@ -41,3 +41,4 @@ wabt = "0.9.1"
 
 [features]
 debug = ["wasmer-runtime-core/debug"]
+test = []
