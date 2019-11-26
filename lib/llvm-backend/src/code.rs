@@ -1740,7 +1740,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 // We don't bother canonicalizing 'cond' here because we only
                 // compare it to zero, and that's invariant under
                 // canonicalization.
-                let (v1, v2) = if i1.has_pending_f32_nan() != i1.has_pending_f32_nan()
+
+                // If the pending bits of v1 and v2 are the same, we can pass
+                // them along to the result. Otherwise, apply pending
+                // canonicalizations now.
+                let (v1, v2) = if i1.has_pending_f32_nan() != i2.has_pending_f32_nan()
                     || i1.has_pending_f64_nan() != i2.has_pending_f64_nan()
                 {
                     (

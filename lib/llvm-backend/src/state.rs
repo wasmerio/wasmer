@@ -68,7 +68,7 @@ impl ControlFrame {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
+#[derive(Debug, Default, Eq, PartialEq, Copy, Clone, Hash)]
 pub struct ExtraInfo {
     state: u8,
 }
@@ -76,61 +76,65 @@ impl ExtraInfo {
     // This value is required to be arithmetic 32-bit NaN (or 32x4) by the WAsm
     // machine, but which might not be in the LLVM value. The conversion to
     // arithmetic NaN is pending. It is required for correctness.
-    pub fn pending_f32_nan() -> ExtraInfo {
+    //
+    // When applied to a 64-bit value, this flag has no meaning and must be
+    // ignored. It may be set in such cases to allow for common handling of
+    // 32 and 64-bit operations.
+    pub const fn pending_f32_nan() -> ExtraInfo {
         ExtraInfo { state: 1 }
     }
 
     // This value is required to be arithmetic 64-bit NaN (or 64x2) by the WAsm
     // machine, but which might not be in the LLVM value. The conversion to
     // arithmetic NaN is pending. It is required for correctness.
-    pub fn pending_f64_nan() -> ExtraInfo {
+    //
+    // When applied to a 32-bit value, this flag has no meaning and must be
+    // ignored. It may be set in such cases to allow for common handling of
+    // 32 and 64-bit operations.
+    pub const fn pending_f64_nan() -> ExtraInfo {
         ExtraInfo { state: 2 }
     }
 
     // This value either does not contain a 32-bit NaN, or it contains an
     // arithmetic NaN. In SIMD, applies to all 4 lanes.
-    pub fn arithmetic_f32() -> ExtraInfo {
+    pub const fn arithmetic_f32() -> ExtraInfo {
         ExtraInfo { state: 4 }
     }
 
     // This value either does not contain a 64-bit NaN, or it contains an
     // arithmetic NaN. In SIMD, applies to both lanes.
-    pub fn arithmetic_f64() -> ExtraInfo {
+    pub const fn arithmetic_f64() -> ExtraInfo {
         ExtraInfo { state: 8 }
     }
 
-    pub fn has_pending_f32_nan(&self) -> bool {
+    pub const fn has_pending_f32_nan(&self) -> bool {
         self.state & ExtraInfo::pending_f32_nan().state != 0
     }
-    pub fn has_pending_f64_nan(&self) -> bool {
+    pub const fn has_pending_f64_nan(&self) -> bool {
         self.state & ExtraInfo::pending_f64_nan().state != 0
     }
-    pub fn is_arithmetic_f32(&self) -> bool {
+    pub const fn is_arithmetic_f32(&self) -> bool {
         self.state & ExtraInfo::arithmetic_f32().state != 0
     }
-    pub fn is_arithmetic_f64(&self) -> bool {
+    pub const fn is_arithmetic_f64(&self) -> bool {
         self.state & ExtraInfo::arithmetic_f64().state != 0
     }
 
-    pub fn strip_pending(&self) -> ExtraInfo {
+    pub const fn strip_pending(&self) -> ExtraInfo {
         ExtraInfo {
             state: self.state
                 & !(ExtraInfo::pending_f32_nan().state | ExtraInfo::pending_f64_nan().state),
         }
     }
 }
-impl Default for ExtraInfo {
-    fn default() -> Self {
-        ExtraInfo { state: 0 }
-    }
-}
+
 // Union two ExtraInfos.
 impl BitOr for ExtraInfo {
     type Output = Self;
 
     fn bitor(self, other: Self) -> Self {
-        assert!(!(self.has_pending_f32_nan() && other.has_pending_f64_nan()));
-        assert!(!(self.has_pending_f64_nan() && other.has_pending_f32_nan()));
+        debug_assert!(!(self.has_pending_f32_nan() && other.has_pending_f64_nan()));
+        debug_assert!(!(self.has_pending_f64_nan() && other.has_pending_f32_nan()));
         ExtraInfo {
             state: if self.is_arithmetic_f32() || other.is_arithmetic_f32() {
                 ExtraInfo::arithmetic_f32().state

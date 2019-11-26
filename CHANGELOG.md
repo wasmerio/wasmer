@@ -13,6 +13,7 @@
 - [#990](https://github.com/wasmerio/wasmer/pull/990) Default wasmer CLI to `run`.  Wasmer will now attempt to parse unrecognized command line options as if they were applied to the run command: `wasmer mywasm.wasm --dir=.` now works!
 - [#987](https://github.com/wasmerio/wasmer/pull/987) Fix `runtime-c-api` header files when compiled by gnuc.
 - [#957](https://github.com/wasmerio/wasmer/pull/957) Change the meaning of `wasmer_wasi::is_wasi_module` to detect any type of WASI module, add support for new wasi snapshot_preview1
+- [#934](https://github.com/wasmerio/wasmer/pull/934) Simplify float expressions in the LLVM backend.
 
 ## 0.10.2 - 2019-11-18
 
@@ -36,7 +37,6 @@ Special thanks to [@newpavlov](https://github.com/newpavlov) and [@Maxgy](https:
 - [#939](https://github.com/wasmerio/wasmer/pull/939) Fix bug causing attempts to append to files with WASI to delete the contents of the file
 - [#940](https://github.com/wasmerio/wasmer/pull/940) Update supported Rust version to 1.38+
 - [#923](https://github.com/wasmerio/wasmer/pull/923) Fix memory leak in the C API caused by an incorrect cast in `wasmer_trampoline_buffer_destroy`
-- [#934](https://github.com/wasmerio/wasmer/pull/934) Simplify float expressions in the LLVM backend.
 - [#921](https://github.com/wasmerio/wasmer/pull/921) In LLVM backend, annotate all memory accesses with TBAA metadata.
 - [#883](https://github.com/wasmerio/wasmer/pull/883) Allow floating point operations to have arbitrary inputs, even including SNaNs.
 - [#856](https://github.com/wasmerio/wasmer/pull/856) Expose methods in the runtime C API to get a WASI import object
