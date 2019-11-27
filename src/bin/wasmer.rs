@@ -10,7 +10,7 @@
 extern crate structopt;
 
 use std::env;
-use std::fs::{read_to_string, File};
+use std::fs::{metadata, read_to_string, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
@@ -130,7 +130,7 @@ struct Run {
     #[cfg(target_arch = "x86_64")]
     #[structopt(
         long = "backend",
-        default_value = "cranelift",
+        default_value = "auto",
         case_insensitive = true,
         possible_values = Backend::variants(),
     )]
@@ -855,8 +855,30 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-fn run(options: Run) {
-    match execute_wasm(&options) {
+fn update_backend(options: &mut Run) {
+    let binary_size = match metadata(&options.path) {
+        Ok(wasm_binary) => wasm_binary.len(),
+        Err(_e) => 0,
+    };
+
+    // Update backend when a backend flag is `auto`.
+    // Use the Singlepass backend if it's enabled and the file provided is larger
+    // than 10MiB (10485760 bytes), or it's enabled and the target architecture
+    // is AArch64. Otherwise, use the Cranelift backend.
+    if options.backend == Backend::Auto {
+        if Backend::variants().contains(&Backend::Singlepass.to_string())
+            && (binary_size > 10485760 || cfg!(target_arch = "aarch64"))
+        {
+            options.backend = Backend::Singlepass;
+        } else {
+            options.backend = Backend::Cranelift;
+        }
+    }
+}
+
+fn run(options: &mut Run) {
+    update_backend(options);
+    match execute_wasm(options) {
         Ok(()) => {}
         Err(message) => {
             eprintln!("Error: {}", message);
@@ -940,6 +962,7 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
         Backend::LLVM => Box::new(LLVMCompiler::new()),
         #[cfg(not(feature = "backend-llvm"))]
         Backend::LLVM => return None,
+        Backend::Auto => return None,
     })
 }
 
@@ -958,7 +981,7 @@ fn main() {
         }
     });
     match options {
-        CLIOptions::Run(options) => run(options),
+        CLIOptions::Run(mut options) => run(&mut options),
         #[cfg(not(target_os = "windows"))]
         CLIOptions::SelfUpdate => update::self_update(),
         #[cfg(target_os = "windows")]
