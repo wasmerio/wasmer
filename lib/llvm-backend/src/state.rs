@@ -336,12 +336,12 @@ impl State {
         &self,
         n: usize,
     ) -> Result<&[(BasicValueEnum, ExtraInfo)], BinaryReaderError> {
-        self.stack
-            .get(self.stack.len() - n..)
-            .ok_or(BinaryReaderError {
-                message: "invalid value stack",
-                offset: -1isize as usize,
-            })
+        let new_len = self.stack.len().checked_sub(n).ok_or(BinaryReaderError {
+            message: "invalid value stack",
+            offset: -1isize as usize,
+        })?;
+
+        Ok(&self.stack[new_len..])
     }
 
     pub fn popn_save_extra(
