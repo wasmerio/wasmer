@@ -343,7 +343,7 @@ where
 
 impl<'a> Func<'a, (), (), Host> {
     /// Creates a new `Func` with a specific signature.
-    pub fn new_variadic<FN, Error>(func: FN, arity: i8, signature: Arc<FuncSig>) -> Self
+    pub fn new_variadic<FN, Error>(func: FN, arity: u8, signature: Arc<FuncSig>) -> Self
     where
         Error: 'static,
         FN: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, Error> + 'static,
