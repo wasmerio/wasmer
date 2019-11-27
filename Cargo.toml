@@ -110,3 +110,6 @@ crate-type = ["bin"]
 [[example]]
 name = "callback"
 crate-type = ["bin"]
+
+[patch.crates-io]
+wasmparser =  { git = "https://github.com/AdamSLevy/wasmparser", branch = "OperatorClonev0.39.3" }

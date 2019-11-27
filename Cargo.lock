@@ -2144,7 +2144,7 @@ dependencies = [
  "wasmer-clif-fork-wasm 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.11.0",
  "wasmer-win-exception-handler 0.11.0",
- "wasmparser 0.39.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.39.3 (git+https://github.com/AdamSLevy/wasmparser?branch=OperatorClonev0.39.3)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2170,7 +2170,7 @@ dependencies = [
  "failure_derive 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-fork-frontend 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmparser 0.39.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.39.3 (git+https://github.com/AdamSLevy/wasmparser?branch=OperatorClonev0.39.3)",
 ]
 
 [[package]]
@@ -2231,7 +2231,7 @@ dependencies = [
  "smallvec 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.11.0",
- "wasmparser 0.39.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.39.3 (git+https://github.com/AdamSLevy/wasmparser?branch=OperatorClonev0.39.3)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2313,7 +2313,7 @@ dependencies = [
  "serde_bytes 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.103 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmparser 0.39.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.39.3 (git+https://github.com/AdamSLevy/wasmparser?branch=OperatorClonev0.39.3)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2400,7 +2400,7 @@ dependencies = [
 [[package]]
 name = "wasmparser"
 version = "0.39.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/AdamSLevy/wasmparser?branch=OperatorClonev0.39.3#dcff25a7822c35a9430761ce98e1d8f3a62d5de8"
 
 [[package]]
 name = "winapi"
@@ -2692,7 +2692,7 @@ dependencies = [
 "checksum wasi 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b89c3ce4ce14bdc6fb6beaf9ec7928ca331de5df7e5ea278375642a2f478570d"
 "checksum wasmer-clif-fork-frontend 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0cf2f552a9c1fda0555087170424bd8fedc63a079a97bb5638a4ef9b0d9656aa"
 "checksum wasmer-clif-fork-wasm 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0073b512e1af5948d34be7944b74c747bbe735ccff2e2f28c26ed4c90725de8e"
-"checksum wasmparser 0.39.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c702914acda5feeeffbc29e4d953e5b9ce79d8b98da4dbf18a77086e116c5470"
+"checksum wasmparser 0.39.3 (git+https://github.com/AdamSLevy/wasmparser?branch=OperatorClonev0.39.3)" = "<none>"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8093091eeb260906a183e6ae1abdba2ef5ef2257a21801128899c3fc699229c6"
 "checksum winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"

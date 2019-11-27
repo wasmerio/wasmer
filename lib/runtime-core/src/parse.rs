@@ -249,8 +249,8 @@ pub fn read_module<
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
 
+                let mut events: Vec<Event> = Vec::new();
                 let mut body_begun = false;
-
                 loop {
                     let state = parser.read();
                     match state {
@@ -266,28 +266,22 @@ pub fn read_module<
                                 body_begun = true;
                                 fcg.begin_body(&info.read().unwrap())
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                                middlewares
-                                    .run(
-                                        Some(fcg),
-                                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
-                                        &info.read().unwrap(),
-                                    )
-                                    .map_err(|x| LoadError::Codegen(x))?;
+                                events
+                                    .push(Event::Internal(InternalEvent::FunctionBegin(id as u32)));
                             }
-                            middlewares
-                                .run(Some(fcg), Event::Wasm(op), &info.read().unwrap())
-                                .map_err(|x| LoadError::Codegen(x))?;
+                            events.push(Event::WasmOwned(op.clone()));
                         }
-                        ParserState::EndFunctionBody => break,
+                        ParserState::EndFunctionBody => {
+                            events.push(Event::Internal(InternalEvent::FunctionEnd));
+                            break;
+                        }
                         _ => unreachable!(),
                     }
                 }
+
+                let events = EventSink { buffer: events };
                 middlewares
-                    .run(
-                        Some(fcg),
-                        Event::Internal(InternalEvent::FunctionEnd),
-                        &info.read().unwrap(),
-                    )
+                    .run(Some(fcg), events, &info.read().unwrap())
                     .map_err(|x| LoadError::Codegen(x))?;
                 fcg.finalize()
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;

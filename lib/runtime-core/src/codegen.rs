@@ -11,7 +11,6 @@ use crate::{
     structures::Map,
     types::{FuncIndex, FuncSig, SigIndex},
 };
-use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
@@ -274,7 +273,8 @@ fn requires_pre_validation(backend: Backend) -> bool {
 
 /// A sink for parse events.
 pub struct EventSink<'a, 'b> {
-    buffer: SmallVec<[Event<'a, 'b>; 2]>,
+    /// document this
+    pub buffer: Vec<Event<'a, 'b>>,
 }
 
 impl<'a, 'b> EventSink<'a, 'b> {
@@ -301,18 +301,14 @@ impl MiddlewareChain {
     }
 
     /// Run this chain with the provided function code generator, event and module info.
-    pub(crate) fn run<E: Debug, FCG: FunctionCodeGenerator<E>>(
+    pub(crate) fn run<'a, 'b: 'a, E: Debug, FCG: FunctionCodeGenerator<E>>(
         &mut self,
         fcg: Option<&mut FCG>,
-        ev: Event,
+        mut sink: EventSink<'a, 'b>,
         module_info: &ModuleInfo,
     ) -> Result<(), String> {
-        let mut sink = EventSink {
-            buffer: SmallVec::new(),
-        };
-        sink.push(ev);
         for m in &mut self.chain {
-            let prev: SmallVec<[Event; 2]> = sink.buffer.drain().collect();
+            let prev: Vec<Event> = sink.buffer.drain(..).collect();
             for ev in prev {
                 m.feed_event(ev, module_info, &mut sink)?;
             }
