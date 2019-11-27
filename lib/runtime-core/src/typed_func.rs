@@ -9,6 +9,7 @@ use crate::{
     types::{FuncSig, ImportedFuncIndex, NativeWasmType, Type, Value, WasmExternType},
     vm,
 };
+use byteorder::{ByteOrder, NativeEndian};
 use std::{
     any::Any,
     convert::Infallible,
@@ -231,11 +232,10 @@ where
 ///
 /// All the function arguments are gathered in an array instead of
 /// being distributed.
-pub trait VariadicHostFunction<Kind, Rank, Rets>
+pub trait VariadicHostFunction<Kind, Rank>
 where
     Kind: HostFunctionKind,
     Rank: Arity,
-    Rets: WasmTypeList,
 {
     /// Convert to function pointer.
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
@@ -323,10 +323,10 @@ where
     Rets: WasmTypeList,
 {
     /// Creates a new `Func`.
-    pub fn new<F, Kind>(func: F) -> Self
+    pub fn new<FN, Kind>(func: FN) -> Self
     where
         Kind: HostFunctionKind,
-        F: HostFunction<Kind, Args, Rets>,
+        FN: HostFunction<Kind, Args, Rets>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -341,15 +341,12 @@ where
     }
 }
 
-impl<'a, Rets> Func<'a, (), Rets, Host>
-where
-    Rets: WasmTypeList,
-{
+impl<'a> Func<'a, (), (), Host> {
     /// Creates a new `Func` with a specific signature.
-    pub fn new_variadic<F, Trap>(func: F, arity: i8, signature: Arc<FuncSig>) -> Self
+    pub fn new_variadic<FN, Error>(func: FN, arity: i8, signature: Arc<FuncSig>) -> Self
     where
-        Trap: TrapEarly<Rets>,
-        F: Fn(&mut vm::Ctx, &[Value]) -> Trap + 'static,
+        Error: 'static,
+        FN: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, Error> + 'static,
     {
         match arity {
             0 => Self::new_variadic_resolved::<Zero, _, _>(func, signature),
@@ -370,14 +367,14 @@ where
     }
 
     // Hack to dupe the type system.
-    fn new_variadic_resolved<Rank, F, Kind>(
-        func: F,
+    fn new_variadic_resolved<Rank, FN, Kind>(
+        func: FN,
         signature: Arc<FuncSig>,
-    ) -> Func<'a, (), Rets, Host>
+    ) -> Func<'a, (), (), Host>
     where
         Rank: Arity,
         Kind: HostFunctionKind,
-        F: VariadicHostFunction<Kind, Rank, Rets>,
+        FN: VariadicHostFunction<Kind, Rank>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -537,12 +534,20 @@ fn get_func_env<FN>(func: FN) -> Option<NonNull<vm::FuncEnv>> {
 }
 
 macro_rules! impl_traits {
-    ( [$repr:ident] $struct_name:ident, $arity:ident, $( $x:ident ),* ) => {
-        /// Struct for typed funcs.
+    (
+        [$repr:ident] $struct_name:ident,
+        [$bytes_repr:ident] $bytes_struct_name:ident,
+        $arity:ident,
+        $( $x:ident ),*
+    ) => {
+        /// Structure holding Wasm values as C values.
         #[repr($repr)]
         pub struct $struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
         where
             $( $x: WasmExternType ),*;
+
+        #[repr($bytes_repr)]
+        struct $bytes_struct_name([u8; count_idents!( $( $x ),* ) * mem::size_of::<u64>()]);
 
         impl< $( $x ),* > WasmTypeList for ( $( $x ),* )
         where
@@ -720,11 +725,10 @@ macro_rules! impl_traits {
             }
         }
 
-        impl<Rets, Trap, FN> VariadicHostFunction<ExplicitVmCtx, $arity, Rets> for FN
+        impl<Error, FN> VariadicHostFunction<ExplicitVmCtx, $arity> for FN
         where
-            Rets: WasmTypeList,
-            Trap: TrapEarly<Rets>,
-            FN: Fn(&mut vm::Ctx, &[Value]) -> Trap + 'static,
+            Error: 'static,
+            FN: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, Error> + 'static,
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
@@ -737,16 +741,15 @@ macro_rules! impl_traits {
                 // It is also required for the LLVM backend to be
                 // able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
-                extern fn wrap<Rets, Trap, FN>(
+                extern fn wrap<Error, FN>(
                     vmctx: &mut vm::Ctx $( , $x: u64 )*
-                ) -> Rets::CStruct
+                ) -> $bytes_struct_name
                 where
-                    Rets: WasmTypeList,
-                    Trap: TrapEarly<Rets>,
-                    FN: Fn(&mut vm::Ctx, &[Value]) -> Trap,
+                    Error: 'static,
+                    FN: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, Error>,
                 {
                     // Get the pointer to this `wrap` function.
-                    let self_pointer = wrap::<Rets, Trap, FN> as *const vm::Func;
+                    let self_pointer = wrap::<Error, FN> as *const vm::Func;
 
                     // Get the real host function to call.
                     let (func, func_index): (&FN, ImportedFuncIndex) = wrap_get_func(vmctx.import_backing, self_pointer);
@@ -760,38 +763,87 @@ macro_rules! impl_traits {
                     let arguments = &[ $($x),* ];
 
                     // Call the host function.
-                    wrap_call::<Rets, Trap>(
-                        vmctx.module,
-                        &|| {
-                            // Map `u64` to `Value` based on the signature.
-                            let inputs: Vec<Value> = arguments
-                                .iter()
-                                .zip(func_signature.params().iter())
-                                .map(
-                                    |(argument, ty)| {
-                                        match ty {
-                                            Type::I32 => i32::from_binary(*argument).into(),
-                                            Type::I64 => i64::from_binary(*argument).into(),
-                                            Type::F32 => f32::from_binary(*argument).into(),
-                                            Type::F64 => f64::from_binary(*argument).into(),
-                                            _ => unimplemented!("Variadic host function doesn't support `v128` values."),
-                                        }
+
+                    // Catch unwind in case of errors.
+                    let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                        // Map `u64` to `Value` based on the signature.
+                        let inputs: Vec<Value> = arguments
+                            .iter()
+                            .zip(func_signature.params().iter())
+                            .map(
+                                |(argument, ty)| {
+                                    match ty {
+                                        Type::I32 => i32::from_binary(*argument).into(),
+                                        Type::I64 => i64::from_binary(*argument).into(),
+                                        Type::F32 => f32::from_binary(*argument).into(),
+                                        Type::F64 => f64::from_binary(*argument).into(),
+                                        _ => unimplemented!("Variadic host function doesn't support `v128` values."),
                                     }
-                                )
-                                .collect();
+                                }
+                            )
+                            .collect();
 
-                            let vmctx = unsafe { &mut *(vmctx as *const _ as *mut _) };
+                        let vmctx = unsafe { &mut *(vmctx as *const _ as *mut _) };
 
-                            func(vmctx, inputs.as_slice()).report()
-                            //   ^^^^^ The imported function
-                            //         expects `vm::Ctx` as first
-                            //         argument; provide it.
+                        func(vmctx, inputs.as_slice())
+                        //   ^^^^^ The imported function
+                        //         expects `vm::Ctx` as first
+                        //         argument; provide it.
+                    })) {
+                        Ok(Ok(returns)) => return {
+                            let mut bytes = [0u8; count_idents!( $( $x ),* ) * mem::size_of::<u64>()];
+                            let mut index = 0;
+
+                            for value in returns.iter() {
+                                match value {
+                                    Value::I32(value) => {
+                                        let next_index = index + mem::size_of::<i32>();
+
+                                        NativeEndian::write_i32(&mut bytes[index..next_index], *value);
+
+                                        index = next_index;
+                                    },
+                                    Value::I64(value) => {
+                                        let next_index = index + mem::size_of::<i64>();
+
+                                        NativeEndian::write_i64(&mut bytes[index..next_index], *value);
+
+                                        index = next_index;
+                                    },
+                                    Value::F32(value) => {
+                                        let next_index = index + mem::size_of::<f32>();
+
+                                        NativeEndian::write_f32(&mut bytes[index..next_index], *value);
+
+                                        index = next_index;
+                                    },
+                                    Value::F64(value) => {
+                                        let next_index = index + mem::size_of::<f64>();
+
+                                        NativeEndian::write_f64(&mut bytes[index..next_index], *value);
+
+                                        index = next_index;
+                                    },
+                                    _ => unimplemented!(),
+                                }
+                            }
+
+                            $bytes_struct_name(bytes)
+                        },
+                        Ok(Err(err)) => {
+                            let b: Box<_> = err.into();
+                            b as Box<dyn Any>
                         }
-                    )
+                        Err(err) => err,
+                    };
+
+                    // At this point, there is an error that needs to
+                    // be trapped.
+                    unsafe { (&*vmctx.module).runnable_module.do_early_trap(err) }
                 }
 
                 (
-                    NonNull::new(wrap::<Rets, Trap, Self> as *mut vm::Func).unwrap(),
+                    NonNull::new(wrap::<Error, Self> as *mut vm::Func).unwrap(),
                     get_func_env(self)
                 )
             }
@@ -828,19 +880,19 @@ macro_rules! count_idents {
     }};
 }
 
-impl_traits!([C] S0, Zero, );
-impl_traits!([transparent] S1, One, A);
-impl_traits!([C] S2, Two, A, B);
-impl_traits!([C] S3, Three, A, B, C);
-impl_traits!([C] S4, Four, A, B, C, D);
-impl_traits!([C] S5, Five, A, B, C, D, E);
-impl_traits!([C] S6, Six, A, B, C, D, E, F);
-impl_traits!([C] S7, Seven, A, B, C, D, E, F, G);
-impl_traits!([C] S8, Eight, A, B, C, D, E, F, G, H);
-impl_traits!([C] S9, Nine, A, B, C, D, E, F, G, H, I);
-impl_traits!([C] S10, Ten, A, B, C, D, E, F, G, H, I, J);
-impl_traits!([C] S11, Eleven, A, B, C, D, E, F, G, H, I, J, K);
-impl_traits!([C] S12, Twelve, A, B, C, D, E, F, G, H, I, J, K, L);
+impl_traits!([C] S0, [C] B0, Zero, );
+impl_traits!([transparent] S1, [transparent] B1, One, A);
+impl_traits!([C] S2, [transparent] B2, Two, A, B);
+impl_traits!([C] S3, [transparent] B3, Three, A, B, C);
+impl_traits!([C] S4, [transparent] B4, Four, A, B, C, D);
+impl_traits!([C] S5, [transparent] B5, Five, A, B, C, D, E);
+impl_traits!([C] S6, [transparent] B6, Six, A, B, C, D, E, F);
+impl_traits!([C] S7, [transparent] B7, Seven, A, B, C, D, E, F, G);
+impl_traits!([C] S8, [transparent] B8, Eight, A, B, C, D, E, F, G, H);
+impl_traits!([C] S9, [transparent] B9, Nine, A, B, C, D, E, F, G, H, I);
+impl_traits!([C] S10, [transparent] B10, Ten, A, B, C, D, E, F, G, H, I, J);
+impl_traits!([C] S11, [transparent] B11, Eleven, A, B, C, D, E, F, G, H, I, J, K);
+impl_traits!([C] S12, [transparent] B12, Twelve, A, B, C, D, E, F, G, H, I, J, K, L);
 
 impl<'a, Args, Rets, Inner> IsExport for Func<'a, Args, Rets, Inner>
 where
@@ -929,11 +981,11 @@ mod tests {
 
     #[test]
     fn test_func_variadic() {
-        fn with_vmctx_variadic(_: &mut vm::Ctx, inputs: &[Value]) -> i32 {
+        fn with_vmctx_variadic(_: &mut vm::Ctx, inputs: &[Value]) -> Result<Vec<Value>, ()> {
             let x: i32 = (&inputs[0]).try_into().unwrap();
             let y: i32 = (&inputs[1]).try_into().unwrap();
 
-            x + y
+            Ok(vec![Value::I32(x + y)])
         }
 
         let _ = Func::new_variadic(
@@ -942,11 +994,11 @@ mod tests {
             Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),
         );
         let _ = Func::new_variadic(
-            |_: &mut vm::Ctx, inputs: &[Value]| -> i32 {
+            |_: &mut vm::Ctx, inputs: &[Value]| -> Result<Vec<Value>, ()> {
                 let x: i32 = (&inputs[0]).try_into().unwrap();
                 let y: i32 = (&inputs[1]).try_into().unwrap();
 
-                x + y
+                Ok(vec![Value::I32(x + y)])
             },
             2,
             Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![Type::I32])),

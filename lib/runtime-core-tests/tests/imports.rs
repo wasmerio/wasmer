@@ -199,12 +199,12 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
 
             // “Variadic” closure.
             "callback_closure_variadic" => Func::new_variadic(
-                |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<i32, ()> {
+                |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<Vec<Value>, ()> {
                     let memory = vmctx.memory(0);
                     let shift_: i32 = memory.view()[0].get();
                     let n: i32 = (&inputs[0]).try_into().unwrap();
 
-                    Ok(shift_ + n + 1)
+                    Ok(vec![Value::I32(shift_ + n + 1)])
                 },
                 1,
                 Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
@@ -247,12 +247,12 @@ fn callback_fn(n: i32) -> Result<i32, ()> {
     Ok(n + 1)
 }
 
-fn callback_fn_variadic(vmctx: &mut vm::Ctx, inputs: &[Value]) -> Result<i32, ()> {
+fn callback_fn_variadic(vmctx: &mut vm::Ctx, inputs: &[Value]) -> Result<Vec<Value>, ()> {
     let memory = vmctx.memory(0);
     let shift_: i32 = memory.view()[0].get();
     let n: i32 = (&inputs[0]).try_into().unwrap();
 
-    Ok(shift_ + n + 1)
+    Ok(vec![Value::I32(shift_ + n + 1)])
 }
 
 fn callback_fn_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
