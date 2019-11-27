@@ -1764,11 +1764,11 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let info = {
                     let mut info = i1.strip_pending() & i2.strip_pending();
                     if i1.has_pending_f32_nan() {
-                        assert!(i2.has_pending_f32_nan());
+                        debug_assert!(i2.has_pending_f32_nan());
                         info |= ExtraInfo::pending_f32_nan();
                     }
                     if i1.has_pending_f64_nan() {
-                        assert!(i2.has_pending_f64_nan());
+                        debug_assert!(i2.has_pending_f64_nan());
                         info |= ExtraInfo::pending_f64_nan();
                     }
                     info
