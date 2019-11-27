@@ -118,11 +118,13 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
 /// A streaming compiler which is designed to generated code for a module based on a stream
 /// of wasm parser events.
 pub struct StreamingCompiler<
+    'a,
+    'b,
     MCG: ModuleCodeGenerator<FCG, RM, E>,
     FCG: FunctionCodeGenerator<E>,
     RM: RunnableModule + 'static,
     E: Debug,
-    CGEN: Fn() -> MiddlewareChain,
+    CGEN: Fn() -> MiddlewareChain<'a, 'b>,
 > {
     middleware_chain_generator: CGEN,
     _phantom_mcg: PhantomData<MCG>,
@@ -152,18 +154,21 @@ impl<
     > SimpleStreamingCompilerGen<MCG, FCG, RM, E>
 {
     /// Create a new `StreamingCompiler`.
-    pub fn new() -> StreamingCompiler<MCG, FCG, RM, E, impl Fn() -> MiddlewareChain> {
+    pub fn new<'a, 'b>(
+    ) -> StreamingCompiler<'a, 'b, MCG, FCG, RM, E, impl Fn() -> MiddlewareChain<'a, 'b>> {
         StreamingCompiler::new(|| MiddlewareChain::new())
     }
 }
 
 impl<
+        'a,
+        'b,
         MCG: ModuleCodeGenerator<FCG, RM, E>,
         FCG: FunctionCodeGenerator<E>,
         RM: RunnableModule + 'static,
         E: Debug,
-        CGEN: Fn() -> MiddlewareChain,
-    > StreamingCompiler<MCG, FCG, RM, E, CGEN>
+        CGEN: Fn() -> MiddlewareChain<'a, 'b>,
+    > StreamingCompiler<'a, 'b, MCG, FCG, RM, E, CGEN>
 {
     /// Create a new `StreamingCompiler` with the given `MiddlewareChain`.
     pub fn new(chain_gen: CGEN) -> Self {
@@ -206,12 +211,14 @@ fn validate_with_features(bytes: &[u8], features: &Features) -> CompileResult<()
 }
 
 impl<
+        'a,
+        'b,
         MCG: ModuleCodeGenerator<FCG, RM, E>,
         FCG: FunctionCodeGenerator<E>,
         RM: RunnableModule + 'static,
         E: Debug,
-        CGEN: Fn() -> MiddlewareChain,
-    > Compiler for StreamingCompiler<MCG, FCG, RM, E, CGEN>
+        CGEN: Fn() -> MiddlewareChain<'a, 'b>,
+    > Compiler for StreamingCompiler<'a, 'b, MCG, FCG, RM, E, CGEN>
 {
     fn compile(
         &self,
@@ -281,40 +288,41 @@ impl<'a, 'b> EventSink<'a, 'b> {
 }
 
 /// A container for a chain of middlewares.
-pub struct MiddlewareChain {
-    chain: Vec<Box<dyn GenericFunctionMiddleware>>,
+pub struct MiddlewareChain<'a, 'b> {
+    chain: Vec<Box<dyn Fn(EventIter<'a, 'b>, &ModuleInfo) -> EventIter<'a, 'b>>>,
 }
 
-impl MiddlewareChain {
+impl<'a, 'b> MiddlewareChain<'a, 'b> {
     /// Create a new empty `MiddlewareChain`.
-    pub fn new() -> MiddlewareChain {
+    pub fn new() -> Self {
         MiddlewareChain { chain: vec![] }
     }
 
     /// Push a new `FunctionMiddleware` to this `MiddlewareChain`.
-    pub fn push<M: FunctionMiddleware + 'static>(&mut self, m: M) {
-        self.chain.push(Box::new(m));
+    pub fn push<F>(&mut self, constructor: F)
+    where
+        F: Fn(EventIter<'a, 'b>, &ModuleInfo) -> EventIter<'a, 'b>,
+    {
+        self.chain.push(Box::new(constructor));
     }
 
     /// Run this chain with the provided function code generator, event and module info.
     pub(crate) fn run<E: Debug, FCG: FunctionCodeGenerator<E>>(
-        &mut self,
+        self,
         fcg: Option<&mut FCG>,
-        ev: Event,
+        source: EventIter<'a, 'b>,
         module_info: &ModuleInfo,
     ) -> Result<(), String> {
-        let mut sink = EventSink {
-            buffer: SmallVec::new(),
-        };
-        sink.push(ev);
-        for m in &mut self.chain {
-            let prev: SmallVec<[Event; 2]> = sink.buffer.drain().collect();
-            for ev in prev {
-                m.feed_event(ev, module_info, &mut sink)?;
+        let event_iter = {
+            let mut cur_iter = source;
+            for f in self.chain {
+                cur_iter = f(cur_iter);
             }
-        }
+            cur_iter
+        };
+
         if let Some(fcg) = fcg {
-            for ev in sink.buffer {
+            for ev in event_iter {
                 fcg.feed_event(ev, module_info)
                     .map_err(|x| format!("{:?}", x))?;
             }
@@ -326,35 +334,54 @@ impl MiddlewareChain {
 
 /// A trait that represents the signature required to implement middleware for a function.
 pub trait FunctionMiddleware {
-    /// The error type for this middleware's functions.
-    type Error: Debug;
     /// Processes the given event, module info and sink.
     fn feed_event<'a, 'b: 'a>(
         &mut self,
-        op: Event<'a, 'b>,
-        module_info: &ModuleInfo,
-        sink: &mut EventSink<'a, 'b>,
-    ) -> Result<(), Self::Error>;
+        source: EventIter<'a, 'b>,
+        //module_info: &ModuleInfo,
+    ) -> EventIter<'a, 'b>;
+}
+
+///abc
+pub struct EventIter<'a, 'b> {
+    inner: Box<dyn Iterator<Item = Result<Event<'a, 'b>, Box<dyn Debug>>>>,
+}
+
+impl<'a, 'b> EventIter<'a, 'b> {
+    /// abc
+    pub fn new<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = Result<Event<'a, 'b>, Box<dyn Debug>>> + 'static,
+    {
+        Self {
+            inner: Box::new(iter.into_iter()),
+        }
+    }
+}
+
+impl<'a, 'b> Iterator for EventIter<'a, 'b> {
+    type Item = Result<Event<'a, 'b>, Box<dyn Debug>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
 }
 
 pub(crate) trait GenericFunctionMiddleware {
     fn feed_event<'a, 'b: 'a>(
         &mut self,
-        op: Event<'a, 'b>,
-        module_info: &ModuleInfo,
-        sink: &mut EventSink<'a, 'b>,
-    ) -> Result<(), String>;
+        source: EventIter<'a, 'b>,
+        //module_info: &ModuleInfo,
+    ) -> EventIter<'a, 'b>;
 }
 
-impl<E: Debug, T: FunctionMiddleware<Error = E>> GenericFunctionMiddleware for T {
+impl<T: FunctionMiddleware> GenericFunctionMiddleware for T {
     fn feed_event<'a, 'b: 'a>(
         &mut self,
-        op: Event<'a, 'b>,
-        module_info: &ModuleInfo,
-        sink: &mut EventSink<'a, 'b>,
-    ) -> Result<(), String> {
-        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink)
-            .map_err(|x| format!("{:?}", x))
+        source: EventIter<'a, 'b>,
+        //module_info: &ModuleInfo,
+    ) -> EventIter<'a, 'b> {
+        <Self as FunctionMiddleware>::feed_event(self, source /*, module_info*/)
     }
 }
 
