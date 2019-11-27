@@ -245,7 +245,7 @@ pub struct CacheImage {
     /// Code for the whole module.
     code: Vec<u8>,
 
-    /// Offsets to the beginnings of each function. (including trampoline, if any)
+    /// Offsets to the beginnings of each function (including trampoline, if any).
     function_pointers: Vec<usize>,
 
     /// Offsets to the beginnings of each function after trampoline.
