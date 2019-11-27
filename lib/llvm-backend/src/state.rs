@@ -8,23 +8,23 @@ use std::ops::{BitAnd, BitOr, BitOrAssign};
 use wasmparser::BinaryReaderError;
 
 #[derive(Debug)]
-pub enum ControlFrame {
+pub enum ControlFrame<'ctx> {
     Block {
         next: BasicBlock,
-        phis: SmallVec<[PhiValue; 1]>,
+        phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
     },
     Loop {
         body: BasicBlock,
         next: BasicBlock,
-        phis: SmallVec<[PhiValue; 1]>,
+        phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
     },
     IfElse {
         if_then: BasicBlock,
         if_else: BasicBlock,
         next: BasicBlock,
-        phis: SmallVec<[PhiValue; 1]>,
+        phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
         if_else_state: IfElseState,
     },
@@ -36,7 +36,7 @@ pub enum IfElseState {
     Else,
 }
 
-impl ControlFrame {
+impl<'ctx> ControlFrame<'ctx> {
     pub fn code_after(&self) -> &BasicBlock {
         match self {
             ControlFrame::Block { ref next, .. }
@@ -52,7 +52,7 @@ impl ControlFrame {
         }
     }
 
-    pub fn phis(&self) -> &[PhiValue] {
+    pub fn phis(&self) -> &[PhiValue<'ctx>] {
         match self {
             ControlFrame::Block { ref phis, .. }
             | ControlFrame::Loop { ref phis, .. }
@@ -193,15 +193,15 @@ impl BitAnd for ExtraInfo {
 }
 
 #[derive(Debug)]
-pub struct State {
-    pub stack: Vec<(BasicValueEnum, ExtraInfo)>,
-    control_stack: Vec<ControlFrame>,
+pub struct State<'ctx> {
+    pub stack: Vec<(BasicValueEnum<'ctx>, ExtraInfo)>,
+    control_stack: Vec<ControlFrame<'ctx>>,
     value_counter: Cell<usize>,
 
     pub reachable: bool,
 }
 
-impl State {
+impl<'ctx> State<'ctx> {
     pub fn new() -> Self {
         Self {
             stack: vec![],
@@ -211,7 +211,7 @@ impl State {
         }
     }
 
-    pub fn reset_stack(&mut self, frame: &ControlFrame) {
+    pub fn reset_stack(&mut self, frame: &ControlFrame<'ctx>) {
         let stack_size_snapshot = match frame {
             ControlFrame::Block {
                 stack_size_snapshot,
@@ -229,14 +229,14 @@ impl State {
         self.stack.truncate(stack_size_snapshot);
     }
 
-    pub fn outermost_frame(&self) -> Result<&ControlFrame, BinaryReaderError> {
+    pub fn outermost_frame(&self) -> Result<&ControlFrame<'ctx>, BinaryReaderError> {
         self.control_stack.get(0).ok_or(BinaryReaderError {
             message: "invalid control stack depth",
             offset: -1isize as usize,
         })
     }
 
-    pub fn frame_at_depth(&self, depth: u32) -> Result<&ControlFrame, BinaryReaderError> {
+    pub fn frame_at_depth(&self, depth: u32) -> Result<&ControlFrame<'ctx>, BinaryReaderError> {
         let index = self.control_stack.len() - 1 - (depth as usize);
         self.control_stack.get(index).ok_or(BinaryReaderError {
             message: "invalid control stack depth",
@@ -247,7 +247,7 @@ impl State {
     pub fn frame_at_depth_mut(
         &mut self,
         depth: u32,
-    ) -> Result<&mut ControlFrame, BinaryReaderError> {
+    ) -> Result<&mut ControlFrame<'ctx>, BinaryReaderError> {
         let index = self.control_stack.len() - 1 - (depth as usize);
         self.control_stack.get_mut(index).ok_or(BinaryReaderError {
             message: "invalid control stack depth",
@@ -255,7 +255,7 @@ impl State {
         })
     }
 
-    pub fn pop_frame(&mut self) -> Result<ControlFrame, BinaryReaderError> {
+    pub fn pop_frame(&mut self) -> Result<ControlFrame<'ctx>, BinaryReaderError> {
         self.control_stack.pop().ok_or(BinaryReaderError {
             message: "cannot pop from control stack",
             offset: -1isize as usize,
@@ -269,26 +269,28 @@ impl State {
         s
     }
 
-    pub fn push1<T: BasicValue>(&mut self, value: T) {
+    pub fn push1<T: BasicValue<'ctx>>(&mut self, value: T) {
         self.push1_extra(value, Default::default());
     }
 
-    pub fn push1_extra<T: BasicValue>(&mut self, value: T, info: ExtraInfo) {
+    pub fn push1_extra<T: BasicValue<'ctx>>(&mut self, value: T, info: ExtraInfo) {
         self.stack.push((value.as_basic_value_enum(), info));
     }
 
-    pub fn pop1(&mut self) -> Result<BasicValueEnum, BinaryReaderError> {
+    pub fn pop1(&mut self) -> Result<BasicValueEnum<'ctx>, BinaryReaderError> {
         Ok(self.pop1_extra()?.0)
     }
 
-    pub fn pop1_extra(&mut self) -> Result<(BasicValueEnum, ExtraInfo), BinaryReaderError> {
+    pub fn pop1_extra(&mut self) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), BinaryReaderError> {
         self.stack.pop().ok_or(BinaryReaderError {
             message: "invalid value stack",
             offset: -1isize as usize,
         })
     }
 
-    pub fn pop2(&mut self) -> Result<(BasicValueEnum, BasicValueEnum), BinaryReaderError> {
+    pub fn pop2(
+        &mut self,
+    ) -> Result<(BasicValueEnum<'ctx>, BasicValueEnum<'ctx>), BinaryReaderError> {
         let v2 = self.pop1()?;
         let v1 = self.pop1()?;
         Ok((v1, v2))
@@ -296,7 +298,13 @@ impl State {
 
     pub fn pop2_extra(
         &mut self,
-    ) -> Result<((BasicValueEnum, ExtraInfo), (BasicValueEnum, ExtraInfo)), BinaryReaderError> {
+    ) -> Result<
+        (
+            (BasicValueEnum<'ctx>, ExtraInfo),
+            (BasicValueEnum<'ctx>, ExtraInfo),
+        ),
+        BinaryReaderError,
+    > {
         let v2 = self.pop1_extra()?;
         let v1 = self.pop1_extra()?;
         Ok((v1, v2))
@@ -306,9 +314,9 @@ impl State {
         &mut self,
     ) -> Result<
         (
-            (BasicValueEnum, ExtraInfo),
-            (BasicValueEnum, ExtraInfo),
-            (BasicValueEnum, ExtraInfo),
+            (BasicValueEnum<'ctx>, ExtraInfo),
+            (BasicValueEnum<'ctx>, ExtraInfo),
+            (BasicValueEnum<'ctx>, ExtraInfo),
         ),
         BinaryReaderError,
     > {
@@ -318,7 +326,7 @@ impl State {
         Ok((v1, v2, v3))
     }
 
-    pub fn peek1_extra(&self) -> Result<(BasicValueEnum, ExtraInfo), BinaryReaderError> {
+    pub fn peek1_extra(&self) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), BinaryReaderError> {
         self.stack
             .get(self.stack.len() - 1)
             .ok_or(BinaryReaderError {
@@ -328,14 +336,14 @@ impl State {
             .map(|v| *v)
     }
 
-    pub fn peekn(&self, n: usize) -> Result<Vec<BasicValueEnum>, BinaryReaderError> {
+    pub fn peekn(&self, n: usize) -> Result<Vec<BasicValueEnum<'ctx>>, BinaryReaderError> {
         Ok(self.peekn_extra(n)?.iter().map(|x| x.0).collect())
     }
 
     pub fn peekn_extra(
         &self,
         n: usize,
-    ) -> Result<&[(BasicValueEnum, ExtraInfo)], BinaryReaderError> {
+    ) -> Result<&[(BasicValueEnum<'ctx>, ExtraInfo)], BinaryReaderError> {
         let new_len = self.stack.len().checked_sub(n).ok_or(BinaryReaderError {
             message: "invalid value stack",
             offset: -1isize as usize,
@@ -347,7 +355,7 @@ impl State {
     pub fn popn_save_extra(
         &mut self,
         n: usize,
-    ) -> Result<Vec<(BasicValueEnum, ExtraInfo)>, BinaryReaderError> {
+    ) -> Result<Vec<(BasicValueEnum<'ctx>, ExtraInfo)>, BinaryReaderError> {
         let v = self.peekn_extra(n)?.to_vec();
         self.popn(n)?;
         Ok(v)
@@ -366,7 +374,7 @@ impl State {
         Ok(())
     }
 
-    pub fn push_block(&mut self, next: BasicBlock, phis: SmallVec<[PhiValue; 1]>) {
+    pub fn push_block(&mut self, next: BasicBlock, phis: SmallVec<[PhiValue<'ctx>; 1]>) {
         self.control_stack.push(ControlFrame::Block {
             next,
             phis,
@@ -374,7 +382,12 @@ impl State {
         });
     }
 
-    pub fn push_loop(&mut self, body: BasicBlock, next: BasicBlock, phis: SmallVec<[PhiValue; 1]>) {
+    pub fn push_loop(
+        &mut self,
+        body: BasicBlock,
+        next: BasicBlock,
+        phis: SmallVec<[PhiValue<'ctx>; 1]>,
+    ) {
         self.control_stack.push(ControlFrame::Loop {
             body,
             next,
@@ -388,7 +401,7 @@ impl State {
         if_then: BasicBlock,
         if_else: BasicBlock,
         next: BasicBlock,
-        phis: SmallVec<[PhiValue; 1]>,
+        phis: SmallVec<[PhiValue<'ctx>; 1]>,
     ) {
         self.control_stack.push(ControlFrame::IfElse {
             if_then,

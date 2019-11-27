@@ -29,8 +29,8 @@ pub use code::LLVMModuleCodeGenerator as ModuleCodeGenerator;
 use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
 
 pub type LLVMCompiler = SimpleStreamingCompilerGen<
-    code::LLVMModuleCodeGenerator,
-    code::LLVMFunctionCodeGenerator,
+    code::LLVMModuleCodeGenerator<'static>,
+    code::LLVMFunctionCodeGenerator<'static>,
     backend::LLVMBackend,
     code::CodegenError,
 >;
