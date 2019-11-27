@@ -7,11 +7,11 @@ use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
 
 /// An index to a register
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RegisterIndex(pub usize);
 
 /// A kind of wasm or constant value
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum WasmAbstractValue {
     /// A wasm runtime value
     Runtime,
@@ -20,7 +20,7 @@ pub enum WasmAbstractValue {
 }
 
 /// A container for the state of a running wasm instance.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MachineState {
     /// Stack values.
     pub stack_values: Vec<MachineValue>,
@@ -37,7 +37,7 @@ pub struct MachineState {
 }
 
 /// A diff of two `MachineState`s.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MachineStateDiff {
     /// Last.
     pub last: Option<usize>,
@@ -63,7 +63,7 @@ pub struct MachineStateDiff {
 }
 
 /// A kind of machine value.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum MachineValue {
     /// Undefined.
     Undefined,
@@ -86,7 +86,7 @@ pub enum MachineValue {
 }
 
 /// A map of function states.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionStateMap {
     /// Initial.
     pub initial: MachineState,
@@ -111,7 +111,7 @@ pub struct FunctionStateMap {
 }
 
 /// A kind of suspend offset.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum SuspendOffset {
     /// A loop.
     Loop(usize),
@@ -122,7 +122,7 @@ pub enum SuspendOffset {
 }
 
 /// Info for an offset.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OffsetInfo {
     /// End offset.
     pub end_offset: usize, // excluded bound
@@ -133,7 +133,7 @@ pub struct OffsetInfo {
 }
 
 /// A map of module state.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleStateMap {
     /// Local functions.
     pub local_functions: BTreeMap<usize, FunctionStateMap>,

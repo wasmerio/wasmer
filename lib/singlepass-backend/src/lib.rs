@@ -20,6 +20,11 @@ compile_error!("This crate doesn't yet support compiling on operating systems ot
 
 extern crate dynasmrt;
 
+extern crate serde;
+
+#[macro_use]
+extern crate serde_derive;
+
 #[macro_use]
 extern crate dynasm;
 

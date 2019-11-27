@@ -22,8 +22,10 @@ use std::{
 };
 use wasmer_runtime_core::{
     backend::{
-        get_inline_breakpoint_size, sys::Memory, Architecture, Backend, CacheGen, CompilerConfig,
-        MemoryBoundCheckMode, RunnableModule, Token,
+        get_inline_breakpoint_size,
+        sys::{Memory, Protect},
+        Architecture, Backend, CacheGen, CompilerConfig, MemoryBoundCheckMode, RunnableModule,
+        Token,
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
@@ -229,13 +231,30 @@ unsafe impl Sync for FuncPtr {}
 pub struct X64ExecutionContext {
     #[allow(dead_code)]
     code: CodeMemory,
-    #[allow(dead_code)]
-    functions: Vec<X64FunctionCode>,
     function_pointers: Vec<FuncPtr>,
     function_offsets: Vec<AssemblyOffset>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
     breakpoints: BreakpointMap,
     func_import_count: usize,
+    msm: ModuleStateMap,
+}
+
+/// On-disk cache format.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CacheImage {
+    /// Code for the whole module.
+    code: Vec<u8>,
+
+    /// Offsets to the beginnings of each function. (including trampoline, if any)
+    function_pointers: Vec<usize>,
+
+    /// Offsets to the beginnings of each function after trampoline.
+    function_offsets: Vec<usize>,
+
+    /// Number of imported functions.
+    func_import_count: usize,
+
+    /// Module state map.
     msm: ModuleStateMap,
 }
 
@@ -255,6 +274,25 @@ pub enum IfElseState {
     None,
     If(DynamicLabel),
     Else,
+}
+
+pub struct SinglepassCache {
+    buffer: Arc<[u8]>,
+}
+
+impl CacheGen for SinglepassCache {
+    fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
+        let mut memory = Memory::with_size_protect(self.buffer.len(), Protect::ReadWrite)
+            .map_err(CacheError::SerializeError)?;
+
+        let buffer = &*self.buffer;
+
+        unsafe {
+            memory.as_slice_mut()[..buffer.len()].copy_from_slice(buffer);
+        }
+
+        Ok(([].as_ref().into(), memory))
+    }
 }
 
 impl RunnableModule for X64ExecutionContext {
@@ -677,29 +715,41 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             .map(|x| (x.offset, x.fsm.clone()))
             .collect();
 
-        struct Placeholder;
-        impl CacheGen for Placeholder {
-            fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
-                Err(CacheError::Unknown(
-                    "the singlepass backend doesn't support caching yet".to_string(),
-                ))
-            }
-        }
+        let msm = ModuleStateMap {
+            local_functions: local_function_maps,
+            total_size,
+        };
+
+        let cache_image = CacheImage {
+            code: output.to_vec(),
+            function_pointers: out_labels
+                .iter()
+                .map(|x| {
+                    (x.0 as usize)
+                        .checked_sub(output.as_ptr() as usize)
+                        .unwrap()
+                })
+                .collect(),
+            function_offsets: out_offsets.iter().map(|x| x.0 as usize).collect(),
+            func_import_count: self.func_import_count,
+            msm: msm.clone(),
+        };
+
+        let cache = SinglepassCache {
+            buffer: Arc::from(bincode::serialize(&cache_image).unwrap().into_boxed_slice()),
+        };
+
         Ok((
             X64ExecutionContext {
                 code: output,
-                functions: self.functions,
                 signatures: self.signatures.as_ref().unwrap().clone(),
                 breakpoints: breakpoints,
                 func_import_count: self.func_import_count,
                 function_pointers: out_labels,
                 function_offsets: out_offsets,
-                msm: ModuleStateMap {
-                    local_functions: local_function_maps,
-                    total_size,
-                },
+                msm: msm,
             },
-            Box::new(Placeholder),
+            Box::new(cache),
         ))
     }
 
@@ -771,10 +821,45 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         }));
         Ok(())
     }
-    unsafe fn from_cache(_artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        Err(CacheError::Unknown(
-            "the singlepass compiler API doesn't support caching yet".to_string(),
-        ))
+    unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        let (info, _, memory) = artifact.consume();
+
+        let cache_image: CacheImage = bincode::deserialize(memory.as_slice())
+            .map_err(|x| CacheError::DeserializeError(format!("{:?}", x)))?;
+
+        let mut code_mem = CodeMemory::new(cache_image.code.len());
+        code_mem[0..cache_image.code.len()].copy_from_slice(&cache_image.code);
+        code_mem.make_executable();
+
+        let function_pointers: Vec<FuncPtr> = cache_image
+            .function_pointers
+            .iter()
+            .map(|&x| FuncPtr(code_mem.as_ptr().offset(x as isize) as *const FuncPtrInner))
+            .collect();
+        let function_offsets: Vec<AssemblyOffset> = cache_image
+            .function_offsets
+            .iter()
+            .cloned()
+            .map(AssemblyOffset)
+            .collect();
+
+        let ec = X64ExecutionContext {
+            code: code_mem,
+            function_pointers,
+            function_offsets,
+            signatures: Arc::new(info.signatures.clone()),
+            breakpoints: Arc::new(HashMap::new()),
+            func_import_count: cache_image.func_import_count,
+            msm: cache_image.msm,
+        };
+        Ok(ModuleInner {
+            runnable_module: Box::new(ec),
+            cache_gen: Box::new(SinglepassCache {
+                buffer: Arc::from(memory.as_slice().to_vec().into_boxed_slice()),
+            }),
+
+            info,
+        })
     }
 }
 
