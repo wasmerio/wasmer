@@ -362,7 +362,7 @@ impl<'a> Func<'a, (), (), Host> {
             10 => Self::new_variadic_resolved::<Ten, _, _>(func, signature),
             11 => Self::new_variadic_resolved::<Eleven, _, _>(func, signature),
             12 => Self::new_variadic_resolved::<Twelve, _, _>(func, signature),
-            _ => unimplemented!("Host function can have 12 arguments maximum."),
+            _ => unimplemented!("Host functions can have 12 parameters maximum."),
         }
     }
 
@@ -466,6 +466,7 @@ fn wrap_get_func<'f, FN>(
             }
         })
         .expect("Import backing is not well-formed, cannot find `func_ctx`.");
+
     let func_ctx = unsafe { func_ctx.as_mut() };
 
     // Extract `vm::FuncEnv` from `vm::FuncCtx`.
@@ -760,9 +761,7 @@ macro_rules! impl_traits {
                     let func_signature = &module_info.signatures[func_signature_index];
 
                     // Store all arguments in a single array.
-                    let arguments = &[ $($x),* ];
-
-                    // Call the host function.
+                    let arguments = &[ $( $x ),* ];
 
                     // Catch unwind in case of errors.
                     let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
@@ -824,7 +823,7 @@ macro_rules! impl_traits {
 
                                         index = next_index;
                                     },
-                                    _ => unimplemented!(),
+                                    _ => unimplemented!("Variadic host function doesn't support `v128` values."),
                                 }
                             }
 

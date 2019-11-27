@@ -12,10 +12,10 @@ use wasmer_runtime_core::{
 use wasmer_runtime_core_tests::{get_compiler, wat2wasm};
 
 macro_rules! call_and_assert {
-    ($instance:ident, $function:ident, $expected_value:expr) => {
-        let $function: Func<i32, i32> = $instance.func(stringify!($function)).unwrap();
+    ($instance:ident, $function:ident( $( $inputs:ty ),*) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
+        let $function: Func<( $( $inputs ),* ), $output> = $instance.func(stringify!($function)).expect(concat!("Failed to get the `", stringify!($function), "` export function."));
 
-        let result = $function.call(1);
+        let result = $function.call( $( $arguments ),* );
 
         match (result, $expected_value) {
             (Ok(value), expected_value) => assert_eq!(
@@ -85,7 +85,11 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
   (import "env" "callback_closure_with_vmctx" (func $callback_closure_with_vmctx (type $type)))
   (import "env" "callback_closure_with_vmctx_and_env" (func $callback_closure_with_vmctx_and_env (type $type)))
   (import "env" "callback_fn_variadic" (func $callback_fn_variadic (type $type)))
-  (import "env" "callback_closure_variadic" (func $callback_closure_variadic (type $type)))
+  (import "env" "callback_closure_variadic_0" (func $callback_closure_variadic_0))
+  (import "env" "callback_closure_variadic_1" (func $callback_closure_variadic_1 (param i32) (result i32)))
+  (import "env" "callback_closure_variadic_2" (func $callback_closure_variadic_2 (param i32 i64) (result i64)))
+  (import "env" "callback_closure_variadic_3" (func $callback_closure_variadic_3 (param i32 i64 f32) (result f32)))
+  (import "env" "callback_closure_variadic_4" (func $callback_closure_variadic_4 (param i32 i64 f32 f64) (result f64)))
   (import "env" "callback_fn_trap" (func $callback_fn_trap (type $type)))
   (import "env" "callback_closure_trap" (func $callback_closure_trap (type $type)))
   (import "env" "callback_fn_trap_with_vmctx" (func $callback_fn_trap_with_vmctx (type $type)))
@@ -120,9 +124,30 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
     get_local 0
     call $callback_fn_variadic)
 
-  (func (export "function_closure_variadic") (type $type)
+  (func (export "function_closure_variadic_0")
+    call $callback_closure_variadic_0)
+
+  (func (export "function_closure_variadic_1") (param i32) (result i32)
     get_local 0
-    call $callback_closure_variadic)
+    call $callback_closure_variadic_1)
+
+  (func (export "function_closure_variadic_2") (param i32 i64) (result i64)
+    get_local 0
+    get_local 1
+    call $callback_closure_variadic_2)
+
+  (func (export "function_closure_variadic_3") (param i32 i64 f32) (result f32)
+    get_local 0
+    get_local 1
+    get_local 2
+    call $callback_closure_variadic_3)
+
+  (func (export "function_closure_variadic_4") (param i32 i64 f32 f64) (result f64)
+    get_local 0
+    get_local 1
+    get_local 2
+    get_local 3
+    call $callback_closure_variadic_4)
 
   (func (export "function_fn_trap") (type $type)
     get_local 0
@@ -197,17 +222,74 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
                 Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32]))
             ),
 
-            // “Variadic” closure.
-            "callback_closure_variadic" => Func::new_variadic(
-                |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<Vec<Value>, ()> {
+            // “Variadic” closures.
+            "callback_closure_variadic_0" => Func::new_variadic(
+                |_vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<Vec<Value>, ()> {
+                    assert_eq!(inputs.len(), 0);
+
+                    Ok(vec![])
+
+                },
+                0,
+                Arc::new(FuncSig::new(vec![], vec![])),
+            ),
+            "callback_closure_variadic_1" => Func::new_variadic(
+                move |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<Vec<Value>, ()> {
+                    assert_eq!(inputs.len(), 1);
+
                     let memory = vmctx.memory(0);
-                    let shift_: i32 = memory.view()[0].get();
+                    let shift_ = shift + memory.view::<i32>()[0].get();
                     let n: i32 = (&inputs[0]).try_into().unwrap();
 
-                    Ok(vec![Value::I32(shift_ + n + 1)])
+                    Ok(vec![Value::I32(shift_ + n)])
                 },
                 1,
                 Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
+            ),
+            "callback_closure_variadic_2" => Func::new_variadic(
+                move |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<Vec<Value>, ()> {
+                    assert_eq!(inputs.len(), 2);
+
+                    let memory = vmctx.memory(0);
+                    let shift_ = shift + memory.view::<i32>()[0].get();
+                    let i: i32 = (&inputs[0]).try_into().unwrap();
+                    let j: i64 = (&inputs[1]).try_into().unwrap();
+
+                    Ok(vec![Value::I64(shift_ as i64 + i as i64 + j)])
+                },
+                2,
+                Arc::new(FuncSig::new(vec![Type::I32, Type::I64], vec![Type::I64])),
+            ),
+            "callback_closure_variadic_3" => Func::new_variadic(
+                move |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<Vec<Value>, ()> {
+                    assert_eq!(inputs.len(), 3);
+
+                    let memory = vmctx.memory(0);
+                    let shift_ = shift + memory.view::<i32>()[0].get();
+                    let i: i32 = (&inputs[0]).try_into().unwrap();
+                    let j: i64 = (&inputs[1]).try_into().unwrap();
+                    let k: f32 = (&inputs[2]).try_into().unwrap();
+
+                    Ok(vec![Value::F32(shift_ as f32 + i as f32 + j as f32 + k)])
+                },
+                3,
+                Arc::new(FuncSig::new(vec![Type::I32, Type::I64, Type::F32], vec![Type::F32])),
+            ),
+            "callback_closure_variadic_4" => Func::new_variadic(
+                |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Result<Vec<Value>, ()> {
+                    assert_eq!(inputs.len(), 4);
+
+                    let memory = vmctx.memory(0);
+                    let shift_ = shift + memory.view::<i32>()[0].get();
+                    let i: i32 = (&inputs[0]).try_into().unwrap();
+                    let j: i64 = (&inputs[1]).try_into().unwrap();
+                    let k: f32 = (&inputs[2]).try_into().unwrap();
+                    let l: f64 = (&inputs[3]).try_into().unwrap();
+
+                    Ok(vec![Value::F64(shift_ as f64 + i as f64 + j as f64 + k as f64 + l)])
+                },
+                4,
+                Arc::new(FuncSig::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![Type::F64])),
             ),
 
             // Trap a regular function.
@@ -274,72 +356,96 @@ fn callback_fn_trap_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, Strin
 }
 
 macro_rules! test {
-    ($test_name:ident, $function:ident, $expected_value:expr) => {
+    ($test_name:ident, $function:ident( $( $inputs:ty ),* ) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
         #[test]
         fn $test_name() {
             imported_functions_forms(&|instance| {
-                call_and_assert!(instance, $function, $expected_value);
+                call_and_assert!(instance, $function( $( $inputs ),* ) -> $output, ( $( $arguments ),* ) == $expected_value);
             });
         }
     };
 }
 
-test!(test_fn, function_fn, Ok(2));
-test!(test_closure, function_closure, Ok(2));
+test!(test_fn, function_fn(i32) -> i32, (1) == Ok(2));
+test!(test_closure, function_closure(i32) -> i32, (1) == Ok(2));
 test!(
     test_closure_with_env,
-    function_closure_with_env,
-    Ok(2 + shift + SHIFT)
+    function_closure_with_env(i32) -> i32,
+    (1) == Ok(2 + shift + SHIFT)
 );
-test!(test_fn_with_vmctx, function_fn_with_vmctx, Ok(2 + SHIFT));
+test!(test_fn_with_vmctx, function_fn_with_vmctx(i32) -> i32, (1) == Ok(2 + SHIFT));
 test!(
     test_closure_with_vmctx,
-    function_closure_with_vmctx,
-    Ok(2 + SHIFT)
+    function_closure_with_vmctx(i32) -> i32,
+    (1) == Ok(2 + SHIFT)
 );
 test!(
     test_closure_with_vmctx_and_env,
-    function_closure_with_vmctx_and_env,
-    Ok(2 + shift + SHIFT)
+    function_closure_with_vmctx_and_env(i32) -> i32,
+    (1) == Ok(2 + shift + SHIFT)
 );
-test!(test_fn_variadic, function_fn_variadic, Ok(2 + SHIFT));
+test!(test_fn_variadic, function_fn_variadic(i32) -> i32, (1) == Ok(2 + SHIFT));
 test!(
-    test_closure_variadic,
-    function_closure_variadic,
-    Ok(2 + SHIFT)
+    test_closure_variadic_arity_0,
+    function_closure_variadic_0(()) -> (),
+    () == Ok(())
 );
+test!(
+    test_closure_variadic_arity_1,
+    function_closure_variadic_1(i32) -> (i32),
+    (1) == Ok(1 + shift + SHIFT)
+);
+test!(
+    test_closure_variadic_arity_2,
+    function_closure_variadic_2(i32, i64) -> (i64),
+    (1, 2) == Ok(1 + 2 + shift as i64 + SHIFT as i64)
+);
+/*
+test!(
+    test_closure_variadic_arity_3,
+    function_closure_variadic_3(i32, i64, f32) -> (f32),
+    (1, 2, 3.0) == Ok(1.0 + 2.0 + 3.0 + shift as f32 + SHIFT as f32)
+);
+*/
+/*
+test!(
+    test_closure_variadic_arity_4,
+    function_closure_variadic_4(i32, i64, f32, f64) -> (f64),
+    (1, 2, 3.0, 4.0) == Ok(1.0 + 2.0 + 3.0 + 4.0 + shift as f64 + SHIFT as f64)
+);
+*/
 test!(
     test_fn_trap,
-    function_fn_trap,
-    Err(RuntimeError::Error {
+    function_fn_trap(i32) -> i32,
+    (1) == Err(RuntimeError::Error {
         data: Box::new(format!("foo {}", 2))
     })
 );
 test!(
     test_closure_trap,
-    function_closure_trap,
-    Err(RuntimeError::Error {
+    function_closure_trap(i32) -> i32,
+    (1) == Err(RuntimeError::Error {
         data: Box::new(format!("bar {}", 2))
     })
 );
 test!(
     test_fn_trap_with_vmctx,
-    function_fn_trap_with_vmctx,
-    Err(RuntimeError::Error {
+    function_fn_trap_with_vmctx(i32) -> i32,
+    (1) == Err(RuntimeError::Error {
         data: Box::new(format!("baz {}", 2 + SHIFT))
     })
 );
 test!(
     test_closure_trap_with_vmctx,
-    function_closure_trap_with_vmctx,
-    Err(RuntimeError::Error {
+    function_closure_trap_with_vmctx(i32) -> i32,
+    (1) == Err(RuntimeError::Error {
         data: Box::new(format!("qux {}", 2 + SHIFT))
     })
 );
 test!(
     test_closure_trap_with_vmctx_and_env,
-    function_closure_trap_with_vmctx_and_env,
-    Err(RuntimeError::Error {
+    function_closure_trap_with_vmctx_and_env(i32) -> i32,
+    (1) == Err(RuntimeError::Error {
         data: Box::new(format!("! {}", 2 + shift + SHIFT))
     })
 );
