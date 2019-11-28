@@ -262,6 +262,46 @@ fn is_llvm_debug() -> bool {
     llvm_config("--build-mode").contains("Debug")
 }
 
+fn get_llvm_target_name() -> String {
+    let name = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        "x86_64-apple-darwin"
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        "x86_64-linux-gnu-ubuntu-16.04"
+    } else {
+        panic!("Unsupport host for installing llvm")
+    };
+
+    format!("clang+llvm-8.0.0-{}", name)
+}
+
+fn find_llvm_url() -> String {
+    let name = get_llvm_target_name();
+    format!("https://releases.llvm.org/8.0.0/{}.tar.xz", name)
+}
+
+fn install_llvm() {
+    let llvm_path: PathBuf = format!("{}/llvm", std::env::var("OUT_DIR").unwrap()).into();
+
+    std::env::set_var(
+        &*ENV_LLVM_PREFIX,
+        format!("{}/{}", llvm_path.display(), get_llvm_target_name()),
+    );
+
+    if llvm_path.exists() {
+        return;
+    }
+
+    let url = find_llvm_url();
+
+    let resp = reqwest::get(&url).expect("Failed to connect to the llvm server");
+    let resp = lzma::LzmaReader::new_decompressor(resp).expect("Failed to initialize decompressor");
+    let mut archive = tar::Archive::new(resp);
+
+    archive
+        .unpack(&llvm_path)
+        .expect("Failed to unpack the tar file");
+}
+
 fn main() {
     println!("cargo:rustc-link-lib=static=llvm-backend");
     println!("cargo:rerun-if-changed=build.rs");
@@ -273,6 +313,8 @@ fn main() {
     println!("cargo:rerun-if-env-changed={}", &*ENV_NO_CLEAN_CXXFLAGS);
     println!("cargo:rerun-if-env-changed={}", &*ENV_USE_DEBUG_MSVCRT);
     println!("cargo:rerun-if-env-changed={}", &*ENV_FORCE_FFI);
+
+    install_llvm();
 
     std::env::set_var("CXXFLAGS", get_llvm_cxxflags());
     cc::Build::new()
