@@ -4,11 +4,11 @@
 
 | &nbsp; | Singlepass | Cranelift | LLVM |
 | - | :-: | :-: | :-: |
-| Caching | ⬜ | ✅ | ✅ |
+| Caching | ✅ | ✅ | ✅ |
 | Emscripten | ✅ | ✅ | ✅ |
 | Metering | ✅ | ⬜ | ✅ |
 | Multi-value return | ⬜ | ⬜ | ⬜ |
-| OSR | 🔄 | ❓ | ❓ |
+| OSR | 🔄 | ⬜ | 🔄 |
 | SIMD | ⬜ | ⬜ | ✅ |
 | WASI | ✅ | ✅ | ✅ |
 | WASMER_BACKTRACE | ✅ | ⬜ | ⬜ |
