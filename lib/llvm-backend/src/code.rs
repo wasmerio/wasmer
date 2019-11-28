@@ -23,6 +23,7 @@ use smallvec::SmallVec;
 use std::{
     cell::RefCell,
     collections::HashMap,
+    mem::ManuallyDrop,
     rc::Rc,
     sync::{Arc, RwLock},
 };
@@ -39,12 +40,12 @@ use wasmer_runtime_core::{
 };
 use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
 
-fn func_sig_to_llvm(
-    context: &Context,
-    intrinsics: &Intrinsics,
+fn func_sig_to_llvm<'ctx>(
+    context: &'ctx Context,
+    intrinsics: &Intrinsics<'ctx>,
     sig: &FuncSig,
-    type_to_llvm: fn(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum,
-) -> FunctionType {
+    type_to_llvm: fn(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx>,
+) -> FunctionType<'ctx> {
     let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
     let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
@@ -67,7 +68,7 @@ fn func_sig_to_llvm(
     }
 }
 
-fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
+fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
     match ty {
         Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
         Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
@@ -77,7 +78,7 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
     }
 }
 
-fn type_to_llvm_int_only(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
+fn type_to_llvm_int_only<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
     match ty {
         Type::I32 | Type::F32 => intrinsics.i32_ty.as_basic_type_enum(),
         Type::I64 | Type::F64 => intrinsics.i64_ty.as_basic_type_enum(),
@@ -86,13 +87,13 @@ fn type_to_llvm_int_only(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
 }
 
 // Create a vector where each lane contains the same value.
-fn splat_vector(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
-    vec_ty: VectorType,
+fn splat_vector<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
+    vec_ty: VectorType<'ctx>,
     name: &str,
-) -> VectorValue {
+) -> VectorValue<'ctx> {
     // Use insert_element to insert the element into an undef vector, then use
     // shuffle vector to copy that lane to all lanes.
     builder.build_shuffle_vector(
@@ -106,18 +107,18 @@ fn splat_vector(
 // Convert floating point vector to integer and saturate when out of range.
 // TODO: generalize to non-vectors using FloatMathType, IntMathType, etc. for
 // https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
-fn trunc_sat(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    fvec_ty: VectorType,
-    ivec_ty: VectorType,
+fn trunc_sat<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    fvec_ty: VectorType<'ctx>,
+    ivec_ty: VectorType<'ctx>,
     lower_bound: u64, // Exclusive (lowest representable value)
     upper_bound: u64, // Exclusive (greatest representable value)
     int_min_value: u64,
     int_max_value: u64,
-    value: IntValue,
+    value: IntValue<'ctx>,
     name: &str,
-) -> IntValue {
+) -> IntValue<'ctx> {
     // a) Compare vector with itself to identify NaN lanes.
     // b) Compare vector with splat of inttofp(upper_bound) to identify
     //    lanes that need to saturate to max.
@@ -225,11 +226,11 @@ fn trunc_sat(
         .into_int_value()
 }
 
-fn trap_if_not_representable_as_int(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    function: &FunctionValue,
+fn trap_if_not_representable_as_int<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    context: &'ctx Context,
+    function: &FunctionValue<'ctx>,
     lower_bound: u64, // Inclusive (not a trapping value)
     upper_bound: u64, // Inclusive (not a trapping value)
     value: FloatValue,
@@ -261,8 +262,8 @@ fn trap_if_not_representable_as_int(
         "out_of_bounds",
     );
 
-    let failure_block = context.append_basic_block(function, "conversion_failure_block");
-    let continue_block = context.append_basic_block(function, "conversion_success_block");
+    let failure_block = context.append_basic_block(*function, "conversion_failure_block");
+    let continue_block = context.append_basic_block(*function, "conversion_success_block");
 
     builder.build_conditional_branch(out_of_bounds, &failure_block, &continue_block);
     builder.position_at_end(&failure_block);
@@ -275,11 +276,11 @@ fn trap_if_not_representable_as_int(
     builder.position_at_end(&continue_block);
 }
 
-fn trap_if_zero_or_overflow(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    function: &FunctionValue,
+fn trap_if_zero_or_overflow<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    context: &'ctx Context,
+    function: &FunctionValue<'ctx>,
     left: IntValue,
     right: IntValue,
 ) {
@@ -326,8 +327,8 @@ fn trap_if_zero_or_overflow(
         .unwrap()
         .into_int_value();
 
-    let shouldnt_trap_block = context.append_basic_block(function, "shouldnt_trap_block");
-    let should_trap_block = context.append_basic_block(function, "should_trap_block");
+    let shouldnt_trap_block = context.append_basic_block(*function, "shouldnt_trap_block");
+    let should_trap_block = context.append_basic_block(*function, "should_trap_block");
     builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
     builder.position_at_end(&should_trap_block);
     builder.build_call(
@@ -339,11 +340,11 @@ fn trap_if_zero_or_overflow(
     builder.position_at_end(&shouldnt_trap_block);
 }
 
-fn trap_if_zero(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    function: &FunctionValue,
+fn trap_if_zero<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    context: &'ctx Context,
+    function: &FunctionValue<'ctx>,
     value: IntValue,
 ) {
     let int_type = value.get_type();
@@ -368,8 +369,8 @@ fn trap_if_zero(
         .unwrap()
         .into_int_value();
 
-    let shouldnt_trap_block = context.append_basic_block(function, "shouldnt_trap_block");
-    let should_trap_block = context.append_basic_block(function, "should_trap_block");
+    let shouldnt_trap_block = context.append_basic_block(*function, "shouldnt_trap_block");
+    let should_trap_block = context.append_basic_block(*function, "should_trap_block");
     builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
     builder.position_at_end(&should_trap_block);
     builder.build_call(
@@ -381,13 +382,13 @@ fn trap_if_zero(
     builder.position_at_end(&shouldnt_trap_block);
 }
 
-fn v128_into_int_vec(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
+fn v128_into_int_vec<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
     info: ExtraInfo,
-    int_vec_ty: VectorType,
-) -> (VectorValue, ExtraInfo) {
+    int_vec_ty: VectorType<'ctx>,
+) -> (VectorValue<'ctx>, ExtraInfo) {
     let (value, info) = if info.has_pending_f32_nan() {
         let value = builder.build_bitcast(value, intrinsics.f32x4_ty, "");
         (
@@ -411,50 +412,50 @@ fn v128_into_int_vec(
     )
 }
 
-fn v128_into_i8x16(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
+fn v128_into_i8x16<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
     info: ExtraInfo,
-) -> (VectorValue, ExtraInfo) {
+) -> (VectorValue<'ctx>, ExtraInfo) {
     v128_into_int_vec(builder, intrinsics, value, info, intrinsics.i8x16_ty)
 }
 
-fn v128_into_i16x8(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
+fn v128_into_i16x8<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
     info: ExtraInfo,
-) -> (VectorValue, ExtraInfo) {
+) -> (VectorValue<'ctx>, ExtraInfo) {
     v128_into_int_vec(builder, intrinsics, value, info, intrinsics.i16x8_ty)
 }
 
-fn v128_into_i32x4(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
+fn v128_into_i32x4<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
     info: ExtraInfo,
-) -> (VectorValue, ExtraInfo) {
+) -> (VectorValue<'ctx>, ExtraInfo) {
     v128_into_int_vec(builder, intrinsics, value, info, intrinsics.i32x4_ty)
 }
 
-fn v128_into_i64x2(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
+fn v128_into_i64x2<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
     info: ExtraInfo,
-) -> (VectorValue, ExtraInfo) {
+) -> (VectorValue<'ctx>, ExtraInfo) {
     v128_into_int_vec(builder, intrinsics, value, info, intrinsics.i64x2_ty)
 }
 
 // If the value is pending a 64-bit canonicalization, do it now.
 // Return a f32x4 vector.
-fn v128_into_f32x4(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
+fn v128_into_f32x4<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
     info: ExtraInfo,
-) -> (VectorValue, ExtraInfo) {
+) -> (VectorValue<'ctx>, ExtraInfo) {
     let (value, info) = if info.has_pending_f64_nan() {
         let value = builder.build_bitcast(value, intrinsics.f64x2_ty, "");
         (
@@ -474,12 +475,12 @@ fn v128_into_f32x4(
 
 // If the value is pending a 32-bit canonicalization, do it now.
 // Return a f64x2 vector.
-fn v128_into_f64x2(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
+fn v128_into_f64x2<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
     info: ExtraInfo,
-) -> (VectorValue, ExtraInfo) {
+) -> (VectorValue<'ctx>, ExtraInfo) {
     let (value, info) = if info.has_pending_f32_nan() {
         let value = builder.build_bitcast(value, intrinsics.f32x4_ty, "");
         (
@@ -497,12 +498,12 @@ fn v128_into_f64x2(
     )
 }
 
-fn apply_pending_canonicalization(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
+fn apply_pending_canonicalization<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
     info: ExtraInfo,
-) -> BasicValueEnum {
+) -> BasicValueEnum<'ctx> {
     if info.has_pending_f32_nan() {
         if value.get_type().is_vector_type()
             || value.get_type() == intrinsics.i128_ty.as_basic_type_enum()
@@ -531,11 +532,11 @@ fn apply_pending_canonicalization(
 }
 
 // Replaces any NaN with the canonical QNaN, otherwise leaves the value alone.
-fn canonicalize_nans(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    value: BasicValueEnum,
-) -> BasicValueEnum {
+fn canonicalize_nans<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    value: BasicValueEnum<'ctx>,
+) -> BasicValueEnum<'ctx> {
     let f_ty = value.get_type();
     let canonicalized = if f_ty.is_vector_type() {
         let value = value.into_vector_value();
@@ -569,18 +570,18 @@ fn canonicalize_nans(
     canonicalized
 }
 
-fn resolve_memory_ptr(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    module: Rc<RefCell<Module>>,
-    function: &FunctionValue,
-    state: &mut State,
-    ctx: &mut CtxType,
+fn resolve_memory_ptr<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    context: &'ctx Context,
+    module: Rc<RefCell<Module<'ctx>>>,
+    function: &FunctionValue<'ctx>,
+    state: &mut State<'ctx>,
+    ctx: &mut CtxType<'static, 'ctx>,
     memarg: &MemoryImmediate,
-    ptr_ty: PointerType,
+    ptr_ty: PointerType<'ctx>,
     value_size: usize,
-) -> Result<PointerValue, BinaryReaderError> {
+) -> Result<PointerValue<'ctx>, BinaryReaderError> {
     // Look up the memory base (as pointer) and bounds (as unsigned integer).
     let memory_cache = ctx.memory(MemoryIndex::new(0), intrinsics, module.clone());
     let (mem_base, mem_bound, minimum, _maximum) = match memory_cache {
@@ -595,14 +596,14 @@ fn resolve_memory_ptr(
                 .into_pointer_value();
             let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
             tbaa_label(
-                module.clone(),
+                &module,
                 intrinsics,
                 "dynamic_memory_base",
                 base.as_instruction_value().unwrap(),
                 Some(0),
             );
             tbaa_label(
-                module.clone(),
+                &module,
                 intrinsics,
                 "dynamic_memory_bounds",
                 bounds.as_instruction_value().unwrap(),
@@ -680,8 +681,8 @@ fn resolve_memory_ptr(
                 .into_int_value();
 
             let in_bounds_continue_block =
-                context.append_basic_block(function, "in_bounds_continue_block");
-            let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
+                context.append_basic_block(*function, "in_bounds_continue_block");
+            let not_in_bounds_block = context.append_basic_block(*function, "not_in_bounds_block");
             builder.build_conditional_branch(
                 ptr_in_bounds,
                 &in_bounds_continue_block,
@@ -704,16 +705,16 @@ fn resolve_memory_ptr(
         .into_pointer_value())
 }
 
-fn emit_stack_map(
+fn emit_stack_map<'ctx>(
     _module_info: &ModuleInfo,
-    intrinsics: &Intrinsics,
-    builder: &Builder,
+    intrinsics: &Intrinsics<'ctx>,
+    builder: &Builder<'ctx>,
     local_function_id: usize,
     target: &mut StackmapRegistry,
     kind: StackmapEntryKind,
     locals: &[PointerValue],
-    state: &State,
-    _ctx: &mut CtxType,
+    state: &State<'ctx>,
+    _ctx: &mut CtxType<'_, 'ctx>,
     opcode_offset: usize,
 ) {
     let stackmap_id = target.entries.len();
@@ -757,9 +758,9 @@ fn emit_stack_map(
     });
 }
 
-fn finalize_opcode_stack_map(
-    intrinsics: &Intrinsics,
-    builder: &Builder,
+fn finalize_opcode_stack_map<'ctx>(
+    intrinsics: &Intrinsics<'ctx>,
+    builder: &Builder<'ctx>,
     local_function_id: usize,
     target: &mut StackmapRegistry,
     kind: StackmapEntryKind,
@@ -788,13 +789,13 @@ fn finalize_opcode_stack_map(
     });
 }
 
-fn trap_if_misaligned(
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-    context: &Context,
-    function: &FunctionValue,
+fn trap_if_misaligned<'ctx>(
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+    context: &'ctx Context,
+    function: &FunctionValue<'ctx>,
     memarg: &MemoryImmediate,
-    ptr: PointerValue,
+    ptr: PointerValue<'ctx>,
 ) {
     let align = match memarg.flags & 3 {
         0 => {
@@ -826,8 +827,8 @@ fn trap_if_misaligned(
         .unwrap()
         .into_int_value();
 
-    let continue_block = context.append_basic_block(function, "aligned_access_continue_block");
-    let not_aligned_block = context.append_basic_block(function, "misaligned_trap_block");
+    let continue_block = context.append_basic_block(*function, "aligned_access_continue_block");
+    let not_aligned_block = context.append_basic_block(*function, "misaligned_trap_block");
     builder.build_conditional_branch(aligned, &continue_block, &not_aligned_block);
 
     builder.position_at_end(&not_aligned_block);
@@ -861,45 +862,45 @@ pub unsafe extern "C" fn callback_trampoline(
     }
 }
 
-pub struct LLVMModuleCodeGenerator {
-    context: Option<Context>,
-    builder: Option<Builder>,
-    intrinsics: Option<Intrinsics>,
-    functions: Vec<LLVMFunctionCodeGenerator>,
-    signatures: Map<SigIndex, FunctionType>,
+pub struct LLVMModuleCodeGenerator<'ctx> {
+    context: Option<&'ctx Context>,
+    builder: Option<Builder<'ctx>>,
+    intrinsics: Option<Intrinsics<'ctx>>,
+    functions: Vec<LLVMFunctionCodeGenerator<'ctx>>,
+    signatures: Map<SigIndex, FunctionType<'ctx>>,
     signatures_raw: Map<SigIndex, FuncSig>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
-    llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue>>>,
+    llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue<'ctx>>>>,
     func_import_count: usize,
-    personality_func: FunctionValue,
-    module: Rc<RefCell<Module>>,
+    personality_func: ManuallyDrop<FunctionValue<'ctx>>,
+    module: ManuallyDrop<Rc<RefCell<Module<'ctx>>>>,
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     track_state: bool,
     target_machine: TargetMachine,
 }
 
-pub struct LLVMFunctionCodeGenerator {
-    context: Option<Context>,
-    builder: Option<Builder>,
-    alloca_builder: Option<Builder>,
-    intrinsics: Option<Intrinsics>,
-    state: State,
-    llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue>>>,
-    function: FunctionValue,
+pub struct LLVMFunctionCodeGenerator<'ctx> {
+    context: Option<&'ctx Context>,
+    builder: Option<Builder<'ctx>>,
+    alloca_builder: Option<Builder<'ctx>>,
+    intrinsics: Option<Intrinsics<'ctx>>,
+    state: State<'ctx>,
+    llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue<'ctx>>>>,
+    function: FunctionValue<'ctx>,
     func_sig: FuncSig,
-    signatures: Map<SigIndex, FunctionType>,
-    locals: Vec<PointerValue>, // Contains params and locals
+    signatures: Map<SigIndex, FunctionType<'ctx>>,
+    locals: Vec<PointerValue<'ctx>>, // Contains params and locals
     num_params: usize,
-    ctx: Option<CtxType<'static>>,
+    ctx: Option<CtxType<'static, 'ctx>>,
     unreachable_depth: usize,
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     index: usize,
     opcode_offset: usize,
     track_state: bool,
-    module: Rc<RefCell<Module>>,
+    module: Rc<RefCell<Module<'ctx>>>,
 }
 
-impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
+impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ctx> {
     fn feed_return(&mut self, _ty: WpType) -> Result<(), CodegenError> {
         Ok(())
     }
@@ -950,7 +951,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
             .context
             .as_ref()
             .unwrap()
-            .append_basic_block(&self.function, "start_of_code");
+            .append_basic_block(self.function, "start_of_code");
         let entry_end_inst = self
             .builder
             .as_ref()
@@ -965,10 +966,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
         cache_builder.position_before(&entry_end_inst);
         let module_info =
             unsafe { ::std::mem::transmute::<&ModuleInfo, &'static ModuleInfo>(module_info) };
-        let function = unsafe {
-            ::std::mem::transmute::<&FunctionValue, &'static FunctionValue>(&self.function)
-        };
-        let ctx = CtxType::new(module_info, function, cache_builder);
+        let ctx = CtxType::new(module_info, &self.function, cache_builder);
 
         self.ctx = Some(ctx);
 
@@ -1045,7 +1043,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                                 ctx.internal_field(idx, intrinsics, self.module.clone(), builder);
                             let result = builder.build_load(field_ptr, "get_internal");
                             tbaa_label(
-                                self.module.clone(),
+                                &self.module,
                                 intrinsics,
                                 "internal",
                                 result.as_instruction_value().unwrap(),
@@ -1062,7 +1060,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                             let v = state.pop1()?;
                             let store = builder.build_store(field_ptr, v);
                             tbaa_label(
-                                self.module.clone(),
+                                &self.module,
                                 intrinsics,
                                 "internal",
                                 store,
@@ -1110,7 +1108,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     offset: -1isize as usize,
                 })?;
 
-                let end_block = context.append_basic_block(&function, "end");
+                let end_block = context.append_basic_block(function, "end");
                 builder.position_at_end(&end_block);
 
                 let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
@@ -1127,8 +1125,8 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 builder.position_at_end(&current_block);
             }
             Operator::Loop { ty } => {
-                let loop_body = context.append_basic_block(&function, "loop_body");
-                let loop_next = context.append_basic_block(&function, "loop_outer");
+                let loop_body = context.append_basic_block(function, "loop_body");
+                let loop_next = context.append_basic_block(function, "loop_outer");
 
                 builder.build_unconditional_branch(&loop_body);
 
@@ -1233,7 +1231,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     phi.add_incoming(&[(&value, &current_block)]);
                 }
 
-                let else_block = context.append_basic_block(&function, "else");
+                let else_block = context.append_basic_block(function, "else");
 
                 let cond_value = builder.build_int_compare(
                     IntPredicate::NE,
@@ -1299,9 +1297,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     message: "not currently in a block",
                     offset: -1isize as usize,
                 })?;
-                let if_then_block = context.append_basic_block(&function, "if_then");
-                let if_else_block = context.append_basic_block(&function, "if_else");
-                let end_block = context.append_basic_block(&function, "if_end");
+                let if_then_block = context.append_basic_block(function, "if_then");
+                let if_else_block = context.append_basic_block(function, "if_else");
+                let end_block = context.append_basic_block(function, "if_end");
 
                 let end_phis = {
                     builder.position_at_end(&end_block);
@@ -1656,7 +1654,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let pointer_value = locals[local_index as usize];
                 let v = builder.build_load(pointer_value, &state.var_name());
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "local",
                     v.as_instruction_value().unwrap(),
@@ -1669,26 +1667,14 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 let (v, i) = state.pop1_extra()?;
                 let v = apply_pending_canonicalization(builder, intrinsics, v, i);
                 let store = builder.build_store(pointer_value, v);
-                tbaa_label(
-                    self.module.clone(),
-                    intrinsics,
-                    "local",
-                    store,
-                    Some(local_index),
-                );
+                tbaa_label(&self.module, intrinsics, "local", store, Some(local_index));
             }
             Operator::TeeLocal { local_index } => {
                 let pointer_value = locals[local_index as usize];
                 let (v, i) = state.peek1_extra()?;
                 let v = apply_pending_canonicalization(builder, intrinsics, v, i);
                 let store = builder.build_store(pointer_value, v);
-                tbaa_label(
-                    self.module.clone(),
-                    intrinsics,
-                    "local",
-                    store,
-                    Some(local_index),
-                );
+                tbaa_label(&self.module, intrinsics, "local", store, Some(local_index));
             }
 
             Operator::GetGlobal { global_index } => {
@@ -1701,7 +1687,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     GlobalCache::Mut { ptr_to_value } => {
                         let value = builder.build_load(ptr_to_value, "global_value");
                         tbaa_label(
-                            self.module.clone(),
+                            &self.module,
                             intrinsics,
                             "global",
                             value.as_instruction_value().unwrap(),
@@ -1720,7 +1706,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     GlobalCache::Mut { ptr_to_value } => {
                         let store = builder.build_store(ptr_to_value, value);
                         tbaa_label(
-                            self.module.clone(),
+                            &self.module,
                             intrinsics,
                             "global",
                             store,
@@ -1994,9 +1980,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .into_int_value();
 
                 let in_bounds_continue_block =
-                    context.append_basic_block(&function, "in_bounds_continue_block");
+                    context.append_basic_block(function, "in_bounds_continue_block");
                 let not_in_bounds_block =
-                    context.append_basic_block(&function, "not_in_bounds_block");
+                    context.append_basic_block(function, "not_in_bounds_block");
                 builder.build_conditional_branch(
                     index_in_bounds,
                     &in_bounds_continue_block,
@@ -2035,9 +2021,9 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .unwrap()
                     .into_int_value();
 
-                let continue_block = context.append_basic_block(&function, "continue_block");
+                let continue_block = context.append_basic_block(function, "continue_block");
                 let sigindices_notequal_block =
-                    context.append_basic_block(&function, "sigindices_notequal_block");
+                    context.append_basic_block(function, "sigindices_notequal_block");
                 builder.build_conditional_branch(
                     sigindices_equal,
                     &continue_block,
@@ -4760,7 +4746,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
@@ -4788,7 +4774,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
@@ -4816,7 +4802,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
@@ -4844,7 +4830,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
@@ -4872,7 +4858,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
@@ -4897,7 +4883,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 )?;
                 let store = builder.build_store(effective_address, value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I64Store { ref memarg } => {
                 let value = state.pop1()?;
@@ -4915,7 +4901,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 )?;
                 let store = builder.build_store(effective_address, value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::F32Store { ref memarg } => {
                 let (v, i) = state.pop1_extra()?;
@@ -4934,7 +4920,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 )?;
                 let store = builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::F64Store { ref memarg } => {
                 let (v, i) = state.pop1_extra()?;
@@ -4953,7 +4939,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 )?;
                 let store = builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::V128Store { ref memarg } => {
                 let (v, i) = state.pop1_extra()?;
@@ -4972,7 +4958,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 )?;
                 let store = builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I32Load8S { ref memarg } => {
                 let effective_address = resolve_memory_ptr(
@@ -4994,7 +4980,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5027,7 +5013,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5062,7 +5048,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5094,7 +5080,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5124,7 +5110,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5158,7 +5144,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5191,7 +5177,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5224,7 +5210,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5257,7 +5243,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5290,7 +5276,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
@@ -5322,7 +5308,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
                 let store = builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -5342,7 +5328,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
                 let store = builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I64Store32 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -5362,7 +5348,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
                 let store = builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I8x16Neg => {
                 let (v, i) = state.pop1_extra()?;
@@ -5731,7 +5717,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     elem.as_instruction_value().unwrap(),
@@ -5766,7 +5752,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     elem.as_instruction_value().unwrap(),
@@ -5801,7 +5787,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     elem.as_instruction_value().unwrap(),
@@ -5836,7 +5822,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     elem.as_instruction_value().unwrap(),
@@ -5887,7 +5873,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(4).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
                 state.push1(result);
             }
             Operator::I64AtomicLoad { ref memarg } => {
@@ -5916,7 +5902,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(8).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
                 state.push1(result);
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
@@ -5947,7 +5933,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(1).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1_extra(result, ExtraInfo::arithmetic_f32());
@@ -5980,7 +5966,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(2).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
                 state.push1_extra(result, ExtraInfo::arithmetic_f32());
@@ -6013,7 +5999,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(1).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -6046,7 +6032,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(2).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -6079,7 +6065,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 load.set_alignment(4).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
                 let result =
                     builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
                 state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -6111,7 +6097,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I64AtomicStore { ref memarg } => {
                 let value = state.pop1()?;
@@ -6140,7 +6126,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I32AtomicStore8 { ref memarg } | Operator::I64AtomicStore8 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -6171,7 +6157,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I32AtomicStore16 { ref memarg }
             | Operator::I64AtomicStore16 { ref memarg } => {
@@ -6203,7 +6189,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I64AtomicStore32 { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -6234,7 +6220,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(self.module.clone(), intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
             }
             Operator::I32AtomicRmw8UAdd { ref memarg } => {
                 let value = state.pop1()?.into_int_value();
@@ -6269,7 +6255,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6311,7 +6297,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6351,7 +6337,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6392,7 +6378,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6434,7 +6420,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6476,7 +6462,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6516,7 +6502,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6557,7 +6543,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6599,7 +6585,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6639,7 +6625,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6680,7 +6666,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6722,7 +6708,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6764,7 +6750,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6804,7 +6790,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6845,7 +6831,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6887,7 +6873,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6927,7 +6913,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -6968,7 +6954,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7010,7 +6996,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7052,7 +7038,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7092,7 +7078,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7133,7 +7119,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7175,7 +7161,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7215,7 +7201,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7257,7 +7243,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7299,7 +7285,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7341,7 +7327,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7381,7 +7367,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7422,7 +7408,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7464,7 +7450,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7504,7 +7490,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7545,7 +7531,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7587,7 +7573,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7629,7 +7615,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7669,7 +7655,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7710,7 +7696,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7752,7 +7738,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7792,7 +7778,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7833,7 +7819,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7875,7 +7861,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7917,7 +7903,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -7957,7 +7943,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -8004,7 +7990,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -8056,7 +8042,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -8104,7 +8090,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -8152,7 +8138,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -8204,7 +8190,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -8256,7 +8242,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -8304,7 +8290,7 @@ impl FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator {
                     )
                     .unwrap();
                 tbaa_label(
-                    self.module.clone(),
+                    &self.module,
                     intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
@@ -8430,10 +8416,35 @@ impl From<BinaryReaderError> for CodegenError {
     }
 }
 
-impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
-    for LLVMModuleCodeGenerator
+impl Drop for LLVMModuleCodeGenerator<'_> {
+    fn drop(&mut self) {
+        // Ensure that all members of the context are dropped before we drop the context.
+        drop(self.builder.take());
+        drop(self.intrinsics.take());
+        self.functions.clear();
+        self.signatures.clear();
+        assert!(
+            Rc::strong_count(&*self.module) == 1,
+            "references to module live while dropping LLVMModuleCodeGenerator"
+        );
+        unsafe {
+            ManuallyDrop::drop(&mut self.personality_func);
+            ManuallyDrop::drop(&mut self.module);
+        };
+        let context = self.context.take();
+        match context {
+            None => {}
+            Some(context_ref) => unsafe {
+                Box::from_raw(context_ref as *const Context as *mut Context);
+            },
+        }
+    }
+}
+
+impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, CodegenError>
+    for LLVMModuleCodeGenerator<'ctx>
 {
-    fn new() -> LLVMModuleCodeGenerator {
+    fn new() -> LLVMModuleCodeGenerator<'ctx> {
         Self::new_with_target(None, None, None)
     }
 
@@ -8441,8 +8452,9 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         triple: Option<String>,
         cpu_name: Option<String>,
         cpu_features: Option<String>,
-    ) -> LLVMModuleCodeGenerator {
-        let context = Context::create();
+    ) -> LLVMModuleCodeGenerator<'ctx> {
+        let context_ptr = Box::into_raw(Box::new(Context::create()));
+        let context = unsafe { &*context_ptr };
         let module = context.create_module("module");
 
         let triple = triple.unwrap_or(TargetMachine::get_default_triple().to_string());
@@ -8488,14 +8500,14 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             context: Some(context),
             builder: Some(builder),
             intrinsics: Some(intrinsics),
-            module: Rc::new(RefCell::new(module)),
+            module: ManuallyDrop::new(Rc::new(RefCell::new(module))),
             functions: vec![],
             signatures: Map::new(),
             signatures_raw: Map::new(),
             function_signatures: None,
             llvm_functions: Rc::new(RefCell::new(HashMap::new())),
             func_import_count: 0,
-            personality_func,
+            personality_func: ManuallyDrop::new(personality_func),
             stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
             track_state: false,
             target_machine,
@@ -8513,7 +8525,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
     fn next_function(
         &mut self,
         _module_info: Arc<RwLock<ModuleInfo>>,
-    ) -> Result<&mut LLVMFunctionCodeGenerator, CodegenError> {
+    ) -> Result<&mut LLVMFunctionCodeGenerator<'ctx>, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
         let (context, builder, intrinsics) = match self.functions.last_mut() {
             Some(x) => (
@@ -8533,14 +8545,14 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         let func_sig = self.signatures_raw[sig_id].clone();
 
         let function = &self.llvm_functions.borrow_mut()[&func_index];
-        function.set_personality_function(self.personality_func);
+        function.set_personality_function(*self.personality_func);
 
-        let mut state = State::new();
-        let entry_block = context.append_basic_block(&function, "entry");
+        let mut state: State<'ctx> = State::new();
+        let entry_block = context.append_basic_block(*function, "entry");
         let alloca_builder = context.create_builder();
         alloca_builder.position_at_end(&entry_block);
 
-        let return_block = context.append_basic_block(&function, "return");
+        let return_block = context.append_basic_block(*function, "return");
         builder.position_at_end(&return_block);
 
         let phis: SmallVec<[PhiValue; 1]> = func_sig
@@ -8602,7 +8614,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
             index: local_func_index,
             opcode_offset: 0,
             track_state: self.track_state,
-            module: self.module.clone(),
+            module: (*self.module).clone(),
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -8688,7 +8700,7 @@ impl ModuleCodeGenerator<LLVMFunctionCodeGenerator, LLVMBackend, CodegenError>
         let stackmaps = self.stackmaps.borrow();
 
         let (backend, cache_gen) = LLVMBackend::new(
-            self.module.clone(),
+            (*self.module).clone(),
             self.intrinsics.take().unwrap(),
             &*stackmaps,
             module_info,

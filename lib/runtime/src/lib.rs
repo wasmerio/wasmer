@@ -254,11 +254,6 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "llvm")]
         Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
 
-        #[cfg(any(
-            not(feature = "llvm"),
-            not(feature = "singlepass"),
-            not(feature = "cranelift")
-        ))]
         _ => None,
     }
 }
