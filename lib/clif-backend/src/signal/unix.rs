@@ -98,7 +98,10 @@ pub fn call_protected<T>(
                         },
                         Ok(SIGSEGV) | Ok(SIGBUS) => WasmTrapInfo::MemoryOutOfBounds,
                         Ok(SIGFPE) => WasmTrapInfo::IllegalArithmetic,
-                        _ => unimplemented!(),
+                        _ => unimplemented!(
+                            "WasmTrapInfo::Unknown signal:{:?}",
+                            Signal::from_c_int(signum)
+                        ),
                     }))
                 } else {
                     let signal = match Signal::from_c_int(signum) {

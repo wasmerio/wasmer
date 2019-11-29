@@ -15,13 +15,13 @@ use wasmer_runtime_core::vm::Ctx;
 /// getprotobyname
 pub fn getprotobyname(_ctx: &mut Ctx, _name_ptr: i32) -> i32 {
     debug!("emscripten::getprotobyname");
-    unimplemented!()
+    unimplemented!("emscripten::getprotobyname")
 }
 
 /// getprotobynumber
 pub fn getprotobynumber(_ctx: &mut Ctx, _one: i32) -> i32 {
     debug!("emscripten::getprotobynumber");
-    unimplemented!()
+    unimplemented!("emscripten::getprotobynumber")
 }
 
 /// sigdelset
@@ -53,11 +53,11 @@ pub fn sigfillset(ctx: &mut Ctx, set: i32) -> i32 {
 /// tzset
 pub fn tzset(_ctx: &mut Ctx) {
     debug!("emscripten::tzset - stub");
-    //unimplemented!()
+    //unimplemented!("emscripten::tzset - stub")
 }
 
 /// strptime
 pub fn strptime(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32) -> i32 {
     debug!("emscripten::strptime");
-    unimplemented!()
+    unimplemented!("emscripten::strptime")
 }

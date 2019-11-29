@@ -21,7 +21,7 @@
 
 ## Introduction
 
-[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
+[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/). Wasmer can be used standalone (via the CLI) and embedded in different languages, running in x86 and [ARM devices](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c).
 
 Install the Wasmer CLI with:
 
@@ -44,6 +44,7 @@ Wasmer runtime can be used as a library embedded in different languages, so you 
 | ![PHP logo](./docs/assets/languages/php.svg) | [**PHP**](https://github.com/wasmerio/php-ext-wasm) | Wasmer | actively developed | <a href="https://pecl.php.net/package/wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/php-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/php-ext-wasm?style=flat-square) |
 | ![Ruby logo](./docs/assets/languages/ruby.svg) | [**Ruby**](https://github.com/wasmerio/ruby-ext-wasm) | Wasmer | actively developed | <a href="https://rubygems.org/gems/wasmer" target="_blank">![last release](https://img.shields.io/gem/v/wasmer?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/ruby-ext-wasm?style=flat-square) |
 | ![Postgres logo](./docs/assets/languages/postgres.svg) | [**Postgres**](https://github.com/wasmerio/postgres-ext-wasm) | Wasmer | actively developed | <a href="https://github.com/wasmerio/postgres-ext-wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/postgres-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/postgres-ext-wasm?style=flat-square) |
+| ![JS Logo](./docs/assets/languages/js.svg) | [**JavaScript**](https://github.com/wasmerio/wasmer-js) | Wasmer | actively developed | <a href="https://www.npmjs.com/package/@wasmer/wasi" target="_blank">![last release](https://img.shields.io/npm/v/@wasmer/wasi?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer-js?style=flat-square) |
 | ![C# logo](./docs/assets/languages/csharp.svg) | [**C#/.Net**](https://github.com/migueldeicaza/WasmerSharp) | [Miguel de Icaza](https://github.com/migueldeicaza) | actively developed | <a href="https://www.nuget.org/packages/WasmerSharp/" target="_blank">![last release](https://img.shields.io/nuget/v/WasmerSharp?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/migueldeicaza/WasmerSharp?style=flat-square) |
 | ![R logo](./docs/assets/languages/r.svg) | [**R**](https://github.com/dirkschumacher/wasmr) | [Dirk Schumacher](https://github.com/dirkschumacher) | actively developed | | ![number of Github stars](https://img.shields.io/github/stars/dirkschumacher/wasmr?style=flat-square) |
 | ![Swift logo](./docs/assets/languages/swift.svg) | [**Swift**](https://github.com/markmals/swift-ext-wasm) | [Mark Malström](https://github.com/markmals/) | passively maintained | | ![number of Github stars](https://img.shields.io/github/stars/markmals/swift-ext-wasm?style=flat-square) |
@@ -166,21 +167,18 @@ nginx and Lua do not work on Windows - you can track the progress on [this issue
 
 2. Install [Rust for Windows](https://win.rustup.rs)
 
-3. Install [Python for Windows](https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
-   Make sure to enable "Add python.exe to Path" during installation.
-
-4. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default
+3. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default
    settings for the installer are fine).
 
-5. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
+4. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
 
-6. Install [LLVM 8.0](https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe)
+5. Install [LLVM 8.0](https://prereleases.llvm.org/win-snapshots/LLVM-8.0.0-r351033-win64.exe)
      </p>
    </details>
 
 ## Building
 
-[![Rustc Version 1.37+](https://img.shields.io/badge/rustc-1.37+-red.svg?style=flat-square)](https://blog.rust-lang.org/2019/08/15/Rust-1.37.0.html)
+[![Rustc Version 1.38+](https://img.shields.io/badge/rustc-1.37+-red.svg?style=flat-square)](https://blog.rust-lang.org/2019/09/26/Rust-1.38.0.html)
 
 Wasmer is built with [Cargo](https://crates.io/), the Rust package manager.
 
@@ -237,7 +235,7 @@ Each integration can be tested separately:
 
 * Spec tests: `make spectests`
 * Emscripten: `make emtests`
-* WASI: `make wasi`
+* WASI: `make wasitests`
 * Middleware: `make middleware`
 * C API: `make capi`
 

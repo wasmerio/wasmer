@@ -22,7 +22,7 @@ jobs:
       - script: cargo fmt --all -- --check
         displayName: Lint
     variables:
-      rust_toolchain: '1.37.0'
+      rust_toolchain: '1.38.0'
 
   - job: Test
     strategy:
@@ -39,7 +39,7 @@ jobs:
           CARGO_HTTP_CHECK_REVOKE: false
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: '1.37.0'
+          rust_toolchain: '1.38.0'
     pool:
       vmImage: $(imageName)
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
@@ -60,6 +60,10 @@ jobs:
           cat /proc/meminfo
         displayName: System info - Extended (Linux)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+      - bash: |
+          sysctl -a | grep machdep.cpu
+        displayName: System info - Extended (Mac)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
         displayName: Tests (*nix)
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
@@ -96,11 +100,15 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: '1.37.0'
+          rust_toolchain: '1.38.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: |
+      or(
+        in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'),
+        startsWith(variables['Build.SourceBranch'], 'refs/tags')
+      )
     steps:
       - checkout: self
         submodules: true
@@ -119,10 +127,10 @@ jobs:
         displayName: Build (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
-          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+          make wapm
         displayName: Build WAPM
         condition: |
-          eq(variables['Build.SourceBranch'], 'refs/heads/master')
+          startsWith(variables['Build.SourceBranch'], 'refs/tags')
       - bash: |
           make build-install
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
@@ -130,7 +138,7 @@ jobs:
         condition: |
           and(
             succeeded(),
-            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            startsWith(variables['Build.SourceBranch'], 'refs/tags'),
             not(eq(variables['Agent.OS'], 'Windows_NT'))
           )
       - bash: |
@@ -141,7 +149,7 @@ jobs:
         condition: |
           and(
             succeeded(),
-            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            startsWith(variables['Build.SourceBranch'], 'refs/tags'),
             eq(variables['Agent.OS'], 'Windows_NT')
           )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
@@ -159,11 +167,15 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: '1.37.0'
+          rust_toolchain: '1.38.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: |
+      or(
+        in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'),
+        startsWith(variables['Build.SourceBranch'], 'refs/tags')
+      )
     steps:
       - checkout: self
         submodules: true
@@ -201,7 +213,8 @@ jobs:
     dependsOn:
       - Build_CLI
       - Build_Library
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    condition: |
+      startsWith(variables['Build.SourceBranch'], 'refs/tags')
     steps:
       # - download: current
       - task: DownloadPipelineArtifact@1
@@ -212,14 +225,23 @@ jobs:
         displayName: List Artifacts
         env:
           ARTIFACT_STAGING_DIRECTORY: $(Build.ArtifactStagingDirectory)
+      - script: VERSION_TAG=`git describe --tags` && echo "##vso[task.setvariable variable=VERSION_TAG]$VERSION_TAG"
+        displayName: Set the tag name as an environment variable
       - task: GithubRelease@0
         displayName: "Create GitHub Release"
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
         inputs:
-          gitHubConnection: wasmer
-          repositoryName: wasmerio/wasmer
-          tag: dev
-          assets: $(Build.ArtifactStagingDirectory)
+          gitHubConnection: 'wasmer'
+          repositoryName: 'wasmerio/wasmer'
+          action: 'create'
+          target: '$(Build.SourceVersion)'
+          title: '$(VERSION_TAG)'
+          addChangeLog: false
+          tagSource: 'auto'
+          # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
+          isDraft: false
+          isPreRelease: false
+          assets: '$(Build.ArtifactStagingDirectory)/**'
 
   - job: Docs
     pool:
@@ -246,3 +268,4 @@ trigger:
   - master
   - staging
   - trying
+  - refs/tags/*

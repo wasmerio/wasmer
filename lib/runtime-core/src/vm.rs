@@ -1,3 +1,5 @@
+//! The runtime vm module contains data structures and helper functions used during runtime to
+//! execute wasm instance functions.
 pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
     error::CallResult,
@@ -36,6 +38,7 @@ use std::collections::HashMap;
 #[repr(C)]
 pub struct Ctx {
     // `internal` must be the first field of `Ctx`.
+    /// InternalCtx data field
     pub internal: InternalCtx,
 
     pub(crate) local_functions: *const *const Func,
@@ -43,7 +46,9 @@ pub struct Ctx {
     /// These are pointers to things that are known to be owned
     /// by the owning `Instance`.
     pub local_backing: *mut LocalBacking,
+    /// Mutable pointer to import data
     pub import_backing: *mut ImportBacking,
+    /// Const pointer to module inner data
     pub module: *const ModuleInner,
 
     /// This is intended to be user-supplied, per-instance
@@ -110,22 +115,31 @@ pub struct InternalCtx {
     /// modules safely.
     pub dynamic_sigindices: *const SigId,
 
+    /// Const pointer to Intrinsics.
     pub intrinsics: *const Intrinsics,
 
+    /// Stack lower bound.
     pub stack_lower_bound: *mut u8,
 
+    /// Mutable pointer to memory base.
     pub memory_base: *mut u8,
+    /// Memory bound.
     pub memory_bound: usize,
 
+    /// Mutable pointer to internal fields.
     pub internals: *mut [u64; INTERNALS_SIZE], // TODO: Make this dynamic?
 
+    /// Interrupt signal mem.
     pub interrupt_signal_mem: *mut u8,
 }
 
 static INTERNAL_FIELDS: AtomicUsize = AtomicUsize::new(0);
 
+/// An internal field.
 pub struct InternalField {
+    /// Init once field.
     init: Once,
+    /// Inner field.
     inner: UnsafeCell<usize>,
 }
 
@@ -133,6 +147,7 @@ unsafe impl Send for InternalField {}
 unsafe impl Sync for InternalField {}
 
 impl InternalField {
+    /// Allocate and return an `InternalField`.
     pub const fn allocate() -> InternalField {
         InternalField {
             init: Once::new(),
@@ -140,6 +155,7 @@ impl InternalField {
         }
     }
 
+    /// Get the index of this `InternalField`.
     pub fn index(&self) -> usize {
         let inner: *mut usize = self.inner.get();
         self.init.call_once(|| {
@@ -157,9 +173,12 @@ impl InternalField {
     }
 }
 
+/// A container for VM instrinsic functions
 #[repr(C)]
 pub struct Intrinsics {
+    /// Const pointer to memory grow `Func`.
     pub memory_grow: *const Func,
+    /// Const pointer to memory size `Func`.
     pub memory_size: *const Func,
     /*pub memory_grow: unsafe extern "C" fn(
         ctx: &mut Ctx,
@@ -176,27 +195,33 @@ unsafe impl Send for Intrinsics {}
 unsafe impl Sync for Intrinsics {}
 
 impl Intrinsics {
+    /// Memory grow offset
     #[allow(clippy::erasing_op)]
     pub fn offset_memory_grow() -> u8 {
         (0 * ::std::mem::size_of::<usize>()) as u8
     }
+    /// Memory size offset
     pub fn offset_memory_size() -> u8 {
         (1 * ::std::mem::size_of::<usize>()) as u8
     }
 }
 
+/// Local static memory intrinsics
 pub static INTRINSICS_LOCAL_STATIC_MEMORY: Intrinsics = Intrinsics {
     memory_grow: vmcalls::local_static_memory_grow as _,
     memory_size: vmcalls::local_static_memory_size as _,
 };
+/// Local dynamic memory intrinsics
 pub static INTRINSICS_LOCAL_DYNAMIC_MEMORY: Intrinsics = Intrinsics {
     memory_grow: vmcalls::local_dynamic_memory_grow as _,
     memory_size: vmcalls::local_dynamic_memory_size as _,
 };
+/// Imported static memory intrinsics
 pub static INTRINSICS_IMPORTED_STATIC_MEMORY: Intrinsics = Intrinsics {
     memory_grow: vmcalls::imported_static_memory_grow as _,
     memory_size: vmcalls::imported_static_memory_size as _,
 };
+/// Imported dynamic memory intrinsics
 pub static INTRINSICS_IMPORTED_DYNAMIC_MEMORY: Intrinsics = Intrinsics {
     memory_grow: vmcalls::imported_dynamic_memory_grow as _,
     memory_size: vmcalls::imported_dynamic_memory_size as _,
@@ -498,34 +523,80 @@ impl Ctx {
     }
 }
 
-enum InnerFunc {}
-/// Used to provide type safety (ish) for passing around function pointers.
-/// The typesystem ensures this cannot be dereferenced since an
-/// empty enum cannot actually exist.
-#[repr(C)]
-pub struct Func(InnerFunc);
+/// Represents a function pointer. It is mostly used in the
+/// `typed_func` module within the `wrap` functions, to wrap imported
+/// functions.
+#[repr(transparent)]
+pub struct Func(pub(self) *mut c_void);
 
-/// An imported function, which contains the vmctx that owns this function.
+/// Represents a function environment pointer, like a captured
+/// environment of a closure. It is mostly used in the `typed_func`
+/// module within the `wrap` functions, to wrap imported functions.
+#[repr(transparent)]
+pub struct FuncEnv(pub(self) *mut c_void);
+
+/// Represents a function context. It is used by imported functions
+/// only.
+#[derive(Debug)]
+#[repr(C)]
+pub struct FuncCtx {
+    /// The `Ctx` pointer.
+    pub(crate) vmctx: NonNull<Ctx>,
+
+    /// A pointer to the function environment. It is used by imported
+    /// functions only to store the pointer to the real host function,
+    /// whether it is a regular function, or a closure with or without
+    /// a captured environment.
+    pub(crate) func_env: Option<NonNull<FuncEnv>>,
+}
+
+impl FuncCtx {
+    /// Offset to `vmctx`.
+    pub fn offset_vmctx() -> u8 {
+        0 * (mem::size_of::<usize>() as u8)
+    }
+
+    /// Offset to `func_env`.
+    pub fn offset_func_env() -> u8 {
+        1 * (mem::size_of::<usize>() as u8)
+    }
+
+    /// Size of a `FuncCtx`.
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
+    }
+}
+
+/// An imported function is a function pointer associated to a
+/// function context.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
-    pub func: *const Func,
-    pub vmctx: *mut Ctx,
+    /// Const pointer to `Func`.
+    pub(crate) func: *const Func,
+
+    /// Mutable non-null pointer to `FuncCtx`.
+    pub(crate) func_ctx: NonNull<FuncCtx>,
 }
 
-// manually implemented because ImportedFunc contains raw pointers directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO: review this, shouldn't `Ctx` be Send?))
+// Manually implemented because ImportedFunc contains raw pointers
+// directly; `Func` is marked Send (But `Ctx` actually isn't! (TODO:
+// review this, shouldn't `Ctx` be Send?))
 unsafe impl Send for ImportedFunc {}
 
 impl ImportedFunc {
+    /// Offset to func.
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_vmctx() -> u8 {
+    /// Offset to func_ctx.
+    pub fn offset_func_ctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
+    /// Size of an `ImportedFunc`.
     pub fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
@@ -547,15 +618,18 @@ pub struct LocalTable {
 unsafe impl Send for LocalTable {}
 
 impl LocalTable {
+    /// Offset to base.
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
+    /// Offset count.
     pub fn offset_count() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
+    /// Size of a `LocalTable`.
     pub fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
@@ -579,15 +653,18 @@ pub struct LocalMemory {
 unsafe impl Send for LocalMemory {}
 
 impl LocalMemory {
+    /// Offset base.
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
+    /// Offset bound.
     pub fn offset_bound() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
+    /// Size of a `LocalMemory`.
     pub fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
@@ -597,24 +674,29 @@ impl LocalMemory {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalGlobal {
+    /// Data.
     pub data: u128,
 }
 
 impl LocalGlobal {
+    /// Offset data.
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_data() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
+    /// A null `LocalGlobal`.
     pub fn null() -> Self {
         Self { data: 0 }
     }
 
+    /// Size of a `LocalGlobal`.
     pub fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
 
+/// Identifier for a function signature.
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
 pub struct SigId(pub u32);
@@ -623,8 +705,11 @@ pub struct SigId(pub u32);
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Anyfunc {
+    /// Const pointer to `Func`.
     pub func: *const Func,
+    /// Mutable pointer to `Ctx`.
     pub ctx: *mut Ctx,
+    /// Sig id of this function
     pub sig_id: SigId,
 }
 
@@ -632,6 +717,7 @@ pub struct Anyfunc {
 unsafe impl Send for Anyfunc {}
 
 impl Anyfunc {
+    /// A null `Anyfunc` value.
     pub fn null() -> Self {
         Self {
             func: ptr::null(),
@@ -640,19 +726,23 @@ impl Anyfunc {
         }
     }
 
+    /// The offset for this func.
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
+    /// The offset of the vmctx.
     pub fn offset_vmctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
+    /// The offset of the sig id.
     pub fn offset_sig_id() -> u8 {
         2 * (mem::size_of::<usize>() as u8)
     }
 
+    /// The size of `Anyfunc`.
     pub fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
@@ -660,93 +750,160 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{Anyfunc, Ctx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable};
+    use super::{
+        Anyfunc, Ctx, FuncCtx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable,
+    };
+
+    // Inspired by https://internals.rust-lang.org/t/discussion-on-offset-of/7440/2.
+    macro_rules! offset_of {
+        ($struct:path, $field:ident) => {{
+            fn offset() -> usize {
+                use std::mem;
+
+                let structure = mem::MaybeUninit::<$struct>::uninit();
+
+                let &$struct {
+                    $field: ref field, ..
+                } = unsafe { &*structure.as_ptr() };
+
+                let offset =
+                    (field as *const _ as usize).wrapping_sub(&structure as *const _ as usize);
+
+                assert!((0..=mem::size_of_val(&structure)).contains(&offset));
+
+                offset
+            }
+
+            offset()
+        }};
+    }
+
+    #[test]
+    fn offset_of() {
+        use std::{mem, ptr::NonNull};
+
+        struct S0;
+
+        #[repr(C)]
+        struct S1 {
+            f1: u8,
+            f2: u16,
+            f3: u32,
+            f4: u64,
+            f5: u128,
+            f6: f32,
+            f7: f64,
+            f8: NonNull<S0>,
+            f9: Option<NonNull<S0>>,
+            f10: *mut S0,
+            z: u8,
+        }
+
+        assert_eq!(offset_of!(S1, f1), 0);
+        assert_eq!(offset_of!(S1, f2), 2);
+        assert_eq!(offset_of!(S1, f3), 4);
+        assert_eq!(offset_of!(S1, f4), 8);
+        assert_eq!(offset_of!(S1, f5), 16);
+        assert_eq!(offset_of!(S1, f6), 32);
+        assert_eq!(offset_of!(S1, f7), 40);
+        assert_eq!(offset_of!(S1, f8), 40 + mem::size_of::<usize>());
+        assert_eq!(offset_of!(S1, f9), 48 + mem::size_of::<usize>());
+        assert_eq!(offset_of!(S1, f10), 56 + mem::size_of::<usize>());
+        assert_eq!(offset_of!(S1, z), 64 + mem::size_of::<usize>());
+    }
 
     #[test]
     fn vmctx() {
-        assert_eq!(0usize, offset_of!(Ctx => internal).get_byte_offset(),);
+        assert_eq!(0usize, offset_of!(Ctx, internal));
 
         assert_eq!(
             Ctx::offset_memories() as usize,
-            offset_of!(InternalCtx => memories).get_byte_offset(),
+            offset_of!(InternalCtx, memories),
         );
 
         assert_eq!(
             Ctx::offset_tables() as usize,
-            offset_of!(InternalCtx => tables).get_byte_offset(),
+            offset_of!(InternalCtx, tables),
         );
 
         assert_eq!(
             Ctx::offset_globals() as usize,
-            offset_of!(InternalCtx => globals).get_byte_offset(),
+            offset_of!(InternalCtx, globals),
         );
 
         assert_eq!(
             Ctx::offset_imported_memories() as usize,
-            offset_of!(InternalCtx => imported_memories).get_byte_offset(),
+            offset_of!(InternalCtx, imported_memories),
         );
 
         assert_eq!(
             Ctx::offset_imported_tables() as usize,
-            offset_of!(InternalCtx => imported_tables).get_byte_offset(),
+            offset_of!(InternalCtx, imported_tables),
         );
 
         assert_eq!(
             Ctx::offset_imported_globals() as usize,
-            offset_of!(InternalCtx => imported_globals).get_byte_offset(),
+            offset_of!(InternalCtx, imported_globals),
         );
 
         assert_eq!(
             Ctx::offset_imported_funcs() as usize,
-            offset_of!(InternalCtx => imported_funcs).get_byte_offset(),
+            offset_of!(InternalCtx, imported_funcs),
         );
 
         assert_eq!(
             Ctx::offset_intrinsics() as usize,
-            offset_of!(InternalCtx => intrinsics).get_byte_offset(),
+            offset_of!(InternalCtx, intrinsics),
         );
 
         assert_eq!(
             Ctx::offset_stack_lower_bound() as usize,
-            offset_of!(InternalCtx => stack_lower_bound).get_byte_offset(),
+            offset_of!(InternalCtx, stack_lower_bound),
         );
 
         assert_eq!(
             Ctx::offset_memory_base() as usize,
-            offset_of!(InternalCtx => memory_base).get_byte_offset(),
+            offset_of!(InternalCtx, memory_base),
         );
 
         assert_eq!(
             Ctx::offset_memory_bound() as usize,
-            offset_of!(InternalCtx => memory_bound).get_byte_offset(),
+            offset_of!(InternalCtx, memory_bound),
         );
 
         assert_eq!(
             Ctx::offset_internals() as usize,
-            offset_of!(InternalCtx => internals).get_byte_offset(),
+            offset_of!(InternalCtx, internals),
         );
 
         assert_eq!(
             Ctx::offset_interrupt_signal_mem() as usize,
-            offset_of!(InternalCtx => interrupt_signal_mem).get_byte_offset(),
+            offset_of!(InternalCtx, interrupt_signal_mem),
         );
 
         assert_eq!(
             Ctx::offset_local_functions() as usize,
-            offset_of!(Ctx => local_functions).get_byte_offset(),
+            offset_of!(Ctx, local_functions),
         );
+    }
+
+    #[test]
+    fn func_ctx() {
+        assert_eq!(FuncCtx::offset_vmctx() as usize, 0,);
+
+        assert_eq!(FuncCtx::offset_func_env() as usize, 8,);
     }
 
     #[test]
     fn imported_func() {
         assert_eq!(
             ImportedFunc::offset_func() as usize,
-            offset_of!(ImportedFunc => func).get_byte_offset(),
+            offset_of!(ImportedFunc, func),
         );
 
         assert_eq!(
-            ImportedFunc::offset_vmctx() as usize,
-            offset_of!(ImportedFunc => vmctx).get_byte_offset(),
+            ImportedFunc::offset_func_ctx() as usize,
+            offset_of!(ImportedFunc, func_ctx),
         );
     }
 
@@ -754,12 +911,12 @@ mod vm_offset_tests {
     fn local_table() {
         assert_eq!(
             LocalTable::offset_base() as usize,
-            offset_of!(LocalTable => base).get_byte_offset(),
+            offset_of!(LocalTable, base),
         );
 
         assert_eq!(
             LocalTable::offset_count() as usize,
-            offset_of!(LocalTable => count).get_byte_offset(),
+            offset_of!(LocalTable, count),
         );
     }
 
@@ -767,12 +924,12 @@ mod vm_offset_tests {
     fn local_memory() {
         assert_eq!(
             LocalMemory::offset_base() as usize,
-            offset_of!(LocalMemory => base).get_byte_offset(),
+            offset_of!(LocalMemory, base),
         );
 
         assert_eq!(
             LocalMemory::offset_bound() as usize,
-            offset_of!(LocalMemory => bound).get_byte_offset(),
+            offset_of!(LocalMemory, bound),
         );
     }
 
@@ -780,25 +937,19 @@ mod vm_offset_tests {
     fn local_global() {
         assert_eq!(
             LocalGlobal::offset_data() as usize,
-            offset_of!(LocalGlobal => data).get_byte_offset(),
+            offset_of!(LocalGlobal, data),
         );
     }
 
     #[test]
     fn cc_anyfunc() {
-        assert_eq!(
-            Anyfunc::offset_func() as usize,
-            offset_of!(Anyfunc => func).get_byte_offset(),
-        );
+        assert_eq!(Anyfunc::offset_func() as usize, offset_of!(Anyfunc, func),);
 
-        assert_eq!(
-            Anyfunc::offset_vmctx() as usize,
-            offset_of!(Anyfunc => ctx).get_byte_offset(),
-        );
+        assert_eq!(Anyfunc::offset_vmctx() as usize, offset_of!(Anyfunc, ctx),);
 
         assert_eq!(
             Anyfunc::offset_sig_id() as usize,
-            offset_of!(Anyfunc => sig_id).get_byte_offset(),
+            offset_of!(Anyfunc, sig_id),
         );
     }
 }
@@ -916,15 +1067,15 @@ mod vm_ctx_tests {
             }
 
             fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
-                unimplemented!()
+                unimplemented!("generate_module::get_trampoline")
             }
             unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
-                unimplemented!()
+                unimplemented!("generate_module::do_early_trap")
             }
         }
         impl CacheGen for Placeholder {
             fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
-                unimplemented!()
+                unimplemented!("generate_module::generate_cache")
             }
         }
 

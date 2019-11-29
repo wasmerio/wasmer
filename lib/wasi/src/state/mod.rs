@@ -37,6 +37,19 @@ use wasmer_runtime_core::{debug, vm::Ctx};
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
 /// all the rights enabled
 pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFFFFFF;
+const STDIN_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
+    | __WASI_RIGHT_FD_READ
+    | __WASI_RIGHT_FD_SYNC
+    | __WASI_RIGHT_FD_ADVISE
+    | __WASI_RIGHT_FD_FILESTAT_GET
+    | __WASI_RIGHT_POLL_FD_READWRITE;
+const STDOUT_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
+    | __WASI_RIGHT_FD_WRITE
+    | __WASI_RIGHT_FD_SYNC
+    | __WASI_RIGHT_FD_ADVISE
+    | __WASI_RIGHT_FD_FILESTAT_GET
+    | __WASI_RIGHT_POLL_FD_READWRITE;
+const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
 
 /// Get WasiState from a Ctx
 /// This function is unsafe because it must be called on a WASI Ctx
@@ -109,6 +122,7 @@ pub struct Fd {
     pub rights_inheriting: __wasi_rights_t,
     pub flags: __wasi_fdflags_t,
     pub offset: u64,
+    /// Used when reopening the file on the host system
     pub open_flags: u16,
     pub inode: Inode,
 }
@@ -134,10 +148,6 @@ pub struct WasiFs {
     inode_counter: Cell<u64>,
     /// for fds still open after the file has been deleted
     pub orphan_fds: HashMap<Inode, InodeVal>,
-
-    pub stdout: Box<dyn WasiFile>,
-    pub stderr: Box<dyn WasiFile>,
-    pub stdin: Box<dyn WasiFile>,
 }
 
 impl WasiFs {
@@ -155,11 +165,11 @@ impl WasiFs {
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1024),
             orphan_fds: HashMap::new(),
-
-            stdin: Box::new(Stdin),
-            stdout: Box::new(Stdout),
-            stderr: Box::new(Stderr),
         };
+        wasi_fs.create_stdin();
+        wasi_fs.create_stdout();
+        wasi_fs.create_stderr();
+
         // create virtual root
         let root_inode = {
             let all_rights = 0x1FFFFFFF;
@@ -291,6 +301,67 @@ impl WasiFs {
         Ok(wasi_fs)
     }
 
+    /// Get the `WasiFile` object at stdout
+    pub fn stdout(&self) -> Result<&Option<Box<dyn WasiFile>>, WasiFsError> {
+        self.std_dev_get(__WASI_STDOUT_FILENO)
+    }
+    /// Get the `WasiFile` object at stdout mutably
+    pub fn stdout_mut(&mut self) -> Result<&mut Option<Box<dyn WasiFile>>, WasiFsError> {
+        self.std_dev_get_mut(__WASI_STDOUT_FILENO)
+    }
+
+    /// Get the `WasiFile` object at stderr
+    pub fn stderr(&self) -> Result<&Option<Box<dyn WasiFile>>, WasiFsError> {
+        self.std_dev_get(__WASI_STDERR_FILENO)
+    }
+    /// Get the `WasiFile` object at stderr mutably
+    pub fn stderr_mut(&mut self) -> Result<&mut Option<Box<dyn WasiFile>>, WasiFsError> {
+        self.std_dev_get_mut(__WASI_STDERR_FILENO)
+    }
+
+    /// Get the `WasiFile` object at stdin
+    pub fn stdin(&self) -> Result<&Option<Box<dyn WasiFile>>, WasiFsError> {
+        self.std_dev_get(__WASI_STDIN_FILENO)
+    }
+    /// Get the `WasiFile` object at stdin mutably
+    pub fn stdin_mut(&mut self) -> Result<&mut Option<Box<dyn WasiFile>>, WasiFsError> {
+        self.std_dev_get_mut(__WASI_STDIN_FILENO)
+    }
+
+    /// Internal helper function to get a standard device handle.
+    /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
+    fn std_dev_get(&self, fd: __wasi_fd_t) -> Result<&Option<Box<dyn WasiFile>>, WasiFsError> {
+        if let Some(fd) = self.fd_map.get(&fd) {
+            if let Kind::File { ref handle, .. } = self.inodes[fd.inode].kind {
+                Ok(handle)
+            } else {
+                // Our public API should ensure that this is not possible
+                unreachable!("Non-file found in standard device location")
+            }
+        } else {
+            // this should only trigger if we made a mistake in this crate
+            Err(WasiFsError::NoDevice)
+        }
+    }
+    /// Internal helper function to mutably get a standard device handle.
+    /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
+    fn std_dev_get_mut(
+        &mut self,
+        fd: __wasi_fd_t,
+    ) -> Result<&mut Option<Box<dyn WasiFile>>, WasiFsError> {
+        if let Some(fd) = self.fd_map.get_mut(&fd) {
+            if let Kind::File { ref mut handle, .. } = self.inodes[fd.inode].kind {
+                Ok(handle)
+            } else {
+                // Our public API should ensure that this is not possible
+                unreachable!("Non-file found in standard device location")
+            }
+        } else {
+            // this should only trigger if we made a mistake in this crate
+            Err(WasiFsError::NoDevice)
+        }
+    }
+
     fn get_next_inode_index(&mut self) -> u64 {
         let next = self.inode_counter.get();
         self.inode_counter.set(next + 1);
@@ -358,21 +429,16 @@ impl WasiFs {
         fd: __wasi_fd_t,
         file: Box<dyn WasiFile>,
     ) -> Result<Option<Box<dyn WasiFile>>, WasiFsError> {
+        let mut ret = Some(file);
         match fd {
             __WASI_STDIN_FILENO => {
-                let mut ret = file;
-                std::mem::swap(&mut self.stdin, &mut ret);
-                Ok(Some(ret))
+                std::mem::swap(self.stdin_mut()?, &mut ret);
             }
             __WASI_STDOUT_FILENO => {
-                let mut ret = file;
-                std::mem::swap(&mut self.stdout, &mut ret);
-                Ok(Some(ret))
+                std::mem::swap(self.stdout_mut()?, &mut ret);
             }
             __WASI_STDERR_FILENO => {
-                let mut ret = file;
-                std::mem::swap(&mut self.stderr, &mut ret);
-                Ok(Some(ret))
+                std::mem::swap(self.stderr_mut()?, &mut ret);
             }
             _ => {
                 let base_fd = self.get_fd(fd).map_err(WasiFsError::from_wasi_err)?;
@@ -380,14 +446,14 @@ impl WasiFs {
 
                 match &mut self.inodes[base_inode].kind {
                     Kind::File { ref mut handle, .. } => {
-                        let mut ret = Some(file);
                         std::mem::swap(handle, &mut ret);
-                        Ok(ret)
                     }
                     _ => return Err(WasiFsError::NotAFile),
                 }
             }
         }
+
+        Ok(ret)
     }
 
     /// refresh size from filesystem
@@ -733,6 +799,17 @@ impl WasiFs {
     }
 
     pub fn fdstat(&self, fd: __wasi_fd_t) -> Result<__wasi_fdstat_t, __wasi_errno_t> {
+        match fd {
+            __WASI_STDOUT_FILENO => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_flags: 0,
+                    fs_rights_base: ALL_RIGHTS,
+                    fs_rights_inheriting: ALL_RIGHTS,
+                })
+            }
+            _ => (),
+        }
         let fd = self.get_fd(fd)?;
 
         debug!("fdstat: {:?}", fd);
@@ -773,8 +850,18 @@ impl WasiFs {
     pub fn flush(&mut self, fd: __wasi_fd_t) -> Result<(), __wasi_errno_t> {
         match fd {
             __WASI_STDIN_FILENO => (),
-            __WASI_STDOUT_FILENO => self.stdout.flush().map_err(|_| __WASI_EIO)?,
-            __WASI_STDERR_FILENO => self.stderr.flush().map_err(|_| __WASI_EIO)?,
+            __WASI_STDOUT_FILENO => self
+                .stdout_mut()
+                .map_err(WasiFsError::into_wasi_err)?
+                .as_mut()
+                .and_then(|f| f.flush().ok())
+                .ok_or(__WASI_EIO)?,
+            __WASI_STDERR_FILENO => self
+                .stderr_mut()
+                .map_err(WasiFsError::into_wasi_err)?
+                .as_mut()
+                .and_then(|f| f.flush().ok())
+                .ok_or(__WASI_EIO)?,
             _ => {
                 let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
                 if fd.rights & __WASI_RIGHT_FD_DATASYNC == 0 {
@@ -793,7 +880,7 @@ impl WasiFs {
                     }
                     // TODO: verify this behavior
                     Kind::Dir { .. } => return Err(__WASI_EISDIR),
-                    Kind::Symlink { .. } => unimplemented!(),
+                    Kind::Symlink { .. } => unimplemented!("WasiFs::flush Kind::Symlink"),
                     Kind::Buffer { .. } => (),
                     _ => return Err(__WASI_EIO),
                 }
@@ -881,11 +968,76 @@ impl WasiFs {
         };
 
         self.inodes.insert(InodeVal {
-            stat: stat,
+            stat,
             is_preopened: true,
             name: "/".to_string(),
             kind: root_kind,
         })
+    }
+
+    fn create_stdout(&mut self) {
+        self.create_std_dev_inner(
+            Box::new(Stdout),
+            "stdout",
+            __WASI_STDOUT_FILENO,
+            STDOUT_DEFAULT_RIGHTS,
+            __WASI_FDFLAG_APPEND,
+        );
+    }
+    fn create_stdin(&mut self) {
+        self.create_std_dev_inner(
+            Box::new(Stdin),
+            "stdin",
+            __WASI_STDIN_FILENO,
+            STDIN_DEFAULT_RIGHTS,
+            0,
+        );
+    }
+    fn create_stderr(&mut self) {
+        self.create_std_dev_inner(
+            Box::new(Stderr),
+            "stderr",
+            __WASI_STDERR_FILENO,
+            STDERR_DEFAULT_RIGHTS,
+            __WASI_FDFLAG_APPEND,
+        );
+    }
+
+    fn create_std_dev_inner(
+        &mut self,
+        handle: Box<dyn WasiFile>,
+        name: &'static str,
+        raw_fd: __wasi_fd_t,
+        rights: __wasi_rights_t,
+        fd_flags: __wasi_fdflags_t,
+    ) {
+        let stat = __wasi_filestat_t {
+            st_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+            st_ino: self.get_next_inode_index(),
+            ..__wasi_filestat_t::default()
+        };
+        let kind = Kind::File {
+            handle: Some(handle),
+            path: "".into(),
+        };
+        let inode = self.inodes.insert(InodeVal {
+            stat,
+            is_preopened: true,
+            name: name.to_string(),
+            kind,
+        });
+        self.fd_map.insert(
+            raw_fd,
+            Fd {
+                rights,
+                rights_inheriting: 0,
+                flags: fd_flags,
+                // since we're not calling open on this, we don't need open flags
+                open_flags: 0,
+                offset: 0,
+                inode,
+            },
+        );
     }
 
     pub fn get_stat_for_kind(&self, kind: &Kind) -> Option<__wasi_filestat_t> {

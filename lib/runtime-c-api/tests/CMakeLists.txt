@@ -6,6 +6,7 @@ add_executable(test-exports test-exports.c)
 add_executable(test-globals test-globals.c)
 add_executable(test-import-function test-import-function.c)
 add_executable(test-imports test-imports.c)
+add_executable(test-import-object test-import-object.c)
 add_executable(test-instantiate test-instantiate.c)
 add_executable(test-memory test-memory.c)
 add_executable(test-module test-module.c)
@@ -16,6 +17,10 @@ add_executable(test-tables test-tables.c)
 add_executable(test-validate test-validate.c)
 add_executable(test-context test-context.c)
 add_executable(test-module-import-instantiate test-module-import-instantiate.c)
+
+if (DEFINED WASI_TESTS)
+   add_executable(test-wasi-import-object test-wasi-import-object.c)
+endif()
 
 find_library(
         WASMER_LIB NAMES libwasmer_runtime_c_api.dylib libwasmer_runtime_c_api.so wasmer_runtime_c_api.dll
@@ -57,6 +62,17 @@ add_test(test-import-function test-import-function)
 target_link_libraries(test-imports general ${WASMER_LIB})
 target_compile_options(test-imports PRIVATE ${COMPILER_OPTIONS})
 add_test(test-imports test-imports)
+
+target_link_libraries(test-import-object general ${WASMER_LIB})
+target_compile_options(test-import-object PRIVATE ${COMPILER_OPTIONS})
+add_test(test-import-object test-import-object)
+
+
+if (DEFINED WASI_TESTS)
+    target_link_libraries(test-wasi-import-object general ${WASMER_LIB})
+    target_compile_options(test-wasi-import-object PRIVATE ${COMPILER_OPTIONS})
+    add_test(test-wasi-import-object test-wasi-import-object)
+endif()
 
 target_link_libraries(test-instantiate general ${WASMER_LIB})
 target_compile_options(test-instantiate PRIVATE ${COMPILER_OPTIONS})

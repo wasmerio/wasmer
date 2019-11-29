@@ -1,32 +1,31 @@
-use crate::{cache::BackendCache, trampoline::Trampolines};
 use crate::{
+    cache::BackendCache,
     libcalls,
     relocation::{
         ExternalRelocation, LibCall, LocalRelocation, LocalTrapSink, Reloc, RelocSink,
         RelocationType, TrapSink, VmCall, VmCallKind,
     },
     signal::HandlerData,
+    trampoline::Trampolines,
 };
-use rayon::prelude::*;
-
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{
     binemit::{Stackmap, StackmapSink},
     ir, isa, Context,
 };
+use rayon::prelude::*;
 use std::{
     mem,
     ptr::{write_unaligned, NonNull},
     sync::Arc,
 };
-
-use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
     backend::{
         sys::{Memory, Protect},
         SigRegistry,
     },
+    cache::Error as CacheError,
     error::{CompileError, CompileResult},
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
@@ -250,17 +249,9 @@ impl FuncResolverBuilder {
                         #[cfg(not(target_os = "windows"))]
                         LibCall::Probestack => __rust_probestack as isize,
                     },
-                    RelocationType::Intrinsic(ref name) => match name.as_str() {
-                        "i32print" => i32_print as isize,
-                        "i64print" => i64_print as isize,
-                        "f32print" => f32_print as isize,
-                        "f64print" => f64_print as isize,
-                        "strtdbug" => start_debug as isize,
-                        "enddbug" => end_debug as isize,
-                        _ => Err(CompileError::InternalError {
-                            msg: format!("unexpected intrinsic: {}", name),
-                        })?,
-                    },
+                    RelocationType::Intrinsic(ref name) => Err(CompileError::InternalError {
+                        msg: format!("unexpected intrinsic: {}", name),
+                    })?,
                     RelocationType::VmCall(vmcall) => match vmcall {
                         VmCall::Local(kind) => match kind {
                             VmCallKind::StaticMemoryGrow | VmCallKind::SharedStaticMemoryGrow => {
@@ -370,29 +361,4 @@ impl FuncResolver {
 #[inline]
 fn round_up(n: usize, multiple: usize) -> usize {
     (n + multiple - 1) & !(multiple - 1)
-}
-
-extern "C" fn i32_print(_ctx: &mut vm::Ctx, n: i32) {
-    eprint!(" i32: {},", n);
-}
-extern "C" fn i64_print(_ctx: &mut vm::Ctx, n: i64) {
-    eprint!(" i64: {},", n);
-}
-extern "C" fn f32_print(_ctx: &mut vm::Ctx, n: f32) {
-    eprint!(" f32: {},", n);
-}
-extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
-    eprint!(" f64: {},", n);
-}
-extern "C" fn start_debug(ctx: &mut vm::Ctx, func_index: u32) {
-    if let Some(symbol_map) = unsafe { ctx.borrow_symbol_map() } {
-        if let Some(fn_name) = symbol_map.get(&func_index) {
-            eprint!("func ({} ({})), args: [", fn_name, func_index);
-            return;
-        }
-    }
-    eprint!("func ({}), args: [", func_index);
-}
-extern "C" fn end_debug(_ctx: &mut vm::Ctx) {
-    eprintln!(" ]");
 }

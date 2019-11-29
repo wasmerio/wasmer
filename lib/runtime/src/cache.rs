@@ -1,3 +1,7 @@
+//! The cache module provides the common data structures used by compiler backends to allow
+//! serializing compiled wasm code to a binary format.  The binary format can be persisted,
+//! and loaded to allow skipping compilation and fast startup.
+
 use crate::Module;
 use memmap::Mmap;
 use std::{

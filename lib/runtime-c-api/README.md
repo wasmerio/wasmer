@@ -36,6 +36,7 @@ The C and C++ header files can be found in the source tree of this
 crate, respectively [`wasmer.h`][wasmer_h] and
 [`wasmer.hh`][wasmer_hh]. They are automatically generated, and always
 up-to-date in this repository.
+The runtime shared library (so, dll, dylib) can also be downloaded in Wasmer [release page](https://github.com/wasmerio/wasmer/releases).
 
 Here is a simple example to use the C API:
 
@@ -103,6 +104,10 @@ int main()
 ```
 
 # Testing
+
+Tests are run using the release build of the library.  If you make
+changes or compile with non-default features, please ensure you
+rebuild in release mode for the tests to see the changes.
 
 The tests can be run via `cargo test`, such as:
 
