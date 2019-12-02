@@ -10,11 +10,14 @@ use wasmer_runtime_core::vm::Ctx;
 pub fn abort_with_message(ctx: &mut Ctx, message: &str) {
     debug!("emscripten::abort_with_message");
     println!("{}", message);
-    _abort(ctx);
+    _abort(ctx, 0);
 }
 
-pub fn _abort(_ctx: &mut Ctx) {
+pub fn _abort(_ctx: &mut Ctx, arg: u32) {
     debug!("emscripten::_abort");
+    if arg != 0 {
+        eprintln!("Program aborted with value {}", arg);
+    }
     unsafe {
         abort();
     }
