@@ -240,15 +240,18 @@ pub struct X64ExecutionContext {
 }
 
 /// On-disk cache format.
+/// Offsets are relative to the start of the executable image.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CacheImage {
-    /// Code for the whole module.
+    /// The executable image.
     code: Vec<u8>,
 
-    /// Offsets to the beginnings of each function (including trampoline, if any).
+    /// Offsets to the start of each function. Including trampoline, if any.
+    /// Trampolines are only present on AArch64.
+    /// On x86-64, `function_pointers` are identical to `function_offsets`.
     function_pointers: Vec<usize>,
 
-    /// Offsets to the beginnings of each function after trampoline.
+    /// Offsets to the start of each function after trampoline.
     function_offsets: Vec<usize>,
 
     /// Number of imported functions.
@@ -3482,7 +3485,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     let tmp_xmm2 = XMM::XMM9;
                     let tmp_xmm3 = XMM::XMM10;
 
-                    static CANONICAL_NAN: u32 = 0x7FC0_0000;
                     a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
                     a.emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
                     a.emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
@@ -3501,7 +3503,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     // load float canonical nan
                     a.emit_mov(
                         Size::S64,
-                        Location::Imm32(CANONICAL_NAN),
+                        Location::Imm32(0x7FC0_0000), // Canonical NaN
                         Location::GPR(tmpg1),
                     );
                     a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
@@ -3594,8 +3596,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     let tmp_xmm2 = XMM::XMM9;
                     let tmp_xmm3 = XMM::XMM10;
 
-                    static NEG_ZERO: u32 = 0x8000_0000;
-                    static CANONICAL_NAN: u32 = 0x7FC0_0000;
                     a.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
                     a.emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
                     a.emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
@@ -3607,7 +3607,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a.emit_jmp(Condition::None, label2);
                     a.emit_label(label1);
                     // load float -0.0
-                    a.emit_mov(Size::S64, Location::Imm32(NEG_ZERO), Location::GPR(tmpg1));
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Imm32(0x8000_0000), // Negative zero
+                        Location::GPR(tmpg1),
+                    );
                     a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp_xmm2));
                     a.emit_label(label2);
                     a.emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
@@ -3616,7 +3620,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     // load float canonical nan
                     a.emit_mov(
                         Size::S64,
-                        Location::Imm32(CANONICAL_NAN),
+                        Location::Imm32(0x7FC0_0000), // Canonical NaN
                         Location::GPR(tmpg1),
                     );
                     a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
@@ -3898,7 +3902,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     let tmp_xmm2 = XMM::XMM9;
                     let tmp_xmm3 = XMM::XMM10;
 
-                    static CANONICAL_NAN: u64 = 0x7FF8_0000_0000_0000;
                     a.emit_mov(Size::S64, Location::XMM(src1), Location::GPR(tmpg1));
                     a.emit_mov(Size::S64, Location::XMM(src2), Location::GPR(tmpg2));
                     a.emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1));
@@ -3917,7 +3920,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     // load float canonical nan
                     a.emit_mov(
                         Size::S64,
-                        Location::Imm64(CANONICAL_NAN),
+                        Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
                         Location::GPR(tmpg1),
                     );
                     a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
@@ -4010,8 +4013,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     let tmp_xmm2 = XMM::XMM9;
                     let tmp_xmm3 = XMM::XMM10;
 
-                    static NEG_ZERO: u64 = 0x8000_0000_0000_0000;
-                    static CANONICAL_NAN: u64 = 0x7FF8_0000_0000_0000;
                     a.emit_mov(Size::S64, Location::XMM(src1), Location::GPR(tmpg1));
                     a.emit_mov(Size::S64, Location::XMM(src2), Location::GPR(tmpg2));
                     a.emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1));
@@ -4023,7 +4024,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a.emit_jmp(Condition::None, label2);
                     a.emit_label(label1);
                     // load float -0.0
-                    a.emit_mov(Size::S64, Location::Imm64(NEG_ZERO), Location::GPR(tmpg1));
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Imm64(0x8000_0000_0000_0000), // Negative zero
+                        Location::GPR(tmpg1),
+                    );
                     a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp_xmm2));
                     a.emit_label(label2);
                     a.emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
@@ -4032,7 +4037,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     // load float canonical nan
                     a.emit_mov(
                         Size::S64,
-                        Location::Imm64(CANONICAL_NAN),
+                        Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
                         Location::GPR(tmpg1),
                     );
                     a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
