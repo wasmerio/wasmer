@@ -116,13 +116,13 @@ Please select your operating system:
 If you have [Homebrew](https://brew.sh/) installed:
 
 ```sh
-brew install cmake
+brew install cmake pkg-config
 ```
 
 Or, if you have [MacPorts](https://www.macports.org/install.php):
 
 ```sh
-sudo port install cmake
+sudo port install cmake pkg-config
 ```
 
   </p>

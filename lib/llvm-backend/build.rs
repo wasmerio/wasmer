@@ -4,11 +4,16 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use semver::Version;
+use sha2::{Sha256, Digest};
 use std::env;
 use std::ffi::OsStr;
 use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 use std::process::Command;
+use std::fs::File;
+use std::convert::TryInto;
+
+#[macro_use] extern crate hex_literal;
 
 // Version of the llvm-sys crate that we (through inkwell) depend on.
 const LLVM_SYS_MAJOR_VERSION: &str = "80";
@@ -262,21 +267,66 @@ fn is_llvm_debug() -> bool {
     llvm_config("--build-mode").contains("Debug")
 }
 
-fn get_llvm_target_name() -> String {
+fn llvm_target_name() -> String {
     let name = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
         "x86_64-apple-darwin"
     } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
         "x86_64-linux-gnu-ubuntu-16.04"
     } else {
-        panic!("Unsupport host for installing llvm")
+        panic!("Unsupported host for installing llvm")
     };
 
     format!("clang+llvm-8.0.0-{}", name)
 }
 
-fn find_llvm_url() -> String {
-    let name = get_llvm_target_name();
+fn llvm_url() -> String {
+    let name = llvm_target_name();
     format!("https://releases.llvm.org/8.0.0/{}.tar.xz", name)
+}
+
+fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
+    if download_path.exists() {
+        return Ok(());
+    }
+
+    let url = llvm_url();
+    let mut resp = reqwest::get(&url)
+        .expect("Failed to connect to the llvm server");
+    let mut out = File::create(download_path)?;
+    io::copy(&mut resp, &mut out)?;
+
+    if !verify_sha256sum(download_path) {
+        return Err(io::Error::new(ErrorKind::InvalidData, "Failed to verify sha256sum"));
+    };
+    Ok(())
+}
+
+fn verify_sha256sum(download_path: &PathBuf) -> bool {
+    let mut llvm_file = File::open(download_path)
+        .expect("Failed to open downloaded llvm file");
+    let mut sha256 = Sha256::new();
+    io::copy(&mut llvm_file, &mut sha256)
+        .expect("Failed to input data to sha256 hasher");
+
+    let is_verify = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        let sha256sum_mac = hex!("94ebeb70f17b6384e052c47fef24a6d70d3d949ab27b6c83d4ab7b298278ad6f");
+        if sha256.result().try_into() == Ok(sha256sum_mac) {
+            true
+        } else {
+            false
+        }
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        let sha256sum_linux = hex!("87b88d620284d1f0573923e6f7cc89edccf11d19ebaec1cfb83b4f09ac5db09c");
+        if sha256.result().try_into() == Ok(sha256sum_linux) {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    is_verify
 }
 
 fn install_llvm() {
@@ -284,17 +334,22 @@ fn install_llvm() {
 
     std::env::set_var(
         &*ENV_LLVM_PREFIX,
-        format!("{}/{}", llvm_path.display(), get_llvm_target_name()),
+        format!("{}/{}", llvm_path.display(), llvm_target_name()),
     );
 
     if llvm_path.exists() {
         return;
     }
 
-    let url = find_llvm_url();
+    let mut download_path = llvm_path.clone();
+    download_path.set_file_name(format!("{}.tar.xz", llvm_target_name()));
+    download_llvm_binary(&download_path)
+        .expect("Failed to donwload llvm binary");
 
-    let resp = reqwest::get(&url).expect("Failed to connect to the llvm server");
-    let resp = lzma::LzmaReader::new_decompressor(resp).expect("Failed to initialize decompressor");
+    let llvm_file = File::open(&download_path)
+        .expect("Failed to open downloaded llvm file");
+    let resp = lzma::LzmaReader::new_decompressor(llvm_file)
+        .expect("Failed to initialize decompressor");
     let mut archive = tar::Archive::new(resp);
 
     archive
@@ -314,7 +369,9 @@ fn main() {
     println!("cargo:rerun-if-env-changed={}", &*ENV_USE_DEBUG_MSVCRT);
     println!("cargo:rerun-if-env-changed={}", &*ENV_FORCE_FFI);
 
-    install_llvm();
+    if locate_system_llvm_config().is_none() {
+        install_llvm();
+    }
 
     std::env::set_var("CXXFLAGS", get_llvm_cxxflags());
     cc::Build::new()

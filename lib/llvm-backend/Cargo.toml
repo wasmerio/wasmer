@@ -38,6 +38,8 @@ rustc_version = "0.2"
 reqwest = "0.9.22"
 rust-lzma = "0.5.1"
 tar = "0.4.26"
+sha2 = "0.8.0"
+hex-literal = "0.2.1"
 
 [dev-dependencies]
 wabt = "0.9.1"
