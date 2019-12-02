@@ -112,7 +112,7 @@ rebuild in release mode for the tests to see the changes.
 The tests can be run via `cargo test`, such as:
 
 ```sh
-$ cargo test -- --nocapture
+$ cargo test --release -- --nocapture
 ```
 
 To run tests manually, enter the `lib/runtime-c-api/tests` directory
