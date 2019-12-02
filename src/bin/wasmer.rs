@@ -40,6 +40,13 @@ use wasmer_runtime_core::{
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
 
+#[cfg(all(
+    not(feature = "backend-cranelift"),
+    not(feature = "backend-llvm"),
+    not(feature = "backend-singlepass")
+))]
+compile_error!("Please enable at least one of the compiler backends");
+
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
 /// The options for the wasmer Command Line Interface
@@ -560,7 +567,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     let compiler: Box<dyn Compiler> = match get_compiler_by_backend(options.backend, options) {
         Some(x) => x,
-        None => return Err("the requested backend is not enabled".into()),
+        None => {
+            return Err(format!(
+                "the requested backend, \"{}\", is not enabled",
+                options.backend.to_string()
+            ))
+        }
     };
 
     #[cfg(feature = "backend-llvm")]
