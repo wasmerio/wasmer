@@ -226,6 +226,12 @@ mod tests {
         Memory, Table,
     };
 
+    use wasmer_runtime::{
+        cache::{Cache as BaseCache, FileSystemCache, WasmHash},
+        // Value,
+        VERSION,
+    };
+
     fn parse_and_run(
         path: &PathBuf,
         file_excludes: &HashSet<String>,
@@ -298,8 +304,26 @@ mod tests {
                             },
                             ..Default::default()
                         };
-                        let module = compile_with_config(&module.into_vec(), config)
+
+                        let wasmer_cache_dir = get_cache_dir();
+                        let mut cache = unsafe { FileSystemCache::new(wasmer_cache_dir).unwrap() };
+
+                        let module_bin = &module.into_vec();
+                        let module = compile_with_config(module_bin, config)
                             .expect("WASM can't be compiled");
+                        let hash = WasmHash::generate(module_bin);
+                        dbg!(cache.store(hash, module.clone()));
+                        use wasmer_runtime::Backend;
+                        let module = match cache.load_with_backend(hash, Backend::LLVM) {
+                            Ok(module) => {
+                                // We are able to load the module from cache
+                                module
+                            }
+                            Err(err) => {
+                                dbg!(err);
+                                panic!("module should load from cache")
+                            }
+                        };
                         let i = module
                             .instantiate(&spectest_import_object)
                             .expect("WASM can't be instantiated");
@@ -1042,6 +1066,24 @@ mod tests {
             }
         }
         Ok(test_report)
+    }
+
+    fn get_cache_dir() -> PathBuf {
+        use std::env;
+        match env::var("WASMER_CACHE_DIR") {
+            Ok(dir) => {
+                let mut path = PathBuf::from(dir);
+                path.push(VERSION);
+                path
+            }
+            Err(_) => {
+                // We use a temporal directory for saving cache files
+                let mut temp_dir = env::temp_dir();
+                temp_dir.push("wasmer");
+                temp_dir.push(VERSION);
+                temp_dir
+            }
+        }
     }
 
     fn is_canonical_nan(val: wasmer_runtime::types::Value) -> bool {
