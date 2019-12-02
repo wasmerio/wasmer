@@ -4,16 +4,17 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use semver::Version;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
+use std::convert::TryInto;
 use std::env;
 use std::ffi::OsStr;
+use std::fs::File;
 use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 use std::process::Command;
-use std::fs::File;
-use std::convert::TryInto;
 
-#[macro_use] extern crate hex_literal;
+#[macro_use]
+extern crate hex_literal;
 
 // Version of the llvm-sys crate that we (through inkwell) depend on.
 const LLVM_SYS_MAJOR_VERSION: &str = "80";
@@ -290,33 +291,35 @@ fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
     }
 
     let url = llvm_url();
-    let mut resp = reqwest::get(&url)
-        .expect("Failed to connect to the llvm server");
+    let mut resp = reqwest::get(&url).expect("Failed to connect to the llvm server");
     let mut out = File::create(download_path)?;
     io::copy(&mut resp, &mut out)?;
 
     if !verify_sha256sum(download_path) {
-        return Err(io::Error::new(ErrorKind::InvalidData, "Failed to verify sha256sum"));
+        return Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "Failed to verify downloaded file by sha256sum",
+        ));
     };
     Ok(())
 }
 
 fn verify_sha256sum(download_path: &PathBuf) -> bool {
-    let mut llvm_file = File::open(download_path)
-        .expect("Failed to open downloaded llvm file");
+    let mut llvm_file = File::open(download_path).expect("Failed to open downloaded llvm file");
     let mut sha256 = Sha256::new();
-    io::copy(&mut llvm_file, &mut sha256)
-        .expect("Failed to input data to sha256 hasher");
+    io::copy(&mut llvm_file, &mut sha256).expect("Failed to input data to sha256 hasher");
 
     let is_verify = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-        let sha256sum_mac = hex!("94ebeb70f17b6384e052c47fef24a6d70d3d949ab27b6c83d4ab7b298278ad6f");
+        let sha256sum_mac =
+            hex!("94ebeb70f17b6384e052c47fef24a6d70d3d949ab27b6c83d4ab7b298278ad6f");
         if sha256.result().try_into() == Ok(sha256sum_mac) {
             true
         } else {
             false
         }
     } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-        let sha256sum_linux = hex!("87b88d620284d1f0573923e6f7cc89edccf11d19ebaec1cfb83b4f09ac5db09c");
+        let sha256sum_linux =
+            hex!("87b88d620284d1f0573923e6f7cc89edccf11d19ebaec1cfb83b4f09ac5db09c");
         if sha256.result().try_into() == Ok(sha256sum_linux) {
             true
         } else {
@@ -343,13 +346,11 @@ fn install_llvm() {
 
     let mut download_path = llvm_path.clone();
     download_path.set_file_name(format!("{}.tar.xz", llvm_target_name()));
-    download_llvm_binary(&download_path)
-        .expect("Failed to donwload llvm binary");
+    download_llvm_binary(&download_path).expect("Failed to donwload llvm binary");
 
-    let llvm_file = File::open(&download_path)
-        .expect("Failed to open downloaded llvm file");
-    let resp = lzma::LzmaReader::new_decompressor(llvm_file)
-        .expect("Failed to initialize decompressor");
+    let llvm_file = File::open(&download_path).expect("Failed to open downloaded llvm file");
+    let resp =
+        lzma::LzmaReader::new_decompressor(llvm_file).expect("Failed to initialize decompressor");
     let mut archive = tar::Archive::new(resp);
 
     archive
