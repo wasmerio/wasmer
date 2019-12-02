@@ -731,7 +731,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall345" => func!(crate::syscalls::___syscall345),
 
         // Process
-        "abort" => func!(crate::process::_abort),
+        "abort" => func!(crate::process::em_abort),
         "_abort" => func!(crate::process::_abort),
         "_prctl" => func!(crate::process::_prctl),
         "abortStackOverflow" => func!(crate::process::abort_stack_overflow),

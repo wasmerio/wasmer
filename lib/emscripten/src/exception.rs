@@ -33,7 +33,7 @@ pub fn ___cxa_rethrow_primary_exception(_ctx: &mut Ctx, _a: u32) {
 pub fn ___cxa_throw(ctx: &mut Ctx, _ptr: u32, _ty: u32, _destructor: u32) {
     debug!("emscripten::___cxa_throw");
     eprintln!("Throwing exceptions not yet implemented: aborting!");
-    _abort(ctx, 0);
+    _abort(ctx);
 }
 
 pub fn ___cxa_begin_catch(_ctx: &mut Ctx, _exception_object_ptr: u32) -> i32 {
