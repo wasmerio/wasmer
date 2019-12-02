@@ -18,24 +18,19 @@ pub enum WasiVersion {
 
 /// Detect the version of WASI being used from the namespace
 pub fn get_wasi_version(module: &Module) -> Option<WasiVersion> {
-    let mut import_iter = module
+    let namespace_table = &module.info().namespace_table;
+
+    module
         .info()
         .imported_functions
         .iter()
-        .map(|(_, import_name)| import_name.namespace_index);
+        .find_map(|(_, import_name)| {
+            let namespace_index = import_name.namespace_index;
 
-    // returns None if empty
-    let first = import_iter.next()?;
-    if import_iter.all(|idx| idx == first) {
-        // once we know that all the namespaces are the same, we can use it to
-        // detect which version of WASI this is
-        match module.info().namespace_table.get(first) {
-            "wasi_unstable" => Some(WasiVersion::Snapshot0),
-            "wasi_snapshot_preview1" => Some(WasiVersion::Snapshot1),
-            _ => None,
-        }
-    } else {
-        // not all funcs have the same namespace, therefore it's not WASI
-        None
-    }
+            match namespace_table.get(namespace_index) {
+                "wasi_unstable" => Some(WasiVersion::Snapshot0),
+                "wasi_snapshot_preview1" => Some(WasiVersion::Snapshot1),
+                _ => None,
+            }
+        })
 }
