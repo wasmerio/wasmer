@@ -14,3 +14,4 @@
 pub mod block_trace;
 pub mod call_trace;
 pub mod metering;
+pub mod stack_limit;
