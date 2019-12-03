@@ -2226,7 +2226,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         );
                         a.emit_inline_breakpoint(InlineBreakpointType::Middleware);
                     }
-                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {}
                     InternalEvent::GetInternal(idx) => {
                         let idx = idx as usize;
                         assert!(idx < INTERNALS_SIZE);
@@ -2293,7 +2292,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(tmp, (idx * 8) as i32),
                         );
                         self.machine.release_temp_gpr(tmp);
-                    } //_ => unimplemented!(),
+                    }
+                    _ => {}
                 }
                 return Ok(());
             }

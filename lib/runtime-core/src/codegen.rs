@@ -43,6 +43,12 @@ pub enum Event<'a, 'b> {
 pub enum InternalEvent {
     /// A function parse is about to begin.
     FunctionBegin(u32),
+    /// Total number of static slots (arguments and locals) of the current function.
+    /// Always emitted after `FunctionBegin` and before the first opcode.
+    FunctionStaticSlotCount(usize),
+    /// Indicates that the value stack growed.
+    /// The argument is the new total number of elements on the value stack.
+    ValueStackGrow(usize),
     /// A function parsing has just completed.
     FunctionEnd,
     /// A breakpoint emitted during parsing.
@@ -57,6 +63,8 @@ impl fmt::Debug for InternalEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             InternalEvent::FunctionBegin(_) => write!(f, "FunctionBegin"),
+            InternalEvent::FunctionStaticSlotCount(_) => write!(f, "FunctionStaticSlotCount"),
+            InternalEvent::ValueStackGrow(_) => write!(f, "ValueStackGrow"),
             InternalEvent::FunctionEnd => write!(f, "FunctionEnd"),
             InternalEvent::Breakpoint(_) => write!(f, "Breakpoint"),
             InternalEvent::SetInternal(_) => write!(f, "SetInternal"),
