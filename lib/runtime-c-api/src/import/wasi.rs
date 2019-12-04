@@ -117,7 +117,7 @@ pub unsafe extern "C" fn wasmer_wasi_get_version(module: *const wasmer_module_t)
 
     let module = &*(module as *const Module);
 
-    match wasi::get_wasi_version(module) {
+    match wasi::get_wasi_version(module, false) {
         Some(version) => match version {
             wasi::WasiVersion::Snapshot0 => Version::Snapshot0,
             wasi::WasiVersion::Snapshot1 => Version::Snapshot1,
