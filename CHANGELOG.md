@@ -2,7 +2,7 @@
 
 ## **[Unreleased]**
 
-- [#1028](https://github.com/wasmerio/wasmer/pull/1028) Fix `get_wasi_version` when a module has multiple import namespaces.
+- [#1028](https://github.com/wasmerio/wasmer/pull/1028) Introduce strict/non-strict modes for `get_wasi_version`
 - [#1006](https://github.com/wasmerio/wasmer/pull/1006) Fix minor panic issue when `wasmer::compile_with` called with llvm backend
 - [#1009](https://github.com/wasmerio/wasmer/pull/1009) Enable LLVM verifier for all tests, add new llvm-backend-tests crate.
 - [#1004](https://github.com/wasmerio/wasmer/pull/1004) Add the Auto backend to enable to adapt backend usage depending on wasm file executed.
