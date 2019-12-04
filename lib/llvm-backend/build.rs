@@ -290,12 +290,18 @@ fn llvm_target_name() -> String {
         panic!("Unsupported host for installing llvm")
     };
 
-    format!("clang+llvm-8.0.0-{}", name)
+    format!(
+        "clang+llvm-{}.{}.0-{}",
+        CRATE_VERSION.major, CRATE_VERSION.minor, name
+    )
 }
 
 fn llvm_url() -> String {
     let name = llvm_target_name();
-    format!("https://releases.llvm.org/8.0.0/{}.tar.xz", name)
+    format!(
+        "https://releases.llvm.org/{}.{}.0/{}.tar.xz",
+        CRATE_VERSION.major, CRATE_VERSION.minor, name
+    )
 }
 
 fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {

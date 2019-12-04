@@ -36,11 +36,13 @@ regex = "1.2"
 semver = "0.9"
 rustc_version = "0.2"
 reqwest = "0.9.22"
-rust-lzma = "0.5.1"
 tar = "0.4.26"
 sha2 = "0.8.0"
 hex-literal = "0.2.1"
 online = "0.2.2"
+
+[target.'cfg(not(windows))'.build-dependencies]
+rust-lzma = "0.5.1"
 
 [dev-dependencies]
 wabt = "0.9.1"
