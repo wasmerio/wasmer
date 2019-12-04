@@ -129,7 +129,7 @@ impl Cache for FileSystemCache {
     }
 }
 
-#[cfg(all(test, not(feature = "singlepass")))]
+#[cfg(test)]
 mod tests {
 
     use super::*;

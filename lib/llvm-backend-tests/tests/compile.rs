@@ -18,5 +18,23 @@ fn crash_return_with_float_on_stack() {
 "#;
     let wasm_binary = wat2wasm(MODULE.as_bytes()).expect("WAST not valid or malformed");
     let module = compile_with(&wasm_binary, &get_compiler()).unwrap();
-    let instance = module.instantiate(&imports! {}).unwrap();
+    module.instantiate(&imports! {}).unwrap();
+}
+
+#[test]
+fn crash_select_with_mismatched_pending() {
+    const MODULE: &str = r#"
+ (module
+  (func (param f64)
+    f64.const 0x0p+0 (;=0;)
+    local.get 0
+    f64.add
+    f64.const 0x0p+0 (;=0;)
+    i32.const 0
+    select
+    drop))
+"#;
+    let wasm_binary = wat2wasm(MODULE.as_bytes()).expect("WAST not valid or malformed");
+    let module = compile_with(&wasm_binary, &get_compiler()).unwrap();
+    module.instantiate(&imports! {}).unwrap();
 }
