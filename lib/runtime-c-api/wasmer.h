@@ -31,13 +31,18 @@ enum Version {
    */
   Unknown = 0,
   /**
+   * Latest version. See `wasmer_wasi::WasiVersion::Latest` to
+   * leran more.
+   */
+  Latest = 1,
+  /**
    * `wasi_unstable`.
    */
-  Snapshot0 = 1,
+  Snapshot0 = 2,
   /**
    * `wasi_snapshot_preview1`.
    */
-  Snapshot1 = 2,
+  Snapshot1 = 3,
 };
 typedef uint8_t Version;
 

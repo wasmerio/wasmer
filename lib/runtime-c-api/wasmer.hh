@@ -28,10 +28,13 @@
 enum class Version : uint8_t {
   /// Version cannot be detected or is unknown.
   Unknown = 0,
+  /// Latest version. See `wasmer_wasi::WasiVersion::Latest` to
+  /// leran more.
+  Latest = 1,
   /// `wasi_unstable`.
-  Snapshot0 = 1,
+  Snapshot0 = 2,
   /// `wasi_snapshot_preview1`.
-  Snapshot1 = 2,
+  Snapshot1 = 3,
 };
 
 /// List of export/import kinds.

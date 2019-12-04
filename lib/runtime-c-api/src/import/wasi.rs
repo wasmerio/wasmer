@@ -8,17 +8,24 @@ use wasmer_wasi as wasi;
 pub enum Version {
     /// Version cannot be detected or is unknown.
     Unknown = 0,
+
+    /// Latest version. See `wasmer_wasi::WasiVersion::Latest` to
+    /// leran more.
+    Latest = 1,
+
     /// `wasi_unstable`.
-    Snapshot0 = 1,
+    Snapshot0 = 2,
+
     /// `wasi_snapshot_preview1`.
-    Snapshot1 = 2,
+    Snapshot1 = 3,
 }
 
 impl From<c_uchar> for Version {
     fn from(value: c_uchar) -> Self {
         match value {
-            1 => Self::Snapshot0,
-            2 => Self::Snapshot1,
+            1 => Self::Latest,
+            2 => Self::Snapshot0,
+            3 => Self::Snapshot1,
             _ => Self::Unknown,
         }
     }
@@ -66,7 +73,7 @@ pub unsafe extern "C" fn wasmer_wasi_generate_import_object(
     let mapped_dir_list = get_slice_checked(mapped_dirs, mapped_dirs_len as usize);
 
     wasmer_wasi_generate_import_object_inner(
-        Version::Snapshot1,
+        Version::Latest,
         arg_list,
         env_list,
         preopened_file_list,
@@ -123,6 +130,7 @@ pub unsafe extern "C" fn wasmer_wasi_get_version(module: *const wasmer_module_t)
         Some(version) => match version {
             wasi::WasiVersion::Snapshot0 => Version::Snapshot0,
             wasi::WasiVersion::Snapshot1 => Version::Snapshot1,
+            wasi::WasiVersion::Latest => Version::Latest,
         },
         None => Version::Unknown,
     }
@@ -151,6 +159,7 @@ fn wasmer_wasi_generate_import_object_inner(
         .collect::<Result<Vec<_>, _>>()?;
 
     let version = match version {
+        Version::Latest => wasi::WasiVersion::Latest,
         Version::Snapshot0 => wasi::WasiVersion::Snapshot0,
         Version::Snapshot1 => wasi::WasiVersion::Snapshot1,
         _ => panic!("Version {:?} is invalid.", version),
@@ -186,7 +195,8 @@ mod tests {
     #[test]
     fn test_versions_from_uint() {
         assert_eq!(Version::Unknown, 0.into());
-        assert_eq!(Version::Snapshot0, 1.into());
-        assert_eq!(Version::Snapshot1, 2.into());
+        assert_eq!(Version::Latest, 1.into());
+        assert_eq!(Version::Snapshot0, 2.into());
+        assert_eq!(Version::Snapshot1, 3.into());
     }
 }
