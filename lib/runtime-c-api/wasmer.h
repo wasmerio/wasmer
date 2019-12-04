@@ -912,7 +912,7 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_arr
  * This function is similar to `wasmer_wasi_generate_import_object`
  * except that the first argument describes the WASI version.
  */
-wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(Version version,
+wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned char version,
                                                                        const wasmer_byte_array *args,
                                                                        unsigned int args_len,
                                                                        const wasmer_byte_array *envs,

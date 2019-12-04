@@ -14,6 +14,16 @@ pub enum Version {
     Snapshot1,
 }
 
+impl From<c_uchar> for Version {
+    fn from(value: c_uchar) -> Self {
+        match value {
+            0 => Self::Snapshot0,
+            1 => Self::Snapshot1,
+            _ => Self::Unknown,
+        }
+    }
+}
+
 /// Opens a directory that's visible to the WASI module as `alias` but
 /// is backed by the host file at `host_file_path`
 #[repr(C)]
@@ -71,7 +81,7 @@ pub unsafe extern "C" fn wasmer_wasi_generate_import_object(
 /// except that the first argument describes the WASI version.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_wasi_generate_import_object_for_version(
-    version: Version,
+    version: c_uchar,
     args: *const wasmer_byte_array,
     args_len: c_uint,
     envs: *const wasmer_byte_array,
@@ -87,7 +97,7 @@ pub unsafe extern "C" fn wasmer_wasi_generate_import_object_for_version(
     let mapped_dir_list = get_slice_checked(mapped_dirs, mapped_dirs_len as usize);
 
     wasmer_wasi_generate_import_object_inner(
-        version,
+        version.into(),
         arg_list,
         env_list,
         preopened_file_list,
