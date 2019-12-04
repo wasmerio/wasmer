@@ -50,6 +50,7 @@ jobs:
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
+      - template: .azure/install-pkg-config.yml
       - bash: |
           hostname
           uname -a
@@ -117,6 +118,7 @@ jobs:
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - template: .azure/install-innosetup.yml
+      - template: .azure/install-pkg-config.yml
       - bash: |
           mkdir -p artifacts
         displayName: Create Artifacts Dir
