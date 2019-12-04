@@ -4,10 +4,13 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use semver::Version;
+#[cfg(not(target_os = "windows"))]
 use sha2::{Digest, Sha256};
+#[cfg(not(target_os = "windows"))]
 use std::convert::TryInto;
 use std::env;
 use std::ffi::OsStr;
+#[cfg(not(target_os = "windows"))]
 use std::fs::File;
 use std::io::{self, ErrorKind};
 use std::path::PathBuf;
@@ -272,15 +275,6 @@ fn is_llvm_debug() -> bool {
     llvm_config("--build-mode").contains("Debug")
 }
 
-fn is_supported_environment() -> bool {
-    if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-        return true;
-    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-        return true;
-    }
-    false
-}
-
 #[cfg(not(target_os = "windows"))]
 fn llvm_target_name() -> String {
     let name = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
@@ -398,14 +392,13 @@ fn main() {
     println!("cargo:rerun-if-env-changed={}", &*ENV_DISABLE_INSTALL);
 
     // Install LLVM automatically only if the following conditions matches:
-    //   - The system LLVM doesn't exist.
     //   - Your environment is Mac OS or Linux.
+    //   - The system LLVM doesn't exist.
     //   - Internet connection exists.
     //   - The flag to disable installing isn't set.
     #[cfg(not(target_os = "windows"))]
     {
         if locate_system_llvm_config().is_none()
-            && is_supported_environment()
             && online::online(None).is_ok()
             && env::var_os(&*ENV_DISABLE_INSTALL).is_some()
         {
