@@ -27,11 +27,11 @@
 
 enum class Version : uint8_t {
   /// Version cannot be detected or is unknown.
-  Unknown,
+  Unknown = 0,
   /// `wasi_unstable`.
-  Snapshot0,
+  Snapshot0 = 1,
   /// `wasi_snapshot_preview1`.
-  Snapshot1,
+  Snapshot1 = 2,
 };
 
 /// List of export/import kinds.

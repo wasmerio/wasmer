@@ -3,22 +3,22 @@ use crate::get_slice_checked;
 use std::{path::PathBuf, ptr, str};
 use wasmer_wasi as wasi;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[repr(u8)]
 pub enum Version {
     /// Version cannot be detected or is unknown.
-    Unknown,
+    Unknown = 0,
     /// `wasi_unstable`.
-    Snapshot0,
+    Snapshot0 = 1,
     /// `wasi_snapshot_preview1`.
-    Snapshot1,
+    Snapshot1 = 2,
 }
 
 impl From<c_uchar> for Version {
     fn from(value: c_uchar) -> Self {
         match value {
-            0 => Self::Snapshot0,
-            1 => Self::Snapshot1,
+            1 => Self::Snapshot0,
+            2 => Self::Snapshot1,
             _ => Self::Unknown,
         }
     }
@@ -177,4 +177,16 @@ pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wa
     let import_object = Box::new(wasi::generate_import_object(vec![], vec![], vec![], vec![]));
 
     Box::into_raw(import_object) as *mut wasmer_import_object_t
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Version;
+
+    #[test]
+    fn test_versions_from_uint() {
+        assert_eq!(Version::Unknown, 0.into());
+        assert_eq!(Version::Snapshot0, 1.into());
+        assert_eq!(Version::Snapshot1, 2.into());
+    }
 }
