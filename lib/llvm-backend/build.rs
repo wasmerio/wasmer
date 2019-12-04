@@ -402,12 +402,15 @@ fn main() {
     //   - Your environment is Mac OS or Linux.
     //   - Internet connection exists.
     //   - The flag to disable installing isn't set.
-    if locate_system_llvm_config().is_none()
-        && is_supported_environment()
-        && online::online(None).is_ok()
-        && env::var_os(&*ENV_DISABLE_INSTALL).is_some()
+    #[cfg(not(target_os = "windows"))]
     {
-        install_llvm();
+        if locate_system_llvm_config().is_none()
+            && is_supported_environment()
+            && online::online(None).is_ok()
+            && env::var_os(&*ENV_DISABLE_INSTALL).is_some()
+        {
+            install_llvm();
+        }
     }
 
     std::env::set_var("CXXFLAGS", get_llvm_cxxflags());
