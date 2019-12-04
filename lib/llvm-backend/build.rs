@@ -268,6 +268,15 @@ fn is_llvm_debug() -> bool {
     llvm_config("--build-mode").contains("Debug")
 }
 
+fn is_supported_environment() -> bool {
+    if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        return true;
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        return true;
+    }
+    false
+}
+
 fn llvm_target_name() -> String {
     let name = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
         "x86_64-apple-darwin"
@@ -370,7 +379,12 @@ fn main() {
     println!("cargo:rerun-if-env-changed={}", &*ENV_USE_DEBUG_MSVCRT);
     println!("cargo:rerun-if-env-changed={}", &*ENV_FORCE_FFI);
 
-    if locate_system_llvm_config().is_none() {
+    // Install LLVM automatically only if the system LLVM doesn't exist,
+    // your environment is Mac or Linux, and the Internet connection is fine.
+    if locate_system_llvm_config().is_none()
+        && is_supported_environment()
+        && online::online(None).is_ok()
+    {
         install_llvm();
     }
 
