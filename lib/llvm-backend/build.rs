@@ -49,6 +49,10 @@ lazy_static! {
     /// If set, always link against libffi
     static ref ENV_FORCE_FFI: String =
         format!("LLVM_SYS_{}_FFI_WORKAROUND", LLVM_SYS_MAJOR_VERSION);
+
+    /// If set, disable the automatic LLVM installing
+    static ref ENV_DISABLE_INSTALL: String =
+        format!("LLVM_SYS_{}_DISABLE_INSTALL", LLVM_SYS_MAJOR_VERSION);
 }
 
 lazy_static! {
@@ -378,12 +382,17 @@ fn main() {
     println!("cargo:rerun-if-env-changed={}", &*ENV_NO_CLEAN_CXXFLAGS);
     println!("cargo:rerun-if-env-changed={}", &*ENV_USE_DEBUG_MSVCRT);
     println!("cargo:rerun-if-env-changed={}", &*ENV_FORCE_FFI);
+    println!("cargo:rerun-if-env-changed={}", &*ENV_DISABLE_INSTALL);
 
-    // Install LLVM automatically only if the system LLVM doesn't exist,
-    // your environment is Mac or Linux, and the Internet connection is fine.
+    // Install LLVM automatically only if the following conditions matches:
+    //   - The system LLVM doesn't exist.
+    //   - Your environment is Mac OS or Linux.
+    //   - Internet connection exists.
+    //   - The flag to disable installing isn't set.
     if locate_system_llvm_config().is_none()
         && is_supported_environment()
         && online::online(None).is_ok()
+        && env::var_os(&*ENV_DISABLE_INSTALL).is_some()
     {
         install_llvm();
     }
