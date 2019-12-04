@@ -281,7 +281,7 @@ fn is_supported_environment() -> bool {
     false
 }
 
-#[ctg(not(target_os = "windows"))]
+#[cfg(not(target_os = "windows"))]
 fn llvm_target_name() -> String {
     let name = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
         "x86_64-apple-darwin"
@@ -297,7 +297,7 @@ fn llvm_target_name() -> String {
     )
 }
 
-#[ctg(not(target_os = "windows"))]
+#[cfg(not(target_os = "windows"))]
 fn llvm_url() -> String {
     let name = llvm_target_name();
     format!(
@@ -306,7 +306,7 @@ fn llvm_url() -> String {
     )
 }
 
-#[ctg(not(target_os = "windows"))]
+#[cfg(not(target_os = "windows"))]
 fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
     if download_path.exists() {
         return Ok(());
@@ -326,7 +326,7 @@ fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-#[ctg(not(target_os = "windows"))]
+#[cfg(not(target_os = "windows"))]
 fn verify_sha256sum(download_path: &PathBuf) -> bool {
     let mut llvm_file = File::open(download_path).expect("Failed to open downloaded llvm file");
     let mut sha256 = Sha256::new();
@@ -357,7 +357,7 @@ fn verify_sha256sum(download_path: &PathBuf) -> bool {
     is_verify
 }
 
-#[ctg(not(target_os = "windows"))]
+#[cfg(not(target_os = "windows"))]
 fn install_llvm() {
     let llvm_path: PathBuf = format!("{}/llvm", std::env::var("OUT_DIR").unwrap()).into();
 
