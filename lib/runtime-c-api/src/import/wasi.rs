@@ -153,7 +153,7 @@ fn wasmer_wasi_generate_import_object_inner(
     let version = match version {
         Version::Snapshot0 => wasi::WasiVersion::Snapshot0,
         Version::Snapshot1 => wasi::WasiVersion::Snapshot1,
-        _ => panic!(format!("Version {:?} is invalid.", version)),
+        _ => panic!("Version {:?} is invalid.", version),
     };
 
     let import_object = Box::new(wasi::generate_import_object_for_version(
