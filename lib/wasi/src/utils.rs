@@ -15,7 +15,17 @@ pub enum WasiVersion {
     Snapshot0,
     /// `wasi_snapshot_preview1`.
     Snapshot1,
-    /// Latest version (for the moment, an alias to `Snapshot1`).
+
+    /// Latest version.
+    ///
+    /// It's a “floating” version, i.e. it's an alias to the latest
+    /// version (for the moment, `Snapshot1`). Using this version is a
+    /// way to ensure that modules will run only if they come with the
+    /// latest WASI version (in case of security issues for instance),
+    /// by just updating the runtime.
+    ///
+    /// Note that this version is never returned by an API. It is
+    /// provided only by the user.
     Latest,
 }
 
