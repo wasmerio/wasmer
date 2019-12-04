@@ -7,13 +7,26 @@ pub fn is_wasi_module(module: &Module) -> bool {
     get_wasi_version(module, false).is_some()
 }
 
-/// The version of WASI.  This is determined by the namespace string
+/// The version of WASI. This is determined by the imports namespace
+/// string.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WasiVersion {
-    /// "wasi_unstable"
+    /// `wasi_unstable`.
     Snapshot0,
-    /// "wasi_snapshot_preview1"
+    /// `wasi_snapshot_preview1`.
     Snapshot1,
+
+    /// Latest version.
+    ///
+    /// It's a “floating” version, i.e. it's an alias to the latest
+    /// version (for the moment, `Snapshot1`). Using this version is a
+    /// way to ensure that modules will run only if they come with the
+    /// latest WASI version (in case of security issues for instance),
+    /// by just updating the runtime.
+    ///
+    /// Note that this version is never returned by an API. It is
+    /// provided only by the user.
+    Latest,
 }
 
 /// Namespace for the `Snapshot0` version.

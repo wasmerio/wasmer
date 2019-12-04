@@ -1274,9 +1274,9 @@ impl Emitter for Assembler {
     fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType) {
         dynasm!(self
             ; ud2
-            ; .byte 0x0f ; .byte (0xb9u8 as i8) // ud
+            ; .byte 0x0f ; .byte 0xb9u8 as i8 // ud
             ; int -1
-            ; .byte (ty as u8 as i8)
+            ; .byte ty as u8 as i8
         );
     }
 }

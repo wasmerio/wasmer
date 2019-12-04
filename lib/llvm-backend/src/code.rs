@@ -1730,15 +1730,17 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 // If the pending bits of v1 and v2 are the same, we can pass
                 // them along to the result. Otherwise, apply pending
                 // canonicalizations now.
-                let (v1, v2) = if i1.has_pending_f32_nan() != i2.has_pending_f32_nan()
+                let (v1, i1, v2, i2) = if i1.has_pending_f32_nan() != i2.has_pending_f32_nan()
                     || i1.has_pending_f64_nan() != i2.has_pending_f64_nan()
                 {
                     (
                         apply_pending_canonicalization(builder, intrinsics, v1, i1),
+                        i1.strip_pending(),
                         apply_pending_canonicalization(builder, intrinsics, v2, i2),
+                        i2.strip_pending(),
                     )
                 } else {
-                    (v1, v2)
+                    (v1, i1, v2, i2)
                 };
                 let cond_value = builder.build_int_compare(
                     IntPredicate::NE,
