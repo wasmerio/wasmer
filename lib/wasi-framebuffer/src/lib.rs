@@ -452,7 +452,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
     let fb_fd = unsafe {
         fs.open_dir_all(
             VIRTUAL_ROOT_FD,
-            "sys/class/graphics/wasmerfb".to_string(),
+            "sys/class/graphics/wasmerfb0".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
             0,
