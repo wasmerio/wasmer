@@ -711,10 +711,12 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_arr
                                                            const wasmer_wasi_map_dir_entry_t *mapped_dirs,
                                                            unsigned int mapped_dirs_len);
 
-/// Creates a WASI import object.
+/// Creates a WASI import object for a specific version.
 ///
 /// This function is similar to `wasmer_wasi_generate_import_object`
 /// except that the first argument describes the WASI version.
+///
+/// The version is expected to be of kind `Version`.
 wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned char version,
                                                                        const wasmer_byte_array *args,
                                                                        unsigned int args_len,

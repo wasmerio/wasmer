@@ -75,10 +75,12 @@ pub unsafe extern "C" fn wasmer_wasi_generate_import_object(
     .unwrap_or(ptr::null_mut())
 }
 
-/// Creates a WASI import object.
+/// Creates a WASI import object for a specific version.
 ///
 /// This function is similar to `wasmer_wasi_generate_import_object`
 /// except that the first argument describes the WASI version.
+///
+/// The version is expected to be of kind `Version`.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_wasi_generate_import_object_for_version(
     version: c_uchar,
