@@ -47,7 +47,7 @@ jobs:
       - checkout: self
         submodules: true
       - template: .azure/install-rust.yml
-      - template: .azure/install-llvm.yml
+      #- template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - template: .azure/install-pkg-config.yml
@@ -114,7 +114,7 @@ jobs:
       - checkout: self
         submodules: true
       - template: .azure/install-rust.yml
-      - template: .azure/install-llvm.yml
+        #- template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - template: .azure/install-innosetup.yml
@@ -182,9 +182,10 @@ jobs:
       - checkout: self
         submodules: true
       - template: .azure/install-rust.yml
-      # - template: .azure/install-llvm.yml
+        #- template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
+      - template: .azure/install-pkg-config.yml
       - bash: |
           mkdir -p artifacts
         displayName: Create Artifacts Dir
