@@ -25,4 +25,4 @@ bincode = "1.2"
 
 [features]
 default = []
-deterministic-execution = ["wasmparser/deterministic", "wasmer-runtime-core/deterministic-execution"]
+deterministic-execution = ["wasmer-runtime-core/deterministic-execution"]
