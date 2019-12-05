@@ -2,8 +2,10 @@
 
 ## **[Unreleased]**
 
+- [#1029](https://github.com/wasmerio/wasmer/pull/1029) Add the “floating” `WasiVersion::Latest` version.
 - [#1006](https://github.com/wasmerio/wasmer/pull/1006) Fix minor panic issue when `wasmer::compile_with` called with llvm backend
 - [#1009](https://github.com/wasmerio/wasmer/pull/1009) Enable LLVM verifier for all tests, add new llvm-backend-tests crate.
+- [#1022](https://github.com/wasmerio/wasmer/pull/1022) Add caching support for Singlepass backend.
 - [#1004](https://github.com/wasmerio/wasmer/pull/1004) Add the Auto backend to enable to adapt backend usage depending on wasm file executed.
 
 ## 0.11.0 - 2019-11-22
