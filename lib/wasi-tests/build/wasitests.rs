@@ -83,7 +83,7 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         .arg("+nightly")
         .arg("--target=wasm32-wasi")
         .arg("-C")
-        .arg("opt-level=s")
+        .arg("opt-level=z")
         .arg(file)
         .arg("-o")
         .arg(&wasm_out_name)
@@ -145,7 +145,7 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
         out_str.push_str("vec![");
 
         for entry in args.po_dirs {
-            out_str.push_str(&format!("\"{}\".to_string(),", entry));
+            out_str.push_str(&format!("std::path::PathBuf::from(\"{}\"),", entry));
         }
 
         out_str.push_str("]");
@@ -153,7 +153,9 @@ pub fn compile(file: &str, ignores: &HashSet<String>) -> Option<String> {
     };
 
     let contents = format!(
-        "#[test]{ignore}
+        "{banner}
+
+#[test]{ignore}
 fn test_{rs_module_name}() {{
     assert_wasi_output!(
         \"../../{module_path}\",
@@ -165,6 +167,7 @@ fn test_{rs_module_name}() {{
     );
 }}
 ",
+        banner = BANNER,
         ignore = ignored,
         module_path = wasm_out_name,
         rs_module_name = rs_module_name,

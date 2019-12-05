@@ -1,12 +1,14 @@
-use crate::relocation::{TrapData, TrapSink};
-use crate::resolver::FuncResolver;
-use crate::trampoline::Trampolines;
+use crate::{
+    relocation::{TrapData, TrapSink},
+    resolver::FuncResolver,
+    trampoline::Trampolines,
+};
 use libc::c_void;
 use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
     backend::RunnableModule,
     module::ModuleInfo,
-    typed_func::{Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
     vm,
 };
@@ -59,7 +61,7 @@ impl RunnableModule for Caller {
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         unsafe extern "C" fn invoke(
-            trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
+            trampoline: Trampoline,
             ctx: *mut vm::Ctx,
             func: NonNull<vm::Func>,
             args: *const u64,

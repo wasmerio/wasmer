@@ -1,7 +1,11 @@
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
-use wasmer_wasi::state::{WasiFile, WasiFs, ALL_RIGHTS, VIRTUAL_ROOT_FD};
+use wasmer_wasi::{
+    state::{Fd, WasiFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD},
+    types::*,
+};
 
 use minifb::{Key, KeyRepeat, MouseButton, Scale, Window, WindowOptions};
 
@@ -21,7 +25,7 @@ use std::borrow::BorrowMut;
 pub const MAX_X: u32 = 8192;
 pub const MAX_Y: u32 = 4320;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum FrameBufferFileType {
     Buffer,
     Resolution,
@@ -219,7 +223,7 @@ impl FrameBufferState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FrameBuffer {
     fb_type: FrameBufferFileType,
     cursor: u32,
@@ -405,6 +409,7 @@ impl Write for FrameBuffer {
     }
 }
 
+#[typetag::serde]
 impl WasiFile for FrameBuffer {
     fn last_accessed(&self) -> u64 {
         0
@@ -417,6 +422,15 @@ impl WasiFile for FrameBuffer {
     }
     fn size(&self) -> u64 {
         0
+    }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        panic!("TODO(mark): actually implement this");
+    }
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        Ok(0)
     }
 }
 
@@ -452,7 +466,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
     let fb_fd = unsafe {
         fs.open_dir_all(
             VIRTUAL_ROOT_FD,
-            "sys/class/graphics/wasmerfb0".to_string(),
+            "sys/class/graphics/wasmerfb".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
             0,
@@ -464,6 +478,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         .open_file_at(
             dev_fd,
             input_file,
+            Fd::READ,
             "input".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
@@ -477,6 +492,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         .open_file_at(
             dev_fd,
             frame_buffer_file,
+            Fd::READ | Fd::WRITE,
             "wasmerfb0".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
@@ -490,6 +506,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         .open_file_at(
             fb_fd,
             resolution_file,
+            Fd::READ | Fd::WRITE,
             "virtual_size".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
@@ -503,6 +520,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         .open_file_at(
             fb_fd,
             index_file,
+            Fd::READ | Fd::WRITE,
             "buffer_index_display".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,

@@ -1,3 +1,5 @@
+//! The memory module contains the implementation data structures and helper functions used to
+//! manipulate and access wasm memory.
 use crate::{
     error::{CreationError, GrowError},
     export::Export,
@@ -8,12 +10,9 @@ use crate::{
     units::Pages,
     vm,
 };
-use std::{
-    cell::{Cell, RefCell},
-    fmt, mem,
-    rc::Rc,
-    sync::Arc,
-};
+use std::{cell::Cell, fmt, mem, sync::Arc};
+
+use std::sync::Mutex as StdMutex;
 
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::StaticMemory;
@@ -53,16 +52,12 @@ impl Memory {
     /// # use wasmer_runtime_core::memory::Memory;
     /// # use wasmer_runtime_core::error::Result;
     /// # use wasmer_runtime_core::units::Pages;
-    /// # fn create_memory() -> Result<()> {
-    /// let descriptor = MemoryDescriptor {
-    ///     minimum: Pages(10),
-    ///     maximum: None,
-    ///     shared: false,
-    /// };
+    /// fn create_memory() -> Result<()> {
+    ///     let descriptor = MemoryDescriptor::new(Pages(10), None, false).unwrap();
     ///
-    /// let memory = Memory::new(descriptor)?;
-    /// # Ok(())
-    /// # }
+    ///     let memory = Memory::new(descriptor)?;
+    ///     Ok(())
+    /// }
     /// ```
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
         if let Some(max) = desc.maximum {
@@ -131,11 +126,11 @@ impl Memory {
     ///
     /// ```
     /// # use wasmer_runtime_core::memory::{Memory, MemoryView};
-    /// # use std::sync::atomic::Ordering;
+    /// # use std::{cell::Cell, sync::atomic::Ordering};
     /// # fn view_memory(memory: Memory) {
     /// // Without synchronization.
     /// let view: MemoryView<u8> = memory.view();
-    /// for byte in view[0x1000 .. 0x1010].iter().map(|cell| cell.get()) {
+    /// for byte in view[0x1000 .. 0x1010].iter().map(Cell::get) {
     ///     println!("byte: {}", byte);
     /// }
     ///
@@ -177,10 +172,14 @@ impl fmt::Debug for Memory {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A kind a memory.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MemoryType {
+    /// A dynamic memory.
     Dynamic,
+    /// A static memory.
     Static,
+    /// A shared static memory.
     SharedStatic,
 }
 
@@ -207,16 +206,22 @@ enum UnsharedMemoryStorage {
     Static(Box<StaticMemory>),
 }
 
+/// A reference to an unshared memory.
 pub struct UnsharedMemory {
-    internal: Rc<UnsharedMemoryInternal>,
+    internal: Arc<UnsharedMemoryInternal>,
 }
 
 struct UnsharedMemoryInternal {
-    storage: RefCell<UnsharedMemoryStorage>,
+    storage: StdMutex<UnsharedMemoryStorage>,
     local: Cell<vm::LocalMemory>,
 }
 
+// Manually implemented because UnsharedMemoryInternal uses `Cell` and is used in an Arc;
+// this is safe because the lock for storage can be used to protect (seems like a weak reason: PLEASE REVIEW!)
+unsafe impl Sync for UnsharedMemoryInternal {}
+
 impl UnsharedMemory {
+    /// Create a new `UnsharedMemory` from the given memory descriptor.
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
         let mut local = vm::LocalMemory {
             base: std::ptr::null_mut(),
@@ -231,19 +236,24 @@ impl UnsharedMemory {
             MemoryType::Static => {
                 UnsharedMemoryStorage::Static(StaticMemory::new(desc, &mut local)?)
             }
-            MemoryType::SharedStatic => panic!("attempting to create shared unshared memory"),
+            MemoryType::SharedStatic => {
+                return Err(CreationError::InvalidDescriptor(
+                    "attempting to create shared unshared memory".to_string(),
+                ));
+            }
         };
 
         Ok(Self {
-            internal: Rc::new(UnsharedMemoryInternal {
-                storage: RefCell::new(storage),
+            internal: Arc::new(UnsharedMemoryInternal {
+                storage: StdMutex::new(storage),
                 local: Cell::new(local),
             }),
         })
     }
 
+    /// Try to grow this memory by the given number of delta pages.
     pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
-        let mut storage = self.internal.storage.borrow_mut();
+        let mut storage = self.internal.storage.lock().unwrap();
 
         let mut local = self.internal.local.get();
 
@@ -259,8 +269,9 @@ impl UnsharedMemory {
         pages
     }
 
+    /// Size of this memory in pages.
     pub fn size(&self) -> Pages {
-        let storage = self.internal.storage.borrow();
+        let storage = self.internal.storage.lock().unwrap();
 
         match &*storage {
             UnsharedMemoryStorage::Dynamic(ref dynamic_memory) => dynamic_memory.size(),
@@ -276,20 +287,26 @@ impl UnsharedMemory {
 impl Clone for UnsharedMemory {
     fn clone(&self) -> Self {
         UnsharedMemory {
-            internal: Rc::clone(&self.internal),
+            internal: Arc::clone(&self.internal),
         }
     }
 }
 
+/// A reference to a shared memory.
 pub struct SharedMemory {
     internal: Arc<SharedMemoryInternal>,
 }
 
+/// Data structure for a shared internal memory.
 pub struct SharedMemoryInternal {
-    memory: RefCell<Box<StaticMemory>>,
+    memory: StdMutex<Box<StaticMemory>>,
     local: Cell<vm::LocalMemory>,
     lock: Mutex<()>,
 }
+
+// Manually implemented because SharedMemoryInternal uses `Cell` and is used in Arc;
+// this is safe because of `lock`; accesing `local` without locking `lock` is not safe (Maybe we could put the lock on Local then?)
+unsafe impl Sync for SharedMemoryInternal {}
 
 impl SharedMemory {
     fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
@@ -303,25 +320,31 @@ impl SharedMemory {
 
         Ok(Self {
             internal: Arc::new(SharedMemoryInternal {
-                memory: RefCell::new(memory),
+                memory: StdMutex::new(memory),
                 local: Cell::new(local),
                 lock: Mutex::new(()),
             }),
         })
     }
 
+    /// Try to grow this memory by the given number of delta pages.
     pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         let _guard = self.internal.lock.lock();
         let mut local = self.internal.local.get();
-        let pages = self.internal.memory.borrow_mut().grow(delta, &mut local);
+        let mut memory = self.internal.memory.lock().unwrap();
+        let pages = memory.grow(delta, &mut local);
         pages
     }
 
+    /// Size of this memory in pages.
     pub fn size(&self) -> Pages {
         let _guard = self.internal.lock.lock();
-        self.internal.memory.borrow_mut().size()
+        let memory = self.internal.memory.lock().unwrap();
+        memory.size()
     }
 
+    /// Gets a mutable pointer to the `LocalMemory`.
+    // This function is scary, because the mutex is not locked here
     pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
         self.internal.local.as_ptr()
     }
@@ -342,26 +365,17 @@ mod memory_tests {
 
     #[test]
     fn test_initial_memory_size() {
-        let unshared_memory = Memory::new(MemoryDescriptor {
-            minimum: Pages(10),
-            maximum: Some(Pages(20)),
-            shared: false,
-        })
-        .unwrap();
+        let memory_desc = MemoryDescriptor::new(Pages(10), Some(Pages(20)), false).unwrap();
+        let unshared_memory = Memory::new(memory_desc).unwrap();
         assert_eq!(unshared_memory.size(), Pages(10));
     }
 
     #[test]
     fn test_invalid_descriptor_returns_error() {
-        let result = Memory::new(MemoryDescriptor {
-            minimum: Pages(10),
-            maximum: None,
-            shared: true,
-        });
+        let memory_desc = MemoryDescriptor::new(Pages(10), None, true);
         assert!(
-            result.is_err(),
+            memory_desc.is_err(),
             "Max number of pages is required for shared memory"
         )
     }
-
 }

@@ -1,9 +1,10 @@
 use crate::emitter_x64::*;
 use smallvec::SmallVec;
 use std::collections::HashSet;
-use wasmer_runtime_core::state::x64::X64Register;
-use wasmer_runtime_core::state::*;
-use wasmparser::Type as WpType;
+use wasmer_runtime_core::{
+    state::{x64::X64Register, *},
+    wasmparser::Type as WpType,
+};
 
 struct MachineStackOffset(usize);
 
@@ -83,7 +84,14 @@ impl Machine {
 
     /// Releases a temporary GPR.
     pub fn release_temp_gpr(&mut self, gpr: GPR) {
-        assert_eq!(self.used_gprs.remove(&gpr), true);
+        assert!(self.used_gprs.remove(&gpr));
+    }
+
+    /// Specify that a given register is in use.
+    pub fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
+        assert!(!self.used_gprs.contains(&gpr));
+        self.used_gprs.insert(gpr);
+        gpr
     }
 
     /// Picks an unused XMM register.
@@ -157,12 +165,12 @@ impl Machine {
             };
             if let Location::GPR(x) = loc {
                 self.used_gprs.insert(x);
-                self.state.register_values[X64Register::GPR(x).to_index().0] = *mv;
+                self.state.register_values[X64Register::GPR(x).to_index().0] = mv.clone();
             } else if let Location::XMM(x) = loc {
                 self.used_xmms.insert(x);
-                self.state.register_values[X64Register::XMM(x).to_index().0] = *mv;
+                self.state.register_values[X64Register::XMM(x).to_index().0] = mv.clone();
             } else {
-                self.state.stack_values.push(*mv);
+                self.state.stack_values.push(mv.clone());
             }
             self.state.wasm_stack.push(WasmAbstractValue::Runtime);
             ret.push(loc);
@@ -494,11 +502,12 @@ mod test {
         let mut assembler = Assembler::new().unwrap();
         let locs = machine.acquire_locations(
             &mut assembler,
-            &[(WpType::I32, MachineValue::Undefined); 10],
+            &(0..10)
+                .map(|_| (WpType::I32, MachineValue::Undefined))
+                .collect::<Vec<_>>(),
             false,
         );
 
         machine.release_locations_keep_state(&mut assembler, &locs);
     }
-
 }

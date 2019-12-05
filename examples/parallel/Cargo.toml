@@ -1,0 +1,14 @@
+[package]
+name = "parallel"
+version = "0.1.0"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+repository = "https://github.com/wasmerio/wasmer"
+publish = false
+license = "MIT"
+
+[dependencies]
+rayon = "1.2"
+time = "0.1"
+wasmer-runtime = { path = "../../lib/runtime" }
+wasmer-runtime-core = { path = "../../lib/runtime-core" }

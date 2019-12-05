@@ -1,54 +1,52 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.6.0"
+version = "0.11.0"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "runtime"]
+categories = ["wasm"]
 edition = "2018"
 
 [dependencies]
-nix = "0.15.0"
-page_size = "0.4.1"
-wasmparser = "0.35.1"
-parking_lot = "0.9.0"
-lazy_static = "1.3.0"
-errno = "0.2.4"
+nix = "0.15"
+page_size = "0.4"
+wasmparser = "0.39.1"
+parking_lot = "0.9"
+lazy_static = "1.4"
+errno = "0.2"
 libc = "0.2.60"
-hex = "0.3.2"
-smallvec = "0.6.10"
+hex = "0.3"
+smallvec = "0.6"
 bincode = "1.1"
-colored = "1.8"
 
 [dependencies.indexmap]
-version = "1.0.2"
+version = "1.2"
 features = ["serde-1"]
 
 # Dependencies for caching.
 [dependencies.serde]
-version = "1.0.99"
+version = "1.0"
 # This feature is required for serde to support serializing/deserializing reference counted pointers (e.g. Rc and Arc).
 features = ["rc"]
 [dependencies.serde_derive]
-version = "1.0.98"
+version = "1.0"
 [dependencies.serde_bytes]
-version = "0.11.2"
+version = "0.11"
 [dependencies.serde-bench]
 version = "0.0.7"
 [dependencies.blake2b_simd]
-version = "0.5.6"
+version = "0.5"
 [dependencies.digest]
-version = "0.8.1"
+version = "0.8"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.7", features = ["memoryapi"] }
-
-[dev-dependencies]
-field-offset = "0.1.1"
+winapi = { version = "0.3", features = ["memoryapi"] }
 
 [build-dependencies]
-blake2b_simd = "0.5.6"
-rustc_version = "0.2.3"
+blake2b_simd = "0.5"
+rustc_version = "0.2"
 cc = "1.0"
 
 [features]
@@ -58,3 +56,4 @@ trace = ["debug"]
 "backend-cranelift" = []
 "backend-singlepass" = []
 "backend-llvm" = []
+managed = []

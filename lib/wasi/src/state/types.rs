@@ -1,5 +1,6 @@
 /// types for use in the WASI filesystem
 use crate::syscalls::types::*;
+use serde::{de, Deserialize, Serialize};
 #[cfg(unix)]
 use std::convert::TryInto;
 use std::{
@@ -8,6 +9,7 @@ use std::{
     path::PathBuf,
     time::SystemTime,
 };
+use wasmer_runtime_core::debug;
 
 /// Error type for external users
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -47,6 +49,8 @@ pub enum WasiFsError {
     NotConnected,
     /// The requested file or directory could not be found
     EntityNotFound,
+    /// The requested device couldn't be accessed
+    NoDevice,
     /// Caller was not allowed to perform this operation
     PermissionDenied,
     /// The operation did not complete within the given amount of time
@@ -78,6 +82,7 @@ impl WasiFsError {
             __WASI_EINTR => WasiFsError::Interrupted,
             __WASI_EINVAL => WasiFsError::InvalidInput,
             __WASI_ENOTCONN => WasiFsError::NotConnected,
+            __WASI_ENODEV => WasiFsError::NoDevice,
             __WASI_ENOENT => WasiFsError::EntityNotFound,
             __WASI_EPERM => WasiFsError::PermissionDenied,
             __WASI_ETIMEDOUT => WasiFsError::TimedOut,
@@ -103,6 +108,7 @@ impl WasiFsError {
             WasiFsError::InvalidFd => __WASI_EBADF,
             WasiFsError::InvalidInput => __WASI_EINVAL,
             WasiFsError::IOError => __WASI_EIO,
+            WasiFsError::NoDevice => __WASI_ENODEV,
             WasiFsError::NotAFile => __WASI_EINVAL,
             WasiFsError::NotConnected => __WASI_ENOTCONN,
             WasiFsError::EntityNotFound => __WASI_ENOENT,
@@ -117,61 +123,61 @@ impl WasiFsError {
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
+#[typetag::serde(tag = "type")]
 pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> __wasi_timestamp_t;
+
     /// the last time the file was modified in nanoseconds as a UNIX timestamp
     fn last_modified(&self) -> __wasi_timestamp_t;
+
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
     fn created_time(&self) -> __wasi_timestamp_t;
+
     /// set the last time the file was accessed in nanoseconds as a UNIX timestamp
-    // TODO: stablize this in 0.7.0 by removing default impl
     fn set_last_accessed(&self, _last_accessed: __wasi_timestamp_t) {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_last_accessed for your type before then");
+        debug!("{:?} did nothing in WasiFile::set_last_accessed due to using the default implementation", self);
     }
+
     /// set the last time the file was modified in nanoseconds as a UNIX timestamp
-    // TODO: stablize this in 0.7.0 by removing default impl
     fn set_last_modified(&self, _last_modified: __wasi_timestamp_t) {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_last_modified for your type before then");
+        debug!("{:?} did nothing in WasiFile::set_last_modified due to using the default implementation", self);
     }
+
     /// set the time at which the file was created in nanoseconds as a UNIX timestamp
-    // TODO: stablize this in 0.7.0 by removing default impl
     fn set_created_time(&self, _created_time: __wasi_timestamp_t) {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::set_created_time for your type before then");
+        debug!(
+            "{:?} did nothing in WasiFile::set_created_time to using the default implementation",
+            self
+        );
     }
+
     /// the size of the file in bytes
     fn size(&self) -> u64;
+
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
-    // TODO: stablize this in 0.7.0 by removing default impl
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::allocate for your type before then");
-    }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError>;
 
     /// Request deletion of the file
-    // TODO: break this out into a WasiPath trait which is dynamically in Kind::File
-    // this change can't be done until before release
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::unlink for your type before then");
-    }
+    fn unlink(&mut self) -> Result<(), WasiFsError>;
 
     /// Store file contents and metadata to disk
-    // TODO: stablize this in 0.7.0 by removing default impl
+    /// Default implementation returns `Ok(())`.  You should implement this method if you care
+    /// about flushing your cache to permanent storage
     fn sync_to_disk(&self) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0.  Please implement WasiFile::sync_to_disk for your type before then");
+        Ok(())
     }
 
     /// Moves the file to a new location
     /// NOTE: the signature of this function will change before stabilization
     // TODO: stablizie this in 0.7.0 or 0.8.0 by removing default impl
     fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0 or 0.8.0.  Please implement WasiFile::rename_file for your type before then");
+        panic!("Default implementation for now as this method is unstable; this default implementation or this entire method may be removed in a future release.");
     }
 
     /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        panic!("Default implementation for compatibilty in the 0.6.X releases; this will be removed in 0.7.0 or 0.8.0.  Please implement WasiFile::bytes_available for your type before then");
-    }
+    fn bytes_available(&self) -> Result<usize, WasiFsError>;
 
     /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
     /// Returns the underlying host fd
@@ -339,18 +345,122 @@ pub(crate) fn poll(
 pub trait WasiPath {}
 
 /// A thin wrapper around `std::fs::File`
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct HostFile {
+    #[serde(skip_serializing)]
     pub inner: fs::File,
     pub host_path: PathBuf,
+    flags: u16,
+}
+
+impl<'de> Deserialize<'de> for HostFile {
+    fn deserialize<D>(deserializer: D) -> Result<HostFile, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "snake_case")]
+        enum Field {
+            HostPath,
+            Flags,
+        }
+
+        struct HostFileVisitor;
+
+        impl<'de> de::Visitor<'de> for HostFileVisitor {
+            type Value = HostFile;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct HostFile")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::SeqAccess<'de>,
+            {
+                let host_path = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let flags = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let inner = std::fs::OpenOptions::new()
+                    .read(flags & HostFile::READ != 0)
+                    .write(flags & HostFile::WRITE != 0)
+                    .append(flags & HostFile::APPEND != 0)
+                    .open(&host_path)
+                    .map_err(|_| de::Error::custom("Could not open file on this system"))?;
+                Ok(HostFile {
+                    inner,
+                    host_path,
+                    flags,
+                })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut host_path = None;
+                let mut flags = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::HostPath => {
+                            if host_path.is_some() {
+                                return Err(de::Error::duplicate_field("host_path"));
+                            }
+                            host_path = Some(map.next_value()?);
+                        }
+                        Field::Flags => {
+                            if flags.is_some() {
+                                return Err(de::Error::duplicate_field("flags"));
+                            }
+                            flags = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let host_path = host_path.ok_or_else(|| de::Error::missing_field("host_path"))?;
+                let flags = flags.ok_or_else(|| de::Error::missing_field("flags"))?;
+                let inner = std::fs::OpenOptions::new()
+                    .read(flags & HostFile::READ != 0)
+                    .write(flags & HostFile::WRITE != 0)
+                    .append(flags & HostFile::APPEND != 0)
+                    .open(&host_path)
+                    .map_err(|_| de::Error::custom("Could not open file on this system"))?;
+                Ok(HostFile {
+                    inner,
+                    host_path,
+                    flags,
+                })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &["host_path", "flags"];
+        deserializer.deserialize_struct("HostFile", FIELDS, HostFileVisitor)
+    }
 }
 
 impl HostFile {
+    const READ: u16 = 1;
+    const WRITE: u16 = 2;
+    const APPEND: u16 = 4;
+
     /// creates a new host file from a `std::fs::File` and a path
-    pub fn new(file: fs::File, host_path: PathBuf) -> Self {
+    pub fn new(file: fs::File, host_path: PathBuf, read: bool, write: bool, append: bool) -> Self {
+        let mut flags = 0;
+        if read {
+            flags |= Self::READ;
+        }
+        if write {
+            flags |= Self::WRITE;
+        }
+        if append {
+            flags |= Self::APPEND;
+        }
         Self {
             inner: file,
             host_path,
+            flags,
         }
     }
 
@@ -393,6 +503,7 @@ impl Write for HostFile {
     }
 }
 
+#[typetag::serde]
 impl WasiFile for HostFile {
     fn last_accessed(&self) -> u64 {
         self.metadata()
@@ -519,57 +630,57 @@ fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, WasiFsError> {
     unimplemented!("host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff")
 }
 
-#[derive(Debug)]
-pub struct Stdout(pub std::io::Stdout);
+/// A wrapper type around Stdout that implements `WasiFile` and
+/// `Serialize` + `Deserialize`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Stdout;
 impl Read for Stdout {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not read from stdout",
         ))
     }
     fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not read from stdout",
         ))
     }
     fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not read from stdout",
         ))
     }
     fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not read from stdout",
         ))
     }
 }
 impl Seek for Stdout {
     fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "can not seek stdout",
-        ))
+        Err(io::Error::new(io::ErrorKind::Other, "can not seek stdout"))
     }
 }
 impl Write for Stdout {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
+        io::stdout().write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
+        io::stdout().flush()
     }
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.0.write_all(buf)
+        io::stdout().write_all(buf)
     }
     fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
-        self.0.write_fmt(fmt)
+        io::stdout().write_fmt(fmt)
     }
 }
 
+#[typetag::serde]
 impl WasiFile for Stdout {
     fn last_accessed(&self) -> u64 {
         0
@@ -583,6 +694,13 @@ impl WasiFile for Stdout {
     fn size(&self) -> u64 {
         0
     }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        debug!("Calling WasiFile::set_len on stdout; this is probably a bug");
+        Err(WasiFsError::PermissionDenied)
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
 
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
         // unwrap is safe because of get_raw_fd implementation
@@ -594,7 +712,7 @@ impl WasiFile for Stdout {
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
-        Some(self.0.as_raw_fd())
+        Some(io::stdout().as_raw_fd())
     }
 
     #[cfg(not(unix))]
@@ -605,57 +723,57 @@ impl WasiFile for Stdout {
     }
 }
 
-#[derive(Debug)]
-pub struct Stderr(pub std::io::Stderr);
+/// A wrapper type around Stderr that implements `WasiFile` and
+/// `Serialize` + `Deserialize`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Stderr;
 impl Read for Stderr {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not read from stderr",
         ))
     }
     fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not read from stderr",
         ))
     }
     fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not read from stderr",
         ))
     }
     fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not read from stderr",
         ))
     }
 }
 impl Seek for Stderr {
     fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "can not seek stderr",
-        ))
+        Err(io::Error::new(io::ErrorKind::Other, "can not seek stderr"))
     }
 }
 impl Write for Stderr {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
+        io::stderr().write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
+        io::stderr().flush()
     }
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.0.write_all(buf)
+        io::stderr().write_all(buf)
     }
     fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
-        self.0.write_fmt(fmt)
+        io::stderr().write_fmt(fmt)
     }
 }
 
+#[typetag::serde]
 impl WasiFile for Stderr {
     fn last_accessed(&self) -> u64 {
         0
@@ -669,6 +787,13 @@ impl WasiFile for Stderr {
     fn size(&self) -> u64 {
         0
     }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        debug!("Calling WasiFile::set_len on stderr; this is probably a bug");
+        Err(WasiFsError::PermissionDenied)
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
 
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
         // unwrap is safe because of get_raw_fd implementation
@@ -680,7 +805,7 @@ impl WasiFile for Stderr {
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
-        Some(self.0.as_raw_fd())
+        Some(io::stderr().as_raw_fd())
     }
 
     #[cfg(not(unix))]
@@ -691,57 +816,57 @@ impl WasiFile for Stderr {
     }
 }
 
-#[derive(Debug)]
-pub struct Stdin(pub std::io::Stdin);
+/// A wrapper type around Stdin that implements `WasiFile` and
+/// `Serialize` + `Deserialize`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Stdin;
 impl Read for Stdin {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.read(buf)
+        io::stdin().read(buf)
     }
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
-        self.0.read_to_end(buf)
+        io::stdin().read_to_end(buf)
     }
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
-        self.0.read_to_string(buf)
+        io::stdin().read_to_string(buf)
     }
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
-        self.0.read_exact(buf)
+        io::stdin().read_exact(buf)
     }
 }
 impl Seek for Stdin {
     fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "can not seek stdin",
-        ))
+        Err(io::Error::new(io::ErrorKind::Other, "can not seek stdin"))
     }
 }
 impl Write for Stdin {
     fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not write to stdin",
         ))
     }
     fn flush(&mut self) -> io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not write to stdin",
         ))
     }
     fn write_all(&mut self, _buf: &[u8]) -> io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not write to stdin",
         ))
     }
     fn write_fmt(&mut self, _fmt: ::std::fmt::Arguments) -> io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(io::Error::new(
+            io::ErrorKind::Other,
             "can not write to stdin",
         ))
     }
 }
 
+#[typetag::serde]
 impl WasiFile for Stdin {
     fn last_accessed(&self) -> u64 {
         0
@@ -755,6 +880,14 @@ impl WasiFile for Stdin {
     fn size(&self) -> u64 {
         0
     }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        debug!("Calling WasiFile::set_len on stdin; this is probably a bug");
+        Err(WasiFsError::PermissionDenied)
+    }
+
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
 
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
         // unwrap is safe because of get_raw_fd implementation
@@ -766,7 +899,7 @@ impl WasiFile for Stdin {
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
-        Some(self.0.as_raw_fd())
+        Some(io::stdin().as_raw_fd())
     }
 
     #[cfg(not(unix))]
