@@ -29,14 +29,20 @@ fn main() {
         println!("cargo:rustc-cfg=nightly");
     }
 
-    if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-        cc::Build::new()
-            .file("image-loading-linux-x86-64.s")
-            .compile("image-loading");
-    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-        cc::Build::new()
-            .file("image-loading-macos-x86-64.s")
-            .compile("image-loading");
-    } else {
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+
+    match (target_os.as_str(), target_arch.as_str()) {
+        ("linux", "x86_64") => {
+            cc::Build::new()
+                .file("image-loading-linux-x86-64.s")
+                .compile("image-loading");
+        }
+        ("macos", "x86_64") => {
+            cc::Build::new()
+                .file("image-loading-macos-x86-64.s")
+                .compile("image-loading");
+        }
+        _ => {}
     }
 }

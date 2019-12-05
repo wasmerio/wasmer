@@ -1,10 +1,12 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.8.0"
+version = "0.11.0"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "runtime"]
+categories = ["wasm"]
 edition = "2018"
 
 [dependencies]
@@ -41,9 +43,6 @@ version = "0.8"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["memoryapi"] }
-
-[dev-dependencies]
-field-offset = "0.1"
 
 [build-dependencies]
 blake2b_simd = "0.5"

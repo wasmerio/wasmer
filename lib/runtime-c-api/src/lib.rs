@@ -101,7 +101,9 @@ pub mod instance;
 pub mod memory;
 pub mod module;
 pub mod table;
-#[cfg(all(unix, target_arch = "x86_64"))]
+// `not(target_family = "windows")` is simpler than `unix`.  See build.rs
+// if you want to change the meaning of these `cfg`s in the header file.
+#[cfg(all(not(target_family = "windows"), target_arch = "x86_64"))]
 pub mod trampoline;
 pub mod value;
 
@@ -128,4 +130,35 @@ pub struct wasmer_limit_option_t {
 pub struct wasmer_byte_array {
     pub bytes: *const u8,
     pub bytes_len: u32,
+}
+
+impl wasmer_byte_array {
+    /// Get the data as a slice
+    pub unsafe fn as_slice<'a>(&self) -> &'a [u8] {
+        get_slice_checked(self.bytes, self.bytes_len as usize)
+    }
+
+    /// Copy the data into an owned Vec
+    pub unsafe fn as_vec(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(self.bytes_len as usize);
+        out.extend_from_slice(self.as_slice());
+
+        out
+    }
+
+    /// Read the data as a &str, returns an error if the string is not valid UTF8
+    pub unsafe fn as_str<'a>(&self) -> Result<&'a str, std::str::Utf8Error> {
+        std::str::from_utf8(self.as_slice())
+    }
+}
+
+/// Gets a slice from a pointer and a length, returning an empty slice if the
+/// pointer is null
+#[inline]
+pub(crate) unsafe fn get_slice_checked<'a, T>(ptr: *const T, len: usize) -> &'a [T] {
+    if ptr.is_null() {
+        &[]
+    } else {
+        std::slice::from_raw_parts(ptr, len)
+    }
 }

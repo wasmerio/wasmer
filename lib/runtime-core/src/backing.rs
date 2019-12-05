@@ -15,8 +15,13 @@ use crate::{
     },
     vm,
 };
-use std::{fmt::Debug, slice};
+use std::{
+    fmt::Debug,
+    ptr::{self, NonNull},
+    slice,
+};
 
+/// Size of the array for internal instance usage
 pub const INTERNALS_SIZE: usize = 256;
 
 pub(crate) struct Internals(pub(crate) [u64; INTERNALS_SIZE]);
@@ -72,7 +77,7 @@ impl LocalBacking {
             }
         };
         let mut tables = Self::generate_tables(module);
-        let mut globals = Self::generate_globals(module, imports);
+        let mut globals = Self::generate_globals(module, imports)?;
 
         // Ensure all initializers are valid before running finalizers
         Self::validate_memories(module, imports)?;
@@ -382,9 +387,9 @@ impl LocalBacking {
                                     vmctx,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, vmctx } =
+                                    let vm::ImportedFunc { func, func_ctx } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx)
+                                    (func, unsafe { func_ctx.as_ref() }.vmctx.as_ptr())
                                 }
                             };
 
@@ -415,9 +420,9 @@ impl LocalBacking {
                                     vmctx,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, vmctx } =
+                                    let vm::ImportedFunc { func, func_ctx } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx)
+                                    (func, unsafe { func_ctx.as_ref() }.vmctx.as_ptr())
                                 }
                             };
 
@@ -438,13 +443,22 @@ impl LocalBacking {
     fn generate_globals(
         module: &ModuleInner,
         imports: &ImportBacking,
-    ) -> BoxedMap<LocalGlobalIndex, Global> {
+    ) -> LinkResult<BoxedMap<LocalGlobalIndex, Global>> {
         let mut globals = Map::with_capacity(module.info.globals.len());
 
         for (_, global_init) in module.info.globals.iter() {
             let value = match &global_init.init {
                 Initializer::Const(value) => value.clone(),
                 Initializer::GetGlobal(import_global_index) => {
+                    if imports.globals.len() <= import_global_index.index() {
+                        return Err(vec![LinkError::Generic {
+                            message: format!(
+                                "Trying to read the `{:?}` global that is not properly initialized.",
+                                import_global_index.index()
+                            ),
+                        }]);
+                    }
+
                     imports.globals[*import_global_index].get()
                 }
             };
@@ -458,7 +472,7 @@ impl LocalBacking {
             globals.push(global);
         }
 
-        globals.into_boxed_map()
+        Ok(globals.into_boxed_map())
     }
 
     fn finalize_globals(
@@ -472,6 +486,8 @@ impl LocalBacking {
     }
 }
 
+/// The `ImportBacking` stores references to the imported resources of an Instance. This includes
+/// imported memories, tables, globals and functions.
 #[derive(Debug)]
 pub struct ImportBacking {
     pub(crate) memories: BoxedMap<ImportedMemoryIndex, Memory>,
@@ -488,6 +504,7 @@ pub struct ImportBacking {
 unsafe impl Send for ImportBacking {}
 
 impl ImportBacking {
+    /// Creates a new `ImportBacking` from the given `ModuleInner`, `ImportObject`, and `Ctx`.
     pub fn new(
         module: &ModuleInner,
         imports: &ImportObject,
@@ -536,8 +553,18 @@ impl ImportBacking {
         }
     }
 
+    /// Gets a `ImportedFunc` from the given `ImportedFuncIndex`.
     pub fn imported_func(&self, index: ImportedFuncIndex) -> vm::ImportedFunc {
         self.vm_functions[index].clone()
+    }
+}
+
+impl Drop for ImportBacking {
+    fn drop(&mut self) {
+        // Properly drop the `vm::FuncCtx` in `vm::ImportedFunc`.
+        for (_imported_func_index, imported_func) in (*self.vm_functions).iter_mut() {
+            let _: Box<vm::FuncCtx> = unsafe { Box::from_raw(imported_func.func_ctx.as_ptr()) };
+        }
     }
 }
 
@@ -564,6 +591,7 @@ fn import_functions(
 
         let import =
             imports.maybe_with_namespace(namespace, |namespace| namespace.get_export(name));
+
         match import {
             Some(Export::Function {
                 func,
@@ -573,10 +601,28 @@ fn import_functions(
                 if *expected_sig == *signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
-                        vmctx: match ctx {
-                            Context::External(ctx) => ctx,
-                            Context::Internal => vmctx,
-                        },
+                        func_ctx: NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
+                            //                      ^^^^^^^^ `vm::FuncCtx` is purposely leaked.
+                            //                               It is dropped by the specific `Drop`
+                            //                               implementation of `ImportBacking`.
+                            vmctx: NonNull::new(match ctx {
+                                Context::External(vmctx) => vmctx,
+                                Context::ExternalWithEnv(vmctx_, _) => {
+                                    if vmctx_.is_null() {
+                                        vmctx
+                                    } else {
+                                        vmctx_
+                                    }
+                                }
+                                Context::Internal => vmctx,
+                            })
+                            .expect("`vmctx` must not be null."),
+                            func_env: match ctx {
+                                Context::ExternalWithEnv(_, func_env) => func_env,
+                                _ => None,
+                            },
+                        })))
+                        .unwrap(),
                     });
                 } else {
                     link_errors.push(LinkError::IncorrectImportSignature {
@@ -605,8 +651,8 @@ fn import_functions(
             None => {
                 if imports.allow_missing_functions {
                     functions.push(vm::ImportedFunc {
-                        func: ::std::ptr::null(),
-                        vmctx: ::std::ptr::null_mut(),
+                        func: ptr::null(),
+                        func_ctx: unsafe { NonNull::new_unchecked(ptr::null_mut()) }, // TODO: Non-sense…
                     });
                 } else {
                     link_errors.push(LinkError::ImportNotFound {

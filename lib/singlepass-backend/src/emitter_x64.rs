@@ -1,5 +1,13 @@
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-pub use wasmer_runtime_core::state::x64::{GPR, XMM};
+use wasmer_runtime_core::backend::InlineBreakpointType;
+pub use wasmer_runtime_core::state::x64_decl::{GPR, XMM};
+
+fn _dummy(_a: &Assembler) {
+    dynasm!(
+        _a
+        ; .arch x64
+    );
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
@@ -36,7 +44,7 @@ pub enum Size {
     S64,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
 pub enum XMMOrMemory {
     XMM(XMM),
@@ -56,6 +64,7 @@ pub trait Emitter {
 
     fn get_label(&mut self) -> Self::Label;
     fn get_offset(&self) -> Self::Offset;
+    fn get_jmp_instr_size(&self) -> u8;
 
     fn emit_u64(&mut self, x: u64);
 
@@ -90,8 +99,8 @@ pub trait Emitter {
     fn emit_ror(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_and(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
@@ -104,6 +113,11 @@ pub trait Emitter {
 
     fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR);
     fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR);
+
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
+    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
@@ -136,6 +150,12 @@ pub trait Emitter {
     fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
+    fn emit_vcmpunordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpunordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpordss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpordsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
     fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
@@ -164,6 +184,9 @@ pub trait Emitter {
     fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
     fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
 
+    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
+    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM);
+
     fn emit_test_gpr_64(&mut self, reg: GPR);
 
     fn emit_ud2(&mut self);
@@ -172,6 +195,100 @@ pub trait Emitter {
     fn emit_call_location(&mut self, loc: Location);
 
     fn emit_bkpt(&mut self);
+
+    fn emit_host_redirection(&mut self, target: GPR);
+    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType);
+
+    fn arch_has_itruncf(&self) -> bool {
+        false
+    }
+    fn arch_emit_i32_trunc_sf32(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i32_trunc_sf64(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i32_trunc_uf32(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i32_trunc_uf64(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i64_trunc_sf32(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i64_trunc_sf64(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i64_trunc_uf32(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+    fn arch_emit_i64_trunc_uf64(&mut self, _src: XMM, _dst: GPR) {
+        unimplemented!()
+    }
+
+    fn arch_has_fconverti(&self) -> bool {
+        false
+    }
+    fn arch_emit_f32_convert_si32(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f32_convert_si64(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f32_convert_ui32(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f32_convert_ui64(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_convert_si32(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_convert_si64(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_convert_ui32(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_convert_ui64(&mut self, _src: GPR, _dst: XMM) {
+        unimplemented!()
+    }
+
+    fn arch_has_fneg(&self) -> bool {
+        false
+    }
+    fn arch_emit_f32_neg(&mut self, _src: XMM, _dst: XMM) {
+        unimplemented!()
+    }
+    fn arch_emit_f64_neg(&mut self, _src: XMM, _dst: XMM) {
+        unimplemented!()
+    }
+
+    fn arch_has_xzcnt(&self) -> bool {
+        false
+    }
+    fn arch_emit_lzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) {
+        unimplemented!()
+    }
+    fn arch_emit_tzcnt(&mut self, _sz: Size, _src: Location, _dst: Location) {
+        unimplemented!()
+    }
+
+    fn arch_supports_canonicalize_nan(&self) -> bool {
+        true
+    }
+
+    fn arch_requires_indirect_call_trampoline(&self) -> bool {
+        false
+    }
+
+    fn arch_emit_indirect_call_with_trampoline(&mut self, _loc: Location) {
+        unimplemented!()
+    }
+
+    // Emits entry trampoline just before the real function.
+    fn arch_emit_entry_trampoline(&mut self) {}
 }
 
 macro_rules! unop_gpr {
@@ -369,6 +486,14 @@ macro_rules! avx_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rx((x as u8))),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rx((x as u8))),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rx((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rx((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rx((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rx((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rx((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rx((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rx((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rx((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rx((x as u8))),
                 },
                 XMMOrMemory::Memory(base, disp) => match src1 {
                     XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, [Rq((base as u8)) + disp]),
@@ -379,6 +504,14 @@ macro_rules! avx_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, [Rq((base as u8)) + disp]),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, [Rq((base as u8)) + disp]),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -398,6 +531,14 @@ macro_rules! avx_i2f_64_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rq((x as u8))),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rq((x as u8))),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rq((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rq((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rq((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rq((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rq((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rq((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rq((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rq((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rq((x as u8))),
                 },
                 GPROrMemory::Memory(base, disp) => match src1 {
                     XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, QWORD [Rq((base as u8)) + disp]),
@@ -408,6 +549,14 @@ macro_rules! avx_i2f_64_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, QWORD [Rq((base as u8)) + disp]),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, QWORD [Rq((base as u8)) + disp]),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, QWORD [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -427,6 +576,14 @@ macro_rules! avx_i2f_32_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rd((x as u8))),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rd((x as u8))),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rd((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rd((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rd((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rd((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rd((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rd((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rd((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rd((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rd((x as u8))),
                 },
                 GPROrMemory::Memory(base, disp) => match src1 {
                     XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, DWORD [Rq((base as u8)) + disp]),
@@ -437,6 +594,14 @@ macro_rules! avx_i2f_32_fn {
                     XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, DWORD [Rq((base as u8)) + disp]),
                     XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, DWORD [Rq((base as u8)) + disp]),
                     XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, DWORD [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -464,6 +629,10 @@ impl Emitter for Assembler {
 
     fn get_offset(&self) -> AssemblyOffset {
         self.offset()
+    }
+
+    fn get_jmp_instr_size(&self) -> u8 {
+        5
     }
 
     fn emit_u64(&mut self, x: u64) {
@@ -647,18 +816,14 @@ impl Emitter for Assembler {
         match (sz, src) {
             (Size::S64, Location::Imm32(src)) => dynasm!(self ; push src as i32),
             (Size::S64, Location::GPR(src)) => dynasm!(self ; push Rq(src as u8)),
-            (Size::S64, Location::Memory(src, disp)) => {
-                dynasm!(self ; push QWORD [Rq(src as u8) + disp])
-            }
+            (Size::S64, Location::Memory(src, disp)) => dynasm!(self ; push QWORD [Rq(src as u8) + disp]),
             _ => panic!("singlepass can't emit PUSH {:?} {:?}", sz, src),
         }
     }
     fn emit_pop(&mut self, sz: Size, dst: Location) {
         match (sz, dst) {
             (Size::S64, Location::GPR(dst)) => dynasm!(self ; pop Rq(dst as u8)),
-            (Size::S64, Location::Memory(dst, disp)) => {
-                dynasm!(self ; pop QWORD [Rq(dst as u8) + disp])
-            }
+            (Size::S64, Location::Memory(dst, disp)) => dynasm!(self ; pop QWORD [Rq(dst as u8) + disp]),
             _ => panic!("singlepass can't emit POP {:?} {:?}", sz, dst),
         }
     }
@@ -680,21 +845,13 @@ impl Emitter for Assembler {
     fn emit_neg(&mut self, sz: Size, value: Location) {
         match (sz, value) {
             (Size::S8, Location::GPR(value)) => dynasm!(self ; neg Rb(value as u8)),
-            (Size::S8, Location::Memory(value, disp)) => {
-                dynasm!(self ; neg [Rq(value as u8) + disp])
-            }
+            (Size::S8, Location::Memory(value, disp)) => dynasm!(self ; neg [Rq(value as u8) + disp]),
             (Size::S16, Location::GPR(value)) => dynasm!(self ; neg Rw(value as u8)),
-            (Size::S16, Location::Memory(value, disp)) => {
-                dynasm!(self ; neg [Rq(value as u8) + disp])
-            }
+            (Size::S16, Location::Memory(value, disp)) => dynasm!(self ; neg [Rq(value as u8) + disp]),
             (Size::S32, Location::GPR(value)) => dynasm!(self ; neg Rd(value as u8)),
-            (Size::S32, Location::Memory(value, disp)) => {
-                dynasm!(self ; neg [Rq(value as u8) + disp])
-            }
+            (Size::S32, Location::Memory(value, disp)) => dynasm!(self ; neg [Rq(value as u8) + disp]),
             (Size::S64, Location::GPR(value)) => dynasm!(self ; neg Rq(value as u8)),
-            (Size::S64, Location::Memory(value, disp)) => {
-                dynasm!(self ; neg [Rq(value as u8) + disp])
-            }
+            (Size::S64, Location::Memory(value, disp)) => dynasm!(self ; neg [Rq(value as u8) + disp]),
             _ => panic!("singlepass can't emit NEG {:?} {:?}", sz, value),
         }
     }
@@ -753,17 +910,17 @@ impl Emitter for Assembler {
             panic!("singlepass can't emit OR {:?} {:?} {:?}", sz, src, dst)
         });
     }
-    fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
-        binop_gpr_gpr!(lzcnt, self, sz, src, dst, {
-            binop_mem_gpr!(lzcnt, self, sz, src, dst, {
-                panic!("singlepass can't emit LZCNT {:?} {:?} {:?}", sz, src, dst)
+    fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_gpr_gpr!(bsr, self, sz, src, dst, {
+            binop_mem_gpr!(bsr, self, sz, src, dst, {
+                panic!("singlepass can't emit BSR {:?} {:?} {:?}", sz, src, dst)
             })
         });
     }
-    fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) {
-        binop_gpr_gpr!(tzcnt, self, sz, src, dst, {
-            binop_mem_gpr!(tzcnt, self, sz, src, dst, {
-                panic!("singlepass can't emit TZCNT {:?} {:?} {:?}", sz, src, dst)
+    fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_gpr_gpr!(bsf, self, sz, src, dst, {
+            binop_mem_gpr!(bsf, self, sz, src, dst, {
+                panic!("singlepass can't emit BSF {:?} {:?} {:?}", sz, src, dst)
             })
         });
     }
@@ -945,6 +1102,27 @@ impl Emitter for Assembler {
         dynasm!(self ; cmovae Rq(dst as u8), Rq(src as u8));
     }
 
+    fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+        match (src, dst) {
+            (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => dynasm!(self ; movaps Rx(dst as u8), Rx(src as u8)),
+            (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => dynasm!(self ; movaps Rx(dst as u8), [Rq(base as u8) + disp]),
+            (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => dynasm!(self ; movaps [Rq(base as u8) + disp], Rx(src as u8)),
+            _ => panic!("singlepass can't emit VMOVAPS {:?} {:?}", src, dst),
+        };
+    }
+
+    fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
+        match (src, dst) {
+            (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => dynasm!(self ; movapd Rx(dst as u8), Rx(src as u8)),
+            (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => dynasm!(self ; movapd Rx(dst as u8), [Rq(base as u8) + disp]),
+            (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => dynasm!(self ; movapd [Rq(base as u8) + disp], Rx(src as u8)),
+            _ => panic!("singlepass can't emit VMOVAPD {:?} {:?}", src, dst),
+        };
+    }
+
+    avx_fn!(vxorps, emit_vxorps);
+    avx_fn!(vxorpd, emit_vxorpd);
+
     avx_fn!(vaddss, emit_vaddss);
     avx_fn!(vaddsd, emit_vaddsd);
 
@@ -981,6 +1159,12 @@ impl Emitter for Assembler {
     avx_fn!(vcmpgess, emit_vcmpgess);
     avx_fn!(vcmpgesd, emit_vcmpgesd);
 
+    avx_fn!(vcmpunordss, emit_vcmpunordss);
+    avx_fn!(vcmpunordsd, emit_vcmpunordsd);
+
+    avx_fn!(vcmpordss, emit_vcmpordss);
+    avx_fn!(vcmpordsd, emit_vcmpordsd);
+
     avx_fn!(vsqrtss, emit_vsqrtss);
     avx_fn!(vsqrtsd, emit_vsqrtsd);
 
@@ -1001,57 +1185,59 @@ impl Emitter for Assembler {
     avx_i2f_64_fn!(vcvtsi2ss, emit_vcvtsi2ss_64);
     avx_i2f_64_fn!(vcvtsi2sd, emit_vcvtsi2sd_64);
 
+    fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+        match src2 {
+            XMMOrMemory::XMM(src2) => dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8)),
+        }
+    }
+
+    fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
+        match src2 {
+            XMMOrMemory::XMM(src2) => dynasm!(self ; vblendvpd Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; vblendvpd Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8)),
+        }
+    }
+
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; ucomiss Rx(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; ucomisd Rx(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rd(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rq(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rd(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
     fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rq(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp])
-            }
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp]),
         }
     }
 
@@ -1079,5 +1265,18 @@ impl Emitter for Assembler {
 
     fn emit_bkpt(&mut self) {
         dynasm!(self ; int 0x3);
+    }
+
+    fn emit_host_redirection(&mut self, target: GPR) {
+        self.emit_jmp_location(Location::GPR(target));
+    }
+
+    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType) {
+        dynasm!(self
+            ; ud2
+            ; .byte 0x0f ; .byte 0xb9u8 as i8 // ud
+            ; int -1
+            ; .byte ty as u8 as i8
+        );
     }
 }

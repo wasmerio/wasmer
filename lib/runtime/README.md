@@ -94,8 +94,8 @@ fn main() -> error::Result<()> {
 
 ## Additional Notes
 
-The `wasmer-runtime` crate is build to support multiple compiler
-backends.  We support have a [Cranelift] backend in the
+The `wasmer-runtime` crate is built to support multiple compiler
+backends.  We support having a [Cranelift] backend in the
 [`wasmer-clif-backend`] crate, a [LLVM] backend in the
 [`wasmer-llvm-backend`] crate, and the [Singlepass] backend in the
 [`wasmer-singlepass-backend`] crate.  Currently, the Cranelift backend

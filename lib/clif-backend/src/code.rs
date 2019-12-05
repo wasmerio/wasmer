@@ -54,6 +54,10 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         }
     }
 
+    fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {
+        unimplemented!("cross compilation is not available for clif backend")
+    }
+
     fn backend_id() -> Backend {
         Backend::Cranelift
     }
@@ -127,166 +131,6 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             .func_translator
             .state
             .initialize(&builder.func.signature, exit_block);
-
-        #[cfg(feature = "debug")]
-        {
-            use cranelift_codegen::cursor::{Cursor, FuncCursor};
-            use cranelift_codegen::ir::InstBuilder;
-            let entry_ebb = func.layout.entry_block().unwrap();
-            let ebb = func.dfg.make_ebb();
-            func.layout.insert_ebb(ebb, entry_ebb);
-            let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(ebb);
-            let params = pos.func.dfg.ebb_params(entry_ebb).to_vec();
-
-            let new_ebb_params: Vec<_> = params
-                .iter()
-                .map(|&param| {
-                    pos.func
-                        .dfg
-                        .append_ebb_param(ebb, pos.func.dfg.value_type(param))
-                })
-                .collect();
-
-            let start_debug = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::I32),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("strtdbug");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let end_debug = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![ir::AbiParam::special(
-                        ir::types::I64,
-                        ir::ArgumentPurpose::VMContext,
-                    )],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("enddbug");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let i32_print = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::I32),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("i32print");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let i64_print = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::I64),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("i64print");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let f32_print = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::F32),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("f32print");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let f64_print = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::F64),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("f64print");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let vmctx = pos
-                .func
-                .special_param(ir::ArgumentPurpose::VMContext)
-                .expect("missing vmctx parameter");
-
-            let func_index = pos.ins().iconst(
-                ir::types::I32,
-                func_index.index() as i64 + self.module.info.imported_functions.len() as i64,
-            );
-
-            pos.ins().call(start_debug, &[vmctx, func_index]);
-
-            for param in new_ebb_params.iter().cloned() {
-                match pos.func.dfg.value_type(param) {
-                    ir::types::I32 => pos.ins().call(i32_print, &[vmctx, param]),
-                    ir::types::I64 => pos.ins().call(i64_print, &[vmctx, param]),
-                    ir::types::F32 => pos.ins().call(f32_print, &[vmctx, param]),
-                    ir::types::F64 => pos.ins().call(f64_print, &[vmctx, param]),
-                    _ => unimplemented!(),
-                };
-            }
-
-            pos.ins().call(end_debug, &[vmctx]);
-
-            pos.ins().jump(entry_ebb, new_ebb_params.as_slice());
-        }
 
         self.functions.push(func_env);
         Ok(self.functions.last_mut().unwrap())
@@ -851,7 +695,9 @@ impl FuncEnvironment for FunctionEnvironment {
     }
 
     /// Generates a call IR with `callee` and `call_args` and inserts it at `pos`
-    /// TODO: add support for imported functions
+    ///
+    /// It's about generating code that calls a local or imported function; in
+    /// WebAssembly: `(call $foo)`.
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,
@@ -923,20 +769,31 @@ impl FuncEnvironment for FunctionEnvironment {
                     readonly: true,
                 });
 
-                let imported_vmctx_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
-                    base: imported_func_struct_addr,
-                    offset: (vm::ImportedFunc::offset_vmctx() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
+                let imported_func_ctx_addr =
+                    pos.func.create_global_value(ir::GlobalValueData::Load {
+                        base: imported_func_struct_addr,
+                        offset: (vm::ImportedFunc::offset_func_ctx() as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
+
+                let imported_func_ctx_vmctx_addr =
+                    pos.func.create_global_value(ir::GlobalValueData::Load {
+                        base: imported_func_ctx_addr,
+                        offset: (vm::FuncCtx::offset_vmctx() as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
 
                 let imported_func_addr = pos.ins().global_value(ptr_type, imported_func_addr);
-                let imported_vmctx_addr = pos.ins().global_value(ptr_type, imported_vmctx_addr);
+                let imported_func_ctx_vmctx_addr = pos
+                    .ins()
+                    .global_value(ptr_type, imported_func_ctx_vmctx_addr);
 
                 let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
-                args.push(imported_vmctx_addr);
+                args.push(imported_func_ctx_vmctx_addr);
                 args.extend(call_args.iter().cloned());
 
                 Ok(pos

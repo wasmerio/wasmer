@@ -1,3 +1,5 @@
+//! The memory module contains the implementation data structures and helper functions used to
+//! manipulate and access wasm memory.
 use crate::{
     error::{CreationError, GrowError},
     export::Export,
@@ -170,10 +172,14 @@ impl fmt::Debug for Memory {
     }
 }
 
+/// A kind a memory.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MemoryType {
+    /// A dynamic memory.
     Dynamic,
+    /// A static memory.
     Static,
+    /// A shared static memory.
     SharedStatic,
 }
 
@@ -200,6 +206,7 @@ enum UnsharedMemoryStorage {
     Static(Box<StaticMemory>),
 }
 
+/// A reference to an unshared memory.
 pub struct UnsharedMemory {
     internal: Arc<UnsharedMemoryInternal>,
 }
@@ -214,6 +221,7 @@ struct UnsharedMemoryInternal {
 unsafe impl Sync for UnsharedMemoryInternal {}
 
 impl UnsharedMemory {
+    /// Create a new `UnsharedMemory` from the given memory descriptor.
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
         let mut local = vm::LocalMemory {
             base: std::ptr::null_mut(),
@@ -243,6 +251,7 @@ impl UnsharedMemory {
         })
     }
 
+    /// Try to grow this memory by the given number of delta pages.
     pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         let mut storage = self.internal.storage.lock().unwrap();
 
@@ -260,6 +269,7 @@ impl UnsharedMemory {
         pages
     }
 
+    /// Size of this memory in pages.
     pub fn size(&self) -> Pages {
         let storage = self.internal.storage.lock().unwrap();
 
@@ -282,10 +292,12 @@ impl Clone for UnsharedMemory {
     }
 }
 
+/// A reference to a shared memory.
 pub struct SharedMemory {
     internal: Arc<SharedMemoryInternal>,
 }
 
+/// Data structure for a shared internal memory.
 pub struct SharedMemoryInternal {
     memory: StdMutex<Box<StaticMemory>>,
     local: Cell<vm::LocalMemory>,
@@ -315,6 +327,7 @@ impl SharedMemory {
         })
     }
 
+    /// Try to grow this memory by the given number of delta pages.
     pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         let _guard = self.internal.lock.lock();
         let mut local = self.internal.local.get();
@@ -323,12 +336,14 @@ impl SharedMemory {
         pages
     }
 
+    /// Size of this memory in pages.
     pub fn size(&self) -> Pages {
         let _guard = self.internal.lock.lock();
         let memory = self.internal.memory.lock().unwrap();
         memory.size()
     }
 
+    /// Gets a mutable pointer to the `LocalMemory`.
     // This function is scary, because the mutex is not locked here
     pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
         self.internal.local.as_ptr()

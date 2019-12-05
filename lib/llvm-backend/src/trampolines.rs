@@ -13,13 +13,13 @@ use wasmer_runtime_core::{
     types::{FuncSig, SigIndex, Type},
 };
 
-pub fn generate_trampolines(
+pub fn generate_trampolines<'ctx>(
     info: &ModuleInfo,
-    signatures: &SliceMap<SigIndex, FunctionType>,
-    module: &Module,
-    context: &Context,
-    builder: &Builder,
-    intrinsics: &Intrinsics,
+    signatures: &SliceMap<SigIndex, FunctionType<'ctx>>,
+    module: &Module<'ctx>,
+    context: &'ctx Context,
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), String> {
     for (sig_index, sig) in info.signatures.iter() {
         let func_type = signatures[sig_index];
@@ -47,14 +47,14 @@ pub fn generate_trampolines(
     Ok(())
 }
 
-fn generate_trampoline(
+fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
     func_sig: &FuncSig,
-    context: &Context,
-    builder: &Builder,
-    intrinsics: &Intrinsics,
+    context: &'ctx Context,
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), String> {
-    let entry_block = context.append_basic_block(&trampoline_func, "entry");
+    let entry_block = context.append_basic_block(trampoline_func, "entry");
     builder.position_at_end(&entry_block);
 
     let (vmctx_ptr, func_ptr, args_ptr, returns_ptr) = match trampoline_func.get_params().as_slice()

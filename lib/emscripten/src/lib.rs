@@ -111,7 +111,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_iii: Option<Func<'a, (i32, i32, i32), i32>>,
     pub dyn_call_iiii: Option<Func<'a, (i32, i32, i32, i32), i32>>,
     pub dyn_call_iifi: Option<Func<'a, (i32, i32, f64, i32), i32>>,
-    pub dyn_call_v: Option<Func<'a, (i32)>>,
+    pub dyn_call_v: Option<Func<'a, i32>>,
     pub dyn_call_vi: Option<Func<'a, (i32, i32)>>,
     pub dyn_call_vii: Option<Func<'a, (i32, i32, i32)>>,
     pub dyn_call_viii: Option<Func<'a, (i32, i32, i32, i32)>>,
@@ -168,7 +168,7 @@ pub struct EmscriptenData<'a> {
     pub temp_ret_0: i32,
 
     pub stack_save: Option<Func<'a, (), i32>>,
-    pub stack_restore: Option<Func<'a, (i32)>>,
+    pub stack_restore: Option<Func<'a, i32>>,
     pub set_threw: Option<Func<'a, (i32, i32)>>,
     pub mapped_dirs: HashMap<String, PathBuf>,
 }
