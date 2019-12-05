@@ -235,10 +235,13 @@ pub fn default_compiler() -> impl Compiler {
     #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(all(any(
-        feature = "default-backend-singlepass",
-        all(feature = "deterministic-execution", feature = "singlepass")
-    ), not(feature = "docs")))]
+    #[cfg(all(
+        any(
+            feature = "default-backend-singlepass",
+            all(feature = "deterministic-execution", feature = "singlepass")
+        ),
+        not(feature = "docs")
+    ))]
     use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
     #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
