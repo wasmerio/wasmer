@@ -63,7 +63,7 @@ impl StackmapEntry {
         map_record: &StkMapRecord,
         end: Option<(&StackmapEntry, &StkMapRecord)>,
         msm: &mut wasmer_runtime_core::state::ModuleStateMap,
-    ) {
+    ) -> Result<(), String> {
         use std::collections::{BTreeMap, HashMap};
         use wasmer_runtime_core::state::{
             x64::{new_machine_state, X64Register, GPR},
@@ -76,26 +76,34 @@ impl StackmapEntry {
             .checked_sub(code_addr)
             .unwrap();
         let target_offset = func_base_addr + map_record.instruction_offset as usize;
-        assert!(self.is_start);
+        if !self.is_start {
+            return Err("populate_msm: Not the start".to_string());
+        }
 
         if msm.local_functions.len() == self.local_function_id {
-            assert_eq!(self.kind, StackmapEntryKind::FunctionHeader);
+            if self.kind != StackmapEntryKind::FunctionHeader {
+                return Err("populate_msm: Invalid function Kind".to_string());
+            }
             msm.local_functions.insert(
                 target_offset,
                 FunctionStateMap::new(new_machine_state(), self.local_function_id, 0, vec![]),
             );
         } else if msm.local_functions.len() == self.local_function_id + 1 {
         } else {
-            panic!("unordered local functions");
+            return Err("populate_msm: unordered local functions".to_string());
         }
 
         let (_, fsm) = msm.local_functions.iter_mut().last().unwrap();
 
-        assert_eq!(self.value_semantics.len(), map_record.locations.len());
+        if self.value_semantics.len() != map_record.locations.len() {
+            return Err("populate_msm: Bad value semantics length".to_string());
+        }
 
         // System V requires 16-byte alignment before each call instruction.
         // Considering the saved rbp we need to ensure the stack size % 16 always equals to 8.
-        assert!(size_record.stack_size % 16 == 8);
+        if size_record.stack_size % 16 != 8 {
+            return Err("populate_msm: Bad stack alignment".to_string());
+        }
 
         // Layout begins just below saved rbp. (push rbp; mov rbp, rsp)
         let mut machine_stack_half_layout: Vec<MachineValue> =
@@ -112,14 +120,14 @@ impl StackmapEntry {
             let mv = match self.value_semantics[i] {
                 ValueSemantic::WasmLocal(x) => {
                     if x != wasm_locals.len() {
-                        panic!("unordered local values");
+                        return Err("populate_msm: unordered local values".to_string());
                     }
                     wasm_locals.push(WasmAbstractValue::Runtime);
                     MachineValue::WasmLocal(x)
                 }
                 ValueSemantic::WasmStack(x) => {
                     if x != wasm_stack.len() {
-                        panic!("unordered stack values");
+                        return Err("populate_msm: unordered stack values".to_string());
                     }
                     wasm_stack.push(WasmAbstractValue::Runtime);
                     MachineValue::WasmStack(x)
@@ -170,9 +178,10 @@ impl StackmapEntry {
             };
             match loc.ty {
                 LocationType::Register => {
-                    let index = X64Register::from_dwarf_regnum(loc.dwarf_regnum)
-                        .expect("invalid regnum")
-                        .to_index();
+                    let index = match X64Register::from_dwarf_regnum(loc.dwarf_regnum) {
+                        None => return Err("populate_msm: invalid regnum".to_string()),
+                        Some(r) => r.to_index(),
+                    };
                     regs.push((index, mv));
                 }
                 LocationType::Constant => {
@@ -198,44 +207,55 @@ impl StackmapEntry {
                 }
                 LocationType::Direct => match mv {
                     MachineValue::WasmLocal(_) => {
-                        assert_eq!(loc.location_size, 8); // the pointer itself
-                        assert!(
-                            X64Register::from_dwarf_regnum(loc.dwarf_regnum).unwrap()
-                                == X64Register::GPR(GPR::RBP)
-                        );
+                        if loc.location_size != 8 {
+                            return Err("populate_msm: invalid direct location size".to_string());
+                        }
+                        if X64Register::from_dwarf_regnum(loc.dwarf_regnum).unwrap() != X64Register::GPR(GPR::RBP) {
+                            return Err("populate_msm: invalid direct regnum X64Register".to_string());
+                        }
                         if loc.offset_or_small_constant >= 0 {
-                            assert!(loc.offset_or_small_constant >= 16); // (saved_rbp, return_address)
-                            assert!(loc.offset_or_small_constant % 8 == 0);
+                            if loc.offset_or_small_constant < 16 {
+                                return Err("populate_msm: invalid direct location offset value".to_string());
+                            }
+                            if loc.offset_or_small_constant % 8 != 0 {
+                                return Err("populate_msm: invalid direct location offset alignment".to_string());
+                            }
                             prev_frame_diff
                                 .insert((loc.offset_or_small_constant as usize - 16) / 8, Some(mv));
                         } else {
                             let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
-                            assert!(
-                                stack_offset > 0 && stack_offset <= machine_stack_half_layout.len()
-                            );
+                            if !(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len()) {
+                                return Err("populate_msm: invalid direct stack_offset".to_string());
+                            }
                             machine_stack_half_layout[stack_offset - 1] = mv;
                         }
                     }
-                    _ => unreachable!(
-                        "Direct location type is not expected for values other than local"
+                    _ => return Err(
+                        "populate_msm: Unreacheable direct location type is not expected for values other than local".to_string()
                     ),
                 },
                 LocationType::Indirect => {
-                    assert!(loc.offset_or_small_constant < 0);
-                    assert!(
-                        X64Register::from_dwarf_regnum(loc.dwarf_regnum).unwrap()
-                            == X64Register::GPR(GPR::RBP)
-                    );
+                    if loc.offset_or_small_constant >= 0 {
+                        return Err("populate_msm: invalid indirect location".to_string());
+                    }
+                    if X64Register::from_dwarf_regnum(loc.dwarf_regnum).unwrap() != X64Register::GPR(GPR::RBP) {
+                        return Err("populate_msm: invalid indirect regnum X64Register".to_string());
+                    }
                     let stack_offset = ((-loc.offset_or_small_constant) / 4) as usize;
-                    assert!(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len());
+                    if !(stack_offset > 0 && stack_offset <= machine_stack_half_layout.len()) {
+                        return Err("populate_msm: invalid indirect stack_offset".to_string());
+                    }
                     machine_stack_half_layout[stack_offset - 1] = mv;
                 }
             }
         }
 
-        assert_eq!(wasm_stack.len(), self.stack_count);
-        assert_eq!(wasm_locals.len(), self.local_count);
-
+        if wasm_stack.len() != self.stack_count {
+            return Err("populate_msm: invalid stack length".to_string());
+        }
+        if wasm_locals.len() != self.local_count {
+            return Err("populate_msm: invalid local length".to_string());
+        }
         let mut machine_stack_layout: Vec<MachineValue> =
             Vec::with_capacity(machine_stack_half_layout.len() / 2);
 
@@ -275,17 +295,25 @@ impl StackmapEntry {
                 fsm.locals = wasm_locals;
             }
             _ => {
-                assert_eq!(fsm.locals, wasm_locals);
+                if fsm.locals != wasm_locals {
+                    return Err("populate_msm: invalid locals values".to_string());
+                }
             }
         }
 
         let end_offset = {
             if let Some(end) = end {
                 let (end_entry, end_record) = end;
-                assert_eq!(end_entry.is_start, false);
-                assert_eq!(self.opcode_offset, end_entry.opcode_offset);
+                if end_entry.is_start != false {
+                    return Err("populate_msm: end_entry not starting".to_string());
+                }
+                if self.opcode_offset != end_entry.opcode_offset {
+                    return Err("populate_msm: invalid end_entry opcode offset".to_string());
+                }
                 let end_offset = func_base_addr + end_record.instruction_offset as usize;
-                assert!(end_offset >= target_offset);
+                if end_offset < target_offset {
+                    return Err("populate_msm: invalid end_offset".to_string());
+                }
                 end_offset
             } else {
                 target_offset + 1
@@ -341,6 +369,7 @@ impl StackmapEntry {
                 );
             }
         }
+        Ok(())
     }
 }
 

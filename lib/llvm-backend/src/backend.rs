@@ -176,7 +176,7 @@ impl LLVMBackend {
         _module_info: &ModuleInfo,
         target_machine: &TargetMachine,
         llvm_callbacks: &Option<Rc<RefCell<dyn LLVMCallbacks>>>,
-    ) -> (Self, LLVMCache) {
+    ) -> Result<(Self, LLVMCache), String> {
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module.borrow_mut(), FileType::Object)
             .unwrap();
@@ -201,7 +201,7 @@ impl LLVMBackend {
         };
 
         if res != LLVMResult::OK {
-            panic!("failed to load object")
+            return Err("failed to load object".to_string());
         }
 
         let buffer = Arc::new(Buffer::LlvmMemory(memory_buffer));
@@ -249,7 +249,9 @@ impl LLVMBackend {
                     let c_str = CString::new(name).unwrap();
                     let ptr = unsafe { get_func_symbol(module, c_str.as_ptr()) };
 
-                    assert!(!ptr.is_null());
+                    if ptr.is_null() {
+                        return Err("Function ptr is null".to_string());
+                    }
                     local_func_id_to_addr.push(ptr as usize);
                 }
 
@@ -273,16 +275,23 @@ impl LLVMBackend {
                     .zip(stackmaps.entries.iter().enumerate().skip(1).step_by(2))
                 {
                     if let Some(map_record) = map_records.get(&start_id) {
-                        assert_eq!(start_id, map_record.patchpoint_id as usize);
-                        assert!(start_entry.is_start);
-                        assert!(!end_entry.is_start);
+                        if start_id != map_record.patchpoint_id as usize {
+                            return Err("Function ptr is null".to_string());
+                        }
+                        if !(start_entry.is_start) {
+                            return Err("start_entry is not starting map_record".to_string());
+                        }
+                        if end_entry.is_start {
+                            return Err("end_entry is starting map_record".to_string());
+                        }
 
                         let end_record = map_records.get(&end_id);
 
                         let addr = local_func_id_to_addr[start_entry.local_function_id];
-                        let size_record = *addr_to_size_record
-                            .get(&addr)
-                            .expect("size_record not found");
+                        let size_record = match addr_to_size_record.get(&addr) {
+                            None => return Err("size_record not found".to_string()),
+                            Some(s) => *s,
+                        };
 
                         start_entry.populate_msm(
                             module_info,
@@ -292,7 +301,7 @@ impl LLVMBackend {
                             map_record,
                             end_record.map(|x| (end_entry, *x)),
                             &mut msm,
-                        );
+                        )?;
                     } else {
                         // The record is optimized out.
                     }
@@ -301,15 +310,16 @@ impl LLVMBackend {
                 let code_ptr = unsafe { llvm_backend_get_code_ptr(module) } as usize;
                 let code_len = unsafe { llvm_backend_get_code_size(module) } as usize;
 
-                let local_func_id_to_offset: Vec<usize> = local_func_id_to_addr
-                    .iter()
-                    .map(|&x| {
-                        assert!(x >= code_ptr && x < code_ptr + code_len);
-                        x - code_ptr
-                    })
-                    .collect();
+                let mut local_func_id_to_offset: Vec<usize> = Vec::new();
+                for &x in local_func_id_to_addr.iter() {
+                    if !(x >= code_ptr && x < code_ptr + code_len) {
+                        return Err("Func offset not inside code section".to_string());
+                    } else {
+                        local_func_id_to_offset.push(x - code_ptr);
+                    }
+                }
 
-                return (
+                return Ok((
                     Self {
                         module,
                         buffer: Arc::clone(&buffer),
@@ -317,12 +327,12 @@ impl LLVMBackend {
                         local_func_id_to_offset,
                     },
                     LLVMCache { buffer },
-                );
+                ));
             }
         }
 
         // Stackmap is not supported on this platform, or this module contains no functions so no stackmaps.
-        (
+        Ok((
             Self {
                 module,
                 buffer: Arc::clone(&buffer),
@@ -330,7 +340,7 @@ impl LLVMBackend {
                 local_func_id_to_offset: vec![],
             },
             LLVMCache { buffer },
-        )
+        ))
     }
 
     pub unsafe fn from_buffer(memory: Memory) -> Result<(Self, LLVMCache), String> {

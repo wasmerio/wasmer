@@ -8715,7 +8715,10 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             module_info,
             &self.target_machine,
             &mut self.llvm_callbacks,
-        );
+        )
+        .map_err(|e| CodegenError {
+            message: format!("LLVMBackend creation failed: {:?}", e),
+        })?;
         Ok((backend, Box::new(cache_gen)))
     }
 
