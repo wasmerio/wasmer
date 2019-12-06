@@ -37,9 +37,9 @@ pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
 
 pub trait LLVMCallbacks: std::any::Any + 'static {
-    fn preopt_ir_callback(&mut self, module: &InkwellModule);
-    fn postopt_ir_callback(&mut self, module: &InkwellModule);
-    fn obj_memory_buffer_callback(&mut self, memory_buffer: &InkwellMemoryBuffer);
+    fn preopt_ir_callback(&mut self, _module: &InkwellModule) {}
+    fn postopt_ir_callback(&mut self, _module: &InkwellModule) {}
+    fn obj_memory_buffer_callback(&mut self, _memory_buffer: &InkwellMemoryBuffer) {}
 }
 
 pub struct LLVMBackendConfig {
