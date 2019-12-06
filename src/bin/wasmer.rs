@@ -47,6 +47,13 @@ use std::{cell::RefCell, io::Write, rc::Rc};
 #[cfg(feature = "backend-llvm")]
 use wasmer_runtime_core::backend::BackendCompilerConfig;
 
+#[cfg(not(any(
+    feature = "backend-cranelift",
+    feature = "backend-llvm",
+    feature = "backend-singlepass"
+)))]
+compile_error!("Please enable one or more of the compiler backends");
+
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
 /// The options for the wasmer Command Line Interface
@@ -619,7 +626,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)
-        .ok_or_else(|| "the requested backend is not enabled")?;
+        .ok_or_else(|| {
+            format!(
+                "the requested backend, \"{}\", is not enabled",
+                options.backend.to_string()
+            )
+        })?;
 
     #[allow(unused_mut)]
     let mut backend_specific_config = None;
