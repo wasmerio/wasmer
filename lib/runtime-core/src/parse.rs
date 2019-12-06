@@ -258,10 +258,10 @@ pub fn read_module<
                         ParserState::Error(err) => return Err(LoadError::Parse(*err)),
                         ParserState::FunctionBodyLocals { ref locals } => {
                             for &(count, ty) in locals.iter() {
+                                num_static_slots += count as usize;
                                 fcg.feed_local(ty, count as usize)
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
-                            num_static_slots += locals.len();
                         }
                         ParserState::CodeOperator(op) => {
                             if !body_begun {
