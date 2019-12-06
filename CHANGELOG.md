@@ -1,7 +1,7 @@
 # Changelog
 
 ## **[Unreleased]**
-
+- [#1043](https://github.com/wasmerio/wasmer/pull/1043) Remove panicking functions/macros from llvm-backend code.
 - [#1030](https://github.com/wasmerio/wasmer/pull/1030) Ability to generate `ImportObject` for a specific version WASI version with the C API.
 - [#1028](https://github.com/wasmerio/wasmer/pull/1028) Introduce strict/non-strict modes for `get_wasi_version`
 - [#1029](https://github.com/wasmerio/wasmer/pull/1029) Add the “floating” `WasiVersion::Latest` version.
