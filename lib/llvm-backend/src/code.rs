@@ -1025,9 +1025,6 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
             }
             Event::Internal(x) => {
                 match x {
-                    InternalEvent::FunctionBegin(_) | InternalEvent::FunctionEnd => {
-                        return Ok(());
-                    }
                     InternalEvent::Breakpoint(callback) => {
                         let raw = Box::into_raw(Box::new(callback)) as u64;
                         let callback = intrinsics.i64_ty.const_int(raw, false);
@@ -1070,6 +1067,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                             );
                         }
                     }
+                    _ => return Ok(()),
                 }
                 return Ok(());
             }
