@@ -33,10 +33,6 @@ impl LLVMCallbacks for RecordPreOptIR {
     fn preopt_ir_callback(&mut self, module: &InkwellModule) {
         self.preopt_ir = module.print_to_string().to_string();
     }
-
-    fn postopt_ir_callback(&mut self, _: &InkwellModule) {}
-
-    fn obj_memory_buffer_callback(&mut self, _: &InkwellMemoryBuffer) {}
 }
 
 #[test]
