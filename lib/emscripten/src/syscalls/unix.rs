@@ -7,6 +7,7 @@ use libc::{
     accept,
     access,
     bind,
+    c_char,
     c_int,
     c_ulong,
     c_void,
@@ -1063,14 +1064,14 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
             let upper_bound = std::cmp::min((*dirent).d_reclen, 255) as usize;
             let mut i = 0;
             while i < upper_bound {
-                *(dirp.add(pos + 11 + i) as *mut i8) = (*dirent).d_name[i] as _;
+                *(dirp.add(pos + 11 + i) as *mut c_char) = (*dirent).d_name[i] as c_char;
                 i += 1;
             }
             // We set the termination string char
-            *(dirp.add(pos + 11 + i) as *mut i8) = 0 as i8;
+            *(dirp.add(pos + 11 + i) as *mut c_char) = 0 as c_char;
             debug!(
                 "  => file {}",
-                CStr::from_ptr(dirp.add(pos + 11) as *const i8)
+                CStr::from_ptr(dirp.add(pos + 11) as *const c_char)
                     .to_str()
                     .unwrap()
             );

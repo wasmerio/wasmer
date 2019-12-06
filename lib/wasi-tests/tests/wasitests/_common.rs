@@ -8,7 +8,7 @@ macro_rules! assert_wasi_output {
 
         let module = wasmer_runtime::compile(&wasm_bytes[..]).expect("WASM can't be compiled");
 
-        let wasi_version = get_wasi_version(&module).expect("WASI module");
+        let wasi_version = get_wasi_version(&module, true).expect("WASI module");
 
         let import_object = generate_import_object_for_version(
             wasi_version,

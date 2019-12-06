@@ -189,7 +189,7 @@ fn bench_metering(c: &mut Criterion) {
             let wasm_binary = wat2wasm(WAT).unwrap();
             let module = compile_with(&wasm_binary, &compiler).unwrap();
             let import_object = imports! {};
-            let mut instance = module.instantiate(&import_object).unwrap();
+            let instance = module.instantiate(&import_object).unwrap();
             let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
             b.iter(|| black_box(add_to.call(100, 4)))
         })
@@ -202,7 +202,7 @@ fn bench_metering(c: &mut Criterion) {
                    "gas" => Func::new(gas),
                 },
             };
-            let mut gas_instance = gas_module.instantiate(&gas_import_object).unwrap();
+            let gas_instance = gas_module.instantiate(&gas_import_object).unwrap();
             let gas_add_to: Func<(i32, i32), i32> = gas_instance.func("add_to").unwrap();
             b.iter(|| black_box(gas_add_to.call(100, 4)))
         })

@@ -4,7 +4,7 @@ use criterion::Criterion;
 use tempfile::tempdir;
 use wasmer_runtime::{
     cache::{Cache, FileSystemCache, WasmHash},
-    compile, func, imports, instantiate, validate, ImportObject,
+    compile, func, imports, instantiate, validate,
 };
 use wasmer_runtime_core::vm::Ctx;
 
@@ -71,7 +71,7 @@ fn calling_fn_benchmark(c: &mut Criterion) {
     );
     let instance = instantiate(SIMPLE_WASM, &imports).unwrap();
     c.bench_function("calling fn", move |b| {
-        let entry_point = instance.func::<(i32), i32>("plugin_entrypoint").unwrap();
+        let entry_point = instance.func::<i32, i32>("plugin_entrypoint").unwrap();
         b.iter(|| entry_point.call(2).unwrap())
     });
 }

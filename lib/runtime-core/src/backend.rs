@@ -200,6 +200,19 @@ pub struct Features {
     pub threads: bool,
 }
 
+/// Use this to point to a compiler config struct provided by the backend.
+/// The backend struct must support runtime reflection with `Any`, which is any
+/// struct that does not contain a non-`'static` reference.
+#[derive(Debug)]
+pub struct BackendCompilerConfig(pub Box<dyn Any + 'static>);
+
+impl BackendCompilerConfig {
+    /// Obtain the backend-specific compiler config struct.
+    pub fn get_specific<T: 'static>(&self) -> Option<&T> {
+        self.0.downcast_ref::<T>()
+    }
+}
+
 /// Configuration data for the compiler
 #[derive(Debug, Default)]
 pub struct CompilerConfig {
@@ -210,10 +223,12 @@ pub struct CompilerConfig {
     pub track_state: bool,
     pub features: Features,
 
-    // target info used by LLVM
+    // Target info. Presently only supported by LLVM.
     pub triple: Option<String>,
     pub cpu_name: Option<String>,
     pub cpu_features: Option<String>,
+
+    pub backend_specific_config: Option<BackendCompilerConfig>,
 }
 
 pub trait Compiler {

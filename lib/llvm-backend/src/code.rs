@@ -5,6 +5,7 @@ use crate::{
     stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
     trampolines::generate_trampolines,
+    LLVMBackendConfig, LLVMCallbacks,
 };
 use inkwell::{
     builder::Builder,
@@ -877,6 +878,7 @@ pub struct LLVMModuleCodeGenerator<'ctx> {
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     track_state: bool,
     target_machine: TargetMachine,
+    llvm_callbacks: Option<Rc<RefCell<dyn LLVMCallbacks>>>,
 }
 
 pub struct LLVMFunctionCodeGenerator<'ctx> {
@@ -1730,15 +1732,17 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 // If the pending bits of v1 and v2 are the same, we can pass
                 // them along to the result. Otherwise, apply pending
                 // canonicalizations now.
-                let (v1, v2) = if i1.has_pending_f32_nan() != i2.has_pending_f32_nan()
+                let (v1, i1, v2, i2) = if i1.has_pending_f32_nan() != i2.has_pending_f32_nan()
                     || i1.has_pending_f64_nan() != i2.has_pending_f64_nan()
                 {
                     (
                         apply_pending_canonicalization(builder, intrinsics, v1, i1),
+                        i1.strip_pending(),
                         apply_pending_canonicalization(builder, intrinsics, v2, i2),
+                        i2.strip_pending(),
                     )
                 } else {
-                    (v1, v2)
+                    (v1, i1, v2, i2)
                 };
                 let cond_value = builder.build_int_compare(
                     IntPredicate::NE,
@@ -8511,6 +8515,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
             track_state: false,
             target_machine,
+            llvm_callbacks: None,
         }
     }
 
@@ -8652,8 +8657,10 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             message: format!("trampolines generation error: {:?}", e),
         })?;
 
-        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.pre_opt_ir } {
-            self.module.borrow_mut().print_to_file(path).unwrap();
+        if let Some(ref mut callbacks) = self.llvm_callbacks {
+            callbacks
+                .borrow_mut()
+                .preopt_ir_callback(&*self.module.borrow_mut());
         }
 
         let pass_manager = PassManager::create(());
@@ -8693,8 +8700,10 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         pass_manager.add_early_cse_pass();
 
         pass_manager.run_on(&*self.module.borrow_mut());
-        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.post_opt_ir } {
-            self.module.borrow_mut().print_to_file(path).unwrap();
+        if let Some(ref mut callbacks) = self.llvm_callbacks {
+            callbacks
+                .borrow_mut()
+                .postopt_ir_callback(&*self.module.borrow_mut());
         }
 
         let stackmaps = self.stackmaps.borrow();
@@ -8705,12 +8714,18 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             &*stackmaps,
             module_info,
             &self.target_machine,
+            &mut self.llvm_callbacks,
         );
         Ok((backend, Box::new(cache_gen)))
     }
 
     fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
         self.track_state = config.track_state;
+        if let Some(backend_compiler_config) = &config.backend_specific_config {
+            if let Some(llvm_config) = backend_compiler_config.get_specific::<LLVMBackendConfig>() {
+                self.llvm_callbacks = llvm_config.callbacks.clone();
+            }
+        }
         Ok(())
     }
 
