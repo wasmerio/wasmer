@@ -52,7 +52,7 @@ use wasmer_runtime_core::backend::BackendCompilerConfig;
     feature = "backend-llvm",
     feature = "backend-singlepass"
 )))]
-compile_error!("Please enable at least one of the compiler backends");
+compile_error!("Please enable one or more of the compiler backends");
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
