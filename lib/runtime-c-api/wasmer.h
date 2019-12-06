@@ -25,6 +25,27 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+enum Version {
+  /**
+   * Version cannot be detected or is unknown.
+   */
+  Unknown = 0,
+  /**
+   * Latest version. See `wasmer_wasi::WasiVersion::Latest` to
+   * leran more.
+   */
+  Latest = 1,
+  /**
+   * `wasi_unstable`.
+   */
+  Snapshot0 = 2,
+  /**
+   * `wasi_snapshot_preview1`.
+   */
+  Snapshot1 = 3,
+};
+typedef uint8_t Version;
+
 /**
  * List of export/import kinds.
  */
@@ -889,5 +910,30 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_arr
                                                            unsigned int preopened_files_len,
                                                            const wasmer_wasi_map_dir_entry_t *mapped_dirs,
                                                            unsigned int mapped_dirs_len);
+
+/**
+ * Creates a WASI import object for a specific version.
+ *
+ * This function is similar to `wasmer_wasi_generate_import_object`
+ * except that the first argument describes the WASI version.
+ *
+ * The version is expected to be of kind `Version`.
+ */
+wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned char version,
+                                                                       const wasmer_byte_array *args,
+                                                                       unsigned int args_len,
+                                                                       const wasmer_byte_array *envs,
+                                                                       unsigned int envs_len,
+                                                                       const wasmer_byte_array *preopened_files,
+                                                                       unsigned int preopened_files_len,
+                                                                       const wasmer_wasi_map_dir_entry_t *mapped_dirs,
+                                                                       unsigned int mapped_dirs_len);
+
+/**
+ * Find the version of WASI used by the module.
+ *
+ * In case of error, the returned version is `Version::Unknown`.
+ */
+Version wasmer_wasi_get_version(const wasmer_module_t *module);
 
 #endif /* WASMER_H */

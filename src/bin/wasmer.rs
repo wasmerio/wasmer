@@ -9,6 +9,7 @@
 )]
 extern crate structopt;
 
+use std::collections::HashMap;
 use std::env;
 use std::fs::{metadata, read_to_string, File};
 use std::io;
@@ -17,14 +18,15 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
 
-use std::collections::HashMap;
 use structopt::{clap, StructOpt};
 
 use wasmer::*;
 #[cfg(feature = "backend-cranelift")]
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
-use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
+use wasmer_llvm_backend::{
+    InkwellMemoryBuffer, InkwellModule, LLVMBackendConfig, LLVMCallbacks, LLVMCompiler,
+};
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
     Value, VERSION,
@@ -39,6 +41,11 @@ use wasmer_runtime_core::{
 };
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
+
+#[cfg(feature = "backend-llvm")]
+use std::{cell::RefCell, io::Write, rc::Rc};
+#[cfg(feature = "backend-llvm")]
+use wasmer_runtime_core::backend::BackendCompilerConfig;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
@@ -486,6 +493,32 @@ fn execute_wasi(
     Ok(())
 }
 
+#[cfg(feature = "backend-llvm")]
+impl LLVMCallbacks for LLVMCLIOptions {
+    fn preopt_ir_callback(&mut self, module: &InkwellModule) {
+        if let Some(filename) = &self.pre_opt_ir {
+            module.print_to_file(filename).unwrap();
+        }
+    }
+
+    fn postopt_ir_callback(&mut self, module: &InkwellModule) {
+        if let Some(filename) = &self.post_opt_ir {
+            module.print_to_file(filename).unwrap();
+        }
+    }
+
+    fn obj_memory_buffer_callback(&mut self, memory_buffer: &InkwellMemoryBuffer) {
+        if let Some(filename) = &self.obj_file {
+            let mem_buf_slice = memory_buffer.as_slice();
+            let mut file = File::create(filename).unwrap();
+            let mut pos = 0;
+            while pos < mem_buf_slice.len() {
+                pos += file.write(&mem_buf_slice[pos..]).unwrap();
+            }
+        }
+    }
+}
+
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
     let disable_cache = options.disable_cache;
@@ -558,22 +591,17 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    let compiler: Box<dyn Compiler> = match get_compiler_by_backend(options.backend, options) {
-        Some(x) => x,
-        None => return Err("the requested backend is not enabled".into()),
-    };
+    let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)
+        .ok_or_else(|| "the requested backend is not enabled")?;
 
+    #[allow(unused_mut)]
+    let mut backend_specific_config = None;
     #[cfg(feature = "backend-llvm")]
     {
         if options.backend == Backend::LLVM {
-            let options = options.backend_llvm_options.clone();
-            unsafe {
-                wasmer_llvm_backend::GLOBAL_OPTIONS = LLVMOptions {
-                    pre_opt_ir: options.pre_opt_ir,
-                    post_opt_ir: options.post_opt_ir,
-                    obj_file: options.obj_file,
-                }
-            }
+            backend_specific_config = Some(BackendCompilerConfig(Box::new(LLVMBackendConfig {
+                callbacks: Some(Rc::new(RefCell::new(options.backend_llvm_options.clone()))),
+            })))
         }
     }
 
@@ -598,6 +626,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 enforce_stack_check: true,
                 track_state,
                 features: options.features.into_backend_features(),
+                backend_specific_config,
                 ..Default::default()
             },
             &*compiler,
@@ -610,6 +639,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 symbol_map: em_symbol_map.clone(),
                 track_state,
                 features: options.features.into_backend_features(),
+                backend_specific_config,
                 ..Default::default()
             },
             &*compiler,
@@ -625,7 +655,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let mut cache = unsafe {
             FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
         };
-        let mut load_cache_key = || -> Result<_, String> {
+        let load_cache_key = || -> Result<_, String> {
             if let Some(ref prehashed_cache_key) = options.cache_key {
                 if let Ok(module) =
                     WasmHash::decode(prehashed_cache_key).and_then(|prehashed_key| {
@@ -655,6 +685,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                             symbol_map: em_symbol_map.clone(),
                             track_state,
                             features: options.features.into_backend_features(),
+                            backend_specific_config,
                             ..Default::default()
                         },
                         &*compiler,
@@ -733,7 +764,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("{:?}", e))?;
     } else {
         #[cfg(feature = "wasi")]
-        let wasi_version = wasmer_wasi::get_wasi_version(&module);
+        let wasi_version = wasmer_wasi::get_wasi_version(&module, true);
         #[cfg(feature = "wasi")]
         let is_wasi = wasi_version.is_some();
         #[cfg(not(feature = "wasi"))]
