@@ -764,7 +764,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("{:?}", e))?;
     } else {
         #[cfg(feature = "wasi")]
-        let wasi_version = wasmer_wasi::get_wasi_version(&module);
+        let wasi_version = wasmer_wasi::get_wasi_version(&module, true);
         #[cfg(feature = "wasi")]
         let is_wasi = wasi_version.is_some();
         #[cfg(not(feature = "wasi"))]
