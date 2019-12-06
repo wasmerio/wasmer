@@ -40,11 +40,11 @@ use wasmer_runtime_core::{
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
 
-#[cfg(all(
-    not(feature = "backend-cranelift"),
-    not(feature = "backend-llvm"),
-    not(feature = "backend-singlepass")
-))]
+#[cfg(not(any(
+    feature = "backend-cranelift",
+    feature = "backend-llvm",
+    feature = "backend-singlepass"
+)))]
 compile_error!("Please enable at least one of the compiler backends");
 
 #[derive(Debug, StructOpt)]
