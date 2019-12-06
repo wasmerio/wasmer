@@ -28,7 +28,6 @@ pub enum Backend {
     Cranelift,
     Singlepass,
     LLVM,
-    Auto,
 }
 
 impl Backend {
@@ -41,7 +40,6 @@ impl Backend {
             "singlepass",
             #[cfg(feature = "backend-llvm")]
             "llvm",
-            "auto",
         ]
     }
 
@@ -52,14 +50,22 @@ impl Backend {
             Backend::Cranelift => "cranelift",
             Backend::Singlepass => "singlepass",
             Backend::LLVM => "llvm",
-            Backend::Auto => "auto",
         }
     }
 }
 
 impl Default for Backend {
+    #[cfg(feature = "default-backend-cranelift")]
     fn default() -> Self {
         Backend::Cranelift
+    }
+    #[cfg(feature = "default-backend-singlepass")]
+    fn default() -> Self {
+        Backend::Singlepass
+    }
+    #[cfg(feature = "default-backend-llvm")]
+    fn default() -> Self {
+        Backend::LLVM
     }
 }
 
@@ -70,7 +76,6 @@ impl std::str::FromStr for Backend {
             "singlepass" => Ok(Backend::Singlepass),
             "cranelift" => Ok(Backend::Cranelift),
             "llvm" => Ok(Backend::LLVM),
-            "auto" => Ok(Backend::Auto),
             _ => Err(format!("The backend {} doesn't exist", s)),
         }
     }

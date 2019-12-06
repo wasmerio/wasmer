@@ -173,7 +173,7 @@ check-bench: check-bench-singlepass check-bench-llvm
 
 # TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
 # to https://github.com/rust-lang/cargo/issues/6745 .
-NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
+NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
 RUNTIME_CHECK = cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features
 check: check-bench
 	cargo check $(NOT_RUNTIME_CRATES)
@@ -192,6 +192,7 @@ check: check-bench
 	# as default, and test a minimal set of features with only one backend
 	# at a time.
 	cargo check --manifest-path lib/runtime/Cargo.toml
+	cargo check --manifest-path lib/runtime-core/Cargo.toml
 	# Check some of the cases where deterministic execution could matter
 	cargo check --manifest-path lib/runtime/Cargo.toml --features "deterministic-execution"
 	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features \
@@ -242,15 +243,14 @@ release-llvm:
 	cargo build --release --features backend-llvm
 
 bench-singlepass:
-	cargo bench --all --no-default-features --features "backend-singlepass" \
-	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
+	cargo bench --manifest-path lib/middleware-common-tests/Cargo.toml --features singlepass
+	cargo bench --manifest-path lib/runtime/Cargo.toml --no-default-features --features singlepass,default-backend-singlepass
 bench-clif:
-	cargo bench --all --no-default-features --features "backend-cranelift" \
-	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
-	--exclude wasmer-middleware-common-tests
+#	cargo bench --manifest-path lib/middleware-common-tests/Cargo.toml --features clif
+	cargo bench --manifest-path lib/runtime/Cargo.toml --no-default-features --features cranelift,default-backend-cranelift
 bench-llvm:
-	cargo bench --all --no-default-features --features "backend-llvm" \
-	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
+	cargo bench --manifest-path lib/middleware-common-tests/Cargo.toml --features llvm
+	cargo bench --manifest-path lib/runtime/Cargo.toml --no-default-features --features llvm,default-backend-llvm
 
 # Build utils
 build-install:

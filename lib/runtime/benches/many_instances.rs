@@ -79,6 +79,6 @@ fn calling_fn_benchmark(c: &mut Criterion) {
 criterion_group! {
     name = instance_bench;
     config = Criterion::default().sample_size(20);
-    targets = compile_benchmark, validate_benchmark, hashing_benchmark, create_instance_from_cache_benchmark, calling_fn_benchmark, create_instance_benchmark,
+    targets = /*compile_benchmark, validate_benchmark, hashing_benchmark,*/ create_instance_from_cache_benchmark, /*calling_fn_benchmark, create_instance_benchmark,*/
 }
 criterion_main!(instance_bench);

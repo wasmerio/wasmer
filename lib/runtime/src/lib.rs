@@ -254,20 +254,39 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "llvm")]
         Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
 
-        Backend::Auto => {
-            #[cfg(feature = "default-backend-singlepass")]
-            return Some(Box::new(
-                wasmer_singlepass_backend::SinglePassCompiler::new(),
-            ));
-            #[cfg(feature = "default-backend-cranelift")]
-            return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
-            #[cfg(feature = "default-backend-llvm")]
-            return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
-        }
-
         #[cfg(not(all(feature = "llvm", feature = "singlepass", feature = "cranelift")))]
         _ => None,
     }
+}
+
+/// Provide a guess at a good backend, given some information about how it will
+/// be used, such as the size of the wasm file, the language features enabled
+/// and the host architecture.
+pub fn choose_backend_with_size(features: Features, binary_size: Option<u64>) -> Backend {
+    let mut backend = Backend::default();
+
+    // If it's a large file (more than 10MiB), prefer singlepass.
+    if cfg!(feature = "singlepass") && backend != Backend::Singlepass && binary_size.unwrap_or(0) > 10485760 {
+        backend = Backend::Singlepass;
+    }
+    // Cranelift does not support atomics or AArch64.
+    if backend == Backend::Cranelift && (cfg!(target_arch = "aarch64") || features.threads) {
+        if cfg!(feature = "llvm") {
+            backend = Backend::LLVM;
+        } else if cfg!(feature = "singlepass") {
+            backend = Backend::Singlepass;
+        }
+    }
+    // LLVM does not support atomics on AArch64.
+    if cfg!(target_arch = "aarch64") && features.threads && backend == Backend::LLVM {
+        backend = Backend::Singlepass;
+    }
+    // Only LLVM supports SIMD. (This may contradict the above, in which case
+    // there is no good solution.)
+    if cfg!(feature = "llvm") && backend != Backend::LLVM && features.simd {
+        backend = Backend::LLVM;
+    }
+    backend
 }
 
 /// The current version of this crate.

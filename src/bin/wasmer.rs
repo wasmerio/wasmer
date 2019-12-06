@@ -29,7 +29,7 @@ use wasmer_llvm_backend::{
 };
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
-    Value, VERSION,
+    choose_backend_with_size, Value, VERSION,
 };
 #[cfg(feature = "managed")]
 use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
@@ -144,17 +144,15 @@ struct Run {
     #[cfg(target_arch = "x86_64")]
     #[structopt(
         long = "backend",
-        default_value = "auto",
         case_insensitive = true,
         possible_values = Backend::variants(),
     )]
-    backend: Backend,
+    backend: Option<Backend>,
 
     /// Name of the backend to use. (aarch64)
     #[cfg(target_arch = "aarch64")]
     #[structopt(
         long = "backend",
-        default_value = "singlepass",
         case_insensitive = true,
         possible_values = Backend::variants(),
     )]
@@ -615,7 +613,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     // Don't error on --enable-all for other backends.
-    if options.features.simd && options.backend != Backend::LLVM {
+    if options.features.simd && options.backend != Some(Backend::LLVM) {
         return Err("SIMD is only supported in the LLVM backend for now".to_string());
     }
 
@@ -625,11 +623,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)
+    let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend.unwrap(), options)
         .ok_or_else(|| {
             format!(
                 "the requested backend, \"{}\", is not enabled",
-                options.backend.to_string()
+                options.backend.unwrap().to_string()
             )
         })?;
 
@@ -637,7 +635,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let mut backend_specific_config = None;
     #[cfg(feature = "backend-llvm")]
     {
-        if options.backend == Backend::LLVM {
+        if options.backend == Some(Backend::LLVM) {
             backend_specific_config = Some(BackendCompilerConfig(Box::new(LLVMBackendConfig {
                 callbacks: Some(Rc::new(RefCell::new(options.backend_llvm_options.clone()))),
             })))
@@ -698,7 +696,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             if let Some(ref prehashed_cache_key) = options.cache_key {
                 if let Ok(module) =
                     WasmHash::decode(prehashed_cache_key).and_then(|prehashed_key| {
-                        cache.load_with_backend(prehashed_key, options.backend)
+                        cache.load_with_backend(prehashed_key, options.backend.unwrap())
                     })
                 {
                     debug!("using prehashed key: {}", prehashed_cache_key);
@@ -712,7 +710,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             // cache.load will return the Module if it's able to deserialize it properly, and an error if:
             // * The file is not found
             // * The file exists, but it's corrupted or can't be converted to a module
-            match cache.load_with_backend(hash, options.backend) {
+            match cache.load_with_backend(hash, options.backend.unwrap()) {
                 Ok(module) => {
                     // We are able to load the module from cache
                     Ok(module)
@@ -916,29 +914,15 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-fn update_backend(options: &mut Run) {
-    let binary_size = match metadata(&options.path) {
-        Ok(wasm_binary) => wasm_binary.len(),
-        Err(_e) => 0,
-    };
-
-    // Update backend when a backend flag is `auto`.
-    // Use the Singlepass backend if it's enabled and the file provided is larger
-    // than 10MiB (10485760 bytes), or it's enabled and the target architecture
-    // is AArch64. Otherwise, use the Cranelift backend.
-    if options.backend == Backend::Auto {
-        if Backend::variants().contains(&Backend::Singlepass.to_string())
-            && (binary_size > 10485760 || cfg!(target_arch = "aarch64"))
-        {
-            options.backend = Backend::Singlepass;
-        } else {
-            options.backend = Backend::Cranelift;
-        }
-    }
-}
-
 fn run(options: &mut Run) {
-    update_backend(options);
+    if options.backend.is_none() {
+        let binary_size = match metadata(&options.path) {
+            Ok(wasm_binary) => Some(wasm_binary.len()),
+            Err(_e) => None,
+        };
+        options.backend = Some(choose_backend_with_size(options.features.into_backend_features(), binary_size));
+    }
+
     match execute_wasm(options) {
         Ok(()) => {}
         Err(message) => {
@@ -1023,7 +1007,6 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
         Backend::LLVM => Box::new(LLVMCompiler::new()),
         #[cfg(not(feature = "backend-llvm"))]
         Backend::LLVM => return None,
-        Backend::Auto => return None,
     })
 }
 
