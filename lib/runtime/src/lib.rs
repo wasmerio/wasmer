@@ -211,21 +211,13 @@ pub fn default_compiler() -> impl Compiler {
             not(feature = "docs"),
             any(
                 feature = "default-backend-cranelift",
-                feature = "default-backend-singlepass",
-                feature = "deterministic-execution"
+                feature = "default-backend-singlepass"
             )
         ),
         all(
             not(feature = "docs"),
             feature = "default-backend-cranelift",
-            any(
-                feature = "default-backend-singlepass",
-                feature = "deterministic-execution"
-            )
-        ),
-        all(
-            feature = "default-backend-singlepass",
-            feature = "deterministic-execution"
+            feature = "default-backend-singlepass"
         )
     ))]
     compile_error!(
@@ -235,13 +227,7 @@ pub fn default_compiler() -> impl Compiler {
     #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(all(
-        any(
-            feature = "default-backend-singlepass",
-            all(feature = "deterministic-execution", feature = "singlepass")
-        ),
-        not(feature = "docs")
-    ))]
+    #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
     use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
     #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
@@ -260,7 +246,7 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "cranelift")]
         Backend::Cranelift => Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new())),
 
-        #[cfg(any(feature = "singlepass", feature = "deterministic-execution"))]
+        #[cfg(any(feature = "singlepass"))]
         Backend::Singlepass => Some(Box::new(
             wasmer_singlepass_backend::SinglePassCompiler::new(),
         )),
@@ -268,11 +254,18 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "llvm")]
         Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
 
-        #[cfg(not(all(
-            feature = "llvm",
-            any(feature = "singlepass", feature = "deterministic-execution"),
-            feature = "cranelift",
-        )))]
+        Backend::Auto => {
+            #[cfg(feature = "default-backend-singlepass")]
+            return Some(Box::new(
+                wasmer_singlepass_backend::SinglePassCompiler::new(),
+            ));
+            #[cfg(feature = "default-backend-cranelift")]
+            return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
+            #[cfg(feature = "default-backend-llvm")]
+            return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
+        }
+
+        #[cfg(not(all(feature = "llvm", feature = "singlepass", feature = "cranelift")))]
         _ => None,
     }
 }
