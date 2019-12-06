@@ -599,7 +599,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)
-        .ok_or_else(|| format!("the requested backend, \"{}\", is not enabled", options.backend.to_string()))?;
+        .ok_or_else(|| {
+            format!(
+                "the requested backend, \"{}\", is not enabled",
+                options.backend.to_string()
+            )
+        })?;
 
     #[allow(unused_mut)]
     let mut backend_specific_config = None;
