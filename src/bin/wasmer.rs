@@ -478,7 +478,7 @@ fn execute_wasi(
         };
 
         if let Some(invoke_fn) = options.invoke.as_ref() {
-            eprintln!("WARNING: Invoking a function with WASI is not officially supported in the WASI standard yet.  Use this feature at your own risk, things may not work!");
+            eprintln!("WARNING: Invoking aribtrary functions with WASI is not officially supported in the WASI standard yet.  Use this feature at your own risk!");
             let args = options.parse_args()?;
             let invoke_result = instance
                 .dyn_func(invoke_fn)
