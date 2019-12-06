@@ -8,6 +8,9 @@
   <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
     <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
   </a>
+  <a href="https://docs.wasmer.io">
+    <img src="https://img.shields.io/badge/Docs-docs.wasmer.io-blue?style=flat-square" alt="Documentation">
+  </a>
   <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
     <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
   </a>
@@ -23,7 +26,7 @@
 
 [Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/). Wasmer can be used standalone (via the CLI) and embedded in different languages, running in x86 and [ARM devices](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c).
 
-Install the Wasmer CLI with:
+Install the Wasmer and [WAPM](https://wapm.io) cli with:
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
@@ -59,28 +62,15 @@ Once installed, you will be able to run any WebAssembly files (_including Lua, P
 
 ```sh
 # Run Lua
-wasmer run examples/lua.wasm
+wasmer examples/lua.wasm
 ```
 
 *You can find more `wasm/wat` examples in the [examples](./examples) directory.*
 
-#### With wapm
+### Docs
 
-Installing Wasmer through `wasmer.io` includes
-[`wapm`](https://github.com/wasmerio/wapm-cli), the [WebAssembly Package Manager](https://wapm.io/).
+Wasmer documentation lives on [docs.wasmer.io](https://docs.wasmer.io).
 
-wapm allows you to easily download, run, and distribute WebAssembly binaries.
-
-```sh
-# Install cowsay globally
-wapm install -g cowsay
-
-# Run cowsay
-wapm run cowsay "Hello, world!"
-```
-
-For more information about wapm, check out the [website](https://www.wapm.io)
-and this [example program](https://github.com/wapm-packages/rust-wasi-example).
 
 ## Code Structure
 
@@ -259,8 +249,8 @@ Below are some of the goals of this project (in order of priority):
 - [x] It should be 100% compatible with the [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests)
 - [x] It should be fast _(partially achieved)_
 - [x] Support WASI - released in [0.3.0](https://github.com/wasmerio/wasmer/releases/tag/0.3.0)
-- [x] Support Emscripten calls _(in the works)_
-- [ ] Support Go JS ABI calls
+- [x] Support Emscripten calls
+- [ ] Support Go JS ABI calls _(in the works)_
 
 ## Architecture
 
