@@ -237,6 +237,23 @@ struct Run {
     args: Vec<String>,
 }
 
+impl Run {
+    /// Used with the `invoke` argument
+    fn parse_args(&self) -> Result<Vec<Value>, String> {
+        let mut args: Vec<Value> = Vec::new();
+        for arg in self.args.iter() {
+            let x = arg.as_str().parse().map_err(|_| {
+                format!(
+                    "Can't parse the provided argument {:?} as a integer",
+                    arg.as_str()
+                )
+            })?;
+            args.push(Value::I32(x));
+        }
+        Ok(args)
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 enum LoaderName {
@@ -455,27 +472,37 @@ fn execute_wasi(
         let result;
 
         #[cfg(unix)]
-        {
-            let cv_pushed =
-                if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
-                    push_code_version(CodeVersion {
-                        baseline: true,
-                        msm: msm,
-                        base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                        backend: options.backend,
-                    });
-                    true
-                } else {
-                    false
-                };
+        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+            push_code_version(CodeVersion {
+                baseline: true,
+                msm: msm,
+                base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                backend: options.backend,
+            });
+            true
+        } else {
+            false
+        };
+
+        if let Some(invoke_fn) = options.invoke.as_ref() {
+            eprintln!("WARNING: Invoking aribtrary functions with WASI is not officially supported in the WASI standard yet.  Use this feature at your own risk!");
+            let args = options.parse_args()?;
+            let invoke_result = instance
+                .dyn_func(invoke_fn)
+                .map_err(|e| format!("Invoke failed: {:?}", e))?
+                .call(&args)
+                .map_err(|e| format!("Calling invoke fn failed: {:?}", e))?;
+            println!("{} returned {:?}", invoke_fn, invoke_result);
+            return Ok(());
+        } else {
             result = start.call();
+        }
+
+        #[cfg(unix)]
+        {
             if cv_pushed {
                 pop_code_version().unwrap();
             }
-        }
-        #[cfg(not(unix))]
-        {
-            result = start.call();
         }
 
         if let Err(ref err) = result {
@@ -786,16 +813,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            let mut args: Vec<Value> = Vec::new();
-            for arg in options.args.iter() {
-                let x = arg.as_str().parse().map_err(|_| {
-                    format!(
-                        "Can't parse the provided argument {:?} as a integer",
-                        arg.as_str()
-                    )
-                })?;
-                args.push(Value::I32(x));
-            }
+            let args = options.parse_args()?;
 
             let invoke_fn = match options.invoke.as_ref() {
                 Some(fun) => fun,
