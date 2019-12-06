@@ -8472,7 +8472,17 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
                 info: true,
                 machine_code: true,
             }),
-            _ => unimplemented!("compile to target other than x86-64 is not supported"),
+            _ if triple.starts_with("aarch64") => {
+                Target::initialize_aarch64(&InitializationConfig {
+                    asm_parser: true,
+                    asm_printer: true,
+                    base: true,
+                    disassembler: true,
+                    info: true,
+                    machine_code: true,
+                })
+            }
+            _ => unimplemented!("target {} not supported", triple),
         }
 
         let target = Target::from_triple(&triple).unwrap();
