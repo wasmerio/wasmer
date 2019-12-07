@@ -8464,6 +8464,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         let triple = triple.unwrap_or(TargetMachine::get_default_triple().to_string());
 
         match triple {
+            #[cfg(target_arch = "x86_64")]
             _ if triple.starts_with("x86") => Target::initialize_x86(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,
@@ -8472,6 +8473,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
                 info: true,
                 machine_code: true,
             }),
+            #[cfg(target_arch = "aarch64")]
             _ if triple.starts_with("aarch64") => {
                 Target::initialize_aarch64(&InitializationConfig {
                     asm_parser: true,
