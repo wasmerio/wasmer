@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1050](https://github.com/wasmerio/wasmer/pull/1050) Attach C & C++ headers to releases.
 - [#1033](https://github.com/wasmerio/wasmer/pull/1033) Set cranelift backend as default compiler backend again, require at least one backend to be enabled for Wasmer CLI
 - [#1030](https://github.com/wasmerio/wasmer/pull/1030) Ability to generate `ImportObject` for a specific version WASI version with the C API.
 - [#1028](https://github.com/wasmerio/wasmer/pull/1028) Introduce strict/non-strict modes for `get_wasi_version`
