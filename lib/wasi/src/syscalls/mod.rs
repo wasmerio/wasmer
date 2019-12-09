@@ -1678,8 +1678,6 @@ pub fn path_open(
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     );
 
-    dbg!(&maybe_inode);
-
     if let Ok(m) = maybe_inode {
         &state.fs.inodes[m];
     }

@@ -31,8 +31,6 @@ pub fn bytes_for_input_event(input_event: InputEvent) -> (u8, [u8; 8], usize) {
                 MouseButton::Right => MOUSE_PRESS_RIGHT,
                 MouseButton::Middle => MOUSE_PRESS_MIDDLE,
             };
-            dbg!(x);
-            dbg!(y);
             let x_bytes = x.to_le_bytes();
             for i in 0..4 {
                 data[i] = x_bytes[i];
