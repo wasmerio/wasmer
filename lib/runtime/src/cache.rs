@@ -104,7 +104,7 @@ impl Cache for FileSystemCache {
         unsafe {
             wasmer_runtime_core::load_cache_with(
                 serialized_cache,
-                super::compiler_for_backend(backend)
+                crate::compiler_for_backend(backend)
                     .ok_or_else(|| CacheError::UnsupportedBackend(backend))?
                     .as_ref(),
             )
