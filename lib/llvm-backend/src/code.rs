@@ -8408,6 +8408,10 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
         }
         Ok(())
     }
+
+    fn get_value_stack_depth(&self) -> Option<usize> {
+        Some(self.state.stack.len())
+    }
 }
 
 impl From<BinaryReaderError> for CodegenError {

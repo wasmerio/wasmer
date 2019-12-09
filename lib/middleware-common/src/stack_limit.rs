@@ -29,14 +29,19 @@ pub struct StackDepthExceededError;
 pub struct StackLimit {
     config: StackLimitConfig,
     current_static_slots: Option<usize>,
-    max_function_local_stack_depth: usize,
+    last_function_local_stack_depth: usize,
 }
 
 /// Configuration for StackLimit.
 #[derive(Clone, Debug)]
 pub struct StackLimitConfig {
+    /// Maximum number of call frames allowed.
     pub max_call_depth: Option<usize>,
+    /// Maximum value stack depth across all stack frames.
+    /// Note that this is currently an approximation. Consistency is guaranteed
+    /// but this value does not precisely correspond to the real value stack depth.
     pub max_value_stack_depth: Option<usize>,
+    /// Maximum number of static slots (arguments + locals) allowed across all stack frames.
     pub max_static_slot_count: Option<usize>,
 }
 
@@ -45,7 +50,7 @@ impl StackLimit {
         StackLimit {
             config,
             current_static_slots: None,
-            max_function_local_stack_depth: 0,
+            last_function_local_stack_depth: 0,
         }
     }
 }
@@ -123,15 +128,13 @@ impl FunctionMiddleware for StackLimit {
         let mut op = Some(op);
         match *op.as_ref().unwrap() {
             Event::Internal(InternalEvent::FunctionBegin(_)) => {
-                println!("begin");
                 self.current_static_slots = None;
-                self.max_function_local_stack_depth = 0;
+                self.last_function_local_stack_depth = 0;
                 if let Some(limit) = self.config.max_call_depth {
                     emit_limit_check(sink, &FIELD_CALL_DEPTH, 1, limit, CallDepthExceededError);
                 }
             }
             Event::Internal(InternalEvent::FunctionStaticSlotCount(count)) => {
-                println!("ss count = {}", count);
                 self.current_static_slots = Some(count);
                 if let Some(limit) = self.config.max_static_slot_count {
                     emit_limit_check(
@@ -167,7 +170,7 @@ impl FunctionMiddleware for StackLimit {
                     sink.push(Event::WasmOwned(Operator::End));
                 }
 
-                self.max_function_local_stack_depth = new_depth;
+                self.last_function_local_stack_depth = new_depth;
             }
             Event::Internal(InternalEvent::FunctionEnd) => {
                 if let Some(_) = self.config.max_call_depth {
@@ -185,12 +188,12 @@ impl FunctionMiddleware for StackLimit {
             Event::Wasm(Operator::Call { .. }) | Event::Wasm(Operator::CallIndirect { .. }) => {
                 if let Some(limit) = self.config.max_value_stack_depth {
                     // Stack sizes are statically determined and therefore it's safe to
-                    // check against the static max stack depth here.
-                    if self.max_function_local_stack_depth > 0 {
+                    // check against the static previous stack depth here.
+                    if self.last_function_local_stack_depth > 0 {
                         emit_limit_check(
                             sink,
                             &FIELD_STACK_DEPTH,
-                            self.max_function_local_stack_depth,
+                            self.last_function_local_stack_depth,
                             limit,
                             StackDepthExceededError,
                         );
@@ -198,7 +201,7 @@ impl FunctionMiddleware for StackLimit {
                         emit_limit_resume(
                             sink,
                             &FIELD_STACK_DEPTH,
-                            self.max_function_local_stack_depth,
+                            self.last_function_local_stack_depth,
                         );
                     }
                 }

@@ -353,10 +353,21 @@ mod tests {
         );
         assert_eq!(
             _test_stack_limit_call_once(
-                WAT_STACK_LIMIT_CALL_DEPTH,
+                WAT_STACK_LIMIT_STACK_DEPTH,
                 StackLimitConfig {
                     max_call_depth: None,
                     max_value_stack_depth: Some(5),
+                    max_static_slot_count: None,
+                }
+            ),
+            false
+        );
+        assert_eq!(
+            _test_stack_limit_call_once(
+                WAT_STACK_LIMIT_STACK_DEPTH,
+                StackLimitConfig {
+                    max_call_depth: None,
+                    max_value_stack_depth: Some(6),
                     max_static_slot_count: None,
                 }
             ),
