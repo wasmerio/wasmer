@@ -29,7 +29,7 @@ pub struct StackDepthExceededError;
 pub struct StackLimit {
     config: StackLimitConfig,
     current_static_slots: Option<usize>,
-    prev_stack_depth: usize,
+    max_function_local_stack_depth: usize,
 }
 
 /// Configuration for StackLimit.
@@ -45,39 +45,27 @@ impl StackLimit {
         StackLimit {
             config,
             current_static_slots: None,
-            prev_stack_depth: 0,
+            max_function_local_stack_depth: 0,
         }
     }
 }
 
 /// Emits a sequence into `sink` that adds `delta` to `field` and checks whether the value after
 /// addition exceeds `limit`.
-/// `sub_prev` specifies whether or not to first substract a value from `field` before adding
-/// and checking.
 fn emit_limit_check<'a, 'b, E: Copy + Clone + Send + Sync + Debug + 'static>(
     sink: &mut EventSink<'a, 'b>,
     field: &InternalField,
     delta: usize,
     limit: usize,
     err: E,
-    sub_prev: Option<usize>,
 ) {
-    if delta == 0 && (sub_prev.is_none() || sub_prev.unwrap() == 0) {
+    if delta == 0 {
         return;
     }
 
     sink.push(Event::Internal(InternalEvent::GetInternal(
         field.index() as _
     )));
-
-    if let Some(sub_prev) = sub_prev {
-        if sub_prev != 0 {
-            sink.push(Event::WasmOwned(Operator::I64Const {
-                value: sub_prev as _,
-            }));
-            sink.push(Event::WasmOwned(Operator::I64Sub));
-        }
-    }
 
     if delta != 0 {
         sink.push(Event::WasmOwned(Operator::I64Const {
@@ -132,19 +120,14 @@ impl FunctionMiddleware for StackLimit {
         _module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
     ) -> Result<(), Self::Error> {
-        match op {
+        let mut op = Some(op);
+        match *op.as_ref().unwrap() {
             Event::Internal(InternalEvent::FunctionBegin(_)) => {
                 println!("begin");
                 self.current_static_slots = None;
+                self.max_function_local_stack_depth = 0;
                 if let Some(limit) = self.config.max_call_depth {
-                    emit_limit_check(
-                        sink,
-                        &FIELD_CALL_DEPTH,
-                        1,
-                        limit,
-                        CallDepthExceededError,
-                        None,
-                    );
+                    emit_limit_check(sink, &FIELD_CALL_DEPTH, 1, limit, CallDepthExceededError);
                 }
             }
             Event::Internal(InternalEvent::FunctionStaticSlotCount(count)) => {
@@ -157,22 +140,34 @@ impl FunctionMiddleware for StackLimit {
                         count,
                         limit,
                         StaticSlotLimitExceededError,
-                        None,
                     );
                 }
             }
             Event::Internal(InternalEvent::ValueStackGrow(new_depth)) => {
+                // Check but do not writeback just yet.
+                // FIELD_STACK_DEPTH happens only at function calls.
                 if let Some(limit) = self.config.max_value_stack_depth {
-                    emit_limit_check(
-                        sink,
-                        &FIELD_STACK_DEPTH,
-                        new_depth,
-                        limit,
-                        StackDepthExceededError,
-                        Some(self.prev_stack_depth),
-                    );
-                    self.prev_stack_depth = new_depth;
+                    sink.push(Event::Internal(InternalEvent::GetInternal(
+                        FIELD_STACK_DEPTH.index() as _,
+                    )));
+                    sink.push(Event::WasmOwned(Operator::I64Const {
+                        value: new_depth as i64,
+                    }));
+                    sink.push(Event::WasmOwned(Operator::I64Add));
+                    sink.push(Event::WasmOwned(Operator::I64Const {
+                        value: limit as i64,
+                    }));
+                    sink.push(Event::WasmOwned(Operator::I64GtU));
+                    sink.push(Event::WasmOwned(Operator::If {
+                        ty: WpTypeOrFuncType::Type(WpType::EmptyBlockType),
+                    }));
+                    sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(
+                        move |_| Err(Box::new(StackDepthExceededError)),
+                    ))));
+                    sink.push(Event::WasmOwned(Operator::End));
                 }
+
+                self.max_function_local_stack_depth = new_depth;
             }
             Event::Internal(InternalEvent::FunctionEnd) => {
                 if let Some(_) = self.config.max_call_depth {
@@ -186,14 +181,31 @@ impl FunctionMiddleware for StackLimit {
                     );
                     self.current_static_slots = None;
                 }
-                if let Some(_) = self.config.max_value_stack_depth {
-                    emit_limit_resume(sink, &FIELD_STACK_DEPTH, self.prev_stack_depth);
-                    self.prev_stack_depth = 0;
+            }
+            Event::Wasm(Operator::Call { .. }) | Event::Wasm(Operator::CallIndirect { .. }) => {
+                if let Some(limit) = self.config.max_value_stack_depth {
+                    if self.max_function_local_stack_depth > 0 {
+                        emit_limit_check(
+                            sink,
+                            &FIELD_STACK_DEPTH,
+                            self.max_function_local_stack_depth,
+                            limit,
+                            StackDepthExceededError,
+                        );
+                        sink.push(op.take().unwrap());
+                        emit_limit_resume(
+                            sink,
+                            &FIELD_STACK_DEPTH,
+                            self.max_function_local_stack_depth,
+                        );
+                    }
                 }
             }
             _ => {}
         }
-        sink.push(op);
+        if let Some(op) = op {
+            sink.push(op);
+        }
         Ok(())
     }
 }
