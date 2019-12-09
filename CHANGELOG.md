@@ -10,6 +10,7 @@
 - [#1009](https://github.com/wasmerio/wasmer/pull/1009) Enable LLVM verifier for all tests, add new llvm-backend-tests crate.
 - [#1022](https://github.com/wasmerio/wasmer/pull/1022) Add caching support for Singlepass backend.
 - [#1004](https://github.com/wasmerio/wasmer/pull/1004) Add the Auto backend to enable to adapt backend usage depending on wasm file executed.
+- [#1037](https://github.com/wasmerio/wasmer/pull/1037) Add a StackLimit middleware for deterministically limiting runtime stack sizes.
 
 ## 0.11.0 - 2019-11-22
 
