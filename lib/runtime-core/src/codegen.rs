@@ -311,13 +311,33 @@ impl MiddlewareChain {
     /// Run this chain with the provided function code generator, event and module info.
     pub(crate) fn run<E: Debug, FCG: FunctionCodeGenerator<E>>(
         &mut self,
-        fcg: Option<&mut FCG>,
+        mut fcg: Option<&mut FCG>,
         ev: Event,
         module_info: &ModuleInfo,
     ) -> Result<(), String> {
         let mut sink = EventSink {
             buffer: SmallVec::new(),
         };
+        let grows_stack = match ev {
+            Event::Wasm(Operator::I32Const { .. })
+            | Event::Wasm(Operator::I64Const { .. })
+            | Event::Wasm(Operator::F32Const { .. })
+            | Event::Wasm(Operator::F64Const { .. })
+            | Event::Wasm(Operator::GetLocal { .. })
+            | Event::Wasm(Operator::Call { .. })
+            | Event::Wasm(Operator::CallIndirect { .. }) => true,
+            _ => false,
+        };
+        if grows_stack {
+            if let Some(fcg) = fcg.as_mut() {
+                if let Some(old_depth) = fcg.get_value_stack_depth() {
+                    // These instructions all grow the value stack by zero or one.
+                    sink.push(Event::Internal(InternalEvent::ValueStackGrow(
+                        old_depth + 1,
+                    )));
+                }
+            }
+        }
         sink.push(ev);
         for m in &mut self.chain {
             let prev: SmallVec<[Event; 2]> = sink.buffer.drain().collect();
@@ -389,4 +409,9 @@ pub trait FunctionCodeGenerator<E: Debug> {
 
     /// Finalizes the function.
     fn finalize(&mut self) -> Result<(), E>;
+
+    /// Returns the current value stack depth.
+    fn get_value_stack_depth(&self) -> Option<usize> {
+        None
+    }
 }

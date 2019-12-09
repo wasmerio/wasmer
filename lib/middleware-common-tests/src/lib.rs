@@ -234,6 +234,27 @@ mod tests {
     )
     "#;
 
+    static WAT_STACK_LIMIT_STACK_DEPTH: &'static str = r#"
+    (module
+      (func $main (export "main") (param $p0 i32) (param $p1 i32) (result i32)
+        (i32.const 0)
+        (i32.const 0)
+        (i32.const 0)
+        (call $f1)
+        (call $f1)
+        (drop)
+        (drop)
+        (return)
+      )
+      (func $f1
+        (i32.const 0)
+        (i32.const 0)
+        (drop)
+        (drop)
+      )
+    )
+    "#;
+
     fn _test_stack_limit_call_once(wat: &str, config: StackLimitConfig) -> bool {
         let wasm_binary = wat2wasm(wat).unwrap();
 
@@ -310,6 +331,32 @@ mod tests {
                 StackLimitConfig {
                     max_call_depth: Some(2),
                     max_value_stack_depth: None,
+                    max_static_slot_count: None,
+                }
+            ),
+            true
+        );
+    }
+
+    #[test]
+    fn test_stack_limit_stack_depth() {
+        assert_eq!(
+            _test_stack_limit_call_once(
+                WAT_STACK_LIMIT_STACK_DEPTH,
+                StackLimitConfig {
+                    max_call_depth: None,
+                    max_value_stack_depth: Some(4),
+                    max_static_slot_count: None,
+                }
+            ),
+            false
+        );
+        assert_eq!(
+            _test_stack_limit_call_once(
+                WAT_STACK_LIMIT_CALL_DEPTH,
+                StackLimitConfig {
+                    max_call_depth: None,
+                    max_value_stack_depth: Some(5),
                     max_static_slot_count: None,
                 }
             ),

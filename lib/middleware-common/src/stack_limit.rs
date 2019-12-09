@@ -184,6 +184,8 @@ impl FunctionMiddleware for StackLimit {
             }
             Event::Wasm(Operator::Call { .. }) | Event::Wasm(Operator::CallIndirect { .. }) => {
                 if let Some(limit) = self.config.max_value_stack_depth {
+                    // Stack sizes are statically determined and therefore it's safe to
+                    // check against the static max stack depth here.
                     if self.max_function_local_stack_depth > 0 {
                         emit_limit_check(
                             sink,

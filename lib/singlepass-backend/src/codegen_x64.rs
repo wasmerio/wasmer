@@ -8589,6 +8589,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
         Ok(())
     }
+
+    fn get_value_stack_depth(&self) -> Option<usize> {
+        Some(self.value_stack.len())
+    }
 }
 
 fn type_to_wp_type(ty: Type) -> WpType {
