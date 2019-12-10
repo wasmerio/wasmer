@@ -61,7 +61,7 @@ type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 struct UnwindInfo {
     jmpbuf: SetJmpBuffer, // in
     breakpoints: Option<BreakpointMap>,
-    payload: Option<Box<dyn Any>>, // out
+    payload: Option<Box<dyn Any + Send>>, // out
 }
 
 /// A store for boundary register preservation.
@@ -182,7 +182,7 @@ pub unsafe fn clear_wasm_interrupt() {
 pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     f: F,
     breakpoints: Option<BreakpointMap>,
-) -> Result<R, Box<dyn Any>> {
+) -> Result<R, Box<dyn Any + Send>> {
     let unwind = UNWIND.with(|x| x.get());
     let old = (*unwind).take();
     *unwind = Some(UnwindInfo {
@@ -205,7 +205,7 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
 }
 
 /// Begins an unsafe unwind.
-pub unsafe fn begin_unsafe_unwind(e: Box<dyn Any>) -> ! {
+pub unsafe fn begin_unsafe_unwind(e: Box<dyn Any + Send>) -> ! {
     let unwind = UNWIND.with(|x| x.get());
     let inner = (*unwind)
         .as_mut()
@@ -283,7 +283,7 @@ extern "C" fn signal_trap_handler(
     static ARCH: Architecture = Architecture::Aarch64;
 
     let mut should_unwind = false;
-    let mut unwind_result: Box<dyn Any> = Box::new(());
+    let mut unwind_result: Box<dyn Any + Send> = Box::new(());
 
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
@@ -307,7 +307,7 @@ extern "C" fn signal_trap_handler(
                             match ib.ty {
                                 InlineBreakpointType::Trace => {}
                                 InlineBreakpointType::Middleware => {
-                                    let out: Option<Result<(), Box<dyn Any>>> =
+                                    let out: Option<Result<(), Box<dyn Any + Send>>> =
                                         with_breakpoint_map(|bkpt_map| {
                                             bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
                                                 x(BreakpointInfo {
@@ -348,13 +348,14 @@ extern "C" fn signal_trap_handler(
             match Signal::from_c_int(signum) {
                 Ok(SIGTRAP) => {
                     // breakpoint
-                    let out: Option<Result<(), Box<dyn Any>>> = with_breakpoint_map(|bkpt_map| {
-                        bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| {
-                            x(BreakpointInfo {
-                                fault: Some(&fault),
+                    let out: Option<Result<(), Box<dyn Any + Send>>> =
+                        with_breakpoint_map(|bkpt_map| {
+                            bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| {
+                                x(BreakpointInfo {
+                                    fault: Some(&fault),
+                                })
                             })
-                        })
-                    });
+                        });
                     match out {
                         Some(Ok(())) => {
                             return false;

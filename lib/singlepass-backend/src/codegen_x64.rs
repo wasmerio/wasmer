@@ -206,7 +206,7 @@ pub struct X64FunctionCode {
     breakpoints: Option<
         HashMap<
             AssemblyOffset,
-            Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
+            Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>,
         >,
     >,
     returns: SmallVec<[WpType; 1]>,
@@ -359,7 +359,7 @@ impl RunnableModule for X64ExecutionContext {
             args: *const u64,
             rets: *mut u64,
             trap_info: *mut WasmTrapInfo,
-            user_error: *mut Option<Box<dyn Any>>,
+            user_error: *mut Option<Box<dyn Any + Send>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
@@ -533,7 +533,7 @@ impl RunnableModule for X64ExecutionContext {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
         protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
         protect_unix::trigger_trap();
     }
