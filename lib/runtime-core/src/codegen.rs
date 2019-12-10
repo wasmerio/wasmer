@@ -23,7 +23,7 @@ use wasmparser::{Operator, Type as WpType};
 
 /// A type that defines a function pointer, which is called when breakpoints occur.
 pub type BreakpointHandler =
-    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
+    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>;
 
 /// Maps instruction pointers to their breakpoint handlers.
 pub type BreakpointMap = Arc<HashMap<usize, BreakpointHandler>>;

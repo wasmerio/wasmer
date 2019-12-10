@@ -187,7 +187,7 @@ pub enum RuntimeError {
     /// Error.
     Error {
         /// Error data.
-        data: Box<dyn Any>,
+        data: Box<dyn Any + Send>,
     },
 }
 

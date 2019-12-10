@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1053](https://github.com/wasmerio/wasmer/pull/1053) For RuntimeError and breakpoints, use Box<Any + Send> instead of Box<Any>.
 - [#1052](https://github.com/wasmerio/wasmer/pull/1052) Fix minor panic and improve Error handling in singlepass backend.
 - [#1050](https://github.com/wasmerio/wasmer/pull/1050) Attach C & C++ headers to releases.
 - [#1033](https://github.com/wasmerio/wasmer/pull/1033) Set cranelift backend as default compiler backend again, require at least one backend to be enabled for Wasmer CLI

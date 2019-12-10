@@ -66,7 +66,7 @@ extern "C" {
         params: *const u64,
         results: *mut u64,
         trap_out: *mut WasmTrapInfo,
-        user_error: *mut Option<Box<dyn Any>>,
+        user_error: *mut Option<Box<dyn Any + Send>>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
@@ -427,7 +427,7 @@ impl RunnableModule for LLVMBackend {
         self.msm.clone()
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
         throw_any(Box::leak(data))
     }
 }
