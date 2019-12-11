@@ -836,7 +836,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
-            println!("{}({:?}) returned: {:?}", invoke_fn, args, result);
+            println!("{}({:?}) returned {:?}", invoke_fn, args, result);
         }
     }
 
