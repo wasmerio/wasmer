@@ -206,7 +206,7 @@ pub struct X64FunctionCode {
     breakpoints: Option<
         HashMap<
             AssemblyOffset,
-            Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>,
+            Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>,
         >,
     >,
     returns: SmallVec<[WpType; 1]>,
@@ -359,7 +359,7 @@ impl RunnableModule for X64ExecutionContext {
             args: *const u64,
             rets: *mut u64,
             trap_info: *mut WasmTrapInfo,
-            user_error: *mut Option<Box<dyn Any>>,
+            user_error: *mut Option<Box<dyn Any + Send>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
@@ -533,7 +533,7 @@ impl RunnableModule for X64ExecutionContext {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
         protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
         protect_unix::trigger_trap();
     }
@@ -944,20 +944,30 @@ impl X64FunctionCode {
         mut src: Location,
         sz_dst: Size,
         dst: Location,
-    ) {
+    ) -> Result<(), CodegenError> {
         let inner = |m: &mut Machine, a: &mut Assembler, src: Location| match dst {
-            Location::Imm32(_) | Location::Imm64(_) => unreachable!(),
+            Location::Imm32(_) | Location::Imm64(_) => {
+                return Err(CodegenError {
+                    message: format!("emit_relaxed_zx_sx dst Imm: unreachable code"),
+                })
+            }
             Location::Memory(_, _) => {
                 let tmp_dst = m.acquire_temp_gpr().unwrap();
                 op(a, sz_src, src, sz_dst, Location::GPR(tmp_dst));
                 a.emit_mov(Size::S64, Location::GPR(tmp_dst), dst);
 
                 m.release_temp_gpr(tmp_dst);
+                Ok(())
             }
             Location::GPR(_) => {
                 op(a, sz_src, src, sz_dst, dst);
+                Ok(())
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_relaxed_zx_sx dst: unreachable code"),
+                })
+            }
         };
 
         match src {
@@ -966,13 +976,18 @@ impl X64FunctionCode {
                 a.emit_mov(Size::S64, src, Location::GPR(tmp_src));
                 src = Location::GPR(tmp_src);
 
-                inner(m, a, src);
+                inner(m, a, src)?;
 
                 m.release_temp_gpr(tmp_src);
             }
-            Location::GPR(_) | Location::Memory(_, _) => inner(m, a, src),
-            _ => unreachable!(),
+            Location::GPR(_) | Location::Memory(_, _) => inner(m, a, src)?,
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_relaxed_zx_sx src: unreachable code"),
+                })
+            }
         }
+        Ok(())
     }
 
     /// Moves `src` and `dst` to valid locations for generic instructions.
@@ -1055,7 +1070,7 @@ impl X64FunctionCode {
         src1: Location,
         src2: Location,
         dst: Location,
-    ) {
+    ) -> Result<(), CodegenError> {
         Self::emit_relaxed_avx_base(
             a,
             m,
@@ -1063,7 +1078,8 @@ impl X64FunctionCode {
             src1,
             src2,
             dst,
-        )
+        )?;
+        Ok(())
     }
 
     /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
@@ -1074,7 +1090,7 @@ impl X64FunctionCode {
         src1: Location,
         src2: Location,
         dst: Location,
-    ) {
+    ) -> Result<(), CodegenError> {
         let tmp1 = m.acquire_temp_xmm().unwrap();
         let tmp2 = m.acquire_temp_xmm().unwrap();
         let tmp3 = m.acquire_temp_xmm().unwrap();
@@ -1096,7 +1112,11 @@ impl X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp1));
                 tmp1
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_relaxed_avx_base src1: unreachable code"),
+                })
+            }
         };
 
         let src2 = match src2 {
@@ -1116,7 +1136,11 @@ impl X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp2));
                 XMMOrMemory::XMM(tmp2)
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_relaxed_avx_base src2: unreachable code"),
+                })
+            }
         };
 
         match dst {
@@ -1127,13 +1151,18 @@ impl X64FunctionCode {
                 op(a, m, src1, src2, tmp3);
                 a.emit_mov(Size::S64, Location::XMM(tmp3), dst);
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_relaxed_avx_base dst: unreachable code"),
+                })
+            }
         }
 
         m.release_temp_gpr(tmpg);
         m.release_temp_xmm(tmp3);
         m.release_temp_xmm(tmp2);
         m.release_temp_xmm(tmp1);
+        Ok(())
     }
 
     /// I32 binary operation with both operands popped from the virtual stack.
@@ -1229,7 +1258,7 @@ impl X64FunctionCode {
         value_stack: &mut Vec<Location>,
         c: Condition,
         loc_b: Location,
-    ) {
+    ) -> Result<(), CodegenError> {
         // Using Red Zone here.
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
 
@@ -1252,9 +1281,14 @@ impl X64FunctionCode {
                 a.emit_mov(Size::S32, Location::GPR(tmp), ret);
                 m.release_temp_gpr(tmp);
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_cmpop_i32_dynamic_b ret: unreachable code"),
+                })
+            }
         }
         value_stack.push(ret);
+        Ok(())
     }
 
     /// I32 comparison with both operands popped from the virtual stack.
@@ -1263,9 +1297,10 @@ impl X64FunctionCode {
         m: &mut Machine,
         value_stack: &mut Vec<Location>,
         c: Condition,
-    ) {
+    ) -> Result<(), CodegenError> {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
-        Self::emit_cmpop_i32_dynamic_b(a, m, value_stack, c, loc_b);
+        Self::emit_cmpop_i32_dynamic_b(a, m, value_stack, c, loc_b)?;
+        Ok(())
     }
 
     /// I64 comparison with `loc_b` from input.
@@ -1275,7 +1310,7 @@ impl X64FunctionCode {
         value_stack: &mut Vec<Location>,
         c: Condition,
         loc_b: Location,
-    ) {
+    ) -> Result<(), CodegenError> {
         // Using Red Zone here.
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
 
@@ -1298,9 +1333,14 @@ impl X64FunctionCode {
                 a.emit_mov(Size::S32, Location::GPR(tmp), ret);
                 m.release_temp_gpr(tmp);
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_cmpop_i64_dynamic_b ret: unreachable code"),
+                })
+            }
         }
         value_stack.push(ret);
+        Ok(())
     }
 
     /// I64 comparison with both operands popped from the virtual stack.
@@ -1309,9 +1349,10 @@ impl X64FunctionCode {
         m: &mut Machine,
         value_stack: &mut Vec<Location>,
         c: Condition,
-    ) {
+    ) -> Result<(), CodegenError> {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
-        Self::emit_cmpop_i64_dynamic_b(a, m, value_stack, c, loc_b);
+        Self::emit_cmpop_i64_dynamic_b(a, m, value_stack, c, loc_b)?;
+        Ok(())
     }
 
     /// I32 `lzcnt`/`tzcnt`/`popcnt` with operand popped from the virtual stack.
@@ -1320,7 +1361,7 @@ impl X64FunctionCode {
         m: &mut Machine,
         value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, Size, Location, Location),
-    ) {
+    ) -> Result<(), CodegenError> {
         let loc = get_location_released(a, m, value_stack.pop().unwrap());
         let ret = m.acquire_locations(
             a,
@@ -1352,9 +1393,14 @@ impl X64FunctionCode {
                     f(a, Size::S32, loc, ret);
                 }
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_xcnt_i32 loc: unreachable code"),
+                })
+            }
         }
         value_stack.push(ret);
+        Ok(())
     }
 
     /// I64 `lzcnt`/`tzcnt`/`popcnt` with operand popped from the virtual stack.
@@ -1363,7 +1409,7 @@ impl X64FunctionCode {
         m: &mut Machine,
         value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, Size, Location, Location),
-    ) {
+    ) -> Result<(), CodegenError> {
         let loc = get_location_released(a, m, value_stack.pop().unwrap());
         let ret = m.acquire_locations(
             a,
@@ -1395,9 +1441,14 @@ impl X64FunctionCode {
                     f(a, Size::S64, loc, ret);
                 }
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_xcnt_i64 loc: unreachable code"),
+                })
+            }
         }
         value_stack.push(ret);
+        Ok(())
     }
 
     /// I32 shift with both operands popped from the virtual stack.
@@ -1456,7 +1507,7 @@ impl X64FunctionCode {
         m: &mut Machine,
         value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
-    ) {
+    ) -> Result<(), CodegenError> {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
         let ret = m.acquire_locations(
@@ -1466,7 +1517,8 @@ impl X64FunctionCode {
         )[0];
         value_stack.push(ret);
 
-        Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret);
+        Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret)?;
+        Ok(())
     }
 
     /// Floating point (AVX) comparison with both operands popped from the virtual stack.
@@ -1475,7 +1527,7 @@ impl X64FunctionCode {
         m: &mut Machine,
         value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
-    ) {
+    ) -> Result<(), CodegenError> {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
         let ret = m.acquire_locations(
@@ -1485,11 +1537,12 @@ impl X64FunctionCode {
         )[0];
         value_stack.push(ret);
 
-        Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret);
+        Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret)?;
 
         // Workaround for behavior inconsistency among different backing implementations.
         // (all bits or only the least significant bit are set to one?)
         a.emit_and(Size::S32, Location::Imm32(1), ret);
+        Ok(())
     }
 
     /// Floating point (AVX) binary operation with both operands popped from the virtual stack.
@@ -1498,7 +1551,7 @@ impl X64FunctionCode {
         m: &mut Machine,
         value_stack: &mut Vec<Location>,
         f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
-    ) {
+    ) -> Result<(), CodegenError> {
         let loc = get_location_released(a, m, value_stack.pop().unwrap());
         let ret = m.acquire_locations(
             a,
@@ -1507,7 +1560,8 @@ impl X64FunctionCode {
         )[0];
         value_stack.push(ret);
 
-        Self::emit_relaxed_avx(a, m, f, loc, loc, ret);
+        Self::emit_relaxed_avx(a, m, f, loc, loc, ret)?;
+        Ok(())
     }
 
     /// Emits a System V call sequence.
@@ -1519,7 +1573,7 @@ impl X64FunctionCode {
         cb: F,
         params: I,
         state_context: Option<(&mut FunctionStateMap, &mut [ControlFrame])>,
-    ) {
+    ) -> Result<(), CodegenError> {
         // Values pushed in this function are above the shadow region.
         m.state.stack_values.push(MachineValue::ExplicitShadow);
 
@@ -1530,7 +1584,11 @@ impl X64FunctionCode {
         for r in used_gprs.iter() {
             a.emit_push(Size::S64, Location::GPR(*r));
             let content = m.state.register_values[X64Register::GPR(*r).to_index().0].clone();
-            assert!(content != MachineValue::Undefined);
+            if content == MachineValue::Undefined {
+                return Err(CodegenError {
+                    message: format!("emit_call_sysv: Undefined used_gprs content"),
+                });
+            }
             m.state.stack_values.push(content);
         }
 
@@ -1555,7 +1613,11 @@ impl X64FunctionCode {
             }
             for r in used_xmms.iter().rev() {
                 let content = m.state.register_values[X64Register::XMM(*r).to_index().0].clone();
-                assert!(content != MachineValue::Undefined);
+                if content == MachineValue::Undefined {
+                    return Err(CodegenError {
+                        message: format!("emit_call_sysv: Undefined used_xmms content"),
+                    });
+                }
                 m.state.stack_values.push(content);
             }
         }
@@ -1610,7 +1672,9 @@ impl X64FunctionCode {
                         }
                         Location::Memory(reg, offset) => {
                             if reg != GPR::RBP {
-                                unreachable!();
+                                return Err(CodegenError {
+                                    message: format!("emit_call_sysv loc param: unreachable code"),
+                                });
                             }
                             m.state
                                 .stack_values
@@ -1656,7 +1720,11 @@ impl X64FunctionCode {
                         _ => a.emit_push(Size::S64, *param),
                     }
                 }
-                _ => unreachable!(),
+                _ => {
+                    return Err(CodegenError {
+                        message: format!("emit_call_sysv loc: unreachable code"),
+                    })
+                }
             }
         }
 
@@ -1677,7 +1745,11 @@ impl X64FunctionCode {
             Machine::get_param_location(0),
         ); // vmctx
 
-        assert!(m.state.stack_values.len() % 2 == 1); // explicit shadow takes one slot
+        if (m.state.stack_values.len() % 2) != 1 {
+            return Err(CodegenError {
+                message: format!("emit_call_sysv: explicit shadow takes one slot"),
+            });
+        }
 
         cb(a);
 
@@ -1704,7 +1776,11 @@ impl X64FunctionCode {
                 Location::Imm32(stack_offset as u32),
                 Location::GPR(GPR::RSP),
             );
-            assert!(stack_offset % 8 == 0);
+            if (stack_offset % 8) != 0 {
+                return Err(CodegenError {
+                    message: format!("emit_call_sysv: Bad restoring stack alignement"),
+                });
+            }
             for _ in 0..stack_offset / 8 {
                 m.state.stack_values.pop().unwrap();
             }
@@ -1737,10 +1813,12 @@ impl X64FunctionCode {
             m.state.stack_values.pop().unwrap();
         }
 
-        assert_eq!(
-            m.state.stack_values.pop().unwrap(),
-            MachineValue::ExplicitShadow
-        );
+        if m.state.stack_values.pop().unwrap() != MachineValue::ExplicitShadow {
+            return Err(CodegenError {
+                message: format!("emit_call_sysv: Popped value is not ExplicitShadow"),
+            });
+        }
+        Ok(())
     }
 
     /// Emits a System V call sequence, specialized for labels as the call target.
@@ -1750,12 +1828,13 @@ impl X64FunctionCode {
         label: DynamicLabel,
         params: I,
         state_context: Option<(&mut FunctionStateMap, &mut [ControlFrame])>,
-    ) {
-        Self::emit_call_sysv(a, m, |a| a.emit_call_label(label), params, state_context)
+    ) -> Result<(), CodegenError> {
+        Self::emit_call_sysv(a, m, |a| a.emit_call_label(label), params, state_context)?;
+        Ok(())
     }
 
     /// Emits a memory operation.
-    fn emit_memory_op<F: FnOnce(&mut Assembler, &mut Machine, GPR)>(
+    fn emit_memory_op<F: FnOnce(&mut Assembler, &mut Machine, GPR) -> Result<(), CodegenError>>(
         module_info: &ModuleInfo,
         config: &CodegenConfig,
         a: &mut Assembler,
@@ -1765,7 +1844,7 @@ impl X64FunctionCode {
         check_alignment: bool,
         value_size: usize,
         cb: F,
-    ) {
+    ) -> Result<(), CodegenError> {
         // If the memory is dynamic, we need to do bound checking at runtime.
         let mem_desc = match MemoryIndex::new(0).local_or_import(module_info) {
             LocalOrImport::Local(local_mem_index) => &module_info.memories[local_mem_index],
@@ -1855,7 +1934,11 @@ impl X64FunctionCode {
             1 => 2,
             2 => 4,
             3 => 8,
-            _ => unreachable!("this match is fully covered"),
+            _ => {
+                return Err(CodegenError {
+                    message: format!("emit_memory_op align: unreachable value"),
+                })
+            }
         };
         if check_alignment && align != 1 {
             let tmp_aligncheck = m.acquire_temp_gpr().unwrap();
@@ -1873,9 +1956,10 @@ impl X64FunctionCode {
             m.release_temp_gpr(tmp_aligncheck);
         }
 
-        cb(a, m, tmp_addr);
+        cb(a, m, tmp_addr)?;
 
         m.release_temp_gpr(tmp_addr);
+        Ok(())
     }
 
     /// Emits a memory operation.
@@ -1892,8 +1976,12 @@ impl X64FunctionCode {
         memory_sz: Size,
         stack_sz: Size,
         cb: F,
-    ) {
-        assert!(memory_sz <= stack_sz);
+    ) -> Result<(), CodegenError> {
+        if memory_sz > stack_sz {
+            return Err(CodegenError {
+                message: format!("emit_compare_and_swap: memory size > stac size"),
+            });
+        }
 
         let compare = m.reserve_unused_temp_gpr(GPR::RAX);
         let value = if loc == Location::GPR(GPR::R14) {
@@ -1922,13 +2010,15 @@ impl X64FunctionCode {
                 a.emit_mov(stack_sz, Location::GPR(compare), ret);
                 cb(a, m, compare, value);
                 a.emit_lock_cmpxchg(memory_sz, Location::GPR(value), Location::Memory(addr, 0));
+                Ok(())
             },
-        );
+        )?;
 
         a.emit_jmp(Condition::NotEqual, retry);
 
         a.emit_pop(Size::S64, Location::GPR(value));
         m.release_temp_gpr(compare);
+        Ok(())
     }
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
@@ -2149,8 +2239,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Location::GPR(GPR::RAX),
         );
 
-        assert_eq!(self.machine.state.wasm_inst_offset, usize::MAX);
-
+        if self.machine.state.wasm_inst_offset != usize::MAX {
+            return Err(CodegenError {
+                message: format!("begin_body: wasm_inst_offset not usize::MAX"),
+            });
+        }
         Ok(())
     }
 
@@ -2228,7 +2321,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     }
                     InternalEvent::GetInternal(idx) => {
                         let idx = idx as usize;
-                        assert!(idx < INTERNALS_SIZE);
+                        if idx >= INTERNALS_SIZE {
+                            return Err(CodegenError {
+                                message: format!("GetInternal: incorrect index value"),
+                            });
+                        }
 
                         let tmp = self.machine.acquire_temp_gpr().unwrap();
 
@@ -2263,7 +2360,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     }
                     InternalEvent::SetInternal(idx) => {
                         let idx = idx as usize;
-                        assert!(idx < INTERNALS_SIZE);
+                        if idx >= INTERNALS_SIZE {
+                            return Err(CodegenError {
+                                message: format!("SetInternal: incorrect index value"),
+                            });
+                        }
 
                         let tmp = self.machine.acquire_temp_gpr().unwrap();
 
@@ -2384,7 +2485,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     );
                 } else {
                     global_index -= module_info.imported_globals.len();
-                    assert!(global_index < module_info.globals.len());
+                    if global_index >= module_info.globals.len() {
+                        return Err(CodegenError {
+                            message: format!("SetGlobal: incorrect global_index value"),
+                        });
+                    }
                     a.emit_mov(
                         Size::S64,
                         Location::Memory(
@@ -2630,20 +2735,20 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Equal,
-            ),
+            )?,
             Operator::I32Ne => Self::emit_cmpop_i32(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::NotEqual,
-            ),
+            )?,
             Operator::I32Eqz => Self::emit_cmpop_i32_dynamic_b(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Equal,
                 Location::Imm32(0),
-            ),
+            )?,
             Operator::I32Clz => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
@@ -2654,7 +2759,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         tmp
                     }
                     Location::GPR(reg) => reg,
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("I32Clz src: unreachable code"),
+                        })
+                    }
                 };
 
                 let ret = self.machine.acquire_locations(
@@ -2667,7 +2776,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let dst = match ret {
                     Location::Memory(_, _) => self.machine.acquire_temp_gpr().unwrap(),
                     Location::GPR(reg) => reg,
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("I32Clz dst: unreachable code"),
+                        })
+                    }
                 };
 
                 if a.arch_has_xzcnt() {
@@ -2710,7 +2823,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         tmp
                     }
                     Location::GPR(reg) => reg,
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("I32Ctz src: unreachable code"),
+                        })
+                    }
                 };
 
                 let ret = self.machine.acquire_locations(
@@ -2723,7 +2840,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let dst = match ret {
                     Location::Memory(_, _) => self.machine.acquire_temp_gpr().unwrap(),
                     Location::GPR(reg) => reg,
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("I32Ctz dst: unreachable code"),
+                        })
+                    }
                 };
 
                 if a.arch_has_xzcnt() {
@@ -2760,7 +2881,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_popcnt,
-            ),
+            )?,
             Operator::I32Shl => Self::emit_shift_i32(
                 a,
                 &mut self.machine,
@@ -2796,46 +2917,46 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Below,
-            ),
+            )?,
             Operator::I32LeU => Self::emit_cmpop_i32(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::BelowEqual,
-            ),
+            )?,
             Operator::I32GtU => Self::emit_cmpop_i32(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Above,
-            ),
+            )?,
             Operator::I32GeU => Self::emit_cmpop_i32(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::AboveEqual,
-            ),
+            )?,
             Operator::I32LtS => {
-                Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Less)
+                Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Less)?;
             }
             Operator::I32LeS => Self::emit_cmpop_i32(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::LessEqual,
-            ),
+            )?,
             Operator::I32GtS => Self::emit_cmpop_i32(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Greater,
-            ),
+            )?,
             Operator::I32GeS => Self::emit_cmpop_i32(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::GreaterEqual,
-            ),
+            )?,
             Operator::I64Const { value } => {
                 let value = value as u64;
                 self.value_stack.push(Location::Imm64(value));
@@ -3020,20 +3141,20 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Equal,
-            ),
+            )?,
             Operator::I64Ne => Self::emit_cmpop_i64(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::NotEqual,
-            ),
+            )?,
             Operator::I64Eqz => Self::emit_cmpop_i64_dynamic_b(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Equal,
                 Location::Imm64(0),
-            ),
+            )?,
             Operator::I64Clz => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
@@ -3044,7 +3165,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         tmp
                     }
                     Location::GPR(reg) => reg,
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("I64Clz src: unreachable code"),
+                        })
+                    }
                 };
 
                 let ret = self.machine.acquire_locations(
@@ -3057,7 +3182,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let dst = match ret {
                     Location::Memory(_, _) => self.machine.acquire_temp_gpr().unwrap(),
                     Location::GPR(reg) => reg,
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("I64Clz dst: unreachable code"),
+                        })
+                    }
                 };
 
                 if a.arch_has_xzcnt() {
@@ -3100,7 +3229,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         tmp
                     }
                     Location::GPR(reg) => reg,
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("I64Ctz src: unreachable code"),
+                        })
+                    }
                 };
 
                 let ret = self.machine.acquire_locations(
@@ -3113,7 +3246,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let dst = match ret {
                     Location::Memory(_, _) => self.machine.acquire_temp_gpr().unwrap(),
                     Location::GPR(reg) => reg,
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("I64Ctz dst: unreachable code"),
+                        })
+                    }
                 };
 
                 if a.arch_has_xzcnt() {
@@ -3150,7 +3287,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_popcnt,
-            ),
+            )?,
             Operator::I64Shl => Self::emit_shift_i64(
                 a,
                 &mut self.machine,
@@ -3186,46 +3323,46 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Below,
-            ),
+            )?,
             Operator::I64LeU => Self::emit_cmpop_i64(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::BelowEqual,
-            ),
+            )?,
             Operator::I64GtU => Self::emit_cmpop_i64(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Above,
-            ),
+            )?,
             Operator::I64GeU => Self::emit_cmpop_i64(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::AboveEqual,
-            ),
+            )?,
             Operator::I64LtS => {
-                Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::Less)
+                Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::Less)?;
             }
             Operator::I64LeS => Self::emit_cmpop_i64(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::LessEqual,
-            ),
+            )?,
             Operator::I64GtS => Self::emit_cmpop_i64(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::Greater,
-            ),
+            )?,
             Operator::I64GeS => Self::emit_cmpop_i64(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Condition::GreaterEqual,
-            ),
+            )?,
             Operator::I64ExtendUI32 => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
@@ -3261,7 +3398,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Size::S64,
                     ret,
-                );
+                )?;
             }
             Operator::I32Extend8S => {
                 let loc =
@@ -3281,7 +3418,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Size::S32,
                     ret,
-                );
+                )?;
             }
             Operator::I32Extend16S => {
                 let loc =
@@ -3301,7 +3438,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Size::S32,
                     ret,
-                );
+                )?;
             }
             Operator::I64Extend8S => {
                 let loc =
@@ -3321,7 +3458,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Size::S64,
                     ret,
-                );
+                )?;
             }
             Operator::I64Extend16S => {
                 let loc =
@@ -3341,7 +3478,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Size::S64,
                     ret,
-                );
+                )?;
             }
             Operator::I64Extend32S => {
                 let loc =
@@ -3361,7 +3498,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Size::S64,
                     ret,
-                );
+                )?;
             }
             Operator::I32WrapI64 => {
                 let loc =
@@ -3394,25 +3531,25 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vaddss,
-            ),
+            )?,
             Operator::F32Sub => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vsubss,
-            ),
+            )?,
             Operator::F32Mul => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vmulss,
-            ),
+            )?,
             Operator::F32Div => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vdivss,
-            ),
+            )?,
             Operator::F32Max => {
                 if !a.arch_supports_canonicalize_nan() {
                     Self::emit_fp_binop_avx(
@@ -3420,7 +3557,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         &mut self.machine,
                         &mut self.value_stack,
                         Assembler::emit_vmaxss,
-                    );
+                    )?;
                 } else {
                     let src2 = get_location_released(
                         a,
@@ -3460,7 +3597,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
                             tmp1
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F32Max src1: unreachable code"),
+                            })
+                        }
                     };
                     let src2 = match src2 {
                         Location::XMM(x) => x,
@@ -3478,7 +3619,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
                             tmp2
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F32Max src2: unreachable code"),
+                            })
+                        }
                     };
 
                     let tmp_xmm1 = XMM::XMM8;
@@ -3515,7 +3660,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Location::Memory(_, _) | Location::GPR(_) => {
                             a.emit_mov(Size::S64, Location::XMM(src1), ret);
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F32Max ret: unreachable code"),
+                            })
+                        }
                     }
 
                     self.machine.release_temp_gpr(tmpg2);
@@ -3531,7 +3680,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         &mut self.machine,
                         &mut self.value_stack,
                         Assembler::emit_vminss,
-                    );
+                    )?;
                 } else {
                     let src2 = get_location_released(
                         a,
@@ -3571,7 +3720,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
                             tmp1
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F32Min src1: unreachable code"),
+                            })
+                        }
                     };
                     let src2 = match src2 {
                         Location::XMM(x) => x,
@@ -3589,7 +3742,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
                             tmp2
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F32Min src2: unreachable code"),
+                            })
+                        }
                     };
 
                     let tmp_xmm1 = XMM::XMM8;
@@ -3632,7 +3789,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Location::Memory(_, _) | Location::GPR(_) => {
                             a.emit_mov(Size::S64, Location::XMM(src1), ret);
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F32Min ret: unreachable code"),
+                            })
+                        }
                     }
 
                     self.machine.release_temp_gpr(tmpg2);
@@ -3646,67 +3807,67 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpeqss,
-            ),
+            )?,
             Operator::F32Ne => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpneqss,
-            ),
+            )?,
             Operator::F32Lt => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpltss,
-            ),
+            )?,
             Operator::F32Le => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpless,
-            ),
+            )?,
             Operator::F32Gt => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpgtss,
-            ),
+            )?,
             Operator::F32Ge => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpgess,
-            ),
+            )?,
             Operator::F32Nearest => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vroundss_nearest,
-            ),
+            )?,
             Operator::F32Floor => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vroundss_floor,
-            ),
+            )?,
             Operator::F32Ceil => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vroundss_ceil,
-            ),
+            )?,
             Operator::F32Trunc => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vroundss_trunc,
-            ),
+            )?,
             Operator::F32Sqrt => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vsqrtss,
-            ),
+            )?,
 
             Operator::F32Copysign => {
                 let loc_b =
@@ -3811,25 +3972,25 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vaddsd,
-            ),
+            )?,
             Operator::F64Sub => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vsubsd,
-            ),
+            )?,
             Operator::F64Mul => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vmulsd,
-            ),
+            )?,
             Operator::F64Div => Self::emit_fp_binop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vdivsd,
-            ),
+            )?,
             Operator::F64Max => {
                 if !a.arch_supports_canonicalize_nan() {
                     Self::emit_fp_binop_avx(
@@ -3837,7 +3998,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         &mut self.machine,
                         &mut self.value_stack,
                         Assembler::emit_vmaxsd,
-                    );
+                    )?;
                 } else {
                     let src2 = get_location_released(
                         a,
@@ -3877,7 +4038,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
                             tmp1
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F64Max src1: unreachable code"),
+                            })
+                        }
                     };
                     let src2 = match src2 {
                         Location::XMM(x) => x,
@@ -3895,7 +4060,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
                             tmp2
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F64Max src2: unreachable code"),
+                            })
+                        }
                     };
 
                     let tmp_xmm1 = XMM::XMM8;
@@ -3932,7 +4101,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Location::Memory(_, _) | Location::GPR(_) => {
                             a.emit_mov(Size::S64, Location::XMM(src1), ret);
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F64Max ret: unreachable code"),
+                            })
+                        }
                     }
 
                     self.machine.release_temp_gpr(tmpg2);
@@ -3948,7 +4121,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         &mut self.machine,
                         &mut self.value_stack,
                         Assembler::emit_vminsd,
-                    );
+                    )?;
                 } else {
                     let src2 = get_location_released(
                         a,
@@ -3988,7 +4161,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
                             tmp1
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F64Min src1: unreachable code"),
+                            })
+                        }
                     };
                     let src2 = match src2 {
                         Location::XMM(x) => x,
@@ -4006,7 +4183,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
                             tmp2
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F64Min src2: unreachable code"),
+                            })
+                        }
                     };
 
                     let tmp_xmm1 = XMM::XMM8;
@@ -4049,7 +4230,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         Location::Memory(_, _) | Location::GPR(_) => {
                             a.emit_mov(Size::S64, Location::XMM(src1), ret);
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("F64Min ret: unreachable code"),
+                            })
+                        }
                     }
 
                     self.machine.release_temp_gpr(tmpg2);
@@ -4063,67 +4248,67 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpeqsd,
-            ),
+            )?,
             Operator::F64Ne => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpneqsd,
-            ),
+            )?,
             Operator::F64Lt => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpltsd,
-            ),
+            )?,
             Operator::F64Le => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmplesd,
-            ),
+            )?,
             Operator::F64Gt => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpgtsd,
-            ),
+            )?,
             Operator::F64Ge => Self::emit_fp_cmpop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcmpgesd,
-            ),
+            )?,
             Operator::F64Nearest => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vroundsd_nearest,
-            ),
+            )?,
             Operator::F64Floor => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vroundsd_floor,
-            ),
+            )?,
             Operator::F64Ceil => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vroundsd_ceil,
-            ),
+            )?,
             Operator::F64Trunc => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vroundsd_trunc,
-            ),
+            )?,
             Operator::F64Sqrt => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vsqrtsd,
-            ),
+            )?,
 
             Operator::F64Copysign => {
                 let loc_b =
@@ -4235,13 +4420,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcvtss2sd,
-            ),
+            )?,
             Operator::F32DemoteF64 => Self::emit_fp_unop_avx(
                 a,
                 &mut self.machine,
                 &mut self.value_stack,
                 Assembler::emit_vcvtsd2ss,
-            ),
+            )?,
 
             Operator::I32ReinterpretF32 => {
                 let loc =
@@ -5264,7 +5449,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     label,
                     params.iter().map(|x| *x),
                     Some((&mut self.fsm, &mut self.control_stack)),
-                );
+                )?;
 
                 self.machine.release_locations_only_stack(a, &params);
 
@@ -5282,7 +5467,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
             Operator::CallIndirect { index, table_index } => {
-                assert_eq!(table_index, 0);
+                if table_index != 0 {
+                    return Err(CodegenError {
+                        message: format!("CallIndirect: table_index is not 0"),
+                    });
+                }
                 let sig = self.signatures.get(SigIndex::new(index as usize)).unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().cloned().map(type_to_wp_type).collect();
@@ -5389,7 +5578,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                     params.iter().map(|x| *x),
                     Some((&mut self.fsm, &mut self.control_stack)),
-                );
+                )?;
 
                 self.machine.release_locations_only_stack(a, &params);
 
@@ -5422,7 +5611,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: format!("multi-value returns not yet implemented"),
+                                message: format!("If: multi-value returns not yet implemented"),
                             })
                         }
                     },
@@ -5470,7 +5659,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_label(label);
                         frame.if_else = IfElseState::Else;
                     }
-                    _ => unreachable!(),
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!("Else: frame.if_else unreachable code"),
+                        })
+                    }
                 }
             }
             Operator::Select => {
@@ -5533,7 +5726,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: format!("multi-value returns not yet implemented"),
+                                message: format!("Block: multi-value returns not yet implemented"),
                             })
                         }
                     },
@@ -5562,7 +5755,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: format!("multi-value returns not yet implemented"),
+                                message: format!("Loop: multi-value returns not yet implemented"),
                             })
                         }
                     },
@@ -5629,7 +5822,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                     iter::once(Location::Imm32(memory_index.index() as u32)),
                     None,
-                );
+                )?;
                 let ret = self.machine.acquire_locations(
                     a,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5675,7 +5868,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     iter::once(Location::Imm32(memory_index.index() as u32))
                         .chain(iter::once(param_pages)),
                     None,
-                );
+                )?;
 
                 self.machine.release_locations_only_stack(a, &[param_pages]);
 
@@ -5715,8 +5908,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             ret,
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::F32Load { ref memarg } => {
                 let target =
@@ -5746,8 +5940,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             ret,
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32Load8U { ref memarg } => {
                 let target =
@@ -5777,9 +5972,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S32,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32Load8S { ref memarg } => {
                 let target =
@@ -5809,9 +6005,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S32,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32Load16U { ref memarg } => {
                 let target =
@@ -5841,9 +6038,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S32,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32Load16S { ref memarg } => {
                 let target =
@@ -5873,9 +6071,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S32,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32Store { ref memarg } => {
                 let target_value =
@@ -5901,8 +6100,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::F32Store { ref memarg } => {
                 let target_value =
@@ -5928,8 +6128,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32Store8 { ref memarg } => {
                 let target_value =
@@ -5955,8 +6156,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32Store16 { ref memarg } => {
                 let target_value =
@@ -5982,8 +6184,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Load { ref memarg } => {
                 let target =
@@ -6013,8 +6216,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             ret,
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::F64Load { ref memarg } => {
                 let target =
@@ -6044,8 +6248,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             ret,
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Load8U { ref memarg } => {
                 let target =
@@ -6075,9 +6280,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S64,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Load8S { ref memarg } => {
                 let target =
@@ -6107,9 +6313,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S64,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Load16U { ref memarg } => {
                 let target =
@@ -6139,9 +6346,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S64,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Load16S { ref memarg } => {
                 let target =
@@ -6171,9 +6379,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S64,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Load32U { ref memarg } => {
                 let target =
@@ -6204,7 +6413,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                                     Location::Memory(base, offset + 4),
                                 ); // clear upper bits
                             }
-                            _ => unreachable!(),
+                            _ => {
+                                return Err(CodegenError {
+                                    message: format!("I64Load32U ret: unreachable code"),
+                                })
+                            }
                         }
                         Self::emit_relaxed_binop(
                             a,
@@ -6214,8 +6427,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             ret,
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Load32S { ref memarg } => {
                 let target =
@@ -6245,9 +6459,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S64,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Store { ref memarg } => {
                 let target_value =
@@ -6273,8 +6488,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::F64Store { ref memarg } => {
                 let target_value =
@@ -6300,8 +6516,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Store8 { ref memarg } => {
                 let target_value =
@@ -6327,8 +6544,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Store16 { ref memarg } => {
                 let target_value =
@@ -6354,8 +6572,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64Store32 { ref memarg } => {
                 let target_value =
@@ -6381,8 +6600,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::Unreachable => {
                 Self::mark_trappable(a, &self.machine, &mut self.fsm, &mut self.control_stack);
@@ -6392,7 +6612,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Operator::Return => {
                 let frame = &self.control_stack[0];
                 if frame.returns.len() > 0 {
-                    assert_eq!(frame.returns.len(), 1);
+                    if frame.returns.len() != 1 {
+                        return Err(CodegenError {
+                            message: format!("Return: incorrect frame.returns"),
+                        });
+                    }
                     let loc = *self.value_stack.last().unwrap();
                     Self::emit_relaxed_binop(
                         a,
@@ -6412,7 +6636,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && frame.returns.len() > 0 {
-                    assert_eq!(frame.returns.len(), 1);
+                    if frame.returns.len() != 1 {
+                        return Err(CodegenError {
+                            message: format!("Br: incorrect frame.returns"),
+                        });
+                    }
                     let loc = *self.value_stack.last().unwrap();
                     a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                 }
@@ -6438,7 +6666,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && frame.returns.len() > 0 {
-                    assert_eq!(frame.returns.len(), 1);
+                    if frame.returns.len() != 1 {
+                        return Err(CodegenError {
+                            message: format!("BrIf: incorrect frame.returns"),
+                        });
+                    }
                     let loc = *self.value_stack.last().unwrap();
                     a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                 }
@@ -6449,7 +6681,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_label(after);
             }
             Operator::BrTable { ref table } => {
-                let (targets, default_target) = table.read_table().unwrap();
+                let (targets, default_target) = table.read_table().map_err(|e| CodegenError {
+                    message: format!("BrTable read_table: {:?}", e),
+                })?;
                 let cond =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let table_label = a.get_label();
@@ -6480,7 +6714,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     if !frame.loop_like && frame.returns.len() > 0 {
-                        assert_eq!(frame.returns.len(), 1);
+                        if frame.returns.len() != 1 {
+                            return Err(CodegenError {
+                                message: format!(
+                                    "BrTable: incorrect frame.returns for {:?}",
+                                    target
+                                ),
+                            });
+                        }
                         let loc = *self.value_stack.last().unwrap();
                         a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                     }
@@ -6494,7 +6735,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
                     if !frame.loop_like && frame.returns.len() > 0 {
-                        assert_eq!(frame.returns.len(), 1);
+                        if frame.returns.len() != 1 {
+                            return Err(CodegenError {
+                                message: format!("BrTable: incorrect frame.returns"),
+                            });
+                        }
                         let loc = *self.value_stack.last().unwrap();
                         a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                     }
@@ -6547,7 +6792,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     }
 
                     if frame.returns.len() > 0 {
-                        assert_eq!(frame.returns.len(), 1);
+                        if frame.returns.len() != 1 {
+                            return Err(CodegenError {
+                                message: format!("End: incorrect frame.returns"),
+                            });
+                        }
                         let loc = self.machine.acquire_locations(
                             a,
                             &[(
@@ -6598,8 +6847,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             ret,
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
                 let target =
@@ -6629,9 +6879,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S32,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32AtomicLoad16U { ref memarg } => {
                 let target =
@@ -6661,9 +6912,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S32,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32AtomicStore { ref memarg } => {
                 let target_value =
@@ -6689,8 +6941,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32AtomicStore8 { ref memarg } => {
                 let target_value =
@@ -6716,8 +6969,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32AtomicStore16 { ref memarg } => {
                 let target_value =
@@ -6743,8 +6997,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64AtomicLoad { ref memarg } => {
                 let target =
@@ -6774,8 +7029,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             ret,
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64AtomicLoad8U { ref memarg } => {
                 let target =
@@ -6805,9 +7061,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S64,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64AtomicLoad16U { ref memarg } => {
                 let target =
@@ -6837,9 +7094,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             Size::S64,
                             ret,
-                        );
+                        )?;
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64AtomicLoad32U { ref memarg } => {
                 let target =
@@ -6870,7 +7128,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                                     Location::Memory(base, offset + 4),
                                 ); // clear upper bits
                             }
-                            _ => unreachable!(),
+                            _ => {
+                                return Err(CodegenError {
+                                    message: format!("I64AtomicLoad32U ret: unreachable code"),
+                                })
+                            }
                         }
                         Self::emit_relaxed_binop(
                             a,
@@ -6880,8 +7142,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                             ret,
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64AtomicStore { ref memarg } => {
                 let target_value =
@@ -6907,8 +7170,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64AtomicStore8 { ref memarg } => {
                 let target_value =
@@ -6934,8 +7198,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64AtomicStore16 { ref memarg } => {
                 let target_value =
@@ -6961,8 +7226,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I64AtomicStore32 { ref memarg } => {
                 let target_value =
@@ -6988,8 +7254,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             target_value,
                             Location::Memory(addr, 0),
                         );
+                        Ok(())
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmwAdd { ref memarg } => {
                 let loc =
@@ -7015,9 +7282,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     4,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7045,9 +7317,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     8,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S64, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S64,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7075,9 +7352,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     1,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7105,9 +7383,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     2,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7135,9 +7418,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     1,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7165,9 +7449,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     2,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7195,9 +7484,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     4,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7226,9 +7520,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     4,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7257,9 +7556,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     8,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S64, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S64,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7288,9 +7592,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     1,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7319,9 +7624,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     2,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7350,9 +7660,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     1,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7381,9 +7692,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     2,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7412,9 +7728,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     2,
                     |a, _m, addr| {
-                        a.emit_lock_xadd(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_lock_xadd(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -7445,7 +7766,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmwAnd { ref memarg } => {
                 let loc =
@@ -7474,7 +7795,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmw8UAnd { ref memarg } => {
                 let loc =
@@ -7503,7 +7824,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmw16UAnd { ref memarg } => {
                 let loc =
@@ -7532,7 +7853,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw8UAnd { ref memarg } => {
                 let loc =
@@ -7561,7 +7882,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw16UAnd { ref memarg } => {
                 let loc =
@@ -7590,7 +7911,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw32UAnd { ref memarg } => {
                 let loc =
@@ -7619,7 +7940,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmwOr { ref memarg } => {
                 let loc =
@@ -7648,7 +7969,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmwOr { ref memarg } => {
                 let loc =
@@ -7677,7 +7998,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmw8UOr { ref memarg } => {
                 let loc =
@@ -7706,7 +8027,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmw16UOr { ref memarg } => {
                 let loc =
@@ -7735,7 +8056,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw8UOr { ref memarg } => {
                 let loc =
@@ -7764,7 +8085,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw16UOr { ref memarg } => {
                 let loc =
@@ -7793,7 +8114,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw32UOr { ref memarg } => {
                 let loc =
@@ -7822,7 +8143,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmwXor { ref memarg } => {
                 let loc =
@@ -7851,7 +8172,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmwXor { ref memarg } => {
                 let loc =
@@ -7880,7 +8201,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmw8UXor { ref memarg } => {
                 let loc =
@@ -7909,7 +8230,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmw16UXor { ref memarg } => {
                 let loc =
@@ -7938,7 +8259,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw8UXor { ref memarg } => {
                 let loc =
@@ -7967,7 +8288,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw16UXor { ref memarg } => {
                 let loc =
@@ -7996,7 +8317,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I64AtomicRmw32UXor { ref memarg } => {
                 let loc =
@@ -8025,7 +8346,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     |a, _m, src, dst| {
                         a.emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
-                );
+                )?;
             }
             Operator::I32AtomicRmwXchg { ref memarg } => {
                 let loc =
@@ -8051,9 +8372,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     4,
                     |a, _m, addr| {
-                        a.emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -8081,9 +8403,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     8,
                     |a, _m, addr| {
-                        a.emit_xchg(Size::S64, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_xchg(Size::S64, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -8111,9 +8434,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     1,
                     |a, _m, addr| {
-                        a.emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -8141,9 +8465,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     2,
                     |a, _m, addr| {
-                        a.emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -8171,9 +8496,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     1,
                     |a, _m, addr| {
-                        a.emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -8201,9 +8527,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     2,
                     |a, _m, addr| {
-                        a.emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -8231,9 +8558,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     true,
                     4,
                     |a, _m, addr| {
-                        a.emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
+                        a.emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0));
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
@@ -8281,8 +8609,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                         );
                         a.emit_mov(Size::S32, Location::GPR(compare), ret);
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
@@ -8330,8 +8659,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                         );
                         a.emit_mov(Size::S64, Location::GPR(compare), ret);
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
@@ -8379,8 +8709,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                         );
                         a.emit_movzx(Size::S8, Location::GPR(compare), Size::S32, ret);
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
@@ -8428,8 +8759,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                         );
                         a.emit_movzx(Size::S16, Location::GPR(compare), Size::S32, ret);
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
@@ -8477,8 +8809,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                         );
                         a.emit_movzx(Size::S8, Location::GPR(compare), Size::S64, ret);
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
@@ -8526,8 +8859,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                         );
                         a.emit_movzx(Size::S16, Location::GPR(compare), Size::S64, ret);
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
@@ -8575,8 +8909,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(addr, 0),
                         );
                         a.emit_mov(Size::S32, Location::GPR(compare), ret);
+                        Ok(())
                     },
-                );
+                )?;
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }

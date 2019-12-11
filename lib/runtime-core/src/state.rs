@@ -652,7 +652,7 @@ pub mod x64 {
         image: InstanceImage,
         vmctx: &mut Ctx,
         breakpoints: Option<BreakpointMap>,
-    ) -> Result<u64, Box<dyn Any>> {
+    ) -> Result<u64, Box<dyn Any + Send>> {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
         let mut stack_offset: usize = stack.len();
 
