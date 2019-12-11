@@ -8,12 +8,12 @@ pub fn is_wasm_binary(binary: &[u8]) -> bool {
     binary.starts_with(&[b'\0', b'a', b's', b'm'])
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum InvokeError {
     CouldNotFindFunction,
     ExportNotFunction,
     WrongNumArgs { expected: u16, found: u16 },
-    CouldNotParseArgs,
+    CouldNotParseArg(String),
 }
 
 /// Parses arguments for the `--invoke` flag on the run command
@@ -40,6 +40,7 @@ pub fn parse_args(
     };
 
     let parameter_types = signature.params();
+    let mut arg_error = None;
 
     if args.len() != parameter_types.len() {
         return Err(InvokeError::WrongNumArgs {
@@ -57,35 +58,50 @@ pub fn parse_args(
                             .parse::<i32>()
                             .map(|v| Some(Value::I32(v)))
                             .unwrap_or_else(|_| {
-                                eprintln!("Failed to parse `{:?}` as an `i32`", argument);
+                                arg_error = Some(InvokeError::CouldNotParseArg(format!(
+                                    "Failed to parse `{:?}` as an `i32`",
+                                    argument
+                                )));
                                 None
                             }),
                         Type::I64 => argument
                             .parse::<i64>()
                             .map(|v| Some(Value::I64(v)))
                             .unwrap_or_else(|_| {
-                                eprintln!("Failed to parse `{:?}` as an `i64`", argument);
+                                arg_error = Some(InvokeError::CouldNotParseArg(format!(
+                                    "Failed to parse `{:?}` as an `i64`",
+                                    argument
+                                )));
                                 None
                             }),
                         Type::V128 => argument
                             .parse::<u128>()
                             .map(|v| Some(Value::V128(v)))
                             .unwrap_or_else(|_| {
-                                eprintln!("Failed to parse `{:?}` as an `i64`", argument);
+                                arg_error = Some(InvokeError::CouldNotParseArg(format!(
+                                    "Failed to parse `{:?}` as an `i128`",
+                                    argument
+                                )));
                                 None
                             }),
                         Type::F32 => argument
                             .parse::<f32>()
                             .map(|v| Some(Value::F32(v)))
                             .unwrap_or_else(|_| {
-                                eprintln!("Failed to parse `{:?}` as an `f32`", argument);
+                                arg_error = Some(InvokeError::CouldNotParseArg(format!(
+                                    "Failed to parse `{:?}` as an `f32`",
+                                    argument
+                                )));
                                 None
                             }),
                         Type::F64 => argument
                             .parse::<f64>()
                             .map(|v| Some(Value::F64(v)))
                             .unwrap_or_else(|_| {
-                                eprintln!("Failed to parse `{:?}` as an `f64`", argument);
+                                arg_error = Some(InvokeError::CouldNotParseArg(format!(
+                                    "Failed to parse `{:?}` as an `f64`",
+                                    argument
+                                )));
                                 None
                             }),
                     } {
@@ -98,7 +114,7 @@ pub fn parse_args(
                 },
             )
             .map_or_else(
-                || Err(InvokeError::CouldNotParseArgs),
+                || Err(arg_error.unwrap()),
                 |arguments: Vec<Value>| Ok(arguments),
             )
     }
