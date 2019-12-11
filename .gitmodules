@@ -1,0 +1,3 @@
+[submodule "wapm-cli"]
+	path = wapm-cli
+	url = https://github.com/wasmerio/wapm-cli.git

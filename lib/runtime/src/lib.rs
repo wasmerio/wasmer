@@ -1,3 +1,16 @@
+#![deny(
+    dead_code,
+    missing_docs,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
+
 //! Wasmer-runtime is a library that makes embedding WebAssembly
 //! in your application easy, efficient, and safe.
 //!
@@ -58,7 +71,7 @@
 //!     let value = add_one.call(42)?;
 //!
 //!     assert_eq!(value, 43);
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -74,9 +87,13 @@
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 //! [`compile_with`]: fn.compile_with.html
 
+pub use wasmer_runtime_core::backend::{Backend, Features};
+pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
+pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
-pub use wasmer_runtime_core::import::ImportObject;
+pub use wasmer_runtime_core::import::{ImportObject, LikeNamespace};
 pub use wasmer_runtime_core::instance::{DynFunc, Instance};
+pub use wasmer_runtime_core::memory::ptr::{Array, Item, WasmPtr};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::table::Table;
@@ -88,17 +105,23 @@ pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::{func, imports};
 
 pub mod memory {
-    pub use wasmer_runtime_core::memory::{Atomic, Atomically, Memory, MemoryView};
+    //! The memory module contains the implementation data structures and helper functions used to
+    //! manipulate and access wasm memory.
+    pub use wasmer_runtime_core::memory::{Atomically, Memory, MemoryView};
 }
 
 pub mod wasm {
     //! Various types exposed by the Wasmer Runtime.
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::table::Table;
-    pub use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, TableDescriptor, Type, Value};
+    pub use wasmer_runtime_core::types::{
+        FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
+    };
 }
 
 pub mod error {
+    //! The error module contains the data structures and helper functions used to implement errors that
+    //! are produced and returned from the wasmer runtime.
     pub use wasmer_runtime_core::cache::Error as CacheError;
     pub use wasmer_runtime_core::error::*;
 }
@@ -108,9 +131,14 @@ pub mod units {
     pub use wasmer_runtime_core::units::{Bytes, Pages};
 }
 
+pub mod types {
+    //! Various types.
+    pub use wasmer_runtime_core::types::*;
+}
+
 pub mod cache;
 
-use wasmer_runtime_core::backend::Compiler;
+pub use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
@@ -126,7 +154,26 @@ use wasmer_runtime_core::backend::Compiler;
 /// # Errors:
 /// If the operation fails, the function returns `Err(error::CompileError::...)`.
 pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
-    wasmer_runtime_core::compile_with(&wasm[..], default_compiler())
+    wasmer_runtime_core::compile_with(&wasm[..], &default_compiler())
+}
+
+/// The same as `compile` but takes a `CompilerConfig` for the purpose of
+/// changing the compiler's behavior
+pub fn compile_with_config(
+    wasm: &[u8],
+    compiler_config: CompilerConfig,
+) -> error::CompileResult<Module> {
+    wasmer_runtime_core::compile_with_config(&wasm[..], &default_compiler(), compiler_config)
+}
+
+/// The same as `compile_with_config` but takes a `Compiler` for the purpose of
+/// changing the backend.
+pub fn compile_with_config_with(
+    wasm: &[u8],
+    compiler_config: CompilerConfig,
+    compiler: &dyn Compiler,
+) -> error::CompileResult<Module> {
+    wasmer_runtime_core::compile_with_config(&wasm[..], compiler, compiler_config)
 }
 
 /// Compile and instantiate WebAssembly code without
@@ -152,21 +199,76 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
     module.instantiate(import_object)
 }
 
-fn default_compiler() -> &'static dyn Compiler {
-    use lazy_static::lazy_static;
+/// Get a single instance of the default compiler to use.
+///
+/// The output of this function can be controlled by the mutually
+/// exclusive `default-backend-llvm`, `default-backend-singlepass`,
+/// and `default-backend-cranelift` feature flags.
+pub fn default_compiler() -> impl Compiler {
+    #[cfg(any(
+        all(
+            feature = "default-backend-llvm",
+            not(feature = "docs"),
+            any(
+                feature = "default-backend-cranelift",
+                feature = "default-backend-singlepass"
+            )
+        ),
+        all(
+            not(feature = "docs"),
+            feature = "default-backend-cranelift",
+            feature = "default-backend-singlepass"
+        )
+    ))]
+    compile_error!(
+        "The `default-backend-X` features are mutually exclusive.  Please choose just one"
+    );
 
-    #[cfg(feature = "llvm")]
+    #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(not(feature = "llvm"))]
+    #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
+    use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
+
+    #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
-    lazy_static! {
-        static ref DEFAULT_COMPILER: DefaultCompiler = { DefaultCompiler::new() };
-    }
-
-    &*DEFAULT_COMPILER as &dyn Compiler
+    DefaultCompiler::new()
 }
 
-/// The current version of this crate
+/// Get the `Compiler` as a trait object for the given `Backend`.
+/// Returns `Option` because support for the requested `Compiler` may
+/// not be enabled by feature flags.
+///
+/// To get a list of the enabled backends as strings, call `Backend::variants()`.
+pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
+    match backend {
+        #[cfg(feature = "cranelift")]
+        Backend::Cranelift => Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new())),
+
+        #[cfg(any(feature = "singlepass"))]
+        Backend::Singlepass => Some(Box::new(
+            wasmer_singlepass_backend::SinglePassCompiler::new(),
+        )),
+
+        #[cfg(feature = "llvm")]
+        Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
+
+        Backend::Auto => {
+            #[cfg(feature = "default-backend-singlepass")]
+            return Some(Box::new(
+                wasmer_singlepass_backend::SinglePassCompiler::new(),
+            ));
+            #[cfg(feature = "default-backend-cranelift")]
+            return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
+            #[cfg(feature = "default-backend-llvm")]
+            return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
+        }
+
+        #[cfg(not(all(feature = "llvm", feature = "singlepass", feature = "cranelift")))]
+        _ => None,
+    }
+}
+
+/// The current version of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

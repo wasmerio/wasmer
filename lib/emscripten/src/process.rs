@@ -1,11 +1,10 @@
-use libc::{abort, c_char, c_int, exit, EAGAIN};
+use libc::{abort, c_int, exit, EAGAIN};
 
 #[cfg(not(target_os = "windows"))]
 type PidT = libc::pid_t;
 #[cfg(target_os = "windows")]
 type PidT = c_int;
 
-use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
 
 pub fn abort_with_message(ctx: &mut Ctx, message: &str) {
@@ -19,6 +18,12 @@ pub fn _abort(_ctx: &mut Ctx) {
     unsafe {
         abort();
     }
+}
+
+pub fn _prctl(ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_prctl");
+    abort_with_message(ctx, "missing function: prctl");
+    -1
 }
 
 pub fn _fork(_ctx: &mut Ctx) -> PidT {
@@ -43,18 +48,6 @@ pub fn _exit(_ctx: &mut Ctx, status: c_int) {
     // -> !
     debug!("emscripten::_exit {}", status);
     unsafe { exit(status) }
-}
-
-pub fn em_abort(ctx: &mut Ctx, message: u32) {
-    debug!("emscripten::em_abort {}", message);
-    let message_addr = emscripten_memory_pointer!(ctx.memory(0), message) as *mut c_char;
-    unsafe {
-        let message = CStr::from_ptr(message_addr)
-            .to_str()
-            .unwrap_or("Unexpected abort");
-
-        abort_with_message(ctx, message);
-    }
 }
 
 pub fn _kill(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
@@ -82,8 +75,13 @@ pub fn _raise(_ctx: &mut Ctx, _one: i32) -> i32 {
 }
 
 pub fn _sem_init(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32) -> i32 {
-    debug!("emscripten::_sem_init");
-    -1
+    debug!("emscripten::_sem_init: {}, {}, {}", _one, _two, _three);
+    0
+}
+
+pub fn _sem_destroy(_ctx: &mut Ctx, _one: i32) -> i32 {
+    debug!("emscripten::_sem_destroy");
+    0
 }
 
 pub fn _sem_post(_ctx: &mut Ctx, _one: i32) -> i32 {
@@ -121,8 +119,38 @@ pub fn _usleep(_ctx: &mut Ctx, _one: i32) -> i32 {
     -1
 }
 
+pub fn _nanosleep(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::_nanosleep");
+    -1
+}
+
+pub fn _utime(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::_utime");
+    -1
+}
+
 pub fn _utimes(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::_utimes");
+    -1
+}
+
+pub fn _wait(_ctx: &mut Ctx, _one: i32) -> i32 {
+    debug!("emscripten::_wait");
+    -1
+}
+
+pub fn _wait3(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32) -> i32 {
+    debug!("emscripten::_wait3");
+    -1
+}
+
+pub fn _wait4(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32, _d: i32) -> i32 {
+    debug!("emscripten::_wait4");
+    -1
+}
+
+pub fn _waitid(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32, _d: i32) -> i32 {
+    debug!("emscripten::_waitid");
     -1
 }
 
@@ -145,11 +173,16 @@ pub fn _llvm_trap(ctx: &mut Ctx) {
     abort_with_message(ctx, "abort!");
 }
 
+pub fn _llvm_eh_typeid_for(_ctx: &mut Ctx, _type_info_addr: u32) -> i32 {
+    debug!("emscripten::_llvm_eh_typeid_for");
+    -1
+}
+
 pub fn _system(_ctx: &mut Ctx, _one: i32) -> c_int {
     debug!("emscripten::_system");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Can't call external programs");
-    return EAGAIN;
+    EAGAIN
 }
 
 pub fn _popen(_ctx: &mut Ctx, _one: i32, _two: i32) -> c_int {

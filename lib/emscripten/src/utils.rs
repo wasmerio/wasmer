@@ -1,9 +1,11 @@
 use super::env;
 use super::env::get_emscripten_data;
+use crate::storage::align_memory;
 use libc::stat;
 use std::ffi::CStr;
 use std::mem::size_of;
 use std::os::raw::c_char;
+use std::path::PathBuf;
 use std::slice;
 use wasmer_runtime_core::memory::Memory;
 use wasmer_runtime_core::{
@@ -22,21 +24,84 @@ pub fn is_emscripten_module(module: &Module) -> bool {
             .namespace_table
             .get(import_name.namespace_index);
         let field = module.info().name_table.get(import_name.name_index);
-        if field == "_emscripten_memcpy_big" && namespace == "env" {
+        if (field == "_emscripten_memcpy_big"
+            || field == "emscripten_memcpy_big"
+            || field == "__map_file")
+            && namespace == "env"
+        {
             return true;
         }
     }
     false
 }
 
-pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
+pub fn get_emscripten_table_size(module: &Module) -> Result<(u32, Option<u32>), String> {
+    if module.info().imported_tables.len() == 0 {
+        return Err("Emscripten requires at least one imported table".to_string());
+    }
     let (_, table) = &module.info().imported_tables[ImportedTableIndex::new(0)];
-    (table.minimum, table.maximum)
+    Ok((table.minimum, table.maximum))
 }
 
-pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
+pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Pages>, bool), String> {
+    if module.info().imported_memories.len() == 0 {
+        return Err("Emscripten requires at least one imported memory".to_string());
+    }
     let (_, memory) = &module.info().imported_memories[ImportedMemoryIndex::new(0)];
-    (memory.minimum, memory.maximum)
+    Ok((memory.minimum, memory.maximum, memory.shared))
+}
+
+/// Reads values written by `-s EMIT_EMSCRIPTEN_METADATA=1`
+/// Assumes values start from the end in this order:
+/// Last export: Dynamic Base
+/// Second-to-Last export: Dynamic top pointer
+pub fn get_emscripten_metadata(module: &Module) -> Result<Option<(u32, u32)>, String> {
+    let max_idx = match module.info().globals.iter().map(|(k, _)| k).max() {
+        Some(x) => x,
+        None => return Ok(None),
+    };
+
+    let snd_max_idx = match module
+        .info()
+        .globals
+        .iter()
+        .map(|(k, _)| k)
+        .filter(|k| *k != max_idx)
+        .max()
+    {
+        Some(x) => x,
+        None => return Ok(None),
+    };
+
+    use wasmer_runtime_core::types::{GlobalInit, Initializer::Const, Value::I32};
+    if let (
+        GlobalInit {
+            init: Const(I32(dynamic_base)),
+            ..
+        },
+        GlobalInit {
+            init: Const(I32(dynamictop_ptr)),
+            ..
+        },
+    ) = (
+        &module.info().globals[max_idx],
+        &module.info().globals[snd_max_idx],
+    ) {
+        let dynamic_base = (*dynamic_base as u32).checked_sub(32).ok_or(format!(
+            "emscripten unexpected dynamic_base {}",
+            *dynamic_base as u32
+        ))?;
+        let dynamictop_ptr = (*dynamictop_ptr as u32).checked_sub(32).ok_or(format!(
+            "emscripten unexpected dynamictop_ptr {}",
+            *dynamictop_ptr as u32
+        ))?;
+        Ok(Some((
+            align_memory(dynamic_base),
+            align_memory(dynamictop_ptr),
+        )))
+    } else {
+        Ok(None)
+    }
 }
 
 pub unsafe fn write_to_buf(ctx: &mut Ctx, string: *const c_char, buf: u32, max: u32) -> u32 {
@@ -71,6 +136,8 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
 pub unsafe fn allocate_on_stack<'a, T: Copy>(ctx: &'a mut Ctx, count: u32) -> (u32, &'a mut [T]) {
     let offset = get_emscripten_data(ctx)
         .stack_alloc
+        .as_ref()
+        .unwrap()
         .call(count * (size_of::<T>() as u32))
         .unwrap();
     let addr = emscripten_memory_pointer!(ctx.memory(0), offset) as *mut T;
@@ -125,7 +192,7 @@ pub struct GuestStat {
     st_atime: u64,
     st_mtime: u64,
     st_ctime: u64,
-    st_ino: u64,
+    st_ino: u32,
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -166,50 +233,58 @@ pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
     String::from_utf8_lossy(&v).to_owned().to_string()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::is_emscripten_module;
-    use std::sync::Arc;
-    use wabt::wat2wasm;
-    use wasmer_runtime_core::backend::Compiler;
-    use wasmer_runtime_core::compile_with;
+/// This function trys to find an entry in mapdir
+/// translating paths into their correct value
+pub fn get_cstr_path(ctx: &mut Ctx, path: *const i8) -> Option<std::ffi::CString> {
+    use std::collections::VecDeque;
 
-    #[cfg(feature = "clif")]
-    fn get_compiler() -> impl Compiler {
-        use wasmer_clif_backend::CraneliftCompiler;
-        CraneliftCompiler::new()
+    let path_str =
+        unsafe { std::ffi::CStr::from_ptr(path as *const _).to_str().unwrap() }.to_string();
+    let data = get_emscripten_data(ctx);
+    let path = PathBuf::from(path_str);
+    let mut prefix_added = false;
+    let mut components = path.components().collect::<VecDeque<_>>();
+    // TODO(mark): handle absolute/non-canonical/non-relative paths too (this
+    // functionality should be shared among the abis)
+    if components.len() == 1 {
+        components.push_front(std::path::Component::CurDir);
+        prefix_added = true;
     }
+    let mut cumulative_path = PathBuf::new();
+    for c in components.into_iter() {
+        cumulative_path.push(c);
+        if let Some(val) = data
+            .mapped_dirs
+            .get(&cumulative_path.to_string_lossy().to_string())
+        {
+            let rest_of_path = if !prefix_added {
+                path.strip_prefix(cumulative_path).ok()?
+            } else {
+                &path
+            };
+            let rebased_path = val.join(rest_of_path);
+            return std::ffi::CString::new(rebased_path.to_string_lossy().as_bytes()).ok();
+        }
+    }
+    None
+}
 
-    #[cfg(feature = "llvm")]
-    fn get_compiler() -> impl Compiler {
-        use wasmer_llvm_backend::LLVMCompiler;
-        LLVMCompiler::new()
+/// gets the current directory
+/// handles mapdir logic
+pub fn get_current_directory(ctx: &mut Ctx) -> Option<PathBuf> {
+    if let Some(val) = get_emscripten_data(ctx).mapped_dirs.get(".") {
+        return Some(val.clone());
     }
-
-    #[cfg(not(any(feature = "llvm", feature = "clif")))]
-    fn get_compiler() -> impl Compiler {
-        panic!("compiler not specified, activate a compiler via features");
-        use wasmer_clif_backend::CraneliftCompiler;
-        CraneliftCompiler::new()
-    }
-
-    #[test]
-    fn should_detect_emscripten_files() {
-        const WAST_BYTES: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
-        let wasm_binary = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert to wasm");
-        let module =
-            compile_with(&wasm_binary[..], &get_compiler()).expect("WASM can't be compiled");
-        let module = Arc::new(module);
-        assert!(is_emscripten_module(&module));
-    }
-
-    #[test]
-    fn should_detect_non_emscripten_files() {
-        const WAST_BYTES: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
-        let wasm_binary = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert to wasm");
-        let module =
-            compile_with(&wasm_binary[..], &get_compiler()).expect("WASM can't be compiled");
-        let module = Arc::new(module);
-        assert!(!is_emscripten_module(&module));
-    }
+    std::env::current_dir()
+        .map(|cwd| {
+            if let Some(val) = get_emscripten_data(ctx)
+                .mapped_dirs
+                .get(&cwd.to_string_lossy().to_string())
+            {
+                val.clone()
+            } else {
+                cwd
+            }
+        })
+        .ok()
 }

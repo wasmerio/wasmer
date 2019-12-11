@@ -1,18 +1,16 @@
-use crate::cache::TrampolineCache;
+use crate::{cache::TrampolineCache, resolver::NoopStackmapSink};
 use cranelift_codegen::{
     binemit::{NullTrapSink, Reloc, RelocSink},
     cursor::{Cursor, FuncCursor},
     ir::{self, InstBuilder},
     isa, Context,
 };
-use hashbrown::HashMap;
-use std::ffi::c_void;
-use std::{iter, mem};
+use std::{collections::HashMap, iter, mem};
 use wasmer_runtime_core::{
     backend::sys::{Memory, Protect},
     module::{ExportIndex, ModuleInfo},
+    typed_func::Trampoline,
     types::{FuncSig, SigIndex, Type},
-    vm,
 };
 
 struct NullRelocSink {}
@@ -20,11 +18,13 @@ struct NullRelocSink {}
 impl RelocSink for NullRelocSink {
     fn reloc_ebb(&mut self, _: u32, _: Reloc, _: u32) {}
     fn reloc_external(&mut self, _: u32, _: Reloc, _: &ir::ExternalName, _: i64) {}
+
+    fn reloc_constant(&mut self, _: u32, _: Reloc, _: u32) {
+        unimplemented!("RelocSink::reloc_constant")
+    }
+
     fn reloc_jt(&mut self, _: u32, _: Reloc, _: ir::JumpTable) {}
 }
-
-pub type Trampoline =
-    unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64) -> c_void;
 
 pub struct Trampolines {
     memory: Memory,
@@ -68,7 +68,7 @@ impl Trampolines {
         }
     }
 
-    pub fn new(isa: &isa::TargetIsa, module: &ModuleInfo) -> Self {
+    pub fn new(isa: &dyn isa::TargetIsa, module: &ModuleInfo) -> Self {
         let func_index_iter = module
             .exports
             .values()
@@ -91,12 +91,13 @@ impl Trampolines {
             ctx.func = trampoline_func;
 
             let mut code_buf = Vec::new();
-
+            let mut stackmap_sink = NoopStackmapSink {};
             ctx.compile_and_emit(
                 isa,
                 &mut code_buf,
                 &mut NullRelocSink {},
                 &mut NullTrapSink {},
+                &mut stackmap_sink,
             )
             .expect("unable to compile trampolines");
             ctx.clear();
@@ -206,6 +207,7 @@ fn wasm_ty_to_clif(ty: Type) -> ir::types::Type {
         Type::I64 => ir::types::I64,
         Type::F32 => ir::types::F32,
         Type::F64 => ir::types::F64,
+        Type::V128 => ir::types::I32X4,
     }
 }
 

@@ -1,20 +1,30 @@
-use crate::relocation::{TrapCode, TrapData};
-use crate::signal::HandlerData;
-use crate::trampoline::Trampoline;
-use std::cell::Cell;
-use std::ffi::c_void;
-use std::ptr;
-use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
-use wasmer_runtime_core::vm::Ctx;
-use wasmer_runtime_core::vm::Func;
+use crate::{
+    relocation::{TrapCode, TrapData},
+    signal::{CallProtError, HandlerData},
+};
+use std::{
+    cell::Cell,
+    ffi::c_void,
+    ptr::{self, NonNull},
+};
+use wasmer_runtime_core::{
+    typed_func::{Trampoline, WasmTrapInfo},
+    vm::{Ctx, Func},
+};
 use wasmer_win_exception_handler::CallProtectedData;
 pub use wasmer_win_exception_handler::_call_protected;
-use winapi::shared::minwindef::DWORD;
-use winapi::um::minwinbase::{
-    EXCEPTION_ACCESS_VIOLATION, EXCEPTION_FLT_DENORMAL_OPERAND, EXCEPTION_FLT_DIVIDE_BY_ZERO,
-    EXCEPTION_FLT_INEXACT_RESULT, EXCEPTION_FLT_INVALID_OPERATION, EXCEPTION_FLT_OVERFLOW,
-    EXCEPTION_FLT_STACK_CHECK, EXCEPTION_FLT_UNDERFLOW, EXCEPTION_ILLEGAL_INSTRUCTION,
-    EXCEPTION_INT_DIVIDE_BY_ZERO, EXCEPTION_INT_OVERFLOW, EXCEPTION_STACK_OVERFLOW,
+use winapi::{
+    shared::minwindef::DWORD,
+    um::minwinbase::{
+        EXCEPTION_ACCESS_VIOLATION, EXCEPTION_ARRAY_BOUNDS_EXCEEDED, EXCEPTION_BREAKPOINT,
+        EXCEPTION_DATATYPE_MISALIGNMENT, EXCEPTION_FLT_DENORMAL_OPERAND,
+        EXCEPTION_FLT_DIVIDE_BY_ZERO, EXCEPTION_FLT_INEXACT_RESULT,
+        EXCEPTION_FLT_INVALID_OPERATION, EXCEPTION_FLT_OVERFLOW, EXCEPTION_FLT_STACK_CHECK,
+        EXCEPTION_FLT_UNDERFLOW, EXCEPTION_GUARD_PAGE, EXCEPTION_ILLEGAL_INSTRUCTION,
+        EXCEPTION_INT_DIVIDE_BY_ZERO, EXCEPTION_INT_OVERFLOW, EXCEPTION_INVALID_HANDLE,
+        EXCEPTION_IN_PAGE_ERROR, EXCEPTION_NONCONTINUABLE_EXCEPTION, EXCEPTION_POSSIBLE_DEADLOCK,
+        EXCEPTION_PRIV_INSTRUCTION, EXCEPTION_SINGLE_STEP, EXCEPTION_STACK_OVERFLOW,
+    },
 };
 
 thread_local! {
@@ -25,10 +35,10 @@ pub fn call_protected(
     handler_data: &HandlerData,
     trampoline: Trampoline,
     ctx: *mut Ctx,
-    func: *const Func,
+    func: NonNull<Func>,
     param_vec: *const u64,
     return_vec: *mut u64,
-) -> RuntimeResult<()> {
+) -> Result<(), CallProtError> {
     // TODO: trap early
     // user code error
     //    if let Some(msg) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
@@ -42,7 +52,7 @@ pub fn call_protected(
     }
 
     let CallProtectedData {
-        code: signum,
+        code,
         exception_address,
         instruction_pointer,
     } = result.unwrap_err();
@@ -52,40 +62,24 @@ pub fn call_protected(
         srcloc: _,
     }) = handler_data.lookup(instruction_pointer as _)
     {
-        Err(match signum as DWORD {
-            EXCEPTION_ACCESS_VIOLATION => RuntimeError::Trap {
-                msg: "memory out-of-bounds access".into(),
-            },
+        Err(CallProtError::Trap(match code as DWORD {
+            EXCEPTION_ACCESS_VIOLATION => WasmTrapInfo::MemoryOutOfBounds,
             EXCEPTION_ILLEGAL_INSTRUCTION => match trapcode {
-                TrapCode::BadSignature => RuntimeError::Trap {
-                    msg: "incorrect call_indirect signature".into(),
-                },
-                TrapCode::IndirectCallToNull => RuntimeError::Trap {
-                    msg: "indirect call to null".into(),
-                },
-                TrapCode::HeapOutOfBounds => RuntimeError::Trap {
-                    msg: "memory out-of-bounds access".into(),
-                },
-                TrapCode::TableOutOfBounds => RuntimeError::Trap {
-                    msg: "table out-of-bounds access".into(),
-                },
-                _ => RuntimeError::Trap {
-                    msg: "unknown trap".into(),
-                },
+                TrapCode::BadSignature => WasmTrapInfo::IncorrectCallIndirectSignature,
+                TrapCode::IndirectCallToNull => WasmTrapInfo::CallIndirectOOB,
+                TrapCode::HeapOutOfBounds => WasmTrapInfo::MemoryOutOfBounds,
+                TrapCode::TableOutOfBounds => WasmTrapInfo::CallIndirectOOB,
+                TrapCode::UnreachableCodeReached => WasmTrapInfo::Unreachable,
+                _ => WasmTrapInfo::Unknown,
             },
-            EXCEPTION_STACK_OVERFLOW => RuntimeError::Trap {
-                msg: "stack overflow trap".into(),
-            },
-            EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => RuntimeError::Trap {
-                msg: "illegal arithmetic operation".into(),
-            },
-            _ => RuntimeError::Trap {
-                msg: "unknown trap".into(),
-            },
-        }
-        .into())
+            EXCEPTION_STACK_OVERFLOW => WasmTrapInfo::Unknown,
+            EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => {
+                WasmTrapInfo::IllegalArithmetic
+            }
+            _ => WasmTrapInfo::Unknown,
+        }))
     } else {
-        let signal = match signum as DWORD {
+        let signal = match code as DWORD {
             EXCEPTION_FLT_DENORMAL_OPERAND
             | EXCEPTION_FLT_DIVIDE_BY_ZERO
             | EXCEPTION_FLT_INEXACT_RESULT
@@ -95,17 +89,32 @@ pub fn call_protected(
             | EXCEPTION_FLT_UNDERFLOW => "floating-point exception",
             EXCEPTION_ILLEGAL_INSTRUCTION => "illegal instruction",
             EXCEPTION_ACCESS_VIOLATION => "segmentation violation",
-            _ => "unkown trapped signal",
+            EXCEPTION_DATATYPE_MISALIGNMENT => "datatype misalignment",
+            EXCEPTION_BREAKPOINT => "breakpoint",
+            EXCEPTION_SINGLE_STEP => "single step",
+            EXCEPTION_ARRAY_BOUNDS_EXCEEDED => "array bounds exceeded",
+            EXCEPTION_INT_DIVIDE_BY_ZERO => "int div by zero",
+            EXCEPTION_INT_OVERFLOW => "int overflow",
+            EXCEPTION_PRIV_INSTRUCTION => "priv instruction",
+            EXCEPTION_IN_PAGE_ERROR => "in page error",
+            EXCEPTION_NONCONTINUABLE_EXCEPTION => "non continuable exception",
+            EXCEPTION_STACK_OVERFLOW => "stack overflow",
+            EXCEPTION_GUARD_PAGE => "guard page",
+            EXCEPTION_INVALID_HANDLE => "invalid handle",
+            EXCEPTION_POSSIBLE_DEADLOCK => "possible deadlock",
+            _ => "unknown exception code",
         };
 
-        Err(RuntimeError::Trap {
-            msg: format!("unknown trap at {} - {}", exception_address, signal).into(),
-        }
-        .into())
+        let s = format!(
+            "unhandled trap at {:x} - code #{:x}: {}",
+            exception_address, code, signal,
+        );
+
+        Err(CallProtError::Error(Box::new(s)))
     }
 }
 
 pub unsafe fn trigger_trap() -> ! {
     // TODO
-    unimplemented!();
+    unimplemented!("windows::trigger_trap");
 }

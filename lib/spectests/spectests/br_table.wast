@@ -31,19 +31,19 @@
   )
 
   (func (export "empty") (param i32) (result i32)
-    (block (br_table 0 (get_local 0)) (return (i32.const 21)))
+    (block (br_table 0 (local.get 0)) (return (i32.const 21)))
     (i32.const 22)
   )
   (func (export "empty-value") (param i32) (result i32)
     (block (result i32)
-      (br_table 0 (i32.const 33) (get_local 0)) (i32.const 31)
+      (br_table 0 (i32.const 33) (local.get 0)) (i32.const 31)
     )
   )
 
   (func (export "singleton") (param i32) (result i32)
     (block
       (block
-        (br_table 1 0 (get_local 0))
+        (br_table 1 0 (local.get 0))
         (return (i32.const 21))
       )
       (return (i32.const 20))
@@ -55,7 +55,7 @@
     (block (result i32)
       (drop
         (block (result i32)
-          (br_table 0 1 (i32.const 33) (get_local 0))
+          (br_table 0 1 (i32.const 33) (local.get 0))
           (return (i32.const 31))
         )
       )
@@ -69,7 +69,7 @@
         (block
           (block
             (block
-              (br_table 3 2 1 0 4 (get_local 0))
+              (br_table 3 2 1 0 4 (local.get 0))
               (return (i32.const 99))
             )
             (return (i32.const 100))
@@ -85,23 +85,23 @@
 
   (func (export "multiple-value") (param i32) (result i32)
     (local i32)
-    (set_local 1 (block (result i32)
-      (set_local 1 (block (result i32)
-        (set_local 1 (block (result i32)
-          (set_local 1 (block (result i32)
-            (set_local 1 (block (result i32)
-              (br_table 3 2 1 0 4 (i32.const 200) (get_local 0))
-              (return (i32.add (get_local 1) (i32.const 99)))
+    (local.set 1 (block (result i32)
+      (local.set 1 (block (result i32)
+        (local.set 1 (block (result i32)
+          (local.set 1 (block (result i32)
+            (local.set 1 (block (result i32)
+              (br_table 3 2 1 0 4 (i32.const 200) (local.get 0))
+              (return (i32.add (local.get 1) (i32.const 99)))
             ))
-            (return (i32.add (get_local 1) (i32.const 10)))
+            (return (i32.add (local.get 1) (i32.const 10)))
           ))
-          (return (i32.add (get_local 1) (i32.const 11)))
+          (return (i32.add (local.get 1) (i32.const 11)))
         ))
-        (return (i32.add (get_local 1) (i32.const 12)))
+        (return (i32.add (local.get 1) (i32.const 12)))
       ))
-      (return (i32.add (get_local 1) (i32.const 13)))
+      (return (i32.add (local.get 1) (i32.const 13)))
     ))
-    (i32.add (get_local 1) (i32.const 14))
+    (i32.add (local.get 1) (i32.const 14))
   )
 
   (func (export "large") (param i32) (result i32)
@@ -832,7 +832,7 @@
           0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1
           0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1
           0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1
-          (get_local 0)
+          (local.get 0)
         )
         (return (i32.const -1))
       )
@@ -924,17 +924,17 @@
   (func (export "as-if-then") (param i32 i32) (result i32)
     (block (result i32)
       (if (result i32)
-        (get_local 0)
+        (local.get 0)
         (then (br_table 1 (i32.const 3) (i32.const 0)))
-        (else (get_local 1))
+        (else (local.get 1))
       )
     )
   )
   (func (export "as-if-else") (param i32 i32) (result i32)
     (block (result i32)
       (if (result i32)
-        (get_local 0)
-        (then (get_local 1))
+        (local.get 0)
+        (then (local.get 1))
         (else (br_table 1 0 (i32.const 4) (i32.const 0)))
       )
     )
@@ -943,14 +943,14 @@
   (func (export "as-select-first") (param i32 i32) (result i32)
     (block (result i32)
       (select
-        (br_table 0 (i32.const 5) (i32.const 0)) (get_local 0) (get_local 1)
+        (br_table 0 (i32.const 5) (i32.const 0)) (local.get 0) (local.get 1)
       )
     )
   )
   (func (export "as-select-second") (param i32 i32) (result i32)
     (block (result i32)
       (select
-        (get_local 0) (br_table 0 (i32.const 6) (i32.const 1)) (get_local 1)
+        (local.get 0) (br_table 0 (i32.const 6) (i32.const 1)) (local.get 1)
       )
     )
   )
@@ -986,7 +986,7 @@
   )
 
   (type $sig (func (param i32 i32 i32) (result i32)))
-  (table anyfunc (elem $f))
+  (table funcref (elem $f))
   (func (export "as-call_indirect-first") (result i32)
     (block (result i32)
       (call_indirect (type $sig)
@@ -1020,24 +1020,24 @@
     )
   )
 
-  (func (export "as-set_local-value") (result i32)
+  (func (export "as-local.set-value") (result i32)
     (local f32)
     (block (result i32)
-      (set_local 0 (br_table 0 (i32.const 17) (i32.const 1)))
+      (local.set 0 (br_table 0 (i32.const 17) (i32.const 1)))
       (i32.const -1)
     )
   )
-  (func (export "as-tee_local-value") (result i32)
+  (func (export "as-local.tee-value") (result i32)
     (local i32)
     (block (result i32)
-      (set_local 0 (br_table 0 (i32.const 1) (i32.const 1)))
+      (local.set 0 (br_table 0 (i32.const 1) (i32.const 1)))
       (i32.const -1)
     )
   )
   (global $a (mut i32) (i32.const 10))
-  (func (export "as-set_global-value") (result i32)
+  (func (export "as-global.set-value") (result i32)
     (block (result i32)
-      (set_global $a (br_table 0 (i32.const 1) (i32.const 1)))
+      (global.set $a (br_table 0 (i32.const 1) (i32.const 1)))
       (i32.const -1)
     )
   )
@@ -1108,7 +1108,7 @@
 
   (func (export "as-convert-operand") (result i32)
     (block (result i32)
-      (i32.wrap/i64 (br_table 0 (i32.const 41) (i32.const 0)))
+      (i32.wrap_i64 (br_table 0 (i32.const 41) (i32.const 0)))
     )
   )
 
@@ -1128,7 +1128,7 @@
               (drop (i32.const 4))
               (i32.add
                 (i32.const 8)
-                (br_table 0 1 2 (i32.const 16) (get_local 0))
+                (br_table 0 1 2 (i32.const 16) (local.get 0))
               )
             )
           )
@@ -1146,7 +1146,7 @@
           (drop
             (block (result i32)
               (drop (i32.const 4))
-              (br 0 (br_table 2 1 0 (i32.const 8) (get_local 0)))
+              (br 0 (br_table 2 1 0 (i32.const 8) (local.get 0)))
             )
           )
           (i32.const 16)
@@ -1166,7 +1166,7 @@
               (drop (i32.const 4))
               (drop
                 (br_if 0
-                  (br_table 0 1 2 (i32.const 8) (get_local 0))
+                  (br_table 0 1 2 (i32.const 8) (local.get 0))
                   (i32.const 1)
                 )
               )
@@ -1186,7 +1186,7 @@
         (block (result i32)
           (drop (i32.const 2))
           (drop
-            (br_if 0 (i32.const 4) (br_table 0 1 0 (i32.const 8) (get_local 0)))
+            (br_if 0 (i32.const 4) (br_table 0 1 0 (i32.const 8) (local.get 0)))
           )
           (i32.const 16)
         )
@@ -1203,7 +1203,7 @@
           (drop
             (block (result i32)
               (drop (i32.const 4))
-              (br_table 0 (br_table 0 1 2 (i32.const 8) (get_local 0)) (i32.const 1))
+              (br_table 0 (br_table 0 1 2 (i32.const 8) (local.get 0)) (i32.const 1))
               (i32.const 32)
             )
           )
@@ -1219,7 +1219,7 @@
         (i32.const 1)
         (block (result i32)
           (drop (i32.const 2))
-          (br_table 0 (i32.const 4) (br_table 0 1 0 (i32.const 8) (get_local 0)))
+          (br_table 0 (i32.const 4) (br_table 0 1 0 (i32.const 8) (local.get 0)))
           (i32.const 16)
         )
       )
@@ -1227,17 +1227,17 @@
   )
 
   (func (export "nested-br_table-loop-block") (param i32) (result i32)
-    (set_local 0
+    (local.set 0
       (loop (result i32)
         (block
-          (br_table 1 0 0 (get_local 0))
+          (br_table 1 0 0 (local.get 0))
         )
         (i32.const 0)
       )
     )
     (loop (result i32)
       (block
-        (br_table 0 1 1 (get_local 0))
+        (br_table 0 1 1 (local.get 0))
       )
       (i32.const 3)
     )
@@ -1355,9 +1355,9 @@
 (assert_return (invoke "as-call_indirect-last") (i32.const 22))
 (assert_return (invoke "as-call_indirect-func") (i32.const 23))
 
-(assert_return (invoke "as-set_local-value") (i32.const 17))
-(assert_return (invoke "as-tee_local-value") (i32.const 1))
-(assert_return (invoke "as-set_global-value") (i32.const 1))
+(assert_return (invoke "as-local.set-value") (i32.const 17))
+(assert_return (invoke "as-local.tee-value") (i32.const 1))
+(assert_return (invoke "as-global.set-value") (i32.const 1))
 
 (assert_return (invoke "as-load-address") (f32.const 1.7))
 (assert_return (invoke "as-loadN-address") (i64.const 30))
@@ -1433,6 +1433,13 @@
 )
 
 (assert_invalid
+  (module (func $type-arg-empty-vs-num (result i32)
+    (block (br_table 0) (i32.const 1))
+  ))
+  "type mismatch"
+)
+
+(assert_invalid
   (module (func $type-arg-void-vs-num (result i32)
     (block (result i32) (br_table 0 (nop) (i32.const 1)) (i32.const 1))
   ))
@@ -1492,6 +1499,61 @@
 )
 
 (assert_invalid
+  (module (func $type-arg-void-vs-num (result i32)
+    (block (br_table 0 (i32.const 1)) (i32.const 1))
+  ))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module
+    (func $type-arg-index-empty-in-then
+      (block
+        (i32.const 0) (i32.const 0)
+        (if (result i32) (then (br_table 0)))
+      )
+      (i32.eqz) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-arg-value-empty-in-then
+      (block
+        (i32.const 0) (i32.const 0)
+        (if (result i32) (then (br_table 0 (i32.const 1))))
+      )
+      (i32.eqz) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-arg-index-empty-in-return
+      (block (result i32)
+        (return (br_table 0))
+      )
+      (i32.eqz) (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-arg-value-empty-in-return
+      (block (result i32)
+        (return (br_table 0 (i32.const 1)))
+      )
+      (i32.eqz) (drop)
+    )
+  )
+  "type mismatch"
+)
+
+
+(assert_invalid
   (module (func $unbound-label
     (block (br_table 2 1 (i32.const 1)))
   ))
@@ -1528,3 +1590,4 @@
   ))
   "unknown label"
 )
+

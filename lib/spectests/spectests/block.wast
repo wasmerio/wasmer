@@ -114,9 +114,9 @@
     (block (result i32) (i32.const 2) (block (result i32) (i32.const 1)) (br_table 0 0))
   )
 
-  (func $func (param i32 i32) (result i32) (get_local 0))
+  (func $func (param i32 i32) (result i32) (local.get 0))
   (type $check (func (param i32 i32) (result i32)))
-  (table anyfunc (elem $func))
+  (table funcref (elem $func))
   (func (export "as-call_indirect-first") (result i32)
     (block (result i32)
       (call_indirect (type $check)
@@ -150,7 +150,7 @@
     (memory.grow (block (result i32) (i32.const 1)))
   )
 
-  (func $f (param i32) (result i32) (get_local 0))
+  (func $f (param i32) (result i32) (local.get 0))
 
   (func (export "as-call-value") (result i32)
     (call $f (block (result i32) (i32.const 1)))
@@ -164,16 +164,16 @@
   (func (export "as-br-value") (result i32)
     (block (result i32) (br 0 (block (result i32) (i32.const 1))))
   )
-  (func (export "as-set_local-value") (result i32)
-    (local i32) (set_local 0 (block (result i32) (i32.const 1))) (get_local 0)
+  (func (export "as-local.set-value") (result i32)
+    (local i32) (local.set 0 (block (result i32) (i32.const 1))) (local.get 0)
   )
-  (func (export "as-tee_local-value") (result i32)
-    (local i32) (tee_local 0 (block (result i32) (i32.const 1)))
+  (func (export "as-local.tee-value") (result i32)
+    (local i32) (local.tee 0 (block (result i32) (i32.const 1)))
   )
   (global $a (mut i32) (i32.const 10))
-  (func (export "as-set_global-value") (result i32)
-    (set_global $a (block (result i32) (i32.const 1)))
-    (get_global $a)
+  (func (export "as-global.set-value") (result i32)
+    (global.set $a (block (result i32) (i32.const 1)))
+    (global.get $a)
   )
 
   (func (export "as-load-operand") (result i32)
@@ -223,29 +223,29 @@
   )
   (func (export "break-inner") (result i32)
     (local i32)
-    (set_local 0 (i32.const 0))
-    (set_local 0 (i32.add (get_local 0) (block (result i32) (block (result i32) (br 1 (i32.const 0x1))))))
-    (set_local 0 (i32.add (get_local 0) (block (result i32) (block (br 0)) (i32.const 0x2))))
-    (set_local 0
-      (i32.add (get_local 0) (block (result i32) (i32.ctz (br 0 (i32.const 0x4)))))
+    (local.set 0 (i32.const 0))
+    (local.set 0 (i32.add (local.get 0) (block (result i32) (block (result i32) (br 1 (i32.const 0x1))))))
+    (local.set 0 (i32.add (local.get 0) (block (result i32) (block (br 0)) (i32.const 0x2))))
+    (local.set 0
+      (i32.add (local.get 0) (block (result i32) (i32.ctz (br 0 (i32.const 0x4)))))
     )
-    (set_local 0
-      (i32.add (get_local 0) (block (result i32) (i32.ctz (block (result i32) (br 1 (i32.const 0x8))))))
+    (local.set 0
+      (i32.add (local.get 0) (block (result i32) (i32.ctz (block (result i32) (br 1 (i32.const 0x8))))))
     )
-    (get_local 0)
+    (local.get 0)
   )
 
   (func (export "effects") (result i32)
     (local i32)
     (block
-      (set_local 0 (i32.const 1))
-      (set_local 0 (i32.mul (get_local 0) (i32.const 3)))
-      (set_local 0 (i32.sub (get_local 0) (i32.const 5)))
-      (set_local 0 (i32.mul (get_local 0) (i32.const 7)))
+      (local.set 0 (i32.const 1))
+      (local.set 0 (i32.mul (local.get 0) (i32.const 3)))
+      (local.set 0 (i32.sub (local.get 0) (i32.const 5)))
+      (local.set 0 (i32.mul (local.get 0) (i32.const 7)))
       (br 0)
-      (set_local 0 (i32.mul (get_local 0) (i32.const 100)))
+      (local.set 0 (i32.mul (local.get 0) (i32.const 100)))
     )
-    (i32.eq (get_local 0) (i32.const -14))
+    (i32.eq (local.get 0) (i32.const -14))
   )
 )
 
@@ -285,9 +285,9 @@
 (assert_return (invoke "as-return-value") (i32.const 1))
 (assert_return (invoke "as-drop-operand"))
 (assert_return (invoke "as-br-value") (i32.const 1))
-(assert_return (invoke "as-set_local-value") (i32.const 1))
-(assert_return (invoke "as-tee_local-value") (i32.const 1))
-(assert_return (invoke "as-set_global-value") (i32.const 1))
+(assert_return (invoke "as-local.set-value") (i32.const 1))
+(assert_return (invoke "as-local.tee-value") (i32.const 1))
+(assert_return (invoke "as-global.set-value") (i32.const 1))
 (assert_return (invoke "as-load-operand") (i32.const 1))
 
 (assert_return (invoke "as-unary-operand") (i32.const 0))
@@ -366,6 +366,34 @@
   (module (func $type-value-empty-vs-f64 (result f64)
     (block (result f64))
   ))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module
+    (func $type-value-empty-in-block
+      (i32.const 0)
+      (block (block (result i32)) (drop))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-value-empty-in-loop
+      (i32.const 0)
+      (loop (block (result i32)) (drop))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-value-empty-in-then
+      (i32.const 0) (i32.const 0)
+      (if (then (block (result i32)) (drop)))
+    )
+  )
   "type mismatch"
 )
 
@@ -1080,6 +1108,7 @@
   ))
   "type mismatch"
 )
+
 
 (assert_malformed
   (module quote "(func block end $l)")

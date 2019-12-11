@@ -1,8 +1,7 @@
-use crate::utils::copy_cstr_into_wasm;
+use crate::utils::{copy_cstr_into_wasm, get_cstr_path};
 use crate::varargs::VarArgs;
 use libc::mkdir;
 use libc::open;
-use rand::Rng;
 use std::env;
 use std::ffi::CString;
 use std::fs::File;
@@ -18,11 +17,16 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
-    let pathname: u32 = varargs.get(ctx);
+    let pathname_addr = varargs.get_str(ctx);
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
     let flags: i32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
-    let path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
+    let path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
     match path_str {
         "/dev/urandom" => {
             // create a fake urandom file for windows, super hacky
@@ -34,7 +38,8 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
             let ptr = tmp_dir_c_str.as_ptr() as *const i8;
             let mut urandom_file = File::create(tmp_dir).unwrap();
             // create some random bytes and put them into the file
-            let random_bytes = rand::thread_rng().gen::<[u8; 32]>();
+            let mut random_bytes = [0u8; 32];
+            getrandom::getrandom(&mut random_bytes).unwrap();
             let _ = urandom_file.write_all(&random_bytes).unwrap();
             // put the file path string into wasm memory
             let urandom_file_offset = unsafe { copy_cstr_into_wasm(ctx, ptr) };
@@ -43,19 +48,31 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
             let fd = unsafe { open(raw_pointer_to_urandom_file, flags, mode) };
             debug!(
                 "=> pathname: {}, flags: {}, mode: {} = fd: {}",
-                pathname, flags, mode, fd
+                path_str, flags, mode, fd
             );
             fd
         }
         _ => {
-            let fd = unsafe { open(pathname_addr, flags, mode) };
+            let fd = unsafe { open(real_path, flags, mode) };
             debug!(
                 "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
-                pathname, flags, mode, fd, path_str
+                path_str, flags, mode, fd, path_str
             );
             fd
         }
     }
+}
+
+/// link
+pub fn ___syscall9(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall9 (link) {}", _which);
+    unimplemented!("emscripten::___syscall9 (link) {}", _which);
+}
+
+/// ftruncate64
+pub fn ___syscall194(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall194 - stub");
+    unimplemented!("emscripten::___syscall194 - stub")
 }
 
 // chown
@@ -66,27 +83,98 @@ pub fn ___syscall212(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     -1
 }
 
+/// access
+pub fn ___syscall33(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall33 (access) {}", _which);
+    unimplemented!("emscripten::___syscall33 (access) {}", _which);
+}
+
+/// nice
+pub fn ___syscall34(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall34 (nice) {}", _which);
+    unimplemented!("emscripten::___syscall34 (nice) {}", _which);
+}
+
 // mkdir
 pub fn ___syscall39(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
-    let pathname: u32 = varargs.get(ctx);
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
-    unsafe { mkdir(pathname_addr) }
+    let pathname_addr = varargs.get_str(ctx);
+    let real_path_owned = get_cstr_path(ctx, pathname_addr);
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
+    unsafe { mkdir(real_path) }
 }
 
-// getgid
-pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall201 (getgid)");
+/// dup
+pub fn ___syscall41(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall41 (dup) {}", _which);
+    unimplemented!("emscripten::___syscall41 (dup) {}", _which);
+}
+
+/// getrusage
+pub fn ___syscall77(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall77 (getrusage) {}", _which);
+    unimplemented!("emscripten::___syscall77 (getrusage) {}", _which);
+}
+
+/// symlink
+pub fn ___syscall83(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall83 (symlink) {}", _which);
+    unimplemented!("emscripten::___syscall83 (symlink) {}", _which);
+}
+
+/// readlink
+pub fn ___syscall85(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall85 (readlink) {}", _which);
     -1
 }
 
-// getgid32
+/// getpgid
+pub fn ___syscall132(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall132 (getpgid)");
+    -1
+}
+
+/// lchown
+pub fn ___syscall198(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall198 (lchown) {}", _which);
+    unimplemented!("emscripten::___syscall198 (lchown) {}", _which);
+}
+
+/// getgid32
+pub fn ___syscall200(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall200 (getgid32)");
+    unimplemented!("emscripten::___syscall200 (getgid32)");
+}
+
+// geteuid32
+pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall201 (geteuid32)");
+    unimplemented!("emscripten::___syscall201 (geteuid32)");
+}
+
+// getegid32
 pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     // gid_t
-    debug!("emscripten::___syscall202 (getgid32)");
-    -1
+    debug!("emscripten::___syscall202 (getegid32)");
+    unimplemented!("emscripten::___syscall202 (getegid32)");
+}
+
+/// getgroups
+pub fn ___syscall205(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall205 (getgroups) {}", _which);
+    unimplemented!("emscripten::___syscall205 (getgroups) {}", _which);
+}
+
+/// madvise
+pub fn ___syscall219(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall212 (chown) {}", _which);
+    unimplemented!("emscripten::___syscall212 (chown) {}", _which);
 }
 
 /// dup3
@@ -103,6 +191,12 @@ pub fn ___syscall54(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_in
     -1
 }
 
+/// fchmod
+pub fn ___syscall94(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall118 (fchmod) {}", _which);
+    unimplemented!("emscripten::___syscall118 (fchmod) {}", _which);
+}
+
 // socketcall
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall102(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
@@ -110,6 +204,12 @@ pub fn ___syscall102(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     #[cfg(not(feature = "debug"))]
     let _ = which;
     -1
+}
+
+/// fsync
+pub fn ___syscall118(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall118 (fsync) {}", _which);
+    unimplemented!("emscripten::___syscall118 (fsync) {}", _which);
 }
 
 // pread
@@ -144,6 +244,12 @@ pub fn ___syscall142(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     -1
 }
 
+/// fdatasync
+pub fn ___syscall148(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall148 (fdatasync) {}", _which);
+    unimplemented!("emscripten::___syscall148 (fdatasync) {}", _which);
+}
+
 // setpgid
 pub fn ___syscall57(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall57 (setpgid) {}", which);
@@ -159,4 +265,46 @@ pub fn ___syscall122(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     #[cfg(not(feature = "debug"))]
     let _ = which;
     -1
+}
+
+/// poll
+pub fn ___syscall168(_ctx: &mut Ctx, _which: i32, _varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall168(poll) - stub");
+    -1
+}
+
+/// lstat64
+pub fn ___syscall196(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall196 (lstat64) - stub");
+    -1
+}
+
+// getuid
+pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall199 (getuid)");
+    -1
+}
+
+// getdents
+pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall220");
+    -1
+}
+
+// fcntl64
+pub fn ___syscall221(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall221 (fcntl64) {}", _which);
+    -1
+}
+
+/// fchown
+pub fn ___syscall207(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall207 (fchown) {}", _which);
+    unimplemented!("emscripten::___syscall207 (fchown) {}", _which)
+}
+
+/// fallocate
+pub fn ___syscall324(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall324 (fallocate) {}", _which);
+    unimplemented!("emscripten::___syscall324 (fallocate) {}", _which)
 }

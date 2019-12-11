@@ -1,14 +1,20 @@
+//! The global module contains the implementation data structures and helper functions used to
+//! manipulate and access a wasm globals.
 use crate::{
     export::Export,
     import::IsExport,
     types::{GlobalDescriptor, Type, Value},
     vm,
 };
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::{
+    fmt,
+    sync::{Arc, Mutex},
+};
 
+/// Container with a descriptor and a reference to a global value.
 pub struct Global {
     desc: GlobalDescriptor,
-    storage: Rc<RefCell<vm::LocalGlobal>>,
+    storage: Arc<Mutex<vm::LocalGlobal>>,
 }
 
 impl Global {
@@ -46,16 +52,17 @@ impl Global {
 
         let local_global = vm::LocalGlobal {
             data: match value {
-                Value::I32(x) => x as u64,
-                Value::I64(x) => x as u64,
-                Value::F32(x) => x.to_bits() as u64,
-                Value::F64(x) => x.to_bits(),
+                Value::I32(x) => x as u128,
+                Value::I64(x) => x as u128,
+                Value::F32(x) => x.to_bits() as u128,
+                Value::F64(x) => x.to_bits() as u128,
+                Value::V128(x) => x,
             },
         };
 
         Self {
             desc,
-            storage: Rc::new(RefCell::new(local_global)),
+            storage: Arc::new(Mutex::new(local_global)),
         }
     }
 
@@ -75,13 +82,15 @@ impl Global {
             if self.desc.ty == value.ty() {
                 let local_global = vm::LocalGlobal {
                     data: match value {
-                        Value::I32(x) => x as u64,
-                        Value::I64(x) => x as u64,
-                        Value::F32(x) => x.to_bits() as u64,
-                        Value::F64(x) => x.to_bits(),
+                        Value::I32(x) => x as u128,
+                        Value::I64(x) => x as u128,
+                        Value::F32(x) => x.to_bits() as u128,
+                        Value::F64(x) => x.to_bits() as u128,
+                        Value::V128(x) => x,
                     },
                 };
-                *self.storage.borrow_mut() = local_global;
+                let mut storage = self.storage.lock().unwrap();
+                *storage = local_global;
             } else {
                 panic!("Wrong type for setting this global")
             }
@@ -92,18 +101,22 @@ impl Global {
 
     /// Get the value held by this global.
     pub fn get(&self) -> Value {
-        let data = self.storage.borrow().data;
+        let storage = self.storage.lock().unwrap();
+        let data = storage.data;
 
         match self.desc.ty {
             Type::I32 => Value::I32(data as i32),
             Type::I64 => Value::I64(data as i64),
             Type::F32 => Value::F32(f32::from_bits(data as u32)),
-            Type::F64 => Value::F64(f64::from_bits(data)),
+            Type::F64 => Value::F64(f64::from_bits(data as u64)),
+            Type::V128 => Value::V128(data),
         }
     }
 
+    // TODO: think about this and if this should now be unsafe
     pub(crate) fn vm_local_global(&mut self) -> *mut vm::LocalGlobal {
-        &mut *self.storage.borrow_mut()
+        let mut storage = self.storage.lock().unwrap();
+        &mut *storage
     }
 }
 
@@ -117,7 +130,7 @@ impl Clone for Global {
     fn clone(&self) -> Self {
         Self {
             desc: self.desc,
-            storage: Rc::clone(&self.storage),
+            storage: Arc::clone(&self.storage),
         }
     }
 }

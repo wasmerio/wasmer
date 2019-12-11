@@ -1,0 +1,6 @@
+Env vars:
+CAT=2
+DOG=1
+DOG Ok("1")
+DOG_TYPE Err(NotPresent)
+SET VAR Ok("HELLO")

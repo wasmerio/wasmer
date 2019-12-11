@@ -47,35 +47,31 @@
   (data (i32.const 1) "h")
 )
 
-;; SKIP_MUTABLE_GLOBALS
-;; (module
-;;   (global (import "spectest" "global_i32") i32)
-;;   (memory 1)
-;;   (data (get_global 0) "a")
-;; )
-;; SKIP_MUTABLE_GLOBALS
-;; (module
-;;   (global (import "spectest" "global_i32") i32)
-;;   (import "spectest" "memory" (memory 1))
-;;   (data (get_global 0) "a")
-;; )
+(module
+  (global (import "spectest" "global_i32") i32)
+  (memory 1)
+  (data (global.get 0) "a")
+)
+(module
+  (global (import "spectest" "global_i32") i32)
+  (import "spectest" "memory" (memory 1))
+  (data (global.get 0) "a")
+)
 
-;; SKIP_MUTABLE_GLOBALS
-;; (module
-;;   (global $g (import "spectest" "global_i32") i32)
-;;   (memory 1)
-;;   (data (get_global $g) "a")
-;; )
-;; SKIP_MUTABLE_GLOBALS
-;; (module
-;;   (global $g (import "spectest" "global_i32") i32)
-;;   (import "spectest" "memory" (memory 1))
-;;   (data (get_global $g) "a")
-;; )
+(module
+  (global $g (import "spectest" "global_i32") i32)
+  (memory 1)
+  (data (global.get $g) "a")
+)
+(module
+  (global $g (import "spectest" "global_i32") i32)
+  (import "spectest" "memory" (memory 1))
+  (data (global.get $g) "a")
+)
 
 ;; Use of internal globals in constant expressions is not allowed in MVP.
-;; (module (memory 1) (data (get_global 0) "a") (global i32 (i32.const 0)))
-;; (module (memory 1) (data (get_global $g) "a") (global $g i32 (i32.const 0)))
+;; (module (memory 1) (data (global.get 0) "a") (global i32 (i32.const 0)))
+;; (module (memory 1) (data (global.get $g) "a") (global $g i32 (i32.const 0)))
 
 ;; Corner cases
 
@@ -138,19 +134,17 @@
   (data (i32.const 0) "a")
 )
 
-;; SKIP_MUTABLE_GLOBALS
-;; (module
-;;   (global (import "spectest" "global_i32") i32)
-;;   (import "spectest" "memory" (memory 0))
-;;   (data (get_global 0) "a")
-;; )
+(module
+  (global (import "spectest" "global_i32") i32)
+  (import "spectest" "memory" (memory 0))
+  (data (global.get 0) "a")
+)
 
-;; SKIP_MUTABLE_GLOBALS
-;; (module
-;;   (global (import "spectest" "global_i32") i32)
-;;   (import "spectest" "memory" (memory 0 3))
-;;   (data (get_global 0) "a")
-;; )
+(module
+  (global (import "spectest" "global_i32") i32)
+  (import "spectest" "memory" (memory 0 3))
+  (data (global.get 0) "a")
+)
 
 (module
   (import "spectest" "memory" (memory 0))
@@ -217,7 +211,7 @@
   (module
     (global (import "spectest" "global_i32") i32)
     (memory 0)
-    (data (get_global 0) "a")
+    (data (global.get 0) "a")
   )
   "data segment does not fit"
 )
@@ -336,6 +330,6 @@
 
 ;; Use of internal globals in constant expressions is not allowed in MVP.
 ;; (assert_invalid
-;;   (module (memory 1) (data (get_global $g)) (global $g (mut i32) (i32.const 0)))
+;;   (module (memory 1) (data (global.get $g)) (global $g (mut i32) (i32.const 0)))
 ;;   "constant expression required"
 ;; )

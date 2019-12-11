@@ -10,6 +10,8 @@ use wasmer_runtime_core::{
 };
 
 use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
+pub use wasmer_runtime::compile_with_config_with;
+
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -23,6 +25,7 @@ pub struct ResultObject {
 #[derive(PartialEq)]
 pub enum InstanceABI {
     Emscripten,
+    WASI,
     None,
 }
 

@@ -7,7 +7,7 @@
 int main()
 {
     // Read the wasm file bytes
-    FILE *file = fopen("sum.wasm", "r");
+    FILE *file = fopen("assets/sum.wasm", "r");
     fseek(file, 0, SEEK_END);
     long len = ftell(file);
     uint8_t *bytes = malloc(len);
@@ -46,7 +46,8 @@ int main()
     int error_len = wasmer_last_error_length();
     printf("Error len: `%d`\n", error_len);
     char *error_str = malloc(error_len);
-    wasmer_last_error_message(error_str, error_len);
+    int error_result = wasmer_last_error_message(error_str, error_len);
+    assert(error_len == error_result);
     printf("Error str: `%s`\n", error_str);
     assert(0 == strcmp(error_str, "Call error: Parameters of type [I32] did not match signature [I32, I32] -> [I32]"));
     free(error_str);

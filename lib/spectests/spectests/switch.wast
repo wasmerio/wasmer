@@ -2,7 +2,7 @@
   ;; Statement switch
   (func (export "stmt") (param $i i32) (result i32)
     (local $j i32)
-    (set_local $j (i32.const 100))
+    (local.set $j (i32.const 100))
     (block $switch
       (block $7
         (block $default
@@ -14,38 +14,38 @@
                     (block $1
                       (block $0
                         (br_table $0 $1 $2 $3 $4 $5 $6 $7 $default
-                          (get_local $i)
+                          (local.get $i)
                         )
                       ) ;; 0
-                      (return (get_local $i))
+                      (return (local.get $i))
                     ) ;; 1
                     (nop)
                     ;; fallthrough
                   ) ;; 2
                   ;; fallthrough
                 ) ;; 3
-                (set_local $j (i32.sub (i32.const 0) (get_local $i)))
+                (local.set $j (i32.sub (i32.const 0) (local.get $i)))
                 (br $switch)
               ) ;; 4
               (br $switch)
             ) ;; 5
-            (set_local $j (i32.const 101))
+            (local.set $j (i32.const 101))
             (br $switch)
           ) ;; 6
-          (set_local $j (i32.const 101))
+          (local.set $j (i32.const 101))
           ;; fallthrough
         ) ;; default
-        (set_local $j (i32.const 102))
+        (local.set $j (i32.const 102))
       ) ;; 7
       ;; fallthrough
     )
-    (return (get_local $j))
+    (return (local.get $j))
   )
 
   ;; Expression switch
   (func (export "expr") (param $i i64) (result i64)
     (local $j i64)
-    (set_local $j (i64.const 100))
+    (local.set $j (i64.const 100))
     (return
       (block $switch (result i64)
         (block $7
@@ -58,26 +58,26 @@
                       (block $1
                         (block $0
                           (br_table $0 $1 $2 $3 $4 $5 $6 $7 $default
-                            (i32.wrap/i64 (get_local $i))
+                            (i32.wrap_i64 (local.get $i))
                           )
                         ) ;; 0
-                        (return (get_local $i))
+                        (return (local.get $i))
                       ) ;; 1
                       (nop)
                       ;; fallthrough
                     ) ;; 2
                     ;; fallthrough
                   ) ;; 3
-                  (br $switch (i64.sub (i64.const 0) (get_local $i)))
+                  (br $switch (i64.sub (i64.const 0) (local.get $i)))
                 ) ;; 6
-                (set_local $j (i64.const 101))
+                (local.set $j (i64.const 101))
                 ;; fallthrough
               ) ;; 4
               ;; fallthrough
             ) ;; 5
             ;; fallthrough
           ) ;; default
-          (br $switch (get_local $j))
+          (br $switch (local.get $j))
         ) ;; 7
         (i64.const -5)
       )
@@ -95,8 +95,8 @@
                 (i32.add (i32.const 1000)
                   (block $default (result i32)
                     (br_table $0 $1 $2 $default
-                      (i32.mul (i32.const 2) (get_local $i))
-                      (i32.and (i32.const 3) (get_local $i))
+                      (i32.mul (i32.const 2) (local.get $i))
+                      (i32.and (i32.const 3) (local.get $i))
                     )
                   )
                 )

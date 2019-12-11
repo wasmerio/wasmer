@@ -15,3 +15,8 @@ pub fn ___unlock(_ctx: &mut Ctx, _what: c_int) {
 pub fn ___wait(_ctx: &mut Ctx, _which: u32, _varargs: u32, _three: u32, _four: u32) {
     debug!("emscripten::___wait");
 }
+
+pub fn _flock(_ctx: &mut Ctx, _fd: u32, _op: u32) -> u32 {
+    debug!("emscripten::_flock");
+    0
+}

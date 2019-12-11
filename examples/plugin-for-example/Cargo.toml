@@ -1,0 +1,7 @@
+[package]
+name = "plugin-for-example"
+version = "0.1.0"
+authors = ["The Wasmer Engineering Team <enigneering@wasmer.io>"]
+edition = "2018"
+
+[dependencies]

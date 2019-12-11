@@ -53,6 +53,18 @@
   ```rust
 
   ```
+- **\_pthread_rwlock_destroy** &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+  ```rust
+
+  ```
+- **\_pthread_rwlock_init** &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+  ```rust
+
+  ```
+- **\_pthread_rwlock_wrlock** &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+  ```rust
+
+  ```
 - **\_pthread_setspecific** &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
 

@@ -1,30 +1,31 @@
-use crate::{cache::BackendCache, trampoline::Trampolines};
 use crate::{
+    cache::BackendCache,
     libcalls,
     relocation::{
         ExternalRelocation, LibCall, LocalRelocation, LocalTrapSink, Reloc, RelocSink,
         RelocationType, TrapSink, VmCall, VmCallKind,
     },
     signal::HandlerData,
+    trampoline::Trampolines,
+};
+use byteorder::{ByteOrder, LittleEndian};
+use cranelift_codegen::{
+    binemit::{Stackmap, StackmapSink},
+    ir, isa, Context,
 };
 use rayon::prelude::*;
-
-use byteorder::{ByteOrder, LittleEndian};
-use cranelift_codegen::{ir, isa, Context};
 use std::{
     mem,
     ptr::{write_unaligned, NonNull},
     sync::Arc,
 };
-
-use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
     backend::{
-        self,
         sys::{Memory, Protect},
         SigRegistry,
     },
+    cache::Error as CacheError,
     error::{CompileError, CompileResult},
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
@@ -59,6 +60,11 @@ pub struct FuncResolverBuilder {
     import_len: usize,
 }
 
+pub struct NoopStackmapSink {}
+impl StackmapSink for NoopStackmapSink {
+    fn add_stackmap(&mut self, _: u32, _: Stackmap) {}
+}
+
 impl FuncResolverBuilder {
     pub fn new_from_backend_cache(
         backend_cache: BackendCache,
@@ -89,7 +95,7 @@ impl FuncResolverBuilder {
     }
 
     pub fn new(
-        isa: &isa::TargetIsa,
+        isa: &dyn isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
         info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {
@@ -110,12 +116,13 @@ impl FuncResolverBuilder {
                         ctx.func = func.to_owned();
                         let mut reloc_sink = RelocSink::new();
                         let mut local_trap_sink = LocalTrapSink::new();
-
+                        let mut stackmap_sink = NoopStackmapSink {};
                         ctx.compile_and_emit(
                             isa,
                             &mut code_buf,
                             &mut reloc_sink,
                             &mut local_trap_sink,
+                            &mut stackmap_sink,
                         )
                         .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
                         ctx.clear();
@@ -242,25 +249,17 @@ impl FuncResolverBuilder {
                         #[cfg(not(target_os = "windows"))]
                         LibCall::Probestack => __rust_probestack as isize,
                     },
-                    RelocationType::Intrinsic(ref name) => match name.as_str() {
-                        "i32print" => i32_print as isize,
-                        "i64print" => i64_print as isize,
-                        "f32print" => f32_print as isize,
-                        "f64print" => f64_print as isize,
-                        "strtdbug" => start_debug as isize,
-                        "enddbug" => end_debug as isize,
-                        _ => Err(CompileError::InternalError {
-                            msg: format!("unexpected intrinsic: {}", name),
-                        })?,
-                    },
+                    RelocationType::Intrinsic(ref name) => Err(CompileError::InternalError {
+                        msg: format!("unexpected intrinsic: {}", name),
+                    })?,
                     RelocationType::VmCall(vmcall) => match vmcall {
                         VmCall::Local(kind) => match kind {
-                            VmCallKind::StaticMemoryGrow => vmcalls::local_static_memory_grow as _,
-                            VmCallKind::StaticMemorySize => vmcalls::local_static_memory_size as _,
-
-                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
-                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
-
+                            VmCallKind::StaticMemoryGrow | VmCallKind::SharedStaticMemoryGrow => {
+                                vmcalls::local_static_memory_grow as _
+                            }
+                            VmCallKind::StaticMemorySize | VmCallKind::SharedStaticMemorySize => {
+                                vmcalls::local_static_memory_size as _
+                            }
                             VmCallKind::DynamicMemoryGrow => {
                                 vmcalls::local_dynamic_memory_grow as _
                             }
@@ -269,16 +268,12 @@ impl FuncResolverBuilder {
                             }
                         },
                         VmCall::Import(kind) => match kind {
-                            VmCallKind::StaticMemoryGrow => {
+                            VmCallKind::StaticMemoryGrow | VmCallKind::SharedStaticMemoryGrow => {
                                 vmcalls::imported_static_memory_grow as _
                             }
-                            VmCallKind::StaticMemorySize => {
+                            VmCallKind::StaticMemorySize | VmCallKind::SharedStaticMemorySize => {
                                 vmcalls::imported_static_memory_size as _
                             }
-
-                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
-                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
-
                             VmCallKind::DynamicMemoryGrow => {
                                 vmcalls::imported_dynamic_memory_grow as _
                             }
@@ -357,13 +352,8 @@ pub struct FuncResolver {
     pub(crate) memory: Arc<Memory>,
 }
 
-// Implements FuncResolver trait.
-impl backend::FuncResolver for FuncResolver {
-    fn get(
-        &self,
-        _module: &wasmer_runtime_core::module::ModuleInner,
-        index: LocalFuncIndex,
-    ) -> Option<NonNull<vm::Func>> {
+impl FuncResolver {
+    pub fn lookup(&self, index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
         lookup_func(&self.map, &self.memory, index)
     }
 }
@@ -371,23 +361,4 @@ impl backend::FuncResolver for FuncResolver {
 #[inline]
 fn round_up(n: usize, multiple: usize) -> usize {
     (n + multiple - 1) & !(multiple - 1)
-}
-
-extern "C" fn i32_print(_ctx: &mut vm::Ctx, n: i32) {
-    print!(" i32: {},", n);
-}
-extern "C" fn i64_print(_ctx: &mut vm::Ctx, n: i64) {
-    print!(" i64: {},", n);
-}
-extern "C" fn f32_print(_ctx: &mut vm::Ctx, n: f32) {
-    print!(" f32: {},", n);
-}
-extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
-    print!(" f64: {},", n);
-}
-extern "C" fn start_debug(_ctx: &mut vm::Ctx, func_index: u32) {
-    print!("func ({}), args: [", func_index);
-}
-extern "C" fn end_debug(_ctx: &mut vm::Ctx) {
-    println!(" ]");
 }

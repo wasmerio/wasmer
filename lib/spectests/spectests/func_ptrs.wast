@@ -13,15 +13,15 @@
   (func (type $S))
 
   (func (export "one") (type 4) (i32.const 13))
-  (func (export "two") (type $T) (i32.add (get_local 0) (i32.const 1)))
+  (func (export "two") (type $T) (i32.add (local.get 0) (i32.const 1)))
 
   ;; Both signature and parameters are allowed (and required to match)
   ;; since this allows the naming of parameters.
   (func (export "three") (type $T) (param $a i32) (result i32)
-    (i32.sub (get_local 0) (i32.const 2))
+    (i32.sub (local.get 0) (i32.const 2))
   )
 
-  (func (export "four") (type $U) (call $print (get_local 0)))
+  (func (export "four") (type $U) (call $print (local.get 0)))
 )
 
 (assert_return (invoke "one") (i32.const 13))
@@ -33,15 +33,15 @@
 (assert_invalid (module (elem (i32.const 0) 0) (func)) "unknown table")
 
 (assert_invalid
-  (module (table 1 anyfunc) (elem (i64.const 0)))
+  (module (table 1 funcref) (elem (i64.const 0)))
   "type mismatch"
 )
 (assert_invalid
-  (module (table 1 anyfunc) (elem (i32.ctz (i32.const 0))))
+  (module (table 1 funcref) (elem (i32.ctz (i32.const 0))))
   "constant expression required"
 )
 (assert_invalid
-  (module (table 1 anyfunc) (elem (nop)))
+  (module (table 1 funcref) (elem (nop)))
   "constant expression required"
 )
 
@@ -51,7 +51,7 @@
 (module
   (type $T (func (param) (result i32)))
   (type $U (func (param) (result i32)))
-  (table anyfunc (elem $t1 $t2 $t3 $u1 $u2 $t1 $t3))
+  (table funcref (elem $t1 $t2 $t3 $u1 $u2 $t1 $t3))
 
   (func $t1 (type $T) (i32.const 1))
   (func $t2 (type $T) (i32.const 2))
@@ -60,11 +60,11 @@
   (func $u2 (type $U) (i32.const 5))
 
   (func (export "callt") (param $i i32) (result i32)
-    (call_indirect (type $T) (get_local $i))
+    (call_indirect (type $T) (local.get $i))
   )
 
   (func (export "callu") (param $i i32) (result i32)
-    (call_indirect (type $U) (get_local $i))
+    (call_indirect (type $U) (local.get $i))
   )
 )
 
@@ -92,13 +92,13 @@
 
 (module
   (type $T (func (result i32)))
-  (table anyfunc (elem 0 1))
+  (table funcref (elem 0 1))
 
   (func $t1 (type $T) (i32.const 1))
   (func $t2 (type $T) (i32.const 2))
 
   (func (export "callt") (param $i i32) (result i32)
-    (call_indirect (type $T) (get_local $i))
+    (call_indirect (type $T) (local.get $i))
   )
 )
 

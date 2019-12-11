@@ -2,12 +2,12 @@
 ;; special values.
 
 (module
-  (func (export "eq") (param $x f64) (param $y f64) (result i32) (f64.eq (get_local $x) (get_local $y)))
-  (func (export "ne") (param $x f64) (param $y f64) (result i32) (f64.ne (get_local $x) (get_local $y)))
-  (func (export "lt") (param $x f64) (param $y f64) (result i32) (f64.lt (get_local $x) (get_local $y)))
-  (func (export "le") (param $x f64) (param $y f64) (result i32) (f64.le (get_local $x) (get_local $y)))
-  (func (export "gt") (param $x f64) (param $y f64) (result i32) (f64.gt (get_local $x) (get_local $y)))
-  (func (export "ge") (param $x f64) (param $y f64) (result i32) (f64.ge (get_local $x) (get_local $y)))
+  (func (export "eq") (param $x f64) (param $y f64) (result i32) (f64.eq (local.get $x) (local.get $y)))
+  (func (export "ne") (param $x f64) (param $y f64) (result i32) (f64.ne (local.get $x) (local.get $y)))
+  (func (export "lt") (param $x f64) (param $y f64) (result i32) (f64.lt (local.get $x) (local.get $y)))
+  (func (export "le") (param $x f64) (param $y f64) (result i32) (f64.le (local.get $x) (local.get $y)))
+  (func (export "gt") (param $x f64) (param $y f64) (result i32) (f64.gt (local.get $x) (local.get $y)))
+  (func (export "ge") (param $x f64) (param $y f64) (result i32) (f64.ge (local.get $x) (local.get $y)))
 )
 
 (assert_return (invoke "eq" (f64.const -0x0p+0) (f64.const -0x0p+0)) (i32.const 1))
@@ -2410,3 +2410,13 @@
 (assert_return (invoke "ge" (f64.const nan:0x4000000000000) (f64.const nan)) (i32.const 0))
 (assert_return (invoke "ge" (f64.const nan) (f64.const nan:0x4000000000000)) (i32.const 0))
 (assert_return (invoke "ge" (f64.const nan:0x4000000000000) (f64.const nan:0x4000000000000)) (i32.const 0))
+
+
+;; Type check
+
+(assert_invalid (module (func (result f64) (f64.eq (i64.const 0) (f32.const 0)))) "type mismatch")
+(assert_invalid (module (func (result f64) (f64.ge (i64.const 0) (f32.const 0)))) "type mismatch")
+(assert_invalid (module (func (result f64) (f64.gt (i64.const 0) (f32.const 0)))) "type mismatch")
+(assert_invalid (module (func (result f64) (f64.le (i64.const 0) (f32.const 0)))) "type mismatch")
+(assert_invalid (module (func (result f64) (f64.lt (i64.const 0) (f32.const 0)))) "type mismatch")
+(assert_invalid (module (func (result f64) (f64.ne (i64.const 0) (f32.const 0)))) "type mismatch")

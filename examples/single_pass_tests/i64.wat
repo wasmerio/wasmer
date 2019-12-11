@@ -1,0 +1,48 @@
+(module
+    (func $main (export "main") (result i64)
+        (local $v1 i64)
+        (block
+            (i64.const 10)
+            (set_local $v1)
+
+            (i64.const 42)
+            (get_local $v1)
+            (i64.add)
+            (i64.const 53)
+            (i64.eq)
+            (br_if 0)
+
+            (i64.const 1)
+            (i64.const -100)
+            (i64.const 41)
+            (i64.lt_s)
+            (i64.extend_u/i32)
+            (i64.sub)
+            (i32.wrap/i64)
+            (br_if 0)
+
+            (i64.const -100)
+            (i64.const 41)
+            (i64.lt_u)
+            (br_if 0)
+
+            (i64.const 1)
+            (i64.const 100)
+            (i64.const -41)
+            (i64.gt_s)
+            (i64.extend_u/i32)
+            (i64.sub)
+            (i32.wrap/i64)
+            (br_if 0)
+
+            (i64.const 100)
+            (i64.const -41)
+            (i64.gt_u)
+            (br_if 0)
+
+            (i64.const 0)
+            (return)
+        )
+        (unreachable)
+    )
+)

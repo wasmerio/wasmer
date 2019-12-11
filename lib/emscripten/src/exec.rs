@@ -1,3 +1,4 @@
+use crate::varargs::VarArgs;
 use libc::execvp as libc_execvp;
 use std::cell::Cell;
 use std::ffi::CString;
@@ -36,5 +37,17 @@ pub fn execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32 
     // construct raw pointers and hand them to `execvp`
     let command_pointer = command_name_string.as_ptr() as *const i8;
     let args_pointer = argv.as_ptr();
-    unsafe { libc_execvp(command_pointer, args_pointer) }
+    unsafe { libc_execvp(command_pointer as *const _, args_pointer as *const *const _) }
+}
+
+/// execl
+pub fn execl(_ctx: &mut Ctx, _path_ptr: i32, _arg0_ptr: i32, _varargs: VarArgs) -> i32 {
+    debug!("emscripten::execl");
+    -1
+}
+
+/// execle
+pub fn execle(_ctx: &mut Ctx, _path_ptr: i32, _arg0_ptr: i32, _varargs: VarArgs) -> i32 {
+    debug!("emscripten::execle");
+    -1
 }

@@ -16,6 +16,11 @@ pub fn _sigaction(_ctx: &mut Ctx, _signum: u32, _act: u32, _oldact: u32) -> i32 
     0
 }
 
+pub fn _siginterrupt(_ctx: &mut Ctx, _a: u32, _b: u32) -> i32 {
+    debug!("emscripten::_siginterrupt {}, {}", _a, _b);
+    0
+}
+
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _sigaddset(ctx: &mut Ctx, set: u32, signum: u32) -> i32 {
     debug!("emscripten::_sigaddset {}, {}", set, signum);

@@ -1,22 +1,29 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.2.1"
+version = "0.11.0"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "runtime"]
+categories = ["wasm"]
 edition = "2018"
 
 [dependencies]
-nix = "0.12.0"
-page_size = "0.4.1"
-wasmparser = "0.23.0"
-parking_lot = "0.7.1"
-lazy_static = "1.2.0"
-indexmap = "1.0.2"
-errno = "0.2.4"
-libc = "0.2.49"
-hex = "0.3.2"
+nix = "0.15"
+page_size = "0.4"
+wasmparser = "0.39.1"
+parking_lot = "0.9"
+lazy_static = "1.4"
+errno = "0.2"
+libc = "0.2.60"
+hex = "0.3"
+smallvec = "0.6"
+bincode = "1.1"
+
+[dependencies.indexmap]
+version = "1.2"
+features = ["serde-1"]
 
 # Dependencies for caching.
 [dependencies.serde]
@@ -26,23 +33,28 @@ features = ["rc"]
 [dependencies.serde_derive]
 version = "1.0"
 [dependencies.serde_bytes]
-version = "0.10"
+version = "0.11"
 [dependencies.serde-bench]
 version = "0.0.7"
 [dependencies.blake2b_simd]
-version = "0.4.1"
+version = "0.5"
 [dependencies.digest]
-version = "0.8.0"
-[dependencies.hashbrown]
-version = "0.1"
-features = ["serde"]
+version = "0.8"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["memoryapi"] }
 
-[dev-dependencies]
-field-offset = "0.1.1"
+[build-dependencies]
+blake2b_simd = "0.5"
+rustc_version = "0.2"
+cc = "1.0"
 
 [features]
 debug = []
-
+trace = ["debug"]
+# backend flags used in conditional compilation of Backend::variants
+"backend-cranelift" = []
+"backend-singlepass" = []
+"backend-llvm" = []
+managed = []
+deterministic-execution = ["wasmparser/deterministic"]

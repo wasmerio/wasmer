@@ -2,9 +2,9 @@
 ;; values.
 
 (module
-  (func (export "abs") (param $x f32) (result f32) (f32.abs (get_local $x)))
-  (func (export "neg") (param $x f32) (result f32) (f32.neg (get_local $x)))
-  (func (export "copysign") (param $x f32) (param $y f32) (result f32) (f32.copysign (get_local $x) (get_local $y)))
+  (func (export "abs") (param $x f32) (result f32) (f32.abs (local.get $x)))
+  (func (export "neg") (param $x f32) (result f32) (f32.neg (local.get $x)))
+  (func (export "copysign") (param $x f32) (param $y f32) (result f32) (f32.copysign (local.get $x) (local.get $y)))
 )
 
 (assert_return (invoke "copysign" (f32.const -0x0p+0) (f32.const -0x0p+0)) (f32.const -0x0p+0))
@@ -367,3 +367,10 @@
 (assert_return (invoke "neg" (f32.const inf)) (f32.const -inf))
 (assert_return (invoke "neg" (f32.const -nan)) (f32.const nan))
 (assert_return (invoke "neg" (f32.const nan)) (f32.const -nan))
+
+
+;; Type check
+
+(assert_invalid (module (func (result f32) (f32.copysign (i64.const 0) (f64.const 0)))) "type mismatch")
+(assert_invalid (module (func (result f32) (f32.abs (i64.const 0)))) "type mismatch")
+(assert_invalid (module (func (result f32) (f32.neg (i64.const 0)))) "type mismatch")

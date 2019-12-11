@@ -1,10 +1,11 @@
+//! The module module contains the implementation data structures and helper functions used to
+//! manipulate and access wasm modules.
 use crate::{
-    backend::{Backend, FuncResolver, ProtectedCaller},
+    backend::{Backend, RunnableModule},
     cache::{Artifact, Error as CacheError},
     error,
     import::ImportObject,
     structures::{Map, TypedIndex},
-    typed_func::EARLY_TRAPPER,
     types::{
         FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
         ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
@@ -15,47 +16,87 @@ use crate::{
 };
 
 use crate::backend::CacheGen;
-use hashbrown::HashMap;
 use indexmap::IndexMap;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
 pub struct ModuleInner {
-    pub func_resolver: Box<dyn FuncResolver>,
-    pub protected_caller: Box<dyn ProtectedCaller>,
-
+    pub runnable_module: Box<dyn RunnableModule>,
     pub cache_gen: Box<dyn CacheGen>,
 
     pub info: ModuleInfo,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+/// Container for module data including memories, globals, tables, imports, and exports.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleInfo {
-    // This are strictly local and the typsystem ensures that.
+    /// Map of memory index to memory descriptors.
+    // This are strictly local and the typesystem ensures that.
     pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,
+    /// Map of global index to global descriptors.
     pub globals: Map<LocalGlobalIndex, GlobalInit>,
+    /// Map of table index to table descriptors.
     pub tables: Map<LocalTableIndex, TableDescriptor>,
 
+    /// Map of imported function index to import name.
     // These are strictly imported and the typesystem ensures that.
     pub imported_functions: Map<ImportedFuncIndex, ImportName>,
+    /// Map of imported memory index to import name and memory descriptor.
     pub imported_memories: Map<ImportedMemoryIndex, (ImportName, MemoryDescriptor)>,
+    /// Map of imported table index to import name and table descriptor.
     pub imported_tables: Map<ImportedTableIndex, (ImportName, TableDescriptor)>,
+    /// Map of imported global index to import name and global descriptor.
     pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDescriptor)>,
 
-    pub exports: HashMap<String, ExportIndex>,
+    /// Map of string to export index.
+    pub exports: IndexMap<String, ExportIndex>,
 
+    /// Vector of data initializers.
     pub data_initializers: Vec<DataInitializer>,
+    /// Vector of table initializers.
     pub elem_initializers: Vec<TableInitializer>,
 
+    /// Index of optional start function.
     pub start_func: Option<FuncIndex>,
 
+    /// Map function index to signature index.
     pub func_assoc: Map<FuncIndex, SigIndex>,
+    /// Map signature index to function signature.
     pub signatures: Map<SigIndex, FuncSig>,
+    /// Backend.
     pub backend: Backend,
 
+    /// Table of namespace indexes.
     pub namespace_table: StringTable<NamespaceIndex>,
+    /// Table of name indexes.
     pub name_table: StringTable<NameIndex>,
+
+    /// Symbol information from emscripten.
+    pub em_symbol_map: Option<HashMap<u32, String>>,
+
+    /// Custom sections.
+    pub custom_sections: HashMap<String, Vec<u8>>,
+}
+
+impl ModuleInfo {
+    /// Creates custom section info from the given wasm file.
+    pub fn import_custom_sections(&mut self, wasm: &[u8]) -> crate::error::ParseResult<()> {
+        let mut parser = wasmparser::ModuleReader::new(wasm)?;
+        while !parser.eof() {
+            let section = parser.read()?;
+            if let wasmparser::SectionCode::Custom { name, kind: _ } = section.code {
+                let mut reader = section.get_binary_reader();
+                let len = reader.bytes_remaining();
+                let bytes = reader.read_bytes(len)?;
+                let data = bytes.to_vec();
+                let name = name.to_string();
+                self.custom_sections.insert(name, data);
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A compiled WebAssembly module.
@@ -71,10 +112,6 @@ pub struct Module {
 
 impl Module {
     pub(crate) fn new(inner: Arc<ModuleInner>) -> Self {
-        unsafe {
-            EARLY_TRAPPER
-                .with(|ucell| *ucell.get() = Some(inner.protected_caller.get_early_trapper()));
-        }
         Module { inner }
     }
 
@@ -104,11 +141,17 @@ impl Module {
         Instance::new(Arc::clone(&self.inner), import_object)
     }
 
+    /// Create a cache artifact from this module.
     pub fn cache(&self) -> Result<Artifact, CacheError> {
-        let (info, backend_metadata, code) = self.inner.cache_gen.generate_cache(&self.inner)?;
-        Ok(Artifact::from_parts(info, backend_metadata, code))
+        let (backend_metadata, code) = self.inner.cache_gen.generate_cache()?;
+        Ok(Artifact::from_parts(
+            Box::new(self.inner.info.clone()),
+            backend_metadata,
+            code,
+        ))
     }
 
+    /// Get the module data for this module.
     pub fn info(&self) -> &ModuleInfo {
         &self.inner.info
     }
@@ -131,11 +174,16 @@ pub struct ImportName {
     pub name_index: NameIndex,
 }
 
+/// Kinds of export indexes.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
+    /// Function export index.
     Func(FuncIndex),
+    /// Memory export index.
     Memory(MemoryIndex),
+    /// Global export index.
     Global(GlobalIndex),
+    /// Table export index.
     Table(TableIndex),
 }
 
@@ -162,6 +210,7 @@ pub struct TableInitializer {
     pub elements: Vec<FuncIndex>,
 }
 
+/// String table builder.
 pub struct StringTableBuilder<K: TypedIndex> {
     map: IndexMap<String, (K, u32, u32)>,
     buffer: String,
@@ -169,6 +218,7 @@ pub struct StringTableBuilder<K: TypedIndex> {
 }
 
 impl<K: TypedIndex> StringTableBuilder<K> {
+    /// Creates a new `StringTableBuilder`.
     pub fn new() -> Self {
         Self {
             map: IndexMap::new(),
@@ -177,6 +227,7 @@ impl<K: TypedIndex> StringTableBuilder<K> {
         }
     }
 
+    /// Register a new string into table.
     pub fn register<S>(&mut self, s: S) -> K
     where
         S: Into<String> + AsRef<str>,
@@ -199,6 +250,7 @@ impl<K: TypedIndex> StringTableBuilder<K> {
         }
     }
 
+    /// Finish building the `StringTable`.
     pub fn finish(self) -> StringTable<K> {
         let table = self
             .map
@@ -213,6 +265,7 @@ impl<K: TypedIndex> StringTableBuilder<K> {
     }
 }
 
+/// A map of index to string.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StringTable<K: TypedIndex> {
     table: Map<K, (u32, u32)>,
@@ -220,6 +273,7 @@ pub struct StringTable<K: TypedIndex> {
 }
 
 impl<K: TypedIndex> StringTable<K> {
+    /// Creates a `StringTable`.
     pub fn new() -> Self {
         Self {
             table: Map::new(),
@@ -227,6 +281,7 @@ impl<K: TypedIndex> StringTable<K> {
         }
     }
 
+    /// Gets a reference to a string at the given index.
     pub fn get(&self, index: K) -> &str {
         let (offset, length) = self.table[index];
         let offset = offset as usize;
@@ -236,6 +291,7 @@ impl<K: TypedIndex> StringTable<K> {
     }
 }
 
+/// Namespace index.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NamespaceIndex(u32);
 
@@ -251,6 +307,7 @@ impl TypedIndex for NamespaceIndex {
     }
 }
 
+/// Name index.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NameIndex(u32);
 

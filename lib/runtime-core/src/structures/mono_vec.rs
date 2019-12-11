@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 enum MonoVecInner<T> {
     None,
@@ -36,7 +35,7 @@ impl<T> MonoVec<T> {
     }
 
     pub fn push(&mut self, item: T) {
-        let uninit = unsafe { mem::uninitialized() };
+        let uninit = MonoVecInner::None;
         let prev = mem::replace(&mut self.inner, uninit);
         let next = match prev {
             MonoVecInner::None => MonoVecInner::Inline(item),
@@ -54,7 +53,7 @@ impl<T> MonoVec<T> {
         match self.inner {
             MonoVecInner::None => None,
             MonoVecInner::Inline(ref mut item) => {
-                let uninit = unsafe { mem::uninitialized() };
+                let uninit = unsafe { mem::zeroed() };
                 let item = mem::replace(item, uninit);
                 let uninit = mem::replace(&mut self.inner, MonoVecInner::None);
                 mem::forget(uninit);

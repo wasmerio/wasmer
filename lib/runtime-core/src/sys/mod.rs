@@ -16,7 +16,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use serde_bytes::Bytes;
+use serde_bytes::{ByteBuf, Bytes};
 
 use std::fmt;
 
@@ -56,7 +56,7 @@ impl<'de> Deserialize<'de> for Memory {
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
 
-                let bytes: Bytes = seq
+                let bytes: ByteBuf = seq
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
 

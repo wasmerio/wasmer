@@ -1,38 +1,55 @@
 [package]
 name = "wasmer-runtime"
-version = "0.2.1"
+version = "0.11.0"
 description = "Wasmer runtime library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "runtime", "sandbox", "secure"]
+categories = ["wasm", "api-bindings"]
 edition = "2018"
 readme = "README.md"
 
 [dependencies]
-lazy_static = "1.2.0"
-memmap = "0.7.0"
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.11.0", optional = true }
+lazy_static = "1.4"
+memmap = "0.7"
 
 [dependencies.wasmer-runtime-core]
 path = "../runtime-core"
-version = "0.2.1"
+version = "0.11.0"
 
 [dependencies.wasmer-clif-backend]
 path = "../clif-backend"
-version = "0.2.0"
+version = "0.11.0"
+optional = true
 
 [dev-dependencies]
-tempfile = "3.0.7"
+tempfile = "3.1"
 criterion = "0.2"
-wabt = "0.7.4"
+wabt = "0.9.1"
 
-[target.'cfg(not(windows))'.dependencies.wasmer-llvm-backend]
+[dependencies.wasmer-llvm-backend]
 path = "../llvm-backend"
 optional = true
 
 [features]
+default = ["cranelift", "default-backend-cranelift"]
+docs = []
+cranelift = ["wasmer-clif-backend"]
+cache = ["cranelift"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 llvm = ["wasmer-llvm-backend"]
+singlepass = ["wasmer-singlepass-backend"]
+default-backend-singlepass = ["singlepass"]
+default-backend-llvm = ["llvm"]
+default-backend-cranelift = ["cranelift"]
+deterministic-execution = ["wasmer-singlepass-backend/deterministic-execution", "wasmer-runtime-core/deterministic-execution"]
 
 [[bench]]
 name = "nginx"
+harness = false
+
+[[bench]]
+name = "many_instances"
 harness = false

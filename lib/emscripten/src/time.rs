@@ -1,10 +1,14 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
+use crate::allocate_on_stack;
 use libc::{c_char, c_int};
+// use libc::{c_char, c_int, clock_getres, clock_settime};
 use std::mem;
 use std::time::SystemTime;
 
 #[cfg(not(target_os = "windows"))]
-use libc::{clockid_t, time as libc_time};
+use libc::{clockid_t, time as libc_time, timegm as libc_timegm, tm as libc_tm};
+#[cfg(not(target_os = "windows"))]
+use std::ffi::CString;
 
 #[cfg(target_os = "windows")]
 use libc::time_t;
@@ -28,7 +32,9 @@ use wasmer_runtime_core::vm::Ctx;
 use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
 
 #[cfg(target_os = "macos")]
-use libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
+use libc::CLOCK_REALTIME;
+#[cfg(target_os = "macos")]
+const CLOCK_MONOTONIC: clockid_t = 1;
 #[cfg(target_os = "macos")]
 const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
@@ -65,6 +71,12 @@ pub fn _gettimeofday(ctx: &mut Ctx, tp: c_int, tz: c_int) -> c_int {
     0
 }
 
+pub fn _clock_getres(_ctx: &mut Ctx, _clk_id: i32, _tp: i32) -> i32 {
+    debug!("emscripten::_clock_getres");
+    // clock_getres(clk_id, tp)
+    0
+}
+
 /// emscripten: _clock_gettime
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _clock_gettime(ctx: &mut Ctx, clk_id: clockid_t, tp: c_int) -> c_int {
@@ -96,6 +108,12 @@ pub fn _clock_gettime(ctx: &mut Ctx, clk_id: clockid_t, tp: c_int) -> c_int {
         (*timespec_struct_ptr).tv_sec = timespec.sec as _;
         (*timespec_struct_ptr).tv_nsec = timespec.nsec as _;
     }
+    0
+}
+
+pub fn _clock_settime(_ctx: &mut Ctx, _clk_id: i32, _tp: i32) -> i32 {
+    debug!("emscripten::_clock_settime");
+    // clock_settime(clk_id, tp)
     0
 }
 
@@ -296,17 +314,147 @@ pub fn _time(ctx: &mut Ctx, time_p: u32) -> i32 {
     }
 }
 
+pub fn _ctime_r(ctx: &mut Ctx, time_p: u32, buf: u32) -> u32 {
+    debug!("emscripten::_ctime_r {} {}", time_p, buf);
+
+    // var stack = stackSave();
+    let (result_offset, _result_slice): (u32, &mut [u8]) = unsafe { allocate_on_stack(ctx, 44) };
+    let time = _localtime_r(ctx, time_p, result_offset) as u32;
+    let rv = _asctime_r(ctx, time, buf);
+    // stackRestore(stack);
+    rv
+}
+
+pub fn _ctime(ctx: &mut Ctx, time_p: u32) -> u32 {
+    debug!("emscripten::_ctime {}", time_p);
+    let tm_current = 2414544;
+    _ctime_r(ctx, time_p, tm_current)
+}
+
+/// emscripten: _timegm
+#[cfg(not(target_os = "windows"))]
+#[allow(clippy::cast_ptr_alignment)]
+pub fn _timegm(ctx: &mut Ctx, time_ptr: u32) -> i32 {
+    debug!("emscripten::_timegm {}", time_ptr);
+
+    unsafe {
+        let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_ptr) as *mut guest_tm;
+
+        let x: *mut c_char = CString::new("").expect("CString::new failed").into_raw();
+        let mut rust_tm = libc_tm {
+            tm_sec: 0,
+            tm_min: 0,
+            tm_hour: 0,
+            tm_mday: 0,
+            tm_mon: 0,
+            tm_year: 0,
+            tm_wday: 0,
+            tm_yday: 0,
+            tm_isdst: 0,
+            tm_gmtoff: 0,
+            tm_zone: x,
+        };
+
+        let result = libc_timegm(&mut rust_tm) as i32;
+        if result != 0 {
+            (*time_p_addr).tm_sec = rust_tm.tm_sec;
+            (*time_p_addr).tm_min = rust_tm.tm_min;
+            (*time_p_addr).tm_hour = rust_tm.tm_hour;
+            (*time_p_addr).tm_mday = rust_tm.tm_mday;
+            (*time_p_addr).tm_mon = rust_tm.tm_mon;
+            (*time_p_addr).tm_year = rust_tm.tm_year;
+            (*time_p_addr).tm_wday = rust_tm.tm_wday;
+            (*time_p_addr).tm_yday = rust_tm.tm_yday;
+            (*time_p_addr).tm_isdst = rust_tm.tm_isdst;
+            (*time_p_addr).tm_gmtoff = rust_tm.tm_gmtoff as _;
+            (*time_p_addr).tm_zone = 0;
+        }
+        result
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn _timegm(_ctx: &mut Ctx, _time_ptr: c_int) -> i32 {
+    debug!(
+        "emscripten::_timegm - UNIMPLEMENTED IN WINDOWS {}",
+        _time_ptr
+    );
+    -1
+}
+
 /// emscripten: _strftime
 pub fn _strftime(
-    _ctx: &mut Ctx,
-    _s_ptr: c_int,
-    _maxsize: u32,
-    _format_ptr: c_int,
-    _tm_ptr: c_int,
+    ctx: &mut Ctx,
+    s_ptr: c_int,
+    maxsize: u32,
+    format_ptr: c_int,
+    tm_ptr: c_int,
 ) -> i32 {
     debug!(
         "emscripten::_strftime {} {} {} {}",
-        _s_ptr, _maxsize, _format_ptr, _tm_ptr
+        s_ptr, maxsize, format_ptr, tm_ptr
     );
-    0
+
+    #[allow(clippy::cast_ptr_alignment)]
+    let s = emscripten_memory_pointer!(ctx.memory(0), s_ptr) as *mut c_char;
+    #[allow(clippy::cast_ptr_alignment)]
+    let format = emscripten_memory_pointer!(ctx.memory(0), format_ptr) as *const c_char;
+    #[allow(clippy::cast_ptr_alignment)]
+    let tm = emscripten_memory_pointer!(ctx.memory(0), tm_ptr) as *const guest_tm;
+
+    let format_string = unsafe { std::ffi::CStr::from_ptr(format).to_str().unwrap() };
+
+    debug!("=> format_string: {:?}", format_string);
+
+    let tm = unsafe { &*tm };
+
+    let rust_tm = ::time::Tm {
+        tm_sec: tm.tm_sec,
+        tm_min: tm.tm_min,
+        tm_hour: tm.tm_hour,
+        tm_mday: tm.tm_mday,
+        tm_mon: tm.tm_mon,
+        tm_year: tm.tm_year,
+        tm_wday: tm.tm_wday,
+        tm_yday: tm.tm_yday,
+        tm_isdst: tm.tm_isdst,
+        tm_utcoff: tm.tm_gmtoff,
+        tm_nsec: 0,
+    };
+
+    let result_str = match ::time::strftime(format_string, &rust_tm) {
+        Ok(res_string) => res_string,
+        // TODO: maybe match on e in Err(e) and return different values if required
+        _ => return 0,
+    };
+
+    // pad for null?
+    let bytes = result_str.chars().count();
+    if bytes as u32 > maxsize {
+        0
+    } else {
+        // write output string
+        for (i, c) in result_str.chars().enumerate() {
+            unsafe { *s.add(i) = c as c_char };
+        }
+        // null terminate?
+        bytes as i32
+    }
+}
+
+/// emscripten: _strftime_l
+pub fn _strftime_l(
+    ctx: &mut Ctx,
+    s_ptr: c_int,
+    maxsize: u32,
+    format_ptr: c_int,
+    tm_ptr: c_int,
+    _last: c_int,
+) -> i32 {
+    debug!(
+        "emscripten::_strftime_l {} {} {} {}",
+        s_ptr, maxsize, format_ptr, tm_ptr
+    );
+
+    _strftime(ctx, s_ptr, maxsize, format_ptr, tm_ptr)
 }

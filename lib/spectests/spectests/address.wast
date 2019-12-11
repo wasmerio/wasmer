@@ -5,99 +5,99 @@
   (data (i32.const 0) "abcdefghijklmnopqrstuvwxyz")
 
   (func (export "8u_good1") (param $i i32) (result i32)
-    (i32.load8_u offset=0 (get_local $i))                   ;; 97 'a'
+    (i32.load8_u offset=0 (local.get $i))                   ;; 97 'a'
   )
   (func (export "8u_good2") (param $i i32) (result i32)
-    (i32.load8_u align=1 (get_local $i))                    ;; 97 'a'
+    (i32.load8_u align=1 (local.get $i))                    ;; 97 'a'
   )
   (func (export "8u_good3") (param $i i32) (result i32)
-    (i32.load8_u offset=1 align=1 (get_local $i))           ;; 98 'b'
+    (i32.load8_u offset=1 align=1 (local.get $i))           ;; 98 'b'
   )
   (func (export "8u_good4") (param $i i32) (result i32)
-    (i32.load8_u offset=2 align=1 (get_local $i))           ;; 99 'c'
+    (i32.load8_u offset=2 align=1 (local.get $i))           ;; 99 'c'
   )
   (func (export "8u_good5") (param $i i32) (result i32)
-    (i32.load8_u offset=25 align=1 (get_local $i))          ;; 122 'z'
+    (i32.load8_u offset=25 align=1 (local.get $i))          ;; 122 'z'
   )
 
   (func (export "8s_good1") (param $i i32) (result i32)
-    (i32.load8_s offset=0 (get_local $i))                   ;; 97 'a'
+    (i32.load8_s offset=0 (local.get $i))                   ;; 97 'a'
   )
   (func (export "8s_good2") (param $i i32) (result i32)
-    (i32.load8_s align=1 (get_local $i))                    ;; 97 'a'
+    (i32.load8_s align=1 (local.get $i))                    ;; 97 'a'
   )
   (func (export "8s_good3") (param $i i32) (result i32)
-    (i32.load8_s offset=1 align=1 (get_local $i))           ;; 98 'b'
+    (i32.load8_s offset=1 align=1 (local.get $i))           ;; 98 'b'
   )
   (func (export "8s_good4") (param $i i32) (result i32)
-    (i32.load8_s offset=2 align=1 (get_local $i))           ;; 99 'c'
+    (i32.load8_s offset=2 align=1 (local.get $i))           ;; 99 'c'
   )
   (func (export "8s_good5") (param $i i32) (result i32)
-    (i32.load8_s offset=25 align=1 (get_local $i))          ;; 122 'z'
+    (i32.load8_s offset=25 align=1 (local.get $i))          ;; 122 'z'
   )
 
   (func (export "16u_good1") (param $i i32) (result i32)
-    (i32.load16_u offset=0 (get_local $i))                  ;; 25185 'ab'
+    (i32.load16_u offset=0 (local.get $i))                  ;; 25185 'ab'
   )
   (func (export "16u_good2") (param $i i32) (result i32)
-    (i32.load16_u align=1 (get_local $i))                   ;; 25185 'ab'
+    (i32.load16_u align=1 (local.get $i))                   ;; 25185 'ab'
   )
   (func (export "16u_good3") (param $i i32) (result i32)
-    (i32.load16_u offset=1 align=1 (get_local $i))          ;; 25442 'bc'
+    (i32.load16_u offset=1 align=1 (local.get $i))          ;; 25442 'bc'
   )
   (func (export "16u_good4") (param $i i32) (result i32)
-    (i32.load16_u offset=2 align=2 (get_local $i))          ;; 25699 'cd'
+    (i32.load16_u offset=2 align=2 (local.get $i))          ;; 25699 'cd'
   )
   (func (export "16u_good5") (param $i i32) (result i32)
-    (i32.load16_u offset=25 align=2 (get_local $i))         ;; 122 'z\0'
+    (i32.load16_u offset=25 align=2 (local.get $i))         ;; 122 'z\0'
   )
 
   (func (export "16s_good1") (param $i i32) (result i32)
-    (i32.load16_s offset=0 (get_local $i))                  ;; 25185 'ab'
+    (i32.load16_s offset=0 (local.get $i))                  ;; 25185 'ab'
   )
   (func (export "16s_good2") (param $i i32) (result i32)
-    (i32.load16_s align=1 (get_local $i))                   ;; 25185 'ab'
+    (i32.load16_s align=1 (local.get $i))                   ;; 25185 'ab'
   )
   (func (export "16s_good3") (param $i i32) (result i32)
-    (i32.load16_s offset=1 align=1 (get_local $i))          ;; 25442 'bc'
+    (i32.load16_s offset=1 align=1 (local.get $i))          ;; 25442 'bc'
   )
   (func (export "16s_good4") (param $i i32) (result i32)
-    (i32.load16_s offset=2 align=2 (get_local $i))          ;; 25699 'cd'
+    (i32.load16_s offset=2 align=2 (local.get $i))          ;; 25699 'cd'
   )
   (func (export "16s_good5") (param $i i32) (result i32)
-    (i32.load16_s offset=25 align=2 (get_local $i))         ;; 122 'z\0'
+    (i32.load16_s offset=25 align=2 (local.get $i))         ;; 122 'z\0'
   )
 
   (func (export "32_good1") (param $i i32) (result i32)
-    (i32.load offset=0 (get_local $i))                      ;; 1684234849 'abcd'
+    (i32.load offset=0 (local.get $i))                      ;; 1684234849 'abcd'
   )
   (func (export "32_good2") (param $i i32) (result i32)
-    (i32.load align=1 (get_local $i))                       ;; 1684234849 'abcd'
+    (i32.load align=1 (local.get $i))                       ;; 1684234849 'abcd'
   )
   (func (export "32_good3") (param $i i32) (result i32)
-    (i32.load offset=1 align=1 (get_local $i))              ;; 1701077858 'bcde'
+    (i32.load offset=1 align=1 (local.get $i))              ;; 1701077858 'bcde'
   )
   (func (export "32_good4") (param $i i32) (result i32)
-    (i32.load offset=2 align=2 (get_local $i))              ;; 1717920867 'cdef'
+    (i32.load offset=2 align=2 (local.get $i))              ;; 1717920867 'cdef'
   )
   (func (export "32_good5") (param $i i32) (result i32)
-    (i32.load offset=25 align=4 (get_local $i))             ;; 122 'z\0\0\0'
+    (i32.load offset=25 align=4 (local.get $i))             ;; 122 'z\0\0\0'
   )
 
   (func (export "8u_bad") (param $i i32)
-    (drop (i32.load8_u offset=4294967295 (get_local $i)))
+    (drop (i32.load8_u offset=4294967295 (local.get $i)))
   )
   (func (export "8s_bad") (param $i i32)
-    (drop (i32.load8_s offset=4294967295 (get_local $i)))
+    (drop (i32.load8_s offset=4294967295 (local.get $i)))
   )
   (func (export "16u_bad") (param $i i32)
-    (drop (i32.load16_u offset=4294967295 (get_local $i)))
+    (drop (i32.load16_u offset=4294967295 (local.get $i)))
   )
   (func (export "16s_bad") (param $i i32)
-    (drop (i32.load16_s offset=4294967295 (get_local $i)))
+    (drop (i32.load16_s offset=4294967295 (local.get $i)))
   )
   (func (export "32_bad") (param $i i32)
-    (drop (i32.load offset=4294967295 (get_local $i)))
+    (drop (i32.load offset=4294967295 (local.get $i)))
   )
 )
 
@@ -218,137 +218,137 @@
   (data (i32.const 0) "abcdefghijklmnopqrstuvwxyz")
 
   (func (export "8u_good1") (param $i i32) (result i64)
-    (i64.load8_u offset=0 (get_local $i))                   ;; 97 'a'
+    (i64.load8_u offset=0 (local.get $i))                   ;; 97 'a'
   )
   (func (export "8u_good2") (param $i i32) (result i64)
-    (i64.load8_u align=1 (get_local $i))                    ;; 97 'a'
+    (i64.load8_u align=1 (local.get $i))                    ;; 97 'a'
   )
   (func (export "8u_good3") (param $i i32) (result i64)
-    (i64.load8_u offset=1 align=1 (get_local $i))           ;; 98 'b'
+    (i64.load8_u offset=1 align=1 (local.get $i))           ;; 98 'b'
   )
   (func (export "8u_good4") (param $i i32) (result i64)
-    (i64.load8_u offset=2 align=1 (get_local $i))           ;; 99 'c'
+    (i64.load8_u offset=2 align=1 (local.get $i))           ;; 99 'c'
   )
   (func (export "8u_good5") (param $i i32) (result i64)
-    (i64.load8_u offset=25 align=1 (get_local $i))          ;; 122 'z'
+    (i64.load8_u offset=25 align=1 (local.get $i))          ;; 122 'z'
   )
 
   (func (export "8s_good1") (param $i i32) (result i64)
-    (i64.load8_s offset=0 (get_local $i))                   ;; 97 'a'
+    (i64.load8_s offset=0 (local.get $i))                   ;; 97 'a'
   )
   (func (export "8s_good2") (param $i i32) (result i64)
-    (i64.load8_s align=1 (get_local $i))                    ;; 97 'a'
+    (i64.load8_s align=1 (local.get $i))                    ;; 97 'a'
   )
   (func (export "8s_good3") (param $i i32) (result i64)
-    (i64.load8_s offset=1 align=1 (get_local $i))           ;; 98 'b'
+    (i64.load8_s offset=1 align=1 (local.get $i))           ;; 98 'b'
   )
   (func (export "8s_good4") (param $i i32) (result i64)
-    (i64.load8_s offset=2 align=1 (get_local $i))           ;; 99 'c'
+    (i64.load8_s offset=2 align=1 (local.get $i))           ;; 99 'c'
   )
   (func (export "8s_good5") (param $i i32) (result i64)
-    (i64.load8_s offset=25 align=1 (get_local $i))          ;; 122 'z'
+    (i64.load8_s offset=25 align=1 (local.get $i))          ;; 122 'z'
   )
 
   (func (export "16u_good1") (param $i i32) (result i64)
-    (i64.load16_u offset=0 (get_local $i))                 ;; 25185 'ab'
+    (i64.load16_u offset=0 (local.get $i))                 ;; 25185 'ab'
   )
   (func (export "16u_good2") (param $i i32) (result i64)
-    (i64.load16_u align=1 (get_local $i))                  ;; 25185 'ab'
+    (i64.load16_u align=1 (local.get $i))                  ;; 25185 'ab'
   )
   (func (export "16u_good3") (param $i i32) (result i64)
-    (i64.load16_u offset=1 align=1 (get_local $i))         ;; 25442 'bc'
+    (i64.load16_u offset=1 align=1 (local.get $i))         ;; 25442 'bc'
   )
   (func (export "16u_good4") (param $i i32) (result i64)
-    (i64.load16_u offset=2 align=2 (get_local $i))         ;; 25699 'cd'
+    (i64.load16_u offset=2 align=2 (local.get $i))         ;; 25699 'cd'
   )
   (func (export "16u_good5") (param $i i32) (result i64)
-    (i64.load16_u offset=25 align=2 (get_local $i))        ;; 122 'z\0'
+    (i64.load16_u offset=25 align=2 (local.get $i))        ;; 122 'z\0'
   )
 
   (func (export "16s_good1") (param $i i32) (result i64)
-    (i64.load16_s offset=0 (get_local $i))                 ;; 25185 'ab'
+    (i64.load16_s offset=0 (local.get $i))                 ;; 25185 'ab'
   )
   (func (export "16s_good2") (param $i i32) (result i64)
-    (i64.load16_s align=1 (get_local $i))                  ;; 25185 'ab'
+    (i64.load16_s align=1 (local.get $i))                  ;; 25185 'ab'
   )
   (func (export "16s_good3") (param $i i32) (result i64)
-    (i64.load16_s offset=1 align=1 (get_local $i))         ;; 25442 'bc'
+    (i64.load16_s offset=1 align=1 (local.get $i))         ;; 25442 'bc'
   )
   (func (export "16s_good4") (param $i i32) (result i64)
-    (i64.load16_s offset=2 align=2 (get_local $i))         ;; 25699 'cd'
+    (i64.load16_s offset=2 align=2 (local.get $i))         ;; 25699 'cd'
   )
   (func (export "16s_good5") (param $i i32) (result i64)
-    (i64.load16_s offset=25 align=2 (get_local $i))        ;; 122 'z\0'
+    (i64.load16_s offset=25 align=2 (local.get $i))        ;; 122 'z\0'
   )
 
   (func (export "32u_good1") (param $i i32) (result i64)
-    (i64.load32_u offset=0 (get_local $i))                 ;; 1684234849 'abcd'
+    (i64.load32_u offset=0 (local.get $i))                 ;; 1684234849 'abcd'
   )
   (func (export "32u_good2") (param $i i32) (result i64)
-    (i64.load32_u align=1 (get_local $i))                  ;; 1684234849 'abcd'
+    (i64.load32_u align=1 (local.get $i))                  ;; 1684234849 'abcd'
   )
   (func (export "32u_good3") (param $i i32) (result i64)
-    (i64.load32_u offset=1 align=1 (get_local $i))         ;; 1701077858 'bcde'
+    (i64.load32_u offset=1 align=1 (local.get $i))         ;; 1701077858 'bcde'
   )
   (func (export "32u_good4") (param $i i32) (result i64)
-    (i64.load32_u offset=2 align=2 (get_local $i))         ;; 1717920867 'cdef'
+    (i64.load32_u offset=2 align=2 (local.get $i))         ;; 1717920867 'cdef'
   )
   (func (export "32u_good5") (param $i i32) (result i64)
-    (i64.load32_u offset=25 align=4 (get_local $i))        ;; 122 'z\0\0\0'
+    (i64.load32_u offset=25 align=4 (local.get $i))        ;; 122 'z\0\0\0'
   )
 
   (func (export "32s_good1") (param $i i32) (result i64)
-    (i64.load32_s offset=0 (get_local $i))                 ;; 1684234849 'abcd'
+    (i64.load32_s offset=0 (local.get $i))                 ;; 1684234849 'abcd'
   )
   (func (export "32s_good2") (param $i i32) (result i64)
-    (i64.load32_s align=1 (get_local $i))                  ;; 1684234849 'abcd'
+    (i64.load32_s align=1 (local.get $i))                  ;; 1684234849 'abcd'
   )
   (func (export "32s_good3") (param $i i32) (result i64)
-    (i64.load32_s offset=1 align=1 (get_local $i))         ;; 1701077858 'bcde'
+    (i64.load32_s offset=1 align=1 (local.get $i))         ;; 1701077858 'bcde'
   )
   (func (export "32s_good4") (param $i i32) (result i64)
-    (i64.load32_s offset=2 align=2 (get_local $i))         ;; 1717920867 'cdef'
+    (i64.load32_s offset=2 align=2 (local.get $i))         ;; 1717920867 'cdef'
   )
   (func (export "32s_good5") (param $i i32) (result i64)
-    (i64.load32_s offset=25 align=4 (get_local $i))        ;; 122 'z\0\0\0'
+    (i64.load32_s offset=25 align=4 (local.get $i))        ;; 122 'z\0\0\0'
   )
 
   (func (export "64_good1") (param $i i32) (result i64)
-    (i64.load offset=0 (get_local $i))                     ;; 0x6867666564636261 'abcdefgh'
+    (i64.load offset=0 (local.get $i))                     ;; 0x6867666564636261 'abcdefgh'
   )
   (func (export "64_good2") (param $i i32) (result i64)
-    (i64.load align=1 (get_local $i))                      ;; 0x6867666564636261 'abcdefgh'
+    (i64.load align=1 (local.get $i))                      ;; 0x6867666564636261 'abcdefgh'
   )
   (func (export "64_good3") (param $i i32) (result i64)
-    (i64.load offset=1 align=1 (get_local $i))             ;; 0x6968676665646362 'bcdefghi'
+    (i64.load offset=1 align=1 (local.get $i))             ;; 0x6968676665646362 'bcdefghi'
   )
   (func (export "64_good4") (param $i i32) (result i64)
-    (i64.load offset=2 align=2 (get_local $i))             ;; 0x6a69686766656463 'cdefghij'
+    (i64.load offset=2 align=2 (local.get $i))             ;; 0x6a69686766656463 'cdefghij'
   )
   (func (export "64_good5") (param $i i32) (result i64)
-    (i64.load offset=25 align=8 (get_local $i))            ;; 122 'z\0\0\0\0\0\0\0'
+    (i64.load offset=25 align=8 (local.get $i))            ;; 122 'z\0\0\0\0\0\0\0'
   )
 
   (func (export "8u_bad") (param $i i32)
-    (drop (i64.load8_u offset=4294967295 (get_local $i)))
+    (drop (i64.load8_u offset=4294967295 (local.get $i)))
   )
   (func (export "8s_bad") (param $i i32)
-    (drop (i64.load8_s offset=4294967295 (get_local $i)))
+    (drop (i64.load8_s offset=4294967295 (local.get $i)))
   )
   (func (export "16u_bad") (param $i i32)
-    (drop (i64.load16_u offset=4294967295 (get_local $i)))
+    (drop (i64.load16_u offset=4294967295 (local.get $i)))
   )
   (func (export "16s_bad") (param $i i32)
-    (drop (i64.load16_s offset=4294967295 (get_local $i)))
+    (drop (i64.load16_s offset=4294967295 (local.get $i)))
   )
   (func (export "32u_bad") (param $i i32)
-    (drop (i64.load32_u offset=4294967295 (get_local $i)))
+    (drop (i64.load32_u offset=4294967295 (local.get $i)))
   )
   (func (export "32s_bad") (param $i i32)
-    (drop (i64.load32_s offset=4294967295 (get_local $i)))
+    (drop (i64.load32_s offset=4294967295 (local.get $i)))
   )
   (func (export "64_bad") (param $i i32)
-    (drop (i64.load offset=4294967295 (get_local $i)))
+    (drop (i64.load offset=4294967295 (local.get $i)))
   )
 )
 
@@ -501,22 +501,22 @@
   (data (i32.const 0) "\00\00\00\00\00\00\a0\7f\01\00\d0\7f")
 
   (func (export "32_good1") (param $i i32) (result f32)
-    (f32.load offset=0 (get_local $i))                   ;; 0.0 '\00\00\00\00'
+    (f32.load offset=0 (local.get $i))                   ;; 0.0 '\00\00\00\00'
   )
   (func (export "32_good2") (param $i i32) (result f32)
-    (f32.load align=1 (get_local $i))                    ;; 0.0 '\00\00\00\00'
+    (f32.load align=1 (local.get $i))                    ;; 0.0 '\00\00\00\00'
   )
   (func (export "32_good3") (param $i i32) (result f32)
-    (f32.load offset=1 align=1 (get_local $i))           ;; 0.0 '\00\00\00\00'
+    (f32.load offset=1 align=1 (local.get $i))           ;; 0.0 '\00\00\00\00'
   )
   (func (export "32_good4") (param $i i32) (result f32)
-    (f32.load offset=2 align=2 (get_local $i))           ;; 0.0 '\00\00\00\00'
+    (f32.load offset=2 align=2 (local.get $i))           ;; 0.0 '\00\00\00\00'
   )
   (func (export "32_good5") (param $i i32) (result f32)
-    (f32.load offset=8 align=4 (get_local $i))           ;; nan:0x500001 '\01\00\d0\7f'
+    (f32.load offset=8 align=4 (local.get $i))           ;; nan:0x500001 '\01\00\d0\7f'
   )
   (func (export "32_bad") (param $i i32)
-    (drop (f32.load offset=4294967295 (get_local $i)))
+    (drop (f32.load offset=4294967295 (local.get $i)))
   )
 )
 
@@ -548,22 +548,22 @@
   (data (i32.const 0) "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\f4\7f\01\00\00\00\00\00\fc\7f")
 
   (func (export "64_good1") (param $i i32) (result f64)
-    (f64.load offset=0 (get_local $i))                     ;; 0.0 '\00\00\00\00\00\00\00\00'
+    (f64.load offset=0 (local.get $i))                     ;; 0.0 '\00\00\00\00\00\00\00\00'
   )
   (func (export "64_good2") (param $i i32) (result f64)
-    (f64.load align=1 (get_local $i))                      ;; 0.0 '\00\00\00\00\00\00\00\00'
+    (f64.load align=1 (local.get $i))                      ;; 0.0 '\00\00\00\00\00\00\00\00'
   )
   (func (export "64_good3") (param $i i32) (result f64)
-    (f64.load offset=1 align=1 (get_local $i))             ;; 0.0 '\00\00\00\00\00\00\00\00'
+    (f64.load offset=1 align=1 (local.get $i))             ;; 0.0 '\00\00\00\00\00\00\00\00'
   )
   (func (export "64_good4") (param $i i32) (result f64)
-    (f64.load offset=2 align=2 (get_local $i))             ;; 0.0 '\00\00\00\00\00\00\00\00'
+    (f64.load offset=2 align=2 (local.get $i))             ;; 0.0 '\00\00\00\00\00\00\00\00'
   )
   (func (export "64_good5") (param $i i32) (result f64)
-    (f64.load offset=18 align=8 (get_local $i))            ;; nan:0xc000000000001 '\01\00\00\00\00\00\fc\7f'
+    (f64.load offset=18 align=8 (local.get $i))            ;; nan:0xc000000000001 '\01\00\00\00\00\00\fc\7f'
   )
   (func (export "64_bad") (param $i i32)
-    (drop (f64.load offset=4294967295 (get_local $i)))
+    (drop (f64.load offset=4294967295 (local.get $i)))
   )
 )
 

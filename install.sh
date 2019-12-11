@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # This install script is intended to download and install the latest available
-# release of the wasmer.
-# Installer script inspired from:
+# release of Wasmer.
+# Installer script inspired by:
 #  1) https://raw.githubusercontent.com/golang/dep/master/install.sh
 #  2) https://sh.rustup.rs
 #  3) https://yarnpkg.com/install.sh
@@ -22,7 +22,6 @@
 
 set -e
 
-
 reset="\033[0m"
 red="\033[31m"
 green="\033[32m"
@@ -32,7 +31,13 @@ white="\033[37m"
 bold="\e[1m"
 dim="\e[2m"
 
+# Warning: Remove this on the public repo
 RELEASES_URL="https://github.com/wasmerio/wasmer/releases"
+
+WASMER_VERBOSE="verbose"
+if [ -z "$WASMER_INSTALL_LOG" ]; then
+  WASMER_INSTALL_LOG="$WASMER_VERBOSE"
+fi
 
 wasmer_download_json() {
     url="$2"
@@ -65,15 +70,25 @@ wasmer_download_file() {
 
     # echo "Fetching $url.."
     if test -x "$(command -v curl)"; then
-        code=$(curl --progress-bar -w '%{http_code}' -L "$url" -o "$destination")
+        if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
+          code=$(curl --progress-bar -w '%{http_code}' -L "$url" -o "$destination")
+          printf "\033[K\n\033[1A"
+        else
+          code=$(curl -s -w '%{http_code}' -L "$url" -o "$destination")
+        fi
     elif test -x "$(command -v wget)"; then
-        code=$(wget --show-progress --progress=bar:force:noscroll -q -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
+        if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
+          code=$(wget --show-progress --progress=bar:force:noscroll -q -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
+          printf "\033[K\n\033[1A";
+        else
+          code=$(wget --quiet -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
+        fi
     else
         printf "$red> Neither curl nor wget was available to perform http requests.$reset\n"
         exit 1
     fi
 
-    if [ "$code" == 404 ]; then
+    if [ "$code" = 404 ]; then
         printf "$red> Your architecture is not yet supported ($OS-$ARCH).$reset\n"
         echo "> Please open an issue on the project if you would like to use wasmer in your project: https://github.com/wasmerio/wasmer"
         exit 1
@@ -129,11 +144,11 @@ wasmer_detect_profile() {
 wasmer_link() {
   printf "$cyan> Adding to bash profile...$reset\n"
   WASMER_PROFILE="$(wasmer_detect_profile)"
-  LOAD_STR="\n# Wasmer\nexport WASMER_DIR=\"\$HOME/.wasmer\"\n[ -s \"\$WASMER_DIR/wasmer.sh\" ] && source \"\$WASMER_DIR/wasmer.sh\"  # This loads wasmer\n"
-  SOURCE_STR="# Wasmer config\nexport WASMER_DIR=\"\$HOME/.wasmer\"\nexport WASMER_CACHE_DIR=\"\$WASMER_DIR/cache\"\nexport PATH=\"\$HOME/.wasmer/bin:\$PATH\"\n"
+  LOAD_STR="\n# Wasmer\nexport WASMER_DIR=\"$INSTALL_DIRECTORY\"\n[ -s \"\$WASMER_DIR/wasmer.sh\" ] && source \"\$WASMER_DIR/wasmer.sh\"\n"
+  SOURCE_STR="# Wasmer config\nexport WASMER_DIR=\"$INSTALL_DIRECTORY\"\nexport WASMER_CACHE_DIR=\"\$WASMER_DIR/cache\"\nexport PATH=\"\$WASMER_DIR/bin:\$WASMER_DIR/globals/wapm_packages/.bin:\$PATH\"\n"
 
   # We create the wasmer.sh file
-  printf "$SOURCE_STR" > "$HOME/.wasmer/wasmer.sh"
+  printf "$SOURCE_STR" > "$INSTALL_DIRECTORY/wasmer.sh"
 
   if [ -z "${WASMER_PROFILE-}" ] ; then
     printf "${red}Profile not found. Tried:\n* ${WASMER_PROFILE} (as defined in \$PROFILE)\n* ~/.bashrc\n* ~/.bash_profile\n* ~/.zshrc\n* ~/.profile.\n"
@@ -144,24 +159,29 @@ wasmer_link() {
     command printf "${SOURCE_STR}"
   else
     if ! grep -q 'wasmer.sh' "$WASMER_PROFILE"; then
-      # if [[ $WASMER_PROFILE == *"fish"* ]]; then
+      # if [[ $WASMER_PROFILE = *"fish"* ]]; then
       #   command fish -c 'set -U fish_user_paths $fish_user_paths ~/.wasmer/bin'
       # else
       command printf "$LOAD_STR" >> "$WASMER_PROFILE"
       # fi
     fi
     printf "\033[1A$cyan> Adding to bash profile... ✓$reset\n"
-    printf "${dim}Note: We've added the following to your $WASMER_PROFILE\n"
-    echo "If this isn't the profile of your current shell then please add the following to your correct profile:"
-    printf "$LOAD_STR$reset\n"
+    if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
+      printf "${dim}Note: We've added the following to your $WASMER_PROFILE\n"
+      echo "If you have a different profile please add the following:"
+      printf "$LOAD_STR$reset\n"
+    fi
 
-    version=`$HOME/.wasmer/bin/wasmer --version` || (
+    version=`$INSTALL_DIRECTORY/bin/wasmer --version` || (
       printf "$red> wasmer was installed, but doesn't seem to be working :($reset\n"
       exit 1;
     )
 
-    printf "$green> Successfully installed $version!\n\n${reset}If you want to have the command available now please execute:\nsource $HOME/.wasmer/wasmer.sh$reset\n"
-    printf "\nOtherwise, wasmer will be available the next time you open the terminal.\n"
+    printf "$green> Successfully installed $version!\n"
+    if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
+      printf "${reset}${dim}wasmer & wapm will be available the next time you open the terminal.\n"
+      printf "${reset}${dim}If you want to have the commands available now please execute:\n${reset}source $INSTALL_DIRECTORY/wasmer.sh$reset\n"
+    fi
   fi
 }
 
@@ -188,9 +208,11 @@ initArch() {
         printf "$cyan> Using WASMER_ARCH ($WASMER_ARCH).$reset\n"
         ARCH="$WASMER_ARCH"
     fi
+    # If you modify this list, please also modify scripts/binary-name.sh
     case $ARCH in
         amd64) ARCH="amd64";;
         x86_64) ARCH="amd64";;
+        aarch64) ARCH="arm64";;
         # i386) ARCH="386";;
         *) printf "$red> The system architecture (${ARCH}) is not supported by this installation script.$reset\n"; exit 1;;
     esac
@@ -227,34 +249,37 @@ initOS() {
 
 wasmer_install() {
   magenta1="${reset}\033[34;1m"
-  magenta2="${reset}\033[34m"
-  magenta3="${reset}\033[34;2m"
+  magenta2=""
+  magenta3=""
 
   if which wasmer >/dev/null; then
-    printf "${reset}Updating wasmer$reset\n"
+    printf "${reset}Updating Wasmer and WAPM$reset\n"
   else
-    printf "${reset}Installing Wasmer!$reset\n"
-    printf "
-  ${magenta1}      ${magenta2}        ${magenta3}###${reset}
-  ${magenta1}      ${magenta2}        ${magenta3}#####${reset}
-  ${magenta1}      ${magenta2}###     ${magenta3}######${reset}
-  ${magenta1}      ${magenta2}######  ${magenta3}#############${reset}
-  ${magenta1}#     ${magenta2}####### ${magenta3}##############${reset}
-  ${magenta1}##### ${magenta2}#############${magenta3}#########${reset}
-  ${magenta1}######${magenta2}###############${magenta3}#######${reset}
-  ${magenta1}############${magenta2}#########${magenta3}#######${reset}
-  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
-  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
-  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
-  ${magenta1}##############${magenta2}#######${magenta3}    ###${reset}
-  ${magenta1}##############${magenta2}#######
-     ${magenta1}###########${magenta2}    ###
-        ${magenta1}########${magenta2}
-            ${magenta1}####${reset}
-
+    printf "${reset}Installing Wasmer and WAPM!$reset\n"
+    if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
+      printf "
+${magenta1}               ww
+${magenta1}               wwwww
+${magenta1}        ww     wwwwww  w
+${magenta1}        wwwww      wwwwwwwww
+${magenta1}ww      wwwwww  w     wwwwwww
+${magenta1}wwwww      wwwwwwwwww   wwwww
+${magenta1}wwwwww  w      wwwwwww  wwwww
+${magenta1}wwwwwwwwwwwwww   wwwww  wwwww
+${magenta1}wwwwwwwwwwwwwww  wwwww  wwwww
+${magenta1}wwwwwwwwwwwwwww  wwwww  wwwww
+${magenta1}wwwwwwwwwwwwwww  wwwww  wwwww
+${magenta1}wwwwwwwwwwwwwww  wwwww   wwww
+${magenta1}wwwwwwwwwwwwwww  wwwww
+${magenta1}   wwwwwwwwwwww   wwww
+${magenta1}       wwwwwwww
+${magenta1}           wwww
+${reset}
 "
+    fi
   fi
-#   if [ -d "$HOME/.wasmer" ]; then
+
+#   if [ -d "$INSTALL_DIRECTORY" ]; then
 #     if which wasmer; then
 #       local latest_url
 #       local specified_version
@@ -283,15 +308,14 @@ wasmer_install() {
 #         exit 0
 #       else
 #       	printf "$yellow> $wasmer_alt_version is already installed, Specified version: $specified_version.$reset\n"
-#         rm -rf "$HOME/.wasmer"
+#         rm -rf "$INSTALL_DIRECTORY"
 #       fi
 #     else
-#       printf "$red> $HOME/.wasmer already exists, possibly from a past Wasmer install.$reset\n"
-#       printf "$red> Remove it (rm -rf $HOME/.wasmer) and run this script again.$reset\n"
+#       printf "$red> $INSTALL_DIRECTORY already exists, possibly from a past Wasmer install.$reset\n"
+#       printf "$red> Remove it (rm -rf $INSTALL_DIRECTORY) and run this script again.$reset\n"
 #       exit 0
 #     fi
 #   fi
-
   wasmer_download # $1 $2
   wasmer_link
   wasmer_reset
@@ -305,7 +329,7 @@ wasmer_reset() {
 # Example taken from
 # https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
 # wasmer_compareversions () {
-#     if [[ $1 == $2 ]]
+#     if [[ $1 = $2 ]]
 #     then
 #         echo "="
 #         return 0
@@ -363,18 +387,22 @@ wasmer_download() {
 
   # determine install directory if required
   if [ -z "$INSTALL_DIRECTORY" ]; then
-      # findWasmerBinDirectory INSTALL_DIRECTORY
-      INSTALL_DIRECTORY="$HOME/.wasmer"
+      if [ -z "$WASMER_DIR" ]; then
+          # If WASMER_DIR is not present
+          INSTALL_DIRECTORY="$HOME/.wasmer"
+      else
+          # If WASMER_DIR is present
+          INSTALL_DIRECTORY="${WASMER_DIR}"
+      fi
   fi
-  WASMER=INSTALL_DIRECTORY
 
   # assemble expected release artifact name
-  BINARY="wasmer-${OS}-${ARCH}"
+  BINARY="wasmer-${OS}-${ARCH}.tar.gz"
 
   # add .exe if on windows
-  if [ "$OS" = "windows" ]; then
-      BINARY="$BINARY.exe"
-  fi
+  # if [ "$OS" = "windows" ]; then
+  #     BINARY="$BINARY.exe"
+  # fi
 
   # if WASMER_RELEASE_TAG was not provided, assume latest
   if [ -z "$WASMER_RELEASE_TAG" ]; then
@@ -413,13 +441,10 @@ wasmer_download() {
   printf "$cyan> Downloading $WASMER_RELEASE_TAG release...$reset\n"
   wasmer_download_file "$BINARY_URL" "$DOWNLOAD_FILE"
   # echo -en "\b\b"
-  printf "\033[2A$cyan> Downloading $WASMER_RELEASE_TAG release... ✓$reset\033[K\n"
+  printf "\033[1A$cyan> Downloading $WASMER_RELEASE_TAG release... ✓$reset\n"
   printf "\033[K\n\033[1A"
   # printf "\033[1A$cyan> Downloaded$reset\033[K\n"
   # echo "Setting executable permissions."
-  chmod +x "$DOWNLOAD_FILE"
-
-  INSTALL_NAME="wasmer"
 
   # windows not supported yet
   # if [ "$OS" = "windows" ]; then
@@ -428,8 +453,12 @@ wasmer_download() {
 
   # echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
 
-  mkdir -p $INSTALL_DIRECTORY/bin
-  mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/bin/$INSTALL_NAME"
+  printf "$cyan> Unpacking contents...$reset\n"
+
+  mkdir -p $INSTALL_DIRECTORY
+  # Untar the wasmer contents in the install directory
+  tar -C $INSTALL_DIRECTORY -zxf $DOWNLOAD_FILE
+  printf "\033[1A$cyan> Unpacking contents... ✓$reset\n"
 }
 
 wasmer_verify_or_quit() {
