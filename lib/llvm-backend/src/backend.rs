@@ -2,6 +2,7 @@ use super::stackmap::StackmapRegistry;
 use crate::{
     intrinsics::Intrinsics,
     structs::{Callbacks, LLVMModule, LLVMResult, MemProtect},
+    LLVMCallbacks,
 };
 use inkwell::{
     memory_buffer::MemoryBuffer,
@@ -13,8 +14,6 @@ use std::{
     any::Any,
     cell::RefCell,
     ffi::{c_void, CString},
-    fs::File,
-    io::Write,
     mem,
     ops::Deref,
     ptr::{self, NonNull},
@@ -67,7 +66,7 @@ extern "C" {
         params: *const u64,
         results: *mut u64,
         trap_out: *mut WasmTrapInfo,
-        user_error: *mut Option<Box<dyn Any>>,
+        user_error: *mut Option<Box<dyn Any + Send>>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
@@ -176,23 +175,22 @@ impl LLVMBackend {
         _stackmaps: &StackmapRegistry,
         _module_info: &ModuleInfo,
         target_machine: &TargetMachine,
+        llvm_callbacks: &Option<Rc<RefCell<dyn LLVMCallbacks>>>,
     ) -> (Self, LLVMCache) {
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module.borrow_mut(), FileType::Object)
             .unwrap();
-        let mem_buf_slice = memory_buffer.as_slice();
 
-        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.obj_file } {
-            let mut file = File::create(path).unwrap();
-            let mut pos = 0;
-            while pos < mem_buf_slice.len() {
-                pos += file.write(&mem_buf_slice[pos..]).unwrap();
-            }
+        if let Some(callbacks) = llvm_callbacks {
+            callbacks
+                .borrow_mut()
+                .obj_memory_buffer_callback(&memory_buffer);
         }
 
         let callbacks = get_callbacks();
         let mut module: *mut LLVMModule = ptr::null_mut();
 
+        let mem_buf_slice = memory_buffer.as_slice();
         let res = unsafe {
             module_load(
                 mem_buf_slice.as_ptr(),
@@ -429,7 +427,7 @@ impl RunnableModule for LLVMBackend {
         self.msm.clone()
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
         throw_any(Box::leak(data))
     }
 }

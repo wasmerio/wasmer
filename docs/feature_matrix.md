@@ -4,11 +4,11 @@
 
 | &nbsp; | Singlepass | Cranelift | LLVM |
 | - | :-: | :-: | :-: |
-| Caching | ⬜ | ✅ | ✅ |
+| Caching | ✅ | ✅ | ✅ |
 | Emscripten | ✅ | ✅ | ✅ |
 | Metering | ✅ | ⬜ | ✅ |
 | Multi-value return | ⬜ | ⬜ | ⬜ |
-| OSR | 🔄 | ❓ | ❓ |
+| OSR | 🔄 | ⬜ | 🔄 |
 | SIMD | ⬜ | ⬜ | ✅ |
 | WASI | ✅ | ✅ | ✅ |
 | WASMER_BACKTRACE | ✅ | ⬜ | ⬜ |
@@ -18,7 +18,7 @@
 | - | :-: | :-: | :-: |
 | Cranelift Backend | ✅ | ✅ | ✅ |
 | LLVM Backend | ✅ | ✅ | ✅ |
-| Singlepass Backend | [#347](https://github.com/wasmerio/wasmer/issues/347) | ✅ | ✅ |
+| Singlepass Backend | ✅ | ✅ | [#347](https://github.com/wasmerio/wasmer/issues/347) | 
 | WASI | ✅ | ✅ | ✅* |
 
 * `poll_fd` is not fully implemented for Windows yet

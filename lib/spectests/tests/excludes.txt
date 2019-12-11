@@ -12,10 +12,12 @@
 # Star line allows skipping an entire wast file
 #    clif:skip:simd.wast:*
 #
-# Excludes can also contain platform
+# Excludes can also contain target family
 #    clif:skip:data.wast:172:windows
 #    clif:skip:data.wast:172:unix
 #
+# Or target arch
+#    singlepass:skip:atomic.wast:*:*:aarch64
 
 # Cranelift
 clif:skip:atomic.wast:*        # Threads not implemented
@@ -304,6 +306,8 @@ llvm:skip:simd_binaryen.wast:*:unix # Module - caught panic Any
 singlepass:skip:simd.wast:*          # SIMD not implemented
 singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
+singlepass:skip:atomic.wast:*:*:aarch64 # Threads not yet supported on singlepass
+
 singlepass:fail:address.wast:192 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:address.wast:194 # AssertTrap - expected trap, got []
 singlepass:fail:address.wast:195 # AssertTrap - expected trap, got []
@@ -396,73 +400,73 @@ singlepass:fail:call_indirect.wast:493 # AssertTrap - expected trap, got Runtime
 singlepass:fail:call_indirect.wast:494 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call_indirect.wast:500 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:call_indirect.wast:501 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:70 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:71 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:72 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:73 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:74 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:75 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:76 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:77 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:92 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:93 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:94 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:95 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:96 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:78 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:79 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:80 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:81 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:82 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:97 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:98 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:99 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:115 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:116 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:117 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:118 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:119 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:100 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:101 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:102 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:103 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:104 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:122 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:138 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:139 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:140 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:141 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:142 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:123 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:124 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:125 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:126 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:127 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:143 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:144 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:145 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:146 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:147 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:148 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:166 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:167 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:168 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:169 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:170 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:149 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:150 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:151 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:152 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:153 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:171 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:172 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:173 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:186 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:187 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:188 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:189 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:190 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:174 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:175 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:176 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:177 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:178 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:191 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:192 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:193 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:211 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:212 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:213 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:214 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:215 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:194 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:195 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:196 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:197 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:198 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:216 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:217 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:218 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:235 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:237 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:238 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:239 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:219 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:220 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:222 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:223 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:240 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:241 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:conversions.wast:242 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:243 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:244 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:245 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:246 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:conversions.wast:247 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:elem.wast:353 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:func_ptrs.wast:78 # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:func_ptrs.wast:79 # AssertTrap - expected trap, got Runtime:Error unknown error

@@ -208,9 +208,11 @@ initArch() {
         printf "$cyan> Using WASMER_ARCH ($WASMER_ARCH).$reset\n"
         ARCH="$WASMER_ARCH"
     fi
+    # If you modify this list, please also modify scripts/binary-name.sh
     case $ARCH in
         amd64) ARCH="amd64";;
         x86_64) ARCH="amd64";;
+        aarch64) ARCH="arm64";;
         # i386) ARCH="386";;
         *) printf "$red> The system architecture (${ARCH}) is not supported by this installation script.$reset\n"; exit 1;;
     esac

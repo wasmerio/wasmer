@@ -54,6 +54,10 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         }
     }
 
+    fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {
+        unimplemented!("cross compilation is not available for clif backend")
+    }
+
     fn backend_id() -> Backend {
         Backend::Cranelift
     }
@@ -691,7 +695,9 @@ impl FuncEnvironment for FunctionEnvironment {
     }
 
     /// Generates a call IR with `callee` and `call_args` and inserts it at `pos`
-    /// TODO: add support for imported functions
+    ///
+    /// It's about generating code that calls a local or imported function; in
+    /// WebAssembly: `(call $foo)`.
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,
@@ -763,20 +769,31 @@ impl FuncEnvironment for FunctionEnvironment {
                     readonly: true,
                 });
 
-                let imported_vmctx_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
-                    base: imported_func_struct_addr,
-                    offset: (vm::ImportedFunc::offset_vmctx() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
+                let imported_func_ctx_addr =
+                    pos.func.create_global_value(ir::GlobalValueData::Load {
+                        base: imported_func_struct_addr,
+                        offset: (vm::ImportedFunc::offset_func_ctx() as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
+
+                let imported_func_ctx_vmctx_addr =
+                    pos.func.create_global_value(ir::GlobalValueData::Load {
+                        base: imported_func_ctx_addr,
+                        offset: (vm::FuncCtx::offset_vmctx() as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
 
                 let imported_func_addr = pos.ins().global_value(ptr_type, imported_func_addr);
-                let imported_vmctx_addr = pos.ins().global_value(ptr_type, imported_vmctx_addr);
+                let imported_func_ctx_vmctx_addr = pos
+                    .ins()
+                    .global_value(ptr_type, imported_func_ctx_vmctx_addr);
 
                 let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
-                args.push(imported_vmctx_addr);
+                args.push(imported_func_ctx_vmctx_addr);
                 args.extend(call_args.iter().cloned());
 
                 Ok(pos

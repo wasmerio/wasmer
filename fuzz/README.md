@@ -47,7 +47,7 @@ The fuzzer works best when it has examples of small Wasm files to start with. Us
 
 ```sh
 mkdir spec-test-corpus
-for i in lib/spectests/spectests/*.wast; do wast2json $i -o spec-test-corpus/$(basename $i).json; done
+for i in lib/spectests/spectests/*.wast; do wast2json --enable-all $i -o spec-test-corpus/$(basename $i).json; done
 mv spec-test-corpus/*.wasm fuzz/corpus/simple_instantiate/
 rm -r spec-test-corpus
 ```

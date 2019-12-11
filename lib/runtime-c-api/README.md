@@ -105,10 +105,14 @@ int main()
 
 # Testing
 
+Tests are run using the release build of the library.  If you make
+changes or compile with non-default features, please ensure you
+rebuild in release mode for the tests to see the changes.
+
 The tests can be run via `cargo test`, such as:
 
 ```sh
-$ cargo test -- --nocapture
+$ cargo test --release -- --nocapture
 ```
 
 To run tests manually, enter the `lib/runtime-c-api/tests` directory

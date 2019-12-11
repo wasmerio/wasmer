@@ -9,6 +9,7 @@ mod close_preopen_fd;
 mod create_dir;
 mod envvar;
 mod fd_allocate;
+mod fd_append;
 mod fd_close;
 mod fd_pread;
 mod fd_read;

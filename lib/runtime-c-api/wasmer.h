@@ -1,3 +1,22 @@
+
+#if !defined(WASMER_H_MACROS)
+#define WASMER_H_MACROS
+
+#if defined(MSVC)
+#if defined(_M_AMD64)
+#define ARCH_X86_64
+#endif
+#endif
+
+#if defined(GCC) || defined(__GNUC__) || defined(__clang__)
+#if defined(__x86_64__)
+#define ARCH_X86_64
+#endif
+#endif
+
+#endif // WASMER_H_MACROS
+
+
 #ifndef WASMER_H
 #define WASMER_H
 
@@ -5,6 +24,27 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+enum Version {
+  /**
+   * Version cannot be detected or is unknown.
+   */
+  Unknown = 0,
+  /**
+   * Latest version. See `wasmer_wasi::WasiVersion::Latest` to
+   * leran more.
+   */
+  Latest = 1,
+  /**
+   * `wasi_unstable`.
+   */
+  Snapshot0 = 2,
+  /**
+   * `wasi_snapshot_preview1`.
+   */
+  Snapshot1 = 3,
+};
+typedef uint8_t Version;
 
 /**
  * List of export/import kinds.
@@ -162,17 +202,23 @@ typedef struct {
 
 } wasmer_serialized_module_t;
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_buffer_builder_t;
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_callable_t;
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_buffer_t;
+#endif
 
 /**
  * Opens a directory that's visible to the WASI module as `alias` but
@@ -780,6 +826,7 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
  */
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Adds a callinfo trampoline to the builder.
  */
@@ -787,39 +834,52 @@ uintptr_t wasmer_trampoline_buffer_builder_add_callinfo_trampoline(wasmer_trampo
                                                                    const wasmer_trampoline_callable_t *func,
                                                                    const void *ctx,
                                                                    uint32_t num_params);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Adds a context trampoline to the builder.
  */
 uintptr_t wasmer_trampoline_buffer_builder_add_context_trampoline(wasmer_trampoline_buffer_builder_t *builder,
                                                                   const wasmer_trampoline_callable_t *func,
                                                                   const void *ctx);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Finalizes the trampoline builder into an executable buffer.
  */
 wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *builder);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Creates a new trampoline builder.
  */
 wasmer_trampoline_buffer_builder_t *wasmer_trampoline_buffer_builder_new(void);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Destroys the trampoline buffer if not null.
  */
 void wasmer_trampoline_buffer_destroy(wasmer_trampoline_buffer_t *buffer);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Returns the callable pointer for the trampoline with index `idx`.
  */
 const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(const wasmer_trampoline_buffer_t *buffer,
                                                                             uintptr_t idx);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Returns the context added by `add_context_trampoline`, from within the callee function.
  */
 void *wasmer_trampoline_get_context(void);
+#endif
 
 /**
  * Returns true for valid wasm bytes and false for invalid bytes
@@ -850,5 +910,30 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_arr
                                                            unsigned int preopened_files_len,
                                                            const wasmer_wasi_map_dir_entry_t *mapped_dirs,
                                                            unsigned int mapped_dirs_len);
+
+/**
+ * Creates a WASI import object for a specific version.
+ *
+ * This function is similar to `wasmer_wasi_generate_import_object`
+ * except that the first argument describes the WASI version.
+ *
+ * The version is expected to be of kind `Version`.
+ */
+wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned char version,
+                                                                       const wasmer_byte_array *args,
+                                                                       unsigned int args_len,
+                                                                       const wasmer_byte_array *envs,
+                                                                       unsigned int envs_len,
+                                                                       const wasmer_byte_array *preopened_files,
+                                                                       unsigned int preopened_files_len,
+                                                                       const wasmer_wasi_map_dir_entry_t *mapped_dirs,
+                                                                       unsigned int mapped_dirs_len);
+
+/**
+ * Find the version of WASI used by the module.
+ *
+ * In case of error, the returned version is `Version::Unknown`.
+ */
+Version wasmer_wasi_get_version(const wasmer_module_t *module);
 
 #endif /* WASMER_H */

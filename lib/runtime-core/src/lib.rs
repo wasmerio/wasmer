@@ -1,5 +1,20 @@
+//! Wasmer Runtime Core Library
+//!
+//! The runtime core library provides common data structures which are shared by compiler backends
+//! to implement a Web Assembly runtime.
+//!
+//! The runtime core also provides an API for users who use wasmer as an embedded wasm runtime which
+//! allows operations like compiling, instantiating, providing imports, access exports, memories,
+//! and tables for example.
+//!
+//! The runtime core library is recommended to be used by only power users who wish to customize the
+//! wasmer runtime.  Most wasmer users should prefer the API which is re-exported by the wasmer
+//! runtime library which provides common defaults and a friendly API.
+//!
+
 #![deny(
     dead_code,
+    missing_docs,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -10,10 +25,6 @@
 #![cfg_attr(nightly, feature(unwind_attributes))]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
-
-#[cfg(test)]
-#[macro_use]
-extern crate field_offset;
 
 #[macro_use]
 extern crate serde_derive;
@@ -53,7 +64,7 @@ pub mod vm;
 pub mod vmcalls;
 #[cfg(all(unix, target_arch = "x86_64"))]
 pub use trampoline_x64 as trampoline;
-#[cfg(all(unix, target_arch = "x86_64"))]
+#[cfg(unix)]
 pub mod fault;
 pub mod state;
 #[cfg(feature = "managed")]
@@ -77,6 +88,9 @@ pub use wasmparser;
 use self::cache::{Artifact, Error as CacheError};
 
 pub mod prelude {
+    //! The prelude module is a helper module used to bring commonly used runtime core imports into
+    //! scope.
+
     pub use crate::import::{ImportObject, Namespace};
     pub use crate::types::{
         FuncIndex, GlobalIndex, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
@@ -145,6 +159,9 @@ pub fn validate_and_report_errors_with_features(
             enable_multi_value: false,
             enable_reference_types: false,
             enable_threads: features.threads,
+
+            #[cfg(feature = "deterministic-execution")]
+            deterministic_only: true,
         },
     };
     let mut parser = wasmparser::ValidatingParser::new(wasm, Some(config));
@@ -158,6 +175,7 @@ pub fn validate_and_report_errors_with_features(
     }
 }
 
+/// Creates a new module from the given cache `Artifact` for the specified compiler backend
 pub unsafe fn load_cache_with(
     cache: Artifact,
     compiler: &dyn backend::Compiler,

@@ -1,3 +1,7 @@
+//! The cache module provides the common data structures used by compiler backends to allow
+//! serializing compiled wasm code to a binary format.  The binary format can be persisted,
+//! and loaded to allow skipping compilation and fast startup.
+
 use crate::Module;
 use memmap::Mmap;
 use std::{
@@ -100,7 +104,7 @@ impl Cache for FileSystemCache {
         unsafe {
             wasmer_runtime_core::load_cache_with(
                 serialized_cache,
-                super::compiler_for_backend(backend)
+                crate::compiler_for_backend(backend)
                     .ok_or_else(|| CacheError::UnsupportedBackend(backend))?
                     .as_ref(),
             )
@@ -125,7 +129,7 @@ impl Cache for FileSystemCache {
     }
 }
 
-#[cfg(all(test, not(feature = "singlepass")))]
+#[cfg(test)]
 mod tests {
 
     use super::*;

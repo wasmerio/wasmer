@@ -1,3 +1,7 @@
+//! The cache module provides the common data structures used by compiler backends to allow
+//! serializing compiled wasm code to a binary format.  The binary format can be persisted,
+//! and loaded to allow skipping compilation and fast startup.
+
 use crate::{
     backend::Backend,
     module::{Module, ModuleInfo},
@@ -6,20 +10,31 @@ use crate::{
 use blake2b_simd::blake2bp;
 use std::{fmt, io, mem, slice};
 
+/// Indicates the invalid type of invalid cache file
 #[derive(Debug)]
 pub enum InvalidFileType {
+    /// Given cache header slice does not match the expected size of an `ArtifactHeader`
     InvalidSize,
+    /// Given cache header slice does not contain the expected magic bytes
     InvalidMagic,
 }
 
+/// Kinds of caching errors
 #[derive(Debug)]
 pub enum Error {
+    /// An IO error while reading/writing a cache binary.
     IoError(io::Error),
+    /// An error deserializing bytes into a cache data structure.
     DeserializeError(String),
+    /// An error serializing bytes from a cache data structure.
     SerializeError(String),
+    /// An undefined caching error with a message.
     Unknown(String),
+    /// An invalid cache binary given.
     InvalidFile(InvalidFileType),
+    /// The cached binary has been invalidated.
     InvalidatedCache,
+    /// The current backend does not support caching.
     UnsupportedBackend(Backend),
 }
 
@@ -164,6 +179,8 @@ struct ArtifactInner {
     compiled_code: Memory,
 }
 
+/// Artifact are produced by caching, are serialized/deserialized to binaries, and contain
+/// module info, backend metadata, and compiled code.
 pub struct Artifact {
     inner: ArtifactInner,
 }
@@ -183,6 +200,7 @@ impl Artifact {
         }
     }
 
+    /// Deserializes an `Artifact` from the given byte slice.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
         let (_, body_slice) = ArtifactHeader::read_from_slice(bytes)?;
 
@@ -192,6 +210,7 @@ impl Artifact {
         Ok(Artifact { inner })
     }
 
+    /// A reference to the `Artifact`'s stored `ModuleInfo`
     pub fn info(&self) -> &ModuleInfo {
         &self.inner.info
     }
@@ -205,6 +224,7 @@ impl Artifact {
         )
     }
 
+    /// Serializes the `Artifact` into a vector of bytes
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
         let cache_header = ArtifactHeader {
             magic: WASMER_CACHE_MAGIC,
@@ -230,7 +250,9 @@ impl Artifact {
 ///
 /// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
 pub trait Cache {
+    /// Error type to return when load error occurs
     type LoadError: fmt::Debug;
+    /// Error type to return when store error occurs
     type StoreError: fmt::Debug;
 
     /// loads a module using the default `Backend`
@@ -238,6 +260,7 @@ pub trait Cache {
     /// loads a cached module using a specific `Backend`
     fn load_with_backend(&self, key: WasmHash, backend: Backend)
         -> Result<Module, Self::LoadError>;
+    /// Store a module into the cache with the given key
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
 

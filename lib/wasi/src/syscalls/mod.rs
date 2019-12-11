@@ -5,6 +5,8 @@ pub mod unix;
 #[cfg(any(target_os = "windows"))]
 pub mod windows;
 
+pub mod legacy;
+
 use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
@@ -1724,12 +1726,25 @@ pub fn path_open(
                     }
                 }
                 let mut open_options = std::fs::OpenOptions::new();
+                let write_permission = adjusted_rights & __WASI_RIGHT_FD_WRITE != 0;
+                // append, truncate, and create all require the permission to write
+                let (append_permission, truncate_permission, create_permission) =
+                    if write_permission {
+                        (
+                            fs_flags & __WASI_FDFLAG_APPEND != 0,
+                            o_flags & __WASI_O_TRUNC != 0,
+                            o_flags & __WASI_O_CREAT != 0,
+                        )
+                    } else {
+                        (false, false, false)
+                    };
                 let open_options = open_options
                     .read(true)
                     // TODO: ensure these rights are actually valid given parent, etc.
-                    .write(adjusted_rights & __WASI_RIGHT_FD_WRITE != 0)
-                    .create(o_flags & __WASI_O_CREAT != 0)
-                    .truncate(o_flags & __WASI_O_TRUNC != 0);
+                    .write(write_permission)
+                    .create(create_permission)
+                    .append(append_permission)
+                    .truncate(truncate_permission);
                 open_flags |= Fd::READ;
                 if adjusted_rights & __WASI_RIGHT_FD_WRITE != 0 {
                     open_flags |= Fd::WRITE;
@@ -1798,6 +1813,7 @@ pub fn path_open(
                 let mut open_options = std::fs::OpenOptions::new();
                 let open_options = open_options
                     .read(true)
+                    .append(fs_flags & __WASI_FDFLAG_APPEND != 0)
                     // TODO: ensure these rights are actually valid given parent, etc.
                     // write access is required for creating a file
                     .write(true)

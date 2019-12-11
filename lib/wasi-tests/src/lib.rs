@@ -1,10 +1,10 @@
 #![cfg(test)]
-use wasmer_runtime::{compile, Func};
-use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime::{compile, Ctx, Func};
 use wasmer_wasi::{state::*, *};
 
 use std::ffi::c_void;
 
+#[cfg(not(feature = "singlepass"))]
 #[test]
 fn serializing_works() {
     let args = vec![
@@ -16,7 +16,13 @@ fn serializing_works() {
         b"GOROOT=$HOME/.cargo/bin".into_iter().cloned().collect(),
     ];
     let wasm_binary = include_bytes!("../wasitests/fd_read.wasm");
-    let import_object = generate_import_object(
+    let module = compile(&wasm_binary[..])
+        .map_err(|e| format!("Can't compile module: {:?}", e))
+        .unwrap();
+
+    let wasi_version = get_wasi_version(&module, true).expect("WASI module");
+    let import_object = generate_import_object_for_version(
+        wasi_version,
         args.clone(),
         envs.clone(),
         vec![],
@@ -25,9 +31,6 @@ fn serializing_works() {
             std::path::PathBuf::from("wasitests/test_fs/hamlet"),
         )],
     );
-    let module = compile(&wasm_binary[..])
-        .map_err(|e| format!("Can't compile module: {:?}", e))
-        .unwrap();
 
     let state_bytes = {
         let instance = module.instantiate(&import_object).unwrap();
