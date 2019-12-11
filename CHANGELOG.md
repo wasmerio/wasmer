@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#858](https://github.com/wasmerio/wasmer/pull/858) Minor panic fix when wasmer binary with `loader` option run a module without exported `_start` function.
 - [#1056](https://github.com/wasmerio/wasmer/pull/1056) Improved `--invoke` args parsing (supporting `i32`, `i64`, `f32` and `f32`) in Wasmer CLI
 - [#1054](https://github.com/wasmerio/wasmer/pull/1054) Improve `--invoke` output in Wasmer CLI
 - [#1053](https://github.com/wasmerio/wasmer/pull/1053) For RuntimeError and breakpoints, use Box<Any + Send> instead of Box<Any>.
@@ -61,8 +62,6 @@ Special thanks to @alocquet for their contributions!
 - [#861](https://github.com/wasmerio/wasmer/pull/861) Add descriptions to `unimplemented!` macro in various places
 - [#897](https://github.com/wasmerio/wasmer/pull/897) Removes special casing of stdin, stdout, and stderr in WASI.  Closing these files now works.  Removes `stdin`, `stdout`, and `stderr` from `WasiFS`, replaced by the methods `stdout`, `stdout_mut`, and so on.
 - [#863](https://github.com/wasmerio/wasmer/pull/863) Fix min and max for cases involving NaN and negative zero when using the LLVM backend.
-
-- [#858](https://github.com/wasmerio/wasmer/pull/858) Minor panic fix when wasmer binary with `loader` option run a module without exported `_start` function
 
 ## 0.8.0 - 2019-10-02
 
