@@ -499,7 +499,7 @@ fn execute_wasi(
                 .map_err(|e| format!("Invoke failed: {:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("Calling invoke fn failed: {:?}", e))?;
-            println!("{} returned {:?}", invoke_fn, invoke_result);
+            println!("{}({:?}) returned {:?}", invoke_fn, args, invoke_result);
             return Ok(());
         } else {
             result = start.call();
@@ -836,7 +836,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
-            println!("main() returned: {:?}", result);
+            println!("{}({:?}) returned: {:?}", invoke_fn, args, result);
         }
     }
 
