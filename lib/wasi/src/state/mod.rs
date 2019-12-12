@@ -122,16 +122,30 @@ pub struct Fd {
     pub rights_inheriting: __wasi_rights_t,
     pub flags: __wasi_fdflags_t,
     pub offset: u64,
-    /// Used when reopening the file on the host system
+    /// Flags that determine how the [`Fd`] can be used.
+    ///
+    /// Used when reopening a [`HostFile`] during [`WasiState`] deserialization.
     pub open_flags: u16,
     pub inode: Inode,
 }
 
 impl Fd {
+    /// This [`Fd`] can be used with read system calls.
     pub const READ: u16 = 1;
+    /// This [`Fd`] can be used with write system calls.
     pub const WRITE: u16 = 2;
+    /// This [`Fd`] can append in write system calls. Note that the append
+    /// permission implies the write permission.
     pub const APPEND: u16 = 4;
+    /// This [`Fd`] will delete everything before writing. Note that truncate
+    /// permissions require the write permission.
+    ///
+    /// This permission is currently unused when deserializing [`WasiState`].
     pub const TRUNCATE: u16 = 8;
+    /// This [`Fd`] may create a file before writing to it. Note that create
+    /// permissions require write permissions.
+    ///
+    /// This permission is currently unused when deserializing [`WasiState`].
     pub const CREATE: u16 = 16;
 }
 
