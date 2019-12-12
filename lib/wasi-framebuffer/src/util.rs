@@ -2,6 +2,7 @@
 
 pub const KEY_PRESS: u8 = 1;
 pub const MOUSE_MOVE: u8 = 2;
+pub const KEY_RELEASE: u8 = 3;
 pub const MOUSE_PRESS_LEFT: u8 = 4;
 pub const MOUSE_PRESS_RIGHT: u8 = 5;
 pub const MOUSE_PRESS_MIDDLE: u8 = 7;
@@ -11,6 +12,7 @@ use minifb::{Key, MouseButton};
 #[derive(Debug, Clone, Copy)]
 pub enum InputEvent {
     KeyPress(Key),
+    KeyRelease(Key),
     MouseEvent(u32, u32, MouseButton),
     MouseMoved(u32, u32),
 }
@@ -24,6 +26,10 @@ pub fn bytes_for_input_event(input_event: InputEvent) -> (u8, [u8; 8], usize) {
         InputEvent::KeyPress(k) => {
             data[0] = map_key_to_bytes(k);
             (KEY_PRESS, data, 1)
+        }
+        InputEvent::KeyRelease(k) => {
+            data[0] = map_key_to_bytes(k);
+            (KEY_RELEASE, data, 1)
         }
         InputEvent::MouseEvent(x, y, btn) => {
             let tag = match btn {

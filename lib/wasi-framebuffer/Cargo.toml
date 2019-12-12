@@ -11,7 +11,7 @@ description = "An experimental non-standard WASI extension for graphics"
 maintenance = { status = "experimental" }
 
 [dependencies]
-minifb = "0.11"
+minifb = "0.13"
 wasmer-wasi = { version = "0.11.0", path = "../wasi" }
 wasmer-runtime-core = { version = "0.11.0", path = "../runtime-core" }
 ref_thread_local = "0.0"
