@@ -4,7 +4,9 @@ use libc::{
     c_void, mmap, mprotect, munmap, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_NONE,
     PROT_READ, PROT_WRITE,
 };
-use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGSEGV};
+use nix::sys::signal::{
+    sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGILL, SIGSEGV,
+};
 use std::ptr;
 
 /// `__register_frame` and `__deregister_frame` on macos take a single fde as an
@@ -57,6 +59,7 @@ pub unsafe fn install_signal_handler() {
     );
     sigaction(SIGSEGV, &sa).unwrap();
     sigaction(SIGBUS, &sa).unwrap();
+    sigaction(SIGILL, &sa).unwrap();
 }
 
 #[cfg_attr(nightly, unwind(allowed))]
@@ -66,6 +69,9 @@ extern "C" fn signal_trap_handler(
     _ucontext: *mut c_void,
 ) {
     unsafe {
+        if SigSet::all().thread_unblock().is_err() {
+            std::process::abort();
+        }
         // Apparently, we can unwind from arbitary instructions, as long
         // as we don't need to catch the exception inside the function that
         // was interrupted.

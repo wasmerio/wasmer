@@ -1,3 +1,4 @@
+//! The loader module functions are used to load an instance.
 use crate::{backend::RunnableModule, module::ModuleInfo, types::Type, types::Value, vm::Ctx};
 #[cfg(unix)]
 use libc::{mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE};
@@ -6,10 +7,14 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+/// The loader trait represents the functions used to load an instance.
 pub trait Loader {
+    /// The type of `Instance` for the loader.
     type Instance: Instance;
+    /// The error type returned by the loader.
     type Error: Debug;
 
+    /// Loads the given module and context into an instance.
     fn load(
         &self,
         rm: &dyn RunnableModule,
@@ -18,18 +23,23 @@ pub trait Loader {
     ) -> Result<Self::Instance, Self::Error>;
 }
 
+/// This trait represents an instance used by the loader.
 pub trait Instance {
+    /// The error type returned by this instance.
     type Error: Debug;
+    /// Call a function by id with the given args.
     fn call(&mut self, id: usize, args: &[Value]) -> Result<u128, Self::Error>;
+    /// Read memory at the given offset and length.
     fn read_memory(&mut self, _offset: u32, _len: u32) -> Result<Vec<u8>, Self::Error> {
-        unimplemented!()
+        unimplemented!("Instance::read_memory")
     }
-
+    /// Write memory at the given offset and length.
     fn write_memory(&mut self, _offset: u32, _len: u32, _buf: &[u8]) -> Result<(), Self::Error> {
-        unimplemented!()
+        unimplemented!("Instance::write_memory")
     }
 }
 
+/// A local implementation for `Loader`.
 pub struct LocalLoader;
 
 impl Loader for LocalLoader {
@@ -54,6 +64,7 @@ impl Loader for LocalLoader {
     }
 }
 
+/// A local instance.
 pub struct LocalInstance {
     code: CodeMemory,
     offsets: Vec<usize>,
@@ -111,32 +122,51 @@ impl Instance for LocalInstance {
     }
 }
 
+/// A pointer to code in memory.
 pub struct CodeMemory {
     ptr: *mut u8,
     size: usize,
 }
 
+unsafe impl Send for CodeMemory {}
+unsafe impl Sync for CodeMemory {}
+
 #[cfg(not(unix))]
 impl CodeMemory {
+    /// Creates a new code memory with the given size.
     pub fn new(_size: usize) -> CodeMemory {
-        unimplemented!();
+        unimplemented!("CodeMemory::new");
     }
 
-    pub fn make_executable(&mut self) {
-        unimplemented!();
+    /// Makes this code memory executable.
+    pub fn make_executable(&self) {
+        unimplemented!("CodeMemory::make_executable");
+    }
+
+    /// Makes this code memory writable.
+    pub fn make_writable(&self) {
+        unimplemented!("CodeMemory::make_writable");
     }
 }
 
 #[cfg(unix)]
 impl CodeMemory {
+    /// Creates a new code memory with the given size.
     pub fn new(size: usize) -> CodeMemory {
+        if size == 0 {
+            return CodeMemory {
+                ptr: std::ptr::null_mut(),
+                size: 0,
+            };
+        }
+
         fn round_up_to_page_size(size: usize) -> usize {
             (size + (4096 - 1)) & !(4096 - 1)
         }
         let size = round_up_to_page_size(size);
         let ptr = unsafe {
             mmap(
-                ::std::ptr::null_mut(),
+                std::ptr::null_mut(),
                 size,
                 PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANON,
@@ -153,9 +183,17 @@ impl CodeMemory {
         }
     }
 
-    pub fn make_executable(&mut self) {
+    /// Makes this code memory executable.
+    pub fn make_executable(&self) {
         if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_EXEC) } != 0 {
             panic!("cannot set code memory to executable");
+        }
+    }
+
+    /// Makes this code memory writable.
+    pub fn make_writable(&self) {
+        if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_WRITE) } != 0 {
+            panic!("cannot set code memory to writable");
         }
     }
 }
@@ -172,12 +210,12 @@ impl Drop for CodeMemory {
 impl Deref for CodeMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts(self.ptr, self.size) }
     }
 }
 
 impl DerefMut for CodeMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { ::std::slice::from_raw_parts_mut(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.size) }
     }
 }

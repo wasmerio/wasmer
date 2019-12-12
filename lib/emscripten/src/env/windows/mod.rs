@@ -6,8 +6,9 @@ use std::mem;
 use std::os::raw::c_char;
 
 use crate::env::{call_malloc, EmAddrInfo};
+use crate::ptr::WasmPtr;
 use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
-use wasmer_runtime_core::{memory::ptr::WasmPtr, vm::Ctx};
+use wasmer_runtime_core::vm::Ctx;
 
 extern "C" {
     #[link_name = "_putenv"]

@@ -1,9 +1,6 @@
 ;; Code tests taken from
 ;; https://github.com/WAVM/WAVM/blob/2b919c20a02624af9758e9ddd0b9b5726c973e4f/Test/simd.wast
 ;;
-;; WAVM test spec license: Apache 2.0
-;; https://github.com/WAVM/WAVM/blob/2b919c20a02624af9758e9ddd0b9b5726c973e4f/Test/spec/LICENSE
-;;
 ;; Modified by Wasmer to parse with the wabt spec tests parser and to pass with
 ;; Wasmer.
 

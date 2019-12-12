@@ -1,11 +1,12 @@
 [package]
 name = "wasmer-dev-utils"
-version = "0.6.0"
+version = "0.11.0"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
+publish = false
 
 [dependencies]
 libc = "0.2.60"

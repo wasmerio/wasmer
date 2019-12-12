@@ -88,6 +88,21 @@ pub fn log(_ctx: &mut Ctx, value: f64) -> f64 {
     value.ln()
 }
 
+// emscripten: global.Math sqrt
+pub fn sqrt(_ctx: &mut Ctx, value: f64) -> f64 {
+    value.sqrt()
+}
+
+// emscripten: global.Math floor
+pub fn floor(_ctx: &mut Ctx, value: f64) -> f64 {
+    value.floor()
+}
+
+// emscripten: global.Math fabs
+pub fn fabs(_ctx: &mut Ctx, value: f64) -> f64 {
+    value.abs()
+}
+
 // emscripten: asm2wasm.f64-to-int
 pub fn f64_to_int(_ctx: &mut Ctx, value: f64) -> i32 {
     debug!("emscripten::f64_to_int {}", value);

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasi-framebuffer"
-version = "0.6.0"
+version = "0.11.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -12,6 +12,8 @@ maintenance = { status = "experimental" }
 
 [dependencies]
 minifb = "0.11"
-wasmer-wasi = { version = "0.6.0", path = "../wasi" }
-wasmer-runtime-core = { version = "0.6.0", path = "../runtime-core" }
+wasmer-wasi = { version = "0.11.0", path = "../wasi" }
+wasmer-runtime-core = { version = "0.11.0", path = "../runtime-core" }
 ref_thread_local = "0.0"
+serde = "1"
+typetag = "0.1"

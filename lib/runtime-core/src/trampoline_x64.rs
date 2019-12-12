@@ -62,6 +62,7 @@ pub fn get_context() -> *const CallContext {
 }
 
 impl TrampolineBufferBuilder {
+    /// Creates a new empty `TrampolineBufferBuilder`.
     pub fn new() -> TrampolineBufferBuilder {
         TrampolineBufferBuilder {
             code: vec![],
@@ -100,6 +101,7 @@ impl TrampolineBufferBuilder {
         idx
     }
 
+    /// Adds context RSP state preserving trampoline to the buffer.
     pub fn add_context_rsp_state_preserving_trampoline(
         &mut self,
         target: unsafe extern "C" fn(&mut Ctx, *const CallContext, *const u64),

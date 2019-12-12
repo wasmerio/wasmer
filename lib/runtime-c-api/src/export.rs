@@ -11,9 +11,9 @@ use crate::{
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_byte_array, wasmer_result_t,
 };
-use libc::c_int;
+use libc::{c_int, c_uint};
 use std::{ptr, slice};
-use wasmer_runtime::{Instance, Memory, Module, Value};
+use wasmer_runtime::{Instance, Module, Value};
 use wasmer_runtime_core::{export::Export, module::ExportIndex};
 
 /// Intermediate representation of an `Export` instance that is
@@ -85,12 +85,41 @@ pub union wasmer_import_export_value {
 /// List of export/import kinds.
 #[allow(non_camel_case_types)]
 #[repr(u32)]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
+// ================
+// !    DANGER    !
+// ================
+// Do not modify these values without updating the `TryFrom` implementation below
 pub enum wasmer_import_export_kind {
-    WASM_FUNCTION,
-    WASM_GLOBAL,
-    WASM_MEMORY,
-    WASM_TABLE,
+    WASM_FUNCTION = 0,
+    WASM_GLOBAL = 1,
+    WASM_MEMORY = 2,
+    WASM_TABLE = 3,
+}
+
+impl wasmer_import_export_kind {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Self::WASM_FUNCTION => "function",
+            Self::WASM_GLOBAL => "global",
+            Self::WASM_MEMORY => "memory",
+            Self::WASM_TABLE => "table",
+        }
+    }
+}
+
+impl std::convert::TryFrom<u32> for wasmer_import_export_kind {
+    type Error = ();
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => Self::WASM_FUNCTION,
+            1 => Self::WASM_GLOBAL,
+            2 => Self::WASM_MEMORY,
+            3 => Self::WASM_TABLE,
+            _ => return Err(()),
+        })
+    }
 }
 
 /// Gets export descriptors for the given module
@@ -355,7 +384,8 @@ pub unsafe extern "C" fn wasmer_export_to_memory(
     let export = &named_export.export;
 
     if let Export::Memory(exported_memory) = export {
-        *memory = exported_memory as *const Memory as *mut wasmer_memory_t;
+        let mem = Box::new(exported_memory.clone());
+        *memory = Box::into_raw(mem) as *mut wasmer_memory_t;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
@@ -390,9 +420,9 @@ pub unsafe extern "C" fn wasmer_export_name(export: *mut wasmer_export_t) -> was
 pub unsafe extern "C" fn wasmer_export_func_call(
     func: *const wasmer_export_func_t,
     params: *const wasmer_value_t,
-    params_len: c_int,
+    params_len: c_uint,
     results: *mut wasmer_value_t,
-    results_len: c_int,
+    results_len: c_uint,
 ) -> wasmer_result_t {
     if func.is_null() {
         update_last_error(CApiError {
@@ -400,15 +430,25 @@ pub unsafe extern "C" fn wasmer_export_func_call(
         });
         return wasmer_result_t::WASMER_ERROR;
     }
-    if params.is_null() {
+
+    if params_len > 0 && params.is_null() {
         update_last_error(CApiError {
             msg: "params ptr is null".to_string(),
         });
         return wasmer_result_t::WASMER_ERROR;
     }
 
-    let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
-    let params: Vec<Value> = params.iter().cloned().map(|x| x.into()).collect();
+    let params: Vec<Value> = {
+        if params_len <= 0 {
+            vec![]
+        } else {
+            slice::from_raw_parts::<wasmer_value_t>(params, params_len as usize)
+                .iter()
+                .cloned()
+                .map(|x| x.into())
+                .collect()
+        }
+    };
 
     let named_export = &*(func as *mut NamedExport);
 

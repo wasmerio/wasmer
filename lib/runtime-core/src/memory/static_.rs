@@ -56,10 +56,12 @@ impl StaticMemory {
         Ok(storage)
     }
 
+    /// The size of this memory in `Pages`.
     pub fn size(&self) -> Pages {
         self.current
     }
 
+    /// Try to grow this memory by the given number of delta pages.
     pub fn grow(&mut self, delta: Pages, local: &mut vm::LocalMemory) -> Result<Pages, GrowError> {
         if delta == Pages(0) {
             return Ok(self.current);
@@ -94,10 +96,12 @@ impl StaticMemory {
         Ok(old_pages)
     }
 
+    /// Get this memory represented as a slice of bytes.
     pub fn as_slice(&self) -> &[u8] {
         unsafe { &self.memory.as_slice()[0..self.current.bytes().0] }
     }
 
+    /// Get this memory represented as a mutable slice of bytes.
     pub fn as_slice_mut(&mut self) -> &mut [u8] {
         unsafe { &mut self.memory.as_slice_mut()[0..self.current.bytes().0] }
     }

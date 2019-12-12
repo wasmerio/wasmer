@@ -1,5 +1,6 @@
 #![deny(
     dead_code,
+    missing_docs,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -7,6 +8,9 @@
     unused_unsafe,
     unreachable_patterns
 )]
+#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
+
 //! Wasmer-runtime is a library that makes embedding WebAssembly
 //! in your application easy, efficient, and safe.
 //!
@@ -83,12 +87,13 @@
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 //! [`compile_with`]: fn.compile_with.html
 
-pub use wasmer_runtime_core::backend::Backend;
+pub use wasmer_runtime_core::backend::{Backend, Features};
 pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
 pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
-pub use wasmer_runtime_core::import::ImportObject;
+pub use wasmer_runtime_core::import::{ImportObject, LikeNamespace};
 pub use wasmer_runtime_core::instance::{DynFunc, Instance};
+pub use wasmer_runtime_core::memory::ptr::{Array, Item, WasmPtr};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::table::Table;
@@ -100,6 +105,8 @@ pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::{func, imports};
 
 pub mod memory {
+    //! The memory module contains the implementation data structures and helper functions used to
+    //! manipulate and access wasm memory.
     pub use wasmer_runtime_core::memory::{Atomically, Memory, MemoryView};
 }
 
@@ -113,6 +120,8 @@ pub mod wasm {
 }
 
 pub mod error {
+    //! The error module contains the data structures and helper functions used to implement errors that
+    //! are produced and returned from the wasmer runtime.
     pub use wasmer_runtime_core::cache::Error as CacheError;
     pub use wasmer_runtime_core::error::*;
 }
@@ -122,9 +131,14 @@ pub mod units {
     pub use wasmer_runtime_core::units::{Bytes, Pages};
 }
 
+pub mod types {
+    //! Various types.
+    pub use wasmer_runtime_core::types::*;
+}
+
 pub mod cache;
 
-use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
+pub use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
@@ -186,16 +200,22 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
 }
 
 /// Get a single instance of the default compiler to use.
+///
+/// The output of this function can be controlled by the mutually
+/// exclusive `default-backend-llvm`, `default-backend-singlepass`,
+/// and `default-backend-cranelift` feature flags.
 pub fn default_compiler() -> impl Compiler {
     #[cfg(any(
         all(
             feature = "default-backend-llvm",
+            not(feature = "docs"),
             any(
                 feature = "default-backend-cranelift",
                 feature = "default-backend-singlepass"
             )
         ),
         all(
+            not(feature = "docs"),
             feature = "default-backend-cranelift",
             feature = "default-backend-singlepass"
         )
@@ -204,18 +224,23 @@ pub fn default_compiler() -> impl Compiler {
         "The `default-backend-X` features are mutually exclusive.  Please choose just one"
     );
 
-    #[cfg(feature = "default-backend-llvm")]
+    #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(feature = "default-backend-singlepass")]
+    #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
     use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
-    #[cfg(feature = "default-backend-cranelift")]
+    #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     DefaultCompiler::new()
 }
 
+/// Get the `Compiler` as a trait object for the given `Backend`.
+/// Returns `Option` because support for the requested `Compiler` may
+/// not be enabled by feature flags.
+///
+/// To get a list of the enabled backends as strings, call `Backend::variants()`.
 pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
     match backend {
         #[cfg(feature = "cranelift")]
@@ -229,14 +254,9 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "llvm")]
         Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
 
-        #[cfg(any(
-            not(feature = "llvm"),
-            not(feature = "singlepass"),
-            not(feature = "cranelift")
-        ))]
         _ => None,
     }
 }
 
-/// The current version of this crate
+/// The current version of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
