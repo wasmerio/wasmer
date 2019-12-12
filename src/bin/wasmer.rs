@@ -430,7 +430,7 @@ fn execute_wasi(
                     f.read_to_end(&mut out).unwrap();
                     Some(
                         wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
-                            .expect("failed to decode image"),
+                            .map_err(|_| format!("failed to decode image"))?,
                     )
                 } else {
                     None
@@ -751,20 +751,21 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             args.push(Value::I32(x));
         }
 
-        let index = instance
-            .resolve_func("_start")
-            .expect("The loader requires a _start function to be present in the module");
+        let index = instance.resolve_func("_start").map_err(|_| {
+            format!("The loader requires a _start function to be present in the module")
+        })?;
+
         let mut ins: Box<dyn LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(
                 instance
                     .load(LocalLoader)
-                    .expect("Can't use the local loader"),
+                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
             ),
             #[cfg(feature = "loader-kernel")]
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
-                    .expect("Can't use the kernel loader"),
+                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
             ),
         };
         println!("{:?}", ins.call(index, &args));
