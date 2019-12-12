@@ -13,7 +13,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine},
-    types::{BasicType, BasicTypeEnum, FunctionType, PointerType, VectorType},
+    types::{BasicType, BasicTypeEnum, FloatMathType, FunctionType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
         VectorValue,
@@ -99,13 +99,12 @@ fn splat_vector<'ctx>(
 }
 
 // Convert floating point vector to integer and saturate when out of range.
-// TODO: generalize to non-vectors using FloatMathType, IntMathType, etc. for
 // https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
-fn trunc_sat<'ctx>(
+fn trunc_sat<'ctx, T: FloatMathType<'ctx>>(
     builder: &Builder<'ctx>,
     intrinsics: &Intrinsics<'ctx>,
-    fvec_ty: VectorType<'ctx>,
-    ivec_ty: VectorType<'ctx>,
+    fvec_ty: T,
+    ivec_ty: T::MathConvType,
     lower_bound: u64, // Exclusive (lowest representable value)
     upper_bound: u64, // Exclusive (greatest representable value)
     int_min_value: u64,
@@ -126,6 +125,9 @@ fn trunc_sat<'ctx>(
     // f) Use our previous comparison results to replace certain zeros with
     //    int_min or int_max.
 
+    let fvec_ty = fvec_ty.as_basic_type_enum().into_vector_type();
+    let ivec_ty = ivec_ty.as_basic_type_enum().into_vector_type();
+    
     let is_signed = int_min_value != 0;
     let ivec_element_ty = ivec_ty.get_element_type().into_int_type();
     let int_min_value = splat_vector(
@@ -4492,6 +4494,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
             }
             Operator::I64TruncSSatF32 | Operator::I64TruncSSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
+                
                 let res =
                     builder.build_float_to_signed_int(v1, intrinsics.i64_ty, &state.var_name());
                 state.push1(res);
