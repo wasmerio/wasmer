@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+use std::collections::{VecDeque, BTreeSet};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 use wasmer_wasi::{
@@ -47,6 +47,7 @@ pub(crate) struct FrameBufferState {
 
     pub last_mouse_pos: (u32, u32),
     pub inputs: VecDeque<InputEvent>,
+    pub keys_pressed: BTreeSet<minifb::Key>,
 }
 
 impl FrameBufferState {
@@ -70,6 +71,7 @@ impl FrameBufferState {
             window,
             last_mouse_pos: (0, 0),
             inputs: VecDeque::with_capacity(Self::MAX_INPUTS),
+            keys_pressed: BTreeSet::new(),
         }
     }
 
@@ -112,8 +114,16 @@ impl FrameBufferState {
     }
 
     pub fn fill_input_buffer(&mut self) -> Option<()> {
-        let keys = self.window.get_keys_pressed(KeyRepeat::Yes)?;
+        let keys_pressed = self.keys_pressed.iter().cloned().collect::<Vec<Key>>();
+        for key in keys_pressed {
+            if self.window.is_key_released(key) {
+                self.keys_pressed.remove(&key);
+                self.push_input_event(InputEvent::KeyRelease(key))?;
+            }
+        }
+        let keys = self.window.get_keys_pressed(KeyRepeat::No)?;
         for key in keys {
+            self.keys_pressed.insert(key.clone());
             self.push_input_event(InputEvent::KeyPress(key))?;
         }
 
@@ -157,7 +167,8 @@ impl FrameBufferState {
             &self.data_1[..]
         } else {
             &self.data_2[..]
-        });
+        },
+        );
     }
 
     pub fn get_buffer(&self) -> &[u32] {
