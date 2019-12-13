@@ -180,30 +180,30 @@ jobs:
       - checkout: self
         submodules: true
       - template: .azure/install-rust.yml
-      # - template: .azure/install-llvm.yml
+      - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - bash: |
           mkdir -p artifacts
         displayName: Create Artifacts Dir
       - bash: |
-          make capi
           make test-capi
+        displayName: Test c-api
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: |
+          make capi
           cp target/release/libwasmer_runtime_c_api.so ./artifacts
           find target/release/build -name 'wasmer.h*' -exec cp {} ./artifacts ';'
         displayName: Build c-api (Linux)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
       - bash: |
           make capi
-          make test-capi
           install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
           cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
         displayName: Build c-api (Darwin)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: |
           make capi
-          # Tests are failing on Windows, comment for now
-          # make test-capi
           cp target/release/wasmer_runtime_c_api.dll ./artifacts
         displayName: Build c-api (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
