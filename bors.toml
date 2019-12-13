@@ -1,5 +1,6 @@
 status = [
-    "wasmerio.wasmer"
+    "wasmerio.wasmer",
+    "continuous-integration/travis-ci/push"
 ]
 required_approvals = 1
 timeout_sec = 7200

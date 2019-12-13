@@ -35,9 +35,9 @@ optional = true
 [features]
 default = ["cranelift-backend", "wasi"]
 debug = ["wasmer-runtime/debug"]
+singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass"]
 cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift"]
 llvm-backend = ["wasmer-runtime/llvm", "wasmer-runtime/default-backend-llvm"]
-singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass"]
 wasi = ["wasmer-wasi"]
 
 [build-dependencies]

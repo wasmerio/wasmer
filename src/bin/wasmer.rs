@@ -38,6 +38,7 @@ use wasmer_runtime_core::{
     backend::{Backend, Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
     debug,
     loader::{Instance as LoadedInstance, LocalLoader},
+    Module,
 };
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
@@ -246,18 +247,9 @@ struct Run {
 
 impl Run {
     /// Used with the `invoke` argument
-    fn parse_args(&self) -> Result<Vec<Value>, String> {
-        let mut args: Vec<Value> = Vec::new();
-        for arg in self.args.iter() {
-            let x = arg.as_str().parse().map_err(|_| {
-                format!(
-                    "Can't parse the provided argument {:?} as a integer",
-                    arg.as_str()
-                )
-            })?;
-            args.push(Value::I32(x));
-        }
-        Ok(args)
+    fn parse_args(&self, module: &Module, fn_name: &str) -> Result<Vec<Value>, String> {
+        utils::parse_args(module, fn_name, &self.args)
+            .map_err(|e| format!("Invoke failed: {:?}", e))
     }
 }
 
@@ -438,7 +430,7 @@ fn execute_wasi(
                     f.read_to_end(&mut out).unwrap();
                     Some(
                         wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
-                            .expect("failed to decode image"),
+                            .map_err(|_| format!("failed to decode image"))?,
                     )
                 } else {
                     None
@@ -493,13 +485,13 @@ fn execute_wasi(
 
         if let Some(invoke_fn) = options.invoke.as_ref() {
             eprintln!("WARNING: Invoking aribtrary functions with WASI is not officially supported in the WASI standard yet.  Use this feature at your own risk!");
-            let args = options.parse_args()?;
+            let args = options.parse_args(&module, invoke_fn)?;
             let invoke_result = instance
                 .dyn_func(invoke_fn)
                 .map_err(|e| format!("Invoke failed: {:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("Calling invoke fn failed: {:?}", e))?;
-            println!("{} returned {:?}", invoke_fn, invoke_result);
+            println!("{}({:?}) returned {:?}", invoke_fn, args, invoke_result);
             return Ok(());
         } else {
             result = start.call();
@@ -759,20 +751,21 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             args.push(Value::I32(x));
         }
 
-        let index = instance
-            .resolve_func("_start")
-            .expect("The loader requires a _start function to be present in the module");
+        let index = instance.resolve_func("_start").map_err(|_| {
+            format!("The loader requires a _start function to be present in the module")
+        })?;
+
         let mut ins: Box<dyn LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(
                 instance
                     .load(LocalLoader)
-                    .expect("Can't use the local loader"),
+                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
             ),
             #[cfg(feature = "loader-kernel")]
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
-                    .expect("Can't use the kernel loader"),
+                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
             ),
         };
         println!("{:?}", ins.call(index, &args));
@@ -825,18 +818,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            let args = options.parse_args()?;
-
             let invoke_fn = match options.invoke.as_ref() {
                 Some(fun) => fun,
                 _ => "main",
             };
+            let args = options.parse_args(&module, invoke_fn)?;
+
             let result = instance
                 .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
-            println!("main() returned: {:?}", result);
+            println!("{}({:?}) returned {:?}", invoke_fn, args, result);
         }
     }
 

@@ -102,12 +102,34 @@ llvm: spectests-llvm emtests-llvm wasitests-llvm
 
 
 # All tests
-capi:
-	cargo build --release --features backend-cranelift
-	cargo build -p wasmer-runtime-c-api --release
+capi-singlepass:
+	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
+		--no-default-features --features singlepass-backend,wasi
 
-test-capi: capi
-	cargo test -p wasmer-runtime-c-api --release
+capi-cranelift:
+	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
+		--no-default-features --features cranelift-backend,wasi
+
+capi-llvm:
+	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
+		--no-default-features --features llvm-backend,wasi
+
+# We use cranelift as the default backend for the capi for now
+capi: capi-cranelift
+
+test-capi-singlepass: capi-singlepass
+	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
+		--no-default-features --features singlepass-backend,wasi
+
+test-capi-cranelift: capi-cranelift
+	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
+		--no-default-features --features cranelift-backend,wasi
+
+test-capi-llvm: capi-llvm
+	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
+		--no-default-features --features llvm-backend,wasi
+
+test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 
 capi-test: test-capi
 

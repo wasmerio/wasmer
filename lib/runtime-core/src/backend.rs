@@ -271,7 +271,7 @@ pub trait RunnableModule: Send + Sync {
     /// signature and an invoke function that can call the trampoline.
     fn get_trampoline(&self, info: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm>;
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> !;
 
     /// Returns the machine code associated with this module.
     fn get_code(&self) -> Option<&[u8]> {

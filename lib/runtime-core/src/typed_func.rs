@@ -78,7 +78,7 @@ pub type Invoke = unsafe extern "C" fn(
     args: *const u64,
     rets: *mut u64,
     trap_info: *mut WasmTrapInfo,
-    user_error: *mut Option<Box<dyn Any>>,
+    user_error: *mut Option<Box<dyn Any + Send>>,
     extra: Option<NonNull<c_void>>,
 ) -> bool;
 
@@ -201,7 +201,7 @@ where
     Rets: WasmTypeList,
 {
     /// The error type for this trait.
-    type Error: 'static;
+    type Error: Send + 'static;
     /// Get returns or error result.
     fn report(self) -> Result<Rets, Self::Error>;
 }
@@ -219,7 +219,7 @@ where
 impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
-    E: 'static,
+    E: Send + 'static,
 {
     type Error = E;
     fn report(self) -> Result<Rets, E> {
@@ -507,7 +507,7 @@ macro_rules! impl_traits {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => {
                             let b: Box<_> = err.into();
-                            b as Box<dyn Any>
+                            b as Box<dyn Any + Send>
                         },
                         Err(err) => err,
                     };
@@ -619,7 +619,7 @@ macro_rules! impl_traits {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => {
                             let b: Box<_> = err.into();
-                            b as Box<dyn Any>
+                            b as Box<dyn Any + Send>
                         },
                         Err(err) => err,
                     };

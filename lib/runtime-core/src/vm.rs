@@ -1069,7 +1069,7 @@ mod vm_ctx_tests {
             fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
                 unimplemented!("generate_module::get_trampoline")
             }
-            unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
+            unsafe fn do_early_trap(&self, _: Box<dyn Any + Send>) -> ! {
                 unimplemented!("generate_module::do_early_trap")
             }
         }

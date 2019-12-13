@@ -856,7 +856,8 @@ pub unsafe extern "C" fn callback_trampoline(
     callback: *mut BreakpointHandler,
 ) {
     let callback = Box::from_raw(callback);
-    let result: Result<(), Box<dyn std::any::Any>> = callback(BreakpointInfo { fault: None });
+    let result: Result<(), Box<dyn std::any::Any + Send>> =
+        callback(BreakpointInfo { fault: None });
     match result {
         Ok(()) => *b = None,
         Err(e) => *b = Some(e),

@@ -231,33 +231,41 @@ impl<'ctx> State<'ctx> {
 
     pub fn outermost_frame(&self) -> Result<&ControlFrame<'ctx>, BinaryReaderError> {
         self.control_stack.get(0).ok_or(BinaryReaderError {
-            message: "invalid control stack depth",
+            message: "outermost_frame: invalid control stack depth",
             offset: -1isize as usize,
         })
     }
 
     pub fn frame_at_depth(&self, depth: u32) -> Result<&ControlFrame<'ctx>, BinaryReaderError> {
-        let index = self.control_stack.len() - 1 - (depth as usize);
-        self.control_stack.get(index).ok_or(BinaryReaderError {
-            message: "invalid control stack depth",
-            offset: -1isize as usize,
-        })
+        let index = self
+            .control_stack
+            .len()
+            .checked_sub(1 + (depth as usize))
+            .ok_or(BinaryReaderError {
+                message: "frame_at_depth: invalid control stack depth",
+                offset: -1isize as usize,
+            })?;
+        Ok(&self.control_stack[index])
     }
 
     pub fn frame_at_depth_mut(
         &mut self,
         depth: u32,
     ) -> Result<&mut ControlFrame<'ctx>, BinaryReaderError> {
-        let index = self.control_stack.len() - 1 - (depth as usize);
-        self.control_stack.get_mut(index).ok_or(BinaryReaderError {
-            message: "invalid control stack depth",
-            offset: -1isize as usize,
-        })
+        let index = self
+            .control_stack
+            .len()
+            .checked_sub(1 + (depth as usize))
+            .ok_or(BinaryReaderError {
+                message: "frame_at_depth_mut: invalid control stack depth",
+                offset: -1isize as usize,
+            })?;
+        Ok(&mut self.control_stack[index])
     }
 
     pub fn pop_frame(&mut self) -> Result<ControlFrame<'ctx>, BinaryReaderError> {
         self.control_stack.pop().ok_or(BinaryReaderError {
-            message: "cannot pop from control stack",
+            message: "pop_frame: cannot pop from control stack",
             offset: -1isize as usize,
         })
     }
@@ -283,7 +291,7 @@ impl<'ctx> State<'ctx> {
 
     pub fn pop1_extra(&mut self) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), BinaryReaderError> {
         self.stack.pop().ok_or(BinaryReaderError {
-            message: "invalid value stack",
+            message: "pop1_extra: invalid value stack",
             offset: -1isize as usize,
         })
     }
@@ -327,13 +335,11 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn peek1_extra(&self) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), BinaryReaderError> {
-        self.stack
-            .get(self.stack.len() - 1)
-            .ok_or(BinaryReaderError {
-                message: "invalid value stack",
-                offset: -1isize as usize,
-            })
-            .map(|v| *v)
+        let index = self.stack.len().checked_sub(1).ok_or(BinaryReaderError {
+            message: "peek1_extra: invalid value stack",
+            offset: -1isize as usize,
+        })?;
+        Ok(self.stack[index])
     }
 
     pub fn peekn(&self, n: usize) -> Result<Vec<BasicValueEnum<'ctx>>, BinaryReaderError> {
@@ -344,12 +350,12 @@ impl<'ctx> State<'ctx> {
         &self,
         n: usize,
     ) -> Result<&[(BasicValueEnum<'ctx>, ExtraInfo)], BinaryReaderError> {
-        let new_len = self.stack.len().checked_sub(n).ok_or(BinaryReaderError {
-            message: "invalid value stack",
+        let index = self.stack.len().checked_sub(n).ok_or(BinaryReaderError {
+            message: "peekn_extra: invalid value stack",
             offset: -1isize as usize,
         })?;
 
-        Ok(&self.stack[new_len..])
+        Ok(&self.stack[index..])
     }
 
     pub fn popn_save_extra(
@@ -362,15 +368,12 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn popn(&mut self, n: usize) -> Result<(), BinaryReaderError> {
-        if self.stack.len() < n {
-            return Err(BinaryReaderError {
-                message: "invalid value stack",
-                offset: -1isize as usize,
-            });
-        }
+        let index = self.stack.len().checked_sub(n).ok_or(BinaryReaderError {
+            message: "popn: invalid value stack",
+            offset: -1isize as usize,
+        })?;
 
-        let new_len = self.stack.len() - n;
-        self.stack.truncate(new_len);
+        self.stack.truncate(index);
         Ok(())
     }
 

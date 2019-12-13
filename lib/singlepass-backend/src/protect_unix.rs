@@ -16,7 +16,7 @@ use wasmer_runtime_core::fault::{begin_unsafe_unwind, catch_unsafe_unwind, ensur
 use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 thread_local! {
-    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
+    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any + Send>>> = Cell::new(None);
 }
 
 pub unsafe fn trigger_trap() -> ! {
@@ -25,7 +25,7 @@ pub unsafe fn trigger_trap() -> ! {
 
 pub enum CallProtError {
     Trap(WasmTrapInfo),
-    Error(Box<dyn Any>),
+    Error(Box<dyn Any + Send>),
 }
 
 pub fn call_protected<T>(
@@ -48,6 +48,6 @@ pub fn call_protected<T>(
     }
 }
 
-pub unsafe fn throw(payload: Box<dyn Any>) -> ! {
+pub unsafe fn throw(payload: Box<dyn Any + Send>) -> ! {
     begin_unsafe_unwind(payload);
 }
