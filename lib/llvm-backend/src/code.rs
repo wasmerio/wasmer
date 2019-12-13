@@ -13,7 +13,9 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine},
-    types::{BasicType, BasicTypeEnum, FloatMathType, FunctionType, PointerType, VectorType},
+    types::{
+        BasicType, BasicTypeEnum, FloatMathType, FunctionType, IntType, PointerType, VectorType,
+    },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
         VectorValue,
@@ -127,9 +129,10 @@ fn trunc_sat<'ctx, T: FloatMathType<'ctx>>(
 
     let fvec_ty = fvec_ty.as_basic_type_enum().into_vector_type();
     let ivec_ty = ivec_ty.as_basic_type_enum().into_vector_type();
-    
-    let is_signed = int_min_value != 0;
+    let fvec_element_ty = fvec_ty.get_element_type().into_float_type();
     let ivec_element_ty = ivec_ty.get_element_type().into_int_type();
+
+    let is_signed = int_min_value != 0;
     let int_min_value = splat_vector(
         builder,
         intrinsics,
@@ -151,26 +154,26 @@ fn trunc_sat<'ctx, T: FloatMathType<'ctx>>(
     let lower_bound = if is_signed {
         builder.build_signed_int_to_float(
             ivec_element_ty.const_int(lower_bound, is_signed),
-            fvec_ty.get_element_type().into_float_type(),
+            fvec_element_ty,
             "",
         )
     } else {
         builder.build_unsigned_int_to_float(
             ivec_element_ty.const_int(lower_bound, is_signed),
-            fvec_ty.get_element_type().into_float_type(),
+            fvec_element_ty,
             "",
         )
     };
     let upper_bound = if is_signed {
         builder.build_signed_int_to_float(
             ivec_element_ty.const_int(upper_bound, is_signed),
-            fvec_ty.get_element_type().into_float_type(),
+            fvec_element_ty,
             "",
         )
     } else {
         builder.build_unsigned_int_to_float(
             ivec_element_ty.const_int(upper_bound, is_signed),
-            fvec_ty.get_element_type().into_float_type(),
+            fvec_element_ty,
             "",
         )
     };
@@ -220,6 +223,93 @@ fn trunc_sat<'ctx, T: FloatMathType<'ctx>>(
     builder
         .build_bitcast(res, intrinsics.i128_ty, "")
         .into_int_value()
+}
+
+// Convert floating point vector to integer and saturate when out of range.
+// https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
+fn trunc_sat_scalar<'ctx>(
+    builder: &Builder<'ctx>,
+    int_ty: IntType<'ctx>,
+    lower_bound: u64, // Exclusive (lowest representable value)
+    upper_bound: u64, // Exclusive (greatest representable value)
+    int_min_value: u64,
+    int_max_value: u64,
+    value: FloatValue<'ctx>,
+    name: &str,
+) -> IntValue<'ctx> {
+    // TODO: this is a scalarized version of the process in trunc_sat. Either
+    // we should merge with trunc_sat, or we should simplify this function.
+
+    // a) Compare value with itself to identify NaN.
+    // b) Compare value inttofp(upper_bound) to identify values that need to
+    //    saturate to max.
+    // c) Compare value with inttofp(lower_bound) to identify values that need
+    //    to saturate to min.
+    // d) Use select to pick from either zero or the input vector depending on
+    //    whether the comparison indicates that we have an unrepresentable
+    //    value.
+    // e) Now that the value is safe, fpto[su]i it.
+    // f) Use our previous comparison results to replace certain zeros with
+    //    int_min or int_max.
+
+    let is_signed = int_min_value != 0;
+    let int_min_value = int_ty.const_int(int_min_value, is_signed);
+    let int_max_value = int_ty.const_int(int_max_value, is_signed);
+
+    let lower_bound = if is_signed {
+        builder.build_signed_int_to_float(
+            int_ty.const_int(lower_bound, is_signed),
+            value.get_type(),
+            "",
+        )
+    } else {
+        builder.build_unsigned_int_to_float(
+            int_ty.const_int(lower_bound, is_signed),
+            value.get_type(),
+            "",
+        )
+    };
+    let upper_bound = if is_signed {
+        builder.build_signed_int_to_float(
+            int_ty.const_int(upper_bound, is_signed),
+            value.get_type(),
+            "",
+        )
+    } else {
+        builder.build_unsigned_int_to_float(
+            int_ty.const_int(upper_bound, is_signed),
+            value.get_type(),
+            "",
+        )
+    };
+
+    let zero = value.get_type().const_zero();
+
+    let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+    let above_upper_bound_cmp =
+        builder.build_float_compare(FloatPredicate::OGT, value, upper_bound, "above_upper_bound");
+    let below_lower_bound_cmp =
+        builder.build_float_compare(FloatPredicate::OLT, value, lower_bound, "below_lower_bound");
+    let not_representable = builder.build_or(
+        builder.build_or(nan_cmp, above_upper_bound_cmp, ""),
+        below_lower_bound_cmp,
+        "not_representable_as_int",
+    );
+    let value = builder
+        .build_select(not_representable, zero, value, "safe_to_convert")
+        .into_float_value();
+    let value = if is_signed {
+        builder.build_float_to_signed_int(value, int_ty, "as_int")
+    } else {
+        builder.build_float_to_unsigned_int(value, int_ty, "as_int")
+    };
+    let value = builder
+        .build_select(above_upper_bound_cmp, int_max_value, value, "")
+        .into_int_value();
+    let value = builder
+        .build_select(below_lower_bound_cmp, int_min_value, value, name)
+        .into_int_value();
+    builder.build_bitcast(value, int_ty, "").into_int_value()
 }
 
 fn trap_if_not_representable_as_int<'ctx>(
@@ -4459,10 +4549,36 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     builder.build_float_to_signed_int(v1, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32TruncSSatF32 | Operator::I32TruncSSatF64 => {
-                let v1 = state.pop1()?.into_float_value();
-                let res =
-                    builder.build_float_to_signed_int(v1, intrinsics.i32_ty, &state.var_name());
+            Operator::I32TruncSSatF32 => {
+                let (v, i) = state.pop1_extra()?;
+                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = v.into_float_value();
+                let res = trunc_sat_scalar(
+                    builder,
+                    intrinsics.i32_ty,
+                    std::i32::MIN as u64,
+                    2147483520u64, // bits as f32: 0x4effffff
+                    std::i32::MIN as u32 as u64,
+                    std::i32::MAX as u32 as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I32TruncSSatF64 => {
+                let (v, i) = state.pop1_extra()?;
+                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = v.into_float_value();
+                let res = trunc_sat_scalar(
+                    builder,
+                    intrinsics.i32_ty,
+                    std::i32::MIN as u64,
+                    std::i32::MAX as u64,
+                    std::i32::MIN as u64,
+                    std::i32::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
                 state.push1(res);
             }
             Operator::I64TruncSF32 => {
@@ -4492,11 +4608,36 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     builder.build_float_to_signed_int(v1, intrinsics.i64_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I64TruncSSatF32 | Operator::I64TruncSSatF64 => {
-                let v1 = state.pop1()?.into_float_value();
-                
-                let res =
-                    builder.build_float_to_signed_int(v1, intrinsics.i64_ty, &state.var_name());
+            Operator::I64TruncSSatF32 => {
+                let (v, i) = state.pop1_extra()?;
+                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = v.into_float_value();
+                let res = trunc_sat_scalar(
+                    builder,
+                    intrinsics.i64_ty,
+                    std::i64::MIN as u64,
+                    9223371487098961920, // bits as f32: 0x5eff_ffff
+                    std::i64::MIN as u64,
+                    std::i64::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I64TruncSSatF64 => {
+                let (v, i) = state.pop1_extra()?;
+                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = v.into_float_value();
+                let res = trunc_sat_scalar(
+                    builder,
+                    intrinsics.i64_ty,
+                    std::i64::MIN as u64,
+                    9223372036854774784, // bits as f64: 0x43df_ffff_ffff_ffff
+                    std::i64::MIN as u64,
+                    std::i64::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
                 state.push1(res);
             }
             Operator::I32TruncUF32 => {
@@ -4525,10 +4666,36 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     builder.build_float_to_unsigned_int(v1, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32TruncUSatF32 | Operator::I32TruncUSatF64 => {
-                let v1 = state.pop1()?.into_float_value();
-                let res =
-                    builder.build_float_to_unsigned_int(v1, intrinsics.i32_ty, &state.var_name());
+            Operator::I32TruncUSatF32 => {
+                let (v, i) = state.pop1_extra()?;
+                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = v.into_float_value();
+                let res = trunc_sat_scalar(
+                    builder,
+                    intrinsics.i32_ty,
+                    std::u32::MIN as u64,
+                    4294967040, // bits as f32: 0x4f7fffff
+                    std::u32::MIN as u64,
+                    std::u32::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I32TruncUSatF64 => {
+                let (v, i) = state.pop1_extra()?;
+                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = v.into_float_value();
+                let res = trunc_sat_scalar(
+                    builder,
+                    intrinsics.i32_ty,
+                    std::u32::MIN as u64,
+                    4294967295, // bits as f64: 0x41efffffffffffff
+                    std::u32::MIN as u64,
+                    std::u32::MAX as u64,
+                    v,
+                    &state.var_name(),
+                );
                 state.push1(res);
             }
             Operator::I64TruncUF32 => {
@@ -4557,10 +4724,36 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     builder.build_float_to_unsigned_int(v1, intrinsics.i64_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I64TruncUSatF32 | Operator::I64TruncUSatF64 => {
-                let v1 = state.pop1()?.into_float_value();
-                let res =
-                    builder.build_float_to_unsigned_int(v1, intrinsics.i64_ty, &state.var_name());
+            Operator::I64TruncUSatF32 => {
+                let (v, i) = state.pop1_extra()?;
+                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = v.into_float_value();
+                let res = trunc_sat_scalar(
+                    builder,
+                    intrinsics.i64_ty,
+                    std::u64::MIN,
+                    18446742974197923840, // bits as f32: 0x5f7fffff
+                    std::u64::MIN,
+                    std::u64::MAX,
+                    v,
+                    &state.var_name(),
+                );
+                state.push1(res);
+            }
+            Operator::I64TruncUSatF64 => {
+                let (v, i) = state.pop1_extra()?;
+                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = v.into_float_value();
+                let res = trunc_sat_scalar(
+                    builder,
+                    intrinsics.i64_ty,
+                    std::u64::MIN,
+                    18446744073709549568u64, // bits as f64: 0x43EFFFFFFFFFFFFF
+                    std::u64::MIN,
+                    std::u64::MAX,
+                    v,
+                    &state.var_name(),
+                );
                 state.push1(res);
             }
             Operator::F32DemoteF64 => {
