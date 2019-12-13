@@ -180,7 +180,7 @@ jobs:
       - checkout: self
         submodules: true
       - template: .azure/install-rust.yml
-      # - template: .azure/install-llvm.yml
+      - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - bash: |
