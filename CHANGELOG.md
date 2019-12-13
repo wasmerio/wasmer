@@ -11,6 +11,7 @@
 - [#1052](https://github.com/wasmerio/wasmer/pull/1052) Fix minor panic and improve Error handling in singlepass backend.
 - [#1050](https://github.com/wasmerio/wasmer/pull/1050) Attach C & C++ headers to releases.
 - [#1033](https://github.com/wasmerio/wasmer/pull/1033) Set cranelift backend as default compiler backend again, require at least one backend to be enabled for Wasmer CLI
+- [#1044](https://github.com/wasmerio/wasmer/pull/1044) Enable AArch64 support in the LLVM backend.
 - [#1030](https://github.com/wasmerio/wasmer/pull/1030) Ability to generate `ImportObject` for a specific version WASI version with the C API.
 - [#1028](https://github.com/wasmerio/wasmer/pull/1028) Introduce strict/non-strict modes for `get_wasi_version`
 - [#1029](https://github.com/wasmerio/wasmer/pull/1029) Add the “floating” `WasiVersion::Latest` version.

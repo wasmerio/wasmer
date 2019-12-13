@@ -273,6 +273,11 @@ llvm:fail:f64.wast:1621 # AssertReturn - result F64(0) ("0x0") does not match ex
 llvm:fail:f64.wast:2020 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
 
+# LLVM AArch64
+llvm:skip:atomic.wast:*:*:aarch64 # Out of range relocations.
+llvm:skip:skip-stack-guard-page.wast:2275:*:aarch64 # Uncaught SIGSEGV only in release builds
+llvm:skip:skip-stack-guard-page.wast:2282:*:aarch64 # Uncaught SIGSEGV only in release builds
+
 # LLVM Windows
 llvm:skip:address.wast:*:windows
 llvm:skip:align.wast:*:windows
