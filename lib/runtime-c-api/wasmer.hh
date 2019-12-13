@@ -61,6 +61,17 @@ struct wasmer_module_t {
 
 };
 
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/// Type used to construct an import_object_t with Emscripten imports.
+struct wasmer_emscripten_globals_t {
+
+};
+#endif
+
+struct wasmer_import_object_t {
+
+};
+
 /// Opaque pointer to `NamedExportDescriptor`.
 struct wasmer_export_descriptor_t {
 
@@ -125,10 +136,6 @@ struct wasmer_import_descriptors_t {
 };
 
 struct wasmer_import_func_t {
-
-};
-
-struct wasmer_import_object_t {
 
 };
 
@@ -215,6 +222,24 @@ extern "C" {
 wasmer_result_t wasmer_compile(wasmer_module_t **module,
                                uint8_t *wasm_bytes,
                                uint32_t wasm_bytes_len);
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/// Destroy `wasmer_emscrpten_globals_t` created by
+/// `wasmer_emscripten_get_emscripten_globals`.
+void wasmer_emscripten_destroy_emscripten_globals(wasmer_emscripten_globals_t *globals);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/// Create a `wasmer_import_object_t` with Emscripten imports, use
+/// `wasmer_emscripten_get_emscripten_globals` to get a
+/// `wasmer_emscripten_globals_t` from a `wasmer_module_t`.
+wasmer_import_object_t *wasmer_emscripten_generate_import_object(wasmer_emscripten_globals_t *globals);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/// Create a `wasmer_emscripten_globals_t` from a Wasm module.
+wasmer_emscripten_globals_t *wasmer_emscripten_get_emscripten_globals(const wasmer_module_t *module);
+#endif
 
 /// Gets export descriptor kind
 wasmer_import_export_kind wasmer_export_descriptor_kind(wasmer_export_descriptor_t *export_);

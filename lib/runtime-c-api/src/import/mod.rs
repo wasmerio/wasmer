@@ -61,6 +61,12 @@ mod wasi;
 #[cfg(feature = "wasi")]
 pub use self::wasi::*;
 
+#[cfg(feature = "emscripten")]
+mod emscripten;
+
+#[cfg(feature = "emscripten")]
+pub use self::emscripten::*;
+
 /// Gets an entry from an ImportObject at the name and namespace.
 /// Stores `name`, `namespace`, and `import_export_value` in `import`.
 /// Thus these must remain valid for the lifetime of `import`.
@@ -437,6 +443,9 @@ pub unsafe extern "C" fn wasmer_import_descriptors(
     module: *const wasmer_module_t,
     import_descriptors: *mut *mut wasmer_import_descriptors_t,
 ) {
+    if module.is_null() {
+        return;
+    }
     let module = &*(module as *const Module);
     let total_imports = module.info().imported_functions.len()
         + module.info().imported_tables.len()

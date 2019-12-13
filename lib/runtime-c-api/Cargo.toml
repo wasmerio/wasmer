@@ -32,6 +32,11 @@ path = "../wasi"
 version = "0.11.0"
 optional = true
 
+[dependencies.wasmer-emscripten]
+path = "../emscripten"
+version = "0.11.0"
+optional = true
+
 [features]
 default = ["cranelift-backend", "wasi"]
 debug = ["wasmer-runtime/debug"]
@@ -39,6 +44,7 @@ cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend
 llvm-backend = ["wasmer-runtime/llvm", "wasmer-runtime/default-backend-llvm"]
 singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass"]
 wasi = ["wasmer-wasi"]
+emscripten = ["wasmer-emscripten"]
 
 [build-dependencies]
 cbindgen = "0.9"
