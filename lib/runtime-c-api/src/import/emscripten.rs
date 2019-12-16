@@ -4,7 +4,7 @@ use super::*;
 use crate::{get_slice_checked, instance::wasmer_instance_t, module::wasmer_module_t};
 
 use std::ptr;
-use wasmer_emscripten::EmscriptenGlobals;
+use wasmer_emscripten::{EmscriptenData, EmscriptenGlobals};
 use wasmer_runtime::{Instance, Module};
 
 /// Type used to construct an import_object_t with Emscripten imports.
@@ -55,7 +55,14 @@ pub unsafe extern "C" fn wasmer_emscripten_set_up_emscripten(
         return wasmer_result_t::WASMER_ERROR;
     }
     let instance = &mut *(instance as *mut Instance);
-    instance.context_mut().data = globals as *mut c_void;
+    let globals = &*(globals as *mut EmscriptenGlobals);
+    let em_data = Box::into_raw(Box::new(EmscriptenData::new(
+        instance,
+        &globals.data,
+        Default::default(),
+    ))) as *mut c_void;
+    instance.context_mut().data = em_data;
+
     match wasmer_emscripten::set_up_emscripten(instance) {
         Ok(_) => wasmer_result_t::WASMER_OK,
         Err(e) => {

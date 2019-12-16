@@ -114,6 +114,10 @@ capi-llvm:
 	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
 		--no-default-features --features llvm-backend,wasi
 
+capi-emscripten:
+	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
+		--no-default-features --features singlepass-backend,emscripten
+
 # We use cranelift as the default backend for the capi for now
 capi: capi-cranelift
 
@@ -128,6 +132,10 @@ test-capi-cranelift: capi-cranelift
 test-capi-llvm: capi-llvm
 	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
 		--no-default-features --features llvm-backend,wasi
+
+test-capi-emscripten: capi-emscripten
+	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
+		--no-default-features --features singlepass-backend,emscripten
 
 test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 

@@ -8,7 +8,7 @@ use crate::{
     value::wasmer_value_tag,
     wasmer_byte_array, wasmer_result_t,
 };
-use libc::{c_uchar, c_uint};
+use libc::c_uint;
 use std::{convert::TryFrom, ffi::c_void, ptr, slice, sync::Arc};
 use wasmer_runtime::{Global, Memory, Module, Table};
 use wasmer_runtime_core::{
