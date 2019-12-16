@@ -401,17 +401,17 @@ impl Ctx {
         }
     }
 
-    /// Splits the borrow, getting both Memory and a mutable reference to
-    /// the data type provided.
+    /// Get access to [`Meomry`] and mutable access to the user defined data
+    /// field as the type, `T`.
     ///
     /// This method is required to access both at the same time.
-    /// This is useful if the data stores information about locations in Wasm
-    /// memory that a hostcall needs to access.
+    /// This is useful for updating a data type that stores information about
+    /// locations in Wasm memory.
     ///
     /// # Safety
     ///
     /// This function must be called with the same type, `T`, that the `data`
-    /// was set to.
+    /// was initialized with.
     pub unsafe fn memory_and_data_mut<T>(&mut self, mem_index: u32) -> (&Memory, &mut T) {
         (self.memory(mem_index), &mut *(self.data as *mut T))
     }
