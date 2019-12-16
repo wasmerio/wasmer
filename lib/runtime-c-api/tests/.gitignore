@@ -27,3 +27,4 @@ test-module-serialize
 test-tables
 test-validate
 test-wasi-import-object
+test-emscripten-import-object

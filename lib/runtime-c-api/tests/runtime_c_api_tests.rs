@@ -8,8 +8,10 @@ fn test_c_api() {
         ".",
         #[cfg(feature = "wasi")]
         "-DWASI_TESTS=ON",
+        #[cfg(feature = "emscripten")]
+        "-DEMSCRIPTEN_TESTS=ON",
     ];
-    // we use -f so it doesn't fail if the fiel doesn't exist
+    // we use -f so it doesn't fail if the file doesn't exist
     run_command("rm", project_tests_dir, vec!["-f", "CMakeCache.txt"]);
     run_command("cmake", project_tests_dir, cmake_args);
     run_command("make", project_tests_dir, vec!["-Wdev", "-Werror=dev"]);
