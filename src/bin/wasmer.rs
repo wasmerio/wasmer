@@ -102,6 +102,7 @@ impl PrestandardFeatures {
             features.enable_threads();
         }
         features.enable_sign_extension();
+        features.enable_sat_float_to_int();
         features
     }
 
