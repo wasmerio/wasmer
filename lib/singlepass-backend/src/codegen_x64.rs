@@ -4763,7 +4763,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                     None::<fn(_a: &mut Assembler, _m: &mut Machine)>,
                     |a, _m| {
-                        a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        if a.arch_has_itruncf() {
+                            a.arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
+                        } else {
+                            a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        }
                     },
                 );
 
@@ -4876,7 +4880,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
                     }),
                     |a, _m| {
-                        a.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        if a.arch_has_itruncf() {
+                            a.arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
+                        } else {
+                            a.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        }
                     },
                 );
 
@@ -4989,7 +4997,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
                     }),
                     |a, _m| {
-                        a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        if a.arch_has_itruncf() {
+                            a.arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
+                        } else {
+                            a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        }
                     },
                 );
 
@@ -5120,32 +5132,36 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                     None::<fn(_a: &mut Assembler, _m: &mut Machine)>,
                     |a, m| {
-                        let tmp = m.acquire_temp_gpr().unwrap(); // r15
-                        let tmp_x1 = m.acquire_temp_xmm().unwrap(); // xmm1
-                        let tmp_x2 = m.acquire_temp_xmm().unwrap(); // xmm3
+                        if a.arch_has_itruncf() {
+                            a.arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
+                        } else {
+                            let tmp = m.acquire_temp_gpr().unwrap(); // r15
+                            let tmp_x1 = m.acquire_temp_xmm().unwrap(); // xmm1
+                            let tmp_x2 = m.acquire_temp_xmm().unwrap(); // xmm3
 
-                        a.emit_mov(
-                            Size::S32,
-                            Location::Imm32(1593835520u32),
-                            Location::GPR(tmp),
-                        ); //float 9.22337203E+18
-                        a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
-                        a.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                        a.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                        a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                        a.emit_mov(
-                            Size::S64,
-                            Location::Imm64(0x8000000000000000u64),
-                            Location::GPR(tmp),
-                        );
-                        a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                        a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                        a.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                        a.emit_cmovae_gpr_64(tmp, tmp_out);
+                            a.emit_mov(
+                                Size::S32,
+                                Location::Imm32(1593835520u32),
+                                Location::GPR(tmp),
+                            ); //float 9.22337203E+18
+                            a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
+                            a.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
+                            a.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                            a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            a.emit_mov(
+                                Size::S64,
+                                Location::Imm64(0x8000000000000000u64),
+                                Location::GPR(tmp),
+                            );
+                            a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                            a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                            a.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                            a.emit_cmovae_gpr_64(tmp, tmp_out);
 
-                        m.release_temp_xmm(tmp_x2);
-                        m.release_temp_xmm(tmp_x1);
-                        m.release_temp_gpr(tmp);
+                            m.release_temp_xmm(tmp_x2);
+                            m.release_temp_xmm(tmp_x1);
+                            m.release_temp_gpr(tmp);
+                        }
                     },
                 );
 
@@ -5253,7 +5269,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                     None::<fn(_a: &mut Assembler, _m: &mut Machine)>,
                     |a, _m| {
-                        a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        if a.arch_has_itruncf() {
+                            a.arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
+                        } else {
+                            a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        }
                     },
                 );
 
@@ -5377,7 +5397,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
                     }),
                     |a, _m| {
-                        a.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
+                        if a.arch_has_itruncf() {
+                            a.arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
+                        } else {
+                            a.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
+                        }
                     },
                 );
 
@@ -5491,7 +5515,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
                     }),
                     |a, _m| {
-                        a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        if a.arch_has_itruncf() {
+                            a.arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
+                        } else {
+                            a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        }
                     },
                 );
 
@@ -5623,32 +5651,36 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                     None::<fn(_a: &mut Assembler, _m: &mut Machine)>,
                     |a, m| {
-                        let tmp = m.acquire_temp_gpr().unwrap(); // r15
-                        let tmp_x1 = m.acquire_temp_xmm().unwrap(); // xmm1
-                        let tmp_x2 = m.acquire_temp_xmm().unwrap(); // xmm3
+                        if a.arch_has_itruncf() {
+                            a.arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
+                        } else {
+                            let tmp = m.acquire_temp_gpr().unwrap(); // r15
+                            let tmp_x1 = m.acquire_temp_xmm().unwrap(); // xmm1
+                            let tmp_x2 = m.acquire_temp_xmm().unwrap(); // xmm3
 
-                        a.emit_mov(
-                            Size::S64,
-                            Location::Imm64(4890909195324358656u64),
-                            Location::GPR(tmp),
-                        ); //double 9.2233720368547758E+18
-                        a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
-                        a.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                        a.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                        a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                        a.emit_mov(
-                            Size::S64,
-                            Location::Imm64(0x8000000000000000u64),
-                            Location::GPR(tmp),
-                        );
-                        a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                        a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                        a.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                        a.emit_cmovae_gpr_64(tmp, tmp_out);
+                            a.emit_mov(
+                                Size::S64,
+                                Location::Imm64(4890909195324358656u64),
+                                Location::GPR(tmp),
+                            ); //double 9.2233720368547758E+18
+                            a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
+                            a.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
+                            a.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                            a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            a.emit_mov(
+                                Size::S64,
+                                Location::Imm64(0x8000000000000000u64),
+                                Location::GPR(tmp),
+                            );
+                            a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                            a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                            a.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                            a.emit_cmovae_gpr_64(tmp, tmp_out);
 
-                        m.release_temp_xmm(tmp_x2);
-                        m.release_temp_xmm(tmp_x1);
-                        m.release_temp_gpr(tmp);
+                            m.release_temp_xmm(tmp_x2);
+                            m.release_temp_xmm(tmp_x1);
+                            m.release_temp_gpr(tmp);
+                        }
                     },
                 );
 
