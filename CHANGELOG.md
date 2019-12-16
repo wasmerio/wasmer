@@ -19,6 +19,7 @@
 - [#1009](https://github.com/wasmerio/wasmer/pull/1009) Enable LLVM verifier for all tests, add new llvm-backend-tests crate.
 - [#1022](https://github.com/wasmerio/wasmer/pull/1022) Add caching support for Singlepass backend.
 - [#1004](https://github.com/wasmerio/wasmer/pull/1004) Add the Auto backend to enable to adapt backend usage depending on wasm file executed.
+- [#1068](https://github.com/wasmerio/wasmer/pull/1068) Various cleanups for the singlepass backend on AArch64.
 
 ## 0.11.0 - 2019-11-22
 
