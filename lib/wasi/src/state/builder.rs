@@ -1,4 +1,4 @@
-//! Builder code for [`WasiState`]
+//! Builder system for configuring a [`WasiState`] and creating it.
 
 use crate::state::{WasiFs, WasiState};
 use std::path::{Path, PathBuf};
