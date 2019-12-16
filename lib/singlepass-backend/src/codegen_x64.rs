@@ -2028,7 +2028,9 @@ impl X64FunctionCode {
         reg: XMM,
         lower_bound: f32,
         upper_bound: f32,
-        fail_label: <Assembler as Emitter>::Label,
+        underflow_label: <Assembler as Emitter>::Label,
+        overflow_label: <Assembler as Emitter>::Label,
+        nan_label: <Assembler as Emitter>::Label,
         succeed_label: <Assembler as Emitter>::Label,
     ) {
         let lower_bound = f32::to_bits(lower_bound);
@@ -2043,7 +2045,7 @@ impl X64FunctionCode {
         a.emit_vcmpless(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
         a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        a.emit_jmp(Condition::NotEqual, fail_label);
+        a.emit_jmp(Condition::NotEqual, underflow_label);
 
         // Overflow.
         a.emit_mov(Size::S32, Location::Imm32(upper_bound), Location::GPR(tmp));
@@ -2051,13 +2053,13 @@ impl X64FunctionCode {
         a.emit_vcmpgess(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
         a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        a.emit_jmp(Condition::NotEqual, fail_label);
+        a.emit_jmp(Condition::NotEqual, overflow_label);
 
         // NaN.
         a.emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
         a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        a.emit_jmp(Condition::Equal, fail_label);
+        a.emit_jmp(Condition::Equal, nan_label);
 
         a.emit_jmp(Condition::None, succeed_label);
 
@@ -2076,28 +2078,70 @@ impl X64FunctionCode {
         let trap = a.get_label();
         let end = a.get_label();
 
-        Self::emit_f32_int_conv_check(a, m, reg, lower_bound, upper_bound, trap, end);
+        Self::emit_f32_int_conv_check(a, m, reg, lower_bound, upper_bound, trap, trap, trap, end);
         a.emit_label(trap);
         a.emit_ud2();
         a.emit_label(end);
     }
 
-    fn emit_f32_int_conv_check_zero(
+    fn emit_f32_int_conv_check_sat<
+        F1: FnOnce(&mut Assembler, &mut Machine),
+        F2: FnOnce(&mut Assembler, &mut Machine),
+        F3: FnOnce(&mut Assembler, &mut Machine),
+        F4: FnOnce(&mut Assembler, &mut Machine),
+    >(
         a: &mut Assembler,
         m: &mut Machine,
         reg: XMM,
         lower_bound: f32,
         upper_bound: f32,
+        underflow_cb: F1,
+        overflow_cb: F2,
+        nan_cb: Option<F3>,
+        convert_cb: F4,
     ) {
-        let trap = a.get_label();
+        // As an optimization nan_cb is optional, and when set to None we turn
+        // use 'underflow' as the 'nan' label. This is useful for callers who
+        // set the return value to zero for both underflow and nan.
+
+        let underflow = a.get_label();
+        let overflow = a.get_label();
+        let nan = if nan_cb.is_some() {
+            a.get_label()
+        } else {
+            underflow
+        };
+        let convert = a.get_label();
         let end = a.get_label();
 
-        Self::emit_f32_int_conv_check(a, m, reg, lower_bound, upper_bound, trap, end);
-        a.emit_label(trap);
-        let gpr = m.acquire_temp_gpr().unwrap();
-        a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(gpr));
-        a.emit_mov(Size::S32, Location::GPR(gpr), Location::XMM(reg));
-        m.release_temp_gpr(gpr);
+        Self::emit_f32_int_conv_check(
+            a,
+            m,
+            reg,
+            lower_bound,
+            upper_bound,
+            underflow,
+            overflow,
+            nan,
+            convert,
+        );
+
+        a.emit_label(underflow);
+        underflow_cb(a, m);
+        a.emit_jmp(Condition::None, end);
+
+        a.emit_label(overflow);
+        overflow_cb(a, m);
+        a.emit_jmp(Condition::None, end);
+
+        if let Some(cb) = nan_cb {
+            a.emit_label(nan);
+            cb(a, m);
+            a.emit_jmp(Condition::None, end);
+        }
+
+        a.emit_label(convert);
+        convert_cb(a, m);
         a.emit_label(end);
     }
 
@@ -2108,7 +2152,9 @@ impl X64FunctionCode {
         reg: XMM,
         lower_bound: f64,
         upper_bound: f64,
-        fail_label: <Assembler as Emitter>::Label,
+        underflow_label: <Assembler as Emitter>::Label,
+        overflow_label: <Assembler as Emitter>::Label,
+        nan_label: <Assembler as Emitter>::Label,
         succeed_label: <Assembler as Emitter>::Label,
     ) {
         let lower_bound = f64::to_bits(lower_bound);
@@ -2123,7 +2169,7 @@ impl X64FunctionCode {
         a.emit_vcmplesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
         a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        a.emit_jmp(Condition::NotEqual, fail_label);
+        a.emit_jmp(Condition::NotEqual, underflow_label);
 
         // Overflow.
         a.emit_mov(Size::S64, Location::Imm64(upper_bound), Location::GPR(tmp));
@@ -2131,13 +2177,13 @@ impl X64FunctionCode {
         a.emit_vcmpgesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
         a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        a.emit_jmp(Condition::NotEqual, fail_label);
+        a.emit_jmp(Condition::NotEqual, overflow_label);
 
         // NaN.
         a.emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
         a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        a.emit_jmp(Condition::Equal, fail_label);
+        a.emit_jmp(Condition::Equal, nan_label);
 
         a.emit_jmp(Condition::None, succeed_label);
 
@@ -2156,28 +2202,70 @@ impl X64FunctionCode {
         let trap = a.get_label();
         let end = a.get_label();
 
-        Self::emit_f64_int_conv_check(a, m, reg, lower_bound, upper_bound, trap, end);
+        Self::emit_f64_int_conv_check(a, m, reg, lower_bound, upper_bound, trap, trap, trap, end);
         a.emit_label(trap);
         a.emit_ud2();
         a.emit_label(end);
     }
 
-    fn emit_f64_int_conv_check_zero(
+    fn emit_f64_int_conv_check_sat<
+        F1: FnOnce(&mut Assembler, &mut Machine),
+        F2: FnOnce(&mut Assembler, &mut Machine),
+        F3: FnOnce(&mut Assembler, &mut Machine),
+        F4: FnOnce(&mut Assembler, &mut Machine),
+    >(
         a: &mut Assembler,
         m: &mut Machine,
         reg: XMM,
         lower_bound: f64,
         upper_bound: f64,
+        underflow_cb: F1,
+        overflow_cb: F2,
+        nan_cb: Option<F3>,
+        convert_cb: F4,
     ) {
-        let trap = a.get_label();
+        // As an optimization nan_cb is optional, and when set to None we turn
+        // use 'underflow' as the 'nan' label. This is useful for callers who
+        // set the return value to zero for both underflow and nan.
+
+        let underflow = a.get_label();
+        let overflow = a.get_label();
+        let nan = if nan_cb.is_some() {
+            a.get_label()
+        } else {
+            underflow
+        };
+        let convert = a.get_label();
         let end = a.get_label();
 
-        Self::emit_f64_int_conv_check(a, m, reg, lower_bound, upper_bound, trap, end);
-        a.emit_label(trap);
-        let gpr = m.acquire_temp_gpr().unwrap();
-        a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(gpr));
-        a.emit_mov(Size::S64, Location::GPR(gpr), Location::XMM(reg));
-        m.release_temp_gpr(gpr);
+        Self::emit_f64_int_conv_check(
+            a,
+            m,
+            reg,
+            lower_bound,
+            upper_bound,
+            underflow,
+            overflow,
+            nan,
+            convert,
+        );
+
+        a.emit_label(underflow);
+        underflow_cb(a, m);
+        a.emit_jmp(Condition::None, end);
+
+        a.emit_label(overflow);
+        overflow_cb(a, m);
+        a.emit_jmp(Condition::None, end);
+
+        if let Some(cb) = nan_cb {
+            a.emit_label(nan);
+            cb(a, m);
+            a.emit_jmp(Condition::None, end);
+        }
+
+        a.emit_label(convert);
+        convert_cb(a, m);
         a.emit_label(end);
     }
 
@@ -4657,17 +4745,29 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Location::XMM(tmp_in),
                 );
-                Self::emit_f32_int_conv_check_zero(
+                Self::emit_f32_int_conv_check_sat(
                     a,
                     &mut self.machine,
                     tmp_in,
                     -1.0,
                     4294967296.0,
+                    |a, _m| {
+                        a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+                    },
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S32,
+                            Location::Imm32(std::u32::MAX),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    None::<fn(_a: &mut Assembler, _m: &mut Machine)>,
+                    |a, _m| {
+                        a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    },
                 );
 
-                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
-
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
@@ -4752,17 +4852,35 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Location::XMM(tmp_in),
                 );
-                Self::emit_f32_int_conv_check_zero(
+                Self::emit_f32_int_conv_check_sat(
                     a,
                     &mut self.machine,
                     tmp_in,
                     -2147483904.0,
                     2147483648.0,
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S32,
+                            Location::Imm32(std::i32::MIN as u32),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S32,
+                            Location::Imm32(std::i32::MAX as u32),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    Some(|a: &mut Assembler, _m: &mut Machine| {
+                        a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+                    }),
+                    |a, _m| {
+                        a.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    },
                 );
 
-                a.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
-
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
@@ -4847,16 +4965,35 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Location::XMM(tmp_in),
                 );
-                Self::emit_f32_int_conv_check_zero(
+                Self::emit_f32_int_conv_check_sat(
                     a,
                     &mut self.machine,
                     tmp_in,
                     -9223373136366403584.0,
                     9223372036854775808.0,
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(std::i64::MIN as u64),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(std::i64::MAX as u64),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    Some(|a: &mut Assembler, _m: &mut Machine| {
+                        a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+                    }),
+                    |a, _m| {
+                        a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    },
                 );
-                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
 
+                a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
@@ -4965,41 +5102,54 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Location::XMM(tmp_in),
                 );
-                Self::emit_f32_int_conv_check_zero(
+                Self::emit_f32_int_conv_check_sat(
                     a,
                     &mut self.machine,
                     tmp_in,
                     -1.0,
                     18446744073709551616.0,
+                    |a, _m| {
+                        a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+                    },
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(std::u64::MAX),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    None::<fn(_a: &mut Assembler, _m: &mut Machine)>,
+                    |a, m| {
+                        let tmp = m.acquire_temp_gpr().unwrap(); // r15
+                        let tmp_x1 = m.acquire_temp_xmm().unwrap(); // xmm1
+                        let tmp_x2 = m.acquire_temp_xmm().unwrap(); // xmm3
+
+                        a.emit_mov(
+                            Size::S32,
+                            Location::Imm32(1593835520u32),
+                            Location::GPR(tmp),
+                        ); //float 9.22337203E+18
+                        a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
+                        a.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
+                        a.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                        a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(0x8000000000000000u64),
+                            Location::GPR(tmp),
+                        );
+                        a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                        a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                        a.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                        a.emit_cmovae_gpr_64(tmp, tmp_out);
+
+                        m.release_temp_xmm(tmp_x2);
+                        m.release_temp_xmm(tmp_x1);
+                        m.release_temp_gpr(tmp);
+                    },
                 );
 
-                let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
-                let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
-                let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
-
-                a.emit_mov(
-                    Size::S32,
-                    Location::Imm32(1593835520u32),
-                    Location::GPR(tmp),
-                ); //float 9.22337203E+18
-                a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
-                a.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                a.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(
-                    Size::S64,
-                    Location::Imm64(0x8000000000000000u64),
-                    Location::GPR(tmp),
-                );
-                a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                a.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                a.emit_cmovae_gpr_64(tmp, tmp_out);
                 a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
-
-                self.machine.release_temp_xmm(tmp_x2);
-                self.machine.release_temp_xmm(tmp_x1);
-                self.machine.release_temp_gpr(tmp);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
@@ -5085,17 +5235,29 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Location::XMM(tmp_in),
                 );
-                Self::emit_f64_int_conv_check_zero(
+                Self::emit_f64_int_conv_check_sat(
                     a,
                     &mut self.machine,
                     tmp_in,
                     -1.0,
                     4294967296.0,
+                    |a, _m| {
+                        a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+                    },
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S32,
+                            Location::Imm32(std::u32::MAX),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    None::<fn(_a: &mut Assembler, _m: &mut Machine)>,
+                    |a, _m| {
+                        a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    },
                 );
 
-                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
-
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
@@ -5191,17 +5353,35 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     }
                 };
 
-                Self::emit_f64_int_conv_check_zero(
+                Self::emit_f64_int_conv_check_sat(
                     a,
                     &mut self.machine,
                     real_in,
                     -2147483649.0,
                     2147483648.0,
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S32,
+                            Location::Imm32(std::i32::MIN as u32),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S32,
+                            Location::Imm32(std::i32::MAX as u32),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    Some(|a: &mut Assembler, _m: &mut Machine| {
+                        a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+                    }),
+                    |a, _m| {
+                        a.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
+                    },
                 );
 
-                a.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
-
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
@@ -5287,17 +5467,35 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Location::XMM(tmp_in),
                 );
-                Self::emit_f64_int_conv_check_zero(
+                Self::emit_f64_int_conv_check_sat(
                     a,
                     &mut self.machine,
                     tmp_in,
                     -9223372036854777856.0,
                     9223372036854775808.0,
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(std::i64::MIN as u64),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(std::i64::MAX as u64),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    Some(|a: &mut Assembler, _m: &mut Machine| {
+                        a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+                    }),
+                    |a, _m| {
+                        a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    },
                 );
 
-                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
-
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
@@ -5407,41 +5605,54 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     Location::XMM(tmp_in),
                 );
-                Self::emit_f64_int_conv_check_zero(
+                Self::emit_f64_int_conv_check_sat(
                     a,
                     &mut self.machine,
                     tmp_in,
                     -1.0,
                     18446744073709551616.0,
+                    |a, _m| {
+                        a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+                    },
+                    |a, _m| {
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(std::u64::MAX),
+                            Location::GPR(tmp_out),
+                        );
+                    },
+                    None::<fn(_a: &mut Assembler, _m: &mut Machine)>,
+                    |a, m| {
+                        let tmp = m.acquire_temp_gpr().unwrap(); // r15
+                        let tmp_x1 = m.acquire_temp_xmm().unwrap(); // xmm1
+                        let tmp_x2 = m.acquire_temp_xmm().unwrap(); // xmm3
+
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(4890909195324358656u64),
+                            Location::GPR(tmp),
+                        ); //double 9.2233720368547758E+18
+                        a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
+                        a.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
+                        a.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                        a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                        a.emit_mov(
+                            Size::S64,
+                            Location::Imm64(0x8000000000000000u64),
+                            Location::GPR(tmp),
+                        );
+                        a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                        a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                        a.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                        a.emit_cmovae_gpr_64(tmp, tmp_out);
+
+                        m.release_temp_xmm(tmp_x2);
+                        m.release_temp_xmm(tmp_x1);
+                        m.release_temp_gpr(tmp);
+                    },
                 );
 
-                let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
-                let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
-                let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
-
-                a.emit_mov(
-                    Size::S64,
-                    Location::Imm64(4890909195324358656u64),
-                    Location::GPR(tmp),
-                ); //double 9.2233720368547758E+18
-                a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
-                a.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                a.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                a.emit_mov(
-                    Size::S64,
-                    Location::Imm64(0x8000000000000000u64),
-                    Location::GPR(tmp),
-                );
-                a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                a.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                a.emit_cmovae_gpr_64(tmp, tmp_out);
                 a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
-
-                self.machine.release_temp_xmm(tmp_x2);
-                self.machine.release_temp_xmm(tmp_x1);
-                self.machine.release_temp_gpr(tmp);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
