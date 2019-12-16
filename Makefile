@@ -137,7 +137,7 @@ test-capi-emscripten: capi-emscripten
 	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
 		--no-default-features --features singlepass-backend,emscripten
 
-test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
+test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten
 
 capi-test: test-capi
 
