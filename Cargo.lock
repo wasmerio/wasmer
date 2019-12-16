@@ -42,10 +42,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "bincode"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.103 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1494,7 +1493,7 @@ dependencies = [
 name = "wasmer-runtime-core"
 version = "0.11.0"
 dependencies = [
- "bincode 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "blake2b_simd 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
  "digest 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1531,7 +1530,7 @@ dependencies = [
 name = "wasmer-singlepass-backend"
 version = "0.11.0"
 dependencies = [
- "bincode 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "dynasm 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "dynasmrt 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1560,7 +1559,7 @@ dependencies = [
 name = "wasmer-wasi"
 version = "0.11.0"
 dependencies = [
- "bincode 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "generational-arena 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "getrandom 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1645,7 +1644,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum arrayvec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 "checksum atty 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)" = "1803c647a3ec87095e7ae7acfca019e98de5ec9a7d01343f611cf3152ed71a90"
 "checksum autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
-"checksum bincode 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b8ab639324e3ee8774d296864fbc0dbbb256cf1a41c490b94cba90c082915f92"
+"checksum bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5753e2a71534719bf3f4e57006c3a4f0d2c672a4b676eec84161f763eca87dbf"
 "checksum bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 "checksum blake2b_simd 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)" = "b83b7baab1e671718d78204225800d6b170e648188ac7dc992e9d6bddf87d0c0"
 "checksum bstr 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8d6c2c5b58ab920a4f5aeaaca34b4488074e8cc7596af94e6f8c6ff247c60245"
