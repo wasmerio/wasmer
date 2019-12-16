@@ -114,13 +114,15 @@ pub const INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS: usize = 12;
 pub fn get_inline_breakpoint_size(arch: Architecture, backend: Backend) -> Option<usize> {
     match (arch, backend) {
         (Architecture::X64, Backend::Singlepass) => Some(INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS),
-        (Architecture::Aarch64, Backend::Singlepass) => Some(INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS),
+        (Architecture::Aarch64, Backend::Singlepass) => {
+            Some(INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS)
+        }
         _ => None,
     }
 }
 
 /// Attempts to read an inline breakpoint from the code.
-/// 
+///
 /// Inline breakpoints are detected by special instruction sequences that never
 /// appear in valid code.
 pub fn read_inline_breakpoint(
@@ -133,11 +135,13 @@ pub fn read_inline_breakpoint(
             Backend::Singlepass => {
                 if code.len() < INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS {
                     None
-                } else if &code[..INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS - 1] == &[
-                    0x0f, 0x0b, // ud2
-                    0x0f, 0xb9, // ud
-                    0xcd, 0xff, // int 0xff
-                ] {
+                } else if &code[..INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS - 1]
+                    == &[
+                        0x0f, 0x0b, // ud2
+                        0x0f, 0xb9, // ud
+                        0xcd, 0xff, // int 0xff
+                    ]
+                {
                     Some(InlineBreakpoint {
                         size: INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS,
                         ty: match code[INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS - 1] {
@@ -155,10 +159,12 @@ pub fn read_inline_breakpoint(
             Backend::Singlepass => {
                 if code.len() < INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS {
                     None
-                } else if &code[..INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS - 4] == &[
-                    0, 0, 0, 0, // udf #0
-                    0xff, 0xff, 0x00, 0x00, // udf #65535
-                ] {
+                } else if &code[..INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS - 4]
+                    == &[
+                        0, 0, 0, 0, // udf #0
+                        0xff, 0xff, 0x00, 0x00, // udf #65535
+                    ]
+                {
                     Some(InlineBreakpoint {
                         size: INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS,
                         ty: match code[INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS - 4] {
