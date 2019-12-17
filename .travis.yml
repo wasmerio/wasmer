@@ -23,10 +23,12 @@ script:
 
   # Tests
   - make spectests-singlepass
+  - make llvm
 
 before_deploy:
   # Release
   - make release-singlepass
+  - make release-llvm
   - make wapm
   - make build-install
   - mkdir -p artifacts
