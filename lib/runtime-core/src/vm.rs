@@ -401,6 +401,21 @@ impl Ctx {
         }
     }
 
+    /// Get access to [`Memory`] and mutable access to the user defined data
+    /// field as the type, `T`.
+    ///
+    /// This method is required to access both at the same time.
+    /// This is useful for updating a data type that stores information about
+    /// locations in Wasm memory.
+    ///
+    /// # Safety
+    ///
+    /// This function must be called with the same type, `T`, that the `data`
+    /// was initialized with.
+    pub unsafe fn memory_and_data_mut<T>(&mut self, mem_index: u32) -> (&Memory, &mut T) {
+        (self.memory(mem_index), &mut *(self.data as *mut T))
+    }
+
     /// Gives access to the emscripten symbol map, used for debugging
     pub unsafe fn borrow_symbol_map(&self) -> &Option<HashMap<u32, String>> {
         &(*self.module).info.em_symbol_map
