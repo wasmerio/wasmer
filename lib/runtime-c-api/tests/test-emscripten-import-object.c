@@ -58,7 +58,7 @@ int main()
     assert(compile_result == WASMER_OK);
 
     // Set up data for Emscripten
-    wasmer_emscripten_globals_t *emscripten_globals = wasmer_emscripten_get_emscripten_globals(module);
+    wasmer_emscripten_globals_t *emscripten_globals = wasmer_emscripten_get_globals(module);
 
     if (!emscripten_globals)
     {
@@ -83,7 +83,7 @@ int main()
     assert(instantiate_result == WASMER_OK);
 
     // Set up emscripten to be called
-    wasmer_result_t setup_result = wasmer_emscripten_set_up_emscripten(instance, emscripten_globals);
+    wasmer_result_t setup_result = wasmer_emscripten_set_up(instance, emscripten_globals);
     printf("Set up result: %d\n", setup_result);
 
     if (setup_result != WASMER_OK)
@@ -128,7 +128,7 @@ int main()
     wasmer_import_object_iter_destroy(func_iter);
 
     // Use *_destroy methods to cleanup as specified in the header documentation
-    wasmer_emscripten_destroy_emscripten_globals(emscripten_globals);
+    wasmer_emscripten_destroy_globals(emscripten_globals);
     wasmer_instance_destroy(instance);
     wasmer_import_object_destroy(import_object);
     wasmer_module_destroy(module);

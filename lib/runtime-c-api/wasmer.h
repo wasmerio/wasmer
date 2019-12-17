@@ -279,7 +279,7 @@ wasmer_result_t wasmer_emscripten_call_main(wasmer_instance_t *instance,
  * Destroy `wasmer_emscrpten_globals_t` created by
  * `wasmer_emscripten_get_emscripten_globals`.
  */
-void wasmer_emscripten_destroy_emscripten_globals(wasmer_emscripten_globals_t *globals);
+void wasmer_emscripten_destroy_globals(wasmer_emscripten_globals_t *globals);
 #endif
 
 #if defined(WASMER_EMSCRIPTEN_ENABLED)
@@ -300,7 +300,7 @@ wasmer_import_object_t *wasmer_emscripten_generate_import_object(wasmer_emscript
 /**
  * Create a `wasmer_emscripten_globals_t` from a Wasm module.
  */
-wasmer_emscripten_globals_t *wasmer_emscripten_get_emscripten_globals(const wasmer_module_t *module);
+wasmer_emscripten_globals_t *wasmer_emscripten_get_globals(const wasmer_module_t *module);
 #endif
 
 #if defined(WASMER_EMSCRIPTEN_ENABLED)
@@ -311,8 +311,8 @@ wasmer_emscripten_globals_t *wasmer_emscripten_get_emscripten_globals(const wasm
  * This function sets the data pointer in the same way that
  * [`wasmer_instance_context_data_set`] does.
  */
-wasmer_result_t wasmer_emscripten_set_up_emscripten(wasmer_instance_t *instance,
-                                                    wasmer_emscripten_globals_t *globals);
+wasmer_result_t wasmer_emscripten_set_up(wasmer_instance_t *instance,
+                                         wasmer_emscripten_globals_t *globals);
 #endif
 
 /**

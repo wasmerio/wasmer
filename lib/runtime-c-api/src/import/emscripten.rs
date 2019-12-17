@@ -13,7 +13,7 @@ pub struct wasmer_emscripten_globals_t;
 
 /// Create a `wasmer_emscripten_globals_t` from a Wasm module.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_emscripten_get_emscripten_globals(
+pub unsafe extern "C" fn wasmer_emscripten_get_globals(
     module: *const wasmer_module_t,
 ) -> *mut wasmer_emscripten_globals_t {
     if module.is_null() {
@@ -32,7 +32,7 @@ pub unsafe extern "C" fn wasmer_emscripten_get_emscripten_globals(
 /// Destroy `wasmer_emscrpten_globals_t` created by
 /// `wasmer_emscripten_get_emscripten_globals`.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_emscripten_destroy_emscripten_globals(
+pub unsafe extern "C" fn wasmer_emscripten_destroy_globals(
     globals: *mut wasmer_emscripten_globals_t,
 ) {
     if globals.is_null() {
@@ -47,7 +47,7 @@ pub unsafe extern "C" fn wasmer_emscripten_destroy_emscripten_globals(
 /// This function sets the data pointer in the same way that
 /// [`wasmer_instance_context_data_set`] does.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_emscripten_set_up_emscripten(
+pub unsafe extern "C" fn wasmer_emscripten_set_up(
     instance: *mut wasmer_instance_t,
     globals: *mut wasmer_emscripten_globals_t,
 ) -> wasmer_result_t {
