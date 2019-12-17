@@ -174,16 +174,21 @@ pub struct ImportName {
     pub name_index: NameIndex,
 }
 
-/// Kinds of export indexes.
+/// A wrapper around the [`TypedIndex`]es for Wasm functions, Wasm memories,
+/// Wasm globals, and Wasm tables.
+///
+/// Used in [`ModuleInfo`] to access function signatures ([`SigIndex`]s,
+/// [`FuncSig`]), [`GlobalInit`]s, [`MemoryDescriptor`]s, and
+/// [`TableDescriptor`]s.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
-    /// Function export index.
+    /// Function export index. Used to map to things relating to Wasm functions.
     Func(FuncIndex),
-    /// Memory export index.
+    /// Memory export index. Used to map to things relating to Wasm memories.
     Memory(MemoryIndex),
-    /// Global export index.
+    /// Global export index. Used to map to things relating to Wasm globals.
     Global(GlobalIndex),
-    /// Table export index.
+    /// Table export index. Used to map to things relating to Wasm tables.
     Table(TableIndex),
 }
 
@@ -218,7 +223,7 @@ pub struct StringTableBuilder<K: TypedIndex> {
 }
 
 impl<K: TypedIndex> StringTableBuilder<K> {
-    /// Creates a new `StringTableBuilder`.
+    /// Creates a new [`StringTableBuilder`].
     pub fn new() -> Self {
         Self {
             map: IndexMap::new(),
@@ -250,7 +255,7 @@ impl<K: TypedIndex> StringTableBuilder<K> {
         }
     }
 
-    /// Finish building the `StringTable`.
+    /// Finish building the [`StringTable`].
     pub fn finish(self) -> StringTable<K> {
         let table = self
             .map
@@ -291,7 +296,7 @@ impl<K: TypedIndex> StringTable<K> {
     }
 }
 
-/// Namespace index.
+/// A type-safe way to get namespaces from a [`StringTable`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NamespaceIndex(u32);
 
@@ -307,7 +312,7 @@ impl TypedIndex for NamespaceIndex {
     }
 }
 
-/// Name index.
+/// A type-safe way to get names from a [`StringTable`].
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NameIndex(u32);
 
