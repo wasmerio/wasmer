@@ -305,7 +305,6 @@ extern "C" fn signal_trap_handler(
                             std::slice::from_raw_parts(ip as *const u8, magic_size),
                         ) {
                             match ib.ty {
-                                InlineBreakpointType::Trace => {}
                                 InlineBreakpointType::Middleware => {
                                     let out: Option<Result<(), Box<dyn Any + Send>>> =
                                         with_breakpoint_map(|bkpt_map| {
@@ -321,7 +320,6 @@ extern "C" fn signal_trap_handler(
                                         unwind_result = e;
                                     }
                                 }
-                                _ => println!("Unknown breakpoint type: {:?}", ib.ty),
                             }
 
                             fault.ip.set(ip + magic_size);
@@ -464,10 +462,7 @@ pub struct FaultInfo {
 impl FaultInfo {
     /// Parses the stack and builds an execution state image.
     pub unsafe fn read_stack(&self, max_depth: Option<usize>) -> Option<ExecutionStateImage> {
-        let rsp = match self.known_registers[X64Register::GPR(GPR::RSP).to_index().0] {
-            Some(x) => x,
-            None => return None,
-        };
+        let rsp = self.known_registers[X64Register::GPR(GPR::RSP).to_index().0]?;
 
         Some(CURRENT_CODE_VERSIONS.with(|versions| {
             let versions = versions.borrow();
