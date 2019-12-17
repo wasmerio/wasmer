@@ -14,7 +14,7 @@
 #endif
 #endif
 
-#define WASMER_EMSCRIPTEN_ENABLED
+#define WASMER_WASI_ENABLED
 #endif // WASMER_H_MACROS
 
 
@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <new>
 
+#if defined(WASMER_WASI_ENABLED)
 enum class Version : uint8_t {
   /// Version cannot be detected or is unknown.
   Unknown = 0,
@@ -37,6 +38,7 @@ enum class Version : uint8_t {
   /// `wasi_snapshot_preview1`.
   Snapshot1 = 3,
 };
+#endif
 
 /// List of export/import kinds.
 enum class wasmer_import_export_kind : uint32_t {
@@ -203,6 +205,7 @@ struct wasmer_trampoline_buffer_t {
 };
 #endif
 
+#if defined(WASMER_WASI_ENABLED)
 /// Opens a directory that's visible to the WASI module as `alias` but
 /// is backed by the host file at `host_file_path`
 struct wasmer_wasi_map_dir_entry_t {
@@ -211,6 +214,7 @@ struct wasmer_wasi_map_dir_entry_t {
   /// The backing file that the WASI module will interact with via the alias
   wasmer_byte_array host_file_path;
 };
+#endif
 
 extern "C" {
 
@@ -749,13 +753,16 @@ void *wasmer_trampoline_get_context();
 /// Returns true for valid wasm bytes and false for invalid bytes
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 
+#if defined(WASMER_WASI_ENABLED)
 /// Convenience function that creates a WASI import object with no arguments,
 /// environment variables, preopened files, or mapped directories.
 ///
 /// This function is the same as calling [`wasmer_wasi_generate_import_object`] with all
 /// empty values.
 wasmer_import_object_t *wasmer_wasi_generate_default_import_object();
+#endif
 
+#if defined(WASMER_WASI_ENABLED)
 /// Creates a WASI import object.
 ///
 /// This function treats null pointers as empty collections.
@@ -769,7 +776,9 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_arr
                                                            unsigned int preopened_files_len,
                                                            const wasmer_wasi_map_dir_entry_t *mapped_dirs,
                                                            unsigned int mapped_dirs_len);
+#endif
 
+#if defined(WASMER_WASI_ENABLED)
 /// Creates a WASI import object for a specific version.
 ///
 /// This function is similar to `wasmer_wasi_generate_import_object`
@@ -785,11 +794,14 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned 
                                                                        unsigned int preopened_files_len,
                                                                        const wasmer_wasi_map_dir_entry_t *mapped_dirs,
                                                                        unsigned int mapped_dirs_len);
+#endif
 
+#if defined(WASMER_WASI_ENABLED)
 /// Find the version of WASI used by the module.
 ///
 /// In case of error, the returned version is `Version::Unknown`.
 Version wasmer_wasi_get_version(const wasmer_module_t *module);
+#endif
 
 } // extern "C"
 

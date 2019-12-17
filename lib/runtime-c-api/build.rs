@@ -31,6 +31,11 @@ fn main() {
 "#
     .to_string();
 
+    #[cfg(feature = "wasi")]
+    {
+        pre_header += "#define WASMER_WASI_ENABLED\n";
+    }
+
     #[cfg(feature = "emscripten")]
     {
         pre_header += "#define WASMER_EMSCRIPTEN_ENABLED\n";
@@ -48,6 +53,7 @@ fn main() {
         .with_header(&pre_header)
         .with_define("target_family", "windows", "_WIN32")
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
+        .with_define("feature", "wasi", "WASMER_WASI_ENABLED")
         .with_define("feature", "emscripten", "WASMER_EMSCRIPTEN_ENABLED")
         .generate()
         .expect("Unable to generate C bindings")
@@ -62,6 +68,7 @@ fn main() {
         .with_header(&pre_header)
         .with_define("target_family", "windows", "_WIN32")
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
+        .with_define("feature", "wasi", "WASMER_WASI_ENABLED")
         .with_define("feature", "emscripten", "WASMER_EMSCRIPTEN_ENABLED")
         .generate()
         .expect("Unable to generate C++ bindings")
