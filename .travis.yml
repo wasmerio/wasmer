@@ -28,7 +28,6 @@ script:
 before_deploy:
   # Release
   - make release-singlepass
-  - make release-llvm
   - make wapm
   - make build-install
   - mkdir -p artifacts
