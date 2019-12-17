@@ -401,7 +401,7 @@ impl Ctx {
         }
     }
 
-    /// Get access to [`Meomry`] and mutable access to the user defined data
+    /// Get access to [`Memory`] and mutable access to the user defined data
     /// field as the type, `T`.
     ///
     /// This method is required to access both at the same time.
