@@ -1,7 +1,7 @@
 use crate::{
     backend::LLVMBackend,
     intrinsics::{tbaa_label, CtxType, GlobalCache, Intrinsics, MemoryCache},
-    read_info::{blocktype_to_type, type_to_type},
+    read_info::blocktype_to_type,
     stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
     trampolines::generate_trampolines,
@@ -34,6 +34,7 @@ use wasmer_runtime_core::{
     codegen::*,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
+    parse::wp_type_to_type,
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
@@ -915,7 +916,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
     fn feed_local(&mut self, ty: WpType, count: usize) -> Result<(), CodegenError> {
         let param_len = self.num_params;
 
-        let wasmer_ty = type_to_type(ty)?;
+        let wasmer_ty = wp_type_to_type(ty)?;
 
         let intrinsics = self.intrinsics.as_ref().unwrap();
         let ty = type_to_llvm(intrinsics, wasmer_ty);
