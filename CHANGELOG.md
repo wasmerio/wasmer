@@ -3,6 +3,7 @@
 ## **[Unreleased]**
 
 - [#1060](https://github.com/wasmerio/wasmer/pull/1060) Test the capi with all the backends
+- [#1069](https://github.com/wasmerio/wasmer/pull/1069) Add function `get_memory_and_data` to `Ctx` to help prevent undefined behavior and mutable aliasing. It allows accessing memory while borrowing data mutably for the `Ctx` lifetime. This new function is now being used in `wasmer-wasi`.
 - [#1058](https://github.com/wasmerio/wasmer/pull/1058) Fix minor panic issue when `wasmer::compile_with` called with llvm backend.
 - [#858](https://github.com/wasmerio/wasmer/pull/858) Minor panic fix when wasmer binary with `loader` option run a module without exported `_start` function.
 - [#1056](https://github.com/wasmerio/wasmer/pull/1056) Improved `--invoke` args parsing (supporting `i32`, `i64`, `f32` and `f32`) in Wasmer CLI
