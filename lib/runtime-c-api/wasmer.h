@@ -14,6 +14,7 @@
 #endif
 #endif
 
+#define WASMER_EMSCRIPTEN_ENABLED
 #endif // WASMER_H_MACROS
 
 
@@ -74,17 +75,34 @@ typedef struct {
 
 } wasmer_module_t;
 
+typedef struct {
+
+} wasmer_instance_t;
+
+typedef struct {
+  const uint8_t *bytes;
+  uint32_t bytes_len;
+} wasmer_byte_array;
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Type used to construct an import_object_t with Emscripten imports.
+ */
+typedef struct {
+
+} wasmer_emscripten_globals_t;
+#endif
+
+typedef struct {
+
+} wasmer_import_object_t;
+
 /**
  * Opaque pointer to `NamedExportDescriptor`.
  */
 typedef struct {
 
 } wasmer_export_descriptor_t;
-
-typedef struct {
-  const uint8_t *bytes;
-  uint32_t bytes_len;
-} wasmer_byte_array;
 
 /**
  * Opaque pointer to `NamedExportDescriptors`.
@@ -153,10 +171,6 @@ typedef struct {
 
 typedef struct {
 
-} wasmer_import_object_t;
-
-typedef struct {
-
 } wasmer_table_t;
 
 /**
@@ -179,10 +193,6 @@ typedef struct {
 typedef struct {
 
 } wasmer_import_object_iter_t;
-
-typedef struct {
-
-} wasmer_instance_t;
 
 typedef struct {
 
@@ -246,6 +256,64 @@ typedef struct {
 wasmer_result_t wasmer_compile(wasmer_module_t **module,
                                uint8_t *wasm_bytes,
                                uint32_t wasm_bytes_len);
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Convenience function for setting up arguments and calling the Emscripten
+ * main function.
+ *
+ * WARNING:
+ *
+ * Do not call this function on untrusted code when operating without
+ * additional sandboxing in place.
+ * Emscripten has access to many host system calls and therefore may do very
+ * bad things.
+ */
+wasmer_result_t wasmer_emscripten_call_main(wasmer_instance_t *instance,
+                                            const wasmer_byte_array *args,
+                                            unsigned int args_len);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Destroy `wasmer_emscrpten_globals_t` created by
+ * `wasmer_emscripten_get_emscripten_globals`.
+ */
+void wasmer_emscripten_destroy_globals(wasmer_emscripten_globals_t *globals);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Create a `wasmer_import_object_t` with Emscripten imports, use
+ * `wasmer_emscripten_get_emscripten_globals` to get a
+ * `wasmer_emscripten_globals_t` from a `wasmer_module_t`.
+ *
+ * WARNING:
+ *1
+ * This `import_object_t` contains thin-wrappers around host system calls.
+ * Do not use this to execute untrusted code without additional sandboxing.
+ */
+wasmer_import_object_t *wasmer_emscripten_generate_import_object(wasmer_emscripten_globals_t *globals);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Create a `wasmer_emscripten_globals_t` from a Wasm module.
+ */
+wasmer_emscripten_globals_t *wasmer_emscripten_get_globals(const wasmer_module_t *module);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Execute global constructors (required if the module is compiled from C++)
+ * and sets up the internal environment.
+ *
+ * This function sets the data pointer in the same way that
+ * [`wasmer_instance_context_data_set`] does.
+ */
+wasmer_result_t wasmer_emscripten_set_up(wasmer_instance_t *instance,
+                                         wasmer_emscripten_globals_t *globals);
+#endif
 
 /**
  * Gets export descriptor kind

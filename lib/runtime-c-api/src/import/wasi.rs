@@ -1,5 +1,6 @@
 use super::*;
 use crate::get_slice_checked;
+use libc::c_uchar;
 use std::{path::PathBuf, ptr, str};
 use wasmer_wasi as wasi;
 
