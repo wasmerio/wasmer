@@ -69,8 +69,10 @@ fn generate_trampoline<'ctx>(
     };
 
     let cast_ptr_ty = |wasmer_ty| match wasmer_ty {
-        Type::I32 | Type::F32 => intrinsics.i32_ptr_ty,
-        Type::I64 | Type::F64 => intrinsics.i64_ptr_ty,
+        Type::I32 => intrinsics.i32_ptr_ty,
+        Type::F32 => intrinsics.f32_ptr_ty,
+        Type::I64 => intrinsics.i64_ptr_ty,
+        Type::F64 => intrinsics.f64_ptr_ty,
         Type::V128 => intrinsics.i128_ptr_ty,
     };
 
