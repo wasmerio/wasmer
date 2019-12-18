@@ -182,13 +182,17 @@ pub struct ImportName {
 /// [`TableDescriptor`]s.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
-    /// Function export index. Used to map to things relating to Wasm functions.
+    /// Function export index. [`FuncIndex`] is a type-safe handle referring to
+    /// a Wasm function.
     Func(FuncIndex),
-    /// Memory export index. Used to map to things relating to Wasm memories.
+    /// Memory export index. [`MemoryIndex`] is a type-safe handle referring to
+    /// a Wasm memory.
     Memory(MemoryIndex),
-    /// Global export index. Used to map to things relating to Wasm globals.
+    /// Global export index. [`GlobalIndex`] is a type-safe handle referring to
+    /// a Wasm global.
     Global(GlobalIndex),
-    /// Table export index. Used to map to things relating to Wasm tables.
+    /// Table export index. [`TableIndex`] is a type-safe handle referring to
+    /// to a Wasm table.
     Table(TableIndex),
 }
 
@@ -296,7 +300,7 @@ impl<K: TypedIndex> StringTable<K> {
     }
 }
 
-/// A type-safe way to get namespaces from a [`StringTable`].
+/// A type-safe handle referring to a module namespace.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NamespaceIndex(u32);
 
@@ -312,7 +316,7 @@ impl TypedIndex for NamespaceIndex {
     }
 }
 
-/// A type-safe way to get names from a [`StringTable`].
+/// A type-safe handle referring to a name in a module namespace.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NameIndex(u32);
 
