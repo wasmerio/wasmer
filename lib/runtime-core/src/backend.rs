@@ -76,34 +76,55 @@ impl std::str::FromStr for Backend {
     }
 }
 
+/// The target architecture for code generation.
 #[derive(Copy, Clone, Debug)]
 pub enum Architecture {
+    /// x86-64.
     X64,
+
+    /// Aarch64 (ARM64).
     Aarch64,
 }
 
+/// The type of an inline breakpoint.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub enum InlineBreakpointType {
-    Trace,
+    /// A middleware invocation breakpoint.
     Middleware,
-    Unknown,
 }
 
+/// Information of an inline breakpoint.
 #[derive(Clone, Debug)]
 pub struct InlineBreakpoint {
+    /// Size in bytes taken by this breakpoint's instruction sequence.
     pub size: usize,
+
+    /// Type of the inline breakpoint.
     pub ty: InlineBreakpointType,
 }
 
+/// Inline breakpoint size for (x86-64, singlepass).
+pub const INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS: usize = 7;
+
+/// Inline breakpoint size for (aarch64, singlepass).
+pub const INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS: usize = 12;
+
+/// Returns the inline breakpoint size corresponding to an (Architecture, Backend) pair.
 pub fn get_inline_breakpoint_size(arch: Architecture, backend: Backend) -> Option<usize> {
     match (arch, backend) {
-        (Architecture::X64, Backend::Singlepass) => Some(7),
-        (Architecture::Aarch64, Backend::Singlepass) => Some(12),
+        (Architecture::X64, Backend::Singlepass) => Some(INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS),
+        (Architecture::Aarch64, Backend::Singlepass) => {
+            Some(INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS)
+        }
         _ => None,
     }
 }
 
+/// Attempts to read an inline breakpoint from the code.
+///
+/// Inline breakpoints are detected by special instruction sequences that never
+/// appear in valid code.
 pub fn read_inline_breakpoint(
     arch: Architecture,
     backend: Backend,
@@ -112,16 +133,20 @@ pub fn read_inline_breakpoint(
     match arch {
         Architecture::X64 => match backend {
             Backend::Singlepass => {
-                if code.len() < 7 {
+                if code.len() < INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS {
                     None
-                } else if &code[..6] == &[0x0f, 0x0b, 0x0f, 0xb9, 0xcd, 0xff] {
-                    // ud2 ud (int 0xff) code
+                } else if &code[..INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS - 1]
+                    == &[
+                        0x0f, 0x0b, // ud2
+                        0x0f, 0xb9, // ud
+                        0xcd, 0xff, // int 0xff
+                    ]
+                {
                     Some(InlineBreakpoint {
-                        size: 7,
-                        ty: match code[6] {
-                            0 => InlineBreakpointType::Trace,
-                            1 => InlineBreakpointType::Middleware,
-                            _ => InlineBreakpointType::Unknown,
+                        size: INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS,
+                        ty: match code[INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS - 1] {
+                            0 => InlineBreakpointType::Middleware,
+                            _ => return None,
                         },
                     })
                 } else {
@@ -132,15 +157,19 @@ pub fn read_inline_breakpoint(
         },
         Architecture::Aarch64 => match backend {
             Backend::Singlepass => {
-                if code.len() < 12 {
+                if code.len() < INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS {
                     None
-                } else if &code[..8] == &[0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff] {
+                } else if &code[..INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS - 4]
+                    == &[
+                        0, 0, 0, 0, // udf #0
+                        0xff, 0xff, 0x00, 0x00, // udf #65535
+                    ]
+                {
                     Some(InlineBreakpoint {
-                        size: 12,
-                        ty: match code[8] {
-                            0 => InlineBreakpointType::Trace,
-                            1 => InlineBreakpointType::Middleware,
-                            _ => InlineBreakpointType::Unknown,
+                        size: INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS,
+                        ty: match code[INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS - 4] {
+                            0 => InlineBreakpointType::Middleware,
+                            _ => return None,
                         },
                     })
                 } else {
@@ -200,6 +229,19 @@ pub struct Features {
     pub threads: bool,
 }
 
+/// Use this to point to a compiler config struct provided by the backend.
+/// The backend struct must support runtime reflection with `Any`, which is any
+/// struct that does not contain a non-`'static` reference.
+#[derive(Debug)]
+pub struct BackendCompilerConfig(pub Box<dyn Any + 'static>);
+
+impl BackendCompilerConfig {
+    /// Obtain the backend-specific compiler config struct.
+    pub fn get_specific<T: 'static>(&self) -> Option<&T> {
+        self.0.downcast_ref::<T>()
+    }
+}
+
 /// Configuration data for the compiler
 #[derive(Debug, Default)]
 pub struct CompilerConfig {
@@ -210,10 +252,12 @@ pub struct CompilerConfig {
     pub track_state: bool,
     pub features: Features,
 
-    // target info used by LLVM
+    // Target info. Presently only supported by LLVM.
     pub triple: Option<String>,
     pub cpu_name: Option<String>,
     pub cpu_features: Option<String>,
+
+    pub backend_specific_config: Option<BackendCompilerConfig>,
 }
 
 pub trait Compiler {
@@ -256,7 +300,7 @@ pub trait RunnableModule: Send + Sync {
     /// signature and an invoke function that can call the trampoline.
     fn get_trampoline(&self, info: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm>;
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> !;
 
     /// Returns the machine code associated with this module.
     fn get_code(&self) -> Option<&[u8]> {

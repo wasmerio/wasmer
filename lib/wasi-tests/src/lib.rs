@@ -20,7 +20,7 @@ fn serializing_works() {
         .map_err(|e| format!("Can't compile module: {:?}", e))
         .unwrap();
 
-    let wasi_version = get_wasi_version(&module).expect("WASI module");
+    let wasi_version = get_wasi_version(&module, true).expect("WASI module");
     let import_object = generate_import_object_for_version(
         wasi_version,
         args.clone(),

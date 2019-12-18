@@ -127,16 +127,30 @@ pub struct Fd {
     pub rights_inheriting: __wasi_rights_t,
     pub flags: __wasi_fdflags_t,
     pub offset: u64,
-    /// Used when reopening the file on the host system
+    /// Flags that determine how the [`Fd`] can be used.
+    ///
+    /// Used when reopening a [`HostFile`] during [`WasiState`] deserialization.
     pub open_flags: u16,
     pub inode: Inode,
 }
 
 impl Fd {
+    /// This [`Fd`] can be used with read system calls.
     pub const READ: u16 = 1;
+    /// This [`Fd`] can be used with write system calls.
     pub const WRITE: u16 = 2;
+    /// This [`Fd`] can append in write system calls. Note that the append
+    /// permission implies the write permission.
     pub const APPEND: u16 = 4;
+    /// This [`Fd`] will delete everything before writing. Note that truncate
+    /// permissions require the write permission.
+    ///
+    /// This permission is currently unused when deserializing [`WasiState`].
     pub const TRUNCATE: u16 = 8;
+    /// This [`Fd`] may create a file before writing to it. Note that create
+    /// permissions require write permissions.
+    ///
+    /// This permission is currently unused when deserializing [`WasiState`].
     pub const CREATE: u16 = 16;
 }
 
@@ -367,6 +381,7 @@ impl WasiFs {
         }
     }
 
+    /// Returns the next available inode index for creating a new inode.
     fn get_next_inode_index(&mut self) -> u64 {
         let next = self.inode_counter.get();
         self.inode_counter.set(next + 1);
@@ -548,6 +563,19 @@ impl WasiFs {
         }
     }
 
+    /// Internal part of the core path resolution function which implements path
+    /// traversal logic such as resolving relative path segments (such as
+    /// `.` and `..`) and resolving symlinks (while preventing infinite
+    /// loops/stack overflows).
+    ///
+    /// TODO: expand upon exactly what the state of the returned value is,
+    /// explaining lazy-loading from the real file system and synchronizing
+    /// between them.
+    ///
+    /// This is where a lot of the magic happens, be very careful when editing
+    /// this code.
+    ///
+    /// TODO: write more tests for this code
     fn get_inode_at_path_inner(
         &mut self,
         base: __wasi_fd_t,
@@ -730,6 +758,14 @@ impl WasiFs {
         Ok(cur_inode)
     }
 
+    /// Splits a path into the first preopened directory that is a parent of it,
+    /// if such a preopened directory exists, and the rest of the path.
+    ///
+    /// NOTE: this behavior seems to be not the same as what libpreopen is
+    /// doing in WASI.
+    ///
+    /// TODO: evaluate users of this function and explain why this behavior is
+    /// not the same as libpreopen or update its behavior to be the same.
     fn path_into_pre_open_and_relative_path(
         &self,
         path: &Path,

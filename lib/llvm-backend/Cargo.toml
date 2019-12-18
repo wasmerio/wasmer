@@ -17,11 +17,17 @@ goblin = "0.0.24"
 libc = "0.2.60"
 byteorder = "1"
 
-[dependencies.inkwell]
+[target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
 git = "https://github.com/TheDan64/inkwell"
-rev = "781620e9fa30e51a6e03bd0d49b5f5bb7a782520"
+rev = "0a864ebf68b33d4d514b67796264b03898aa0944"
 default-features = false
 features = ["llvm8-0", "target-x86"]
+
+[target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
+git = "https://github.com/TheDan64/inkwell"
+rev = "0a864ebf68b33d4d514b67796264b03898aa0944"
+default-features = false
+features = ["llvm8-0", "target-aarch64"]
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.15"

@@ -71,7 +71,7 @@
 //!     let value = add_one.call(42)?;
 //!
 //!     assert_eq!(value, 43);
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -246,7 +246,7 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "cranelift")]
         Backend::Cranelift => Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new())),
 
-        #[cfg(feature = "singlepass")]
+        #[cfg(any(feature = "singlepass"))]
         Backend::Singlepass => Some(Box::new(
             wasmer_singlepass_backend::SinglePassCompiler::new(),
         )),
@@ -254,6 +254,18 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "llvm")]
         Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
 
+        Backend::Auto => {
+            #[cfg(feature = "default-backend-singlepass")]
+            return Some(Box::new(
+                wasmer_singlepass_backend::SinglePassCompiler::new(),
+            ));
+            #[cfg(feature = "default-backend-cranelift")]
+            return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
+            #[cfg(feature = "default-backend-llvm")]
+            return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
+        }
+
+        #[cfg(not(all(feature = "llvm", feature = "singlepass", feature = "cranelift")))]
         _ => None,
     }
 }

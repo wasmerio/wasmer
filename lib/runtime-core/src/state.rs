@@ -652,7 +652,7 @@ pub mod x64 {
         image: InstanceImage,
         vmctx: &mut Ctx,
         breakpoints: Option<BreakpointMap>,
-    ) -> Result<u64, Box<dyn Any>> {
+    ) -> Result<u64, Box<dyn Any + Send>> {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
         let mut stack_offset: usize = stack.len();
 
@@ -1063,7 +1063,6 @@ pub mod x64 {
             let mut is_baseline: Option<bool> = None;
 
             for version in versions() {
-                //println!("Lookup IP: {:x}", ret_addr);
                 match version
                     .msm
                     .lookup_call_ip(ret_addr as usize, version.base)
@@ -1251,7 +1250,6 @@ pub mod x64 {
                 stack: wasm_stack,
                 locals: wasm_locals,
             };
-            //println!("WFS = {:?}", wfs);
             results.push(wfs);
         }
 

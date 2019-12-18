@@ -195,13 +195,13 @@ unsafe impl Send for Intrinsics {}
 unsafe impl Sync for Intrinsics {}
 
 impl Intrinsics {
-    /// Memory grow offset
+    /// Offset of the `memory_grow` field.
     #[allow(clippy::erasing_op)]
-    pub fn offset_memory_grow() -> u8 {
+    pub const fn offset_memory_grow() -> u8 {
         (0 * ::std::mem::size_of::<usize>()) as u8
     }
-    /// Memory size offset
-    pub fn offset_memory_size() -> u8 {
+    /// Offset of the `memory_size` field.
+    pub const fn offset_memory_size() -> u8 {
         (1 * ::std::mem::size_of::<usize>()) as u8
     }
 }
@@ -401,6 +401,21 @@ impl Ctx {
         }
     }
 
+    /// Get access to [`Memory`] and mutable access to the user defined data
+    /// field as the type, `T`.
+    ///
+    /// This method is required to access both at the same time.
+    /// This is useful for updating a data type that stores information about
+    /// locations in Wasm memory.
+    ///
+    /// # Safety
+    ///
+    /// This function must be called with the same type, `T`, that the `data`
+    /// was initialized with.
+    pub unsafe fn memory_and_data_mut<T>(&mut self, mem_index: u32) -> (&Memory, &mut T) {
+        (self.memory(mem_index), &mut *(self.data as *mut T))
+    }
+
     /// Gives access to the emscripten symbol map, used for debugging
     pub unsafe fn borrow_symbol_map(&self) -> &Option<HashMap<u32, String>> {
         &(*self.module).info.em_symbol_map
@@ -462,63 +477,63 @@ impl Ctx {
 #[doc(hidden)]
 impl Ctx {
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_memories() -> u8 {
+    pub const fn offset_memories() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_tables() -> u8 {
+    pub const fn offset_tables() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_globals() -> u8 {
+    pub const fn offset_globals() -> u8 {
         2 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_imported_memories() -> u8 {
+    pub const fn offset_imported_memories() -> u8 {
         3 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_imported_tables() -> u8 {
+    pub const fn offset_imported_tables() -> u8 {
         4 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_imported_globals() -> u8 {
+    pub const fn offset_imported_globals() -> u8 {
         5 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_imported_funcs() -> u8 {
+    pub const fn offset_imported_funcs() -> u8 {
         6 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_signatures() -> u8 {
+    pub const fn offset_signatures() -> u8 {
         7 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_intrinsics() -> u8 {
+    pub const fn offset_intrinsics() -> u8 {
         8 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_stack_lower_bound() -> u8 {
+    pub const fn offset_stack_lower_bound() -> u8 {
         9 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_memory_base() -> u8 {
+    pub const fn offset_memory_base() -> u8 {
         10 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_memory_bound() -> u8 {
+    pub const fn offset_memory_bound() -> u8 {
         11 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_internals() -> u8 {
+    pub const fn offset_internals() -> u8 {
         12 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_interrupt_signal_mem() -> u8 {
+    pub const fn offset_interrupt_signal_mem() -> u8 {
         13 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_local_functions() -> u8 {
+    pub const fn offset_local_functions() -> u8 {
         14 * (mem::size_of::<usize>() as u8)
     }
 }
@@ -551,18 +566,18 @@ pub struct FuncCtx {
 }
 
 impl FuncCtx {
-    /// Offset to `vmctx`.
-    pub fn offset_vmctx() -> u8 {
+    /// Offset to the `vmctx` field.
+    pub const fn offset_vmctx() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset to `func_env`.
-    pub fn offset_func_env() -> u8 {
+    /// Offset to the `func_env` field.
+    pub const fn offset_func_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of a `FuncCtx`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -572,10 +587,10 @@ impl FuncCtx {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
-    /// Const pointer to `Func`.
+    /// Pointer to the function itself.
     pub(crate) func: *const Func,
 
-    /// Mutable non-null pointer to `FuncCtx`.
+    /// Mutable non-null pointer to [`FuncCtx`].
     pub(crate) func_ctx: NonNull<FuncCtx>,
 }
 
@@ -585,19 +600,19 @@ pub struct ImportedFunc {
 unsafe impl Send for ImportedFunc {}
 
 impl ImportedFunc {
-    /// Offset to func.
+    /// Offset to the `func` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_func() -> u8 {
+    pub const fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset to func_ctx.
-    pub fn offset_func_ctx() -> u8 {
+    /// Offset to the `func_ctx` field.
+    pub const fn offset_func_ctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of an `ImportedFunc`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -618,19 +633,19 @@ pub struct LocalTable {
 unsafe impl Send for LocalTable {}
 
 impl LocalTable {
-    /// Offset to base.
+    /// Offset to the `base` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_base() -> u8 {
+    pub const fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset count.
-    pub fn offset_count() -> u8 {
+    /// Offset to the `count` field.
+    pub const fn offset_count() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of a `LocalTable`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -653,19 +668,19 @@ pub struct LocalMemory {
 unsafe impl Send for LocalMemory {}
 
 impl LocalMemory {
-    /// Offset base.
+    /// Offset to the `base` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_base() -> u8 {
+    pub const fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset bound.
-    pub fn offset_bound() -> u8 {
+    /// Offset to the `bound` field.
+    pub const fn offset_bound() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of a `LocalMemory`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -679,19 +694,19 @@ pub struct LocalGlobal {
 }
 
 impl LocalGlobal {
-    /// Offset data.
+    /// Offset to the `data` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_data() -> u8 {
+    pub const fn offset_data() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
     /// A null `LocalGlobal`.
-    pub fn null() -> Self {
+    pub const fn null() -> Self {
         Self { data: 0 }
     }
 
     /// Size of a `LocalGlobal`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -718,7 +733,7 @@ unsafe impl Send for Anyfunc {}
 
 impl Anyfunc {
     /// A null `Anyfunc` value.
-    pub fn null() -> Self {
+    pub const fn null() -> Self {
         Self {
             func: ptr::null(),
             ctx: ptr::null_mut(),
@@ -726,24 +741,24 @@ impl Anyfunc {
         }
     }
 
-    /// The offset for this func.
+    /// Offset to the `func` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_func() -> u8 {
+    pub const fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// The offset of the vmctx.
-    pub fn offset_vmctx() -> u8 {
+    /// Offset to the `vmctx` field..
+    pub const fn offset_vmctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
-    /// The offset of the sig id.
-    pub fn offset_sig_id() -> u8 {
+    /// Offset to the `sig_id` field.
+    pub const fn offset_sig_id() -> u8 {
         2 * (mem::size_of::<usize>() as u8)
     }
 
     /// The size of `Anyfunc`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -1069,7 +1084,7 @@ mod vm_ctx_tests {
             fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
                 unimplemented!("generate_module::get_trampoline")
             }
-            unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
+            unsafe fn do_early_trap(&self, _: Box<dyn Any + Send>) -> ! {
                 unimplemented!("generate_module::do_early_trap")
             }
         }

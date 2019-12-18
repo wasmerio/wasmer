@@ -9,6 +9,7 @@
 )]
 extern crate structopt;
 
+use std::collections::HashMap;
 use std::env;
 use std::fs::{metadata, read_to_string, File};
 use std::io;
@@ -17,14 +18,15 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
 
-use std::collections::HashMap;
 use structopt::{clap, StructOpt};
 
 use wasmer::*;
 #[cfg(feature = "backend-cranelift")]
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
-use wasmer_llvm_backend::{LLVMCompiler, LLVMOptions};
+use wasmer_llvm_backend::{
+    InkwellMemoryBuffer, InkwellModule, LLVMBackendConfig, LLVMCallbacks, LLVMCompiler,
+};
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
     Value, VERSION,
@@ -36,9 +38,22 @@ use wasmer_runtime_core::{
     backend::{Backend, Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
     debug,
     loader::{Instance as LoadedInstance, LocalLoader},
+    Module,
 };
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
+
+#[cfg(feature = "backend-llvm")]
+use std::{cell::RefCell, io::Write, rc::Rc};
+#[cfg(feature = "backend-llvm")]
+use wasmer_runtime_core::backend::BackendCompilerConfig;
+
+#[cfg(not(any(
+    feature = "backend-cranelift",
+    feature = "backend-llvm",
+    feature = "backend-singlepass"
+)))]
+compile_error!("Please enable one or more of the compiler backends");
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.", author)]
@@ -235,6 +250,14 @@ struct Run {
     args: Vec<String>,
 }
 
+impl Run {
+    /// Used with the `invoke` argument
+    fn parse_args(&self, module: &Module, fn_name: &str) -> Result<Vec<Value>, String> {
+        utils::parse_args(module, fn_name, &self.args)
+            .map_err(|e| format!("Invoke failed: {:?}", e))
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 enum LoaderName {
@@ -415,7 +438,7 @@ fn execute_wasi(
                     f.read_to_end(&mut out).unwrap();
                     Some(
                         wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
-                            .expect("failed to decode image"),
+                            .map_err(|_| format!("failed to decode image"))?,
                     )
                 } else {
                     None
@@ -456,27 +479,37 @@ fn execute_wasi(
         let result;
 
         #[cfg(unix)]
-        {
-            let cv_pushed =
-                if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
-                    push_code_version(CodeVersion {
-                        baseline: true,
-                        msm: msm,
-                        base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                        backend: options.backend,
-                    });
-                    true
-                } else {
-                    false
-                };
+        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+            push_code_version(CodeVersion {
+                baseline: true,
+                msm: msm,
+                base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                backend: options.backend,
+            });
+            true
+        } else {
+            false
+        };
+
+        if let Some(invoke_fn) = options.invoke.as_ref() {
+            eprintln!("WARNING: Invoking aribtrary functions with WASI is not officially supported in the WASI standard yet.  Use this feature at your own risk!");
+            let args = options.parse_args(&module, invoke_fn)?;
+            let invoke_result = instance
+                .dyn_func(invoke_fn)
+                .map_err(|e| format!("Invoke failed: {:?}", e))?
+                .call(&args)
+                .map_err(|e| format!("Calling invoke fn failed: {:?}", e))?;
+            println!("{}({:?}) returned {:?}", invoke_fn, args, invoke_result);
+            return Ok(());
+        } else {
             result = start.call();
+        }
+
+        #[cfg(unix)]
+        {
             if cv_pushed {
                 pop_code_version().unwrap();
             }
-        }
-        #[cfg(not(unix))]
-        {
-            result = start.call();
         }
 
         if let Err(ref err) = result {
@@ -492,6 +525,32 @@ fn execute_wasi(
         }
     }
     Ok(())
+}
+
+#[cfg(feature = "backend-llvm")]
+impl LLVMCallbacks for LLVMCLIOptions {
+    fn preopt_ir_callback(&mut self, module: &InkwellModule) {
+        if let Some(filename) = &self.pre_opt_ir {
+            module.print_to_file(filename).unwrap();
+        }
+    }
+
+    fn postopt_ir_callback(&mut self, module: &InkwellModule) {
+        if let Some(filename) = &self.post_opt_ir {
+            module.print_to_file(filename).unwrap();
+        }
+    }
+
+    fn obj_memory_buffer_callback(&mut self, memory_buffer: &InkwellMemoryBuffer) {
+        if let Some(filename) = &self.obj_file {
+            let mem_buf_slice = memory_buffer.as_slice();
+            let mut file = File::create(filename).unwrap();
+            let mut pos = 0;
+            while pos < mem_buf_slice.len() {
+                pos += file.write(&mem_buf_slice[pos..]).unwrap();
+            }
+        }
+    }
 }
 
 /// Execute a wasm/wat file
@@ -566,22 +625,22 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    let compiler: Box<dyn Compiler> = match get_compiler_by_backend(options.backend, options) {
-        Some(x) => x,
-        None => return Err("the requested backend is not enabled".into()),
-    };
+    let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)
+        .ok_or_else(|| {
+            format!(
+                "the requested backend, \"{}\", is not enabled",
+                options.backend.to_string()
+            )
+        })?;
 
+    #[allow(unused_mut)]
+    let mut backend_specific_config = None;
     #[cfg(feature = "backend-llvm")]
     {
         if options.backend == Backend::LLVM {
-            let options = options.backend_llvm_options.clone();
-            unsafe {
-                wasmer_llvm_backend::GLOBAL_OPTIONS = LLVMOptions {
-                    pre_opt_ir: options.pre_opt_ir,
-                    post_opt_ir: options.post_opt_ir,
-                    obj_file: options.obj_file,
-                }
-            }
+            backend_specific_config = Some(BackendCompilerConfig(Box::new(LLVMBackendConfig {
+                callbacks: Some(Rc::new(RefCell::new(options.backend_llvm_options.clone()))),
+            })))
         }
     }
 
@@ -606,6 +665,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 enforce_stack_check: true,
                 track_state,
                 features: options.features.into_backend_features(),
+                backend_specific_config,
                 ..Default::default()
             },
             &*compiler,
@@ -618,6 +678,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 symbol_map: em_symbol_map.clone(),
                 track_state,
                 features: options.features.into_backend_features(),
+                backend_specific_config,
                 ..Default::default()
             },
             &*compiler,
@@ -633,7 +694,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let mut cache = unsafe {
             FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
         };
-        let mut load_cache_key = || -> Result<_, String> {
+        let load_cache_key = || -> Result<_, String> {
             if let Some(ref prehashed_cache_key) = options.cache_key {
                 if let Ok(module) =
                     WasmHash::decode(prehashed_cache_key).and_then(|prehashed_key| {
@@ -663,6 +724,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                             symbol_map: em_symbol_map.clone(),
                             track_state,
                             features: options.features.into_backend_features(),
+                            backend_specific_config,
                             ..Default::default()
                         },
                         &*compiler,
@@ -697,20 +759,21 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             args.push(Value::I32(x));
         }
 
-        let index = instance
-            .resolve_func("_start")
-            .expect("The loader requires a _start function to be present in the module");
+        let index = instance.resolve_func("_start").map_err(|_| {
+            format!("The loader requires a _start function to be present in the module")
+        })?;
+
         let mut ins: Box<dyn LoadedInstance<Error = String>> = match loader {
             LoaderName::Local => Box::new(
                 instance
                     .load(LocalLoader)
-                    .expect("Can't use the local loader"),
+                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
             ),
             #[cfg(feature = "loader-kernel")]
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
-                    .expect("Can't use the kernel loader"),
+                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
             ),
         };
         println!("{:?}", ins.call(index, &args));
@@ -741,7 +804,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("{:?}", e))?;
     } else {
         #[cfg(feature = "wasi")]
-        let wasi_version = wasmer_wasi::get_wasi_version(&module);
+        let wasi_version = wasmer_wasi::get_wasi_version(&module, true);
         #[cfg(feature = "wasi")]
         let is_wasi = wasi_version.is_some();
         #[cfg(not(feature = "wasi"))]
@@ -763,27 +826,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 .instantiate(&import_object)
                 .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-            let mut args: Vec<Value> = Vec::new();
-            for arg in options.args.iter() {
-                let x = arg.as_str().parse().map_err(|_| {
-                    format!(
-                        "Can't parse the provided argument {:?} as a integer",
-                        arg.as_str()
-                    )
-                })?;
-                args.push(Value::I32(x));
-            }
-
             let invoke_fn = match options.invoke.as_ref() {
                 Some(fun) => fun,
                 _ => "main",
             };
+            let args = options.parse_args(&module, invoke_fn)?;
+
             let result = instance
                 .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
-            println!("main() returned: {:?}", result);
+            println!("{}({:?}) returned {:?}", invoke_fn, args, result);
         }
     }
 

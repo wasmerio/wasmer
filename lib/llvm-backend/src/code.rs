@@ -1,10 +1,11 @@
 use crate::{
     backend::LLVMBackend,
     intrinsics::{tbaa_label, CtxType, GlobalCache, Intrinsics, MemoryCache},
-    read_info::{blocktype_to_type, type_to_type},
+    read_info::blocktype_to_type,
     stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
     trampolines::generate_trampolines,
+    LLVMBackendConfig, LLVMCallbacks,
 };
 use inkwell::{
     builder::Builder,
@@ -33,6 +34,7 @@ use wasmer_runtime_core::{
     codegen::*,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
+    parse::wp_type_to_type,
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
@@ -855,7 +857,8 @@ pub unsafe extern "C" fn callback_trampoline(
     callback: *mut BreakpointHandler,
 ) {
     let callback = Box::from_raw(callback);
-    let result: Result<(), Box<dyn std::any::Any>> = callback(BreakpointInfo { fault: None });
+    let result: Result<(), Box<dyn std::any::Any + Send>> =
+        callback(BreakpointInfo { fault: None });
     match result {
         Ok(()) => *b = None,
         Err(e) => *b = Some(e),
@@ -877,6 +880,7 @@ pub struct LLVMModuleCodeGenerator<'ctx> {
     stackmaps: Rc<RefCell<StackmapRegistry>>,
     track_state: bool,
     target_machine: TargetMachine,
+    llvm_callbacks: Option<Rc<RefCell<dyn LLVMCallbacks>>>,
 }
 
 pub struct LLVMFunctionCodeGenerator<'ctx> {
@@ -912,7 +916,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
     fn feed_local(&mut self, ty: WpType, count: usize) -> Result<(), CodegenError> {
         let param_len = self.num_params;
 
-        let wasmer_ty = type_to_type(ty)?;
+        let wasmer_ty = wp_type_to_type(ty)?;
 
         let intrinsics = self.intrinsics.as_ref().unwrap();
         let ty = type_to_llvm(intrinsics, wasmer_ty);
@@ -8462,6 +8466,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         let triple = triple.unwrap_or(TargetMachine::get_default_triple().to_string());
 
         match triple {
+            #[cfg(target_arch = "x86_64")]
             _ if triple.starts_with("x86") => Target::initialize_x86(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,
@@ -8470,7 +8475,18 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
                 info: true,
                 machine_code: true,
             }),
-            _ => unimplemented!("compile to target other than x86-64 is not supported"),
+            #[cfg(target_arch = "aarch64")]
+            _ if triple.starts_with("aarch64") => {
+                Target::initialize_aarch64(&InitializationConfig {
+                    asm_parser: true,
+                    asm_printer: true,
+                    base: true,
+                    disassembler: true,
+                    info: true,
+                    machine_code: true,
+                })
+            }
+            _ => unimplemented!("target {} not supported", triple),
         }
 
         let target = Target::from_triple(&triple).unwrap();
@@ -8513,6 +8529,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
             track_state: false,
             target_machine,
+            llvm_callbacks: None,
         }
     }
 
@@ -8654,8 +8671,10 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             message: format!("trampolines generation error: {:?}", e),
         })?;
 
-        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.pre_opt_ir } {
-            self.module.borrow_mut().print_to_file(path).unwrap();
+        if let Some(ref mut callbacks) = self.llvm_callbacks {
+            callbacks
+                .borrow_mut()
+                .preopt_ir_callback(&*self.module.borrow_mut());
         }
 
         let pass_manager = PassManager::create(());
@@ -8695,8 +8714,10 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         pass_manager.add_early_cse_pass();
 
         pass_manager.run_on(&*self.module.borrow_mut());
-        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.post_opt_ir } {
-            self.module.borrow_mut().print_to_file(path).unwrap();
+        if let Some(ref mut callbacks) = self.llvm_callbacks {
+            callbacks
+                .borrow_mut()
+                .postopt_ir_callback(&*self.module.borrow_mut());
         }
 
         let stackmaps = self.stackmaps.borrow();
@@ -8707,12 +8728,18 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             &*stackmaps,
             module_info,
             &self.target_machine,
+            &mut self.llvm_callbacks,
         );
         Ok((backend, Box::new(cache_gen)))
     }
 
     fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
         self.track_state = config.track_state;
+        if let Some(backend_compiler_config) = &config.backend_specific_config {
+            if let Some(llvm_config) = backend_compiler_config.get_specific::<LLVMBackendConfig>() {
+                self.llvm_callbacks = llvm_config.callbacks.clone();
+            }
+        }
         Ok(())
     }
 
