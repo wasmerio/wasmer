@@ -80,6 +80,11 @@ pub enum Kind {
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
         path: PathBuf,
+        /// Marks the file as a special file that only one `fd` can exist for
+        /// This is useful when dealing with host-provided special files that
+        /// should be looked up by path
+        /// TOOD: clarify here?
+        fd: Option<u32>,
     },
     Dir {
         /// Parent directory
@@ -383,6 +388,71 @@ impl WasiFs {
         next
     }
 
+    /// like create dir all, but it also opens it
+    /// Function is unsafe because it may break invariants and hasn't been tested.
+    /// This is an experimental function and may be removed
+    // dead code because this is an API for external use
+    #[allow(dead_code)]
+    pub unsafe fn open_dir_all(
+        &mut self,
+        base: __wasi_fd_t,
+        name: String,
+        rights: __wasi_rights_t,
+        rights_inheriting: __wasi_rights_t,
+        flags: __wasi_fdflags_t,
+    ) -> Result<__wasi_fd_t, WasiFsError> {
+        let base_fd = self.get_fd(base).map_err(WasiFsError::from_wasi_err)?;
+        // TODO: check permissions here? probably not, but this should be
+        // an explicit choice, so justify it in a comment when we remove this one
+        let mut cur_inode = base_fd.inode;
+
+        let path: &Path = Path::new(&name);
+        //let n_components = path.components().count();
+        for c in path.components() {
+            let segment_name = c.as_os_str().to_string_lossy().to_string();
+            match &self.inodes[cur_inode].kind {
+                Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
+                    if let Some(_entry) = entries.get(&segment_name) {
+                        // TODO: this should be fixed
+                        return Err(WasiFsError::AlreadyExists);
+                    }
+
+                    let kind = Kind::Dir {
+                        parent: Some(cur_inode),
+                        path: PathBuf::from(""),
+                        entries: HashMap::new(),
+                    };
+
+                    let inode =
+                        self.create_inode_with_default_stat(kind, false, segment_name.clone());
+                    // reborrow to insert
+                    match &mut self.inodes[cur_inode].kind {
+                        Kind::Dir {
+                            ref mut entries, ..
+                        }
+                        | Kind::Root { ref mut entries } => {
+                            entries.insert(segment_name, inode);
+                        }
+                        _ => unreachable!("Dir or Root became not Dir or Root"),
+                    }
+
+                    cur_inode = inode;
+                }
+                _ => return Err(WasiFsError::BaseNotDirectory),
+            }
+        }
+
+        // TODO: review open flags (read, write); they were added without consideration
+        self.create_fd(
+            rights,
+            rights_inheriting,
+            flags,
+            Fd::READ | Fd::WRITE,
+            cur_inode,
+        )
+        .map_err(WasiFsError::from_wasi_err)
+    }
+
     /// Opens a user-supplied file in the directory specified with the
     /// name and flags given
     // dead code because this is an API for external use
@@ -412,6 +482,7 @@ impl WasiFs {
                 let kind = Kind::File {
                     handle: Some(file),
                     path: PathBuf::from(""),
+                    fd: Some(self.next_fd.get()),
                 };
 
                 let inode = self
@@ -423,7 +494,7 @@ impl WasiFs {
                         ref mut entries, ..
                     }
                     | Kind::Root { ref mut entries } => {
-                        entries.insert(name, inode).ok_or(WasiFsError::IOError)?;
+                        entries.insert(name, inode);
                     }
                     _ => unreachable!("Dir or Root became not Dir or Root"),
                 }
@@ -580,6 +651,7 @@ impl WasiFs {
                                 Kind::File {
                                     handle: None,
                                     path: file.clone(),
+                                    fd: None,
                                 }
                             } else if file_type.is_symlink() {
                                 let link_value = file.read_link().ok().ok_or(__WASI_EIO)?;
@@ -1053,6 +1125,7 @@ impl WasiFs {
             ..__wasi_filestat_t::default()
         };
         let kind = Kind::File {
+            fd: Some(raw_fd),
             handle: Some(handle),
             path: "".into(),
         };
@@ -1078,7 +1151,7 @@ impl WasiFs {
 
     pub fn get_stat_for_kind(&self, kind: &Kind) -> Option<__wasi_filestat_t> {
         let md = match kind {
-            Kind::File { handle, path } => match handle {
+            Kind::File { handle, path, .. } => match handle {
                 Some(wf) => {
                     return Some(__wasi_filestat_t {
                         st_filetype: __WASI_FILETYPE_REGULAR_FILE,

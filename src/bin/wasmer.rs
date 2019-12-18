@@ -240,6 +240,11 @@ struct Run {
     #[structopt(flatten)]
     features: PrestandardFeatures,
 
+    /// Enable non-standard experimental IO devices
+    #[cfg(feature = "experimental-io-devices")]
+    #[structopt(long = "enable-experimental-io-devices", hidden = true)]
+    enable_experimental_io_devices: bool,
+
     /// Application arguments
     #[structopt(name = "--", multiple = true)]
     args: Vec<String>,
@@ -383,29 +388,32 @@ fn execute_wasi(
     mapped_dirs: Vec<(String, PathBuf)>,
     _wasm_binary: &[u8],
 ) -> Result<(), String> {
-    let args = if let Some(cn) = &options.command_name {
-        [cn.clone()]
+    let name = if let Some(cn) = &options.command_name {
+        cn.clone()
     } else {
-        [options.path.to_str().unwrap().to_owned()]
-    }
-    .iter()
-    .chain(options.args.iter())
-    .cloned()
-    .map(|arg| arg.into_bytes())
-    .collect();
-    let envs = env_vars
-        .into_iter()
-        .map(|(k, v)| format!("{}={}", k, v).into_bytes())
-        .collect();
-    let preopened_files = options.pre_opened_directories.clone();
+        options.path.to_str().unwrap().to_owned()
+    };
 
-    let import_object = wasmer_wasi::generate_import_object_for_version(
-        wasi_version,
-        args,
-        envs,
-        preopened_files,
-        mapped_dirs,
-    );
+    let args = options.args.iter().cloned().map(|arg| arg.into_bytes());
+    let preopened_files = options.pre_opened_directories.clone();
+    let mut wasi_state_builder = wasmer_wasi::state::WasiState::new(&name);
+    wasi_state_builder
+        .args(args)
+        .envs(env_vars)
+        .preopen_dirs(preopened_files)
+        .map_dirs(mapped_dirs);
+
+    #[cfg(feature = "experimental-io-devices")]
+    {
+        if options.enable_experimental_io_devices {
+            wasi_state_builder.setup_fs(std::rc::Rc::new(
+                wasmer_wasi_experimental_io_devices::initialize,
+            ));
+        }
+    }
+    let wasi_state = wasi_state_builder.build().map_err(|e| format!("{:?}", e))?;
+
+    let import_object = wasmer_wasi::generate_import_object_from_state(wasi_state, wasi_version);
 
     #[allow(unused_mut)] // mut used in feature
     let mut instance = module
