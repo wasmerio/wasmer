@@ -2021,7 +2021,7 @@ impl X64FunctionCode {
         Ok(())
     }
 
-    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
+    // Checks for underflow/overflow/nan before IxxTruncF32{U/S}.
     fn emit_f32_int_conv_check(
         a: &mut Assembler,
         m: &mut Machine,
@@ -2069,7 +2069,7 @@ impl X64FunctionCode {
         m.release_temp_gpr(tmp);
     }
 
-    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.
+    // Checks for underflow/overflow/nan before IxxTruncF64{U/S}.
     fn emit_f64_int_conv_check(
         a: &mut Assembler,
         m: &mut Machine,
@@ -2401,7 +2401,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         };
 
         match *op {
-            Operator::GetGlobal { global_index } => {
+            Operator::GlobalGet { global_index } => {
                 let global_index = global_index as usize;
 
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
@@ -2467,7 +2467,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 self.machine.release_temp_gpr(tmp);
             }
-            Operator::SetGlobal { global_index } => {
+            Operator::GlobalSet { global_index } => {
                 let mut global_index = global_index as usize;
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
@@ -2515,7 +2515,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 self.machine.release_temp_gpr(tmp);
             }
-            Operator::GetLocal { local_index } => {
+            Operator::LocalGet { local_index } => {
                 let local_index = local_index as usize;
                 let ret = self.machine.acquire_locations(
                     a,
@@ -2532,7 +2532,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 );
                 self.value_stack.push(ret);
             }
-            Operator::SetLocal { local_index } => {
+            Operator::LocalSet { local_index } => {
                 let local_index = local_index as usize;
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
@@ -2546,7 +2546,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.locals[local_index],
                 );
             }
-            Operator::TeeLocal { local_index } => {
+            Operator::LocalTee { local_index } => {
                 let local_index = local_index as usize;
                 let loc = *self.value_stack.last().unwrap();
 
@@ -3363,7 +3363,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 &mut self.value_stack,
                 Condition::GreaterEqual,
             )?,
-            Operator::I64ExtendUI32 => {
+            Operator::I64ExtendI32U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -3381,7 +3381,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     ret,
                 );
             }
-            Operator::I64ExtendSI32 => {
+            Operator::I64ExtendI32S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4514,7 +4514,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::I32TruncUF32 => {
+            Operator::I32TruncF32U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4567,7 +4567,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::I32TruncSF32 => {
+            Operator::I32TruncF32S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4627,7 +4627,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::I64TruncSF32 => {
+            Operator::I64TruncF32S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4686,7 +4686,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::I64TruncUF32 => {
+            Operator::I64TruncF32U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4770,7 +4770,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::I32TruncUF64 => {
+            Operator::I32TruncF64U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4824,7 +4824,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::I32TruncSF64 => {
+            Operator::I32TruncF64S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4889,7 +4889,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::I64TruncSF64 => {
+            Operator::I64TruncF64S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4949,7 +4949,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::I64TruncUF64 => {
+            Operator::I64TruncF64U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -5033,7 +5033,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::F32ConvertSI32 => {
+            Operator::F32ConvertI32S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -5077,7 +5077,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
-            Operator::F32ConvertUI32 => {
+            Operator::F32ConvertI32U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -5120,7 +5120,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
-            Operator::F32ConvertSI64 => {
+            Operator::F32ConvertI64S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -5163,7 +5163,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
-            Operator::F32ConvertUI64 => {
+            Operator::F32ConvertI64U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -5223,7 +5223,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::F64ConvertSI32 => {
+            Operator::F64ConvertI32S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -5267,7 +5267,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
-            Operator::F64ConvertUI32 => {
+            Operator::F64ConvertI32U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -5311,7 +5311,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
-            Operator::F64ConvertSI64 => {
+            Operator::F64ConvertI64S => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -5355,7 +5355,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
-            Operator::F64ConvertUI64 => {
+            Operator::F64ConvertI64U => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -6810,7 +6810,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     }
                 }
             }
-            Operator::Fence { flags: _ } => {
+            Operator::AtomicFence { flags: _ } => {
                 // Fence is a nop.
                 //
                 // Fence was added to preserve information about fences from
@@ -7328,7 +7328,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I32AtomicRmw8UAdd { ref memarg } => {
+            Operator::I32AtomicRmw8AddU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7359,7 +7359,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I32AtomicRmw16UAdd { ref memarg } => {
+            Operator::I32AtomicRmw16AddU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7394,7 +7394,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw8UAdd { ref memarg } => {
+            Operator::I64AtomicRmw8AddU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7425,7 +7425,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw16UAdd { ref memarg } => {
+            Operator::I64AtomicRmw16AddU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7460,7 +7460,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw32UAdd { ref memarg } => {
+            Operator::I64AtomicRmw32AddU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7567,7 +7567,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I32AtomicRmw8USub { ref memarg } => {
+            Operator::I32AtomicRmw8SubU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7599,7 +7599,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I32AtomicRmw16USub { ref memarg } => {
+            Operator::I32AtomicRmw16SubU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7635,7 +7635,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw8USub { ref memarg } => {
+            Operator::I64AtomicRmw8SubU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7667,7 +7667,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw16USub { ref memarg } => {
+            Operator::I64AtomicRmw16SubU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7703,7 +7703,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw32USub { ref memarg } => {
+            Operator::I64AtomicRmw32SubU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7797,7 +7797,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I32AtomicRmw8UAnd { ref memarg } => {
+            Operator::I32AtomicRmw8AndU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7826,7 +7826,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I32AtomicRmw16UAnd { ref memarg } => {
+            Operator::I32AtomicRmw16AndU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7855,7 +7855,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw8UAnd { ref memarg } => {
+            Operator::I64AtomicRmw8AndU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7884,7 +7884,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw16UAnd { ref memarg } => {
+            Operator::I64AtomicRmw16AndU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -7913,7 +7913,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw32UAnd { ref memarg } => {
+            Operator::I64AtomicRmw32AndU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8000,7 +8000,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I32AtomicRmw8UOr { ref memarg } => {
+            Operator::I32AtomicRmw8OrU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8029,7 +8029,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I32AtomicRmw16UOr { ref memarg } => {
+            Operator::I32AtomicRmw16OrU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8058,7 +8058,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw8UOr { ref memarg } => {
+            Operator::I64AtomicRmw8OrU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8087,7 +8087,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw16UOr { ref memarg } => {
+            Operator::I64AtomicRmw16OrU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8116,7 +8116,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw32UOr { ref memarg } => {
+            Operator::I64AtomicRmw32OrU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8203,7 +8203,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I32AtomicRmw8UXor { ref memarg } => {
+            Operator::I32AtomicRmw8XorU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8232,7 +8232,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I32AtomicRmw16UXor { ref memarg } => {
+            Operator::I32AtomicRmw16XorU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8261,7 +8261,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw8UXor { ref memarg } => {
+            Operator::I64AtomicRmw8XorU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8290,7 +8290,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw16UXor { ref memarg } => {
+            Operator::I64AtomicRmw16XorU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8319,7 +8319,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::I64AtomicRmw32UXor { ref memarg } => {
+            Operator::I64AtomicRmw32XorU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8410,7 +8410,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I32AtomicRmw8UXchg { ref memarg } => {
+            Operator::I32AtomicRmw8XchgU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8441,7 +8441,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I32AtomicRmw16UXchg { ref memarg } => {
+            Operator::I32AtomicRmw16XchgU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8472,7 +8472,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw8UXchg { ref memarg } => {
+            Operator::I64AtomicRmw8XchgU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8503,7 +8503,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw16UXchg { ref memarg } => {
+            Operator::I64AtomicRmw16XchgU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8534,7 +8534,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
-            Operator::I64AtomicRmw32UXchg { ref memarg } => {
+            Operator::I64AtomicRmw32XchgU { ref memarg } => {
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target =
@@ -8665,7 +8665,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
-            Operator::I32AtomicRmw8UCmpxchg { ref memarg } => {
+            Operator::I32AtomicRmw8CmpxchgU { ref memarg } => {
                 let new =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let cmp =
@@ -8715,7 +8715,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
-            Operator::I32AtomicRmw16UCmpxchg { ref memarg } => {
+            Operator::I32AtomicRmw16CmpxchgU { ref memarg } => {
                 let new =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let cmp =
@@ -8765,7 +8765,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
-            Operator::I64AtomicRmw8UCmpxchg { ref memarg } => {
+            Operator::I64AtomicRmw8CmpxchgU { ref memarg } => {
                 let new =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let cmp =
@@ -8815,7 +8815,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
-            Operator::I64AtomicRmw16UCmpxchg { ref memarg } => {
+            Operator::I64AtomicRmw16CmpxchgU { ref memarg } => {
                 let new =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let cmp =
@@ -8865,7 +8865,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
-            Operator::I64AtomicRmw32UCmpxchg { ref memarg } => {
+            Operator::I64AtomicRmw32CmpxchgU { ref memarg } => {
                 let new =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let cmp =
