@@ -80,14 +80,6 @@ fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<
     }
 }
 
-fn type_to_llvm_int_only<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
-    match ty {
-        Type::I32 | Type::F32 => intrinsics.i32_ty.as_basic_type_enum(),
-        Type::I64 | Type::F64 => intrinsics.i64_ty.as_basic_type_enum(),
-        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
-    }
-}
-
 // Create a vector where each lane contains the same value.
 fn splat_vector<'ctx>(
     builder: &Builder<'ctx>,
@@ -1786,14 +1778,14 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                                             apply_pending_canonicalization(
                                                 builder, intrinsics, *v, *info,
                                             ),
-                                            intrinsics.i32_ty,
+                                            intrinsics.f32_ty,
                                             &state.var_name(),
                                         ),
                                         Type::F64 => builder.build_bitcast(
                                             apply_pending_canonicalization(
                                                 builder, intrinsics, *v, *info,
                                             ),
-                                            intrinsics.i64_ty,
+                                            intrinsics.f64_ty,
                                             &state.var_name(),
                                         ),
                                         Type::V128 => apply_pending_canonicalization(
@@ -1823,14 +1815,14 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                                             apply_pending_canonicalization(
                                                 builder, intrinsics, *v, *info,
                                             ),
-                                            intrinsics.i32_ty,
+                                            intrinsics.f32_ty,
                                             &state.var_name(),
                                         ),
                                         Type::F64 => builder.build_bitcast(
                                             apply_pending_canonicalization(
                                                 builder, intrinsics, *v, *info,
                                             ),
-                                            intrinsics.i64_ty,
+                                            intrinsics.f64_ty,
                                             &state.var_name(),
                                         ),
                                         Type::V128 => apply_pending_canonicalization(
@@ -1887,15 +1879,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
 
                 if let Some(basic_value) = call_site.try_as_basic_value().left() {
                     match func_sig.returns().len() {
-                        1 => state.push1(match func_sig.returns()[0] {
-                            Type::F32 => {
-                                builder.build_bitcast(basic_value, intrinsics.f32_ty, "ret_cast")
-                            }
-                            Type::F64 => {
-                                builder.build_bitcast(basic_value, intrinsics.f64_ty, "ret_cast")
-                            }
-                            _ => basic_value,
-                        }),
+                        1 => state.push1(basic_value),
                         count @ _ => {
                             // This is a multi-value return.
                             let struct_value = basic_value.into_struct_value();
@@ -2055,12 +2039,12 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                         match wasmer_fn_sig.params()[i] {
                             Type::F32 => builder.build_bitcast(
                                 apply_pending_canonicalization(builder, intrinsics, v, info),
-                                intrinsics.i32_ty,
+                                intrinsics.f32_ty,
                                 &state.var_name(),
                             ),
                             Type::F64 => builder.build_bitcast(
                                 apply_pending_canonicalization(builder, intrinsics, v, info),
-                                intrinsics.i64_ty,
+                                intrinsics.f64_ty,
                                 &state.var_name(),
                             ),
                             Type::V128 => {
@@ -8400,7 +8384,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 );
                 builder.build_return(Some(&builder.build_bitcast(
                     one_value.as_basic_value_enum(),
-                    type_to_llvm_int_only(intrinsics, self.func_sig.returns()[0]),
+                    type_to_llvm(intrinsics, self.func_sig.returns()[0]),
                     "return",
                 )));
             }
@@ -8751,7 +8735,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
                     self.context.as_ref().unwrap(),
                     self.intrinsics.as_ref().unwrap(),
                     sig,
-                    type_to_llvm_int_only,
+                    type_to_llvm,
                 )
             })
             .collect();
