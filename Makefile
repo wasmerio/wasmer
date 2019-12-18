@@ -257,7 +257,7 @@ check: check-bench
 
 # Release
 release:
-	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel
+	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices
 
 # Only one backend (cranelift)
 release-clif:
@@ -269,7 +269,7 @@ release-singlepass:
 	cargo build --release --features backend-singlepass
 
 release-llvm:
-	cargo build --release --features backend-llvm
+	cargo build --release --features backend-llvm,experimental-io-devices
 
 bench-singlepass:
 	cargo bench --all --no-default-features --features "backend-singlepass" \
