@@ -2,7 +2,12 @@
 
 ## **[Unreleased]**
 
-- [#1078](https://github.com/wasmerio/wasmer/pull/1078) Add more parameters to Func
+
+## 0.12.0 - 2019-12-18
+
+Special thanks to [@ethanfrey](https://github.com/ethanfrey), [@AdamSLevy](https://github.com/AdamSLevy), [@Jasper-Bekkers](https://github.com/Jasper-Bekkers), [@srenatus](https://github.com/srenatus) for their contributions!
+
+- [#1078](https://github.com/wasmerio/wasmer/pull/1078) Increase the maximum number of parameters `Func` can take
 - [#1062](https://github.com/wasmerio/wasmer/pull/1062) Expose some opt-in Emscripten functions to the C API
 - [#1032](https://github.com/wasmerio/wasmer/pull/1032) Change the signature of the Emscripten `abort` function to work with Emscripten 1.38.30
 - [#1060](https://github.com/wasmerio/wasmer/pull/1060) Test the capi with all the backends

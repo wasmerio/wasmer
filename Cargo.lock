@@ -746,8 +746,8 @@ version = "0.1.0"
 dependencies = [
  "rayon 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime 0.11.0",
- "wasmer-runtime-core 0.11.0",
+ "wasmer-runtime 0.12.0",
+ "wasmer-runtime-core 0.12.0",
 ]
 
 [[package]]
@@ -1450,7 +1450,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "wasmer"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1460,25 +1460,25 @@ dependencies = [
  "structopt 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "typetag 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.11.0",
- "wasmer-dev-utils 0.11.0",
- "wasmer-emscripten 0.11.0",
- "wasmer-emscripten-tests 0.11.0",
+ "wasmer-clif-backend 0.12.0",
+ "wasmer-dev-utils 0.12.0",
+ "wasmer-emscripten 0.12.0",
+ "wasmer-emscripten-tests 0.12.0",
  "wasmer-kernel-loader 0.1.0",
- "wasmer-llvm-backend 0.11.0",
- "wasmer-middleware-common 0.11.0",
- "wasmer-middleware-common-tests 0.11.0",
- "wasmer-runtime 0.11.0",
- "wasmer-runtime-core 0.11.0",
- "wasmer-singlepass-backend 0.11.0",
- "wasmer-wasi 0.11.0",
- "wasmer-wasi-experimental-io-devices 0.11.0",
- "wasmer-wasi-tests 0.11.0",
+ "wasmer-llvm-backend 0.12.0",
+ "wasmer-middleware-common 0.12.0",
+ "wasmer-middleware-common-tests 0.12.0",
+ "wasmer-runtime 0.12.0",
+ "wasmer-runtime-core 0.12.0",
+ "wasmer-singlepass-backend 0.12.0",
+ "wasmer-wasi 0.12.0",
+ "wasmer-wasi-experimental-io-devices 0.12.0",
+ "wasmer-wasi-tests 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-clif-backend"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cranelift-codegen 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1494,8 +1494,8 @@ dependencies = [
  "target-lexicon 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-fork-frontend 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-fork-wasm 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.11.0",
- "wasmer-win-exception-handler 0.11.0",
+ "wasmer-runtime-core 0.12.0",
+ "wasmer-win-exception-handler 0.12.0",
  "wasmparser 0.39.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1527,35 +1527,35 @@ dependencies = [
 
 [[package]]
 name = "wasmer-dev-utils"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "wasmer-emscripten"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "getrandom 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.11.0",
+ "wasmer-runtime-core 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-emscripten-tests"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.11.0",
- "wasmer-dev-utils 0.11.0",
- "wasmer-emscripten 0.11.0",
- "wasmer-llvm-backend 0.11.0",
- "wasmer-runtime 0.11.0",
- "wasmer-singlepass-backend 0.11.0",
+ "wasmer-clif-backend 0.12.0",
+ "wasmer-dev-utils 0.12.0",
+ "wasmer-emscripten 0.12.0",
+ "wasmer-llvm-backend 0.12.0",
+ "wasmer-runtime 0.12.0",
+ "wasmer-singlepass-backend 0.12.0",
 ]
 
 [[package]]
@@ -1563,12 +1563,12 @@ name = "wasmer-kernel-loader"
 version = "0.1.0"
 dependencies = [
  "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.11.0",
+ "wasmer-runtime-core 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-llvm-backend"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1582,7 +1582,7 @@ dependencies = [
  "semver 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.11.0",
+ "wasmer-runtime-core 0.12.0",
  "wasmparser 0.39.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1592,61 +1592,61 @@ name = "wasmer-llvm-backend-tests"
 version = "0.10.2"
 dependencies = [
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-llvm-backend 0.11.0",
- "wasmer-runtime 0.11.0",
- "wasmer-runtime-core 0.11.0",
+ "wasmer-llvm-backend 0.12.0",
+ "wasmer-runtime 0.12.0",
+ "wasmer-runtime-core 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-middleware-common"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
- "wasmer-runtime-core 0.11.0",
+ "wasmer-runtime-core 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-middleware-common-tests"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "criterion 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.11.0",
- "wasmer-llvm-backend 0.11.0",
- "wasmer-middleware-common 0.11.0",
- "wasmer-runtime-core 0.11.0",
- "wasmer-singlepass-backend 0.11.0",
+ "wasmer-clif-backend 0.12.0",
+ "wasmer-llvm-backend 0.12.0",
+ "wasmer-middleware-common 0.12.0",
+ "wasmer-runtime-core 0.12.0",
+ "wasmer-singlepass-backend 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-runtime"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "criterion 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "memmap 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.11.0",
- "wasmer-llvm-backend 0.11.0",
- "wasmer-runtime-core 0.11.0",
- "wasmer-singlepass-backend 0.11.0",
+ "wasmer-clif-backend 0.12.0",
+ "wasmer-llvm-backend 0.12.0",
+ "wasmer-runtime-core 0.12.0",
+ "wasmer-singlepass-backend 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-runtime-c-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "cbindgen 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-emscripten 0.11.0",
- "wasmer-runtime 0.11.0",
- "wasmer-runtime-core 0.11.0",
- "wasmer-wasi 0.11.0",
+ "wasmer-emscripten 0.12.0",
+ "wasmer-runtime 0.12.0",
+ "wasmer-runtime-core 0.12.0",
+ "wasmer-wasi 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-runtime-core"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "blake2b_simd 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1672,18 +1672,18 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-core-tests"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.11.0",
- "wasmer-llvm-backend 0.11.0",
- "wasmer-runtime-core 0.11.0",
- "wasmer-singlepass-backend 0.11.0",
+ "wasmer-clif-backend 0.12.0",
+ "wasmer-llvm-backend 0.12.0",
+ "wasmer-runtime-core 0.12.0",
+ "wasmer-singlepass-backend 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-singlepass-backend"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1695,24 +1695,24 @@ dependencies = [
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.11.0",
+ "wasmer-runtime-core 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-spectests"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.11.0",
- "wasmer-llvm-backend 0.11.0",
- "wasmer-runtime 0.11.0",
- "wasmer-singlepass-backend 0.11.0",
+ "wasmer-clif-backend 0.12.0",
+ "wasmer-llvm-backend 0.12.0",
+ "wasmer-runtime 0.12.0",
+ "wasmer-singlepass-backend 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-wasi"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1723,42 +1723,42 @@ dependencies = [
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "typetag 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.11.0",
+ "wasmer-runtime-core 0.12.0",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "minifb 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ref_thread_local 0.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "typetag 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.11.0",
- "wasmer-wasi 0.11.0",
+ "wasmer-runtime-core 0.12.0",
+ "wasmer-wasi 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-wasi-tests"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.11.0",
- "wasmer-dev-utils 0.11.0",
- "wasmer-llvm-backend 0.11.0",
- "wasmer-runtime 0.11.0",
- "wasmer-singlepass-backend 0.11.0",
- "wasmer-wasi 0.11.0",
+ "wasmer-clif-backend 0.12.0",
+ "wasmer-dev-utils 0.12.0",
+ "wasmer-llvm-backend 0.12.0",
+ "wasmer-runtime 0.12.0",
+ "wasmer-singlepass-backend 0.12.0",
+ "wasmer-wasi 0.12.0",
 ]
 
 [[package]]
 name = "wasmer-win-exception-handler"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "cmake 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.11.0",
+ "wasmer-runtime-core 0.12.0",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
