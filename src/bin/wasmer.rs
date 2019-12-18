@@ -390,13 +390,7 @@ fn execute_wasi(
     }
     let wasi_state = wasi_state_builder.build().map_err(|e| format!("{:?}", e))?;
 
-    let import_object = wasmer_wasi::generate_import_object_from_state(wasi_state, wasi_version); /*wasmer_wasi::generate_import_object_for_version(
-                                                                                                      wasi_version,
-                                                                                                      args,
-                                                                                                      envs,
-                                                                                                      preopened_files,
-                                                                                                      mapped_dirs,
-                                                                                                  );*/
+    let import_object = wasmer_wasi::generate_import_object_from_state(wasi_state, wasi_version);
 
     #[allow(unused_mut)] // mut used in feature
     let mut instance = module

@@ -1252,12 +1252,6 @@ pub struct WasiState {
     pub envs: Vec<Vec<u8>>,
 }
 
-impl Clone for WasiState {
-    fn clone(&self) -> Self {
-        unimplemented!()
-    }
-}
-
 impl WasiState {
     /// Create a [`WasiStateBuilder`] to construct a validated instance of
     /// [`WasiState`].
