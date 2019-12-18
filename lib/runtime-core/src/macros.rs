@@ -49,7 +49,7 @@ macro_rules! trace {
 /// # Usage
 ///
 /// Function pointers or closures are supported. Closures can capture
-/// their environment (with `move). The first parameter is likely to
+/// their environment (with `move`). The first parameter is likely to
 /// be of kind `vm::Ctx`, though it can be optional.
 ///
 /// ```
