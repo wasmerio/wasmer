@@ -37,8 +37,6 @@ pub fn bytes_for_input_event(input_event: InputEvent) -> (u8, [u8; 8], usize) {
                 MouseButton::Right => MOUSE_PRESS_RIGHT,
                 MouseButton::Middle => MOUSE_PRESS_MIDDLE,
             };
-            dbg!(x);
-            dbg!(y);
             let x_bytes = x.to_le_bytes();
             for i in 0..4 {
                 data[i] = x_bytes[i];
@@ -144,7 +142,7 @@ pub fn map_key_to_bytes(key: Key) -> u8 {
         Key::NumPadMinus => 109,
         Key::NumPadDot => 110,
         Key::NumPadSlash => 111,
-        
+
         Key::F1 => 112,
         Key::F2 => 113,
         Key::F3 => 114,
@@ -160,7 +158,7 @@ pub fn map_key_to_bytes(key: Key) -> u8 {
 
         Key::NumLock => 144,
         Key::ScrollLock => 145,
-        
+
         Key::Semicolon => 186,
         Key::Equal => 187,
         Key::Comma => 188,

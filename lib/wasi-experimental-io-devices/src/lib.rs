@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{VecDeque, BTreeSet};
+use std::collections::{BTreeSet, VecDeque};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
+use wasmer_runtime_core::debug;
 use wasmer_wasi::{
     state::{Fd, WasiFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD},
     types::*,
@@ -19,8 +20,6 @@ std::thread_local! {
         RefCell::new(FrameBufferState::new()
 );
 }
-
-use std::borrow::BorrowMut;
 
 pub const MAX_X: u32 = 8192;
 pub const MAX_Y: u32 = 4320;
@@ -163,27 +162,13 @@ impl FrameBufferState {
     }
 
     pub fn draw(&mut self) {
-        self.window.update_with_buffer(if self.front_buffer {
-            &self.data_1[..]
-        } else {
-            &self.data_2[..]
-        },
-        );
-    }
-
-    pub fn get_buffer(&self) -> &[u32] {
-        if self.front_buffer {
-            &self.data_1[..]
-        } else {
-            &self.data_2[..]
-        }
-    }
-    pub fn get_buffer_mut(&mut self) -> &mut [u32] {
-        if self.front_buffer {
-            &mut self.data_1[..]
-        } else {
-            &mut self.data_2[..]
-        }
+        self.window
+            .update_with_buffer(if self.front_buffer {
+                &self.data_1[..]
+            } else {
+                &self.data_2[..]
+            })
+            .expect("Internal error! Failed to draw to framebuffer");
     }
 
     #[inline]
@@ -485,7 +470,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         .map_err(|e| format!("fb: Failed to create dev folder {:?}", e))?
     };
 
-    let fd = fs
+    let _fd = fs
         .open_file_at(
             dev_fd,
             input_file,
@@ -497,9 +482,9 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         )
         .map_err(|e| format!("fb: Failed to init framebuffer {:?}", e))?;
 
-    println!("Input open on fd {}", fd);
+    debug!("Input open on fd {}", _fd);
 
-    let fd = fs
+    let _fd = fs
         .open_file_at(
             dev_fd,
             frame_buffer_file,
@@ -511,9 +496,9 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         )
         .map_err(|e| format!("fb: Failed to init framebuffer {:?}", e))?;
 
-    println!("Framebuffer open on fd {}", fd);
+    debug!("Framebuffer open on fd {}", _fd);
 
-    let fd = fs
+    let _fd = fs
         .open_file_at(
             fb_fd,
             resolution_file,
@@ -525,9 +510,9 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         )
         .map_err(|e| format!("fb_resolution: Failed to init framebuffer {:?}", e))?;
 
-    println!("Framebuffer resolution open on fd {}", fd);
+    debug!("Framebuffer resolution open on fd {}", _fd);
 
-    let fd = fs
+    let _fd = fs
         .open_file_at(
             fb_fd,
             index_file,
@@ -539,7 +524,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         )
         .map_err(|e| format!("fb_index_display: Failed to init framebuffer {:?}", e))?;
 
-    println!("Framebuffer draw open on fd {}", fd);
+    debug!("Framebuffer draw open on fd {}", _fd);
 
     Ok(())
 }

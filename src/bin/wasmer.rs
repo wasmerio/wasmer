@@ -225,9 +225,10 @@ struct Run {
     #[structopt(flatten)]
     features: PrestandardFeatures,
 
-    #[cfg(feature = "experimental-framebuffer")]
-    #[structopt(long = "enable-experimental-framebuffer")]
-    enable_experimental_framebuffer: bool,
+    /// Enable non-standard experimental IO devices
+    #[cfg(feature = "experimental-io-devices")]
+    #[structopt(long = "enable-experimental-io-devices", hidden = true)]
+    enable_experimental_io_devices: bool,
 
     /// Application arguments
     #[structopt(name = "--", multiple = true)]
@@ -379,10 +380,12 @@ fn execute_wasi(
         .preopen_dirs(preopened_files)
         .map_dirs(mapped_dirs);
 
-    #[cfg(feature = "experimental-framebuffer")]
+    #[cfg(feature = "experimental-io-devices")]
     {
-        if options.enable_experimental_framebuffer {
-            wasi_state_builder.setup_fs(std::rc::Rc::new(wasmer_wasi_framebuffer::initialize));
+        if options.enable_experimental_io_devices {
+            wasi_state_builder.setup_fs(std::rc::Rc::new(
+                wasmer_wasi_experimental_io_devices::initialize,
+            ));
         }
     }
     let wasi_state = wasi_state_builder.build().map_err(|e| format!("{:?}", e))?;

@@ -2195,7 +2195,7 @@ dependencies = [
  "wasmer-runtime-core 0.11.0",
  "wasmer-singlepass-backend 0.11.0",
  "wasmer-wasi 0.11.0",
- "wasmer-wasi-framebuffer 0.11.0",
+ "wasmer-wasi-experimental-io-devices 0.11.0",
  "wasmer-wasi-tests 0.11.0",
 ]
 
@@ -2450,7 +2450,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-wasi-framebuffer"
+name = "wasmer-wasi-experimental-io-devices"
 version = "0.11.0"
 dependencies = [
  "minifb 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
