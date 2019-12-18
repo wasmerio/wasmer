@@ -179,16 +179,14 @@ checksum = "995a44c877f9212528ccc74b21a232f66ad69001e40ede5bcee2ac9ef2657120"
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.51.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#5a77fa76b48e94691c17b601c1f5a5e52d95b1d3"
+version = "0.52.0"
 dependencies = [
  "cranelift-entity",
 ]
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.51.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#5a77fa76b48e94691c17b601c1f5a5e52d95b1d3"
+version = "0.52.0"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
@@ -203,8 +201,7 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.51.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#5a77fa76b48e94691c17b601c1f5a5e52d95b1d3"
+version = "0.52.0"
 dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity",
@@ -212,18 +209,15 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-shared"
-version = "0.51.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#5a77fa76b48e94691c17b601c1f5a5e52d95b1d3"
+version = "0.52.0"
 
 [[package]]
 name = "cranelift-entity"
-version = "0.51.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#5a77fa76b48e94691c17b601c1f5a5e52d95b1d3"
+version = "0.52.0"
 
 [[package]]
 name = "cranelift-frontend"
-version = "0.51.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#5a77fa76b48e94691c17b601c1f5a5e52d95b1d3"
+version = "0.52.0"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -233,8 +227,7 @@ dependencies = [
 
 [[package]]
 name = "cranelift-native"
-version = "0.51.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#5a77fa76b48e94691c17b601c1f5a5e52d95b1d3"
+version = "0.52.0"
 dependencies = [
  "cranelift-codegen",
  "raw-cpuid",
@@ -243,8 +236,7 @@ dependencies = [
 
 [[package]]
 name = "cranelift-wasm"
-version = "0.51.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#5a77fa76b48e94691c17b601c1f5a5e52d95b1d3"
+version = "0.52.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -1892,9 +1884,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.39.3"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c702914acda5feeeffbc29e4d953e5b9ce79d8b98da4dbf18a77086e116c5470"
+checksum = "cd242c848b25027c3e29fb2bd34c8648755b33fef66a22f65b942d06562d3020"
 
 [[package]]
 name = "winapi"
