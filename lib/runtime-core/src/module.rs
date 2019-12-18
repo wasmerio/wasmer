@@ -174,16 +174,25 @@ pub struct ImportName {
     pub name_index: NameIndex,
 }
 
-/// Kinds of export indexes.
+/// A wrapper around the [`TypedIndex`]es for Wasm functions, Wasm memories,
+/// Wasm globals, and Wasm tables.
+///
+/// Used in [`ModuleInfo`] to access function signatures ([`SigIndex`]s,
+/// [`FuncSig`]), [`GlobalInit`]s, [`MemoryDescriptor`]s, and
+/// [`TableDescriptor`]s.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
-    /// Function export index.
+    /// Function export index. [`FuncIndex`] is a type-safe handle referring to
+    /// a Wasm function.
     Func(FuncIndex),
-    /// Memory export index.
+    /// Memory export index. [`MemoryIndex`] is a type-safe handle referring to
+    /// a Wasm memory.
     Memory(MemoryIndex),
-    /// Global export index.
+    /// Global export index. [`GlobalIndex`] is a type-safe handle referring to
+    /// a Wasm global.
     Global(GlobalIndex),
-    /// Table export index.
+    /// Table export index. [`TableIndex`] is a type-safe handle referring to
+    /// to a Wasm table.
     Table(TableIndex),
 }
 
@@ -218,7 +227,7 @@ pub struct StringTableBuilder<K: TypedIndex> {
 }
 
 impl<K: TypedIndex> StringTableBuilder<K> {
-    /// Creates a new `StringTableBuilder`.
+    /// Creates a new [`StringTableBuilder`].
     pub fn new() -> Self {
         Self {
             map: IndexMap::new(),
@@ -250,7 +259,7 @@ impl<K: TypedIndex> StringTableBuilder<K> {
         }
     }
 
-    /// Finish building the `StringTable`.
+    /// Finish building the [`StringTable`].
     pub fn finish(self) -> StringTable<K> {
         let table = self
             .map
@@ -291,7 +300,7 @@ impl<K: TypedIndex> StringTable<K> {
     }
 }
 
-/// Namespace index.
+/// A type-safe handle referring to a module namespace.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NamespaceIndex(u32);
 
@@ -307,7 +316,7 @@ impl TypedIndex for NamespaceIndex {
     }
 }
 
-/// Name index.
+/// A type-safe handle referring to a name in a module namespace.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NameIndex(u32);
 
