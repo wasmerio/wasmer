@@ -17,6 +17,8 @@
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "aarch64"),
+    all(target_os = "android", target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64"),
 )))]
 compile_error!("This crate doesn't yet support compiling on operating systems other than FreeBSD, linux and macos and architectures other than x86_64");
 
