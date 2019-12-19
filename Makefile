@@ -160,7 +160,7 @@ test-rest:
 circleci-clean:
 	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
 
-test: spectests emtests middleware wasitests circleci-clean test-rest
+test: spectests emtests middleware wasitests circleci-clean test-rest examples
 
 
 # Integration tests
