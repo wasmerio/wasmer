@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-emscripten"
-version = "0.11.0"
+version = "0.12.0"
 description = "Wasmer runtime emscripten implementation library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -14,7 +14,7 @@ byteorder = "1.3"
 lazy_static = "1.4"
 libc = "0.2.60"
 time = "0.1"
-wasmer-runtime-core = { path = "../runtime-core", version = "0.11.0" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.12.0" }
 
 [target.'cfg(windows)'.dependencies]
 getrandom = "0.1"
