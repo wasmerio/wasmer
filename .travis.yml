@@ -4,7 +4,7 @@ arch:
 language: rust
 install: travis_retry
 rust:
-  - nightly-2019-08-15
+  - nightly-2019-12-19
 
 cache:
   directories:
