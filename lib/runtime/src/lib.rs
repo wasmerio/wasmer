@@ -79,13 +79,17 @@
 //! # Additional Notes:
 //!
 //! The `wasmer-runtime` is build to support compiler multiple backends.
-//! Currently, we support the [Cranelift] compiler with the [`wasmer-clif-backend`] crate.
+//! Currently, we support the Singlepass, [Cranelift], and LLVM compilers
+//! with the [`wasmer-singlepass-backend`], [`wasmer-clif-backend`], and
+//! wasmer-llvm-backend crates, respectively.
 //!
-//! You can specify the compiler you wish to use with the [`compile_with`] function.
+//! You can specify the compiler you wish to use with the [`compile_with`]
+//! function or use the default with the [`compile`] function.
 //!
 //! [Cranelift]: https://github.com/CraneStation/cranelift
+//! [LLVM]: https://llvm.org
+//! [`wasmer-singlepass-backend`]: https://crates.io/crates/wasmer-singlepass-backend
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
-//! [`compile_with`]: fn.compile_with.html
 
 pub use wasmer_runtime_core::backend::{Backend, Features};
 pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
