@@ -101,11 +101,9 @@ impl ModuleInfo {
 
 /// A compiled WebAssembly module.
 ///
-/// `Module` is returned by the [`compile`] and
-/// [`compile_with`] functions.
+/// `Module` is returned by the [`compile_with`][] function.
 ///
-/// [`compile`]: fn.compile.html
-/// [`compile_with`]: fn.compile_with.html
+/// [`compile_with`]: crate::compile_with
 pub struct Module {
     inner: Arc<ModuleInner>,
 }

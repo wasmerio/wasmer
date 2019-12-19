@@ -81,7 +81,7 @@ pub fn generate_import_object(
 }
 
 /// Create an [`ImportObject`] with an existing [`WasiState`]. [`WasiState`]
-/// can be constructed from a [`WasiStateBuilder`].
+/// can be constructed from a [`WasiStateBuilder`](state::WasiStateBuilder).
 pub fn generate_import_object_from_state(
     wasi_state: WasiState,
     version: WasiVersion,
