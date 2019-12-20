@@ -4556,8 +4556,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let res = trunc_sat_scalar(
                     builder,
                     intrinsics.i32_ty,
-                    std::i32::MIN as u64,
-                    2147483520u64, // bits as f32: 0x4effffff
+                    LEF32_GEQ_I32_MIN,
+                    GEF32_LEQ_I32_MAX,
                     std::i32::MIN as u32 as u64,
                     std::i32::MAX as u32 as u64,
                     v,
@@ -4572,8 +4572,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let res = trunc_sat_scalar(
                     builder,
                     intrinsics.i32_ty,
-                    std::i32::MIN as u64,
-                    std::i32::MAX as u64,
+                    LEF64_GEQ_I32_MIN,
+                    GEF64_LEQ_I32_MAX,
                     std::i32::MIN as u64,
                     std::i32::MAX as u64,
                     v,
@@ -4615,8 +4615,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let res = trunc_sat_scalar(
                     builder,
                     intrinsics.i64_ty,
-                    std::i64::MIN as u64,
-                    9223371487098961920, // bits as f32: 0x5eff_ffff
+                    LEF32_GEQ_I64_MIN,
+                    GEF32_LEQ_I64_MAX,
                     std::i64::MIN as u64,
                     std::i64::MAX as u64,
                     v,
@@ -4631,8 +4631,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let res = trunc_sat_scalar(
                     builder,
                     intrinsics.i64_ty,
-                    std::i64::MIN as u64,
-                    9223372036854774784, // bits as f64: 0x43df_ffff_ffff_ffff
+                    LEF64_GEQ_I64_MIN,
+                    GEF64_LEQ_I64_MAX,
                     std::i64::MIN as u64,
                     std::i64::MAX as u64,
                     v,
@@ -4673,8 +4673,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let res = trunc_sat_scalar(
                     builder,
                     intrinsics.i32_ty,
-                    std::u32::MIN as u64,
-                    4294967040, // bits as f32: 0x4f7fffff
+                    LEF32_GEQ_U32_MIN,
+                    GEF32_LEQ_U32_MAX,
                     std::u32::MIN as u64,
                     std::u32::MAX as u64,
                     v,
@@ -4689,8 +4689,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let res = trunc_sat_scalar(
                     builder,
                     intrinsics.i32_ty,
-                    std::u32::MIN as u64,
-                    4294967295, // bits as f64: 0x41efffffffffffff
+                    LEF64_GEQ_U32_MIN,
+                    GEF64_LEQ_U32_MAX,
                     std::u32::MIN as u64,
                     std::u32::MAX as u64,
                     v,
@@ -4731,8 +4731,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let res = trunc_sat_scalar(
                     builder,
                     intrinsics.i64_ty,
-                    std::u64::MIN,
-                    18446742974197923840, // bits as f32: 0x5f7fffff
+                    LEF32_GEQ_U64_MIN,
+                    GEF32_LEQ_U64_MAX,
                     std::u64::MIN,
                     std::u64::MAX,
                     v,
@@ -4747,8 +4747,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let res = trunc_sat_scalar(
                     builder,
                     intrinsics.i64_ty,
-                    std::u64::MIN,
-                    18446744073709549568u64, // bits as f64: 0x43EFFFFFFFFFFFFF
+                    LEF64_GEQ_U64_MIN,
+                    GEF64_LEQ_U64_MAX,
                     std::u64::MIN,
                     std::u64::MAX,
                     v,
@@ -8987,3 +8987,42 @@ fn is_f64_arithmetic(bits: u64) -> bool {
     let bits = bits & 0x7FFF_FFFF_FFFF_FFFF;
     bits < 0x7FF8_0000_0000_0000
 }
+
+// Constants for the bounds of truncation operations. These are the least or
+// greatest exact floats in either f32 or f64 representation
+// greater-than-or-equal-to (for least) or less-than-or-equal-to (for greatest)
+// the i32 or i64 or u32 or u64 min (for least) or max (for greatest), when
+// rounding towards zero.
+
+/// Least Exact Float (32 bits) greater-than-or-equal-to i32::MIN when rounding towards zero.
+const LEF32_GEQ_I32_MIN: u64 = std::i32::MIN as u64;
+/// Greatest Exact Float (32 bits) less-than-or-equal-to i32::MAX when rounding towards zero.
+const GEF32_LEQ_I32_MAX: u64 = 2147483520; // bits as f32: 0x4eff_ffff
+/// Least Exact Float (64 bits) greater-than-or-equal-to i32::MIN when rounding towards zero.
+const LEF64_GEQ_I32_MIN: u64 = std::i32::MIN as u64;
+/// Greatest Exact Float (64 bits) less-than-or-equal-to i32::MAX when rounding towards zero.
+const GEF64_LEQ_I32_MAX: u64 = std::i32::MAX as u64;
+/// Least Exact Float (32 bits) greater-than-or-equal-to u32::MIN when rounding towards zero.
+const LEF32_GEQ_U32_MIN: u64 = std::u32::MIN as u64;
+/// Greatest Exact Float (32 bits) less-than-or-equal-to u32::MAX when rounding towards zero.
+const GEF32_LEQ_U32_MAX: u64 = 4294967040; // bits as f32: 0x4f7f_ffff
+/// Least Exact Float (64 bits) greater-than-or-equal-to u32::MIN when rounding towards zero.
+const LEF64_GEQ_U32_MIN: u64 = std::u32::MIN as u64;
+/// Greatest Exact Float (64 bits) less-than-or-equal-to u32::MAX when rounding towards zero.
+const GEF64_LEQ_U32_MAX: u64 = 4294967295; // bits as f64: 0x41ef_ffff_ffff_ffff
+/// Least Exact Float (32 bits) greater-than-or-equal-to i64::MIN when rounding towards zero.
+const LEF32_GEQ_I64_MIN: u64 = std::i64::MIN as u64;
+/// Greatest Exact Float (32 bits) less-than-or-equal-to i64::MAX when rounding towards zero.
+const GEF32_LEQ_I64_MAX: u64 = 9223371487098961920; // bits as f32: 0x5eff_ffff
+/// Least Exact Float (64 bits) greater-than-or-equal-to i64::MIN when rounding towards zero.
+const LEF64_GEQ_I64_MIN: u64 = std::i64::MIN as u64;
+/// Greatest Exact Float (64 bits) less-than-or-equal-to i64::MAX when rounding towards zero.
+const GEF64_LEQ_I64_MAX: u64 = 9223372036854774784; // bits as f64: 0x43df_ffff_ffff_ffff
+/// Least Exact Float (32 bits) greater-than-or-equal-to u64::MIN when rounding towards zero.
+const LEF32_GEQ_U64_MIN: u64 = std::u64::MIN;
+/// Greatest Exact Float (32 bits) less-than-or-equal-to u64::MAX when rounding towards zero.
+const GEF32_LEQ_U64_MAX: u64 = 18446742974197923840; // bits as f32: 0x5f7f_ffff
+/// Least Exact Float (64 bits) greater-than-or-equal-to u64::MIN when rounding towards zero.
+const LEF64_GEQ_U64_MIN: u64 = std::u64::MIN;
+/// Greatest Exact Float (64 bits) less-than-or-equal-to u64::MAX when rounding towards zero.
+const GEF64_LEQ_U64_MAX: u64 = 18446744073709549568; // bits as f64: 0x43ef_ffff_ffff_ffff
