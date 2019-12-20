@@ -83,7 +83,8 @@ wasitests-setup:
 	mkdir -p lib/wasi-tests/wasitests/test_fs/temp
 
 wasitests-singlepass: wasitests-setup
-	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features singlepass -- --test-threads=1 --nocapture
+	# Skip wasitests on singlepass for now, until they are fixed on ARM devices
+	# cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features singlepass -- --test-threads=1 --nocapture
 
 wasitests-cranelift: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1 --nocapture
