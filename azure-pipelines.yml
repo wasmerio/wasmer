@@ -30,12 +30,12 @@ jobs:
         linux:
           poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
-          poolDemands: ""
+          # poolDemands: ""
           rust_toolchain: nightly-2019-12-19
         mac:
           poolName: "Azure Pipelines"
           imageName: "macos-10.14"
-          poolDemands: ""
+          # poolDemands: ""
           rust_toolchain: nightly-2019-12-19
           # By default schannel checks revocation of certificates unlike some other SSL
           # backends, but we've historically had problems on CI where a revocation
@@ -43,12 +43,12 @@ jobs:
           CARGO_HTTP_CHECK_REVOKE: false
         arm:
           poolName: "Packet"
-          poolDemands: Agent.OSArchitecture -equals ARM64
+          # poolDemands: Agent.OSArchitecture -equals ARM64
           rust_toolchain: nightly-2019-12-19
         windows:
           poolName: "Azure Pipelines"
           imageName: "vs2017-win2016"
-          poolDemands: ""
+          # poolDemands: ""
           rust_toolchain: '1.39.0'
     pool:
       name: $(poolName)
@@ -105,17 +105,24 @@ jobs:
     strategy:
       matrix:
         linux:
+          poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
           rust_toolchain: nightly-2019-12-19
         mac:
+          poolName: "Azure Pipelines"
           imageName: "macos-10.14"
           rust_toolchain: nightly-2019-12-19
           MACOSX_DEPLOYMENT_TARGET: 10.10
+        arm:
+          poolName: "Packet"
+          rust_toolchain: nightly-2019-12-19
         windows:
+          poolName: "Azure Pipelines"
           imageName: "vs2017-win2016"
           rust_toolchain: '1.39.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
+      name: $(poolName)
       vmImage: $(imageName)
     condition: |
       or(
