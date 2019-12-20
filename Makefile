@@ -1,5 +1,17 @@
 .PHONY: spectests emtests clean build install lint precommit docs examples
 
+ARCH := $(shell uname -m)
+
+ifeq ($(ARCH), x86_64)
+  # In X64, all backends are enabled
+  backends := singlepass cranelift llvm
+else ifeq ($(ARCH), aarch64)
+  # In ARM 64, only singlepass is enabled
+  backends := singlepass
+else
+  $(error Architecture $(ARCH) not yet supported in Wasmer)
+endif
+
 # Generate files
 generate-spectests:
 	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core --release \
@@ -33,7 +45,7 @@ spectests-cranelift:
 spectests-llvm:
 	cargo test --manifest-path lib/spectests/Cargo.toml --release --features llvm -- --nocapture
 
-spectests: spectests-singlepass spectests-cranelift spectests-llvm
+spectests: $(foreach backend,$(backends),spectests-$(backend))
 
 
 # Emscripten tests
@@ -49,7 +61,7 @@ emtests-llvm:
 emtests-unit:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --release
 
-emtests: emtests-unit emtests-singlepass emtests-cranelift emtests-llvm
+emtests: emtests-unit $(foreach backend,$(backends),emtests-$(backend))
 
 
 # Middleware tests
@@ -62,7 +74,7 @@ middleware-cranelift:
 middleware-llvm:
 	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features llvm
 
-middleware: middleware-singlepass middleware-cranelift middleware-llvm
+middleware: $(foreach backend,$(backends),middleware-$(backend))
 
 
 # Wasitests
@@ -83,7 +95,7 @@ wasitests-unit: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1 --nocapture
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
-wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llvm
+wasitests: wasitests-unit $(foreach backend,$(backends),wasitests-$(backend))
 
 
 # Backends
@@ -137,7 +149,7 @@ test-capi-emscripten: capi-emscripten
 	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
 		--no-default-features --features singlepass-backend,emscripten
 
-test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten
+test-capi: $(foreach backend,$(backends),test-capi-$(backend)) test-capi-emscripten
 
 capi-test: test-capi
 
@@ -191,7 +203,7 @@ install:
 check-bench-singlepass:
 	cargo check --benches --all --no-default-features --features "backend-singlepass" \
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
-check-bench-clif:
+check-bench-cranelift:
 	cargo check --benches --all --no-default-features --features "backend-cranelift" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
 	--exclude wasmer-middleware-common-tests
@@ -199,7 +211,8 @@ check-bench-llvm:
 	cargo check --benches --all --no-default-features --features "backend-llvm" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
-check-bench: check-bench-singlepass check-bench-llvm
+check-bench: $(foreach backend,$(backends),check-bench-$(backend))
+
 
 # TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
 # to https://github.com/rust-lang/cargo/issues/6745 .
@@ -255,14 +268,19 @@ check: check-bench
 	$(RUNTIME_CHECK) --release \
 		--features=llvm,default-backend-llvm
 
+
+# We convert `$backend1 $backend2 ...` to `backend-$backend1,backend-$backend2,..."
+comma := ,
+empty :=
+space := $(empty) $(empty)
+backend_features := $(foreach backend,$(backends),backend-$(backend))
+features:= $(subst $(space),$(comma),$(backend_features))
+
 # Release
 release:
-	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices
+	cargo build --release --features ${features},loader-kernel,experimental-io-devices
 
-# Only one backend (cranelift)
-release-clif:
-	# If you are on macOS, you will need mingw-w64 for cross compiling to Windows
-	# brew install mingw-w64
+release-cranelift:
 	cargo build --release --features backend-cranelift
 
 release-singlepass:
@@ -271,16 +289,23 @@ release-singlepass:
 release-llvm:
 	cargo build --release --features backend-llvm,experimental-io-devices
 
+
+# Benchmarks
 bench-singlepass:
 	cargo bench --all --no-default-features --features "backend-singlepass" \
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
-bench-clif:
+
+bench-cranelift:
 	cargo bench --all --no-default-features --features "backend-cranelift" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
 	--exclude wasmer-middleware-common-tests
+
 bench-llvm:
 	cargo bench --all --no-default-features --features "backend-llvm" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
+
+bench: $(foreach backend,$(backends),bench-$(backend))
+
 
 # Build utils
 build-install:
