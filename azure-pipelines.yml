@@ -53,7 +53,7 @@ jobs:
     pool:
       name: $(poolName)
       vmImage: $(imageName)
-      demands: $(poolDemands)
+      # demands: $(poolDemands)
 
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
