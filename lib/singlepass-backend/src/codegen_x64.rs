@@ -5104,7 +5104,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 self.value_stack.push(ret);
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
+                let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
                 Self::emit_relaxed_binop(
                     a,
@@ -5135,9 +5135,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         if a.arch_has_itruncf() {
                             a.arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
                         } else {
-                            let tmp = m.acquire_temp_gpr().unwrap(); // r15
-                            let tmp_x1 = m.acquire_temp_xmm().unwrap(); // xmm1
-                            let tmp_x2 = m.acquire_temp_xmm().unwrap(); // xmm3
+                            let tmp = m.acquire_temp_gpr().unwrap();
+                            let tmp_x1 = m.acquire_temp_xmm().unwrap();
+                            let tmp_x2 = m.acquire_temp_xmm().unwrap();
 
                             a.emit_mov(
                                 Size::S32,
@@ -5623,7 +5623,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 self.value_stack.push(ret);
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
+                let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
                 Self::emit_relaxed_binop(
                     a,
@@ -5654,9 +5654,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         if a.arch_has_itruncf() {
                             a.arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
                         } else {
-                            let tmp = m.acquire_temp_gpr().unwrap(); // r15
-                            let tmp_x1 = m.acquire_temp_xmm().unwrap(); // xmm1
-                            let tmp_x2 = m.acquire_temp_xmm().unwrap(); // xmm3
+                            let tmp = m.acquire_temp_gpr().unwrap();
+                            let tmp_x1 = m.acquire_temp_xmm().unwrap();
+                            let tmp_x2 = m.acquire_temp_xmm().unwrap();
 
                             a.emit_mov(
                                 Size::S64,
