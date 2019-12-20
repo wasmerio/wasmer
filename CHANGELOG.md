@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1092](https://github.com/wasmerio/wasmer/pull/1092) Add `get_utf8_string_with_nul` to `WasmPtr` to read nul-terminated strings from memory.
 
 ## 0.12.0 - 2019-12-18
 
