@@ -30,10 +30,12 @@ jobs:
         linux:
           poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
+          poolDemands: ""
           rust_toolchain: nightly-2019-12-19
         mac:
           poolName: "Azure Pipelines"
           imageName: "macos-10.14"
+          poolDemands: ""
           rust_toolchain: nightly-2019-12-19
           # By default schannel checks revocation of certificates unlike some other SSL
           # backends, but we've historically had problems on CI where a revocation
@@ -46,6 +48,7 @@ jobs:
         windows:
           poolName: "Azure Pipelines"
           imageName: "vs2017-win2016"
+          poolDemands: ""
           rust_toolchain: '1.39.0'
     pool:
       name: $(poolName)
