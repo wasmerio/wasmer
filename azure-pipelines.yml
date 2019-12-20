@@ -28,9 +28,11 @@ jobs:
     strategy:
       matrix:
         linux:
+          poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
           rust_toolchain: nightly-2019-12-19
         mac:
+          poolName: "Azure Pipelines"
           imageName: "macos-10.14"
           rust_toolchain: nightly-2019-12-19
           # By default schannel checks revocation of certificates unlike some other SSL
@@ -42,12 +44,14 @@ jobs:
           poolDemands: Agent.OSArchitecture -equals ARM64
           rust_toolchain: nightly-2019-12-19
         windows:
+          poolName: "Azure Pipelines"
           imageName: "vs2017-win2016"
           rust_toolchain: '1.39.0'
     pool:
       name: $(poolName)
       vmImage: $(imageName)
       demands: $(poolDemands)
+
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
