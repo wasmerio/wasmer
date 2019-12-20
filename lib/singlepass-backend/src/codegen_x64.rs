@@ -4713,8 +4713,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a,
                         &mut self.machine,
                         tmp_in,
-                        -1.0,
-                        4294967296.0,
+                        GEF32_LT_U32_MIN,
+                        LEF32_GT_U32_MAX,
                     );
 
                     a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -4749,8 +4749,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     tmp_in,
-                    -1.0,
-                    4294967296.0,
+                    GEF32_LT_U32_MIN,
+                    LEF32_GT_U32_MAX,
                     |a, _m| {
                         a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
                     },
@@ -4824,8 +4824,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a,
                         &mut self.machine,
                         tmp_in,
-                        -2147483904.0,
-                        2147483648.0,
+                        GEF32_LT_I32_MIN,
+                        LEF32_GT_I32_MAX,
                     );
 
                     a.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -4860,8 +4860,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     tmp_in,
-                    -2147483904.0,
-                    2147483648.0,
+                    GEF32_LT_I32_MIN,
+                    LEF32_GT_I32_MAX,
                     |a, _m| {
                         a.emit_mov(
                             Size::S32,
@@ -4941,8 +4941,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a,
                         &mut self.machine,
                         tmp_in,
-                        -9223373136366403584.0,
-                        9223372036854775808.0,
+                        GEF32_LT_I64_MIN,
+                        LEF32_GT_I64_MAX,
                     );
                     a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                     a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
@@ -4977,8 +4977,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     tmp_in,
-                    -9223373136366403584.0,
-                    9223372036854775808.0,
+                    GEF32_LT_I64_MIN,
+                    LEF32_GT_I64_MAX,
                     |a, _m| {
                         a.emit_mov(
                             Size::S64,
@@ -5058,8 +5058,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a,
                         &mut self.machine,
                         tmp_in,
-                        -1.0,
-                        18446744073709551616.0,
+                        GEF32_LT_U64_MIN,
+                        LEF32_GT_U64_MAX,
                     );
 
                     let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
@@ -5118,8 +5118,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     tmp_in,
-                    -1.0,
-                    18446744073709551616.0,
+                    GEF32_LT_U64_MIN,
+                    LEF32_GT_U64_MAX,
                     |a, _m| {
                         a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
                     },
@@ -5218,8 +5218,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a,
                         &mut self.machine,
                         tmp_in,
-                        -1.0,
-                        4294967296.0,
+                        GEF64_LT_U32_MIN,
+                        LEF64_GT_U32_MAX,
                     );
 
                     a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -5255,8 +5255,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     tmp_in,
-                    -1.0,
-                    4294967296.0,
+                    GEF64_LT_U32_MIN,
+                    LEF64_GT_U32_MAX,
                     |a, _m| {
                         a.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
                     },
@@ -5335,8 +5335,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a,
                         &mut self.machine,
                         real_in,
-                        -2147483649.0,
-                        2147483648.0,
+                        GEF64_LT_I32_MIN,
+                        LEF64_GT_I32_MAX,
                     );
 
                     a.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
@@ -5377,8 +5377,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     real_in,
-                    -2147483649.0,
-                    2147483648.0,
+                    GEF64_LT_I32_MIN,
+                    LEF64_GT_I32_MAX,
                     |a, _m| {
                         a.emit_mov(
                             Size::S32,
@@ -5458,8 +5458,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a,
                         &mut self.machine,
                         tmp_in,
-                        -9223372036854777856.0,
-                        9223372036854775808.0,
+                        GEF64_LT_I64_MIN,
+                        LEF64_GT_I64_MAX,
                     );
 
                     a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -5495,8 +5495,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     tmp_in,
-                    -9223372036854777856.0,
-                    9223372036854775808.0,
+                    GEF64_LT_I64_MIN,
+                    LEF64_GT_I64_MAX,
                     |a, _m| {
                         a.emit_mov(
                             Size::S64,
@@ -5576,8 +5576,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a,
                         &mut self.machine,
                         tmp_in,
-                        -1.0,
-                        18446744073709551616.0,
+                        GEF64_LT_U64_MIN,
+                        LEF64_GT_U64_MAX,
                     );
 
                     let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
@@ -5637,8 +5637,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     tmp_in,
-                    -1.0,
-                    18446744073709551616.0,
+                    GEF64_LT_U64_MIN,
+                    LEF64_GT_U64_MAX,
                     |a, _m| {
                         a.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
                     },
@@ -9642,3 +9642,42 @@ fn sort_call_movs(movs: &mut [(Location, GPR)]) {
     }
     */
 }
+
+// Constants for the bounds of truncation operations. These are the least or
+// greatest exact floats in either f32 or f64 representation less-than (for
+// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
+// min (for least) or max (for greatest), when rounding towards zero.
+
+/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
+const GEF32_LT_I32_MIN: f32 = -2147483904.0;
+/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
+const LEF32_GT_I32_MAX: f32 = 2147483648.0;
+/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
+const GEF32_LT_I64_MIN: f32 = -9223373136366403584.0;
+/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
+const LEF32_GT_I64_MAX: f32 = 9223372036854775808.0;
+/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
+const GEF32_LT_U32_MIN: f32 = -1.0;
+/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
+const LEF32_GT_U32_MAX: f32 = 4294967296.0;
+/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
+const GEF32_LT_U64_MIN: f32 = -1.0;
+/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
+const LEF32_GT_U64_MAX: f32 = 18446744073709551616.0;
+
+/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
+const GEF64_LT_I32_MIN: f64 = -2147483649.0;
+/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
+const LEF64_GT_I32_MAX: f64 = 2147483648.0;
+/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
+const GEF64_LT_I64_MIN: f64 = -9223372036854777856.0;
+/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
+const LEF64_GT_I64_MAX: f64 = 9223372036854775808.0;
+/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
+const GEF64_LT_U32_MIN: f64 = -1.0;
+/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
+const LEF64_GT_U32_MAX: f64 = 4294967296.0;
+/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
+const GEF64_LT_U64_MIN: f64 = -1.0;
+/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
+const LEF64_GT_U64_MAX: f64 = 18446744073709551616.0;
