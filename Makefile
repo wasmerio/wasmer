@@ -5,9 +5,11 @@ ARCH := $(shell uname -m)
 ifeq ($(ARCH), x86_64)
   # In X64, all backends are enabled
   backends := singlepass cranelift llvm
+  default_backend := cranelift
 else ifeq ($(ARCH), aarch64)
   # In ARM 64, only singlepass is enabled
   backends := singlepass
+  default_backend := singlepass
 else
   $(error Architecture $(ARCH) not yet supported in Wasmer)
 endif
@@ -131,7 +133,7 @@ capi-emscripten:
 		--no-default-features --features singlepass-backend,emscripten
 
 # We use cranelift as the default backend for the capi for now
-capi: capi-cranelift
+capi: capi-${default_backend}
 
 test-capi-singlepass: capi-singlepass
 	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
@@ -155,6 +157,7 @@ capi-test: test-capi
 
 test-rest:
 	cargo test --release \
+		--no-default-features --features backend-${default_backend},wasi \
 		--all \
 		--exclude wasmer-runtime-c-api \
 		--exclude wasmer-emscripten \
@@ -192,21 +195,23 @@ lint:
 precommit: lint test
 
 debug:
-	cargo build --release --features backend-cranelift,backend-singlepass,debug,trace
+	cargo build --release --features backend-${default_backend},debug,trace
 
 install:
 	cargo install --path .
 
 # Checks
 check-bench-singlepass:
-	cargo check --benches --all --no-default-features --features "backend-singlepass" \
+	cargo check --benches --all --no-default-features --features backend-singlepass \
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
+
 check-bench-cranelift:
-	cargo check --benches --all --no-default-features --features "backend-cranelift" \
+	cargo check --benches --all --no-default-features --features backend-cranelift \
 	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
 	--exclude wasmer-middleware-common-tests
+
 check-bench-llvm:
-	cargo check --benches --all --no-default-features --features "backend-llvm" \
+	cargo check --benches --all --no-default-features --features backend-llvm \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
 check-bench: $(foreach backend,$(backends),check-bench-$(backend))
@@ -234,7 +239,7 @@ check: check-bench
 	# at a time.
 	cargo check --manifest-path lib/runtime/Cargo.toml
 	# Check some of the cases where deterministic execution could matter
-	cargo check --manifest-path lib/runtime/Cargo.toml --features "deterministic-execution"
+	cargo check --manifest-path lib/runtime/Cargo.toml --features deterministic-execution
 	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features \
 		--features=default-backend-singlepass,deterministic-execution
 	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features \
@@ -290,16 +295,16 @@ release-llvm:
 
 # Benchmarks
 bench-singlepass:
-	cargo bench --all --no-default-features --features "backend-singlepass" \
+	cargo bench --all --no-default-features --features backend-singlepass \
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 
 bench-cranelift:
-	cargo bench --all --no-default-features --features "backend-cranelift" \
+	cargo bench --all --no-default-features --features backend-cranelift \
 	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
 	--exclude wasmer-middleware-common-tests
 
 bench-llvm:
-	cargo bench --all --no-default-features --features "backend-llvm" \
+	cargo bench --all --no-default-features --features backend-llvm \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
 bench: $(foreach backend,$(backends),bench-$(backend))
@@ -328,4 +333,4 @@ docs:
 	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed
 
 wapm:
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --features telemetry,update-notifications
