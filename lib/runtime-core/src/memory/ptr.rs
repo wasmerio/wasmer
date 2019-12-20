@@ -137,6 +137,17 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let slice: &[u8] = unsafe { std::slice::from_raw_parts(ptr, str_len as usize) };
         std::str::from_utf8(slice).ok()
     }
+
+    /// Get a UTF-8 string representation of this `WasmPtr`, where the string is nul-terminated.
+    /// Note that this does not account for UTF-8 strings that _contain_ nul themselves,
+    /// [`get_utf8_string`] has to be used for those.
+    pub fn get_utf8_string_with_nul<'a>(self, memory: &'a Memory) -> Option<&'a str> {
+        memory.view::<u8>()[(self.offset as usize)..]
+            .iter()
+            .map(|cell| cell.get())
+            .position(|byte| byte == 0)
+            .and_then(|length| self.get_utf8_string(memory, length as u32))
+    }
 }
 
 unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
