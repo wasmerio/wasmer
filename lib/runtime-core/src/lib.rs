@@ -105,8 +105,6 @@ pub mod prelude {
 /// WebAssembly binary code. This function is useful if it
 /// is necessary to a compile a module before it can be instantiated
 /// and must be used if you wish to use a different backend from the default.
-///
-/// [`Module`]: struct.Module.html
 pub fn compile_with(
     wasm: &[u8],
     compiler: &dyn backend::Compiler,

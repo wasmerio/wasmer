@@ -168,7 +168,7 @@ test-rest:
 		--exclude wasmer-emscripten-tests \
 		--exclude wasmer-runtime-core-tests
 
-tests: spectests emtests middleware wasitests test-rest
+tests: spectests emtests middleware wasitests test-rest examples
 
 test: tests
 
