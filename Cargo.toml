@@ -27,7 +27,7 @@ wabt = "0.9.1"
 wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
-wasmer-runtime = { path = "lib/runtime" }
+wasmer-runtime = { path = "lib/runtime", default-features = false }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }

@@ -155,11 +155,24 @@ test-capi: $(foreach backend,$(backends),test-capi-$(backend)) test-capi-emscrip
 
 capi-test: test-capi
 
+# Runtimes
+runtime-singlepass:
+	cargo test --manifest-path lib/runtime/Cargo.toml --release --no-default-features --features default-backend-singlepass
+
+runtime-cranelift:
+	cargo test --manifest-path lib/runtime/Cargo.toml --release --no-default-features --features default-backend-cranelift
+
+runtime-llvm:
+	cargo test --manifest-path lib/runtime/Cargo.toml --release --no-default-features --features default-backend-llvm
+
+runtime: $(foreach backend,$(backends),runtime-$(backend))
+
+# The rest
 test-rest:
 	cargo test --release \
-		--no-default-features --features backend-${default_backend},wasi \
 		--all \
 		--exclude wasmer-runtime-c-api \
+		--exclude wasmer-runtime \
 		--exclude wasmer-emscripten \
 		--exclude wasmer-spectests \
 		--exclude wasmer-wasi \
