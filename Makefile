@@ -83,16 +83,15 @@ wasitests-setup:
 	mkdir -p lib/wasi-tests/wasitests/test_fs/temp
 
 wasitests-singlepass: wasitests-setup
-	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features singlepass -- --test-threads=1
+	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features singlepass -- --test-threads=1 --nocapture
 
 wasitests-cranelift: wasitests-setup
 	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1 --nocapture
 
 wasitests-llvm: wasitests-setup
-	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features llvm -- --test-threads=1
+	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features llvm -- --test-threads=1 --nocapture
 
 wasitests-unit: wasitests-setup
-	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1 --nocapture
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
 wasitests: wasitests-unit $(foreach backend,$(backends),wasitests-$(backend))
@@ -169,14 +168,12 @@ test-rest:
 		--exclude wasmer-emscripten-tests \
 		--exclude wasmer-runtime-core-tests
 
-circleci-clean:
-	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
+tests: spectests emtests middleware wasitests test-rest
 
-test: spectests emtests middleware wasitests circleci-clean test-rest
-
+test: tests
 
 # Integration tests
-integration-tests: release-clif examples
+integration-tests: release examples
 	echo "Running Integration Tests"
 	./integration_tests/lua/test.sh
 	./integration_tests/nginx/test.sh
