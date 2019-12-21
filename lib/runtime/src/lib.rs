@@ -164,14 +164,27 @@ pub enum Backend {
 }
 
 impl Backend {
+    /// Get a list of the currently enabled (via feature flag) backends.
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            #[cfg(feature = "singlepass")]
+            "singlepass",
+            #[cfg(feature = "cranelift")]
+            "cranelift",
+            #[cfg(feature = "llvm")]
+            "llvm",
+            "auto",
+        ]
+    }
+
     /// Stable string representation of the backend.
     /// It can be used as part of a cache key, for example.
     pub fn to_string(&self) -> &'static str {
         match self {
-            #[cfg(feature = "cranelift")]
-            Backend::Cranelift => "cranelift",
             #[cfg(feature = "singlepass")]
             Backend::Singlepass => "singlepass",
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift => "cranelift",
             #[cfg(feature = "llvm")]
             Backend::LLVM => "llvm",
             Backend::Auto => "auto",
@@ -189,6 +202,22 @@ impl Default for Backend {
 
         #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
         return Backend::LLVM;
+    }
+}
+
+impl std::str::FromStr for Backend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Backend, String> {
+        match s.to_lowercase().as_str() {
+            #[cfg(feature = "singlepass")]
+            "singlepass" => Ok(Backend::Singlepass),
+            #[cfg(feature = "cranelift")]
+            "cranelift" => Ok(Backend::Cranelift),
+            #[cfg(feature = "llvm")]
+            "llvm" => Ok(Backend::LLVM),
+            "auto" => Ok(Backend::Auto),
+            _ => Err(format!("The backend {} doesn't exist", s)),
+        }
     }
 }
 
