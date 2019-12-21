@@ -146,11 +146,9 @@ impl Instance {
 
     /// Load an `Instance` using the given loader.
     pub fn load<T: Loader>(&self, loader: T) -> ::std::result::Result<T::Instance, T::Error> {
-        loader.load(
-            &**self.module.runnable_module,
-            &self.module.info,
-            unsafe { &*self.inner.vmctx },
-        )
+        loader.load(&**self.module.runnable_module, &self.module.info, unsafe {
+            &*self.inner.vmctx
+        })
     }
 
     /// Through generic magic and the awe-inspiring power of traits, we bring you...

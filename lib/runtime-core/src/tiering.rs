@@ -125,16 +125,9 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
         msm: baseline
             .module
             .runnable_module
-            .borrow()
             .get_module_state_map()
             .unwrap(),
-        base: baseline
-            .module
-            .runnable_module
-            .borrow()
-            .get_code()
-            .unwrap()
-            .as_ptr() as usize,
+        base: baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize,
         backend: baseline_backend,
         runnable_module: baseline.module.runnable_module.clone(),
     });
@@ -166,14 +159,12 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             let code_ptr = optimized
                 .module
                 .runnable_module
-                .borrow()
                 .get_code()
                 .unwrap()
                 .as_ptr() as usize;
             let target_addresses: Vec<usize> = optimized
                 .module
                 .runnable_module
-                .borrow()
                 .get_local_function_offsets()
                 .unwrap()
                 .into_iter()
@@ -184,7 +175,6 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                 baseline
                     .module
                     .runnable_module
-                    .borrow()
                     .patch_local_function(i - base, target_addresses[i - base]);
             }
 
@@ -193,13 +183,11 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                 msm: optimized
                     .module
                     .runnable_module
-                    .borrow()
                     .get_module_state_map()
                     .unwrap(),
                 base: optimized
                     .module
                     .runnable_module
-                    .borrow()
                     .get_code()
                     .unwrap()
                     .as_ptr() as usize,
@@ -218,16 +206,10 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                 let msm = baseline
                     .module
                     .runnable_module
-                    .borrow()
                     .get_module_state_map()
                     .unwrap();
-                let code_base = baseline
-                    .module
-                    .runnable_module
-                    .borrow()
-                    .get_code()
-                    .unwrap()
-                    .as_ptr() as usize;
+                let code_base =
+                    baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize;
                 invoke_call_return_on_stack(
                     &msm,
                     code_base,
