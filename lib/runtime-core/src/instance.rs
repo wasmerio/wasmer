@@ -103,6 +103,7 @@ impl Instance {
                 LocalOrImport::Local(local_func_index) => instance
                     .module
                     .runnable_module
+                    .borrow()
                     .get_func(&instance.module.info, local_func_index)
                     .unwrap(),
                 LocalOrImport::Import(import_func_index) => NonNull::new(
@@ -132,6 +133,7 @@ impl Instance {
             let wasm_trampoline = instance
                 .module
                 .runnable_module
+                .borrow()
                 .get_trampoline(&instance.module.info, sig_index)
                 .expect("wasm trampoline");
 
@@ -146,9 +148,11 @@ impl Instance {
 
     /// Load an `Instance` using the given loader.
     pub fn load<T: Loader>(&self, loader: T) -> ::std::result::Result<T::Instance, T::Error> {
-        loader.load(&*self.module.runnable_module, &self.module.info, unsafe {
-            &*self.inner.vmctx
-        })
+        loader.load(
+            &**self.module.runnable_module.borrow(),
+            &self.module.info,
+            unsafe { &*self.inner.vmctx },
+        )
     }
 
     /// Through generic magic and the awe-inspiring power of traits, we bring you...
@@ -215,6 +219,7 @@ impl Instance {
             let func_wasm_inner = self
                 .module
                 .runnable_module
+                .borrow()
                 .get_trampoline(&self.module.info, sig_index)
                 .unwrap();
 
@@ -222,6 +227,7 @@ impl Instance {
                 LocalOrImport::Local(local_func_index) => (
                     self.module
                         .runnable_module
+                        .borrow()
                         .get_func(&self.module.info, local_func_index)
                         .unwrap(),
                     None,
@@ -362,7 +368,7 @@ impl Instance {
 
         call_func_with_index(
             &self.module.info,
-            &*self.module.runnable_module,
+            &**self.module.runnable_module.borrow(),
             &self.inner.import_backing,
             self.inner.vmctx,
             func_index,
@@ -461,6 +467,7 @@ impl InstanceInner {
             LocalOrImport::Local(local_func_index) => (
                 module
                     .runnable_module
+                    .borrow()
                     .get_func(&module.info, local_func_index)
                     .expect("broken invariant, func resolver not synced with module.exports")
                     .cast()
@@ -790,7 +797,7 @@ impl<'a> DynFunc<'a> {
 
         call_func_with_index(
             &self.module.info,
-            &*self.module.runnable_module,
+            &**self.module.runnable_module.borrow(),
             &self.instance_inner.import_backing,
             self.instance_inner.vmctx,
             self.func_index,
@@ -812,6 +819,7 @@ impl<'a> DynFunc<'a> {
             LocalOrImport::Local(local_func_index) => self
                 .module
                 .runnable_module
+                .borrow()
                 .get_func(&self.module.info, local_func_index)
                 .unwrap()
                 .as_ptr(),

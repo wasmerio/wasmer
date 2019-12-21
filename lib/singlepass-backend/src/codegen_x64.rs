@@ -20,12 +20,12 @@ use std::{
     sync::{Arc, RwLock},
     usize,
 };
+use std::{cell::RefCell, rc::Rc};
 use wasmer_runtime_core::{
     backend::{
-        get_inline_breakpoint_size,
         sys::{Memory, Protect},
-        Architecture, Backend, CacheGen, CompilerConfig, MemoryBoundCheckMode, RunnableModule,
-        Token,
+        Architecture, Backend, CacheGen, CompilerConfig, InlineBreakpoint, InlineBreakpointType,
+        MemoryBoundCheckMode, RunnableModule, Token,
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
@@ -53,6 +53,12 @@ static ARCH: Architecture = Architecture::Aarch64;
 #[cfg(target_arch = "x86_64")]
 #[allow(dead_code)]
 static ARCH: Architecture = Architecture::X64;
+
+/// Inline breakpoint size for (x86-64, singlepass).
+pub const INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS: usize = 7;
+
+/// Inline breakpoint size for (aarch64, singlepass).
+pub const INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS: usize = 12;
 
 #[cfg(target_arch = "x86_64")]
 lazy_static! {
@@ -362,7 +368,7 @@ impl RunnableModule for X64ExecutionContext {
             user_error: *mut Option<Box<dyn Any + Send>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
-            let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
+            let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module.borrow();
             let execution_context =
                 mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
 
@@ -553,6 +559,64 @@ impl RunnableModule for X64ExecutionContext {
                 .map(|x| x.0)
                 .collect(),
         )
+    }
+
+    /// Returns the inline breakpoint size corresponding to an Architecture.
+    fn get_inline_breakpoint_size(&self, arch: Architecture) -> Option<usize> {
+        match arch {
+            Architecture::X64 => Some(INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS),
+            Architecture::Aarch64 => Some(INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS),
+        }
+    }
+
+    /// Attempts to read an inline breakpoint from the code.
+    ///
+    /// Inline breakpoints are detected by special instruction sequences that never
+    /// appear in valid code.
+    fn read_inline_breakpoint(&self, arch: Architecture, code: &[u8]) -> Option<InlineBreakpoint> {
+        match arch {
+            Architecture::X64 => {
+                if code.len() < INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS {
+                    None
+                } else if &code[..INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS - 1]
+                    == &[
+                        0x0f, 0x0b, // ud2
+                        0x0f, 0xb9, // ud
+                        0xcd, 0xff, // int 0xff
+                    ]
+                {
+                    Some(InlineBreakpoint {
+                        size: INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS,
+                        ty: match code[INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS - 1] {
+                            0 => InlineBreakpointType::Middleware,
+                            _ => return None,
+                        },
+                    })
+                } else {
+                    None
+                }
+            }
+            Architecture::Aarch64 => {
+                if code.len() < INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS {
+                    None
+                } else if &code[..INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS - 4]
+                    == &[
+                        0, 0, 0, 0, // udf #0
+                        0xff, 0xff, 0x00, 0x00, // udf #65535
+                    ]
+                {
+                    Some(InlineBreakpoint {
+                        size: INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS,
+                        ty: match code[INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS - 4] {
+                            0 => InlineBreakpointType::Middleware,
+                            _ => return None,
+                        },
+                    })
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 
@@ -856,7 +920,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             msm: cache_image.msm,
         };
         Ok(ModuleInner {
-            runnable_module: Box::new(ec),
+            runnable_module: Rc::new(RefCell::new(Box::new(ec))),
             cache_gen: Box::new(SinglepassCache {
                 buffer: Arc::from(memory.as_slice().to_vec().into_boxed_slice()),
             }),
@@ -887,28 +951,28 @@ impl X64FunctionCode {
             .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
     }
 
-    #[allow(dead_code)]
-    fn mark_inline_breakpoint(
-        a: &mut Assembler,
-        m: &Machine,
-        fsm: &mut FunctionStateMap,
-        control_stack: &mut [ControlFrame],
-    ) {
-        let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
-        let offset = a.get_offset().0;
-        fsm.trappable_offsets.insert(
-            offset,
-            OffsetInfo {
-                end_offset: offset
-                    + get_inline_breakpoint_size(ARCH, Backend::Singlepass)
-                        .expect("cannot get inline breakpoint size"),
-                activate_offset: offset,
-                diff_id: state_diff_id,
-            },
-        );
-        fsm.wasm_offset_to_target_offset
-            .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
-    }
+    // #[allow(dead_code)]
+    // fn mark_inline_breakpoint(
+    //     a: &mut Assembler,
+    //     m: &Machine,
+    //     fsm: &mut FunctionStateMap,
+    //     control_stack: &mut [ControlFrame],
+    // ) {
+    //     let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
+    //     let offset = a.get_offset().0;
+    //     fsm.trappable_offsets.insert(
+    //         offset,
+    //         OffsetInfo {
+    //             end_offset: offset
+    //                 + self.get_inline_breakpoint_size(ARCH)
+    //                     .expect("cannot get inline breakpoint size"),
+    //             activate_offset: offset,
+    //             diff_id: state_diff_id,
+    //         },
+    //     );
+    //     fsm.wasm_offset_to_target_offset
+    //         .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
+    // }
 
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
@@ -2458,7 +2522,6 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Event::Internal(x) => {
                 match x {
                     InternalEvent::Breakpoint(callback) => {
-                        use wasmer_runtime_core::backend::InlineBreakpointType;
                         self.breakpoints
                             .as_mut()
                             .unwrap()

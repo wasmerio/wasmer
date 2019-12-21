@@ -30,6 +30,7 @@ use std::{
     rc::Rc,
     sync::{Arc, RwLock},
 };
+
 use wasmer_runtime_core::{
     backend::{Backend, CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
@@ -8982,7 +8983,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             LLVMBackend::from_buffer(memory).map_err(CacheError::DeserializeError)?;
 
         Ok(ModuleInner {
-            runnable_module: Box::new(backend),
+            runnable_module: Rc::new(RefCell::new(Box::new(backend))),
             cache_gen: Box::new(cache_gen),
 
             info,

@@ -111,6 +111,7 @@ impl LocalBacking {
             .map(|index| {
                 module
                     .runnable_module
+                    .borrow()
                     .get_func(&module.info, LocalFuncIndex::new(index))
                     .unwrap()
                     .as_ptr() as *const _
@@ -380,6 +381,7 @@ impl LocalBacking {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
                                         .runnable_module
+                                        .borrow()
                                         .get_func(&module.info, local_func_index)
                                         .unwrap()
                                         .as_ptr()
@@ -413,6 +415,7 @@ impl LocalBacking {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
                                         .runnable_module
+                                        .borrow()
                                         .get_func(&module.info, local_func_index)
                                         .unwrap()
                                         .as_ptr()

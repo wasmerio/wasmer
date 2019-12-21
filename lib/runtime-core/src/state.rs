@@ -2,9 +2,10 @@
 //! state could read or updated at runtime. Use cases include generating stack traces, switching
 //! generated code from one tier to another, or serializing state of a running instace.
 
-use crate::backend::Backend;
+use crate::backend::{Backend, RunnableModule};
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
+use std::{cell::RefCell, rc::Rc};
 
 /// An index to a register
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -173,7 +174,7 @@ pub struct InstanceImage {
 }
 
 /// A `CodeVersion` is a container for a unit of generated code for a module.
-#[derive(Debug, Clone)]
+// #[derive(Debug, Clone)]
 pub struct CodeVersion {
     /// Indicates if this code version is the baseline version.
     pub baseline: bool,
@@ -186,6 +187,9 @@ pub struct CodeVersion {
 
     /// The backend used to compile this module.
     pub backend: Backend,
+
+    /// `RunnableModule` for this code version.
+    pub runnable_module: Rc<RefCell<Box<dyn RunnableModule>>>,
 }
 
 impl ModuleStateMap {

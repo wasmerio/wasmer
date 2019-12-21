@@ -3,6 +3,7 @@ mod tests {
     use wabt::wat2wasm;
 
     use wasmer_middleware_common::metering::*;
+    use wasmer_runtime_core::backend::RunnableModule;
     use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
     use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
     use wasmer_runtime_core::state::CodeVersion;
@@ -118,11 +119,23 @@ mod tests {
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
 
-        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+        let cv_pushed = if let Some(msm) = instance
+            .module
+            .runnable_module
+            .borrow()
+            .get_module_state_map()
+        {
             push_code_version(CodeVersion {
                 baseline: true,
                 msm: msm,
-                base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                base: instance
+                    .module
+                    .runnable_module
+                    .borrow()
+                    .get_code()
+                    .unwrap()
+                    .as_ptr() as usize,
+                runnable_module: instance.module.runnable_module.clone(),
                 backend: backend_id,
             });
             true
@@ -159,12 +172,24 @@ mod tests {
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
 
-        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+        let cv_pushed = if let Some(msm) = instance
+            .module
+            .runnable_module
+            .borrow()
+            .get_module_state_map()
+        {
             push_code_version(CodeVersion {
                 baseline: true,
                 msm: msm,
-                base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                base: instance
+                    .module
+                    .runnable_module
+                    .borrow()
+                    .get_code()
+                    .unwrap()
+                    .as_ptr() as usize,
                 backend: backend_id,
+                runnable_module: instance.module.runnable_module.clone(),
             });
             true
         } else {

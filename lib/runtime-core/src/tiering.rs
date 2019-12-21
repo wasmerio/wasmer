@@ -14,6 +14,7 @@ use crate::vm::Ctx;
 
 use std::cell::Cell;
 use std::sync::{Arc, Mutex};
+use std::{cell::RefCell, rc::Rc};
 
 struct Defer<F: FnOnce()>(Option<F>);
 impl<F: FnOnce()> Drop for Defer<F> {
@@ -125,10 +126,18 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
         msm: baseline
             .module
             .runnable_module
+            .borrow()
             .get_module_state_map()
             .unwrap(),
-        base: baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+        base: baseline
+            .module
+            .runnable_module
+            .borrow()
+            .get_code()
+            .unwrap()
+            .as_ptr() as usize,
         backend: baseline_backend,
+        runnable_module: baseline.module.runnable_module.clone(),
     });
     let n_versions: Cell<usize> = Cell::new(1);
 
@@ -182,15 +191,18 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                 msm: optimized
                     .module
                     .runnable_module
+                    .borrow()
                     .get_module_state_map()
                     .unwrap(),
                 base: optimized
                     .module
                     .runnable_module
+                    .borrow()
                     .get_code()
                     .unwrap()
                     .as_ptr() as usize,
                 backend: backend_id,
+                runnable_module: optimized.module.runnable_module.clone(),
             });
             n_versions.set(n_versions.get() + 1);
 

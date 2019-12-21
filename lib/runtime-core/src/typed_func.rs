@@ -515,7 +515,7 @@ macro_rules! impl_traits {
                     // At this point, there is an error that needs to
                     // be trapped.
                     unsafe {
-                        (&*vmctx.module).runnable_module.do_early_trap(err)
+                        (&*vmctx.module).runnable_module.borrow().do_early_trap(err)
                     }
                 }
 
@@ -627,7 +627,7 @@ macro_rules! impl_traits {
                     // At this point, there is an error that needs to
                     // be trapped.
                     unsafe {
-                        (&*vmctx.module).runnable_module.do_early_trap(err)
+                        (&*vmctx.module).runnable_module.borrow().do_early_trap(err)
                     }
                 }
 
