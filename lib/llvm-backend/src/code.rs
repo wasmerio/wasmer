@@ -1019,7 +1019,14 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
         for local_idx in 0..count {
             let alloca =
                 alloca_builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
-            builder.build_store(alloca, default_value);
+            let store = builder.build_store(alloca, default_value);
+            tbaa_label(
+                &self.module,
+                &intrinsics,
+                "local",
+                store,
+                Some((param_len + local_idx) as u32),
+            );
             if local_idx == 0 {
                 alloca_builder.position_before(
                     &alloca
@@ -8775,9 +8782,16 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
                     let real_ty_llvm = type_to_llvm(&intrinsics, real_ty);
                     let alloca =
                         alloca_builder.build_alloca(real_ty_llvm, &format!("local{}", index));
-                    builder.build_store(
+                    let store = builder.build_store(
                         alloca,
                         builder.build_bitcast(param, real_ty_llvm, &state.var_name()),
+                    );
+                    tbaa_label(
+                        &self.module,
+                        &intrinsics,
+                        "local",
+                        store,
+                        Some(index as u32),
                     );
                     if index == 0 {
                         alloca_builder.position_before(
