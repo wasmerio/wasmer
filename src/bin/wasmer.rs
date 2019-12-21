@@ -939,23 +939,24 @@ fn get_backend(backend: Backend, _path: &PathBuf) -> Backend {
                     Ok(wasm_binary) => wasm_binary.len(),
                     Err(_e) => 0,
                 };
-                if binary_size > 10485760 || cfg!(target_arch = "aarch64")
-                {
+                if binary_size > 10485760 || cfg!(target_arch = "aarch64") {
                     return Backend::Singlepass;
                 }
             }
-            
-            #[cfg(feature = "backend-cranelift")] {
+
+            #[cfg(feature = "backend-cranelift")]
+            {
                 return Backend::Cranelift;
             }
 
-            #[cfg(feature = "backend-llvm")] {
+            #[cfg(feature = "backend-llvm")]
+            {
                 return Backend::LLVM;
             }
 
             panic!("Can't find any backend");
         }
-        backend => backend
+        backend => backend,
     }
 }
 
