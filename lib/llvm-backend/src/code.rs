@@ -32,7 +32,7 @@ use std::{
 };
 
 use wasmer_runtime_core::{
-    backend::{Backend, CacheGen, CompilerConfig, Token},
+    backend::{CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
