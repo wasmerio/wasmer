@@ -7,10 +7,7 @@ mod tests {
     use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
     use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
     use wasmer_runtime_core::state::CodeVersion;
-    use wasmer_runtime_core::{
-        backend::Compiler,
-        compile_with, imports, Func,
-    };
+    use wasmer_runtime_core::{backend::Compiler, compile_with, imports, Func};
 
     #[cfg(feature = "llvm")]
     fn get_compiler(limit: u64) -> impl Compiler {

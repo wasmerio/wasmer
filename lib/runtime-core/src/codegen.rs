@@ -240,12 +240,7 @@ impl<
             _ => MCG::new(),
         };
         let mut chain = (self.middleware_chain_generator)();
-        let info = crate::parse::read_module(
-            wasm,
-            &mut mcg,
-            &mut chain,
-            &compiler_config,
-        )?;
+        let info = crate::parse::read_module(wasm, &mut mcg, &mut chain, &compiler_config)?;
         let (exec_context, cache_gen) =
             mcg.finalize(&info.read().unwrap())
                 .map_err(|x| CompileError::InternalError {
