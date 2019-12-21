@@ -250,6 +250,7 @@ mod tests {
         features.enable_simd();
         features.enable_threads();
         features.enable_sign_extension();
+        features.enable_sat_float_to_int();
         let mut parser: ScriptParser =
             ScriptParser::from_source_and_name_with_features(&source, filename, features)
                 .expect(&format!("Failed to parse script {}", &filename));
