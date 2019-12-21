@@ -222,38 +222,9 @@ check: check-bench
 	# as default, and test a minimal set of features with only one backend
 	# at a time.
 	cargo check --manifest-path lib/runtime/Cargo.toml
-	# Check some of the cases where deterministic execution could matter
-	cargo check --manifest-path lib/runtime/Cargo.toml --features "deterministic-execution"
-	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features \
-		--features=default-backend-singlepass,deterministic-execution
-	cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features \
-		--features=default-backend-llvm,deterministic-execution
-	cargo check --release --manifest-path lib/runtime/Cargo.toml
 
 	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-singlepass
-	$(RUNTIME_CHECK) --release \
-		--features=cranelift,cache,llvm,singlepass,default-backend-singlepass
-	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-cranelift
-	$(RUNTIME_CHECK) --release \
-		--features=cranelift,cache,llvm,singlepass,default-backend-cranelift
-	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-llvm
-	$(RUNTIME_CHECK) --release \
-		--features=cranelift,cache,llvm,singlepass,default-backend-llvm
-	$(RUNTIME_CHECK) \
-		--features=singlepass,default-backend-singlepass,debug
-	$(RUNTIME_CHECK) --release \
-		--features=singlepass,default-backend-singlepass
-	$(RUNTIME_CHECK) \
-		--features=cranelift,default-backend-cranelift,debug
-	$(RUNTIME_CHECK) --release \
-		--features=cranelift,default-backend-cranelift
-	$(RUNTIME_CHECK) \
-		--features=llvm,default-backend-llvm,debug
-	$(RUNTIME_CHECK) --release \
-		--features=llvm,default-backend-llvm
+		--features=singlepass,cranelift,llvm,cache,debug,deterministic-execution
 
 # Release
 release:
