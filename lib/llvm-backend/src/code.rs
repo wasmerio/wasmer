@@ -8721,8 +8721,8 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         }
     }
 
-    fn backend_id() -> Backend {
-        Backend::LLVM
+    fn backend_id() -> String {
+        "llvm".to_string()
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {

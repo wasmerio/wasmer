@@ -3,12 +3,11 @@
 //! and loaded to allow skipping compilation and fast startup.
 
 use crate::{
-    backend::Backend,
-    module::{Module, ModuleInfo},
+    module::ModuleInfo,
     sys::Memory,
 };
 use blake2b_simd::blake2bp;
-use std::{fmt, io, mem, slice};
+use std::{io, mem, slice};
 
 /// Indicates the invalid type of invalid cache file
 #[derive(Debug)]
@@ -35,7 +34,7 @@ pub enum Error {
     /// The cached binary has been invalidated.
     InvalidatedCache,
     /// The current backend does not support caching.
-    UnsupportedBackend(Backend),
+    UnsupportedBackend(String),
 }
 
 impl From<io::Error> for Error {
@@ -244,24 +243,6 @@ impl Artifact {
 
         Ok(buffer)
     }
-}
-
-/// A generic cache for storing and loading compiled wasm modules.
-///
-/// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
-pub trait Cache {
-    /// Error type to return when load error occurs
-    type LoadError: fmt::Debug;
-    /// Error type to return when store error occurs
-    type StoreError: fmt::Debug;
-
-    /// loads a module using the default `Backend`
-    fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
-    /// loads a cached module using a specific `Backend`
-    fn load_with_backend(&self, key: WasmHash, backend: Backend)
-        -> Result<Module, Self::LoadError>;
-    /// Store a module into the cache with the given key
-    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
 
 /// A unique ID generated from the version of Wasmer for use with cache versioning

@@ -24,7 +24,7 @@ use std::{cell::RefCell, rc::Rc};
 use wasmer_runtime_core::{
     backend::{
         sys::{Memory, Protect},
-        Architecture, Backend, CacheGen, CompilerConfig, InlineBreakpoint, InlineBreakpointType,
+        Architecture, CacheGen, CompilerConfig, InlineBreakpoint, InlineBreakpointType,
         MemoryBoundCheckMode, RunnableModule, Token,
     },
     cache::{Artifact, Error as CacheError},
@@ -648,8 +648,12 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     }
 
     /// Singlepass does validation as it compiles
-    fn requires_pre_validation(&self) -> bool {
+    fn requires_pre_validation() -> bool {
         false
+    }
+
+    fn backend_id() -> String {
+        "singlepass".to_string()
     }
 
     fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {

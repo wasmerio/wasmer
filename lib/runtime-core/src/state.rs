@@ -2,7 +2,7 @@
 //! state could read or updated at runtime. Use cases include generating stack traces, switching
 //! generated code from one tier to another, or serializing state of a running instace.
 
-use crate::backend::{Backend, RunnableModule};
+use crate::backend::RunnableModule;
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
 use std::{cell::RefCell, rc::Rc};
@@ -186,7 +186,7 @@ pub struct CodeVersion {
     pub base: usize,
 
     /// The backend used to compile this module.
-    pub backend: Backend,
+    pub backend: String,
 
     /// `RunnableModule` for this code version.
     pub runnable_module: Rc<RefCell<Box<dyn RunnableModule>>>,

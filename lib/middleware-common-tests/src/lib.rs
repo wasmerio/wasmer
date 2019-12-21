@@ -8,40 +8,40 @@ mod tests {
     use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
     use wasmer_runtime_core::state::CodeVersion;
     use wasmer_runtime_core::{
-        backend::{Backend, Compiler},
+        backend::Compiler,
         compile_with, imports, Func,
     };
 
     #[cfg(feature = "llvm")]
-    fn get_compiler(limit: u64) -> (impl Compiler, Backend) {
+    fn get_compiler(limit: u64) -> impl Compiler {
         use wasmer_llvm_backend::ModuleCodeGenerator as LLVMMCG;
         let c: StreamingCompiler<LLVMMCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
             chain.push(Metering::new(limit));
             chain
         });
-        (c, Backend::LLVM)
+        c
     }
 
     #[cfg(feature = "singlepass")]
-    fn get_compiler(limit: u64) -> (impl Compiler, Backend) {
+    fn get_compiler(limit: u64) -> impl Compiler {
         use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
         let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
             chain.push(Metering::new(limit));
             chain
         });
-        (c, Backend::Singlepass)
+        c
     }
 
     #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
     compile_error!("compiler not specified, activate a compiler via features");
 
     #[cfg(feature = "clif")]
-    fn get_compiler(_limit: u64) -> (impl Compiler, Backend) {
+    fn get_compiler(_limit: u64) -> impl Compiler {
         compile_error!("cranelift does not implement metering");
         use wasmer_clif_backend::CraneliftCompiler;
-        (CraneliftCompiler::new(), Backend::Cranelift)
+        CraneliftCompiler::new()
     }
 
     // Assemblyscript
@@ -172,6 +172,7 @@ mod tests {
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
 
+        instance.module.runnable_module.borrow().push_code_version_if_possible
         let cv_pushed = if let Some(msm) = instance
             .module
             .runnable_module

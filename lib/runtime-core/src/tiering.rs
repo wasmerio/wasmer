@@ -1,6 +1,6 @@
 //! The tiering module supports switching between code compiled with different optimization levels
 //! as runtime.
-use crate::backend::{Backend, Compiler, CompilerConfig};
+use crate::backend::{Compiler, CompilerConfig};
 use crate::compile_with_config;
 use crate::fault::{
     catch_unsafe_unwind, ensure_sighandler, pop_code_version, push_code_version, with_ctx,
@@ -44,7 +44,7 @@ struct OptimizationState {
 }
 
 struct OptimizationOutcome {
-    backend_id: Backend,
+    backend_id: String,
     module: Module,
 }
 
@@ -55,7 +55,7 @@ unsafe impl Sync for CtxWrapper {}
 
 unsafe fn do_optimize(
     binary: &[u8],
-    backend_id: Backend,
+    backend_id: String,
     compiler: Box<dyn Compiler>,
     ctx: &Mutex<CtxWrapper>,
     state: &OptimizationState,
@@ -88,8 +88,8 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     import_object: &ImportObject,
     start_raw: extern "C" fn(&mut Ctx),
     baseline: &mut Instance,
-    baseline_backend: Backend,
-    optimized_backends: Vec<(Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>)>,
+    baseline_backend: String,
+    optimized_backends: Vec<(String, Box<dyn Fn() -> Box<dyn Compiler> + Send>)>,
     interactive_shell: F,
 ) -> Result<(), String> {
     ensure_sighandler();
@@ -148,7 +148,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     }));
 
     loop {
-        let new_optimized: Option<(Backend, &mut Instance)> = {
+        let new_optimized: Option<(String, &mut Instance)> = {
             let mut outcome = opt_state.outcome.lock().unwrap();
             if let Some(x) = outcome.take() {
                 let instance = x

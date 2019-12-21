@@ -91,7 +91,10 @@
 //! [`wasmer-singlepass-backend`]: https://crates.io/crates/wasmer-singlepass-backend
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 
-pub use wasmer_runtime_core::backend::{Backend, Features};
+#[macro_use]
+extern crate serde_derive;
+
+pub use wasmer_runtime_core::backend::Features;
 pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
 pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
@@ -143,6 +146,52 @@ pub mod types {
 pub mod cache;
 
 pub use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
+
+/// Enum used to select which compiler should be used to generate code.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Backend {
+    #[cfg(feature = "singlepass")]
+    /// Singlepass backend
+    Singlepass,
+    #[cfg(feature = "cranelift")]
+    /// Cranelift backend
+    Cranelift,
+    #[cfg(feature = "llvm")]
+    /// LLVM backend
+    LLVM,
+    /// Auto backend
+    Auto,
+}
+
+impl Backend {
+    /// Stable string representation of the backend.
+    /// It can be used as part of a cache key, for example.
+    pub fn to_string(&self) -> &'static str {
+        match self {
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift => "cranelift",
+            #[cfg(feature = "singlepass")]
+            Backend::Singlepass => "singlepass",
+            #[cfg(feature = "llvm")]
+            Backend::LLVM => "llvm",
+            Backend::Auto => "auto",
+        }
+    }
+}
+
+impl Default for Backend {
+    fn default() -> Self {
+        #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
+        return Backend::Singlepass;
+    
+        #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
+        return Backend::Cranelift;
+
+        #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
+        return Backend::LLVM;
+    }
+}
+
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
@@ -268,9 +317,6 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
             #[cfg(feature = "default-backend-llvm")]
             return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
         }
-
-        #[cfg(not(all(feature = "llvm", feature = "singlepass", feature = "cranelift")))]
-        _ => None,
     }
 }
 
