@@ -481,22 +481,11 @@ fn execute_wasi(
         let result;
 
         #[cfg(unix)]
-        let cv_pushed = if let Some(msm) = instance
-            .module
-            .runnable_module
-            .borrow()
-            .get_module_state_map()
-        {
+        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
             push_code_version(CodeVersion {
                 baseline: true,
                 msm: msm,
-                base: instance
-                    .module
-                    .runnable_module
-                    .borrow()
-                    .get_code()
-                    .unwrap()
-                    .as_ptr() as usize,
+                base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
                 backend: options.backend,
                 runnable_module: instance.module.runnable_module.clone(),
             });
