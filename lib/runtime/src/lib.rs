@@ -162,9 +162,7 @@ pub use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
         feature = "default-backend-singlepass"
     )
 ))]
-compile_error!(
-    "The `default-backend-X` features are mutually exclusive.  Please choose just one"
-);
+compile_error!("The `default-backend-X` features are mutually exclusive.  Please choose just one");
 
 #[cfg(all(feature = "singlepass"))]
 use wasmer_singlepass_backend::SinglePassCompiler;
@@ -174,7 +172,6 @@ use wasmer_clif_backend::CraneliftCompiler;
 
 #[cfg(all(feature = "llvm"))]
 use wasmer_llvm_backend::LLVMCompiler;
-
 
 /// Enum used to select which compiler should be used to generate code.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
@@ -346,11 +343,7 @@ pub fn default_compiler() -> Box<dyn Compiler> {
 pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
     match backend {
         Backend::Auto => Some(default_compiler()),
-        #[cfg(any(
-            feature = "singlepass",
-            feature = "cranelift",
-            feature = "llvm"
-        ))]
+        #[cfg(any(feature = "singlepass", feature = "cranelift", feature = "llvm"))]
         backend => Some(backend.compiler()),
     }
 }
