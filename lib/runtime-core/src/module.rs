@@ -23,9 +23,8 @@ use std::sync::Arc;
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
 pub struct ModuleInner {
-    pub runnable_module: Box<dyn RunnableModule>,
+    pub runnable_module: Arc<Box<dyn RunnableModule>>,
     pub cache_gen: Box<dyn CacheGen>,
-
     pub info: ModuleInfo,
 }
 

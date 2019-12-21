@@ -146,7 +146,7 @@ impl Instance {
 
     /// Load an `Instance` using the given loader.
     pub fn load<T: Loader>(&self, loader: T) -> ::std::result::Result<T::Instance, T::Error> {
-        loader.load(&*self.module.runnable_module, &self.module.info, unsafe {
+        loader.load(&**self.module.runnable_module, &self.module.info, unsafe {
             &*self.inner.vmctx
         })
     }
@@ -362,7 +362,7 @@ impl Instance {
 
         call_func_with_index(
             &self.module.info,
-            &*self.module.runnable_module,
+            &**self.module.runnable_module,
             &self.inner.import_backing,
             self.inner.vmctx,
             func_index,
@@ -790,7 +790,7 @@ impl<'a> DynFunc<'a> {
 
         call_func_with_index(
             &self.module.info,
-            &*self.module.runnable_module,
+            &**self.module.runnable_module,
             &self.instance_inner.import_backing,
             self.instance_inner.vmctx,
             self.func_index,

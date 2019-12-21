@@ -129,6 +129,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             .unwrap(),
         base: baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize,
         backend: baseline_backend,
+        runnable_module: baseline.module.runnable_module.clone(),
     });
     let n_versions: Cell<usize> = Cell::new(1);
 
@@ -191,6 +192,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     .unwrap()
                     .as_ptr() as usize,
                 backend: backend_id,
+                runnable_module: optimized.module.runnable_module.clone(),
             });
             n_versions.set(n_versions.get() + 1);
 
