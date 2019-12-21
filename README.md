@@ -190,14 +190,14 @@ git clone https://github.com/wasmerio/wasmer.git
 cd wasmer
 
 # install tools
+make release-singlepass # To build with singlepass support
+
 make release-clif # To build with cranelift (default)
 
 make release-llvm # To build with llvm support
 
-make release-singlepass # To build with singlepass support
-
 # or
-make release # To build with singlepass, cranelift and llvm support
+make release # To build with all the backends supported by the platform and architecture
 ```
 
 ## Testing

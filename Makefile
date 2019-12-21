@@ -172,8 +172,8 @@ runtime: $(foreach backend,$(backends),runtime-$(backend))
 
 # The rest
 test-rest:
-	cargo test --release --features=default-backend-${default_backend} \
-		--all \
+	cargo test --release --features backend-${default_backend} \
+		--workspace \
 		--exclude wasmer-runtime-c-api \
 		--exclude wasmer-runtime \
 		--exclude wasmer-emscripten \
@@ -188,7 +188,7 @@ test-rest:
 		--exclude wasmer-emscripten-tests \
 		--exclude wasmer-runtime-core-tests
 
-tests: spectests emtests middleware wasitests test-rest examples
+tests: spectests emtests middleware wasitests test-rest runtime examples
 
 test: tests
 
@@ -261,7 +261,7 @@ check: check-bench
 
 # Release
 release:
-	cargo build --release --features default-backend-${default_backend},${backend_features},loader-kernel
+	cargo build --release --features default-backend-${default_backend},${backend_features}
 
 release-cranelift:
 	cargo build --release --features default-backend-cranelift
