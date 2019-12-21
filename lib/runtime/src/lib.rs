@@ -183,7 +183,7 @@ impl Default for Backend {
     fn default() -> Self {
         #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
         return Backend::Singlepass;
-    
+
         #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
         return Backend::Cranelift;
 
@@ -191,7 +191,6 @@ impl Default for Backend {
         return Backend::LLVM;
     }
 }
-
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
