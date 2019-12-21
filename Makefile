@@ -4,7 +4,11 @@ ARCH := $(shell uname -m)
 
 ifeq ($(ARCH), x86_64)
   # In X64, all backends are enabled
-  backends := singlepass cranelift llvm
+  ifeq ($(OS),Windows_NT)
+    backends := singlepass cranelift llvm
+  else
+    backends := cranelift llvm
+  endif
   default_backend := cranelift
 else ifeq ($(ARCH), aarch64)
   # In ARM 64, only singlepass is enabled

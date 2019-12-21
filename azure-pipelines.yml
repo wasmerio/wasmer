@@ -80,7 +80,7 @@ jobs:
       - bash: make test
         displayName: Tests (*nix)
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-      - bash: make spectests-cranelift
+      - bash: make spectests
         displayName: Tests (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
 
@@ -141,11 +141,7 @@ jobs:
           mkdir -p artifacts
         displayName: Create Artifacts Dir
       - bash: make release
-        displayName: Build (*nix)
-        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-      - bash: make release-llvm
-        displayName: Build (Windows)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+        displayName: Build
       - bash: |
           make wapm
         displayName: Build WAPM
