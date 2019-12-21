@@ -143,7 +143,7 @@ test-capi-llvm: capi-llvm
 	cargo test -p wasmer-runtime-c-api --release \
 		--no-default-features --features default-backend-llvm,wasi,emscripten
 
-test-capi: $(foreach backend,$(backends),test-capi-$(backend)) test-capi-emscripten
+test-capi: $(foreach backend,$(backends),test-capi-$(backend))
 
 capi-test: test-capi
 
@@ -242,7 +242,7 @@ check: check-bench
 	# builds, test as many combined features as possible with each backend
 	# as default, and test a minimal set of features with only one backend
 	# at a time.
-	cargo check -p wasmer-runtime
+	cargo check -p wasmer-runtime --features=default-backend-singlepass
 
 	$(RUNTIME_CHECK) \
 		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,debug,deterministic-execution
