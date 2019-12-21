@@ -3,7 +3,7 @@
 
 use crate::codegen::*;
 use crate::{
-    backend::{Backend, CompilerConfig, RunnableModule},
+    backend::{CompilerConfig, RunnableModule},
     error::CompileError,
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
@@ -57,7 +57,6 @@ pub fn read_module<
     E: Debug,
 >(
     wasm: &[u8],
-    backend: Backend,
     mcg: &mut MCG,
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
@@ -83,7 +82,7 @@ pub fn read_module<
 
         func_assoc: Map::new(),
         signatures: Map::new(),
-        backend: backend,
+        backend: MCG::backend_id(),
 
         namespace_table: StringTable::new(),
         name_table: StringTable::new(),
@@ -451,7 +450,7 @@ fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, BinaryReaderErro
 
 fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
     Ok(match *op {
-        Operator::GetGlobal { global_index } => {
+        Operator::GlobalGet { global_index } => {
             Initializer::GetGlobal(ImportedGlobalIndex::new(global_index as usize))
         }
         Operator::I32Const { value } => Initializer::Const(Value::I32(value)),

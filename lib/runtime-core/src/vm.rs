@@ -975,6 +975,7 @@ mod vm_ctx_tests {
     use crate::module::{ModuleInfo, ModuleInner, StringTable};
     use crate::structures::Map;
     use std::ffi::c_void;
+    use std::sync::Arc;
 
     struct TestData {
         x: u32,
@@ -1063,7 +1064,7 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{sys::Memory, Backend, CacheGen, RunnableModule};
+        use crate::backend::{sys::Memory, CacheGen, RunnableModule};
         use crate::cache::Error as CacheError;
         use crate::typed_func::Wasm;
         use crate::types::{LocalFuncIndex, SigIndex};
@@ -1095,7 +1096,7 @@ mod vm_ctx_tests {
         }
 
         ModuleInner {
-            runnable_module: Box::new(Placeholder),
+            runnable_module: Arc::new(Box::new(Placeholder)),
             cache_gen: Box::new(Placeholder),
             info: ModuleInfo {
                 memories: Map::new(),
@@ -1117,7 +1118,7 @@ mod vm_ctx_tests {
 
                 func_assoc: Map::new(),
                 signatures: Map::new(),
-                backend: Backend::Cranelift,
+                backend: "".to_string(),
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),

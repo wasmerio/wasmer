@@ -12,7 +12,7 @@ edition = "2018"
 [dependencies]
 nix = "0.15"
 page_size = "0.4"
-wasmparser = "0.39.1"
+wasmparser = "0.45.0"
 parking_lot = "0.9"
 lazy_static = "1.4"
 errno = "0.2"
@@ -52,7 +52,7 @@ cc = "1.0"
 [features]
 debug = []
 trace = ["debug"]
-# backend flags used in conditional compilation of Backend::variants
+# backend flags no longer used
 "backend-cranelift" = []
 "backend-singlepass" = []
 "backend-llvm" = []

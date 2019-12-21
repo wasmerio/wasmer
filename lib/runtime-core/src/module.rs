@@ -1,7 +1,7 @@
 //! The module module contains the implementation data structures and helper functions used to
 //! manipulate and access wasm modules.
 use crate::{
-    backend::{Backend, RunnableModule},
+    backend::RunnableModule,
     cache::{Artifact, Error as CacheError},
     error,
     import::ImportObject,
@@ -23,9 +23,8 @@ use std::sync::Arc;
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
 pub struct ModuleInner {
-    pub runnable_module: Box<dyn RunnableModule>,
+    pub runnable_module: Arc<Box<dyn RunnableModule>>,
     pub cache_gen: Box<dyn CacheGen>,
-
     pub info: ModuleInfo,
 }
 
@@ -66,7 +65,7 @@ pub struct ModuleInfo {
     /// Map signature index to function signature.
     pub signatures: Map<SigIndex, FuncSig>,
     /// Backend.
-    pub backend: Backend,
+    pub backend: String,
 
     /// Table of namespace indexes.
     pub namespace_table: StringTable<NamespaceIndex>,
