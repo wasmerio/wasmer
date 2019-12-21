@@ -11,11 +11,9 @@ use std::{
     path::PathBuf,
 };
 
-use wasmer_runtime_core::cache::Error as CacheError;
-pub use wasmer_runtime_core::{
-    cache::{Artifact, WasmHash},
-};
 pub use super::Backend;
+use wasmer_runtime_core::cache::Error as CacheError;
+pub use wasmer_runtime_core::cache::{Artifact, WasmHash};
 
 /// A generic cache for storing and loading compiled wasm modules.
 ///

@@ -2,10 +2,7 @@
 //! serializing compiled wasm code to a binary format.  The binary format can be persisted,
 //! and loaded to allow skipping compilation and fast startup.
 
-use crate::{
-    module::ModuleInfo,
-    sys::Memory,
-};
+use crate::{module::ModuleInfo, sys::Memory};
 use blake2b_simd::blake2bp;
 use std::{io, mem, slice};
 
