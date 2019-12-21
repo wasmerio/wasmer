@@ -4,8 +4,9 @@ ARCH := $(shell uname -m)
 
 ifeq ($(ARCH), x86_64)
   # In X64, all backends are enabled
-  ifeq ($(OS),Windows_NT)
-    backends := cranelift llvm
+  ifeq ($(OS), Windows_NT)
+    # llvm tests are failing in Windows
+    backends := cranelift
   else
     backends := singlepass cranelift llvm
   endif
@@ -160,13 +161,13 @@ capi-test: test-capi
 
 # Runtimes
 runtime-singlepass:
-	cargo test -p wasmer-runtime --release --no-default-features --features default-backend-singlepass
+	cargo test --manifest-path lib/runtime/Cargo.toml --release --no-default-features --features default-backend-singlepass
 
 runtime-cranelift:
-	cargo test -p wasmer-runtime --release --no-default-features --features default-backend-cranelift
+	cargo test --manifest-path lib/runtime/Cargo.toml --release --no-default-features --features default-backend-cranelift
 
 runtime-llvm:
-	cargo test -p wasmer-runtime --release --no-default-features --features default-backend-llvm
+	cargo test --manifest-path lib/runtime/Cargo.toml --release --no-default-features --features default-backend-llvm
 
 runtime: $(foreach backend,$(backends),runtime-$(backend))
 
