@@ -174,7 +174,7 @@ pub struct InstanceImage {
 }
 
 /// A `CodeVersion` is a container for a unit of generated code for a module.
-// #[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CodeVersion {
     /// Indicates if this code version is the baseline version.
     pub baseline: bool,

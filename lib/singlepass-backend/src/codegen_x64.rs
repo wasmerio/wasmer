@@ -54,10 +54,10 @@ static ARCH: Architecture = Architecture::Aarch64;
 #[allow(dead_code)]
 static ARCH: Architecture = Architecture::X64;
 
-/// Inline breakpoint size for (x86-64, singlepass).
+/// Inline breakpoint size for x86-64.
 pub const INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS: usize = 7;
 
-/// Inline breakpoint size for (aarch64, singlepass).
+/// Inline breakpoint size for aarch64.
 pub const INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS: usize = 12;
 
 #[cfg(target_arch = "x86_64")]
@@ -948,29 +948,6 @@ impl X64FunctionCode {
         fsm.wasm_offset_to_target_offset
             .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
     }
-
-    // #[allow(dead_code)]
-    // fn mark_inline_breakpoint(
-    //     a: &mut Assembler,
-    //     m: &Machine,
-    //     fsm: &mut FunctionStateMap,
-    //     control_stack: &mut [ControlFrame],
-    // ) {
-    //     let state_diff_id = Self::get_state_diff(m, fsm, control_stack);
-    //     let offset = a.get_offset().0;
-    //     fsm.trappable_offsets.insert(
-    //         offset,
-    //         OffsetInfo {
-    //             end_offset: offset
-    //                 + self.get_inline_breakpoint_size(ARCH)
-    //                     .expect("cannot get inline breakpoint size"),
-    //             activate_offset: offset,
-    //             diff_id: state_diff_id,
-    //         },
-    //     );
-    //     fsm.wasm_offset_to_target_offset
-    //         .insert(m.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
-    // }
 
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
