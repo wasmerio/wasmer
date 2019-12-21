@@ -1056,13 +1056,10 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 pub fn nullfunc(ctx: &mut Ctx, _x: u32) {
     use crate::process::abort_with_message;
     debug!("emscripten::nullfunc_i {}", _x);
-    abort_with_message(
-        ctx,
-        "Invalid function pointer. Perhaps this is an invalid value \
+    abort_with_message(ctx, "Invalid function pointer. Perhaps this is an invalid value \
     (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an \
     incorrect type, which will fail? (it is worth building your source files with -Werror (\
-    warnings are errors), as warnings can indicate undefined behavior which can cause this)",
-    );
+    warnings are errors), as warnings can indicate undefined behavior which can cause this)");
 }
 
 /// The current version of this crate
