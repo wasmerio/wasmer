@@ -289,7 +289,7 @@ extern "C" fn signal_trap_handler(
             CURRENT_CODE_VERSIONS.with(|versions| {
                 let versions = versions.borrow();
                 for v in versions.iter() {
-                    let runnable_module = v.runnable_module.borrow();
+                    let runnable_module = &v.runnable_module;
                     let magic_size =
                         if let Some(x) = runnable_module.get_inline_breakpoint_size(ARCH) {
                             x

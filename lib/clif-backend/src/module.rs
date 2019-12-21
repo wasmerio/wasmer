@@ -5,7 +5,6 @@ use cranelift_codegen::ir;
 use cranelift_entity::EntityRef;
 use cranelift_wasm;
 use std::sync::Arc;
-use std::{cell::RefCell, rc::Rc};
 
 use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 
@@ -43,7 +42,7 @@ impl Module {
         let runnable_module = Caller::new(handler_data, trampolines, func_resolver);
 
         Ok(ModuleInner {
-            runnable_module: Rc::new(RefCell::new(Box::new(runnable_module))),
+            runnable_module: Arc::new(Box::new(runnable_module)),
             cache_gen,
             info,
         })

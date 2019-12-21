@@ -8983,9 +8983,8 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             LLVMBackend::from_buffer(memory).map_err(CacheError::DeserializeError)?;
 
         Ok(ModuleInner {
-            runnable_module: Rc::new(RefCell::new(Box::new(backend))),
+            runnable_module: Arc::new(Box::new(backend)),
             cache_gen: Box::new(cache_gen),
-
             info,
         })
     }

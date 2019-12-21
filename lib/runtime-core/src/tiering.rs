@@ -14,7 +14,6 @@ use crate::vm::Ctx;
 
 use std::cell::Cell;
 use std::sync::{Arc, Mutex};
-use std::{cell::RefCell, rc::Rc};
 
 struct Defer<F: FnOnce()>(Option<F>);
 impl<F: FnOnce()> Drop for Defer<F> {
@@ -212,7 +211,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             baseline.context_mut().local_functions = optimized.context_mut().local_functions;
         }
         // Assuming we do not want to do breakpoint-based debugging on optimized backends.
-        let breakpoints = baseline.module.runnable_module.borrow().get_breakpoints();
+        let breakpoints = baseline.module.runnable_module.get_breakpoints();
         let ctx = baseline.context_mut() as *mut _;
         let ret = with_ctx(ctx, || {
             if let Some(image) = resume_image.take() {

@@ -5,7 +5,7 @@
 use crate::backend::{Backend, RunnableModule};
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
-use std::{cell::RefCell, rc::Rc};
+use std::sync::Arc;
 
 /// An index to a register
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -189,7 +189,7 @@ pub struct CodeVersion {
     pub backend: Backend,
 
     /// `RunnableModule` for this code version.
-    pub runnable_module: Rc<RefCell<Box<dyn RunnableModule>>>,
+    pub runnable_module: Arc<Box<dyn RunnableModule>>,
 }
 
 impl ModuleStateMap {
