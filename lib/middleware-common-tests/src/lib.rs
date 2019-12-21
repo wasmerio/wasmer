@@ -3,8 +3,8 @@ mod tests {
     use wabt::wat2wasm;
 
     use wasmer_middleware_common::metering::*;
-    use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
     use wasmer_runtime_core::codegen::ModuleCodeGenerator;
+    use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
     use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
     use wasmer_runtime_core::state::CodeVersion;
     use wasmer_runtime_core::{backend::Compiler, compile_with, imports, Func};
