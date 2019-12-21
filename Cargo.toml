@@ -81,7 +81,10 @@ default = ["fast-tests", "wasi", "experimental-io-devices"]
 emscripten = ["wasmer-runtime-c-api/emscripten"]
 deterministic-execution = ["wasmer-runtime/deterministic-execution"]
 cache = ["wasmer-runtime/cache"]
-loader-kernel = ["wasmer-kernel-loader"]
+loader-kernel = [
+    "wasmer-kernel-loader",
+    "backend-singlepass"
+]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
 docs = ["wasmer-runtime/docs"]
