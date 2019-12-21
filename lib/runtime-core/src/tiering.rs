@@ -167,12 +167,14 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             let code_ptr = optimized
                 .module
                 .runnable_module
+                .borrow()
                 .get_code()
                 .unwrap()
                 .as_ptr() as usize;
             let target_addresses: Vec<usize> = optimized
                 .module
                 .runnable_module
+                .borrow()
                 .get_local_function_offsets()
                 .unwrap()
                 .into_iter()
@@ -183,6 +185,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                 baseline
                     .module
                     .runnable_module
+                    .borrow()
                     .patch_local_function(i - base, target_addresses[i - base]);
             }
 
@@ -209,17 +212,18 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             baseline.context_mut().local_functions = optimized.context_mut().local_functions;
         }
         // Assuming we do not want to do breakpoint-based debugging on optimized backends.
-        let breakpoints = baseline.module.runnable_module.get_breakpoints();
+        let breakpoints = baseline.module.runnable_module.borrow().get_breakpoints();
         let ctx = baseline.context_mut() as *mut _;
         let ret = with_ctx(ctx, || {
             if let Some(image) = resume_image.take() {
                 let msm = baseline
                     .module
                     .runnable_module
+                    .borrow()
                     .get_module_state_map()
                     .unwrap();
                 let code_base =
-                    baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize;
+                    baseline.module.runnable_module.borrow().get_code().unwrap().as_ptr() as usize;
                 invoke_call_return_on_stack(
                     &msm,
                     code_base,
