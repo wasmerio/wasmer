@@ -3,27 +3,23 @@ mod tests {
     use wabt::wat2wasm;
 
     use wasmer_middleware_common::metering::*;
-    use wasmer_runtime_core::backend::RunnableModule;
     use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
+    use wasmer_runtime_core::codegen::ModuleCodeGenerator;
     use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
     use wasmer_runtime_core::state::CodeVersion;
     use wasmer_runtime_core::{backend::Compiler, compile_with, imports, Func};
 
     #[cfg(feature = "llvm")]
-    fn get_compiler(limit: u64) -> impl Compiler {
-        use wasmer_llvm_backend::ModuleCodeGenerator as LLVMMCG;
-        let c: StreamingCompiler<LLVMMCG, _, _, _, _> = StreamingCompiler::new(move || {
-            let mut chain = MiddlewareChain::new();
-            chain.push(Metering::new(limit));
-            chain
-        });
-        c
-    }
+    use wasmer_llvm_backend::ModuleCodeGenerator as MCG;
 
     #[cfg(feature = "singlepass")]
+    use wasmer_singlepass_backend::ModuleCodeGenerator as MCG;
+
+    #[cfg(feature = "clif")]
+    compile_error!("cranelift does not implement metering yet");
+
     fn get_compiler(limit: u64) -> impl Compiler {
-        use wasmer_singlepass_backend::ModuleCodeGenerator as SinglePassMCG;
-        let c: StreamingCompiler<SinglePassMCG, _, _, _, _> = StreamingCompiler::new(move || {
+        let c: StreamingCompiler<MCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
             chain.push(Metering::new(limit));
             chain
@@ -33,13 +29,6 @@ mod tests {
 
     #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
     compile_error!("compiler not specified, activate a compiler via features");
-
-    #[cfg(feature = "clif")]
-    fn get_compiler(_limit: u64) -> impl Compiler {
-        compile_error!("cranelift does not implement metering");
-        use wasmer_clif_backend::CraneliftCompiler;
-        CraneliftCompiler::new()
-    }
 
     // Assemblyscript
     // export function add_to(x: i32, y: i32): i32 {
@@ -106,7 +95,7 @@ mod tests {
 
         let limit = 100u64;
 
-        let (compiler, backend_id) = get_compiler(limit);
+        let compiler = get_compiler(limit);
         let module = compile_with(&wasm_binary, &compiler).unwrap();
 
         let import_object = imports! {};
@@ -121,8 +110,8 @@ mod tests {
                 baseline: true,
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                backend: MCG::backend_id(),
                 runnable_module: instance.module.runnable_module.clone(),
-                backend: backend_id,
             });
             true
         } else {
@@ -148,7 +137,7 @@ mod tests {
 
         let limit = 100u64;
 
-        let (compiler, backend_id) = get_compiler(limit);
+        let compiler = get_compiler(limit);
         let module = compile_with(&wasm_binary, &compiler).unwrap();
 
         let import_object = imports! {};
@@ -168,7 +157,7 @@ mod tests {
                 baseline: true,
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                backend: backend_id,
+                backend: MCG::backend_id(),
                 runnable_module: instance.module.runnable_module.clone(),
             });
             true
