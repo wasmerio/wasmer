@@ -29,13 +29,13 @@ use wasmer_llvm_backend::{
 };
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
-    Value, VERSION,
+    Backend, Value, VERSION,
 };
 #[cfg(feature = "managed")]
 use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
 use wasmer_runtime_core::{
     self,
-    backend::{Backend, Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
+    backend::{Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
     debug,
     loader::{Instance as LoadedInstance, LocalLoader},
     Module,
@@ -142,7 +142,7 @@ struct Run {
     #[structopt(parse(from_os_str))]
     path: PathBuf,
 
-    /// Name of the backend to use. (x86_64)
+    /// Name of the backend to use (x86_64)
     #[cfg(target_arch = "x86_64")]
     #[structopt(
         long = "backend",
@@ -152,7 +152,7 @@ struct Run {
     )]
     backend: Backend,
 
-    /// Name of the backend to use. (aarch64)
+    /// Name of the backend to use (aarch64)
     #[cfg(target_arch = "aarch64")]
     #[structopt(
         long = "backend",
@@ -485,7 +485,7 @@ fn execute_wasi(
                 baseline: true,
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                backend: options.backend,
+                backend: options.backend.to_string().to_owned(),
                 runnable_module: instance.module.runnable_module.clone(),
             });
             true
@@ -617,8 +617,15 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     // Don't error on --enable-all for other backends.
-    if options.features.simd && options.backend != Backend::LLVM {
-        return Err("SIMD is only supported in the LLVM backend for now".to_string());
+    if options.features.simd {
+        #[cfg(feature = "backend-llvm")]
+        {
+            if options.backend != Backend::LLVM {
+                return Err("SIMD is only supported in the LLVM backend for now".to_string());
+            }
+        }
+        #[cfg(not(feature = "backend-llvm"))]
+        return Err("SIMD is not supported in this backend".to_string());
     }
 
     if !utils::is_wasm_binary(&wasm_binary) {
@@ -1016,16 +1023,10 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
                 StreamingCompiler::new(middlewares_gen);
             Box::new(c)
         }
-        #[cfg(not(feature = "backend-singlepass"))]
-        Backend::Singlepass => return None,
         #[cfg(feature = "backend-cranelift")]
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        #[cfg(not(feature = "backend-cranelift"))]
-        Backend::Cranelift => return None,
         #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
-        #[cfg(not(feature = "backend-llvm"))]
-        Backend::LLVM => return None,
         Backend::Auto => return None,
     })
 }
