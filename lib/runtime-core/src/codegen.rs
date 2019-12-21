@@ -92,10 +92,10 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     ) -> Self;
 
     /// Returns the backend id associated with this MCG.
-    fn backend_id() -> Backend;
+    fn backend_id() -> String;
 
     /// It sets if the current compiler requires validation before compilation
-    fn requires_pre_validation(&self) -> bool {
+    fn requires_pre_validation() -> bool {
         true
     }
 
@@ -231,8 +231,8 @@ impl<
             validate_with_features(wasm, &compiler_config.features)?;
         }
 
-        let mut mcg = match MCG::backend_id() {
-            Backend::LLVM => MCG::new_with_target(
+        let mut mcg = match MCG::backend_id().as_ref() {
+            "llvm" => MCG::new_with_target(
                 compiler_config.triple.clone(),
                 compiler_config.cpu_name.clone(),
                 compiler_config.cpu_features.clone(),
@@ -242,7 +242,6 @@ impl<
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(
             wasm,
-            MCG::backend_id(),
             &mut mcg,
             &mut chain,
             &compiler_config,
