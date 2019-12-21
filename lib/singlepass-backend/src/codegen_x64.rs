@@ -646,12 +646,13 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         }
     }
 
-    fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {
-        unimplemented!("cross compilation is not available for singlepass backend")
+    /// Singlepass does validation as it compiles
+    fn requires_pre_validation(&self) -> bool {
+        false
     }
 
-    fn backend_id() -> Backend {
-        Backend::Singlepass
+    fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {
+        unimplemented!("cross compilation is not available for singlepass backend")
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
