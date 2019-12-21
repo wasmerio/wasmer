@@ -457,7 +457,6 @@ impl Ctx {
 
             let sig_index = SigRegistry.lookup_sig_index(signature.clone());
             runnable
-                .borrow()
                 .get_trampoline(&module.info, sig_index)
                 .expect("wasm trampoline")
         };
@@ -976,7 +975,6 @@ mod vm_ctx_tests {
     use crate::module::{ModuleInfo, ModuleInner, StringTable};
     use crate::structures::Map;
     use std::ffi::c_void;
-    use std::{cell::RefCell, rc::Rc};
 
     struct TestData {
         x: u32,
@@ -1097,7 +1095,7 @@ mod vm_ctx_tests {
         }
 
         ModuleInner {
-            runnable_module: Rc::new(RefCell::new(Box::new(Placeholder))),
+            runnable_module: Arc::new(Box::new(Placeholder)),
             cache_gen: Box::new(Placeholder),
             info: ModuleInfo {
                 memories: Map::new(),

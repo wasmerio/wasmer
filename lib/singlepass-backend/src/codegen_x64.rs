@@ -20,7 +20,6 @@ use std::{
     sync::{Arc, RwLock},
     usize,
 };
-use std::{cell::RefCell, rc::Rc};
 use wasmer_runtime_core::{
     backend::{
         sys::{Memory, Protect},
@@ -368,7 +367,7 @@ impl RunnableModule for X64ExecutionContext {
             user_error: *mut Option<Box<dyn Any + Send>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
-            let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module.borrow();
+            let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
 
             let args =
                 slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
@@ -923,11 +922,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             msm: cache_image.msm,
         };
         Ok(ModuleInner {
-            runnable_module: Rc::new(RefCell::new(Box::new(ec))),
+            runnable_module: Arc::new(Box::new(ec)),
             cache_gen: Box::new(SinglepassCache {
                 buffer: Arc::from(memory.as_slice().to_vec().into_boxed_slice()),
             }),
-
             info,
         })
     }

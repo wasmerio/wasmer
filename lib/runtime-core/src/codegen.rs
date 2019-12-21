@@ -18,7 +18,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
-use std::{cell::RefCell, rc::Rc};
 use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
@@ -254,7 +253,7 @@ impl<
                 })?;
         Ok(ModuleInner {
             cache_gen,
-            runnable_module: Rc::new(RefCell::new(Box::new(exec_context))),
+            runnable_module: Arc::new(Box::new(exec_context)),
             info: Arc::try_unwrap(info).unwrap().into_inner().unwrap(),
         })
     }

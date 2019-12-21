@@ -289,9 +289,8 @@ extern "C" fn signal_trap_handler(
             CURRENT_CODE_VERSIONS.with(|versions| {
                 let versions = versions.borrow();
                 for v in versions.iter() {
-                    let runnable_module = v.runnable_module.borrow();
                     let magic_size =
-                        if let Some(x) = runnable_module.get_inline_breakpoint_size(ARCH) {
+                        if let Some(x) = v.runnable_module.get_inline_breakpoint_size(ARCH) {
                             x
                         } else {
                             continue;
@@ -299,7 +298,7 @@ extern "C" fn signal_trap_handler(
                     let ip = fault.ip.get();
                     let end = v.base + v.msm.total_size;
                     if ip >= v.base && ip < end && ip + magic_size <= end {
-                        if let Some(ib) = runnable_module.read_inline_breakpoint(
+                        if let Some(ib) = v.runnable_module.read_inline_breakpoint(
                             ARCH,
                             std::slice::from_raw_parts(ip as *const u8, magic_size),
                         ) {
