@@ -369,8 +369,6 @@ impl RunnableModule for X64ExecutionContext {
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module.borrow();
-            let execution_context =
-                mem::transmute_copy::<&dyn RunnableModule, &X64ExecutionContext>(&&**rm);
 
             let args =
                 slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
@@ -502,7 +500,7 @@ impl RunnableModule for X64ExecutionContext {
                         ret
                     }
                 },
-                Some(execution_context.breakpoints.clone()),
+                rm.get_breakpoints(),
             ) {
                 Ok(x) => {
                     if !rets.is_null() {
