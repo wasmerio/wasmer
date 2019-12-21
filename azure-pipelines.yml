@@ -245,27 +245,12 @@ jobs:
       - script: VERSION_TAG=`git describe --tags` && echo "##vso[task.setvariable variable=VERSION_TAG]$VERSION_TAG"
         displayName: Set the tag name as an environment variable
       - task: GithubRelease@0
-        displayName: "Create GitHub Release"
+        displayName: "Create GitHub Release with artifacts"
         condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
-        continueOnError: true
         inputs:
           gitHubConnection: 'wasmer'
           repositoryName: 'wasmerio/wasmer'
           action: 'create'
-          target: '$(Build.SourceVersion)'
-          title: '$(VERSION_TAG)'
-          addChangeLog: false
-          tagSource: 'auto'
-          # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
-          isDraft: false
-          isPreRelease: false
-      - task: GithubRelease@0
-        displayName: "Update GitHub Release with assets"
-        condition: and(succeededOrFailed(), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
-        inputs:
-          gitHubConnection: 'wasmer'
-          repositoryName: 'wasmerio/wasmer'
-          action: 'edit'
           target: '$(Build.SourceVersion)'
           title: '$(VERSION_TAG)'
           addChangeLog: false
