@@ -975,6 +975,7 @@ mod vm_ctx_tests {
     use crate::module::{ModuleInfo, ModuleInner, StringTable};
     use crate::structures::Map;
     use std::ffi::c_void;
+    use std::sync::Arc;
 
     struct TestData {
         x: u32,
