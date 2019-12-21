@@ -180,6 +180,7 @@ checksum = "995a44c877f9212528ccc74b21a232f66ad69001e40ede5bcee2ac9ef2657120"
 [[package]]
 name = "cranelift-bforest"
 version = "0.52.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
 dependencies = [
  "cranelift-entity",
 ]
@@ -187,6 +188,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen"
 version = "0.52.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
@@ -202,6 +204,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-meta"
 version = "0.52.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
 dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity",
@@ -210,14 +213,17 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-shared"
 version = "0.52.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
 
 [[package]]
 name = "cranelift-entity"
 version = "0.52.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
 
 [[package]]
 name = "cranelift-frontend"
 version = "0.52.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -228,6 +234,7 @@ dependencies = [
 [[package]]
 name = "cranelift-native"
 version = "0.52.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
 dependencies = [
  "cranelift-codegen",
  "raw-cpuid",
@@ -237,6 +244,7 @@ dependencies = [
 [[package]]
 name = "cranelift-wasm"
 version = "0.52.0"
+source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
