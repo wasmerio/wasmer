@@ -2,7 +2,7 @@
 
 ## **[Unreleased]**
 
-- [#1098](https://github.com/wasmerio/wasmer/pull/1098) Remove `backend::Backend` from `wasmer_runtime_core`
+- [#1099](https://github.com/wasmerio/wasmer/pull/1099) Remove `backend::Backend` from `wasmer_runtime_core`
 - [#1097](https://github.com/wasmerio/wasmer/pull/1097) Move inline breakpoint outside of runtime backend
 - [#1095](https://github.com/wasmerio/wasmer/pull/1095) Update to cranelift 0.52.
 - [#1092](https://github.com/wasmerio/wasmer/pull/1092) Add `get_utf8_string_with_nul` to `WasmPtr` to read nul-terminated strings from memory.
