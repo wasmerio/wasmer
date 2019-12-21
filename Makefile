@@ -168,7 +168,7 @@ runtime: $(foreach backend,$(backends),runtime-$(backend))
 
 # The rest
 test-rest:
-	cargo test --release \
+	cargo test --release --features=default-backend-${default_backend} \
 		--all \
 		--exclude wasmer-runtime-c-api \
 		--exclude wasmer-runtime \
