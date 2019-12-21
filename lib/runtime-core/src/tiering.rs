@@ -222,8 +222,13 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     .borrow()
                     .get_module_state_map()
                     .unwrap();
-                let code_base =
-                    baseline.module.runnable_module.borrow().get_code().unwrap().as_ptr() as usize;
+                let code_base = baseline
+                    .module
+                    .runnable_module
+                    .borrow()
+                    .get_code()
+                    .unwrap()
+                    .as_ptr() as usize;
                 invoke_call_return_on_stack(
                     &msm,
                     code_base,
