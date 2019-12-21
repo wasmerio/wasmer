@@ -79,6 +79,8 @@ typetag = "0.1" # used by the plugin example
 [features]
 default = ["fast-tests", "wasi", "experimental-io-devices"]
 emscripten = ["wasmer-runtime-c-api/emscripten"]
+deterministic-execution = ["wasmer-runtime/deterministic-execution"]
+cache = ["wasmer-runtime/cache"]
 loader-kernel = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]

@@ -14,6 +14,13 @@ else
   $(error Architecture $(ARCH) not yet supported in Wasmer)
 endif
 
+# We convert `$backend1 $backend2 ...` to `backend-$backend1,backend-$backend2,..."
+comma := ,
+empty :=
+space := $(empty) $(empty)
+backend_features_spaced := $(foreach backend,$(backends),backend-$(backend))
+backend_features:= $(subst $(space),$(comma),$(backend_features_spaced))
+
 # Generate files
 generate-spectests:
 	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core --release \
@@ -242,22 +249,15 @@ check: check-bench
 	# builds, test as many combined features as possible with each backend
 	# as default, and test a minimal set of features with only one backend
 	# at a time.
-	cargo check -p wasmer-runtime --features=default-backend-singlepass
+	cargo check -p wasmer-runtime
 
 	$(RUNTIME_CHECK) \
-		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,debug,deterministic-execution
+		--features=default-backend-${default_backend},${backend_features},cache,debug,deterministic-execution
 
-
-# We convert `$backend1 $backend2 ...` to `backend-$backend1,backend-$backend2,..."
-comma := ,
-empty :=
-space := $(empty) $(empty)
-backend_features := $(foreach backend,$(backends),backend-$(backend))
-features:= $(subst $(space),$(comma),$(backend_features))
 
 # Release
 release:
-	cargo build --release --features default-backend-${default_backend},${features},loader-kernel
+	cargo build --release --features default-backend-${default_backend},${backend_features},loader-kernel
 
 release-cranelift:
 	cargo build --release --features default-backend-cranelift
