@@ -11,7 +11,7 @@ extern crate structopt;
 
 use std::collections::HashMap;
 use std::env;
-use std::fs::{metadata, read_to_string, File};
+use std::fs::{read_to_string, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
@@ -926,29 +926,41 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-fn update_backend(options: &mut Run) {
-    let binary_size = match metadata(&options.path) {
-        Ok(wasm_binary) => wasm_binary.len(),
-        Err(_e) => 0,
-    };
-
+fn get_backend(backend: Backend, _path: &PathBuf) -> Backend {
     // Update backend when a backend flag is `auto`.
     // Use the Singlepass backend if it's enabled and the file provided is larger
     // than 10MiB (10485760 bytes), or it's enabled and the target architecture
     // is AArch64. Otherwise, use the Cranelift backend.
-    if options.backend == Backend::Auto {
-        if Backend::variants().contains(&Backend::Singlepass.to_string())
-            && (binary_size > 10485760 || cfg!(target_arch = "aarch64"))
-        {
-            options.backend = Backend::Singlepass;
-        } else {
-            options.backend = Backend::Cranelift;
+    match backend {
+        Backend::Auto => {
+            #[cfg(feature = "backend-singlepass")]
+            {
+                let binary_size = match &_path.metadata() {
+                    Ok(wasm_binary) => wasm_binary.len(),
+                    Err(_e) => 0,
+                };
+                if binary_size > 10485760 || cfg!(target_arch = "aarch64")
+                {
+                    return Backend::Singlepass;
+                }
+            }
+            
+            #[cfg(feature = "backend-cranelift")] {
+                return Backend::Cranelift;
+            }
+
+            #[cfg(feature = "backend-llvm")] {
+                return Backend::LLVM;
+            }
+
+            panic!("Can't find any backend");
         }
+        backend => backend
     }
 }
 
 fn run(options: &mut Run) {
-    update_backend(options);
+    options.backend = get_backend(options.backend, &options.path);
     match execute_wasm(options) {
         Ok(()) => {}
         Err(message) => {
@@ -1027,7 +1039,7 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
         #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
-        Backend::Auto => return None,
+        _ => return None,
     })
 }
 

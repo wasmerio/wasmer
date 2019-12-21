@@ -224,7 +224,7 @@ check: check-bench
 	cargo check --manifest-path lib/runtime/Cargo.toml
 
 	$(RUNTIME_CHECK) \
-		--features=singlepass,cranelift,llvm,cache,debug,deterministic-execution
+		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,debug,deterministic-execution
 
 # Release
 release:
