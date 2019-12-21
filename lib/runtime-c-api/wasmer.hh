@@ -15,6 +15,7 @@
 #endif
 
 #define WASMER_WASI_ENABLED
+#define WASMER_EMSCRIPTEN_ENABLED
 #endif // WASMER_H_MACROS
 
 

@@ -23,6 +23,3 @@ wabt = "0.9.1"
 [features]
 default = ["fast-tests"]
 fast-tests = []
-clif = ["wasmer-clif-backend", "wasmer-runtime/default-backend-cranelift"]
-singlepass = ["wasmer-singlepass-backend", "wasmer-runtime/default-backend-singlepass"]
-llvm = ["wasmer-llvm-backend", "wasmer-runtime/default-backend-llvm"]

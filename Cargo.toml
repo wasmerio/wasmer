@@ -28,6 +28,7 @@ wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime", default-features = false }
+wasmer-runtime-c-api = { path = "lib/runtime-c-api", default-features = false }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
@@ -76,14 +77,20 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi", "backend-cranelift"]
-"loader-kernel" = ["wasmer-kernel-loader"]
+default = ["fast-tests", "wasi", "experimental-io-devices"]
+emscripten = ["wasmer-runtime-c-api/emscripten"]
+loader-kernel = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
 docs = ["wasmer-runtime/docs"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
+backend-singlepass = [
+    "wasmer-singlepass-backend",
+    "wasmer-runtime/singlepass",
+    "wasmer-middleware-common-tests/singlepass",
+]
 backend-cranelift = [
     "wasmer-clif-backend",
     "wasmer-runtime/cranelift",
@@ -94,10 +101,17 @@ backend-llvm = [
     "wasmer-runtime/llvm",
     "wasmer-middleware-common-tests/llvm",
 ]
-backend-singlepass = [
-    "wasmer-singlepass-backend",
-    "wasmer-runtime/singlepass",
-    "wasmer-middleware-common-tests/singlepass",
+default-backend-singlepass = [
+    "backend-singlepass",
+    "wasmer-runtime/default-backend-singlepass",
+]
+default-backend-cranelift = [
+    "backend-cranelift",
+    "wasmer-runtime/default-backend-cranelift",
+]
+default-backend-llvm = [
+    "backend-llvm",
+    "wasmer-runtime/default-backend-llvm",
 ]
 wasi = ["wasmer-wasi"]
 experimental-io-devices = ["wasmer-wasi-experimental-io-devices"]

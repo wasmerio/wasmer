@@ -194,6 +194,9 @@ impl Backend {
 
 impl Default for Backend {
     fn default() -> Self {
+        #[cfg(not(any(feature = "default-backend-singlepass", feature = "default-backend-cranelift", feature = "default-backend-llvm" )))]
+        compile_error!("You need to specify at least one default backend");
+
         #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
         return Backend::Singlepass;
 

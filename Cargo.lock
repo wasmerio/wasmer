@@ -1622,6 +1622,7 @@ dependencies = [
  "wasmer-middleware-common",
  "wasmer-middleware-common-tests",
  "wasmer-runtime",
+ "wasmer-runtime-c-api",
  "wasmer-runtime-core",
  "wasmer-singlepass-backend",
  "wasmer-wasi",
