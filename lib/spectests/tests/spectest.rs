@@ -200,14 +200,13 @@ mod tests {
     use std::path::PathBuf;
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
     use wasmer_runtime::{
-        Backend,
         compile_with_config,
         error::CompileError,
         func, imports,
         types::{ElementType, MemoryDescriptor, TableDescriptor},
         units::Pages,
-        CompilerConfig, Ctx, Export, Features, Global, ImportObject, Instance, LikeNamespace,
-        Memory, Table,
+        Backend, CompilerConfig, Ctx, Export, Features, Global, ImportObject, Instance,
+        LikeNamespace, Memory, Table,
     };
 
     fn parse_and_run(
