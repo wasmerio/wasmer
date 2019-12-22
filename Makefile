@@ -189,7 +189,7 @@ test-rest:
 		--exclude wasmer-emscripten-tests \
 		--exclude wasmer-runtime-core-tests
 
-tests: spectests emtests middleware wasitests test-rest runtime examples
+tests: spectests emtests middleware wasitests test-rest examples
 
 test: tests
 
