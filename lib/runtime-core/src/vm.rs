@@ -2,6 +2,7 @@
 //! execute wasm instance functions.
 pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
+    define_unique_id_category,
     error::CallResult,
     instance::call_func_with_index_inner,
     memory::{Memory, MemoryType},
@@ -9,15 +10,13 @@ use crate::{
     sig_registry::SigRegistry,
     structures::TypedIndex,
     types::{LocalOrImport, MemoryIndex, TableIndex, Value},
+    unique_id::UniqueId,
     vmcalls,
 };
 use std::{
-    cell::UnsafeCell,
     ffi::c_void,
     mem,
     ptr::{self, NonNull},
-    sync::atomic::{AtomicUsize, Ordering},
-    sync::Once,
 };
 
 use std::collections::HashMap;
@@ -133,45 +132,9 @@ pub struct InternalCtx {
     pub interrupt_signal_mem: *mut u8,
 }
 
-static INTERNAL_FIELDS: AtomicUsize = AtomicUsize::new(0);
-
+define_unique_id_category!(InternalFieldBacking, INTERNALS_SIZE);
 /// An internal field.
-pub struct InternalField {
-    /// Init once field.
-    init: Once,
-    /// Inner field.
-    inner: UnsafeCell<usize>,
-}
-
-unsafe impl Send for InternalField {}
-unsafe impl Sync for InternalField {}
-
-impl InternalField {
-    /// Allocate and return an `InternalField`.
-    pub const fn allocate() -> InternalField {
-        InternalField {
-            init: Once::new(),
-            inner: UnsafeCell::new(::std::usize::MAX),
-        }
-    }
-
-    /// Get the index of this `InternalField`.
-    pub fn index(&self) -> usize {
-        let inner: *mut usize = self.inner.get();
-        self.init.call_once(|| {
-            let idx = INTERNAL_FIELDS.fetch_add(1, Ordering::SeqCst);
-            if idx >= INTERNALS_SIZE {
-                INTERNAL_FIELDS.fetch_sub(1, Ordering::SeqCst);
-                panic!("at most {} internal fields are supported", INTERNALS_SIZE);
-            } else {
-                unsafe {
-                    *inner = idx;
-                }
-            }
-        });
-        unsafe { *inner }
-    }
-}
+pub type InternalField = UniqueId<InternalFieldBacking>;
 
 /// A container for VM instrinsic functions
 #[repr(C)]
