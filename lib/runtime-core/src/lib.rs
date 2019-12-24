@@ -105,8 +105,6 @@ pub mod prelude {
 /// WebAssembly binary code. This function is useful if it
 /// is necessary to a compile a module before it can be instantiated
 /// and must be used if you wish to use a different backend from the default.
-///
-/// [`Module`]: struct.Module.html
 pub fn compile_with(
     wasm: &[u8],
     compiler: &dyn backend::Compiler,
@@ -159,6 +157,9 @@ pub fn validate_and_report_errors_with_features(
             enable_multi_value: false,
             enable_reference_types: false,
             enable_threads: features.threads,
+
+            #[cfg(feature = "deterministic-execution")]
+            deterministic_only: true,
         },
     };
     let mut parser = wasmparser::ValidatingParser::new(wasm, Some(config));

@@ -80,6 +80,11 @@ pub enum Kind {
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
         path: PathBuf,
+        /// Marks the file as a special file that only one `fd` can exist for
+        /// This is useful when dealing with host-provided special files that
+        /// should be looked up by path
+        /// TOOD: clarify here?
+        fd: Option<u32>,
     },
     Dir {
         /// Parent directory
@@ -122,16 +127,30 @@ pub struct Fd {
     pub rights_inheriting: __wasi_rights_t,
     pub flags: __wasi_fdflags_t,
     pub offset: u64,
-    /// Used when reopening the file on the host system
+    /// Flags that determine how the [`Fd`] can be used.
+    ///
+    /// Used when reopening a [`HostFile`] during [`WasiState`] deserialization.
     pub open_flags: u16,
     pub inode: Inode,
 }
 
 impl Fd {
+    /// This [`Fd`] can be used with read system calls.
     pub const READ: u16 = 1;
+    /// This [`Fd`] can be used with write system calls.
     pub const WRITE: u16 = 2;
+    /// This [`Fd`] can append in write system calls. Note that the append
+    /// permission implies the write permission.
     pub const APPEND: u16 = 4;
+    /// This [`Fd`] will delete everything before writing. Note that truncate
+    /// permissions require the write permission.
+    ///
+    /// This permission is currently unused when deserializing [`WasiState`].
     pub const TRUNCATE: u16 = 8;
+    /// This [`Fd`] may create a file before writing to it. Note that create
+    /// permissions require write permissions.
+    ///
+    /// This permission is currently unused when deserializing [`WasiState`].
     pub const CREATE: u16 = 16;
 }
 
@@ -362,10 +381,76 @@ impl WasiFs {
         }
     }
 
+    /// Returns the next available inode index for creating a new inode.
     fn get_next_inode_index(&mut self) -> u64 {
         let next = self.inode_counter.get();
         self.inode_counter.set(next + 1);
         next
+    }
+
+    /// like create dir all, but it also opens it
+    /// Function is unsafe because it may break invariants and hasn't been tested.
+    /// This is an experimental function and may be removed
+    // dead code because this is an API for external use
+    #[allow(dead_code)]
+    pub unsafe fn open_dir_all(
+        &mut self,
+        base: __wasi_fd_t,
+        name: String,
+        rights: __wasi_rights_t,
+        rights_inheriting: __wasi_rights_t,
+        flags: __wasi_fdflags_t,
+    ) -> Result<__wasi_fd_t, WasiFsError> {
+        let base_fd = self.get_fd(base).map_err(WasiFsError::from_wasi_err)?;
+        // TODO: check permissions here? probably not, but this should be
+        // an explicit choice, so justify it in a comment when we remove this one
+        let mut cur_inode = base_fd.inode;
+
+        let path: &Path = Path::new(&name);
+        //let n_components = path.components().count();
+        for c in path.components() {
+            let segment_name = c.as_os_str().to_string_lossy().to_string();
+            match &self.inodes[cur_inode].kind {
+                Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
+                    if let Some(_entry) = entries.get(&segment_name) {
+                        // TODO: this should be fixed
+                        return Err(WasiFsError::AlreadyExists);
+                    }
+
+                    let kind = Kind::Dir {
+                        parent: Some(cur_inode),
+                        path: PathBuf::from(""),
+                        entries: HashMap::new(),
+                    };
+
+                    let inode =
+                        self.create_inode_with_default_stat(kind, false, segment_name.clone());
+                    // reborrow to insert
+                    match &mut self.inodes[cur_inode].kind {
+                        Kind::Dir {
+                            ref mut entries, ..
+                        }
+                        | Kind::Root { ref mut entries } => {
+                            entries.insert(segment_name, inode);
+                        }
+                        _ => unreachable!("Dir or Root became not Dir or Root"),
+                    }
+
+                    cur_inode = inode;
+                }
+                _ => return Err(WasiFsError::BaseNotDirectory),
+            }
+        }
+
+        // TODO: review open flags (read, write); they were added without consideration
+        self.create_fd(
+            rights,
+            rights_inheriting,
+            flags,
+            Fd::READ | Fd::WRITE,
+            cur_inode,
+        )
+        .map_err(WasiFsError::from_wasi_err)
     }
 
     /// Opens a user-supplied file in the directory specified with the
@@ -397,6 +482,7 @@ impl WasiFs {
                 let kind = Kind::File {
                     handle: Some(file),
                     path: PathBuf::from(""),
+                    fd: Some(self.next_fd.get()),
                 };
 
                 let inode = self
@@ -408,7 +494,7 @@ impl WasiFs {
                         ref mut entries, ..
                     }
                     | Kind::Root { ref mut entries } => {
-                        entries.insert(name, inode).ok_or(WasiFsError::IOError)?;
+                        entries.insert(name, inode);
                     }
                     _ => unreachable!("Dir or Root became not Dir or Root"),
                 }
@@ -477,6 +563,19 @@ impl WasiFs {
         }
     }
 
+    /// Internal part of the core path resolution function which implements path
+    /// traversal logic such as resolving relative path segments (such as
+    /// `.` and `..`) and resolving symlinks (while preventing infinite
+    /// loops/stack overflows).
+    ///
+    /// TODO: expand upon exactly what the state of the returned value is,
+    /// explaining lazy-loading from the real file system and synchronizing
+    /// between them.
+    ///
+    /// This is where a lot of the magic happens, be very careful when editing
+    /// this code.
+    ///
+    /// TODO: write more tests for this code
     fn get_inode_at_path_inner(
         &mut self,
         base: __wasi_fd_t,
@@ -552,6 +651,7 @@ impl WasiFs {
                                 Kind::File {
                                     handle: None,
                                     path: file.clone(),
+                                    fd: None,
                                 }
                             } else if file_type.is_symlink() {
                                 let link_value = file.read_link().ok().ok_or(__WASI_EIO)?;
@@ -658,6 +758,14 @@ impl WasiFs {
         Ok(cur_inode)
     }
 
+    /// Splits a path into the first preopened directory that is a parent of it,
+    /// if such a preopened directory exists, and the rest of the path.
+    ///
+    /// NOTE: this behavior seems to be not the same as what libpreopen is
+    /// doing in WASI.
+    ///
+    /// TODO: evaluate users of this function and explain why this behavior is
+    /// not the same as libpreopen or update its behavior to be the same.
     fn path_into_pre_open_and_relative_path(
         &self,
         path: &Path,
@@ -1017,6 +1125,7 @@ impl WasiFs {
             ..__wasi_filestat_t::default()
         };
         let kind = Kind::File {
+            fd: Some(raw_fd),
             handle: Some(handle),
             path: "".into(),
         };
@@ -1042,7 +1151,7 @@ impl WasiFs {
 
     pub fn get_stat_for_kind(&self, kind: &Kind) -> Option<__wasi_filestat_t> {
         let md = match kind {
-            Kind::File { handle, path } => match handle {
+            Kind::File { handle, path, .. } => match handle {
                 Some(wf) => {
                     return Some(__wasi_filestat_t {
                         st_filetype: __WASI_FILETYPE_REGULAR_FILE,

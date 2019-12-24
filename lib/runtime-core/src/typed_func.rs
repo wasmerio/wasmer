@@ -78,7 +78,7 @@ pub type Invoke = unsafe extern "C" fn(
     args: *const u64,
     rets: *mut u64,
     trap_info: *mut WasmTrapInfo,
-    user_error: *mut Option<Box<dyn Any>>,
+    user_error: *mut Option<Box<dyn Any + Send>>,
     extra: Option<NonNull<c_void>>,
 ) -> bool;
 
@@ -201,7 +201,7 @@ where
     Rets: WasmTypeList,
 {
     /// The error type for this trait.
-    type Error: 'static;
+    type Error: Send + 'static;
     /// Get returns or error result.
     fn report(self) -> Result<Rets, Self::Error>;
 }
@@ -219,7 +219,7 @@ where
 impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
-    E: 'static,
+    E: Send + 'static,
 {
     type Error = E;
     fn report(self) -> Result<Rets, E> {
@@ -507,7 +507,7 @@ macro_rules! impl_traits {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => {
                             let b: Box<_> = err.into();
-                            b as Box<dyn Any>
+                            b as Box<dyn Any + Send>
                         },
                         Err(err) => err,
                     };
@@ -619,7 +619,7 @@ macro_rules! impl_traits {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => {
                             let b: Box<_> = err.into();
-                            b as Box<dyn Any>
+                            b as Box<dyn Any + Send>
                         },
                         Err(err) => err,
                     };
@@ -696,6 +696,20 @@ impl_traits!([C] S9, A, B, C, D, E, F, G, H, I);
 impl_traits!([C] S10, A, B, C, D, E, F, G, H, I, J);
 impl_traits!([C] S11, A, B, C, D, E, F, G, H, I, J, K);
 impl_traits!([C] S12, A, B, C, D, E, F, G, H, I, J, K, L);
+impl_traits!([C] S13, A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_traits!([C] S14, A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_traits!([C] S15, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_traits!([C] S16, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+impl_traits!([C] S17, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
+impl_traits!([C] S18, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
+impl_traits!([C] S19, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
+impl_traits!([C] S20, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T);
+impl_traits!([C] S21, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
+impl_traits!([C] S22, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V);
+impl_traits!([C] S23, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W);
+impl_traits!([C] S24, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X);
+impl_traits!([C] S25, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y);
+impl_traits!([C] S26, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
 
 impl<'a, Args, Rets, Inner> IsExport for Func<'a, Args, Rets, Inner>
 where
@@ -777,6 +791,20 @@ mod tests {
     test_func_arity_n!(test_func_arity_10, a, b, c, d, e, f, g, h, i, j);
     test_func_arity_n!(test_func_arity_11, a, b, c, d, e, f, g, h, i, j, k);
     test_func_arity_n!(test_func_arity_12, a, b, c, d, e, f, g, h, i, j, k, l);
+    test_func_arity_n!(test_func_arity_13, a, b, c, d, e, f, g, h, i, j, k, l, m);
+    test_func_arity_n!(test_func_arity_14, a, b, c, d, e, f, g, h, i, j, k, l, m, n);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_15, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_16, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_17, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_18, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_19, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_20, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_21, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_22, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_23, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_24, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_25, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_26, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z);
 
     #[test]
     fn test_call() {

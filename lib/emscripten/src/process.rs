@@ -13,6 +13,13 @@ pub fn abort_with_message(ctx: &mut Ctx, message: &str) {
     _abort(ctx);
 }
 
+/// The name of this call is `abort` but we want to avoid conflicts with libc::abort
+pub fn em_abort(ctx: &mut Ctx, arg: u32) {
+    debug!("emscripten::abort");
+    eprintln!("Program aborted with value {}", arg);
+    _abort(ctx);
+}
+
 pub fn _abort(_ctx: &mut Ctx) {
     debug!("emscripten::_abort");
     unsafe {

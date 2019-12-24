@@ -71,7 +71,7 @@
 //!     let value = add_one.call(42)?;
 //!
 //!     assert_eq!(value, 43);
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -79,13 +79,17 @@
 //! # Additional Notes:
 //!
 //! The `wasmer-runtime` is build to support compiler multiple backends.
-//! Currently, we support the [Cranelift] compiler with the [`wasmer-clif-backend`] crate.
+//! Currently, we support the Singlepass, [Cranelift], and LLVM compilers
+//! with the [`wasmer-singlepass-backend`], [`wasmer-clif-backend`], and
+//! wasmer-llvm-backend crates, respectively.
 //!
-//! You can specify the compiler you wish to use with the [`compile_with`] function.
+//! You can specify the compiler you wish to use with the [`compile_with`]
+//! function or use the default with the [`compile`] function.
 //!
 //! [Cranelift]: https://github.com/CraneStation/cranelift
+//! [LLVM]: https://llvm.org
+//! [`wasmer-singlepass-backend`]: https://crates.io/crates/wasmer-singlepass-backend
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
-//! [`compile_with`]: fn.compile_with.html
 
 pub use wasmer_runtime_core::backend::{Backend, Features};
 pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
@@ -246,7 +250,7 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "cranelift")]
         Backend::Cranelift => Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new())),
 
-        #[cfg(feature = "singlepass")]
+        #[cfg(any(feature = "singlepass"))]
         Backend::Singlepass => Some(Box::new(
             wasmer_singlepass_backend::SinglePassCompiler::new(),
         )),
@@ -254,6 +258,18 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "llvm")]
         Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
 
+        Backend::Auto => {
+            #[cfg(feature = "default-backend-singlepass")]
+            return Some(Box::new(
+                wasmer_singlepass_backend::SinglePassCompiler::new(),
+            ));
+            #[cfg(feature = "default-backend-cranelift")]
+            return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
+            #[cfg(feature = "default-backend-llvm")]
+            return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
+        }
+
+        #[cfg(not(all(feature = "llvm", feature = "singlepass", feature = "cranelift")))]
         _ => None,
     }
 }

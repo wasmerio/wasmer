@@ -2,9 +2,10 @@
 //! state could read or updated at runtime. Use cases include generating stack traces, switching
 //! generated code from one tier to another, or serializing state of a running instace.
 
-use crate::backend::Backend;
+use crate::backend::{Backend, RunnableModule};
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
+use std::sync::Arc;
 
 /// An index to a register
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -173,7 +174,7 @@ pub struct InstanceImage {
 }
 
 /// A `CodeVersion` is a container for a unit of generated code for a module.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CodeVersion {
     /// Indicates if this code version is the baseline version.
     pub baseline: bool,
@@ -186,6 +187,9 @@ pub struct CodeVersion {
 
     /// The backend used to compile this module.
     pub backend: Backend,
+
+    /// `RunnableModule` for this code version.
+    pub runnable_module: Arc<Box<dyn RunnableModule>>,
 }
 
 impl ModuleStateMap {
@@ -652,7 +656,7 @@ pub mod x64 {
         image: InstanceImage,
         vmctx: &mut Ctx,
         breakpoints: Option<BreakpointMap>,
-    ) -> Result<u64, Box<dyn Any>> {
+    ) -> Result<u64, Box<dyn Any + Send>> {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
         let mut stack_offset: usize = stack.len();
 
@@ -1063,7 +1067,6 @@ pub mod x64 {
             let mut is_baseline: Option<bool> = None;
 
             for version in versions() {
-                //println!("Lookup IP: {:x}", ret_addr);
                 match version
                     .msm
                     .lookup_call_ip(ret_addr as usize, version.base)
@@ -1251,7 +1254,6 @@ pub mod x64 {
                 stack: wasm_stack,
                 locals: wasm_locals,
             };
-            //println!("WFS = {:?}", wfs);
             results.push(wfs);
         }
 

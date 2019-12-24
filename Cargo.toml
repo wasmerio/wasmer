@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -37,6 +37,7 @@ wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
 wasmer-middleware-common-tests = { path = "lib/middleware-common-tests", optional = true }
 wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
+wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 
 [workspace]
 members = [
@@ -56,6 +57,7 @@ members = [
     "lib/kernel-loader",
     "lib/kernel-net",
     "lib/dev-utils",
+    "lib/wasi-experimental-io-devices",
     "lib/wasi-tests",
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
@@ -74,7 +76,7 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi"]
+default = ["fast-tests", "wasi", "backend-cranelift"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
@@ -101,6 +103,7 @@ backend-singlepass = [
     "wasmer-middleware-common-tests/singlepass",
 ]
 wasi = ["wasmer-wasi"]
+experimental-io-devices = ["wasmer-wasi-experimental-io-devices"]
 managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
 
 [[example]]

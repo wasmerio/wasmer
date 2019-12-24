@@ -61,7 +61,7 @@ type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 struct UnwindInfo {
     jmpbuf: SetJmpBuffer, // in
     breakpoints: Option<BreakpointMap>,
-    payload: Option<Box<dyn Any>>, // out
+    payload: Option<Box<dyn Any + Send>>, // out
 }
 
 /// A store for boundary register preservation.
@@ -182,7 +182,7 @@ pub unsafe fn clear_wasm_interrupt() {
 pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     f: F,
     breakpoints: Option<BreakpointMap>,
-) -> Result<R, Box<dyn Any>> {
+) -> Result<R, Box<dyn Any + Send>> {
     let unwind = UNWIND.with(|x| x.get());
     let old = (*unwind).take();
     *unwind = Some(UnwindInfo {
@@ -205,7 +205,7 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
 }
 
 /// Begins an unsafe unwind.
-pub unsafe fn begin_unsafe_unwind(e: Box<dyn Any>) -> ! {
+pub unsafe fn begin_unsafe_unwind(e: Box<dyn Any + Send>) -> ! {
     let unwind = UNWIND.with(|x| x.get());
     let inner = (*unwind)
         .as_mut()
@@ -272,9 +272,7 @@ extern "C" fn signal_trap_handler(
     siginfo: *mut siginfo_t,
     ucontext: *mut c_void,
 ) {
-    use crate::backend::{
-        get_inline_breakpoint_size, read_inline_breakpoint, Architecture, InlineBreakpointType,
-    };
+    use crate::backend::{Architecture, InlineBreakpointType};
 
     #[cfg(target_arch = "x86_64")]
     static ARCH: Architecture = Architecture::X64;
@@ -283,7 +281,7 @@ extern "C" fn signal_trap_handler(
     static ARCH: Architecture = Architecture::Aarch64;
 
     let mut should_unwind = false;
-    let mut unwind_result: Box<dyn Any> = Box::new(());
+    let mut unwind_result: Box<dyn Any + Send> = Box::new(());
 
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
@@ -291,23 +289,22 @@ extern "C" fn signal_trap_handler(
             CURRENT_CODE_VERSIONS.with(|versions| {
                 let versions = versions.borrow();
                 for v in versions.iter() {
-                    let magic_size = if let Some(x) = get_inline_breakpoint_size(ARCH, v.backend) {
-                        x
-                    } else {
-                        continue;
-                    };
+                    let magic_size =
+                        if let Some(x) = v.runnable_module.get_inline_breakpoint_size(ARCH) {
+                            x
+                        } else {
+                            continue;
+                        };
                     let ip = fault.ip.get();
                     let end = v.base + v.msm.total_size;
                     if ip >= v.base && ip < end && ip + magic_size <= end {
-                        if let Some(ib) = read_inline_breakpoint(
+                        if let Some(ib) = v.runnable_module.read_inline_breakpoint(
                             ARCH,
-                            v.backend,
                             std::slice::from_raw_parts(ip as *const u8, magic_size),
                         ) {
                             match ib.ty {
-                                InlineBreakpointType::Trace => {}
                                 InlineBreakpointType::Middleware => {
-                                    let out: Option<Result<(), Box<dyn Any>>> =
+                                    let out: Option<Result<(), Box<dyn Any + Send>>> =
                                         with_breakpoint_map(|bkpt_map| {
                                             bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
                                                 x(BreakpointInfo {
@@ -321,7 +318,6 @@ extern "C" fn signal_trap_handler(
                                         unwind_result = e;
                                     }
                                 }
-                                _ => println!("Unknown breakpoint type: {:?}", ib.ty),
                             }
 
                             fault.ip.set(ip + magic_size);
@@ -348,13 +344,14 @@ extern "C" fn signal_trap_handler(
             match Signal::from_c_int(signum) {
                 Ok(SIGTRAP) => {
                     // breakpoint
-                    let out: Option<Result<(), Box<dyn Any>>> = with_breakpoint_map(|bkpt_map| {
-                        bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| {
-                            x(BreakpointInfo {
-                                fault: Some(&fault),
+                    let out: Option<Result<(), Box<dyn Any + Send>>> =
+                        with_breakpoint_map(|bkpt_map| {
+                            bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| {
+                                x(BreakpointInfo {
+                                    fault: Some(&fault),
+                                })
                             })
-                        })
-                    });
+                        });
                     match out {
                         Some(Ok(())) => {
                             return false;
@@ -463,10 +460,7 @@ pub struct FaultInfo {
 impl FaultInfo {
     /// Parses the stack and builds an execution state image.
     pub unsafe fn read_stack(&self, max_depth: Option<usize>) -> Option<ExecutionStateImage> {
-        let rsp = match self.known_registers[X64Register::GPR(GPR::RSP).to_index().0] {
-            Some(x) => x,
-            None => return None,
-        };
+        let rsp = self.known_registers[X64Register::GPR(GPR::RSP).to_index().0]?;
 
         Some(CURRENT_CODE_VERSIONS.with(|versions| {
             let versions = versions.borrow();

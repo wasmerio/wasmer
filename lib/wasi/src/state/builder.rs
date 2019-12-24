@@ -1,7 +1,8 @@
-//! Builder code for [`WasiState`]
+//! Builder system for configuring a [`WasiState`] and creating it.
 
 use crate::state::{WasiFs, WasiState};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 /// Creates an empty [`WasiStateBuilder`].
 pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
@@ -12,12 +13,25 @@ pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
 }
 
 /// Type for building an instance of [`WasiState`]
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Default, Clone)]
 pub struct WasiStateBuilder {
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
     preopened_files: Vec<PathBuf>,
     mapped_dirs: Vec<(String, PathBuf)>,
+    setup_fs_fn: Option<Rc<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>>,
+}
+
+impl std::fmt::Debug for WasiStateBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WasiStateBuilder")
+            .field("args", &self.args)
+            .field("envs", &self.envs)
+            .field("preopend_files", &self.preopened_files)
+            .field("mapped_dirs", &self.mapped_dirs)
+            .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
+            .finish()
+    }
 }
 
 /// Error type returned when bad data is given to [`WasiStateBuilder`].
@@ -28,6 +42,7 @@ pub enum WasiStateCreationError {
     PreopenedDirectoryNotFound(PathBuf),
     MappedDirAliasFormattingError(String),
     WasiFsCreationError(String),
+    WasiFsSetupError(String),
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
@@ -174,6 +189,31 @@ impl WasiStateBuilder {
         self
     }
 
+    /// Preopen directorys with a different names exposed to the WASI.
+    pub fn map_dirs<I, FilePath>(&mut self, mapped_dirs: I) -> &mut Self
+    where
+        I: IntoIterator<Item = (String, FilePath)>,
+        FilePath: AsRef<Path>,
+    {
+        for (alias, dir) in mapped_dirs {
+            let path = dir.as_ref();
+            self.mapped_dirs.push((alias, path.to_path_buf()));
+        }
+
+        self
+    }
+
+    /// Setup the WASI filesystem before running
+    // TODO: improve ergonomics on this function
+    pub fn setup_fs(
+        &mut self,
+        setup_fs_fn: Rc<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>,
+    ) -> &mut Self {
+        self.setup_fs_fn = Some(setup_fs_fn);
+
+        self
+    }
+
     /// Consumes the [`WasiStateBuilder`] and produces a [`WasiState`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error
@@ -239,9 +279,13 @@ impl WasiStateBuilder {
             }
             validate_mapped_dir_alias(&alias)?;
         }
+        let mut wasi_fs = WasiFs::new(&self.preopened_files, &self.mapped_dirs)
+            .map_err(WasiStateCreationError::WasiFsCreationError)?;
+        if let Some(f) = &self.setup_fs_fn {
+            f(&mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
+        }
         Ok(WasiState {
-            fs: WasiFs::new(&self.preopened_files, &self.mapped_dirs)
-                .map_err(WasiStateCreationError::WasiFsCreationError)?,
+            fs: wasi_fs,
             args: self.args.clone(),
             envs: self.envs.clone(),
         })

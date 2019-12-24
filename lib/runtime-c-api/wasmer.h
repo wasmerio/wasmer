@@ -14,6 +14,7 @@
 #endif
 #endif
 
+#define WASMER_WASI_ENABLED
 #endif // WASMER_H_MACROS
 
 
@@ -24,6 +25,29 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+#if defined(WASMER_WASI_ENABLED)
+enum Version {
+  /**
+   * Version cannot be detected or is unknown.
+   */
+  Unknown = 0,
+  /**
+   * Latest version. See `wasmer_wasi::WasiVersion::Latest` to
+   * leran more.
+   */
+  Latest = 1,
+  /**
+   * `wasi_unstable`.
+   */
+  Snapshot0 = 2,
+  /**
+   * `wasi_snapshot_preview1`.
+   */
+  Snapshot1 = 3,
+};
+typedef uint8_t Version;
+#endif
 
 /**
  * List of export/import kinds.
@@ -53,17 +77,34 @@ typedef struct {
 
 } wasmer_module_t;
 
+typedef struct {
+
+} wasmer_instance_t;
+
+typedef struct {
+  const uint8_t *bytes;
+  uint32_t bytes_len;
+} wasmer_byte_array;
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Type used to construct an import_object_t with Emscripten imports.
+ */
+typedef struct {
+
+} wasmer_emscripten_globals_t;
+#endif
+
+typedef struct {
+
+} wasmer_import_object_t;
+
 /**
  * Opaque pointer to `NamedExportDescriptor`.
  */
 typedef struct {
 
 } wasmer_export_descriptor_t;
-
-typedef struct {
-  const uint8_t *bytes;
-  uint32_t bytes_len;
-} wasmer_byte_array;
 
 /**
  * Opaque pointer to `NamedExportDescriptors`.
@@ -132,10 +173,6 @@ typedef struct {
 
 typedef struct {
 
-} wasmer_import_object_t;
-
-typedef struct {
-
 } wasmer_table_t;
 
 /**
@@ -158,10 +195,6 @@ typedef struct {
 typedef struct {
 
 } wasmer_import_object_iter_t;
-
-typedef struct {
-
-} wasmer_instance_t;
 
 typedef struct {
 
@@ -199,6 +232,7 @@ typedef struct {
 } wasmer_trampoline_buffer_t;
 #endif
 
+#if defined(WASMER_WASI_ENABLED)
 /**
  * Opens a directory that's visible to the WASI module as `alias` but
  * is backed by the host file at `host_file_path`
@@ -213,6 +247,7 @@ typedef struct {
    */
   wasmer_byte_array host_file_path;
 } wasmer_wasi_map_dir_entry_t;
+#endif
 
 /**
  * Creates a new Module from the given wasm bytes.
@@ -225,6 +260,64 @@ typedef struct {
 wasmer_result_t wasmer_compile(wasmer_module_t **module,
                                uint8_t *wasm_bytes,
                                uint32_t wasm_bytes_len);
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Convenience function for setting up arguments and calling the Emscripten
+ * main function.
+ *
+ * WARNING:
+ *
+ * Do not call this function on untrusted code when operating without
+ * additional sandboxing in place.
+ * Emscripten has access to many host system calls and therefore may do very
+ * bad things.
+ */
+wasmer_result_t wasmer_emscripten_call_main(wasmer_instance_t *instance,
+                                            const wasmer_byte_array *args,
+                                            unsigned int args_len);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Destroy `wasmer_emscrpten_globals_t` created by
+ * `wasmer_emscripten_get_emscripten_globals`.
+ */
+void wasmer_emscripten_destroy_globals(wasmer_emscripten_globals_t *globals);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Create a `wasmer_import_object_t` with Emscripten imports, use
+ * `wasmer_emscripten_get_emscripten_globals` to get a
+ * `wasmer_emscripten_globals_t` from a `wasmer_module_t`.
+ *
+ * WARNING:
+ *1
+ * This `import_object_t` contains thin-wrappers around host system calls.
+ * Do not use this to execute untrusted code without additional sandboxing.
+ */
+wasmer_import_object_t *wasmer_emscripten_generate_import_object(wasmer_emscripten_globals_t *globals);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Create a `wasmer_emscripten_globals_t` from a Wasm module.
+ */
+wasmer_emscripten_globals_t *wasmer_emscripten_get_globals(const wasmer_module_t *module);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Execute global constructors (required if the module is compiled from C++)
+ * and sets up the internal environment.
+ *
+ * This function sets the data pointer in the same way that
+ * [`wasmer_instance_context_data_set`] does.
+ */
+wasmer_result_t wasmer_emscripten_set_up(wasmer_instance_t *instance,
+                                         wasmer_emscripten_globals_t *globals);
+#endif
 
 /**
  * Gets export descriptor kind
@@ -865,6 +958,7 @@ void *wasmer_trampoline_get_context(void);
  */
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 
+#if defined(WASMER_WASI_ENABLED)
 /**
  * Convenience function that creates a WASI import object with no arguments,
  * environment variables, preopened files, or mapped directories.
@@ -873,7 +967,9 @@ bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
  * empty values.
  */
 wasmer_import_object_t *wasmer_wasi_generate_default_import_object(void);
+#endif
 
+#if defined(WASMER_WASI_ENABLED)
 /**
  * Creates a WASI import object.
  *
@@ -889,5 +985,35 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_arr
                                                            unsigned int preopened_files_len,
                                                            const wasmer_wasi_map_dir_entry_t *mapped_dirs,
                                                            unsigned int mapped_dirs_len);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Creates a WASI import object for a specific version.
+ *
+ * This function is similar to `wasmer_wasi_generate_import_object`
+ * except that the first argument describes the WASI version.
+ *
+ * The version is expected to be of kind `Version`.
+ */
+wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned char version,
+                                                                       const wasmer_byte_array *args,
+                                                                       unsigned int args_len,
+                                                                       const wasmer_byte_array *envs,
+                                                                       unsigned int envs_len,
+                                                                       const wasmer_byte_array *preopened_files,
+                                                                       unsigned int preopened_files_len,
+                                                                       const wasmer_wasi_map_dir_entry_t *mapped_dirs,
+                                                                       unsigned int mapped_dirs_len);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Find the version of WASI used by the module.
+ *
+ * In case of error, the returned version is `Version::Unknown`.
+ */
+Version wasmer_wasi_get_version(const wasmer_module_t *module);
+#endif
 
 #endif /* WASMER_H */

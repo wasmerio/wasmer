@@ -23,7 +23,7 @@ use wasmparser::{Operator, Type as WpType};
 
 /// A type that defines a function pointer, which is called when breakpoints occur.
 pub type BreakpointHandler =
-    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
+    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>;
 
 /// Maps instruction pointers to their breakpoint handlers.
 pub type BreakpointMap = Arc<HashMap<usize, BreakpointHandler>>;
@@ -186,6 +186,9 @@ pub fn validating_parser_config(features: &Features) -> wasmparser::ValidatingPa
             enable_simd: features.simd,
             enable_bulk_memory: false,
             enable_multi_value: false,
+
+            #[cfg(feature = "deterministic-execution")]
+            deterministic_only: true,
         },
     }
 }
@@ -246,7 +249,7 @@ impl<
                 })?;
         Ok(ModuleInner {
             cache_gen,
-            runnable_module: Box::new(exec_context),
+            runnable_module: Arc::new(Box::new(exec_context)),
             info: Arc::try_unwrap(info).unwrap().into_inner().unwrap(),
         })
     }

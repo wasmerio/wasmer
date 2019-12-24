@@ -19,12 +19,17 @@ add_executable(test-context test-context.c)
 add_executable(test-module-import-instantiate test-module-import-instantiate.c)
 
 if (DEFINED WASI_TESTS)
-   add_executable(test-wasi-import-object test-wasi-import-object.c)
+    add_executable(test-wasi-import-object test-wasi-import-object.c)
 endif()
 
+if (DEFINED EMSCRIPTEN_TESTS)
+    add_executable(test-emscripten-import-object test-emscripten-import-object.c)
+endif()
+
+
 find_library(
-        WASMER_LIB NAMES libwasmer_runtime_c_api.dylib libwasmer_runtime_c_api.so wasmer_runtime_c_api.dll
-        PATHS ${CMAKE_SOURCE_DIR}/../../../target/release/
+    WASMER_LIB NAMES libwasmer_runtime_c_api.dylib libwasmer_runtime_c_api.so wasmer_runtime_c_api.dll
+    PATHS ${CMAKE_SOURCE_DIR}/../../../target/release/
 )
 
 if(NOT WASMER_LIB)
@@ -72,6 +77,12 @@ if (DEFINED WASI_TESTS)
     target_link_libraries(test-wasi-import-object general ${WASMER_LIB})
     target_compile_options(test-wasi-import-object PRIVATE ${COMPILER_OPTIONS})
     add_test(test-wasi-import-object test-wasi-import-object)
+endif()
+
+if (DEFINED EMSCRIPTEN_TESTS)
+    target_link_libraries(test-emscripten-import-object general ${WASMER_LIB})
+    target_compile_options(test-emscripten-import-object PRIVATE ${COMPILER_OPTIONS})
+    add_test(test-emscripten-import-object test-emscripten-import-object)
 endif()
 
 target_link_libraries(test-instantiate general ${WASMER_LIB})
