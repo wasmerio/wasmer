@@ -53,13 +53,8 @@ pub struct Ctx {
     pub module: *const ModuleInner,
 
     /// This is intended to be user-supplied, per-instance
-    /// contextual data. There are currently some issue with it,
-    /// notably that it cannot be set before running the `start`
-    /// function in a WebAssembly module.
-    ///
-    /// [#219](https://github.com/wasmerio/wasmer/pull/219) fixes that
-    /// issue, as well as allowing the user to have *per-function*
-    /// context, instead of just per-instance.
+    /// contextual data.
+    /// Use `set_data` and `data_mut` to set and access it by a string key.
     ///
     /// If there's a function set in the second value field, it gets called
     /// when the context is destructed, e.g. when an `Instance`
@@ -70,7 +65,8 @@ pub struct Ctx {
 /// When an instance context is destructed, we're calling its `data_finalizer`
 /// In order avoid leaking resources.
 ///
-/// Implementing the `data_finalizer` function for the data key is the responsibility of the `wasmer` end-user.
+/// Implementing the `data_finalizer` function for a data key is the responsibility
+/// of the `wasmer` end-user.
 ///
 /// See test: `test_data_finalizer` as an example
 impl Drop for Ctx {
@@ -147,7 +143,6 @@ pub struct InternalField {
 }
 
 unsafe impl Send for InternalField {}
-
 unsafe impl Sync for InternalField {}
 
 impl InternalField {
@@ -196,7 +191,6 @@ pub struct Intrinsics {
 }
 
 unsafe impl Send for Intrinsics {}
-
 unsafe impl Sync for Intrinsics {}
 
 impl Intrinsics {
@@ -427,14 +421,29 @@ impl Ctx {
     ///
     /// This function must be called with the same type, `T`, that the `data`
     /// was initialized with.
-    pub unsafe fn memory_and_data_mut<T>(&mut self, data_key: &str, mem_index: u32) -> (&Memory, &mut T) {
-        (self.memory(mem_index), &mut *(self.data.read().unwrap().get(data_key).unwrap().0 as *mut T))
+    pub unsafe fn memory_and_data_mut<T>(
+        &mut self,
+        data_key: &str,
+        mem_index: u32,
+    ) -> (&Memory, &mut T) {
+        (
+            self.memory(mem_index),
+            &mut *(self.data.read().unwrap().get(data_key).unwrap().0 as *mut T),
+        )
     }
 
     /// Sets user defined data field given the `data_key`, `data` and `data_finalizer` function which if present
     /// is called when Ctx is dropped. use `memory_and_data_mut` or `data_mut` to get access to the data.
-    pub fn set_data(&mut self, data_key: &str, data: *mut c_void, data_finalizer: Option<fn(data: *mut c_void)>) {
-        self.data.write().unwrap().insert(String::from(data_key), (data, data_finalizer));
+    pub fn set_data(
+        &mut self,
+        data_key: &str,
+        data: *mut c_void,
+        data_finalizer: Option<fn(data: *mut c_void)>,
+    ) {
+        self.data
+            .write()
+            .unwrap()
+            .insert(String::from(data_key), (data, data_finalizer));
     }
 
     /// Gives access to the emscripten symbol map, used for debugging
@@ -925,9 +934,9 @@ mod vm_offset_tests {
 
     #[test]
     fn func_ctx() {
-        assert_eq!(FuncCtx::offset_vmctx() as usize, 0, );
+        assert_eq!(FuncCtx::offset_vmctx() as usize, 0,);
 
-        assert_eq!(FuncCtx::offset_func_env() as usize, 8, );
+        assert_eq!(FuncCtx::offset_func_env() as usize, 8,);
     }
 
     #[test]
@@ -979,9 +988,9 @@ mod vm_offset_tests {
 
     #[test]
     fn cc_anyfunc() {
-        assert_eq!(Anyfunc::offset_func() as usize, offset_of!(Anyfunc, func), );
+        assert_eq!(Anyfunc::offset_func() as usize, offset_of!(Anyfunc, func),);
 
-        assert_eq!(Anyfunc::offset_vmctx() as usize, offset_of!(Anyfunc, ctx), );
+        assert_eq!(Anyfunc::offset_vmctx() as usize, offset_of!(Anyfunc, ctx),);
 
         assert_eq!(
             Anyfunc::offset_sig_id() as usize,
@@ -1018,7 +1027,7 @@ mod vm_ctx_tests {
 
         assert_eq!(10, test_data.x);
         assert_eq!(true, test_data.y);
-        assert_eq!("Test".to_string(), test_data.str, );
+        assert_eq!("Test".to_string(), test_data.str,);
 
         println!("hello from finalizer");
 

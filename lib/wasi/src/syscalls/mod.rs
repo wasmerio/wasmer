@@ -1,5 +1,4 @@
 #![allow(unused)]
-
 pub mod types;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod unix;
@@ -9,11 +8,15 @@ pub mod windows;
 pub mod legacy;
 
 use self::types::*;
-use crate::{ptr::{Array, WasmPtr}, state::{
-    self, host_file_type_to_wasi_file_type, iterate_poll_events, poll, Fd, HostFile, Inode,
-    InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, WasiState,
-    MAX_SYMLINKS,
-}, ExitCode, WASI_STATE_KEY};
+use crate::{
+    ptr::{Array, WasmPtr},
+    state::{
+        self, host_file_type_to_wasi_file_type, iterate_poll_events, poll, Fd, HostFile, Inode,
+        InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, WasiState,
+        MAX_SYMLINKS,
+    },
+    ExitCode, WASI_STATE_KEY,
+};
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::{Infallible, TryInto};
@@ -577,7 +580,7 @@ pub fn fd_filestat_set_times(
 
     if (fst_flags & __WASI_FILESTAT_SET_ATIM != 0 && fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0)
         || (fst_flags & __WASI_FILESTAT_SET_MTIM != 0
-        && fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0)
+            && fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0)
     {
         return __WASI_EINVAL;
     }
@@ -655,7 +658,7 @@ pub fn fd_pread(
     let bytes_read = match fd {
         __WASI_STDIN_FILENO => {
             if let Some(ref mut stdin) =
-            wasi_try!(state.fs.stdin_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stdin_mut().map_err(WasiFsError::into_wasi_err))
             {
                 wasi_try!(read_bytes(stdin, memory, iov_cells))
             } else {
@@ -756,7 +759,7 @@ pub fn fd_prestat_dir_name(
                     ::std::str::from_utf8(unsafe {
                         &*(&path_chars[..] as *const [_] as *const [u8])
                     })
-                        .unwrap()
+                    .unwrap()
                 );
 
                 __WASI_ESUCCESS
@@ -800,7 +803,7 @@ pub fn fd_pwrite(
         __WASI_STDIN_FILENO => return __WASI_EINVAL,
         __WASI_STDOUT_FILENO => {
             if let Some(ref mut stdout) =
-            wasi_try!(state.fs.stdout_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stdout_mut().map_err(WasiFsError::into_wasi_err))
             {
                 wasi_try!(write_bytes(stdout, memory, iovs_arr_cell))
             } else {
@@ -809,7 +812,7 @@ pub fn fd_pwrite(
         }
         __WASI_STDERR_FILENO => {
             if let Some(ref mut stderr) =
-            wasi_try!(state.fs.stderr_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stderr_mut().map_err(WasiFsError::into_wasi_err))
             {
                 wasi_try!(write_bytes(stderr, memory, iovs_arr_cell))
             } else {
@@ -885,7 +888,7 @@ pub fn fd_read(
     let bytes_read = match fd {
         __WASI_STDIN_FILENO => {
             if let Some(ref mut stdin) =
-            wasi_try!(state.fs.stdin_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stdin_mut().map_err(WasiFsError::into_wasi_err))
             {
                 wasi_try!(read_bytes(stdin, memory, iovs_arr_cell))
             } else {
@@ -1227,7 +1230,7 @@ pub fn fd_write(
         __WASI_STDIN_FILENO => return __WASI_EINVAL,
         __WASI_STDOUT_FILENO => {
             if let Some(ref mut stdout) =
-            wasi_try!(state.fs.stdout_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stdout_mut().map_err(WasiFsError::into_wasi_err))
             {
                 wasi_try!(write_bytes(stdout, memory, iovs_arr_cell))
             } else {
@@ -1236,7 +1239,7 @@ pub fn fd_write(
         }
         __WASI_STDERR_FILENO => {
             if let Some(ref mut stderr) =
-            wasi_try!(state.fs.stderr_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stderr_mut().map_err(WasiFsError::into_wasi_err))
             {
                 wasi_try!(write_bytes(stderr, memory, iovs_arr_cell))
             } else {
@@ -1472,7 +1475,7 @@ pub fn path_filestat_set_times(
     }
     if (fst_flags & __WASI_FILESTAT_SET_ATIM != 0 && fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0)
         || (fst_flags & __WASI_FILESTAT_SET_MTIM != 0
-        && fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0)
+            && fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0)
     {
         return __WASI_EINVAL;
     }
@@ -2349,17 +2352,17 @@ pub fn poll_oneoff(
                     wasi_try!(state.fs.stderr().map_err(WasiFsError::into_wasi_err)).as_ref(),
                     __WASI_EBADF
                 )
-                    .as_ref(),
+                .as_ref(),
                 __WASI_STDIN_FILENO => wasi_try!(
                     wasi_try!(state.fs.stdin().map_err(WasiFsError::into_wasi_err)).as_ref(),
                     __WASI_EBADF
                 )
-                    .as_ref(),
+                .as_ref(),
                 __WASI_STDOUT_FILENO => wasi_try!(
                     wasi_try!(state.fs.stdout().map_err(WasiFsError::into_wasi_err)).as_ref(),
                     __WASI_EBADF
                 )
-                    .as_ref(),
+                .as_ref(),
                 _ => {
                     let fd_entry = wasi_try!(state.fs.get_fd(fd));
                     let inode = fd_entry.inode;
@@ -2467,7 +2470,6 @@ pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<Infallible, E
     debug!("wasi::proc_exit, {}", code);
     Err(ExitCode { code })
 }
-
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
     debug!("wasi::proc_raise");
     unimplemented!("wasi::proc_raise")
@@ -2516,7 +2518,6 @@ pub fn sock_recv(
     debug!("wasi::sock_recv");
     unimplemented!("wasi::sock_recv")
 }
-
 pub fn sock_send(
     ctx: &mut Ctx,
     sock: __wasi_fd_t,
@@ -2528,7 +2529,6 @@ pub fn sock_send(
     debug!("wasi::sock_send");
     unimplemented!("wasi::sock_send")
 }
-
 pub fn sock_shutdown(ctx: &mut Ctx, sock: __wasi_fd_t, how: __wasi_sdflags_t) -> __wasi_errno_t {
     debug!("wasi::sock_shutdown");
     unimplemented!("wasi::sock_shutdown")

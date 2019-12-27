@@ -36,7 +36,8 @@ extern crate lazy_static;
 #[macro_use]
 mod macros;
 
-#[macro_use] extern crate maplit;
+#[macro_use]
+extern crate maplit;
 
 #[doc(hidden)]
 pub mod backend;

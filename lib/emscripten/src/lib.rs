@@ -1,11 +1,11 @@
 #![deny(
-dead_code,
-nonstandard_style,
-unused_imports,
-unused_mut,
-unused_variables,
-unused_unsafe,
-unreachable_patterns
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
 )]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
@@ -17,7 +17,7 @@ use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::f64;
+use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
     error::{CallError, CallResult, ResolveError},
     export::Export,
@@ -77,7 +77,6 @@ pub use self::utils::{
     allocate_cstr_on_stack, allocate_on_stack, get_emscripten_memory_size, get_emscripten_metadata,
     get_emscripten_table_size, is_emscripten_module,
 };
-use std::ffi::c_void;
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
@@ -127,21 +126,18 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_iiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiiiiiii: Option<
-        Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>
-    >,
-    pub dyn_call_iiiiiiiiiii: Option<
-        Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>
-    >,
+    pub dyn_call_iiiiiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_vd: Option<Func<'a, (i32, f64)>>,
     pub dyn_call_viiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viiiiiiiiii: Option<
-        Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>
-    >,
+    pub dyn_call_viiiiiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_iij: Option<Func<'a, (i32, i32, i32, i32), i32>>,
     pub dyn_call_iji: Option<Func<'a, (i32, i32, i32, i32), i32>>,
     pub dyn_call_iiji: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
@@ -153,9 +149,8 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_jjj: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_viiij: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiijiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viiijiiiiii: Option<
-        Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>
-    >,
+    pub dyn_call_viiijiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viij: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiji: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
@@ -169,9 +164,8 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_viid: Option<Func<'a, (i32, i32, i32, f64)>>,
     pub dyn_call_vidd: Option<Func<'a, (i32, i32, f64, f64)>>,
     pub dyn_call_viidii: Option<Func<'a, (i32, i32, i32, f64, i32, i32)>>,
-    pub dyn_call_viidddddddd: Option<
-        Func<'a, (i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64)>
-    >,
+    pub dyn_call_viidddddddd:
+        Option<Func<'a, (i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64)>>,
     pub temp_ret_0: i32,
 
     pub stack_save: Option<Func<'a, (), i32>>,
@@ -485,18 +479,18 @@ impl EmscriptenGlobals {
                 name_index,
             },
         ) in &module.info().imported_functions
-            {
-                let namespace = module.info().namespace_table.get(*namespace_index);
-                let name = module.info().name_table.get(*name_index);
-                if name == "abortOnCannotGrowMemory" && namespace == "env" {
-                    let sig_index = module.info().func_assoc[index.convert_up(module.info())];
-                    let expected_sig = &module.info().signatures[sig_index];
-                    if *expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
-                        use_old_abort_on_cannot_grow_memory = true;
-                    }
-                    break;
+        {
+            let namespace = module.info().namespace_table.get(*namespace_index);
+            let name = module.info().name_table.get(*name_index);
+            if name == "abortOnCannotGrowMemory" && namespace == "env" {
+                let sig_index = module.info().func_assoc[index.convert_up(module.info())];
+                let expected_sig = &module.info().signatures[sig_index];
+                if *expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
+                    use_old_abort_on_cannot_grow_memory = true;
                 }
+                break;
             }
+        }
 
         let (table_min, table_max) = get_emscripten_table_size(&module)?;
         let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
@@ -558,13 +552,13 @@ impl EmscriptenGlobals {
                 name_index,
             },
         ) in &module.info().imported_functions
-            {
-                let namespace = module.info().namespace_table.get(*namespace_index);
-                let name = module.info().name_table.get(*name_index);
-                if namespace == "env" && name.starts_with("nullFunc_") {
-                    null_func_names.push(name.to_string())
-                }
+        {
+            let namespace = module.info().namespace_table.get(*namespace_index);
+            let name = module.info().name_table.get(*name_index);
+            if namespace == "env" && name.starts_with("nullFunc_") {
+                null_func_names.push(name.to_string())
             }
+        }
 
         Ok(Self {
             data,

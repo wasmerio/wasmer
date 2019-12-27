@@ -56,6 +56,7 @@ impl IsExport for Export {
 /// ```
 pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send>>>>,
+    /// Returns (data key name, data, data finalizer function)
     pub(crate) state_creator:
         Option<Arc<dyn Fn() -> (String, *mut c_void, fn(*mut c_void)) + Send + Sync + 'static>>,
     /// Allow missing functions to be generated and instantiation to continue when required

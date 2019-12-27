@@ -12,7 +12,11 @@ pub use self::windows::*;
 
 use libc::c_char;
 
-use crate::{allocate_on_stack, ptr::{Array, WasmPtr}, EmscriptenData, EMSRIPTEN_STATE_KEY};
+use crate::{
+    allocate_on_stack,
+    ptr::{Array, WasmPtr},
+    EmscriptenData, EMSRIPTEN_STATE_KEY,
+};
 
 use std::os::raw::c_int;
 use wasmer_runtime_core::{types::ValueType, vm::Ctx};
