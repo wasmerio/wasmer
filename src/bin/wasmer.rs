@@ -102,6 +102,7 @@ impl PrestandardFeatures {
             features.enable_threads();
         }
         features.enable_sign_extension();
+        features.enable_sat_float_to_int();
         features
     }
 
@@ -485,6 +486,7 @@ fn execute_wasi(
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
                 backend: options.backend,
+                runnable_module: instance.module.runnable_module.clone(),
             });
             true
         } else {

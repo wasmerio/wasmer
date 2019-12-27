@@ -451,7 +451,7 @@ fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, BinaryReaderErro
 
 fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
     Ok(match *op {
-        Operator::GetGlobal { global_index } => {
+        Operator::GlobalGet { global_index } => {
             Initializer::GetGlobal(ImportedGlobalIndex::new(global_index as usize))
         }
         Operator::I32Const { value } => Initializer::Const(Value::I32(value)),

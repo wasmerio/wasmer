@@ -42,9 +42,8 @@ impl Module {
         let runnable_module = Caller::new(handler_data, trampolines, func_resolver);
 
         Ok(ModuleInner {
-            runnable_module: Box::new(runnable_module),
+            runnable_module: Arc::new(Box::new(runnable_module)),
             cache_gen,
-
             info,
         })
     }

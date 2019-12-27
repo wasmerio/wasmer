@@ -1,4 +1,4 @@
-use wasmer_llvm_backend::{InkwellMemoryBuffer, InkwellModule, LLVMBackendConfig, LLVMCallbacks};
+use wasmer_llvm_backend::{InkwellModule, LLVMBackendConfig, LLVMCallbacks};
 use wasmer_llvm_backend_tests::{get_compiler, wat2wasm};
 use wasmer_runtime::{imports, CompilerConfig};
 use wasmer_runtime_core::{backend::BackendCompilerConfig, compile_with, compile_with_config};
