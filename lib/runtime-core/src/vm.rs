@@ -64,7 +64,7 @@ pub struct Ctx {
     /// If there's a function set in the second value field, it gets called
     /// when the context is destructed, e.g. when an `Instance`
     /// is dropped.
-    pub data: RwLock<HashMap<String, (*mut c_void, Option<fn(data: *mut c_void)>)>>,
+    data: RwLock<HashMap<String, (*mut c_void, Option<fn(data: *mut c_void)>)>>,
 }
 
 /// When an instance context is destructed, we're calling its `data_finalizer`
@@ -405,6 +405,17 @@ impl Ctx {
         }
     }
 
+    /// Get mutable access to the user defined data
+    /// field as the type, `T`.
+    ///
+    /// # Safety
+    ///
+    /// This function must be called with the same type, `T`, that the `data`
+    /// was initialized with.
+    pub fn data_mut<T>(&self, data_key: &str) -> &mut T {
+        unsafe { &mut *(self.data.read().unwrap().get(data_key).unwrap().0 as *mut T) }
+    }
+
     /// Get access to [`Memory`] and mutable access to the user defined data
     /// field as the type, `T`.
     ///
@@ -418,6 +429,12 @@ impl Ctx {
     /// was initialized with.
     pub unsafe fn memory_and_data_mut<T>(&mut self, data_key: &str, mem_index: u32) -> (&Memory, &mut T) {
         (self.memory(mem_index), &mut *(self.data.read().unwrap().get(data_key).unwrap().0 as *mut T))
+    }
+
+    /// Sets user defined data field given the `data_key`, `data` and `data_finalizer` function which if present
+    /// is called when Ctx is dropped. use `memory_and_data_mut` or `data_mut` to get access to the data.
+    pub fn set_data(&mut self, data_key: &str, data: *mut c_void, data_finalizer: Option<fn(data: *mut c_void)>) {
+        self.data.write().unwrap().insert(String::from(data_key), (data, data_finalizer));
     }
 
     /// Gives access to the emscripten symbol map, used for debugging
@@ -981,6 +998,8 @@ mod vm_ctx_tests {
     use std::ffi::c_void;
     use std::sync::Arc;
 
+    const TEST_STATE_KEY: &str = "TESTKEY";
+
     struct TestData {
         x: u32,
         y: bool,
@@ -1048,12 +1067,13 @@ mod vm_ctx_tests {
                 &mut local_backing,
                 &mut import_backing,
                 &module,
+                TEST_STATE_KEY,
                 data_ptr,
                 test_data_finalizer,
             )
         };
 
-        let ctx_test_data = cast_test_data(ctx.data);
+        let ctx_test_data = cast_test_data(ctx.data_mut(TEST_STATE_KEY));
         assert_eq!(10, ctx_test_data.x);
         assert_eq!(true, ctx_test_data.y);
         assert_eq!("Test".to_string(), ctx_test_data.str);

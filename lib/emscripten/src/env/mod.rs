@@ -12,11 +12,7 @@ pub use self::windows::*;
 
 use libc::c_char;
 
-use crate::{
-    allocate_on_stack,
-    ptr::{Array, WasmPtr},
-    EmscriptenData,
-};
+use crate::{allocate_on_stack, ptr::{Array, WasmPtr}, EmscriptenData, EMSRIPTEN_STATE_KEY};
 
 use std::os::raw::c_int;
 use wasmer_runtime_core::{types::ValueType, vm::Ctx};
@@ -53,7 +49,7 @@ pub fn call_memset(ctx: &mut Ctx, pointer: u32, value: u32, size: u32) -> u32 {
 }
 
 pub(crate) fn get_emscripten_data(ctx: &mut Ctx) -> &mut EmscriptenData {
-    unsafe { &mut *(ctx.data as *mut EmscriptenData) }
+    ctx.data_mut(EMSRIPTEN_STATE_KEY)
 }
 
 pub fn _getpagesize(_ctx: &mut Ctx) -> u32 {
