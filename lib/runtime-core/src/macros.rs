@@ -110,7 +110,7 @@ macro_rules! func {
 /// };
 ///
 /// let imports_with_state = imports! {
-///     || (0 as _, |_a| {}),
+///     || (String::from("stateKey"), 0 as _, |_a| {}),
 ///     "env" => {
 ///         "foo" => func!(foo),
 ///     },
