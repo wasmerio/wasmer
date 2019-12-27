@@ -1,4 +1,5 @@
 #![cfg(test)]
+
 use wasmer_runtime::{compile, Ctx, Func};
 use wasmer_wasi::{state::*, *};
 
@@ -50,7 +51,7 @@ fn serializing_works() {
 
     let wasi_state = Box::new(WasiState::unfreeze(&state_bytes).unwrap());
 
-    instance.context_mut().data = Box::into_raw(wasi_state) as *mut c_void;
+    instance.context_mut().data.write().unwrap().insert(String::from(WASI_STATE_KEY), (Box::into_raw(wasi_state) as *mut c_void, None));
 
     let second_entry: Func<(), i32> = instance.func("second_entry").unwrap();
     let result = second_entry.call().unwrap();

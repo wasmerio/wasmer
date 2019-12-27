@@ -32,6 +32,7 @@ use std::{
     time::SystemTime,
 };
 use wasmer_runtime_core::{debug, vm::Ctx};
+use crate::WASI_STATE_KEY;
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
@@ -54,7 +55,7 @@ const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
 /// Get WasiState from a Ctx
 /// This function is unsafe because it must be called on a WASI Ctx
 pub unsafe fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
-    &mut *(ctx.data as *mut WasiState)
+    &mut *(ctx.data.read().unwrap().get(WASI_STATE_KEY).unwrap().0 as *mut WasiState)
 }
 
 /// A completely aribtrary "big enough" number used as the upper limit for

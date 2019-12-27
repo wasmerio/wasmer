@@ -57,7 +57,7 @@ impl IsExport for Export {
 pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send>>>>,
     pub(crate) state_creator:
-        Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + Send + Sync + 'static>>,
+        Option<Arc<dyn Fn() -> (String, *mut c_void, fn(*mut c_void)) + Send + Sync + 'static>>,
     /// Allow missing functions to be generated and instantiation to continue when required
     /// functions are not provided.
     pub allow_missing_functions: bool,
@@ -76,7 +76,7 @@ impl ImportObject {
     /// Create a new `ImportObject` which generates data from the provided state creator.
     pub fn new_with_data<F>(state_creator: F) -> Self
     where
-        F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static + Send + Sync,
+        F: Fn() -> (String, *mut c_void, fn(*mut c_void)) + 'static + Send + Sync,
     {
         Self {
             map: Arc::new(Mutex::new(HashMap::new())),
@@ -85,7 +85,8 @@ impl ImportObject {
         }
     }
 
-    pub(crate) fn call_state_creator(&self) -> Option<(*mut c_void, fn(*mut c_void))> {
+    /// Returns (data key name, data, data finalizer)
+    pub(crate) fn call_state_creator(&self) -> Option<(String, *mut c_void, fn(*mut c_void))> {
         self.state_creator.as_ref().map(|state_gen| state_gen())
     }
 

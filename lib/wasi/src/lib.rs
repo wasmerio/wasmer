@@ -41,6 +41,8 @@ pub use self::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
 use wasmer_runtime_core::{func, import::ImportObject, imports};
 
+pub const WASI_STATE_KEY: &str = "WASI";
+
 /// This is returned in the Box<dyn Any> RuntimeError::Error variant.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
 pub struct ExitCode {
@@ -72,6 +74,7 @@ pub fn generate_import_object(
         });
 
         (
+            String::from(WASI_STATE_KEY),
             Box::into_raw(state) as *mut c_void,
             state_destructor as fn(*mut c_void),
         )
@@ -100,6 +103,7 @@ pub fn generate_import_object_from_state(
         let wasi_state = Box::new(WasiState::unfreeze(&wasi_state_bytes).unwrap());
 
         (
+            String::from(WASI_STATE_KEY),
             Box::into_raw(wasi_state) as *mut c_void,
             state_destructor as fn(*mut c_void),
         )
@@ -155,6 +159,7 @@ fn generate_import_object_snapshot0(
         });
 
         (
+            String::from(WASI_STATE_KEY),
             Box::into_raw(state) as *mut c_void,
             state_destructor as fn(*mut c_void),
         )
@@ -165,7 +170,7 @@ fn generate_import_object_snapshot0(
 /// Combines a state generating function with the import list for legacy WASI
 fn generate_import_object_snapshot0_inner<F>(state_gen: F) -> ImportObject
 where
-    F: Fn() -> (*mut c_void, fn(*mut c_void)) + Send + Sync + 'static,
+    F: Fn() -> (String, *mut c_void, fn(*mut c_void)) + Send + Sync + 'static,
 {
     imports! {
         state_gen,
@@ -222,7 +227,7 @@ where
 /// Combines a state generating function with the import list for snapshot 1
 fn generate_import_object_snapshot1_inner<F>(state_gen: F) -> ImportObject
 where
-    F: Fn() -> (*mut c_void, fn(*mut c_void)) + Send + Sync + 'static,
+    F: Fn() -> (String, *mut c_void, fn(*mut c_void)) + Send + Sync + 'static,
 {
     imports! {
             state_gen,
