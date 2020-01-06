@@ -12,5 +12,6 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.12.0" }
 getrandom = "0.1"
+wasmer-runtime-core = { path = "../runtime-core", version = "0.12.0" }
+slab = "0.4"

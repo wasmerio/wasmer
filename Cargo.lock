@@ -1336,6 +1336,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "slab"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
+
+[[package]]
 name = "smallvec"
 version = "0.6.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1692,6 +1698,7 @@ name = "wasmer-go-js"
 version = "0.10.2"
 dependencies = [
  "getrandom",
+ "slab",
  "wasmer-runtime-core",
 ]
 

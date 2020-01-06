@@ -1,6 +1,8 @@
 mod syscalls;
 
+use slab::Slab;
 use std::ffi::c_void;
+use std::collections::*;
 use wasmer_runtime_core::{func, import::ImportObject, imports, module::Module, Func, Instance};
 
 /// Returns whether or not a [`Module`] is a go-js Module
@@ -21,16 +23,21 @@ pub fn is_go_js_module(module: &Module) -> bool {
     true
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Value {
     Nan,
-    Zero,
     Null,
     True,
     False,
     Global,
     This,
     Number(u32),
+    String(String),
+    Bytes(Vec<u8>),
+    Object {
+        name: &'static str,
+        values: HashMap<String, usize>
+    },
     Undefined,
 }
 
@@ -42,7 +49,7 @@ impl Value {
             Value::Nan => {
                 out = nan_head << 32;
             }
-            Value::Zero => out = (nan_head << 32) | 1,
+            Value::Number(0) => out = (nan_head << 32) | 1,
             Value::Number(n) => {
                 // TODO: this is a 64 bit float? but it's written as a 32bit?
                 out = *n as u64;
@@ -67,7 +74,7 @@ impl Value {
         }
         let static_array = [
             Value::Nan,
-            Value::Zero,
+            Value::Number(0),
             Value::Null,
             Value::True,
             Value::False,
@@ -75,29 +82,144 @@ impl Value {
             Value::This,
         ];
 
-        static_array[arg as u32 as usize]
+        static_array[arg as u32 as usize].clone()
     }
 }
 
 pub struct GoJsData<'a> {
-    values: [Value; 7],
+    /// all the data values
+    heap: Slab<Value>,
     getsp: Func<'a, (), (i32)>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GoJsError {
+    NotAnObject(usize),
+}
+
 impl<'a> GoJsData<'a> {
-    pub fn new(instance: &'a mut Instance) -> Self {
+    pub(crate) const NULL: usize = 2;
+    pub(crate) const TRUE: usize = 3;
+    pub(crate) const FALSE: usize = 4;
+    pub(crate) const GLOBAL: usize = 5;
+    pub(crate) const MEM: usize = 5;
+    pub(crate) const THIS: usize = 5;
+    
+    pub fn new(instance: &'a mut Instance) -> Result<Self, GoJsError> {
         let getsp = instance.func("getsp").expect("exported fn \"getsp\"");
-        GoJsData {
-            values: [
-                Value::Nan,
-                Value::Zero,
-                Value::Null,
-                Value::True,
-                Value::False,
-                Value::Global,
-                Value::This,
-            ],
+        let mut go_js = GoJsData {
+            heap: Slab::new(),
             getsp,
+        };
+
+        // initialize with expected default values
+        go_js.heap_add(Value::Nan);
+        go_js.heap_add(Value::Number(0));
+        let null = go_js.heap_add(Value::Null);
+        assert_eq!(null, Self::NULL);
+        let _true = go_js.heap_add(Value::True);
+        assert_eq!(_true, Self::TRUE);
+        let _false = go_js.heap_add(Value::False);
+        assert_eq!(_false, Self::FALSE);
+        let global = go_js.heap_add(Value::Object {
+            name: "global",
+            values: HashMap::new(),
+        });
+        assert_eq!(global, Self::GLOBAL);
+        let mem = go_js.heap_add(Value::Object {
+            name: "mem",
+            values: HashMap::new(),
+        });
+        assert_eq!(mem, Self::MEM);
+        let this = go_js.heap_add(Value::Object {
+            name: "this",
+            values: HashMap::new(),
+        });
+        assert_eq!(this, Self::THIS);
+
+
+        go_js.add_to_object(mem, "buffer")?;
+
+        let fs = go_js.add_to_object(global, "fs")?;
+        go_js.add_to_object(fs, "write")?;
+        go_js.add_to_object(fs, "open")?;
+        go_js.add_to_object(fs, "stat")?;
+        go_js.add_to_object(fs, "fstat")?;
+        go_js.add_to_object(fs, "read")?;
+        go_js.add_to_object(fs, "mkdir")?;
+        go_js.add_to_object(fs, "fsync")?;
+        go_js.add_to_object(fs, "isDirectory")?;
+
+        let constants = go_js.add_to_object(fs, "constants")?;
+        // TODO: disambiguate between direct numbers and pointers
+        go_js.insert_into_object(constants, "O_WRONLY", 1)?;
+        go_js.insert_into_object(constants, "O_RDWR", 2)?;
+        go_js.insert_into_object(constants, "O_CREAT", 64)?;
+        go_js.insert_into_object(constants, "O_TRUNC", 512)?;
+        go_js.insert_into_object(constants, "O_APPEND", 1024)?;
+        go_js.insert_into_object(constants, "O_EXCL", 128)?;
+
+        let crypto = go_js.add_to_object(global, "crypto")?;
+        go_js.add_to_object(crypto, "getRandomValues")?;
+
+        go_js.insert_into_object(this, "_pendingEvent", null)?;
+        go_js.add_to_object(this, "_makeFuncWrapper")?;
+
+        go_js.add_to_object(global, "Object")?;
+        go_js.add_to_object(global, "Array")?;
+        go_js.add_to_object(global, "Uint8Array")?;
+        go_js.add_to_object(global, "Int16Array")?;
+        go_js.add_to_object(global, "Int32Array")?;
+        go_js.add_to_object(global, "Int8Array")?;
+        go_js.add_to_object(global, "Uint16Array")?;
+        go_js.add_to_object(global, "Uint32Array")?;
+        go_js.add_to_object(global, "Float32Array")?;
+        go_js.add_to_object(global, "Float64Array")?;
+        go_js.add_to_object(global, "net_listener")?;
+
+        let process = go_js.add_to_object(global, "process")?;
+        go_js.add_to_object(process, "cwd")?;
+        go_js.add_to_object(process, "chdir")?;
+
+        let date = go_js.add_to_object(global, "Date")?;
+        // TODO: review if this should be somewhere else
+        go_js.add_to_object(date, "getTimezoneOffset")?;
+
+
+        // TODO: add errors
+
+        Ok(go_js)
+    }
+
+    fn heap_add(&mut self, v: Value) -> usize {
+        self.heap.insert(v)
+    }
+
+    fn heap_get(&self, idx: usize) -> Option<&Value> {
+        self.heap.get(idx)
+    }
+    fn heap_get_mut(&mut self, idx: usize) -> Option<&mut Value> {
+        self.heap.get_mut(idx)
+    }
+
+    fn add_to_object(&mut self, obj_id: usize, property_name: &'static str) -> Result<usize, GoJsError> {
+        let new_id = self.heap_add(Value::Object {
+            name: property_name,
+            values: HashMap::new(),
+        });
+
+        self.insert_into_object(obj_id, property_name, new_id)?;
+
+        Ok(new_id)
+    }
+
+    // TODO: return errors here
+    fn insert_into_object(&mut self, obj_id: usize, field: &str, value_ptr: usize) -> Result<(), GoJsError> {
+        if let Some(Value::Object { values, .. }) = self.heap_get_mut(obj_id) {
+            values.insert(field.to_string(), value_ptr);
+            Ok(())
+        } else {
+            Err(GoJsError::NotAnObject(obj_id))
         }
     }
 }
