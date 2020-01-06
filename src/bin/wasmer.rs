@@ -11,6 +11,7 @@ extern crate structopt;
 
 use std::collections::HashMap;
 use std::env;
+use std::error::Error;
 use std::fs::{metadata, read_to_string, File};
 use std::io;
 use std::io::Read;
@@ -623,8 +624,22 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     if !utils::is_wasm_binary(&wasm_binary) {
         let features = options.features.into_wabt_features();
-        wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
-            .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
+        wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features).map_err(|e| {
+            format!(
+                "Can't convert from wast to wasm because \"{}\"{}",
+                e.description(),
+                match e.kind() {
+                    wabt::ErrorKind::Deserialize(s)
+                    | wabt::ErrorKind::Parse(s)
+                    | wabt::ErrorKind::ResolveNames(s)
+                    | wabt::ErrorKind::Validate(s) => format!(":\n\n{}", s),
+                    wabt::ErrorKind::Nul
+                    | wabt::ErrorKind::WriteText
+                    | wabt::ErrorKind::NonUtf8Result
+                    | wabt::ErrorKind::WriteBinary => "".to_string(),
+                }
+            )
+        })?;
     }
 
     let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)
