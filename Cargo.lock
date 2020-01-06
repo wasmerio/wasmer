@@ -1617,6 +1617,7 @@ dependencies = [
  "wasmer-dev-utils",
  "wasmer-emscripten",
  "wasmer-emscripten-tests",
+ "wasmer-go-js",
  "wasmer-kernel-loader",
  "wasmer-llvm-backend",
  "wasmer-middleware-common",
@@ -1684,6 +1685,14 @@ dependencies = [
  "wasmer-llvm-backend",
  "wasmer-runtime",
  "wasmer-singlepass-backend",
+]
+
+[[package]]
+name = "wasmer-go-js"
+version = "0.10.2"
+dependencies = [
+ "getrandom",
+ "wasmer-runtime-core",
 ]
 
 [[package]]

@@ -30,6 +30,7 @@ wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
+wasmer-go-js = { path = "lib/go-js" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
@@ -53,6 +54,7 @@ members = [
     "lib/llvm-backend",
     "lib/llvm-backend-tests",
     "lib/wasi",
+    "lib/go-js",
     "lib/middleware-common",
     "lib/kernel-loader",
     "lib/kernel-net",

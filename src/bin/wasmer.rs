@@ -819,6 +819,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             mapped_dirs,
         )
         .map_err(|e| format!("{:?}", e))?;
+    } else if wasmer_go_js::is_go_js_module(&module) {
+            let import_object = wasmer_go_js::generate_import_object();
+            let mut instance = module
+                .instantiate(&import_object)
+                .map_err(|e| format!("Can't instantiate GoJS module: {:?}", e))?;
+            wasmer_go_js::run_go_js_instance(&mut instance);
     } else {
         #[cfg(feature = "wasi")]
         let wasi_version = wasmer_wasi::get_wasi_version(&module, true);

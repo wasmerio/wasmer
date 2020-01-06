@@ -1,0 +1,16 @@
+[package]
+name = "wasmer-go-js"
+version = "0.10.2"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+repository = "https://github.com/wasmerio/wasmer"
+# TOOO: change below when finished
+publish = false
+description = "High-Performance WebAssembly JIT interpreter"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.12.0" }
+getrandom = "0.1"
