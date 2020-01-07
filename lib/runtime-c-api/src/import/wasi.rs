@@ -11,7 +11,7 @@ pub enum Version {
     Unknown = 0,
 
     /// Latest version. See `wasmer_wasi::WasiVersion::Latest` to
-    /// leran more.
+    /// learn more.
     Latest = 1,
 
     /// `wasi_unstable`.
