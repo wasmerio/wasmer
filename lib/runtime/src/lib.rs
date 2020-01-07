@@ -367,7 +367,7 @@ mod test {
             #[cfg(feature = "llvm")]
             Backend::LLVM,
             #[cfg(feature = "singlepass")]
-            Backend::Singlepass
+            Backend::Singlepass,
         ] {
             assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
         }
