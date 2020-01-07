@@ -941,7 +941,8 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-fn get_backend(backend: Backend, _path: &PathBuf) -> Backend {
+#[allow(unused_variables)]
+fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
     // Update backend when a backend flag is `auto`.
     // Use the Singlepass backend if it's enabled and the file provided is larger
     // than 10MiB (10485760 bytes), or it's enabled and the target architecture
@@ -950,7 +951,7 @@ fn get_backend(backend: Backend, _path: &PathBuf) -> Backend {
         Backend::Auto => {
             #[cfg(feature = "backend-singlepass")]
             {
-                let binary_size = match &_path.metadata() {
+                let binary_size = match &path.metadata() {
                     Ok(wasm_binary) => wasm_binary.len(),
                     Err(_e) => 0,
                 };
