@@ -1,3 +1,4 @@
+use crate::{cast_value, load_value_start, store_value, GoJsData, NumVal, Value};
 use wasmer_runtime_core::{
     debug,
     memory::ptr::{Array, WasmPtr},
@@ -7,6 +8,11 @@ use wasmer_runtime_core::{
 };
 
 use std::io::Write;
+use std::time;
+
+fn get_go_js_data(ctx: &Ctx) -> &GoJsData {
+    unsafe { &*(ctx.data as *const GoJsData) }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -90,9 +96,28 @@ pub fn runtime_nano_time(ctx: &mut Ctx, arg: WasmPtr<GoArg>) {
     debug!("=> duration = {}", go_arg.return_value);
 }
 
-pub fn runtime_wall_time(_ctx: &mut Ctx, _param1: i32) {
-    debug!("go-js::runtime_wall_time {}", _param1);
-    unimplemented!("runtime_wall_time")
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct GoWallTimeArg {
+    _padding1: u64,
+    seconds: u64,
+    subsec_nanos: u32,
+}
+
+unsafe impl ValueType for GoWallTimeArg {}
+
+pub fn runtime_wall_time(ctx: &mut Ctx, arg: WasmPtr<GoWallTimeArg>) {
+    debug!("go-js::runtime_wall_time");
+    let memory = ctx.memory(0);
+    let go_arg_cell = arg.deref(memory).unwrap();
+    let now = time::SystemTime::now();
+    let unix_ts = now.duration_since(time::UNIX_EPOCH).unwrap();
+
+    go_arg_cell.set(GoWallTimeArg {
+        _padding1: 0,
+        seconds: unix_ts.as_secs(),
+        subsec_nanos: unix_ts.subsec_nanos(),
+    });
 }
 
 pub fn runtime_schedule_timeout_event(_ctx: &mut Ctx, _param1: i32) {
@@ -146,16 +171,24 @@ unsafe impl ValueType for GoStrArg {}
 pub fn syscall_js_value_get(ctx: &mut Ctx, arg: WasmPtr<GoStrArg>) {
     debug!("go-js::syscall_js_value_get");
     let memory = ctx.memory(0);
+    let data = get_go_js_data(ctx);
+
     let go_str_arg = arg.deref(memory).unwrap().get();
     let wasm_str_ptr: WasmPtr<u8, Array> = WasmPtr::new(go_str_arg.string_ptr as u32);
     let wasm_str: &str = wasm_str_ptr
         .get_utf8_string(memory, go_str_arg.string_len as u32)
         .expect("string from go");
-
-    let value = crate::Value::load_value(go_str_arg.value);
+    let value = load_value_start(go_str_arg.value).inner();
+    // TODO: cast here when casting is fixed
 
     debug!("Getting \"{}\" on {:?}", wasm_str, value);
-    debug!("Rest of get not implemented, doing nothing!");
+    let result = data
+        .reflect_get(value as usize, wasm_str)
+        .expect("reflected value");
+    debug!("Found {:?}", result);
+    let setter: &mut GoStrArg = unsafe { arg.deref_mut(memory).unwrap().get_mut() };
+    // TODO Review JS for this and maybe submit a patch to wasabi
+    setter.return_value = store_value(result);
 }
 
 pub fn syscall_js_value_set(_ctx: &mut Ctx, _param1: i32) {
@@ -178,9 +211,49 @@ pub fn syscall_js_value_call(_ctx: &mut Ctx, _param1: i32) {
     unimplemented!("syscall_js_value_call");
 }
 
-pub fn syscall_js_value_new(_ctx: &mut Ctx, _param1: i32) {
-    debug!("go-js::syscall_js_value_new {}", _param1);
-    unimplemented!("syscall_js_value_new");
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct GoValueNewArg {
+    _padding1: u64,           // 0
+    value: u64,               // 8
+    ptr: WasmPtr<u64, Array>, // 16
+    _padding2: u32,           // 20
+    len: u32,                 // 24
+    _padding3: u32,           // 28
+    _something: u64,          // 32
+    result: u64,              // 40
+    _other_result: u64,       // 48
+}
+
+unsafe impl ValueType for GoValueNewArg {}
+
+pub fn syscall_js_value_new(ctx: &mut Ctx, arg: WasmPtr<GoValueNewArg>) {
+    debug!("go-js::syscall_js_value_new");
+    let (memory, data) = unsafe { ctx.memory_and_data_mut::<GoJsData>(0) };
+
+    let go_arg = arg
+        .deref(memory)
+        .expect("arg to syscall_js_value_new in bounds")
+        .get();
+
+    let dereffed_value = load_value_start(go_arg.value).inner();
+    // TODO cast value when casting values works
+    let value = dereffed_value; //cast_value(dereffed_value as u64);
+    let slice = go_arg
+        .ptr
+        .deref(memory, 0, go_arg.len as u32)
+        .expect("slice in syscall_js_value_new");
+    let mut args = vec![];
+    for item in slice.iter() {
+        let dereffed_val = load_value_start(item.get());
+        args.push(cast_value(dereffed_val.inner() as u64));
+    }
+    debug!("Found {} args: {:#?}", go_arg.len, &args);
+
+    let result = data.reflect_construct(value as usize, &args).unwrap();
+    let setter: &mut GoValueNewArg = unsafe { arg.deref_mut(memory).unwrap().get_mut() };
+    setter.result = result.inner() as u64;
+    setter._other_result = 1;
 }
 
 pub fn syscall_js_value_length(_ctx: &mut Ctx, _param1: i32) {
@@ -198,7 +271,71 @@ pub fn syscall_js_value_load_string(_ctx: &mut Ctx, _param1: i32) {
     unimplemented!("syscall_js_value_load_string");
 }
 
-pub fn syscall_js_copy_bytes_to_js(_ctx: &mut Ctx, _param1: i32) {
-    debug!("go-js::syscall_js_copy_bytes_to_js {}", _param1);
-    unimplemented!("syscall_js_copy_bytes_to_js");
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct GoJsCopyBytesToJsArg {
+    _padding1: u64,           // 0
+    dest: u64,                // 8
+    src: WasmPtr<u64, Array>, // 16
+    _padding2: u32,           // 20
+    len: u64,                 // 24
+    _something: u64,          // 32
+    result: u64,              // 40
+    success_bool: u64,        // 48
+}
+
+unsafe impl ValueType for GoJsCopyBytesToJsArg {}
+
+pub fn syscall_js_copy_bytes_to_js(ctx: &mut Ctx, arg: WasmPtr<GoJsCopyBytesToJsArg>) {
+    debug!("go-js::syscall_js_copy_bytes_to_js");
+
+    let (memory, data) = unsafe { ctx.memory_and_data_mut::<GoJsData>(0) };
+    let go_arg = arg
+        .deref(memory)
+        .expect("arg to syscall_js_copy_bytes_to_js in bounds")
+        .get();
+
+    let slice = go_arg
+        .src
+        .deref(memory, 0, go_arg.len as u32)
+        .expect("slice in syscall_js_value_new");
+
+    let setter: &mut GoJsCopyBytesToJsArg = unsafe { arg.deref_mut(memory).unwrap().get_mut() };
+
+    let amount_copied = match load_value_start(go_arg.dest) {
+        // TODO: investigate this -- this seems to strongly imply ther's a bug somewhere but I don't
+        // think it's in `load_value_start` and the value here is is clearly the correct value...
+        // if this isn't a bug, then this ABI is really complicated and unstructured
+        NumVal::Pointer(p) | NumVal::Value(p) => {
+            // look it up
+            match data.heap_get_mut(p) {
+                Some(Value::Array(a)) => {
+                    let mut idx = 0;
+                    for item in slice.iter() {
+                        let dereffed_val = load_value_start(item.get());
+                        if let Some(entry) = a.get_mut(idx) {
+                            *entry = dereffed_val;
+                        } else {
+                            break;
+                        }
+                        idx += 1;
+                    }
+                    idx
+                }
+                _ => {
+                    setter.success_bool = 0;
+                    return;
+                }
+            }
+        } /*
+          _ => {
+              setter.success_bool = 0;
+              return;
+          }
+          */
+    };
+
+    debug!("Wrote {} bytes", amount_copied);
+    setter.result = amount_copied as u64;
+    setter.success_bool = 1;
 }
