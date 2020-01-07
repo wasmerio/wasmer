@@ -1118,7 +1118,7 @@ mod vm_ctx_tests {
 
                 func_assoc: Map::new(),
                 signatures: Map::new(),
-                backend: "".to_string(),
+                backend: Default::default(),
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
