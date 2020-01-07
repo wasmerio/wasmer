@@ -350,3 +350,26 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
 
 /// The current version of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn str_repr_matches() {
+        // if this test breaks, think hard about why it's breaking
+        // can we avoid having these be different?
+
+        for &backend in &[
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift,
+            #[cfg(feature = "llvm")]
+            Backend::LLVM,
+            #[cfg(feature = "singlepass")]
+            Backend::Singlepass
+        ] {
+            assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
+        }
+    }
+}
