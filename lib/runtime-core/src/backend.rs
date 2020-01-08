@@ -183,6 +183,26 @@ pub struct CompilerConfig {
     pub backend_specific_config: Option<BackendCompilerConfig>,
 }
 
+/// An exception table for a `RunnableModule`.
+#[derive(Clone, Debug, Default)]
+pub struct ExceptionTable {
+    /// Mappings from offsets in generated machine code to the corresponding exception code.
+    pub offset_to_code: HashMap<usize, ExceptionCode>,
+}
+
+/// The code of an exception.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum ExceptionCode {
+    /// An `unreachable` opcode was executed.
+    Unreachable,
+
+    /// An arithmetic exception, e.g. divided by zero.
+    Arithmetic,
+
+    /// Memory access exception, e.g. misaligned/out-of-bound read/write.
+    Memory,
+}
+
 pub trait Compiler {
     /// Compiles a `Module` from WebAssembly binary format.
     /// The `CompileToken` parameter ensures that this can only
@@ -211,6 +231,10 @@ pub trait RunnableModule: Send + Sync {
     }
 
     fn get_breakpoints(&self) -> Option<BreakpointMap> {
+        None
+    }
+
+    fn get_exception_table(&self) -> Option<&ExceptionTable> {
         None
     }
 
