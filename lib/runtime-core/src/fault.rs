@@ -375,15 +375,23 @@ extern "C" fn signal_trap_handler(
                 _ => {}
             }
 
+            // Now we have looked up all possible handler tables but failed to find a handler
+            // for this exception that allows a normal return.
+            //
+            // So here we check whether this exception is caused by a suspend signal, return the
+            // state image if so, or throw the exception out otherwise.
+
             let ctx: &mut vm::Ctx = &mut **CURRENT_CTX.with(|x| x.get());
             let es_image = fault
                 .read_stack(None)
                 .expect("fault.read_stack() failed. Broken invariants?");
 
             if is_suspend_signal {
+                // If this is a suspend signal, we parse the runtime state and return the resulting image.
                 let image = build_instance_image(ctx, es_image);
                 unwind_result = Box::new(image);
             } else {
+                // Otherwise, this is a real exception and we just throw it to the caller.
                 if es_image.frames.len() > 0 {
                     eprintln!(
                         "\n{}",
@@ -391,7 +399,26 @@ extern "C" fn signal_trap_handler(
                     );
                     es_image.print_backtrace_if_needed();
                 }
-                // Just let the error propagate otherwise
+
+                // Look up the exception tables and try to find an exception code.
+                let exc_code = CURRENT_CODE_VERSIONS.with(|versions| {
+                    let versions = versions.borrow();
+                    for v in versions.iter() {
+                        if let Some(table) = v.runnable_module.get_exception_table() {
+                            let ip = fault.ip.get();
+                            let end = v.base + v.msm.total_size;
+                            if ip >= v.base && ip < end {
+                                if let Some(exc_code) = table.offset_to_code.get(&(ip - v.base)) {
+                                    return Some(*exc_code);
+                                }
+                            }
+                        }
+                    }
+                    None
+                });
+                if let Some(code) = exc_code {
+                    unwind_result = Box::new(code);
+                }
             }
 
             true
