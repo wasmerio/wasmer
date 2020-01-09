@@ -206,9 +206,67 @@ pub fn syscall_js_value_set_index(_ctx: &mut Ctx, _param1: i32) {
     unimplemented!("syscall_js_value_set_index");
 }
 
-pub fn syscall_js_value_call(_ctx: &mut Ctx, _param1: i32) {
-    debug!("go-js::syscall_js_value_call {}", _param1);
-    unimplemented!("syscall_js_value_call");
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct GoValueCallArg {
+    _padding1: u64,                // 0
+    value: u64,                    // 8
+    field_str: WasmPtr<u8, Array>, // 16
+    _padding2: u32,                // 20
+    field_str_len: u32,            //24
+    _padding3: u32,                // 28
+    values: WasmPtr<u64, Array>,   // 32
+    _padding4: u32,                // 36
+    values_len: u32,               // 40
+    _padding5: u32,                // 44
+    _padding6: u64,                // 48
+    result: u64,                   // 56
+    success_bool: u64,             // 64
+}
+
+unsafe impl ValueType for GoValueCallArg {}
+
+pub fn syscall_js_value_call(ctx: &mut Ctx, arg: WasmPtr<GoValueCallArg>) {
+    debug!("go-js::syscall_js_value_call");
+    let (memory, data) = unsafe { ctx.memory_and_data_mut::<GoJsData>(0) };
+    let go_arg: GoValueCallArg = arg
+        .deref(memory)
+        .expect("arg to syscall_js_value_new in bounds")
+        .get();
+
+    let dereffed_value = load_value_start(go_arg.value).inner();
+    // TOOD: review casting
+    let value = dereffed_value; //cast_value(dereffed_value as u64);
+
+    let field_str = go_arg
+        .field_str
+        .get_utf8_string(memory, go_arg.field_str_len)
+        .expect("field_str in syscall_js_value_call");
+
+    let slice = go_arg
+        .values
+        .deref(memory, 0, go_arg.values_len)
+        .expect("slice in syscall_js_value_new");
+    let mut args = vec![];
+    for item in slice.iter() {
+        let dereffed_val = load_value_start(item.get());
+        args.push(dereffed_val);
+    }
+
+    // do logic that can fail here so we can easily capture it
+    let mut inner = || {
+        let m = data.reflect_get(value, field_str)?;
+        data.reflect_apply(m.inner(), value, &args)
+    };
+
+    let setter: &mut GoValueCallArg = unsafe { arg.deref_mut(memory).unwrap().get_mut() };
+    if let Some(result) = inner() {
+        setter.result = result.inner() as u64;
+        setter.success_bool = 1;
+    } else {
+        // TODO: store error
+        setter.success_bool = 0;
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -3,6 +3,7 @@ mod syscalls;
 use slab::Slab;
 use std::collections::*;
 use std::ffi::c_void;
+use std::io::Write;
 use wasmer_runtime_core::{
     debug, func, import::ImportObject, imports, module::Module, Func, Instance,
 };
@@ -171,8 +172,8 @@ impl<'a> GoJsData<'a> {
     pub(crate) const TRUE: usize = 3;
     pub(crate) const FALSE: usize = 4;
     pub(crate) const GLOBAL: usize = 5;
-    pub(crate) const MEM: usize = 6;
-    pub(crate) const THIS: usize = 7;
+    //pub(crate) const MEM: usize = 6;
+    pub(crate) const THIS: usize = 6;
 
     pub fn new(instance: &'a mut Instance) -> Result<Self, GoJsError> {
         let getsp = instance.func("getsp").expect("exported fn \"getsp\"");
@@ -195,18 +196,18 @@ impl<'a> GoJsData<'a> {
             values: HashMap::new(),
         });
         assert_eq!(global, Self::GLOBAL);
-        let mem = go_js.heap_add(Value::Object {
+        /*let mem = go_js.heap_add(Value::Object {
             name: "mem",
             values: HashMap::new(),
         });
-        assert_eq!(mem, Self::MEM);
+        assert_eq!(mem, Self::MEM);*/
         let this = go_js.heap_add(Value::Object {
             name: "this",
             values: HashMap::new(),
         });
         assert_eq!(this, Self::THIS);
 
-        go_js.add_to_object(mem, "buffer")?;
+        //go_js.add_to_object(mem, "buffer")?;
 
         let fs = go_js.add_to_object(global, "fs")?;
         go_js.add_to_object(fs, "write")?;
@@ -311,6 +312,7 @@ impl<'a> GoJsData<'a> {
     }
 
     pub(crate) fn reflect_get(&self, target: usize, property_key: &str) -> Option<NumVal> {
+        debug!("getting {} on {}", property_key, target);
         if let Value::Object { values, .. } = self.heap_get(target)? {
             values.get(property_key).cloned()
         } else {
@@ -330,7 +332,7 @@ impl<'a> GoJsData<'a> {
             "Uint8Array" => Some(NumVal::Pointer(
                 self.heap_add(Value::Array(
                     std::iter::repeat(NumVal::Value(0))
-                        .take(*dbg!(args.get(0))? as usize)
+                        .take(*args.get(0)? as usize)
                         .collect(),
                 )),
             )),
@@ -338,6 +340,53 @@ impl<'a> GoJsData<'a> {
             // "net_listener"
             _ => None,
         }
+    }
+
+    pub(crate) fn get_object_name(&self, object: usize) -> Option<&str> {
+        if let Value::Object { name, .. } = self.heap_get(object)? {
+            Some(name)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn reflect_apply(
+        &mut self,
+        target: usize,
+        object: usize,
+        args: &[NumVal],
+    ) -> Option<NumVal> {
+        let target_name = self.get_object_name(target)?;
+        let object_name = self.get_object_name(object)?;
+
+        debug!("reflect_apply: {}.{}", object_name, target_name);
+        Some(match (object_name, target_name) {
+            ("Date", "getTimezoneOffset") => NumVal::Value(0),
+            ("this", "_makeFuncWrapper") => {
+                let wf = self.heap_add(Value::Object {
+                    name: "wrappedFunc",
+                    values: HashMap::new(),
+                });
+                // from wasabi, "maybe don't create an object here?"
+                self.add_to_object(wf, "this").ok()?;
+                self.insert_into_object(wf, "id", args.get(0).cloned()?)
+                    .expect("insert into object in reflect_apply _makeFuncWrapper");
+                NumVal::Pointer(wf)
+            }
+            ("fs", "write") => {
+                if let Value::Array(a) = self.heap_get(args[1].inner())? {
+                    let stdout = std::io::stdout();
+                    let mut writer = stdout.lock();
+                    for e in a.iter().take_while(|n| n.inner() != 0) {
+                        writer.write(&e.inner().to_le_bytes()).unwrap();
+                    }
+                    args.get(3).cloned()?
+                } else {
+                    panic!("fs.write found something that's not an array: investigate to see if it makes sense or if it's a bug on the program's part")
+                }
+            }
+            _ => return None,
+        })
     }
 }
 
