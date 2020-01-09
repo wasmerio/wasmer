@@ -8,6 +8,7 @@ use crate::{
     sig_registry::SigRegistry,
     structures::{BoxedMap, Map, SliceMap, TypedIndex},
     table::Table,
+    typed_func::{always_trap, Func},
     types::{
         ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex,
         Initializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalOrImport,
@@ -15,11 +16,7 @@ use crate::{
     },
     vm,
 };
-use std::{
-    fmt::Debug,
-    ptr::{self, NonNull},
-    slice,
-};
+use std::{fmt::Debug, ptr::NonNull, slice};
 
 /// Size of the array for internal instance usage
 pub const INTERNALS_SIZE: usize = 256;
@@ -652,9 +649,18 @@ fn import_functions(
             }
             None => {
                 if imports.allow_missing_functions {
+                    let always_trap = Func::new(always_trap);
+
                     functions.push(vm::ImportedFunc {
-                        func: ptr::null(),
-                        func_ctx: unsafe { NonNull::new_unchecked(ptr::null_mut()) }, // TODO: Non-sense…
+                        func: always_trap.get_vm_func().as_ptr(),
+                        func_ctx: NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
+                            //                      ^^^^^^^^ `vm::FuncCtx` is purposely leaked.
+                            //                               It is dropped by the specific `Drop`
+                            //                               implementation of `ImportBacking`.
+                            vmctx: NonNull::new(vmctx).expect("`vmctx` must not be null."),
+                            func_env: None,
+                        })))
+                        .unwrap(),
                     });
                 } else {
                     link_errors.push(LinkError::ImportNotFound {

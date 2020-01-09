@@ -258,11 +258,6 @@ where
             _phantom: PhantomData,
         }
     }
-
-    /// Get the underlying func pointer.
-    pub fn get_vm_func(&self) -> NonNull<vm::Func> {
-        self.func
-    }
 }
 
 impl<'a, Args, Rets> Func<'a, Args, Rets, Host>
@@ -302,6 +297,11 @@ where
     /// Returns the types of the function outputs.
     pub fn returns(&self) -> &'static [Type] {
         Rets::types()
+    }
+
+    /// Get the underlying func pointer.
+    pub fn get_vm_func(&self) -> NonNull<vm::Func> {
+        self.func
     }
 }
 
