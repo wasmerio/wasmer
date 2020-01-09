@@ -563,7 +563,9 @@ impl Drop for ImportBacking {
     fn drop(&mut self) {
         // Properly drop the `vm::FuncCtx` in `vm::ImportedFunc`.
         for (_imported_func_index, imported_func) in (*self.vm_functions).iter_mut() {
-            let _: Box<vm::FuncCtx> = unsafe { Box::from_raw(imported_func.func_ctx.as_ptr()) };
+            if !imported_func.func_ctx.as_ptr().is_null() {
+                let _: Box<vm::FuncCtx> = unsafe { Box::from_raw(imported_func.func_ctx.as_ptr()) };
+            }
         }
     }
 }
