@@ -114,6 +114,9 @@ impl FrameBufferState {
 
     pub fn fill_input_buffer(&mut self) -> Option<()> {
         let keys_pressed = self.keys_pressed.iter().cloned().collect::<Vec<Key>>();
+        if !self.window.is_open() {
+            self.push_input_event(InputEvent::WindowClosed)?;
+        }
         for key in keys_pressed {
             if self.window.is_key_released(key) {
                 self.keys_pressed.remove(&key);
