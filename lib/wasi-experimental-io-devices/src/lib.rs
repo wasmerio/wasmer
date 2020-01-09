@@ -81,7 +81,7 @@ impl FrameBufferState {
             y,
             WindowOptions {
                 resize: true,
-                scale: Scale::X4,
+                scale: Scale::FitScreen,
                 ..WindowOptions::default()
             },
         )
