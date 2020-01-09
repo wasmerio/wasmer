@@ -23,9 +23,8 @@ use std::{
 use wasmer_runtime_core::{
     backend::{
         sys::{Memory, Protect},
-        Architecture, Backend, CacheGen, CompilerConfig, InlineBreakpoint, InlineBreakpointType,
-        MemoryBoundCheckMode, RunnableModule, Token,
-        ExceptionTable, ExceptionCode,
+        Architecture, Backend, CacheGen, CompilerConfig, ExceptionCode, ExceptionTable,
+        InlineBreakpoint, InlineBreakpointType, MemoryBoundCheckMode, RunnableModule, Token,
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
@@ -673,20 +672,21 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         &mut self,
         _module_info: Arc<RwLock<ModuleInfo>>,
     ) -> Result<&mut X64FunctionCode, CodegenError> {
-        let (mut assembler, mut function_labels, breakpoints, exception_table) = match self.functions.last_mut() {
-            Some(x) => (
-                x.assembler.take().unwrap(),
-                x.function_labels.take().unwrap(),
-                x.breakpoints.take().unwrap(),
-                x.exception_table.take().unwrap(),
-            ),
-            None => (
-                self.assembler.take().unwrap(),
-                self.function_labels.take().unwrap(),
-                HashMap::new(),
-                ExceptionTable::new(),
-            ),
-        };
+        let (mut assembler, mut function_labels, breakpoints, exception_table) =
+            match self.functions.last_mut() {
+                Some(x) => (
+                    x.assembler.take().unwrap(),
+                    x.function_labels.take().unwrap(),
+                    x.breakpoints.take().unwrap(),
+                    x.exception_table.take().unwrap(),
+                ),
+                None => (
+                    self.assembler.take().unwrap(),
+                    self.function_labels.take().unwrap(),
+                    HashMap::new(),
+                    ExceptionTable::new(),
+                ),
+            };
 
         let begin_offset = assembler.offset();
         let begin_label_info = function_labels
@@ -730,20 +730,21 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         mut self,
         _: &ModuleInfo,
     ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
-        let (assembler, function_labels, breakpoints, exception_table) = match self.functions.last_mut() {
-            Some(x) => (
-                x.assembler.take().unwrap(),
-                x.function_labels.take().unwrap(),
-                x.breakpoints.take().unwrap(),
-                x.exception_table.take().unwrap(),
-            ),
-            None => (
-                self.assembler.take().unwrap(),
-                self.function_labels.take().unwrap(),
-                HashMap::new(),
-                ExceptionTable::new(),
-            ),
-        };
+        let (assembler, function_labels, breakpoints, exception_table) =
+            match self.functions.last_mut() {
+                Some(x) => (
+                    x.assembler.take().unwrap(),
+                    x.function_labels.take().unwrap(),
+                    x.breakpoints.take().unwrap(),
+                    x.exception_table.take().unwrap(),
+                ),
+                None => (
+                    self.assembler.take().unwrap(),
+                    self.function_labels.take().unwrap(),
+                    HashMap::new(),
+                    ExceptionTable::new(),
+                ),
+            };
 
         let total_size = assembler.get_offset().0;
         let _output = assembler.finalize().unwrap();
@@ -967,7 +968,12 @@ impl X64FunctionCode {
     }
 
     /// Marks each address in the code range emitted by `f` with the exception code `code`.
-    fn mark_range_with_exception_code<F: FnOnce(&mut Assembler) -> R, R>(a: &mut Assembler, etable: &mut ExceptionTable, code: ExceptionCode, f: F) -> R {
+    fn mark_range_with_exception_code<F: FnOnce(&mut Assembler) -> R, R>(
+        a: &mut Assembler,
+        etable: &mut ExceptionTable,
+        code: ExceptionCode,
+        f: F,
+    ) -> R {
         let begin = a.get_offset().0;
         let ret = f(a);
         let end = a.get_offset().0;
@@ -993,12 +999,16 @@ impl X64FunctionCode {
             Location::Imm64(_) | Location::Imm32(_) => {
                 a.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
                 Self::mark_trappable(a, m, fsm, control_stack);
-                etable.offset_to_code.insert(a.get_offset().0, ExceptionCode::Arithmetic);
+                etable
+                    .offset_to_code
+                    .insert(a.get_offset().0, ExceptionCode::Arithmetic);
                 op(a, sz, Location::GPR(GPR::RCX));
             }
             _ => {
                 Self::mark_trappable(a, m, fsm, control_stack);
-                etable.offset_to_code.insert(a.get_offset().0, ExceptionCode::Arithmetic);
+                etable
+                    .offset_to_code
+                    .insert(a.get_offset().0, ExceptionCode::Arithmetic);
                 op(a, sz, loc);
             }
         }
@@ -1984,7 +1994,9 @@ impl X64FunctionCode {
             a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
             a.emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
 
-            Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| a.emit_conditional_trap(Condition::Above));
+            Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| {
+                a.emit_conditional_trap(Condition::Above)
+            });
 
             m.release_temp_gpr(tmp_bound);
         }
@@ -2024,7 +2036,9 @@ impl X64FunctionCode {
                 Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             );
-            Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| a.emit_conditional_trap(Condition::NotEqual));
+            Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| {
+                a.emit_conditional_trap(Condition::NotEqual)
+            });
             m.release_temp_gpr(tmp_aligncheck);
         }
 
@@ -2157,7 +2171,9 @@ impl X64FunctionCode {
 
         Self::emit_f32_int_conv_check(a, m, reg, lower_bound, upper_bound, trap, trap, trap, end);
         a.emit_label(trap);
-        etable.offset_to_code.insert(a.get_offset().0, ExceptionCode::Arithmetic);
+        etable
+            .offset_to_code
+            .insert(a.get_offset().0, ExceptionCode::Arithmetic);
         a.emit_ud2();
         a.emit_label(end);
     }
@@ -2283,7 +2299,9 @@ impl X64FunctionCode {
 
         Self::emit_f64_int_conv_check(a, m, reg, lower_bound, upper_bound, trap, trap, trap, end);
         a.emit_label(trap);
-        etable.offset_to_code.insert(a.get_offset().0, ExceptionCode::Arithmetic);
+        etable
+            .offset_to_code
+            .insert(a.get_offset().0, ExceptionCode::Arithmetic);
         a.emit_ud2();
         a.emit_label(end);
     }
@@ -2408,7 +2426,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 ),
                 Location::GPR(GPR::RSP),
             );
-            Self::mark_range_with_exception_code(a, self.exception_table.as_mut().unwrap(), ExceptionCode::Memory, |a| a.emit_conditional_trap(Condition::Below));
+            Self::mark_range_with_exception_code(
+                a,
+                self.exception_table.as_mut().unwrap(),
+                ExceptionCode::Memory,
+                |a| a.emit_conditional_trap(Condition::Below),
+            );
         }
 
         self.locals = self
@@ -6269,7 +6292,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Location::GPR(table_base),
                 );
                 a.emit_cmp(Size::S32, func_index, Location::GPR(table_count));
-                Self::mark_range_with_exception_code(a, self.exception_table.as_mut().unwrap(), ExceptionCode::Memory, |a| a.emit_conditional_trap(Condition::BelowEqual));
+                Self::mark_range_with_exception_code(
+                    a,
+                    self.exception_table.as_mut().unwrap(),
+                    ExceptionCode::Memory,
+                    |a| a.emit_conditional_trap(Condition::BelowEqual),
+                );
                 a.emit_mov(Size::S64, func_index, Location::GPR(table_count));
                 a.emit_imul_imm32_gpr64(vm::Anyfunc::size() as u32, table_count);
                 a.emit_add(
@@ -6295,7 +6323,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     Location::GPR(sigidx),
                     Location::Memory(table_count, (vm::Anyfunc::offset_sig_id() as usize) as i32),
                 );
-                Self::mark_range_with_exception_code(a, self.exception_table.as_mut().unwrap(), ExceptionCode::Memory, |a| a.emit_conditional_trap(Condition::NotEqual));
+                Self::mark_range_with_exception_code(
+                    a,
+                    self.exception_table.as_mut().unwrap(),
+                    ExceptionCode::Memory,
+                    |a| a.emit_conditional_trap(Condition::NotEqual),
+                );
 
                 self.machine.release_temp_gpr(sigidx);
                 self.machine.release_temp_gpr(table_count);
@@ -7380,7 +7413,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::Unreachable => {
                 Self::mark_trappable(a, &self.machine, &mut self.fsm, &mut self.control_stack);
-                self.exception_table.as_mut().unwrap().offset_to_code.insert(a.get_offset().0, ExceptionCode::Unreachable);
+                self.exception_table
+                    .as_mut()
+                    .unwrap()
+                    .offset_to_code
+                    .insert(a.get_offset().0, ExceptionCode::Unreachable);
                 a.emit_ud2();
                 self.unreachable_depth = 1;
             }

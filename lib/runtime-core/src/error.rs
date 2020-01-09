@@ -1,7 +1,7 @@
 //! The error module contains the data structures and helper functions used to implement errors that
 //! are produced and returned from the wasmer runtime core.
-use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
 use crate::backend::ExceptionCode;
+use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
 use core::borrow::Borrow;
 use std::any::Any;
 

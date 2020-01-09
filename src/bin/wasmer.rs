@@ -849,18 +849,19 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             let args = options.parse_args(&module, invoke_fn)?;
 
             #[cfg(unix)]
-            let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
-                push_code_version(CodeVersion {
-                    baseline: true,
-                    msm: msm,
-                    base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                    backend: options.backend,
-                    runnable_module: instance.module.runnable_module.clone(),
-                });
-                true
-            } else {
-                false
-            };
+            let cv_pushed =
+                if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+                    push_code_version(CodeVersion {
+                        baseline: true,
+                        msm: msm,
+                        base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                        backend: options.backend,
+                        runnable_module: instance.module.runnable_module.clone(),
+                    });
+                    true
+                } else {
+                    false
+                };
 
             let result = instance
                 .dyn_func(&invoke_fn)
