@@ -733,6 +733,12 @@ where
     }
 }
 
+/// Function that always fails. It can be used as a placeholder when a
+/// host function is missing for instance.
+pub(crate) fn always_trap() -> Result<(), &'static str> {
+    Err("not implemented")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
