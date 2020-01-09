@@ -10,10 +10,20 @@
 #  define ARCH_X86_64
 #endif
 
+// Compatibility with non-Clang compilers.
+#if !defined(__has_attribute)
+#  define __has_attribute(x) 0
+#endif
+
+// Compatibility with non-Clang compilers.
+#if !defined(__has_declspec_attribute)
+#  define __has_declspec_attribute(x) 0
+#endif
+
 // Define the `DEPRECATED` macro.
-#if defined(GCC) || defined(__GNUC__) || defined(__clang__)
+#if defined(GCC) || defined(__GNUC__) || __has_attribute(deprecated)
 #  define DEPRECATED(message) __attribute__((deprecated(message)))
-#elif defined(MSVC)
+#elif defined(MSVC) || __has_declspec_attribute(deprecated)
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
