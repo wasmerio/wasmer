@@ -6,6 +6,7 @@ pub const KEY_RELEASE: u8 = 3;
 pub const MOUSE_PRESS_LEFT: u8 = 4;
 pub const MOUSE_PRESS_RIGHT: u8 = 5;
 pub const MOUSE_PRESS_MIDDLE: u8 = 7;
+pub const WINDOW_CLOSED: u8 = 8;
 
 use minifb::{Key, MouseButton};
 
@@ -15,6 +16,7 @@ pub enum InputEvent {
     KeyRelease(Key),
     MouseEvent(u32, u32, MouseButton),
     MouseMoved(u32, u32),
+    WindowClosed,
 }
 
 /// Returns the tag as the first return value
@@ -58,6 +60,7 @@ pub fn bytes_for_input_event(input_event: InputEvent) -> (u8, [u8; 8], usize) {
             }
             (MOUSE_MOVE, data, 8)
         }
+        InputEvent::WindowClosed => (WINDOW_CLOSED, data, 0),
     }
 }
 
