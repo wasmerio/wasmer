@@ -1,6 +1,7 @@
 //! The error module contains the data structures and helper functions used to implement errors that
 //! are produced and returned from the wasmer runtime core.
 use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
+use crate::backend::ExceptionCode;
 use core::borrow::Borrow;
 use std::any::Any;
 
@@ -208,6 +209,8 @@ impl std::fmt::Display for RuntimeError {
                     write!(f, "\"{}\"", s)
                 } else if let Some(s) = data.downcast_ref::<&str>() {
                     write!(f, "\"{}\"", s)
+                } else if let Some(exc_code) = data.downcast_ref::<ExceptionCode>() {
+                    write!(f, "\"{:?}\"", exc_code)
                 } else {
                     write!(f, "unknown error")
                 }

@@ -184,14 +184,20 @@ pub struct CompilerConfig {
 }
 
 /// An exception table for a `RunnableModule`.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ExceptionTable {
     /// Mappings from offsets in generated machine code to the corresponding exception code.
     pub offset_to_code: HashMap<usize, ExceptionCode>,
 }
 
+impl ExceptionTable {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 /// The code of an exception.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ExceptionCode {
     /// An `unreachable` opcode was executed.
     Unreachable,
