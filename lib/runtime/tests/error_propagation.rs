@@ -30,9 +30,9 @@ fn error_propagation() {
 
     let instance = module
         .instantiate(&imports! {
-          "env" => {
-              "ret_err" => Func::new(ret_err),
-          },
+            "env" => {
+                "ret_err" => Func::new(ret_err),
+            },
         })
         .unwrap();
 

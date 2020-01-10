@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1128](https://github.com/wasmerio/wasmer/pull/1128) Fix a crash when a host function is missing and the `allow_missing_functions` flag is enabled
 - [#1097](https://github.com/wasmerio/wasmer/pull/1097) Move inline breakpoint outside of runtime backend
 - [#1095](https://github.com/wasmerio/wasmer/pull/1095) Update to cranelift 0.52.
 - [#1092](https://github.com/wasmerio/wasmer/pull/1092) Add `get_utf8_string_with_nul` to `WasmPtr` to read nul-terminated strings from memory.
