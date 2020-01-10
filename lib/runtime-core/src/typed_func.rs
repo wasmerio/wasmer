@@ -258,11 +258,6 @@ where
             _phantom: PhantomData,
         }
     }
-
-    /// Get the underlying func pointer.
-    pub fn get_vm_func(&self) -> NonNull<vm::Func> {
-        self.func
-    }
 }
 
 impl<'a, Args, Rets> Func<'a, Args, Rets, Host>
@@ -302,6 +297,11 @@ where
     /// Returns the types of the function outputs.
     pub fn returns(&self) -> &'static [Type] {
         Rets::types()
+    }
+
+    /// Get the underlying func pointer.
+    pub fn get_vm_func(&self) -> NonNull<vm::Func> {
+        self.func
     }
 }
 
@@ -731,6 +731,12 @@ where
             signature,
         }
     }
+}
+
+/// Function that always fails. It can be used as a placeholder when a
+/// host function is missing for instance.
+pub(crate) fn always_trap() -> Result<(), &'static str> {
+    Err("not implemented")
 }
 
 #[cfg(test)]
