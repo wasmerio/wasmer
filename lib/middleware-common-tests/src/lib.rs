@@ -150,7 +150,6 @@ mod tests {
         let cv_pushed = if let Some(msm) = instance
             .module
             .runnable_module
-            .borrow()
             .get_module_state_map()
         {
             push_code_version(CodeVersion {
