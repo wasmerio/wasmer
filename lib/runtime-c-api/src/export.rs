@@ -456,6 +456,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
 
     let instance = &*named_export.instance;
     let result = instance.call(&named_export.name, &params[..]);
+
     match result {
         Ok(results_vec) => {
             if !results_vec.is_empty() {
