@@ -4,13 +4,20 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::{wasmer_import_export_kind, wasmer_import_export_value},
+    instance::wasmer_instance_context_t,
     module::wasmer_module_t,
     value::wasmer_value_tag,
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_uint;
-use std::{convert::TryFrom, ffi::c_void, ptr, slice, sync::Arc};
-use wasmer_runtime::{Global, Memory, Module, Table};
+use std::{
+    convert::TryFrom,
+    ffi::{c_void, CStr},
+    os::raw::c_char,
+    ptr, slice,
+    sync::Arc,
+};
+use wasmer_runtime::{Ctx, Global, Memory, Module, Table};
 use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer},
     import::{ImportObject, ImportObjectIterator},
@@ -659,6 +666,24 @@ pub unsafe extern "C" fn wasmer_import_func_new(
         signature: Arc::new(FuncSig::new(params, returns)),
     });
     Box::into_raw(export) as *mut wasmer_import_func_t
+}
+
+/// Hello
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_import_trap(
+    ctx: *const wasmer_instance_context_t,
+    error_message: *const c_char,
+) -> c_uint {
+    let ctx = &*(ctx as *const Ctx);
+    let error_message = CStr::from_ptr(error_message).to_str().unwrap();
+
+    (&*ctx.module)
+        .runnable_module
+        .do_early_trap(Box::new(error_message)); // never returns
+
+    #[allow(unreachable_code)]
+    0
 }
 
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t
