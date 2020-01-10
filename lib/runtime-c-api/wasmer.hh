@@ -44,7 +44,7 @@ enum class Version : uint8_t {
   /// Version cannot be detected or is unknown.
   Unknown = 0,
   /// Latest version. See `wasmer_wasi::WasiVersion::Latest` to
-  /// leran more.
+  /// learn more.
   Latest = 1,
   /// `wasi_unstable`.
   Snapshot0 = 2,
