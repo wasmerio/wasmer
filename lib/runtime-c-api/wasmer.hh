@@ -528,6 +528,9 @@ wasmer_import_object_iter_t *wasmer_import_object_iterate_functions(const wasmer
 /// See also `wasmer_import_object_append`
 wasmer_import_object_t *wasmer_import_object_new();
 
+/// Hello
+unsigned int wasmer_import_trap(const wasmer_instance_context_t *ctx, const char *error_message);
+
 /// Calls an instances exported function by `name` with the provided parameters.
 /// Results are set using the provided `results` pointer.
 ///
