@@ -9,6 +9,7 @@ static int memory_len = 0;
 static int ptr_len = 0;
 static char actual_str[14] = {};
 static int actual_context_data_value = 0;
+static const char *trap_error_message = "hello";
 
 typedef struct {
   int value;
@@ -31,12 +32,14 @@ void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
         actual_str[idx] = mem_bytes[ptr + idx];
     }
     actual_str[13] = '\0';
-    printf("In print_str, memory len: %d, ptr_len: %d\n, str %s", mem_len, len, actual_str);
+    printf("In print_str, memory len: %d, ptr_len: %d, str %s\n", mem_len, len, actual_str);
     print_str_called = true;
     memory_len = mem_len;
     ptr_len = len;
 
     actual_context_data_value = ((context_data *) wasmer_instance_context_data_get(ctx))->value;
+
+    wasmer_import_trap(ctx, trap_error_message);
 }
 
 int main()
