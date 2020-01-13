@@ -1765,6 +1765,8 @@ dependencies = [
  "criterion",
  "lazy_static",
  "memmap",
+ "serde",
+ "serde_derive",
  "tempfile",
  "wabt",
  "wasmer-clif-backend",

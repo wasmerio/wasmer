@@ -91,7 +91,10 @@
 //! [`wasmer-singlepass-backend`]: https://crates.io/crates/wasmer-singlepass-backend
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 
-pub use wasmer_runtime_core::backend::{Backend, Features};
+#[macro_use]
+extern crate serde_derive;
+
+pub use wasmer_runtime_core::backend::Features;
 pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
 pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
@@ -143,6 +146,80 @@ pub mod types {
 pub mod cache;
 
 pub use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
+
+/// Enum used to select which compiler should be used to generate code.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Backend {
+    #[cfg(feature = "singlepass")]
+    /// Singlepass backend
+    Singlepass,
+    #[cfg(feature = "cranelift")]
+    /// Cranelift backend
+    Cranelift,
+    #[cfg(feature = "llvm")]
+    /// LLVM backend
+    LLVM,
+    /// Auto backend
+    Auto,
+}
+
+impl Backend {
+    /// Get a list of the currently enabled (via feature flag) backends.
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            #[cfg(feature = "singlepass")]
+            "singlepass",
+            #[cfg(feature = "cranelift")]
+            "cranelift",
+            #[cfg(feature = "llvm")]
+            "llvm",
+            "auto",
+        ]
+    }
+
+    /// Stable string representation of the backend.
+    /// It can be used as part of a cache key, for example.
+    pub fn to_string(&self) -> &'static str {
+        match self {
+            #[cfg(feature = "singlepass")]
+            Backend::Singlepass => "singlepass",
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift => "cranelift",
+            #[cfg(feature = "llvm")]
+            Backend::LLVM => "llvm",
+            Backend::Auto => "auto",
+        }
+    }
+}
+
+impl Default for Backend {
+    fn default() -> Self {
+        #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
+        return Backend::Singlepass;
+
+        #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
+        return Backend::Cranelift;
+
+        #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
+        return Backend::LLVM;
+    }
+}
+
+impl std::str::FromStr for Backend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Backend, String> {
+        match s.to_lowercase().as_str() {
+            #[cfg(feature = "singlepass")]
+            "singlepass" => Ok(Backend::Singlepass),
+            #[cfg(feature = "cranelift")]
+            "cranelift" => Ok(Backend::Cranelift),
+            #[cfg(feature = "llvm")]
+            "llvm" => Ok(Backend::LLVM),
+            "auto" => Ok(Backend::Auto),
+            _ => Err(format!("The backend {} doesn't exist", s)),
+        }
+    }
+}
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
@@ -268,11 +345,31 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
             #[cfg(feature = "default-backend-llvm")]
             return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
         }
-
-        #[cfg(not(all(feature = "llvm", feature = "singlepass", feature = "cranelift")))]
-        _ => None,
     }
 }
 
 /// The current version of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn str_repr_matches() {
+        // if this test breaks, think hard about why it's breaking
+        // can we avoid having these be different?
+
+        for &backend in &[
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift,
+            #[cfg(feature = "llvm")]
+            Backend::LLVM,
+            #[cfg(feature = "singlepass")]
+            Backend::Singlepass,
+        ] {
+            assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
+        }
+    }
+}

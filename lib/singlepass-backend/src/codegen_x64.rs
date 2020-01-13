@@ -23,7 +23,7 @@ use std::{
 use wasmer_runtime_core::{
     backend::{
         sys::{Memory, Protect},
-        Architecture, Backend, CacheGen, CompilerConfig, InlineBreakpoint, InlineBreakpointType,
+        Architecture, CacheGen, CompilerConfig, InlineBreakpoint, InlineBreakpointType,
         MemoryBoundCheckMode, RunnableModule, Token,
     },
     cache::{Artifact, Error as CacheError},
@@ -646,12 +646,17 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         }
     }
 
-    fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {
-        unimplemented!("cross compilation is not available for singlepass backend")
+    /// Singlepass does validation as it compiles
+    fn requires_pre_validation() -> bool {
+        false
     }
 
-    fn backend_id() -> Backend {
-        Backend::Singlepass
+    fn backend_id() -> String {
+        "singlepass".to_string()
+    }
+
+    fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {
+        unimplemented!("cross compilation is not available for singlepass backend")
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
