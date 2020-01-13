@@ -643,9 +643,23 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
     }
 }
 
-/// Creates new func
+/// Creates new host function, aka imported function. `func` is a
+/// function pointer, where the first argument is the famous `vm::Ctx`
+/// (in Rust), or `wasmer_instance_context_t` (in C). All arguments
+/// must be typed with compatible WebAssembly native types:
 ///
-/// The caller owns the object and should call `wasmer_import_func_destroy` to free it.
+/// | WebAssembly type | C/C++ type |
+/// | ---------------- | ---------- |
+/// | `i32`            | `int32_t`  |
+/// | `i64`            | `int64_t`  |
+/// | `f32`            | `float`    |
+/// | `f64`            | `double`   |
+///
+/// The function pointer must have a lifetime greater than the
+/// WebAssembly instance lifetime.
+///
+/// The caller owns the object and should call
+/// `wasmer_import_func_destroy` to free it.
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_func_new(
