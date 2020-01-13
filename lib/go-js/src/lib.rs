@@ -1,3 +1,17 @@
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns
+)]
+#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
+
+//! Wasmer's Go-JS implementation
+
 mod syscalls;
 
 use slab::Slab;
@@ -8,8 +22,8 @@ use wasmer_runtime_core::{
     debug, func, import::ImportObject, imports, module::Module, Func, Instance,
 };
 
-/// Returns whether or not a [`Module`] is a go-js Module
-// TODO: clean up this fn with the changes made to the WASI one
+/// Returns whether or not a [`Module`] is a go-js Module.
+/// Does a strict check: all imports must be in the `"go"` namespace.
 pub fn is_go_js_module(module: &Module) -> bool {
     if module.info().imported_functions.is_empty() {
         return false;
@@ -32,21 +46,18 @@ pub(crate) enum Value {
     Null,
     True,
     False,
-    Global,
-    This,
     Number(u32),
     String(String),
-    Bytes(Vec<u8>),
+    //Bytes(Vec<u8>),
     Array(Vec<NumVal>),
     Object {
         name: &'static str,
         values: HashMap<String, NumVal>,
     },
-    Memory {
+    /*Memory {
         address: u64,
         len: u32,
-    },
-    Undefined,
+    },*/
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,68 +72,27 @@ impl NumVal {
             Self::Pointer(v) | Self::Value(v) => *v,
         }
     }
+
+    // the first half of the JS `load_value`; TODO: find a better name
+    pub(crate) fn load_value_start(v: u64) -> NumVal {
+        if (v >> 32) == NAN_HEAD {
+            NumVal::Pointer((v & (u32::max_value() as u64)) as usize)
+        } else {
+            NumVal::Value(v as usize)
+        }
+    }
+
+    pub(crate) fn store_value(&self) -> u64 {
+        match *self {
+            NumVal::Pointer(p) => ((NAN_HEAD as u64) << 32) | p as u64,
+            NumVal::Value(v) => v as u64,
+        }
+    }
 }
 
 const NAN_HEAD: u64 = 0x7FF80000;
-impl Value {
-    pub(crate) fn into_bytes(&self) -> u64 {
-        let out: u64;
-        match self {
-            Value::Nan => {
-                out = NAN_HEAD << 32;
-            }
-            Value::Number(0) => out = (NAN_HEAD << 32) | 1,
-            Value::Number(n) => {
-                // TODO: this is a 64 bit float? but it's written as a 32bit?
-                out = *n as u64;
-            }
-            Value::Undefined => out = 0,
-            Value::Null => out = (NAN_HEAD << 32) | 2,
-            Value::True => out = (NAN_HEAD << 32) | 3,
-            Value::False => out = (NAN_HEAD << 32) | 4,
-            _ => unimplemented!("Unhandeled Value"),
-        }
 
-        out
-    }
-
-    pub(crate) fn load_value(arg: u64) -> Self {
-        if arg == 0 {
-            return Self::Undefined;
-        }
-        let dbl = unsafe { std::mem::transmute::<u64, f64>(arg) };
-        if !dbl.is_nan() {
-            return Self::Nan;
-        }
-        let static_array = [
-            Value::Nan,
-            Value::Number(0),
-            Value::Null,
-            Value::True,
-            Value::False,
-            Value::Global,
-            Value::This,
-        ];
-
-        static_array[arg as u32 as usize].clone()
-    }
-}
-
-#[derive(Debug)]
-pub(crate) enum NumType {
-    Float(i64),
-    Int(i64),
-}
-
-impl NumType {
-    pub fn inner(&self) -> i64 {
-        match self {
-            Self::Float(n) | Self::Int(n) => *n,
-        }
-    }
-}
-
-// equivirent to the js load value but does not load from memory itselg
+// equivirent to the js load value but does not load from memory itself
 pub(crate) fn cast_value(num: u64) -> i64 {
     let float = f64::from_bits(num);
     if !float.is_nan() {
@@ -132,25 +102,11 @@ pub(crate) fn cast_value(num: u64) -> i64 {
     }
 }
 
-// the first half of the JS `load_value`; TODO: find a better name
-pub(crate) fn load_value_start(v: u64) -> NumVal {
-    if (v >> 32) == NAN_HEAD {
-        NumVal::Pointer((v & (u32::max_value() as u64)) as usize)
-    } else {
-        NumVal::Value(v as usize)
-    }
-}
-
-pub(crate) fn store_value(v: NumVal) -> u64 {
-    match v {
-        NumVal::Pointer(p) => ((NAN_HEAD as u64) << 32) | p as u64,
-        NumVal::Value(v) => v as u64,
-    }
-}
-
 pub struct GoJsData<'a> {
     /// all the data values
     heap: Slab<Value>,
+    // TODO: review this
+    #[allow(dead_code)]
     getsp: Func<'a, (), (i32)>,
 }
 
@@ -172,7 +128,6 @@ impl<'a> GoJsData<'a> {
     pub(crate) const TRUE: usize = 3;
     pub(crate) const FALSE: usize = 4;
     pub(crate) const GLOBAL: usize = 5;
-    //pub(crate) const MEM: usize = 6;
     pub(crate) const THIS: usize = 6;
 
     pub fn new(instance: &'a mut Instance) -> Result<Self, GoJsError> {
@@ -196,18 +151,11 @@ impl<'a> GoJsData<'a> {
             values: HashMap::new(),
         });
         assert_eq!(global, Self::GLOBAL);
-        /*let mem = go_js.heap_add(Value::Object {
-            name: "mem",
-            values: HashMap::new(),
-        });
-        assert_eq!(mem, Self::MEM);*/
         let this = go_js.heap_add(Value::Object {
             name: "this",
             values: HashMap::new(),
         });
         assert_eq!(this, Self::THIS);
-
-        //go_js.add_to_object(mem, "buffer")?;
 
         let fs = go_js.add_to_object(global, "fs")?;
         go_js.add_to_object(fs, "write")?;
@@ -220,7 +168,6 @@ impl<'a> GoJsData<'a> {
         go_js.add_to_object(fs, "isDirectory")?;
 
         let constants = go_js.add_to_object(fs, "constants")?;
-        // TODO: disambiguate between direct numbers and pointers
         go_js.insert_into_object(constants, "O_WRONLY", NumVal::Value(1))?;
         go_js.insert_into_object(constants, "O_RDWR", NumVal::Value(2))?;
         go_js.insert_into_object(constants, "O_CREAT", NumVal::Value(64))?;
@@ -254,7 +201,6 @@ impl<'a> GoJsData<'a> {
         // TODO: review if this should be somewhere else
         go_js.add_to_object(date, "getTimezoneOffset")?;
 
-        // TODO: add errors
         let _enoent = go_js.add_io_error("ENOENT")?;
         let _eexist = go_js.add_io_error("EEXIST")?;
 
@@ -389,8 +335,6 @@ impl<'a> GoJsData<'a> {
         })
     }
 }
-
-// TODO passing args
 
 pub fn generate_import_object() -> ImportObject {
     imports! {

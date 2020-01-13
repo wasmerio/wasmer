@@ -1,8 +1,7 @@
-use crate::{cast_value, load_value_start, store_value, GoJsData, NumVal, Value};
+use crate::{cast_value, GoJsData, NumVal, Value};
 use wasmer_runtime_core::{
     debug,
     memory::ptr::{Array, WasmPtr},
-    memory::Memory,
     types::ValueType,
     vm::Ctx,
 };
@@ -46,14 +45,10 @@ pub struct GoWasmWriteArg {
 
 unsafe impl ValueType for GoWasmWriteArg {}
 
-//use std::os::unix::io::FromRawFd;
-
 pub fn runtime_wasm_write(ctx: &mut Ctx, arg: WasmPtr<GoWasmWriteArg>) {
     debug!("go-js::runtime_wasm_write");
     let memory = ctx.memory(0);
     let go_ww_arg = arg.deref(memory).unwrap().get();
-
-    use std::fs::File;
 
     debug!("Found raw fd: {}", go_ww_arg.fd);
     //let mut file = unsafe { File::from_raw_fd(go_ww_arg.fd as _) };
@@ -178,7 +173,7 @@ pub fn syscall_js_value_get(ctx: &mut Ctx, arg: WasmPtr<GoStrArg>) {
     let wasm_str: &str = wasm_str_ptr
         .get_utf8_string(memory, go_str_arg.string_len as u32)
         .expect("string from go");
-    let value = load_value_start(go_str_arg.value).inner();
+    let value = NumVal::load_value_start(go_str_arg.value).inner();
     // TODO: cast here when casting is fixed
 
     debug!("Getting \"{}\" on {:?}", wasm_str, value);
@@ -188,7 +183,7 @@ pub fn syscall_js_value_get(ctx: &mut Ctx, arg: WasmPtr<GoStrArg>) {
     debug!("Found {:?}", result);
     let setter: &mut GoStrArg = unsafe { arg.deref_mut(memory).unwrap().get_mut() };
     // TODO Review JS for this and maybe submit a patch to wasabi
-    setter.return_value = store_value(result);
+    setter.return_value = result.store_value();
 }
 
 pub fn syscall_js_value_set(_ctx: &mut Ctx, _param1: i32) {
@@ -234,7 +229,7 @@ pub fn syscall_js_value_call(ctx: &mut Ctx, arg: WasmPtr<GoValueCallArg>) {
         .expect("arg to syscall_js_value_new in bounds")
         .get();
 
-    let dereffed_value = load_value_start(go_arg.value).inner();
+    let dereffed_value = NumVal::load_value_start(go_arg.value).inner();
     // TOOD: review casting
     let value = dereffed_value; //cast_value(dereffed_value as u64);
 
@@ -249,7 +244,7 @@ pub fn syscall_js_value_call(ctx: &mut Ctx, arg: WasmPtr<GoValueCallArg>) {
         .expect("slice in syscall_js_value_new");
     let mut args = vec![];
     for item in slice.iter() {
-        let dereffed_val = load_value_start(item.get());
+        let dereffed_val = NumVal::load_value_start(item.get());
         args.push(dereffed_val);
     }
 
@@ -264,7 +259,6 @@ pub fn syscall_js_value_call(ctx: &mut Ctx, arg: WasmPtr<GoValueCallArg>) {
         setter.result = result.inner() as u64;
         setter.success_bool = 1;
     } else {
-        // TODO: store error
         setter.success_bool = 0;
     }
 }
@@ -294,7 +288,7 @@ pub fn syscall_js_value_new(ctx: &mut Ctx, arg: WasmPtr<GoValueNewArg>) {
         .expect("arg to syscall_js_value_new in bounds")
         .get();
 
-    let dereffed_value = load_value_start(go_arg.value).inner();
+    let dereffed_value = NumVal::load_value_start(go_arg.value).inner();
     // TODO cast value when casting values works
     let value = dereffed_value; //cast_value(dereffed_value as u64);
     let slice = go_arg
@@ -303,7 +297,7 @@ pub fn syscall_js_value_new(ctx: &mut Ctx, arg: WasmPtr<GoValueNewArg>) {
         .expect("slice in syscall_js_value_new");
     let mut args = vec![];
     for item in slice.iter() {
-        let dereffed_val = load_value_start(item.get());
+        let dereffed_val = NumVal::load_value_start(item.get());
         args.push(cast_value(dereffed_val.inner() as u64));
     }
     debug!("Found {} args: {:#?}", go_arg.len, &args);
@@ -360,7 +354,7 @@ pub fn syscall_js_copy_bytes_to_js(ctx: &mut Ctx, arg: WasmPtr<GoJsCopyBytesToJs
 
     let setter: &mut GoJsCopyBytesToJsArg = unsafe { arg.deref_mut(memory).unwrap().get_mut() };
 
-    let amount_copied = match load_value_start(go_arg.dest) {
+    let amount_copied = match NumVal::load_value_start(go_arg.dest) {
         // TODO: investigate this -- this seems to strongly imply ther's a bug somewhere but I don't
         // think it's in `load_value_start` and the value here is is clearly the correct value...
         // if this isn't a bug, then this ABI is really complicated and unstructured
@@ -370,7 +364,7 @@ pub fn syscall_js_copy_bytes_to_js(ctx: &mut Ctx, arg: WasmPtr<GoJsCopyBytesToJs
                 Some(Value::Array(a)) => {
                     let mut idx = 0;
                     for item in slice.iter() {
-                        let dereffed_val = load_value_start(item.get());
+                        let dereffed_val = NumVal::load_value_start(item.get());
                         if let Some(entry) = a.get_mut(idx) {
                             *entry = dereffed_val;
                         } else {
@@ -385,7 +379,8 @@ pub fn syscall_js_copy_bytes_to_js(ctx: &mut Ctx, arg: WasmPtr<GoJsCopyBytesToJs
                     return;
                 }
             }
-        } /*
+        } // this code is what should be here, see TODO above
+          /*
           _ => {
               setter.success_bool = 0;
               return;
