@@ -6,8 +6,15 @@ use wasmer_runtime_core::{
     vm::Ctx,
 };
 
+use std::convert::Infallible;
 use std::io::Write;
 use std::time;
+
+/// This is returned in the Box<dyn Any> RuntimeError::Error variant.
+/// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
+pub struct ExitCode {
+    pub code: u32,
+}
 
 fn get_go_js_data(ctx: &Ctx) -> &GoJsData {
     unsafe { &*(ctx.data as *const GoJsData) }
@@ -29,9 +36,21 @@ pub fn debug(_ctx: &mut Ctx, _param1: i32) {
     unimplemented!("debug")
 }
 
-pub fn runtime_wasm_exit(_ctx: &mut Ctx, _param1: i32) {
-    debug!("go-js::runtime_wasm_exit {}", _param1);
-    unimplemented!("runtime_wasm_exit")
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct GoExitArg {
+    _padding: u64,
+    code: u32,
+}
+
+unsafe impl ValueType for GoExitArg {}
+
+pub fn runtime_wasm_exit(ctx: &mut Ctx, arg: WasmPtr<GoExitArg>) -> Result<Infallible, ExitCode> {
+    debug!("go-js::runtime_wasm_exit");
+    let memory = ctx.memory(0);
+    let code = arg.deref(memory).expect("invalid arg").get().code;
+
+    Err(ExitCode { code })
 }
 
 #[repr(C)]

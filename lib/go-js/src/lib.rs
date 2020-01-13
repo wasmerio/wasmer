@@ -14,6 +14,8 @@
 
 mod syscalls;
 
+pub use syscalls::ExitCode;
+
 use slab::Slab;
 use std::collections::*;
 use std::ffi::c_void;
