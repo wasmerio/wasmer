@@ -431,9 +431,23 @@ unsigned int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports)
 /// Frees memory for the given Func
 void wasmer_import_func_destroy(wasmer_import_func_t *func);
 
-/// Creates new func
+/// Creates new host function, aka imported function. `func` is a
+/// function pointer, where the first argument is the famous `vm::Ctx`
+/// (in Rust), or `wasmer_instance_context_t` (in C). All arguments
+/// must be typed with compatible WebAssembly native types:
 ///
-/// The caller owns the object and should call `wasmer_import_func_destroy` to free it.
+/// | WebAssembly type | C/C++ type |
+/// | ---------------- | ---------- |
+/// | `i32`            | `int32_t`  |
+/// | `i64`            | `int64_t`  |
+/// | `f32`            | `float`    |
+/// | `f64`            | `double`   |
+///
+/// The function pointer must have a lifetime greater than the
+/// WebAssembly instance lifetime.
+///
+/// The caller owns the object and should call
+/// `wasmer_import_func_destroy` to free it.
 wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
                                              const wasmer_value_tag *params,
                                              unsigned int params_len,
@@ -528,8 +542,21 @@ wasmer_import_object_iter_t *wasmer_import_object_iterate_functions(const wasmer
 /// See also `wasmer_import_object_append`
 wasmer_import_object_t *wasmer_import_object_new();
 
-/// Hello
-unsigned int wasmer_import_trap(const wasmer_instance_context_t *ctx, const char *error_message);
+/// Stop the execution of a host function, aka imported function. The
+/// function must be used _only_ inside a host function.
+///
+/// The pointer to `wasmer_instance_context_t` is received by the host
+/// function as its first argument. Just passing it to `ctx` is fine.
+///
+/// The error message must have a greater lifetime than the host
+/// function itself since the error is read outside the host function
+/// with `wasmer_last_error_message`.
+///
+/// This function returns `wasmer_result_t::WASMER_ERROR` if `ctx` or
+/// `error_message` are null.
+///
+/// This function never returns otherwise.
+wasmer_result_t wasmer_import_trap(const wasmer_instance_context_t *ctx, const char *error_message);
 
 /// Calls an instances exported function by `name` with the provided parameters.
 /// Results are set using the provided `results` pointer.
