@@ -128,9 +128,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.48"
+version = "1.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f52a465a666ca3d838ebbf08b241383421412fe7ebb463527bba275526d89f76"
+checksum = "95e28fa049fda1c330bcf9d723be7663a899c4679724b34c81e9f5a326aab8cd"
 
 [[package]]
 name = "cfg-if"
@@ -1745,7 +1745,7 @@ dependencies = [
  "regex",
  "rustc_version",
  "semver",
- "smallvec 1.1.0",
+ "smallvec 0.6.13",
  "wabt",
  "wasmer-runtime-core",
  "wasmparser",
@@ -1830,7 +1830,7 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "smallvec 1.1.0",
+ "smallvec 0.6.13",
  "wasmparser",
  "winapi",
 ]
@@ -1859,7 +1859,7 @@ dependencies = [
  "nix",
  "serde",
  "serde_derive",
- "smallvec 1.1.0",
+ "smallvec 0.6.13",
  "wasmer-runtime-core",
 ]
 
