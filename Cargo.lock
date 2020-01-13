@@ -471,9 +471,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.1.13"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7db7ca94ed4cd01190ceee0d8a8052f08a247aa1b469a7f68c6a3b71afcf407"
+checksum = "7abc8dd8451921606d809ba32e95b6111925cd2906060d2dcc29c070220503eb"
 dependencies = [
  "cfg-if",
  "libc",
@@ -1634,9 +1634,9 @@ dependencies = [
 
 [[package]]
 name = "wasi"
-version = "0.7.0"
+version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b89c3ce4ce14bdc6fb6beaf9ec7928ca331de5df7e5ea278375642a2f478570d"
+checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasmer"
@@ -1745,7 +1745,7 @@ dependencies = [
  "regex",
  "rustc_version",
  "semver",
- "smallvec 1.1.0",
+ "smallvec 0.6.13",
  "wabt",
  "wasmer-runtime-core",
  "wasmparser",
@@ -1830,7 +1830,7 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "smallvec 1.1.0",
+ "smallvec 0.6.13",
  "wasmparser",
  "winapi",
 ]
@@ -1859,7 +1859,7 @@ dependencies = [
  "nix",
  "serde",
  "serde_derive",
- "smallvec 1.1.0",
+ "smallvec 0.6.13",
  "wasmer-runtime-core",
 ]
 
