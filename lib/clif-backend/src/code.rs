@@ -18,7 +18,7 @@ use std::mem;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::error::CompileError;
 use wasmer_runtime_core::{
-    backend::{Backend, CacheGen, Token},
+    backend::{CacheGen, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -58,8 +58,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         unimplemented!("cross compilation is not available for clif backend")
     }
 
-    fn backend_id() -> Backend {
-        Backend::Cranelift
+    fn backend_id() -> String {
+        "cranelift".to_string()
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {

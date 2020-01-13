@@ -12,7 +12,7 @@ extern crate structopt;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
-use std::fs::{metadata, read_to_string, File};
+use std::fs::{read_to_string, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
@@ -30,13 +30,13 @@ use wasmer_llvm_backend::{
 };
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
-    Value, VERSION,
+    Backend, Value, VERSION,
 };
 #[cfg(feature = "managed")]
 use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
 use wasmer_runtime_core::{
     self,
-    backend::{Backend, Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
+    backend::{Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
     debug,
     loader::{Instance as LoadedInstance, LocalLoader},
     Module,
@@ -143,7 +143,7 @@ struct Run {
     #[structopt(parse(from_os_str))]
     path: PathBuf,
 
-    /// Name of the backend to use. (x86_64)
+    /// Name of the backend to use (x86_64)
     #[cfg(target_arch = "x86_64")]
     #[structopt(
         long = "backend",
@@ -153,7 +153,7 @@ struct Run {
     )]
     backend: Backend,
 
-    /// Name of the backend to use. (aarch64)
+    /// Name of the backend to use (aarch64)
     #[cfg(target_arch = "aarch64")]
     #[structopt(
         long = "backend",
@@ -486,7 +486,7 @@ fn execute_wasi(
                 baseline: true,
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                backend: options.backend,
+                backend: options.backend.to_string().to_owned(),
                 runnable_module: instance.module.runnable_module.clone(),
             });
             true
@@ -618,8 +618,15 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     // Don't error on --enable-all for other backends.
-    if options.features.simd && options.backend != Backend::LLVM {
-        return Err("SIMD is only supported in the LLVM backend for now".to_string());
+    if options.features.simd {
+        #[cfg(feature = "backend-llvm")]
+        {
+            if options.backend != Backend::LLVM {
+                return Err("SIMD is only supported in the LLVM backend for now".to_string());
+            }
+        }
+        #[cfg(not(feature = "backend-llvm"))]
+        return Err("SIMD is not supported in this backend".to_string());
     }
 
     if !utils::is_wasm_binary(&wasm_binary) {
@@ -934,29 +941,43 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-fn update_backend(options: &mut Run) {
-    let binary_size = match metadata(&options.path) {
-        Ok(wasm_binary) => wasm_binary.len(),
-        Err(_e) => 0,
-    };
-
+#[allow(unused_variables)]
+fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
     // Update backend when a backend flag is `auto`.
     // Use the Singlepass backend if it's enabled and the file provided is larger
     // than 10MiB (10485760 bytes), or it's enabled and the target architecture
     // is AArch64. Otherwise, use the Cranelift backend.
-    if options.backend == Backend::Auto {
-        if Backend::variants().contains(&Backend::Singlepass.to_string())
-            && (binary_size > 10485760 || cfg!(target_arch = "aarch64"))
-        {
-            options.backend = Backend::Singlepass;
-        } else {
-            options.backend = Backend::Cranelift;
+    match backend {
+        Backend::Auto => {
+            #[cfg(feature = "backend-singlepass")]
+            {
+                let binary_size = match &path.metadata() {
+                    Ok(wasm_binary) => wasm_binary.len(),
+                    Err(_e) => 0,
+                };
+                if binary_size > 10485760 || cfg!(target_arch = "aarch64") {
+                    return Backend::Singlepass;
+                }
+            }
+
+            #[cfg(feature = "backend-cranelift")]
+            {
+                return Backend::Cranelift;
+            }
+
+            #[cfg(feature = "backend-llvm")]
+            {
+                return Backend::LLVM;
+            }
+
+            panic!("Can't find any backend");
         }
+        backend => backend,
     }
 }
 
 fn run(options: &mut Run) {
-    update_backend(options);
+    options.backend = get_backend(options.backend, &options.path);
     match execute_wasm(options) {
         Ok(()) => {}
         Err(message) => {
@@ -1031,17 +1052,11 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
                 StreamingCompiler::new(middlewares_gen);
             Box::new(c)
         }
-        #[cfg(not(feature = "backend-singlepass"))]
-        Backend::Singlepass => return None,
         #[cfg(feature = "backend-cranelift")]
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        #[cfg(not(feature = "backend-cranelift"))]
-        Backend::Cranelift => return None,
         #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
-        #[cfg(not(feature = "backend-llvm"))]
-        Backend::LLVM => return None,
-        Backend::Auto => return None,
+        _ => return None,
     })
 }
 
