@@ -7,7 +7,7 @@ use crate::{
     module::{Module, ModuleInfo},
     sys::Memory,
 };
-use blake2b_simd::blake2bp;
+use blake3;
 use std::{fmt, io, mem, slice};
 
 /// Indicates the invalid type of invalid cache file
@@ -65,11 +65,11 @@ impl WasmHash {
         let mut first_part = [0u8; 32];
         let mut second_part = [0u8; 32];
 
-        let mut state = blake2bp::State::new();
-        state.update(wasm);
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(wasm);
 
-        let hasher = state.finalize();
-        let generic_array = hasher.as_bytes();
+        let hash = hasher.finalize();
+        let generic_array = hash.as_bytes();
 
         first_part.copy_from_slice(&generic_array[0..32]);
         second_part.copy_from_slice(&generic_array[32..64]);
