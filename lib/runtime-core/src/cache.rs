@@ -58,7 +58,8 @@ impl WasmHash {
     /// is, in fact, a wasm module.
     pub fn generate(wasm: &[u8]) -> Self {
         let mut first_part = [0u8; 32];
-        let mut second_part = [0u8; 32];
+        // We don't use the second part for now, since the blake3 hash is 32 byte array
+        let second_part = [0u8; 32];
 
         let mut hasher = blake3::Hasher::new();
         hasher.update(wasm);
@@ -67,7 +68,6 @@ impl WasmHash {
         let generic_array = hash.as_bytes();
 
         first_part.copy_from_slice(&generic_array[0..32]);
-        second_part.copy_from_slice(&generic_array[32..64]);
         WasmHash(first_part, second_part)
     }
 
