@@ -3,7 +3,6 @@
 //! and loaded to allow skipping compilation and fast startup.
 
 use crate::{module::ModuleInfo, sys::Memory};
-use blake3;
 use std::{io, mem, slice};
 
 /// Indicates the invalid type of invalid cache file
