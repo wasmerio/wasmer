@@ -81,7 +81,7 @@ impl FrameBufferState {
             y,
             WindowOptions {
                 resize: true,
-                scale: Scale::X4,
+                scale: Scale::FitScreen,
                 ..WindowOptions::default()
             },
         )
@@ -114,6 +114,9 @@ impl FrameBufferState {
 
     pub fn fill_input_buffer(&mut self) -> Option<()> {
         let keys_pressed = self.keys_pressed.iter().cloned().collect::<Vec<Key>>();
+        if !self.window.is_open() {
+            self.push_input_event(InputEvent::WindowClosed)?;
+        }
         for key in keys_pressed {
             if self.window.is_key_released(key) {
                 self.keys_pressed.remove(&key);
@@ -448,21 +451,10 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         cursor: 0,
     });
 
-    let dev_fd = unsafe {
+    let base_dir_fd = unsafe {
         fs.open_dir_all(
             VIRTUAL_ROOT_FD,
-            "dev".to_string(),
-            ALL_RIGHTS,
-            ALL_RIGHTS,
-            0,
-        )
-        .map_err(|e| format!("fb: Failed to create dev folder {:?}", e))?
-    };
-
-    let fb_fd = unsafe {
-        fs.open_dir_all(
-            VIRTUAL_ROOT_FD,
-            "sys/class/graphics/wasmerfb0".to_string(),
+            "_wasmer/dev/fb0".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
             0,
@@ -472,7 +464,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
-            dev_fd,
+            base_dir_fd,
             input_file,
             Fd::READ,
             "input".to_string(),
@@ -486,10 +478,10 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
-            dev_fd,
+            base_dir_fd,
             frame_buffer_file,
             Fd::READ | Fd::WRITE,
-            "wasmerfb0".to_string(),
+            "fb".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
             0,
@@ -500,7 +492,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
-            fb_fd,
+            base_dir_fd,
             resolution_file,
             Fd::READ | Fd::WRITE,
             "virtual_size".to_string(),
@@ -514,7 +506,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
-            fb_fd,
+            base_dir_fd,
             index_file,
             Fd::READ | Fd::WRITE,
             "buffer_index_display".to_string(),

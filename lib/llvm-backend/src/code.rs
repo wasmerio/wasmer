@@ -32,7 +32,7 @@ use std::{
 };
 
 use wasmer_runtime_core::{
-    backend::{Backend, CacheGen, CompilerConfig, Token},
+    backend::{CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -8721,8 +8721,8 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         }
     }
 
-    fn backend_id() -> Backend {
-        Backend::LLVM
+    fn backend_id() -> String {
+        "llvm".to_string()
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {

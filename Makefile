@@ -254,6 +254,7 @@ check: check-bench
 		--features=llvm,default-backend-llvm,debug
 	$(RUNTIME_CHECK) --release \
 		--features=llvm,default-backend-llvm
+		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,debug,deterministic-execution
 
 # Release
 release:

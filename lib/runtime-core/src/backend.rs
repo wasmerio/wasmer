@@ -22,60 +22,6 @@ pub mod sys {
 }
 pub use crate::sig_registry::SigRegistry;
 
-/// Enum used to select which compiler should be used to generate code.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Backend {
-    Cranelift,
-    Singlepass,
-    LLVM,
-    Auto,
-}
-
-impl Backend {
-    /// Get a list of the currently enabled (via feature flag) backends.
-    pub fn variants() -> &'static [&'static str] {
-        &[
-            #[cfg(feature = "backend-cranelift")]
-            "cranelift",
-            #[cfg(feature = "backend-singlepass")]
-            "singlepass",
-            #[cfg(feature = "backend-llvm")]
-            "llvm",
-            "auto",
-        ]
-    }
-
-    /// Stable string representation of the backend.
-    /// It can be used as part of a cache key, for example.
-    pub fn to_string(&self) -> &'static str {
-        match self {
-            Backend::Cranelift => "cranelift",
-            Backend::Singlepass => "singlepass",
-            Backend::LLVM => "llvm",
-            Backend::Auto => "auto",
-        }
-    }
-}
-
-impl Default for Backend {
-    fn default() -> Self {
-        Backend::Cranelift
-    }
-}
-
-impl std::str::FromStr for Backend {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Backend, String> {
-        match s.to_lowercase().as_str() {
-            "singlepass" => Ok(Backend::Singlepass),
-            "cranelift" => Ok(Backend::Cranelift),
-            "llvm" => Ok(Backend::LLVM),
-            "auto" => Ok(Backend::Auto),
-            _ => Err(format!("The backend {} doesn't exist", s)),
-        }
-    }
-}
-
 /// The target architecture for code generation.
 #[derive(Copy, Clone, Debug)]
 pub enum Architecture {
@@ -102,22 +48,6 @@ pub struct InlineBreakpoint {
 
     /// Type of the inline breakpoint.
     pub ty: InlineBreakpointType,
-}
-
-#[cfg(test)]
-mod backend_test {
-    use super::*;
-    use std::str::FromStr;
-
-    #[test]
-    fn str_repr_matches() {
-        // if this test breaks, think hard about why it's breaking
-        // can we avoid having these be different?
-
-        for &backend in &[Backend::Cranelift, Backend::LLVM, Backend::Singlepass] {
-            assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
-        }
-    }
 }
 
 /// This type cannot be constructed from
