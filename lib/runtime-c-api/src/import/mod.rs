@@ -668,7 +668,20 @@ pub unsafe extern "C" fn wasmer_import_func_new(
     Box::into_raw(export) as *mut wasmer_import_func_t
 }
 
-/// Hello
+/// Stop the execution of a host function, aka imported function. The
+/// function must be used _only_ inside a host function.
+///
+/// The pointer to `wasmer_instance_context_t` is received by the host
+/// function as its first argument. Just passing it to `ctx` is fine.
+///
+/// The error message must have a greater lifetime than the host
+/// function itself since the error is read outside the host function
+/// with `wasmer_last_error_message`.
+///
+/// This function returns `wasmer_result_t::WASMER_ERROR` if `ctx` or
+/// `error_message` are null.
+///
+/// This function never returns otherwise.
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_trap(
