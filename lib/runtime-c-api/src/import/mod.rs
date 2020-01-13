@@ -674,7 +674,23 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 pub unsafe extern "C" fn wasmer_import_trap(
     ctx: *const wasmer_instance_context_t,
     error_message: *const c_char,
-) -> c_uint {
+) -> wasmer_result_t {
+    if ctx.is_null() {
+        update_last_error(CApiError {
+            msg: "ctx ptr is null in wasmer_import_trap".to_string(),
+        });
+
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    if error_message.is_null() {
+        update_last_error(CApiError {
+            msg: "error_message is null in wasmer_import_trap".to_string(),
+        });
+
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
     let ctx = &*(ctx as *const Ctx);
     let error_message = CStr::from_ptr(error_message).to_str().unwrap();
 
@@ -683,7 +699,7 @@ pub unsafe extern "C" fn wasmer_import_trap(
         .do_early_trap(Box::new(error_message)); // never returns
 
     #[allow(unreachable_code)]
-    0
+    wasmer_result_t::WASMER_OK
 }
 
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t
