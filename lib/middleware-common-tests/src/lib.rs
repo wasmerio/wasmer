@@ -110,7 +110,7 @@ mod tests {
                 baseline: true,
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                backend: MCG::backend_id(),
+                backend: MCG::backend_id().to_string(),
                 runnable_module: instance.module.runnable_module.clone(),
             });
             true
@@ -152,7 +152,7 @@ mod tests {
                 baseline: true,
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                backend: MCG::backend_id(),
+                backend: MCG::backend_id().to_string(),
                 runnable_module: instance.module.runnable_module.clone(),
             });
             true
