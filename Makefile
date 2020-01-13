@@ -257,8 +257,30 @@ check: check-bench
 	cargo check -p wasmer-runtime
 
 	$(RUNTIME_CHECK) \
-		--features=default-backend-${default_backend},${backend_features},cache,debug,deterministic-execution
-
+		--features=default-backend-${default_backend},${backend_features},cache,debug,llvm,singlepass,default-backend-singlepass
+	$(RUNTIME_CHECK) --release \
+		--features=cranelift,cache,llvm,singlepass,default-backend-singlepass
+	$(RUNTIME_CHECK) \
+		--features=cranelift,cache,debug,llvm,singlepass,default-backend-cranelift
+	$(RUNTIME_CHECK) --release \
+		--features=cranelift,cache,llvm,singlepass,default-backend-cranelift
+	$(RUNTIME_CHECK) \
+		--features=cranelift,cache,debug,llvm,singlepass,default-backend-llvm
+	$(RUNTIME_CHECK) --release \
+		--features=cranelift,cache,llvm,singlepass,default-backend-llvm
+	$(RUNTIME_CHECK) \
+		--features=singlepass,default-backend-singlepass,debug
+	$(RUNTIME_CHECK) --release \
+		--features=singlepass,default-backend-singlepass
+	$(RUNTIME_CHECK) \
+		--features=cranelift,default-backend-cranelift,debug
+	$(RUNTIME_CHECK) --release \
+		--features=cranelift,default-backend-cranelift
+	$(RUNTIME_CHECK) \
+		--features=llvm,default-backend-llvm,debug
+	$(RUNTIME_CHECK) --release \
+		--features=llvm,default-backend-llvm
+		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,debug,deterministic-execution
 
 # Release
 release:

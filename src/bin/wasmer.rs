@@ -11,6 +11,7 @@ extern crate structopt;
 
 use std::collections::HashMap;
 use std::env;
+use std::error::Error;
 use std::fs::{read_to_string, File};
 use std::io;
 use std::io::Read;
@@ -630,8 +631,22 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     if !utils::is_wasm_binary(&wasm_binary) {
         let features = options.features.into_wabt_features();
-        wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
-            .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
+        wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features).map_err(|e| {
+            format!(
+                "Can't convert from wast to wasm because \"{}\"{}",
+                e.description(),
+                match e.kind() {
+                    wabt::ErrorKind::Deserialize(s)
+                    | wabt::ErrorKind::Parse(s)
+                    | wabt::ErrorKind::ResolveNames(s)
+                    | wabt::ErrorKind::Validate(s) => format!(":\n\n{}", s),
+                    wabt::ErrorKind::Nul
+                    | wabt::ErrorKind::WriteText
+                    | wabt::ErrorKind::NonUtf8Result
+                    | wabt::ErrorKind::WriteBinary => "".to_string(),
+                }
+            )
+        })?;
     }
 
     let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)
@@ -926,7 +941,8 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-fn get_backend(backend: Backend, _path: &PathBuf) -> Backend {
+#[allow(unused_variables)]
+fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
     // Update backend when a backend flag is `auto`.
     // Use the Singlepass backend if it's enabled and the file provided is larger
     // than 10MiB (10485760 bytes), or it's enabled and the target architecture
@@ -935,7 +951,7 @@ fn get_backend(backend: Backend, _path: &PathBuf) -> Backend {
         Backend::Auto => {
             #[cfg(feature = "backend-singlepass")]
             {
-                let binary_size = match &_path.metadata() {
+                let binary_size = match &path.metadata() {
                     Ok(wasm_binary) => wasm_binary.len(),
                     Err(_e) => 0,
                 };
