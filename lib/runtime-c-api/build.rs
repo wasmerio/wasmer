@@ -99,7 +99,6 @@ fn main() {
 
     // Copy the generated C++ bindings from `OUT_DIR` to
     // `CARGO_MANIFEST_DIR`.
-    crate_wasmer_header_file.set_extension("h");
     crate_wasmer_header_file.set_extension("hh");
     out_wasmer_header_file.set_extension("hh");
     fs::copy(out_wasmer_header_file, crate_wasmer_header_file)
