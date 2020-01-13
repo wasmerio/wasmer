@@ -147,11 +147,7 @@ mod tests {
 
         let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
 
-        let cv_pushed = if let Some(msm) = instance
-            .module
-            .runnable_module
-            .get_module_state_map()
-        {
+        let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
             push_code_version(CodeVersion {
                 baseline: true,
                 msm: msm,
