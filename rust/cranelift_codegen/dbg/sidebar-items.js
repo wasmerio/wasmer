@@ -1,1 +1,0 @@
-initSidebarItems({"static":[["LOG_FILENAME_PREFIX","Prefix added to the log file names, just before the thread name or id."]],"struct":[["DisplayList","Helper for printing lists."]]});

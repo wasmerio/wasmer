@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["Utf8Sequence","Utf8Sequence represents a sequence of byte ranges."]],"struct":[["Utf8Range","A single inclusive range of UTF-8 bytes."],["Utf8Sequences","An iterator over ranges of matching UTF-8 byte sequences."]]});

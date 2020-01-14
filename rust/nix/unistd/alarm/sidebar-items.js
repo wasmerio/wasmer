@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["cancel","Cancel an previously set alarm signal."],["set","Schedule an alarm signal."]]});

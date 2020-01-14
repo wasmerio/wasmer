@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["wasmer_value_tag",""]],"struct":[["wasmer_value_t",""]],"union":[["wasmer_value",""]]});

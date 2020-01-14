@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["if_nametoindex","Resolve an interface into a interface number."]],"struct":[["InterfaceFlags","Standard interface flags, used by `getifaddrs`"]]});

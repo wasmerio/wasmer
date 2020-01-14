@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Iter","Parallel iterator over a range, implemented for all integer types."]]});

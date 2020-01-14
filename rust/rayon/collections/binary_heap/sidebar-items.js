@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["IntoIter","Parallel iterator over a binary heap"],["Iter","Parallel iterator over an immutable reference to a binary heap"]]});

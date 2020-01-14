@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["PassManager","A manager for running optimization and simplification passes. Much of the documenation for specific passes is directly from the LLVM documentation."],["PassManagerBuilder",""],["PassRegistry",""]],"trait":[["PassManagerSubType",""]]});

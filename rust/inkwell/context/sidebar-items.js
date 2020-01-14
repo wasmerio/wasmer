@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Context","A `Context` is a container for all LLVM entities including `Module`s."],["ContextRef","A `ContextRef` is a smart pointer allowing borrowed access to a a type's `Context`."]]});

@@ -302,32 +302,18 @@ dep-graph:
 
 docs:
 	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed
+	cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
 
 docs-publish:
-	echo a
-	git remote -v
-	echo b
-	git checkout gh-pages
-	echo b2
-	git remote add wasmerbot https://WasmerBot:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git
-	echo d
-	cp -r ${RUST_DOCS_DIR}/* rustdoc/
-	echo f
-	echo '<meta http-equiv="refresh" content="0; url=rustdoc/wasmer_runtime/index.html">' > index.html
-	echo g
-	echo '<meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > rustdoc/index.html
-	echo h
-	git config --local user.name "Azure Pipelines"
-	echo i
-	git config --local user.email "azuredevops@microsoft.com"
-	echo j
-	git add index.html
-	git add rustdoc/*
-	echo k
-	git commit -m "Publishing GitHub Pages ***CI***"
-	echo l
-	git push wasmerbot gh-pages
-	echo m
+	git clone -b "gh-pages" --depth=1 https://wasmerbot:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git api-docs
+	mkdir -p api-docs/c
+	cp -R target/doc api-docs/rust
+	cp -R lib/runtime-c-api/doc/html api-docs/c/runtime-c-api
+	echo '<meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > api-docs/index.html
+	echo '<meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > api-docs/rust/index.html
+	cd api-docs && git add index.html rust/* c/*
+	cd api-docs && git commit -m "Publishing GitHub Pages ***CI***"
+	cd api-docs && git push origin gh-pages
 
 wapm:
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"

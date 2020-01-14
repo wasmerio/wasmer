@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["X86Relocation","Relocation implementation for the x86 architecture."]],"type":[["Assembler",""],["AssemblyModifier",""],["UncommittedModifier",""]]});

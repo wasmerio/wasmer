@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["sendfile","Read bytes from `in_fd` starting at `offset` and write up to `count` bytes to `out_sock`."]]});

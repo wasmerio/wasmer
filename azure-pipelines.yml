@@ -215,7 +215,7 @@ jobs:
       vmImage: "ubuntu-16.04"
     variables:
       rust_toolchain: nightly-2019-08-15
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    # condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
         submodules: true
@@ -224,10 +224,14 @@ jobs:
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - bash: |
+        sudo apt-get install doxygen graphviz
+        displayName: Install doxygen
+      - bash: |
           make docs
-      - publish: target/doc
-        artifact: rustdocs
-        displayName: Build documentation
+        displayName: Build docs
+      - publish: api-docs
+        artifact: api-docs
+        displayName: Publish doc artifact
 
   - job: Publish
     dependsOn:
@@ -290,12 +294,12 @@ jobs:
       - checkout: self
       - task: DownloadPipelineArtifact@2
         inputs:
-          artifactName: rustdocs
-          targetPath: $(Pipeline.Workspace)/rustdocs
+          artifactName: api-docs
+          targetPath: $(Pipeline.Workspace)/api-docs
       - bash: |
           make docs-publish
         env:
-          RUST_DOCS_DIR: $(Pipeline.Workspace)/rustdocs
+          RUST_DOCS_DIR: $(Pipeline.Workspace)/api-docs
 
 # We only run the pipelines on PRs to Master
 pr:

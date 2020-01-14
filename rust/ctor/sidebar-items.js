@@ -1,1 +1,0 @@
-initSidebarItems({"attr":[["ctor","Marks a function or static variable as a library/executable constructor.  This uses OS-specific linker sections to call a specific function at  load time."],["dtor","Marks a function as a library/executable destructor. This uses OS-specific linker sections to call a specific function at termination time."]]});

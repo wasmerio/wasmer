@@ -1,1 +1,0 @@
-initSidebarItems({"trait":[["FunctionalSequence","Defines functional programming methods for generic sequences"],["MappedGenericSequence","Defines the relationship between one generic sequence and another, for operations such as `map` and `zip`."]],"type":[["MappedSequence","Accessor type for a mapped generic sequence"]]});

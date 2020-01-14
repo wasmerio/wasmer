@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["LLVMAddLowerSwitchPass",""],["LLVMAddPromoteMemoryToRegisterPass",""]]});

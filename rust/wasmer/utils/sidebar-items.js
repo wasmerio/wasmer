@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["InvokeError",""]],"fn":[["is_wasm_binary","Detect if a provided binary is a Wasm file"],["parse_args","Parses arguments for the `--invoke` flag on the run command"]]});

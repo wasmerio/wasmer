@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["LLVMErrorSuccess",""]],"enum":[["LLVMOpaqueError",""]],"fn":[["LLVMConsumeError",""],["LLVMDisposeErrorMessage",""],["LLVMGetErrorMessage",""],["LLVMGetErrorTypeId",""],["LLVMGetStringErrorTypeId",""]],"type":[["LLVMErrorRef",""],["LLVMErrorTypeId",""]]});

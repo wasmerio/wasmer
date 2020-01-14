@@ -1,1 +1,0 @@
-initSidebarItems({"trait":[["StructOpt","A struct that is converted from command line arguments."]]});

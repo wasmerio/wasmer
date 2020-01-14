@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["SIZEOF_SHDR",""]],"struct":[["SectionHeader","Section Headers are typically used by humans and static linkers for additional information or how to relocate the object"]]});

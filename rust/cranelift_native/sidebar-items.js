@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["VERSION","Version number of this crate."]],"fn":[["builder","Return an `isa` builder configured for the current host machine, or `Err(())` if the host machine is not supported in the current configuration."]]});

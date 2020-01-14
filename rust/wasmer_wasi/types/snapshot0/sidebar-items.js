@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["__WASI_WHENCE_CUR",""],["__WASI_WHENCE_END",""],["__WASI_WHENCE_SET",""]],"struct":[["__wasi_filestat_t",""],["__wasi_subscription_clock_t",""],["__wasi_subscription_t",""]],"type":[["__wasi_linkcount_t",""],["__wasi_whence_t",""]],"union":[["__wasi_subscription_u",""]]});

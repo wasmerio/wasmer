@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["COFF_MACHINE_X86",""],["COFF_MACHINE_X86_64",""],["DOS_MAGIC",""],["PE_MAGIC","PE\\0\\0, little endian"],["PE_POINTER_OFFSET",""],["SIZEOF_COFF_HEADER",""],["SIZEOF_PE_MAGIC",""]],"struct":[["CoffHeader","COFF Header"],["DosHeader","DOS header present in all PE binaries"],["Header",""]]});
