@@ -229,7 +229,7 @@ jobs:
       - bash: |
           make docs
         displayName: Build docs
-      - publish: api-docs
+      - publish: $(System.DefaultWorkingDirectory)/api-docs
         artifact: api-docs
         displayName: Publish doc artifact
 
