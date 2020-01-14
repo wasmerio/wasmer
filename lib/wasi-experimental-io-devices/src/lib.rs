@@ -28,7 +28,7 @@ pub const MAX_Y: u32 = 4320;
 pub enum FrameBufferFileType {
     Buffer,
     Resolution,
-    IndexDisplay,
+    Draw,
     Input,
 }
 
@@ -263,7 +263,7 @@ impl Read for FrameBuffer {
                     Ok(bytes_to_copy)
                 }
 
-                FrameBufferFileType::IndexDisplay => {
+                FrameBufferFileType::Draw => {
                     if buf.len() == 0 {
                         Ok(0)
                     } else {
@@ -378,17 +378,10 @@ impl Write for FrameBuffer {
                     Ok(0)
                 }
 
-                FrameBufferFileType::IndexDisplay => {
+                FrameBufferFileType::Draw => {
                     if buf.len() == 0 {
                         Ok(0)
                     } else {
-                        match buf[0] {
-                            b'0' => fb_state.front_buffer = true,
-                            b'1' => fb_state.front_buffer = false,
-                            _ => (),
-                        }
-                        // TODO: probably remove this
-                        //fb_state.fill_input_buffer();
                         fb_state.draw();
                         Ok(1)
                     }
@@ -442,8 +435,8 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         fb_type: FrameBufferFileType::Resolution,
         cursor: 0,
     });
-    let index_file = Box::new(FrameBuffer {
-        fb_type: FrameBufferFileType::IndexDisplay,
+    let draw_file = Box::new(FrameBuffer {
+        fb_type: FrameBufferFileType::Draw,
         cursor: 0,
     });
     let input_file = Box::new(FrameBuffer {
@@ -507,9 +500,9 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
     let _fd = fs
         .open_file_at(
             base_dir_fd,
-            index_file,
+            draw_file,
             Fd::READ | Fd::WRITE,
-            "buffer_index_display".to_string(),
+            "draw".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
             0,
