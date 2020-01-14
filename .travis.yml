@@ -24,6 +24,7 @@ script:
 
   # Tests
   - make spectests-singlepass
+  - make wasitests-singlepass
 
 before_deploy:
   # Release
