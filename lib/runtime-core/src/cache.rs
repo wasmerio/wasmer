@@ -45,10 +45,8 @@ impl From<io::Error> for Error {
 ///
 /// [`Cache`]: trait.Cache.html
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-// WasmHash is made up of two 32 byte arrays instead of a 64 byte array
-// because derive only works on fixed sized arrays size 32 or below
-// TODO: fix this when this gets fixed by improved const generics
-pub struct WasmHash([u8; 32], [u8; 32]);
+// WasmHash is made up of a 32 byte array
+pub struct WasmHash([u8; 32]);
 
 impl WasmHash {
     /// Hash a wasm module.
@@ -57,18 +55,8 @@ impl WasmHash {
     /// This does no verification that the supplied data
     /// is, in fact, a wasm module.
     pub fn generate(wasm: &[u8]) -> Self {
-        let mut first_part = [0u8; 32];
-        // We don't use the second part for now, since the blake3 hash is 32 byte array
-        let second_part = [0u8; 32];
-
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(wasm);
-
-        let hash = hasher.finalize();
-        let generic_array = hash.as_bytes();
-
-        first_part.copy_from_slice(&generic_array[0..32]);
-        WasmHash(first_part, second_part)
+        let hash = blake3::hash(wasm);
+        WasmHash(hash.into())
     }
 
     /// Create the hexadecimal representation of the
@@ -85,26 +73,22 @@ impl WasmHash {
                 e
             ))
         })?;
-        if bytes.len() != 64 {
+        if bytes.len() != 32 {
             return Err(Error::DeserializeError(
-                "Prehashed keys must deserialze into exactly 64 bytes".to_string(),
+                "Prehashed keys must deserialze into exactly 32 bytes".to_string(),
             ));
         }
         use std::convert::TryInto;
         Ok(WasmHash(
             bytes[0..32].try_into().map_err(|e| {
                 Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
-            })?,
-            bytes[32..64].try_into().map_err(|e| {
-                Error::DeserializeError(format!("Could not get last 32 bytes: {}", e))
-            })?,
+            })?
         ))
     }
 
-    pub(crate) fn into_array(self) -> [u8; 64] {
-        let mut total = [0u8; 64];
+    pub(crate) fn into_array(self) -> [u8; 32] {
+        let mut total = [0u8; 32];
         total[0..32].copy_from_slice(&self.0);
-        total[32..64].copy_from_slice(&self.1);
         total
     }
 }
