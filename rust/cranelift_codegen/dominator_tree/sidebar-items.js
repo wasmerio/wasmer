@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ChildIter","An iterator that enumerates the direct children of an EBB in the dominator tree."],["DominatorTree","The dominator tree for a single function."],["DominatorTreePreorder","Optional pre-order information that can be computed for a dominator tree."]]});

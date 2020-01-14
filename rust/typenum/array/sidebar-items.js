@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ATerm","The terminating type for type arrays."],["TArr","`TArr` is a type that acts as an array of types. It is defined similarly to `UInt`, only its values can be more than bits, and it is designed to act as an array. So you can only add two if they have the same number of elements, for example."]]});

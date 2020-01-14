@@ -1,0 +1,146 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `ioctl` mod in crate `nix`."><meta name="keywords" content="rust, rustlang, rust-lang, ioctl"><title>nix::sys::ioctl - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="../../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../nix/index.html'><div class='logo-container'><img src='../../../rust-logo.png' alt='logo'></div></a><p class='location'>Module ioctl</p><div class="sidebar-elems"><p class='location'><a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a></p><script>window.sidebarCurrent = {name: 'ioctl', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../../src/nix/sys/ioctl/mod.rs.html#1-778' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a>::<wbr><a class="mod" href=''>ioctl</a></span></h1><div class='docblock'><p>Provide helpers for making ioctl system calls.</p>
+<p>This library is pretty low-level and messy. <code>ioctl</code> is not fun.</p>
+<h1 id="what-is-an-ioctl" class="section-header"><a href="#what-is-an-ioctl">What is an <code>ioctl</code>?</a></h1>
+<p>The <code>ioctl</code> syscall is the grab-bag syscall on POSIX systems. Don't want to add a new
+syscall? Make it an <code>ioctl</code>! <code>ioctl</code> refers to both the syscall, and the commands that can be
+sent with it. <code>ioctl</code> stands for &quot;IO control&quot;, and the commands are always sent to a file
+descriptor.</p>
+<p>It is common to see <code>ioctl</code>s used for the following purposes:</p>
+<ul>
+<li>Provide read/write access to out-of-band data related to a device such as configuration
+(for instance, setting serial port options)</li>
+<li>Provide a mechanism for performing full-duplex data transfers (for instance, xfer on SPI
+devices).</li>
+<li>Provide access to control functions on a device (for example, on Linux you can send
+commands like pause, resume, and eject to the CDROM device.</li>
+<li>Do whatever else the device driver creator thought made most sense.</li>
+</ul>
+<p><code>ioctl</code>s are synchronous system calls and are similar to read and write calls in that regard.
+They operate on file descriptors and have an identifier that specifies what the ioctl is.
+Additionally they may read or write data and therefore need to pass along a data pointer.
+Besides the semantics of the ioctls being confusing, the generation of this identifer can also
+be difficult.</p>
+<p>Historically <code>ioctl</code> numbers were arbitrary hard-coded values. In Linux (before 2.6) and some
+unices this has changed to a more-ordered system where the ioctl numbers are partitioned into
+subcomponents (For linux this is documented in
+<a href="http://elixir.free-electrons.com/linux/latest/source/Documentation/ioctl/ioctl-number.txt"><code>Documentation/ioctl/ioctl-number.txt</code></a>):</p>
+<ul>
+<li>Number: The actual ioctl ID</li>
+<li>Type: A grouping of ioctls for a common purpose or driver</li>
+<li>Size: The size in bytes of the data that will be transferred</li>
+<li>Direction: Whether there is any data and if it's read, write, or both</li>
+</ul>
+<p>Newer drivers should not generate complete integer identifiers for their <code>ioctl</code>s instead
+preferring to use the 4 components above to generate the final ioctl identifier. Because of
+how old <code>ioctl</code>s are, however, there are many hard-coded <code>ioctl</code> identifiers. These are
+commonly referred to as &quot;bad&quot; in <code>ioctl</code> documentation.</p>
+<h1 id="defining-ioctls" class="section-header"><a href="#defining-ioctls">Defining <code>ioctl</code>s</a></h1>
+<p>This library provides several <code>ioctl_*!</code> macros for binding <code>ioctl</code>s. These generate public
+unsafe functions that can then be used for calling the ioctl. This macro has a few different
+ways it can be used depending on the specific ioctl you're working with.</p>
+<p>A simple <code>ioctl</code> is <code>SPI_IOC_RD_MODE</code>. This ioctl works with the SPI interface on Linux. This
+specific <code>ioctl</code> reads the mode of the SPI device as a <code>u8</code>. It's declared in
+<code>/include/uapi/linux/spi/spidev.h</code> as <code>_IOR(SPI_IOC_MAGIC, 1, __u8)</code>. Since it uses the <code>_IOR</code>
+macro, we know it's a <code>read</code> ioctl and can use the <code>ioctl_read!</code> macro as follows:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">const</span> <span class="ident">SPI_IOC_MAGIC</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="string">b&#39;k&#39;</span>; <span class="comment">// Defined in linux/spi/spidev.h</span>
+<span class="kw">const</span> <span class="ident">SPI_IOC_TYPE_MODE</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">1</span>;
+<span class="macro">ioctl_read</span><span class="macro">!</span>(<span class="ident">spi_read_mode</span>, <span class="ident">SPI_IOC_MAGIC</span>, <span class="ident">SPI_IOC_TYPE_MODE</span>, <span class="ident">u8</span>);</pre></div>
+<p>This generates the function:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">spi_read_mode</span>(<span class="ident">fd</span>: <span class="ident">c_int</span>, <span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">c_int</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">libc</span>::<span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="macro">request_code_read</span><span class="macro">!</span>(<span class="ident">SPI_IOC_MAGIC</span>, <span class="ident">SPI_IOC_TYPE_MODE</span>, <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>()), <span class="ident">data</span>);
+    <span class="ident">Errno</span>::<span class="ident">result</span>(<span class="ident">res</span>)
+}</pre></div>
+<p>The return value for the wrapper functions generated by the <code>ioctl_*!</code> macros are <code>nix::Error</code>s.
+These are generated by assuming the return value of the ioctl is <code>-1</code> on error and everything
+else is a valid return value. If this is not the case, <code>Result::map</code> can be used to map some
+of the range of &quot;good&quot; values (-Inf..-2, 0..Inf) into a smaller range in a helper function.</p>
+<p>Writing <code>ioctl</code>s generally use pointers as their data source and these should use the
+<code>ioctl_write_ptr!</code>. But in some cases an <code>int</code> is passed directly. For these <code>ioctl</code>s use the
+<code>ioctl_write_int!</code> macro. This variant does not take a type as the last argument:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">const</span> <span class="ident">HCI_IOC_MAGIC</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="string">b&#39;k&#39;</span>;
+<span class="kw">const</span> <span class="ident">HCI_IOC_HCIDEVUP</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">1</span>;
+<span class="macro">ioctl_write_int</span><span class="macro">!</span>(<span class="ident">hci_dev_up</span>, <span class="ident">HCI_IOC_MAGIC</span>, <span class="ident">HCI_IOC_HCIDEVUP</span>);</pre></div>
+<p>Some <code>ioctl</code>s don't transfer any data, and those should use <code>ioctl_none!</code>. This macro
+doesn't take a type and so it is declared similar to the <code>write_int</code> variant shown above.</p>
+<p>The mode for a given <code>ioctl</code> should be clear from the documentation if it has good
+documentation. Otherwise it will be clear based on the macro used to generate the <code>ioctl</code>
+number where <code>_IO</code>, <code>_IOR</code>, <code>_IOW</code>, and <code>_IOWR</code> map to &quot;none&quot;, &quot;read&quot;, &quot;write_*&quot;, and &quot;readwrite&quot;
+respectively. To determine the specific <code>write_</code> variant to use you'll need to find
+what the argument type is supposed to be. If it's an <code>int</code>, then <code>write_int</code> should be used,
+otherwise it should be a pointer and <code>write_ptr</code> should be used. On Linux the
+<a href="http://man7.org/linux/man-pages/man2/ioctl_list.2.html"><code>ioctl_list</code> man page</a> describes a
+large number of <code>ioctl</code>s and describes their argument data type.</p>
+<h2 id="using-bad-ioctls" class="section-header"><a href="#using-bad-ioctls">Using &quot;bad&quot; <code>ioctl</code>s</a></h2>
+<p>As mentioned earlier, there are many old <code>ioctl</code>s that do not use the newer method of
+generating <code>ioctl</code> numbers and instead use hardcoded values. These can be used with the
+<code>ioctl_*_bad!</code> macros. This naming comes from the Linux kernel which refers to these
+<code>ioctl</code>s as &quot;bad&quot;. These are a different variant as they bypass calling the macro that generates
+the ioctl number and instead use the defined value directly.</p>
+<p>For example the <code>TCGETS</code> <code>ioctl</code> reads a <code>termios</code> data structure for a given file descriptor.
+It's defined as <code>0x5401</code> in <code>ioctls.h</code> on Linux and can be implemented as:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="macro">ioctl_read_bad</span><span class="macro">!</span>(<span class="ident">tcgets</span>, <span class="ident">TCGETS</span>, <span class="ident">termios</span>);</pre></div>
+<p>The generated function has the same form as that generated by <code>ioctl_read!</code>:</p>
+<pre><code class="language-text">pub unsafe fn tcgets(fd: c_int, data: *mut termios) -&gt; Result&lt;c_int&gt;;
+</code></pre>
+<h2 id="working-with-arrays" class="section-header"><a href="#working-with-arrays">Working with Arrays</a></h2>
+<p>Some <code>ioctl</code>s work with entire arrays of elements. These are supported by the <code>ioctl_*_buf</code>
+family of macros: <code>ioctl_read_buf</code>, <code>ioctl_write_buf</code>, and <code>ioctl_readwrite_buf</code>. Note that
+there are no &quot;bad&quot; versions for working with buffers. The generated functions include a <code>len</code>
+argument to specify the number of elements (where the type of each element is specified in the
+macro).</p>
+<p>Again looking to the SPI <code>ioctl</code>s on Linux for an example, there is a <code>SPI_IOC_MESSAGE</code> <code>ioctl</code>
+that queues up multiple SPI messages by writing an entire array of <code>spi_ioc_transfer</code> structs.
+<code>linux/spi/spidev.h</code> defines a macro to calculate the <code>ioctl</code> number like:</p>
+<pre><code class="language-C">#define SPI_IOC_MAGIC 'k'
+#define SPI_MSGSIZE(N) ...
+#define SPI_IOC_MESSAGE(N) _IOW(SPI_IOC_MAGIC, 0, char[SPI_MSGSIZE(N)])
+</code></pre>
+<p>The <code>SPI_MSGSIZE(N)</code> calculation is already handled by the <code>ioctl_*!</code> macros, so all that's
+needed to define this <code>ioctl</code> is:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">const</span> <span class="ident">SPI_IOC_MAGIC</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="string">b&#39;k&#39;</span>; <span class="comment">// Defined in linux/spi/spidev.h</span>
+<span class="kw">const</span> <span class="ident">SPI_IOC_TYPE_MESSAGE</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">0</span>;
+<span class="macro">ioctl_write_buf</span><span class="macro">!</span>(<span class="ident">spi_transfer</span>, <span class="ident">SPI_IOC_MAGIC</span>, <span class="ident">SPI_IOC_TYPE_MESSAGE</span>, <span class="ident">spi_ioc_transfer</span>);</pre></div>
+<p>This generates a function like:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">spi_message</span>(<span class="ident">fd</span>: <span class="ident">c_int</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">spi_ioc_transfer</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">c_int</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">libc</span>::<span class="ident">ioctl</span>(<span class="ident">fd</span>,
+                          <span class="macro">request_code_write</span><span class="macro">!</span>(<span class="ident">SPI_IOC_MAGIC</span>, <span class="ident">SPI_IOC_TYPE_MESSAGE</span>, <span class="ident">data</span>.<span class="ident">len</span>() <span class="op">*</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">spi_ioc_transfer</span><span class="op">&gt;</span>()),
+                          <span class="ident">data</span>);
+    <span class="ident">Errno</span>::<span class="ident">result</span>(<span class="ident">res</span>)
+}</pre></div>
+<h2 id="finding-ioctl-documentation" class="section-header"><a href="#finding-ioctl-documentation">Finding <code>ioctl</code> Documentation</a></h2>
+<p>For Linux, look at your system's headers. For example, <code>/usr/include/linux/input.h</code> has a lot
+of lines defining macros which use <code>_IO</code>, <code>_IOR</code>, <code>_IOW</code>, <code>_IOC</code>, and <code>_IOWR</code>. Some <code>ioctl</code>s are
+documented directly in the headers defining their constants, but others have more extensive
+documentation in man pages (like termios' <code>ioctl</code>s which are in <code>tty_ioctl(4)</code>).</p>
+<h1 id="documenting-the-generated-functions" class="section-header"><a href="#documenting-the-generated-functions">Documenting the Generated Functions</a></h1>
+<p>In many cases, users will wish for the functions generated by the <code>ioctl</code>
+macro to be public and documented. For this reason, the generated functions
+are public by default. If you wish to hide the ioctl, you will need to put
+them in a private module.</p>
+<p>For documentation, it is possible to use doc comments inside the <code>ioctl_*!</code> macros. Here is an
+example :</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="macro">ioctl_read</span><span class="macro">!</span> {
+    <span class="doccomment">/// Make the given terminal the controlling terminal of the calling process. The calling</span>
+    <span class="doccomment">/// process must be a session leader and not have a controlling terminal already. If the</span>
+    <span class="doccomment">/// terminal is already the controlling terminal of a different session group then the</span>
+    <span class="doccomment">/// ioctl will fail with **EPERM**, unless the caller is root (more precisely: has the</span>
+    <span class="doccomment">/// **CAP_SYS_ADMIN** capability) and arg equals 1, in which case the terminal is stolen</span>
+    <span class="doccomment">/// and all processes that had it as controlling terminal lose it.</span>
+    <span class="ident">tiocsctty</span>, <span class="string">b&#39;t&#39;</span>, <span class="number">19</span>, <span class="ident">c_int</span>
+}
+</pre></div>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "nix";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script defer src="../../../search-index.js"></script></body></html>

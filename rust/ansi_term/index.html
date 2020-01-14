@@ -1,0 +1,180 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `ansi_term` crate."><meta name="keywords" content="rust, rustlang, rust-lang, ansi_term"><title>ansi_term - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../ansi_term/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate ansi_term</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all ansi_term's items</p></a><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'ansi_term', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/ansi_term/lib.rs.html#1-205' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>ansi_term</a></span></h1><div class='docblock'><p>This is a library for controlling colours and formatting, such as
+red bold text or blue underlined text, on ANSI terminals.</p>
+<h2 id="basic-usage" class="section-header"><a href="#basic-usage">Basic usage</a></h2>
+<p>There are two main data structures in this crate that you need to be
+concerned with: <code>ANSIString</code> and <code>Style</code>. A <code>Style</code> holds stylistic
+information: colours, whether the text should be bold, or blinking, or
+whatever. There are also <code>Colour</code> variants that represent simple foreground
+colour styles. An <code>ANSIString</code> is a string paired with a <code>Style</code>.</p>
+<p>(Yes, it’s British English, but you won’t have to write “colour” very often.
+<code>Style</code> is used the majority of the time.)</p>
+<p>To format a string, call the <code>paint</code> method on a <code>Style</code> or a <code>Colour</code>,
+passing in the string you want to format as the argument. For example,
+here’s how to get some red text:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::<span class="ident">Red</span>;
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;This is in red: {}&quot;</span>, <span class="ident">Red</span>.<span class="ident">paint</span>(<span class="string">&quot;a red string&quot;</span>));</pre></div>
+<p>It’s important to note that the <code>paint</code> method does <em>not</em> actually return a
+string with the ANSI control characters surrounding it. Instead, it returns
+an <code>ANSIString</code> value that has a <code>Display</code> implementation that, when
+formatted, returns the characters. This allows strings to be printed with a
+minimum of <code>String</code> allocations being performed behind the scenes.</p>
+<p>If you <em>do</em> want to get at the escape codes, then you can convert the
+<code>ANSIString</code> to a string as you would any other <code>Display</code> value:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::<span class="ident">Red</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">string</span>::<span class="ident">ToString</span>;
+<span class="kw">let</span> <span class="ident">red_string</span> <span class="op">=</span> <span class="ident">Red</span>.<span class="ident">paint</span>(<span class="string">&quot;a red string&quot;</span>).<span class="ident">to_string</span>();</pre></div>
+<h2 id="bold-underline-background-and-other-styles" class="section-header"><a href="#bold-underline-background-and-other-styles">Bold, underline, background, and other styles</a></h2>
+<p>For anything more complex than plain foreground colour changes, you need to
+construct <code>Style</code> objects themselves, rather than beginning with a <code>Colour</code>.
+You can do this by chaining methods based on a new <code>Style</code>, created with
+<code>Style::new()</code>. Each method creates a new style that has that specific
+property set. For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Style</span>;
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;How about some {} and {}?&quot;</span>,
+         <span class="ident">Style</span>::<span class="ident">new</span>().<span class="ident">bold</span>().<span class="ident">paint</span>(<span class="string">&quot;bold&quot;</span>),
+         <span class="ident">Style</span>::<span class="ident">new</span>().<span class="ident">underline</span>().<span class="ident">paint</span>(<span class="string">&quot;underline&quot;</span>));</pre></div>
+<p>For brevity, these methods have also been implemented for <code>Colour</code> values,
+so you can give your styles a foreground colour without having to begin with
+an empty <code>Style</code> value:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::{<span class="ident">Blue</span>, <span class="ident">Yellow</span>};
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Demonstrating {} and {}!&quot;</span>,
+         <span class="ident">Blue</span>.<span class="ident">bold</span>().<span class="ident">paint</span>(<span class="string">&quot;blue bold&quot;</span>),
+         <span class="ident">Yellow</span>.<span class="ident">underline</span>().<span class="ident">paint</span>(<span class="string">&quot;yellow underline&quot;</span>));
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Yellow on blue: {}&quot;</span>, <span class="ident">Yellow</span>.<span class="ident">on</span>(<span class="ident">Blue</span>).<span class="ident">paint</span>(<span class="string">&quot;wow!&quot;</span>));</pre></div>
+<p>The complete list of styles you can use are: <code>bold</code>, <code>dimmed</code>, <code>italic</code>,
+<code>underline</code>, <code>blink</code>, <code>reverse</code>, <code>hidden</code>, <code>strikethrough</code>, and <code>on</code> for
+background colours.</p>
+<p>In some cases, you may find it easier to change the foreground on an
+existing <code>Style</code> rather than starting from the appropriate <code>Colour</code>.
+You can do this using the <code>fg</code> method:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Style</span>;
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::{<span class="ident">Blue</span>, <span class="ident">Cyan</span>, <span class="ident">Yellow</span>};
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Yellow on blue: {}&quot;</span>, <span class="ident">Style</span>::<span class="ident">new</span>().<span class="ident">on</span>(<span class="ident">Blue</span>).<span class="ident">fg</span>(<span class="ident">Yellow</span>).<span class="ident">paint</span>(<span class="string">&quot;yow!&quot;</span>));
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Also yellow on blue: {}&quot;</span>, <span class="ident">Cyan</span>.<span class="ident">on</span>(<span class="ident">Blue</span>).<span class="ident">fg</span>(<span class="ident">Yellow</span>).<span class="ident">paint</span>(<span class="string">&quot;zow!&quot;</span>));</pre></div>
+<p>Finally, you can turn a <code>Colour</code> into a <code>Style</code> with the <code>normal</code> method.
+This will produce the exact same <code>ANSIString</code> as if you just used the
+<code>paint</code> method on the <code>Colour</code> directly, but it’s useful in certain cases:
+for example, you may have a method that returns <code>Styles</code>, and need to
+represent both the “red bold” and “red, but not bold” styles with values of
+the same type. The <code>Style</code> struct also has a <code>Default</code> implementation if you
+want to have a style with <em>nothing</em> set.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Style</span>;
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::<span class="ident">Red</span>;
+<span class="ident">Red</span>.<span class="ident">normal</span>().<span class="ident">paint</span>(<span class="string">&quot;yet another red string&quot;</span>);
+<span class="ident">Style</span>::<span class="ident">default</span>().<span class="ident">paint</span>(<span class="string">&quot;a completely regular string&quot;</span>);</pre></div>
+<h2 id="extended-colours" class="section-header"><a href="#extended-colours">Extended colours</a></h2>
+<p>You can access the extended range of 256 colours by using the <code>Fixed</code> colour
+variant, which takes an argument of the colour number to use. This can be
+included wherever you would use a <code>Colour</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::<span class="ident">Fixed</span>;
+<span class="ident">Fixed</span>(<span class="number">134</span>).<span class="ident">paint</span>(<span class="string">&quot;A sort of light purple&quot;</span>);
+<span class="ident">Fixed</span>(<span class="number">221</span>).<span class="ident">on</span>(<span class="ident">Fixed</span>(<span class="number">124</span>)).<span class="ident">paint</span>(<span class="string">&quot;Mustard in the ketchup&quot;</span>);</pre></div>
+<p>The first sixteen of these values are the same as the normal and bold
+standard colour variants. There’s nothing stopping you from using these as
+<code>Fixed</code> colours instead, but there’s nothing to be gained by doing so
+either.</p>
+<p>You can also access full 24-bit color by using the <code>RGB</code> colour variant,
+which takes separate <code>u8</code> arguments for red, green, and blue:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::<span class="ident">RGB</span>;
+<span class="ident">RGB</span>(<span class="number">70</span>, <span class="number">130</span>, <span class="number">180</span>).<span class="ident">paint</span>(<span class="string">&quot;Steel blue&quot;</span>);</pre></div>
+<h2 id="combining-successive-coloured-strings" class="section-header"><a href="#combining-successive-coloured-strings">Combining successive coloured strings</a></h2>
+<p>The benefit of writing ANSI escape codes to the terminal is that they
+<em>stack</em>: you do not need to end every coloured string with a reset code if
+the text that follows it is of a similar style. For example, if you want to
+have some blue text followed by some blue bold text, it’s possible to send
+the ANSI code for blue, followed by the ANSI code for bold, and finishing
+with a reset code without having to have an extra one between the two
+strings.</p>
+<p>This crate can optimise the ANSI codes that get printed in situations like
+this, making life easier for your terminal renderer. The <code>ANSIStrings</code>
+struct takes a slice of several <code>ANSIString</code> values, and will iterate over
+each of them, printing only the codes for the styles that need to be updated
+as part of its formatting routine.</p>
+<p>The following code snippet uses this to enclose a binary number displayed in
+red bold text inside some red, but not bold, brackets:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::<span class="ident">Red</span>;
+<span class="kw">use</span> <span class="ident">ansi_term</span>::{<span class="ident">ANSIString</span>, <span class="ident">ANSIStrings</span>};
+<span class="kw">let</span> <span class="ident">some_value</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:b}&quot;</span>, <span class="number">42</span>);
+<span class="kw">let</span> <span class="ident">strings</span>: <span class="kw-2">&amp;</span>[<span class="ident">ANSIString</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+    <span class="ident">Red</span>.<span class="ident">paint</span>(<span class="string">&quot;[&quot;</span>),
+    <span class="ident">Red</span>.<span class="ident">bold</span>().<span class="ident">paint</span>(<span class="ident">some_value</span>),
+    <span class="ident">Red</span>.<span class="ident">paint</span>(<span class="string">&quot;]&quot;</span>),
+];
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Value: {}&quot;</span>, <span class="ident">ANSIStrings</span>(<span class="ident">strings</span>));</pre></div>
+<p>There are several things to note here. Firstly, the <code>paint</code> method can take
+<em>either</em> an owned <code>String</code> or a borrowed <code>&amp;str</code>. Internally, an <code>ANSIString</code>
+holds a copy-on-write (<code>Cow</code>) string value to deal with both owned and
+borrowed strings at the same time. This is used here to display a <code>String</code>,
+the result of the <code>format!</code> call, using the same mechanism as some
+statically-available <code>&amp;str</code> slices. Secondly, that the <code>ANSIStrings</code> value
+works in the same way as its singular counterpart, with a <code>Display</code>
+implementation that only performs the formatting when required.</p>
+<h2 id="byte-strings" class="section-header"><a href="#byte-strings">Byte strings</a></h2>
+<p>This library also supports formatting <code>[u8]</code> byte strings; this supports
+applications working with text in an unknown encoding.  <code>Style</code> and
+<code>Color</code> support painting <code>[u8]</code> values, resulting in an <code>ANSIByteString</code>.
+This type does not implement <code>Display</code>, as it may not contain UTF-8, but
+it does provide a method <code>write_to</code> to write the result to any
+<code>io::Write</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::<span class="ident">Green</span>;
+<span class="ident">Green</span>.<span class="ident">paint</span>(<span class="string">&quot;user data&quot;</span>.<span class="ident">as_bytes</span>()).<span class="ident">write_to</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">stdout</span>()).<span class="ident">unwrap</span>();</pre></div>
+<p>Similarly, the type <code>ANSIByteStrings</code> supports writing a list of
+<code>ANSIByteString</code> values with minimal escape sequences:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">Colour</span>::<span class="ident">Green</span>;
+<span class="kw">use</span> <span class="ident">ansi_term</span>::<span class="ident">ANSIByteStrings</span>;
+<span class="ident">ANSIByteStrings</span>(<span class="kw-2">&amp;</span>[
+    <span class="ident">Green</span>.<span class="ident">paint</span>(<span class="string">&quot;user data 1\n&quot;</span>.<span class="ident">as_bytes</span>()),
+    <span class="ident">Green</span>.<span class="ident">bold</span>().<span class="ident">paint</span>(<span class="string">&quot;user data 2\n&quot;</span>.<span class="ident">as_bytes</span>()),
+]).<span class="ident">write_to</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">stdout</span>()).<span class="ident">unwrap</span>();</pre></div>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.ANSIGenericString.html" title='ansi_term::ANSIGenericString struct'>ANSIGenericString</a></td><td class='docblock-short'><p>An <code>ANSIGenericString</code> includes a generic string type and a <code>Style</code> to
+display that string.  <code>ANSIString</code> and <code>ANSIByteString</code> are aliases for
+this type on <code>str</code> and <code>[u8]</code>, respectively.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ANSIGenericStrings.html" title='ansi_term::ANSIGenericStrings struct'>ANSIGenericStrings</a></td><td class='docblock-short'><p>A set of <code>ANSIGenericString</code>s collected together, in order to be
+written with a minimum of control characters.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Infix.html" title='ansi_term::Infix struct'>Infix</a></td><td class='docblock-short'><p>Like <code>ANSIString</code>, but only displays the difference between two
+styles.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Prefix.html" title='ansi_term::Prefix struct'>Prefix</a></td><td class='docblock-short'><p>Like <code>ANSIString</code>, but only displays the style prefix.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Style.html" title='ansi_term::Style struct'>Style</a></td><td class='docblock-short'><p>A style is a collection of properties that can format a string
+using ANSI escape codes.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Suffix.html" title='ansi_term::Suffix struct'>Suffix</a></td><td class='docblock-short'><p>Like <code>ANSIString</code>, but only displays the style suffix.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.Color.html" title='ansi_term::Color enum'>Color</a></td><td class='docblock-short'><p>A colour is one specific type of ANSI escape code, and can refer
+to either the foreground or background colour.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Colour.html" title='ansi_term::Colour enum'>Colour</a></td><td class='docblock-short'><p>A colour is one specific type of ANSI escape code, and can refer
+to either the foreground or background colour.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.ANSIByteStrings.html" title='ansi_term::ANSIByteStrings fn'>ANSIByteStrings</a></td><td class='docblock-short'><p>A function to construct an <code>ANSIByteStrings</code> instance.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.ANSIStrings.html" title='ansi_term::ANSIStrings fn'>ANSIStrings</a></td><td class='docblock-short'><p>A function to construct an <code>ANSIStrings</code> instance.</p>
+</td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table><tr class='module-item'><td><a class="type" href="type.ANSIByteString.html" title='ansi_term::ANSIByteString type'>ANSIByteString</a></td><td class='docblock-short'><p>An <code>ANSIByteString</code> represents a formatted series of bytes.  Use
+<code>ANSIByteString</code> when styling text with an unknown encoding.</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.ANSIByteStrings.html" title='ansi_term::ANSIByteStrings type'>ANSIByteStrings</a></td><td class='docblock-short'><p>A set of <code>ANSIByteString</code>s collected together, in order to be
+written with a minimum of control characters.</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.ANSIString.html" title='ansi_term::ANSIString type'>ANSIString</a></td><td class='docblock-short'><p>An ANSI String is a string coupled with the <code>Style</code> to display it
+in a terminal.</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.ANSIStrings.html" title='ansi_term::ANSIStrings type'>ANSIStrings</a></td><td class='docblock-short'><p>A set of <code>ANSIString</code>s collected together, in order to be written with a
+minimum of control characters.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "ansi_term";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

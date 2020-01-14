@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `arrayvec` crate."><meta name="keywords" content="rust, rustlang, rust-lang, arrayvec"><title>arrayvec - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../arrayvec/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate arrayvec</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all arrayvec's items</p></a><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'arrayvec', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/arrayvec/lib.rs.html#1-1156' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>arrayvec</a></span></h1><div class='docblock'><p><strong>arrayvec</strong> provides the types <code>ArrayVec</code> and <code>ArrayString</code>: 
+array-backed vector and string types, which store their contents inline.</p>
+<p>The arrayvec package has the following cargo features:</p>
+<ul>
+<li>
+<p><code>std</code></p>
+<ul>
+<li>Optional, enabled by default</li>
+<li>Use libstd; disable to use <code>no_std</code> instead.</li>
+</ul>
+</li>
+<li>
+<p><code>serde</code></p>
+<ul>
+<li>Optional</li>
+<li>Enable serialization for ArrayVec and ArrayString using serde 1.x</li>
+</ul>
+</li>
+<li>
+<p><code>array-sizes-33-128</code>, <code>array-sizes-129-255</code></p>
+<ul>
+<li>Optional</li>
+<li>Enable more array sizes (see <a href="../arrayvec/trait.Array.html" title="Array">Array</a> for more information)</li>
+</ul>
+</li>
+</ul>
+<h2 id="rust-version" class="section-header"><a href="#rust-version">Rust Version</a></h2>
+<p>This version of arrayvec requires Rust 1.36 or later.</p>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.ArrayString.html" title='arrayvec::ArrayString struct'>ArrayString</a></td><td class='docblock-short'><p>A string with a fixed capacity.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ArrayVec.html" title='arrayvec::ArrayVec struct'>ArrayVec</a></td><td class='docblock-short'><p>A vector with a fixed capacity.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.CapacityError.html" title='arrayvec::CapacityError struct'>CapacityError</a></td><td class='docblock-short'><p>Error value indicating insufficient capacity</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Drain.html" title='arrayvec::Drain struct'>Drain</a></td><td class='docblock-short'><p>A draining iterator for <code>ArrayVec</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.IntoIter.html" title='arrayvec::IntoIter struct'>IntoIter</a></td><td class='docblock-short'><p>By-value iterator for <code>ArrayVec</code>.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.Array.html" title='arrayvec::Array trait'>Array</a></td><td class='docblock-short'><p>Trait for fixed size arrays.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "arrayvec";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

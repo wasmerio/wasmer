@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Speculative` trait in crate `syn`."><meta name="keywords" content="rust, rustlang, rust-lang, Speculative"><title>syn::parse::discouraged::Speculative - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="../../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc trait"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../syn/index.html'><div class='logo-container'><img src='../../../rust-logo.png' alt='logo'></div></a><p class='location'>Trait Speculative</p><div class="sidebar-elems"><div class="block items"><a class="sidebar-title" href="#required-methods">Required Methods</a><div class="sidebar-links"><a href="#tymethod.advance_to">advance_to</a></div><a class="sidebar-title" href="#implementors">Implementors</a></div><p class='location'><a href='../../index.html'>syn</a>::<wbr><a href='../index.html'>parse</a>::<wbr><a href='index.html'>discouraged</a></p><script>window.sidebarCurrent = {name: 'Speculative', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../../src/syn/discouraged.rs.html#6-159' title='goto source code'>[src]</a></span><span class='in-band'>Trait <a href='../../index.html'>syn</a>::<wbr><a href='../index.html'>parse</a>::<wbr><a href='index.html'>discouraged</a>::<wbr><a class="trait" href=''>Speculative</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><pre class='rust trait'>pub trait Speculative {
+    fn <a href='#tymethod.advance_to' class='fnname'>advance_to</a>(&amp;self, fork: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>Self);
+}</pre></div><div class='docblock'><p>Extensions to the <code>ParseStream</code> API to support speculative parsing.</p>
+</div>
+            <h2 id='required-methods' class='small-section-header'>Required methods<a href='#required-methods' class='anchor'></a></h2><div class='methods'><h3 id='tymethod.advance_to' class='method'><code id='advance_to.v'>fn <a href='#tymethod.advance_to' class='fnname'>advance_to</a>(&amp;self, fork: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>Self)</code></h3><div class='docblock'><p>Advance this parse stream to the position of a forked parse stream.</p>
+<p>This is the opposite operation to <a href="../../../syn/parse/struct.ParseBuffer.html#method.fork"><code>ParseStream::fork</code></a>. You can fork a
+parse stream, perform some speculative parsing, then join the original
+stream to the fork to &quot;commit&quot; the parsing from the fork to the main
+stream.</p>
+<p>If you can avoid doing this, you should, as it limits the ability to
+generate useful errors. That said, it is often the only way to parse
+syntax of the form <code>A* B*</code> for arbitrary syntax <code>A</code> and <code>B</code>. The problem
+is that when the fork fails to parse an <code>A</code>, it's impossible to tell
+whether that was because of a syntax error and the user meant to provide
+an <code>A</code>, or that the <code>A</code>s are finished and its time to start parsing
+<code>B</code>s. Use with care.</p>
+<p>Also note that if <code>A</code> is a subset of <code>B</code>, <code>A* B*</code> can be parsed by
+parsing <code>B*</code> and removing the leading members of <code>A</code> from the
+repetition, bypassing the need to involve the downsides associated with
+speculative parsing.</p>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<p>There has been chatter about the possibility of making the colons in the
+turbofish syntax like <code>path::to::&lt;T&gt;</code> no longer required by accepting
+<code>path::to&lt;T&gt;</code> in expression position. Specifically, according to <a href="https://github.com/rust-lang/rfcs/pull/2544">RFC
+2544</a>, <a href="../../../syn/struct.PathSegment.html"><code>PathSegment</code></a> parsing should always try to consume a following
+<code>&lt;</code> token as the start of generic arguments, and reset to the <code>&lt;</code> if
+that fails (e.g. the token is acting as a less-than operator).</p>
+<p>This is the exact kind of parsing behavior which requires the &quot;fork,
+try, commit&quot; behavior that <a href="../../../syn/parse/struct.ParseBuffer.html#method.fork"><code>ParseStream::fork</code></a> discourages. With
+<code>advance_to</code>, we can avoid having to parse the speculatively parsed
+content a second time.</p>
+<p>This change in behavior can be implemented in syn by replacing just the
+<code>Parse</code> implementation for <code>PathSegment</code>:</p>
+
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">parse</span>::<span class="ident">discouraged</span>::<span class="ident">Speculative</span>;
+
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PathSegment</span> {
+    <span class="kw">pub</span> <span class="ident">ident</span>: <span class="ident">Ident</span>,
+    <span class="kw">pub</span> <span class="ident">arguments</span>: <span class="ident">PathArguments</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Parse</span> <span class="kw">for</span> <span class="ident">PathSegment</span> {
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">input</span>: <span class="ident">ParseStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[<span class="kw">super</span>])
+            <span class="op">|</span><span class="op">|</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[<span class="self">self</span>])
+            <span class="op">|</span><span class="op">|</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[<span class="self">Self</span>])
+            <span class="op">|</span><span class="op">|</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[<span class="kw">crate</span>])
+            <span class="op">|</span><span class="op">|</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[<span class="kw">extern</span>])
+        {
+            <span class="kw">let</span> <span class="ident">ident</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">call</span>(<span class="ident">Ident</span>::<span class="ident">parse_any</span>)<span class="question-mark">?</span>;
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">PathSegment</span>::<span class="ident">from</span>(<span class="ident">ident</span>));
+        }
+
+        <span class="kw">let</span> <span class="ident">ident</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[::]) <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">input</span>.<span class="ident">peek3</span>(<span class="macro">Token</span><span class="macro">!</span>[<span class="op">&lt;</span>]) {
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">PathSegment</span> {
+                <span class="ident">ident</span>: <span class="ident">ident</span>,
+                <span class="ident">arguments</span>: <span class="ident">PathArguments</span>::<span class="ident">AngleBracketed</span>(<span class="ident">input</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>),
+            });
+        }
+        <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[<span class="op">&lt;</span>]) <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="op">!</span><span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[<span class="op">&lt;</span><span class="op">=</span>]) {
+            <span class="kw">let</span> <span class="ident">fork</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">fork</span>();
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">arguments</span>) <span class="op">=</span> <span class="ident">fork</span>.<span class="ident">parse</span>() {
+                <span class="ident">input</span>.<span class="ident">advance_to</span>(<span class="kw-2">&amp;</span><span class="ident">fork</span>);
+                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">PathSegment</span> {
+                    <span class="ident">ident</span>: <span class="ident">ident</span>,
+                    <span class="ident">arguments</span>: <span class="ident">PathArguments</span>::<span class="ident">AngleBracketed</span>(<span class="ident">arguments</span>),
+                });
+            }
+        }
+        <span class="prelude-val">Ok</span>(<span class="ident">PathSegment</span>::<span class="ident">from</span>(<span class="ident">ident</span>))
+    }
+}
+</pre></div>
+<h1 id="drawbacks" class="section-header"><a href="#drawbacks">Drawbacks</a></h1>
+<p>The main drawback of this style of speculative parsing is in error
+presentation. Even if the lookahead is the &quot;correct&quot; parse, the error
+that is shown is that of the &quot;fallback&quot; parse. To use the same example
+as the turbofish above, take the following unfinished &quot;turbofish&quot;:</p>
+<pre><code class="language-text">let _ = f&lt;&amp;'a fn(), for&lt;'a&gt; serde::&gt;();
+</code></pre>
+<p>If this is parsed as generic arguments, we can provide the error message</p>
+<pre><code class="language-text">error: expected identifier
+ --&gt; src.rs:L:C
+  |
+L | let _ = f&lt;&amp;'a fn(), for&lt;'a&gt; serde::&gt;();
+  |                                    ^
+</code></pre>
+<p>but if parsed using the above speculative parsing, it falls back to
+assuming that the <code>&lt;</code> is a less-than when it fails to parse the generic
+arguments, and tries to interpret the <code>&amp;'a</code> as the start of a labelled
+loop, resulting in the much less helpful error</p>
+<pre><code class="language-text">error: expected `:`
+ --&gt; src.rs:L:C
+  |
+L | let _ = f&lt;&amp;'a fn(), for&lt;'a&gt; serde::&gt;();
+  |               ^^
+</code></pre>
+<p>This can be mitigated with various heuristics (two examples: show both
+forks' parse errors, or show the one that consumed more tokens), but
+when you can control the grammar, sticking to something that can be
+parsed LL(3) and without the LL(*) speculative parsing this makes
+possible, displaying reasonable errors becomes much more simple.</p>
+<h1 id="performance" class="section-header"><a href="#performance">Performance</a></h1>
+<p>This method performs a cheap fixed amount of work that does not depend
+on how far apart the two streams are positioned.</p>
+<h1 id="panics" class="section-header"><a href="#panics">Panics</a></h1>
+<p>The forked stream in the argument of <code>advance_to</code> must have been
+obtained by forking <code>self</code>. Attempting to advance to any other stream
+will cause a panic.</p>
+</div></div><span class='loading-content'>Loading content...</span>
+            <h2 id='implementors' class='small-section-header'>Implementors<a href='#implementors' class='anchor'></a></h2><div class='item-list' id='implementors-list'><h3 id='impl-Speculative' class='impl'><code class='in-band'>impl&lt;'a&gt; Speculative for <a class="struct" href="../../../syn/parse/struct.ParseBuffer.html" title="struct syn::parse::ParseBuffer">ParseBuffer</a>&lt;'a&gt;</code><a href='#impl-Speculative' class='anchor'></a><a class='srclink' href='../../../src/syn/discouraged.rs.html#161-171' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.advance_to' class="method hidden"><code id='advance_to.v-1'>fn <a href='#method.advance_to' class='fnname'>advance_to</a>(&amp;self, fork: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>Self)</code><a class='srclink' href='../../../src/syn/discouraged.rs.html#162-170' title='goto source code'>[src]</a></h4></div></div><span class='loading-content'>Loading content...</span><script type="text/javascript">window.inlined_types=new Set([]);</script><script type="text/javascript" async
+                         src="../../../implementors/syn/parse/discouraged/trait.Speculative.js">
+                 </script></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "syn";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script defer src="../../../search-index.js"></script></body></html>

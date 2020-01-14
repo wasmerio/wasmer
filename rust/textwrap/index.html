@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `textwrap` crate."><meta name="keywords" content="rust, rustlang, rust-lang, textwrap"><title>textwrap - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../textwrap/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate textwrap</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all textwrap's items</p></a><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'textwrap', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/textwrap/lib.rs.html#1-987' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>textwrap</a></span></h1><div class='docblock'><p><code>textwrap</code> provides functions for word wrapping and filling text.</p>
+<p>Wrapping text can be very useful in commandline programs where you
+want to format dynamic output nicely so it looks good in a
+terminal. A quick example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">textwrap</span>;
+<span class="kw">use</span> <span class="ident">textwrap</span>::<span class="ident">fill</span>;
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="kw">let</span> <span class="ident">text</span> <span class="op">=</span> <span class="string">&quot;textwrap: a small library for wrapping text.&quot;</span>;
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">fill</span>(<span class="ident">text</span>, <span class="number">18</span>));
+}</pre></div>
+<p>This will display the following output:</p>
+<pre><code class="language-text">textwrap: a small
+library for
+wrapping text.
+</code></pre>
+<h1 id="displayed-width-vs-byte-size" class="section-header"><a href="#displayed-width-vs-byte-size">Displayed Width vs Byte Size</a></h1>
+<p>To word wrap text, one must know the width of each word so one can
+know when to break lines. This library measures the width of text
+using the <a href="https://docs.rs/unicode-width/">displayed width</a>, not the size in bytes.</p>
+<p>This is important for non-ASCII text. ASCII characters such as <code>a</code>
+and <code>!</code> are simple and take up one column each. This means that
+the displayed width is equal to the string length in bytes.
+However, non-ASCII characters and symbols take up more than one
+byte when UTF-8 encoded: <code>é</code> is <code>0xc3 0xa9</code> (two bytes) and <code>⚙</code> is
+<code>0xe2 0x9a 0x99</code> (three bytes) in UTF-8, respectively.</p>
+<p>This is why we take care to use the displayed width instead of the
+byte count when computing line lengths. All functions in this
+library handle Unicode characters like this.</p>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.HyphenSplitter.html" title='textwrap::HyphenSplitter struct'>HyphenSplitter</a></td><td class='docblock-short'><p>Simple and default way to split words: splitting on existing
+hyphens only.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.IntoWrapIter.html" title='textwrap::IntoWrapIter struct'>IntoWrapIter</a></td><td class='docblock-short'><p>An iterator over the lines of the input string which owns a
+<code>Wrapper</code>. An instance of <code>IntoWrapIter</code> is typically obtained
+through either <a href="fn.wrap_iter.html"><code>wrap_iter</code></a> or <a href="struct.Wrapper.html#method.into_wrap_iter"><code>Wrapper::into_wrap_iter</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.NoHyphenation.html" title='textwrap::NoHyphenation struct'>NoHyphenation</a></td><td class='docblock-short'><p>Use this as a <a href="../struct.Wrapper.html#structfield.splitter"><code>Wrapper.splitter</code></a> to avoid any kind of
+hyphenation:</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.WrapIter.html" title='textwrap::WrapIter struct'>WrapIter</a></td><td class='docblock-short'><p>An iterator over the lines of the input string which borrows a
+<code>Wrapper</code>. An instance of <code>WrapIter</code> is typically obtained
+through the <a href="struct.Wrapper.html#method.wrap_iter"><code>Wrapper::wrap_iter</code></a> method.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Wrapper.html" title='textwrap::Wrapper struct'>Wrapper</a></td><td class='docblock-short'><p>A Wrapper holds settings for wrapping and filling text. Use it
+when the convenience <a href="fn.wrap_iter.html"><code>wrap_iter</code></a>, <a href="fn.wrap.html"><code>wrap</code></a> and <a href="fn.fill.html"><code>fill</code></a> functions
+are not flexible enough.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.WordSplitter.html" title='textwrap::WordSplitter trait'>WordSplitter</a></td><td class='docblock-short'><p>An interface for splitting words.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.dedent.html" title='textwrap::dedent fn'>dedent</a></td><td class='docblock-short'><p>Removes common leading whitespace from each line.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.fill.html" title='textwrap::fill fn'>fill</a></td><td class='docblock-short'><p>Fill a line of text at <code>width</code> characters. Strings are wrapped
+based on their displayed width, not their size in bytes.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.indent.html" title='textwrap::indent fn'>indent</a></td><td class='docblock-short'><p>Add prefix to each non-empty line.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wrap.html" title='textwrap::wrap fn'>wrap</a></td><td class='docblock-short'><p>Wrap a line of text at <code>width</code> characters. Strings are wrapped
+based on their displayed width, not their size in bytes.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wrap_iter.html" title='textwrap::wrap_iter fn'>wrap_iter</a></td><td class='docblock-short'><p>Lazily wrap a line of text at <code>width</code> characters. Strings are
+wrapped based on their displayed width, not their size in bytes.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "textwrap";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

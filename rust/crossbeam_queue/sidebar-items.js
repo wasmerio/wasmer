@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ArrayQueue","A bounded multi-producer multi-consumer queue."],["PopError","Error which occurs when popping from an empty queue."],["PushError","Error which occurs when pushing into a full queue."],["SegQueue","An unbounded multi-producer multi-consumer queue."]]});

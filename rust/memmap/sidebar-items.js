@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Mmap","An immutable memory mapped buffer."],["MmapMut","A mutable memory mapped buffer."],["MmapOptions","A memory map builder, providing advanced options and flags for specifying memory map behavior."]]});

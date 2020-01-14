@@ -1,0 +1,447 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `PassManager` struct in crate `inkwell`."><meta name="keywords" content="rust, rustlang, rust-lang, PassManager"><title>inkwell::passes::PassManager - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc struct"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../inkwell/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a><p class='location'>Struct PassManager</p><div class="sidebar-elems"><div class="block items"><a class="sidebar-title" href="#methods">Methods</a><div class="sidebar-links"><a href="#method.add_aggressive_dce_pass">add_aggressive_dce_pass</a><a href="#method.add_aggressive_inst_combiner_pass">add_aggressive_inst_combiner_pass</a><a href="#method.add_alignment_from_assumptions_pass">add_alignment_from_assumptions_pass</a><a href="#method.add_always_inliner_pass">add_always_inliner_pass</a><a href="#method.add_argument_promotion_pass">add_argument_promotion_pass</a><a href="#method.add_basic_alias_analysis_pass">add_basic_alias_analysis_pass</a><a href="#method.add_bit_tracking_dce_pass">add_bit_tracking_dce_pass</a><a href="#method.add_cfg_simplification_pass">add_cfg_simplification_pass</a><a href="#method.add_constant_merge_pass">add_constant_merge_pass</a><a href="#method.add_constant_propagation_pass">add_constant_propagation_pass</a><a href="#method.add_coroutine_cleanup_pass">add_coroutine_cleanup_pass</a><a href="#method.add_coroutine_early_pass">add_coroutine_early_pass</a><a href="#method.add_coroutine_elide_pass">add_coroutine_elide_pass</a><a href="#method.add_coroutine_split_pass">add_coroutine_split_pass</a><a href="#method.add_correlated_value_propagation_pass">add_correlated_value_propagation_pass</a><a href="#method.add_dead_arg_elimination_pass">add_dead_arg_elimination_pass</a><a href="#method.add_dead_store_elimination_pass">add_dead_store_elimination_pass</a><a href="#method.add_demote_memory_to_register_pass">add_demote_memory_to_register_pass</a><a href="#method.add_early_cse_mem_ssa_pass">add_early_cse_mem_ssa_pass</a><a href="#method.add_early_cse_pass">add_early_cse_pass</a><a href="#method.add_function_attrs_pass">add_function_attrs_pass</a><a href="#method.add_function_inlining_pass">add_function_inlining_pass</a><a href="#method.add_global_dce_pass">add_global_dce_pass</a><a href="#method.add_global_optimizer_pass">add_global_optimizer_pass</a><a href="#method.add_gvn_pass">add_gvn_pass</a><a href="#method.add_ind_var_simplify_pass">add_ind_var_simplify_pass</a><a href="#method.add_instruction_combining_pass">add_instruction_combining_pass</a><a href="#method.add_internalize_pass">add_internalize_pass</a><a href="#method.add_ip_constant_propagation_pass">add_ip_constant_propagation_pass</a><a href="#method.add_ipsccp_pass">add_ipsccp_pass</a><a href="#method.add_jump_threading_pass">add_jump_threading_pass</a><a href="#method.add_licm_pass">add_licm_pass</a><a href="#method.add_loop_deletion_pass">add_loop_deletion_pass</a><a href="#method.add_loop_idiom_pass">add_loop_idiom_pass</a><a href="#method.add_loop_reroll_pass">add_loop_reroll_pass</a><a href="#method.add_loop_rotate_pass">add_loop_rotate_pass</a><a href="#method.add_loop_unroll_and_jam_pass">add_loop_unroll_and_jam_pass</a><a href="#method.add_loop_unroll_pass">add_loop_unroll_pass</a><a href="#method.add_loop_unswitch_pass">add_loop_unswitch_pass</a><a href="#method.add_loop_vectorize_pass">add_loop_vectorize_pass</a><a href="#method.add_lower_expect_intrinsic_pass">add_lower_expect_intrinsic_pass</a><a href="#method.add_lower_switch_pass">add_lower_switch_pass</a><a href="#method.add_memcpy_optimize_pass">add_memcpy_optimize_pass</a><a href="#method.add_merged_load_store_motion_pass">add_merged_load_store_motion_pass</a><a href="#method.add_new_gvn_pass">add_new_gvn_pass</a><a href="#method.add_partially_inline_lib_calls_pass">add_partially_inline_lib_calls_pass</a><a href="#method.add_promote_memory_to_register_pass">add_promote_memory_to_register_pass</a><a href="#method.add_prune_eh_pass">add_prune_eh_pass</a><a href="#method.add_reassociate_pass">add_reassociate_pass</a><a href="#method.add_scalar_repl_aggregates_pass">add_scalar_repl_aggregates_pass</a><a href="#method.add_scalar_repl_aggregates_pass_ssa">add_scalar_repl_aggregates_pass_ssa</a><a href="#method.add_scalar_repl_aggregates_pass_with_threshold">add_scalar_repl_aggregates_pass_with_threshold</a><a href="#method.add_scalarizer_pass">add_scalarizer_pass</a><a href="#method.add_sccp_pass">add_sccp_pass</a><a href="#method.add_scoped_no_alias_aa_pass">add_scoped_no_alias_aa_pass</a><a href="#method.add_simplify_lib_calls_pass">add_simplify_lib_calls_pass</a><a href="#method.add_slp_vectorize_pass">add_slp_vectorize_pass</a><a href="#method.add_strip_dead_prototypes_pass">add_strip_dead_prototypes_pass</a><a href="#method.add_strip_symbol_pass">add_strip_symbol_pass</a><a href="#method.add_tail_call_elimination_pass">add_tail_call_elimination_pass</a><a href="#method.add_type_based_alias_analysis_pass">add_type_based_alias_analysis_pass</a><a href="#method.add_verifier_pass">add_verifier_pass</a><a href="#method.create">create</a><a href="#method.finalize">finalize</a><a href="#method.initialize">initialize</a><a href="#method.run_on">run_on</a></div><a class="sidebar-title" href="#implementations">Trait Implementations</a><div class="sidebar-links"><a href="#impl-Debug">Debug</a><a href="#impl-Drop">Drop</a></div><a class="sidebar-title" href="#synthetic-implementations">Auto Trait Implementations</a><div class="sidebar-links"><a href="#impl-RefUnwindSafe">RefUnwindSafe</a><a href="#impl-Send">!Send</a><a href="#impl-Sync">!Sync</a><a href="#impl-Unpin">Unpin</a><a href="#impl-UnwindSafe">UnwindSafe</a></div><a class="sidebar-title" href="#blanket-implementations">Blanket Implementations</a><div class="sidebar-links"><a href="#impl-Any">Any</a><a href="#impl-Borrow%3CT%3E">Borrow&lt;T&gt;</a><a href="#impl-BorrowMut%3CT%3E">BorrowMut&lt;T&gt;</a><a href="#impl-From%3CT%3E">From&lt;T&gt;</a><a href="#impl-Into%3CU%3E">Into&lt;U&gt;</a><a href="#impl-TryFrom%3CU%3E">TryFrom&lt;U&gt;</a><a href="#impl-TryInto%3CU%3E">TryInto&lt;U&gt;</a></div></div><p class='location'><a href='../index.html'>inkwell</a>::<wbr><a href='index.html'>passes</a></p><script>window.sidebarCurrent = {name: 'PassManager', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/inkwell/passes.rs.html#208-211' title='goto source code'>[src]</a></span><span class='in-band'>Struct <a href='../index.html'>inkwell</a>::<wbr><a href='index.html'>passes</a>::<wbr><a class="struct" href=''>PassManager</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><pre class='rust struct'>pub struct PassManager&lt;T&gt; { /* fields omitted */ }</pre></div><div class='docblock'><p>A manager for running optimization and simplification passes. Much of the
+documenation for specific passes is directly from the <a href="https://llvm.org/docs/Passes.html">LLVM
+documentation</a>.</p>
+</div><h2 id='methods' class='small-section-header'>Methods<a href='#methods' class='anchor'></a></h2><h3 id='impl' class='impl'><code class='in-band'>impl&lt;'_&gt; <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;<a class="struct" href="../../inkwell/values/struct.FunctionValue.html" title="struct inkwell::values::FunctionValue">FunctionValue</a>&lt;'_&gt;&gt;</code><a href='#impl' class='anchor'></a><a class='srclink' href='../../src/inkwell/passes.rs.html#213-226' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.initialize' class="method"><code id='initialize.v'>pub fn <a href='#method.initialize' class='fnname'>initialize</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code><a class='srclink' href='../../src/inkwell/passes.rs.html#215-219' title='goto source code'>[src]</a></h4><h4 id='method.finalize' class="method"><code id='finalize.v'>pub fn <a href='#method.finalize' class='fnname'>finalize</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code><a class='srclink' href='../../src/inkwell/passes.rs.html#221-225' title='goto source code'>[src]</a></h4></div><h3 id='impl-1' class='impl'><code class='in-band'>impl&lt;T:&nbsp;<a class="trait" href="../../inkwell/passes/trait.PassManagerSubType.html" title="trait inkwell::passes::PassManagerSubType">PassManagerSubType</a>&gt; <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt;</code><a href='#impl-1' class='anchor'></a><a class='srclink' href='../../src/inkwell/passes.rs.html#228-1108' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.create' class="method"><code id='create.v'>pub fn <a href='#method.create' class='fnname'>create</a>&lt;I:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/borrow/trait.Borrow.html" title="trait core::borrow::Borrow">Borrow</a>&lt;T::<a class="type" href="../../inkwell/passes/trait.PassManagerSubType.html#associatedtype.Input" title="type inkwell::passes::PassManagerSubType::Input">Input</a>&gt;&gt;(input: I) -&gt; <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt;</code><a class='srclink' href='../../src/inkwell/passes.rs.html#238-244' title='goto source code'>[src]</a></h4><h4 id='method.run_on' class="method"><code id='run_on.v'>pub fn <a href='#method.run_on' class='fnname'>run_on</a>(&amp;self, input: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>T) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code><a class='srclink' href='../../src/inkwell/passes.rs.html#248-252' title='goto source code'>[src]</a></h4><div class='docblock'><p>This method returns true if any of the passes modified the function or module
+and false otherwise.</p>
+</div><h4 id='method.add_argument_promotion_pass' class="method"><code id='add_argument_promotion_pass.v'>pub fn <a href='#method.add_argument_promotion_pass' class='fnname'>add_argument_promotion_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#281-285' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass promotes &quot;by reference&quot; arguments to be &quot;by value&quot; arguments.
+In practice, this means looking for internal functions that have pointer
+arguments. If it can prove, through the use of alias analysis, that an
+argument is only loaded, then it can pass the value into the function
+instead of the address of the value. This can cause recursive simplification
+of code and lead to the elimination of allocas (especially in C++ template
+code like the STL).</p>
+<p>This pass also handles aggregate arguments that are passed into a function,
+scalarizing them if the elements of the aggregate are only loaded. Note that
+it refuses to scalarize aggregates which would require passing in more than
+three operands to the function, because passing thousands of operands for a
+large array or structure is unprofitable!</p>
+<p>Note that this transformation could also be done for arguments that are
+only stored to (returning the value instead), but does not currently.
+This case would be best handled when and if LLVM starts supporting multiple
+return values from functions.</p>
+</div><h4 id='method.add_constant_merge_pass' class="method"><code id='add_constant_merge_pass.v'>pub fn <a href='#method.add_constant_merge_pass' class='fnname'>add_constant_merge_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#291-295' title='goto source code'>[src]</a></h4><div class='docblock'><p>Merges duplicate global constants together into a single constant that is
+shared. This is useful because some passes (i.e., TraceValues) insert a lot
+of string constants into the program, regardless of whether or not an existing
+string is available.</p>
+</div><h4 id='method.add_dead_arg_elimination_pass' class="method"><code id='add_dead_arg_elimination_pass.v'>pub fn <a href='#method.add_dead_arg_elimination_pass' class='fnname'>add_dead_arg_elimination_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#304-308' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass deletes dead arguments from internal functions. Dead argument
+elimination removes arguments which are directly dead, as well as arguments
+only passed into function calls as dead arguments of other functions. This
+pass also deletes dead arguments in a similar way.</p>
+<p>This pass is often useful as a cleanup pass to run after aggressive
+interprocedural passes, which add possibly-dead arguments.</p>
+</div><h4 id='method.add_function_attrs_pass' class="method"><code id='add_function_attrs_pass.v'>pub fn <a href='#method.add_function_attrs_pass' class='fnname'>add_function_attrs_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#318-322' title='goto source code'>[src]</a></h4><div class='docblock'><p>A simple interprocedural pass which walks the call-graph, looking for
+functions which do not access or only read non-local memory, and marking
+them readnone/readonly. In addition, it marks function arguments (of
+pointer type) “nocapture” if a call to the function does not create
+any copies of the pointer value that outlive the call. This more or
+less means that the pointer is only dereferenced, and not returned
+from the function or stored in a global. This pass is implemented
+as a bottom-up traversal of the call-graph.</p>
+</div><h4 id='method.add_function_inlining_pass' class="method"><code id='add_function_inlining_pass.v'>pub fn <a href='#method.add_function_inlining_pass' class='fnname'>add_function_inlining_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#325-329' title='goto source code'>[src]</a></h4><div class='docblock'><p>Bottom-up inlining of functions into callees.</p>
+</div><h4 id='method.add_always_inliner_pass' class="method"><code id='add_always_inliner_pass.v'>pub fn <a href='#method.add_always_inliner_pass' class='fnname'>add_always_inliner_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#332-336' title='goto source code'>[src]</a></h4><div class='docblock'><p>A custom inliner that handles only functions that are marked as “always inline”.</p>
+</div><h4 id='method.add_global_dce_pass' class="method"><code id='add_global_dce_pass.v'>pub fn <a href='#method.add_global_dce_pass' class='fnname'>add_global_dce_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#344-348' title='goto source code'>[src]</a></h4><div class='docblock'><p>This transform is designed to eliminate unreachable internal
+globals from the program. It uses an aggressive algorithm,
+searching out globals that are known to be alive. After it
+finds all of the globals which are needed, it deletes
+whatever is left over. This allows it to delete recursive
+chunks of the program which are unreachable.</p>
+</div><h4 id='method.add_global_optimizer_pass' class="method"><code id='add_global_optimizer_pass.v'>pub fn <a href='#method.add_global_optimizer_pass' class='fnname'>add_global_optimizer_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#353-357' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass transforms simple global variables that never have
+their address taken. If obviously true, it marks read/write
+globals as constant, deletes variables only stored to, etc.</p>
+</div><h4 id='method.add_ip_constant_propagation_pass' class="method"><code id='add_ip_constant_propagation_pass.v'>pub fn <a href='#method.add_ip_constant_propagation_pass' class='fnname'>add_ip_constant_propagation_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#365-369' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass implements an extremely simple interprocedural
+constant propagation pass. It could certainly be improved
+in many different ways, like using a worklist. This pass
+makes arguments dead, but does not remove them. The existing
+dead argument elimination pass should be run after this to
+clean up the mess.</p>
+</div><h4 id='method.add_prune_eh_pass' class="method"><code id='add_prune_eh_pass.v'>pub fn <a href='#method.add_prune_eh_pass' class='fnname'>add_prune_eh_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#376-380' title='goto source code'>[src]</a></h4><div class='docblock'><p>This file implements a simple interprocedural pass which
+walks the call-graph, turning invoke instructions into
+call instructions if and only if the callee cannot throw
+an exception. It implements this as a bottom-up traversal
+of the call-graph.</p>
+</div><h4 id='method.add_ipsccp_pass' class="method"><code id='add_ipsccp_pass.v'>pub fn <a href='#method.add_ipsccp_pass' class='fnname'>add_ipsccp_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#384-388' title='goto source code'>[src]</a></h4><div class='docblock'><p>An interprocedural variant of <a href="https://llvm.org/docs/Passes.html#passes-sccp">Sparse Conditional Constant
+Propagation</a>.</p>
+</div><h4 id='method.add_internalize_pass' class="method"><code id='add_internalize_pass.v'>pub fn <a href='#method.add_internalize_pass' class='fnname'>add_internalize_pass</a>(&amp;self, all_but_main: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#394-398' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass loops over all of the functions in the input module,
+looking for a main function. If a main function is found, all
+other functions and all global variables with initializers are
+marked as internal.</p>
+</div><h4 id='method.add_strip_dead_prototypes_pass' class="method"><code id='add_strip_dead_prototypes_pass.v'>pub fn <a href='#method.add_strip_dead_prototypes_pass' class='fnname'>add_strip_dead_prototypes_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#404-408' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass loops over all of the functions in the input module,
+looking for dead declarations and removes them. Dead declarations
+are declarations of functions for which no implementation is available
+(i.e., declarations for unused library functions).</p>
+</div><h4 id='method.add_strip_symbol_pass' class="method"><code id='add_strip_symbol_pass.v'>pub fn <a href='#method.add_strip_symbol_pass' class='fnname'>add_strip_symbol_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#420-424' title='goto source code'>[src]</a></h4><div class='docblock'><p>Performs code stripping. This transformation can delete:</p>
+<ul>
+<li>Names for virtual registers</li>
+<li>Symbols for internal globals and functions</li>
+<li>Debug information</li>
+</ul>
+<p>Note that this transformation makes code much less readable,
+so it should only be used in situations where the strip utility
+would be used, such as reducing code size or making it harder
+to reverse engineer code.</p>
+</div><h4 id='method.add_loop_vectorize_pass' class="method"><code id='add_loop_vectorize_pass.v'>pub fn <a href='#method.add_loop_vectorize_pass' class='fnname'>add_loop_vectorize_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#449-453' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_slp_vectorize_pass' class="method"><code id='add_slp_vectorize_pass.v'>pub fn <a href='#method.add_slp_vectorize_pass' class='fnname'>add_slp_vectorize_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#456-460' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_aggressive_dce_pass' class="method"><code id='add_aggressive_dce_pass.v'>pub fn <a href='#method.add_aggressive_dce_pass' class='fnname'>add_aggressive_dce_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#467-471' title='goto source code'>[src]</a></h4><div class='docblock'><p>ADCE aggressively tries to eliminate code. This pass is similar
+to <a href="https://llvm.org/docs/Passes.html#passes-dce">DCE</a> but it
+assumes that values are dead until proven otherwise. This is
+similar to <a href="https://llvm.org/docs/Passes.html#passes-sccp">SCCP</a>,
+except applied to the liveness of values.</p>
+</div><h4 id='method.add_bit_tracking_dce_pass' class="method"><code id='add_bit_tracking_dce_pass.v'>pub fn <a href='#method.add_bit_tracking_dce_pass' class='fnname'>add_bit_tracking_dce_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#475-479' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_alignment_from_assumptions_pass' class="method"><code id='add_alignment_from_assumptions_pass.v'>pub fn <a href='#method.add_alignment_from_assumptions_pass' class='fnname'>add_alignment_from_assumptions_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#482-486' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_cfg_simplification_pass' class="method"><code id='add_cfg_simplification_pass.v'>pub fn <a href='#method.add_cfg_simplification_pass' class='fnname'>add_cfg_simplification_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#494-498' title='goto source code'>[src]</a></h4><div class='docblock'><p>Performs dead code elimination and basic block merging. Specifically:</p>
+<ul>
+<li>Removes basic blocks with no predecessors.</li>
+<li>Merges a basic block into its predecessor if there is only one and the predecessor only has one successor.</li>
+<li>Eliminates PHI nodes for basic blocks with a single predecessor.</li>
+<li>Eliminates a basic block that only contains an unconditional branch.</li>
+</ul>
+</div><h4 id='method.add_dead_store_elimination_pass' class="method"><code id='add_dead_store_elimination_pass.v'>pub fn <a href='#method.add_dead_store_elimination_pass' class='fnname'>add_dead_store_elimination_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#501-505' title='goto source code'>[src]</a></h4><div class='docblock'><p>A trivial dead store elimination that only considers basic-block local redundant stores.</p>
+</div><h4 id='method.add_scalarizer_pass' class="method"><code id='add_scalarizer_pass.v'>pub fn <a href='#method.add_scalarizer_pass' class='fnname'>add_scalarizer_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#508-512' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_merged_load_store_motion_pass' class="method"><code id='add_merged_load_store_motion_pass.v'>pub fn <a href='#method.add_merged_load_store_motion_pass' class='fnname'>add_merged_load_store_motion_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#515-519' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_gvn_pass' class="method"><code id='add_gvn_pass.v'>pub fn <a href='#method.add_gvn_pass' class='fnname'>add_gvn_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#524-528' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass performs global value numbering to eliminate
+fully and partially redundant instructions. It also
+performs redundant load elimination.</p>
+</div><h4 id='method.add_new_gvn_pass' class="method"><code id='add_new_gvn_pass.v'>pub fn <a href='#method.add_new_gvn_pass' class='fnname'>add_new_gvn_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#536-542' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass performs global value numbering to eliminate
+fully and partially redundant instructions. It also
+performs redundant load elimination.</p>
+</div><h4 id='method.add_ind_var_simplify_pass' class="method"><code id='add_ind_var_simplify_pass.v'>pub fn <a href='#method.add_ind_var_simplify_pass' class='fnname'>add_ind_var_simplify_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#583-587' title='goto source code'>[src]</a></h4><div class='docblock'><p>This transformation analyzes and transforms the induction variables (and
+computations derived from them) into simpler forms suitable for subsequent
+analysis and transformation.</p>
+<p>This transformation makes the following changes to each loop with an
+identifiable induction variable:</p>
+<ul>
+<li>
+<p>All loops are transformed to have a single canonical induction variable
+which starts at zero and steps by one.</p>
+</li>
+<li>
+<p>The canonical induction variable is guaranteed to be the first PHI node
+in the loop header block.</p>
+</li>
+<li>
+<p>Any pointer arithmetic recurrences are raised to use array subscripts.</p>
+</li>
+</ul>
+<p>If the trip count of a loop is computable, this pass also makes the
+following changes:</p>
+<ul>
+<li>The exit condition for the loop is canonicalized to compare the induction
+value against the exit value. This turns loops like:</li>
+</ul>
+<pre><code class="language-c">for (i = 7; i*i &lt; 1000; ++i)
+</code></pre>
+<p>into</p>
+<pre><code class="language-c">for (i = 0; i != 25; ++i)
+</code></pre>
+<ul>
+<li>Any use outside of the loop of an expression derived from the indvar is
+changed to compute the derived value outside of the loop, eliminating the
+dependence on the exit value of the induction variable. If the only purpose
+of the loop is to compute the exit value of some derived expression, this
+transformation will make the loop dead.</li>
+</ul>
+<p>This transformation should be followed by strength reduction after all of
+the desired loop transformations have been performed. Additionally, on
+targets where it is profitable, the loop could be transformed to count
+down to zero (the &quot;do loop&quot; optimization).</p>
+</div><h4 id='method.add_instruction_combining_pass' class="method"><code id='add_instruction_combining_pass.v'>pub fn <a href='#method.add_instruction_combining_pass' class='fnname'>add_instruction_combining_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#629-633' title='goto source code'>[src]</a></h4><div class='docblock'><p>Combine instructions to form fewer, simple instructions. This pass
+does not modify the CFG. This pass is where algebraic simplification happens.</p>
+<p>This pass combines things like:</p>
+<pre><code class="language-c">%Y = add i32 %X, 1
+%Z = add i32 %Y, 1
+</code></pre>
+<p>into:</p>
+<pre><code class="language-c">%Z = add i32 %X, 2
+</code></pre>
+<p>This is a simple worklist driven algorithm.</p>
+<p>This pass guarantees that the following canonicalizations are performed
+on the program:</p>
+<ol>
+<li>
+<p>If a binary operator has a constant operand, it is moved to the
+right-hand side.</p>
+</li>
+<li>
+<p>Bitwise operators with constant operands are always grouped so that
+shifts are performed first, then ors, then ands, then xors.</p>
+</li>
+<li>
+<p>Compare instructions are converted from &lt;, &gt;, ≤, or ≥ to = or ≠ if possible.</p>
+</li>
+<li>
+<p>All cmp instructions on boolean values are replaced with logical operations.</p>
+</li>
+<li>
+<p>add X, X is represented as mul X, 2 ⇒ shl X, 1</p>
+</li>
+<li>
+<p>Multiplies with a constant power-of-two argument are transformed into shifts.</p>
+</li>
+<li>
+<p>... etc.</p>
+</li>
+</ol>
+<p>This pass can also simplify calls to specific well-known function calls
+(e.g. runtime library functions). For example, a call exit(3) that occurs within
+the main() function can be transformed into simply return 3. Whether or not library
+calls are simplified is controlled by the <a href="https://llvm.org/docs/Passes.html#passes-functionattrs">-functionattrs</a>
+pass and LLVM’s knowledge of library calls on different targets.</p>
+</div><h4 id='method.add_jump_threading_pass' class="method"><code id='add_jump_threading_pass.v'>pub fn <a href='#method.add_jump_threading_pass' class='fnname'>add_jump_threading_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#654-658' title='goto source code'>[src]</a></h4><div class='docblock'><p>Jump threading tries to find distinct threads of control flow
+running through a basic block. This pass looks at blocks that
+have multiple predecessors and multiple successors. If one or
+more of the predecessors of the block can be proven to always
+cause a jump to one of the successors, we forward the edge from
+the predecessor to the successor by duplicating the contents of
+this block.</p>
+<p>An example of when this can occur is code like this:</p>
+<pre><code class="language-c">if () { ...
+  X = 4;
+}
+if (X &lt; 3) {
+</code></pre>
+<p>In this case, the unconditional branch at the end of the first
+if can be revectored to the false side of the second if.</p>
+</div><h4 id='method.add_licm_pass' class="method"><code id='add_licm_pass.v'>pub fn <a href='#method.add_licm_pass' class='fnname'>add_licm_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#692-696' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass performs loop invariant code motion,
+attempting to remove as much code from the body of
+a loop as possible. It does this by either hoisting
+code into the preheader block, or by sinking code to
+the exit blocks if it is safe. This pass also promotes
+must-aliased memory locations in the loop to live in
+registers, thus hoisting and sinking “invariant” loads
+and stores.</p>
+<p>This pass uses alias analysis for two purposes:</p>
+<ol>
+<li>
+<p>Moving loop invariant loads and calls out of loops.
+If we can determine that a load or call inside of a
+loop never aliases anything stored to, we can hoist
+it or sink it like any other instruction.</p>
+</li>
+<li>
+<p>Scalar Promotion of Memory. If there is a store
+instruction inside of the loop, we try to move the
+store to happen AFTER the loop instead of inside of
+the loop. This can only happen if a few conditions
+are true:</p>
+<ol>
+<li>
+<p>The pointer stored through is loop invariant.</p>
+</li>
+<li>
+<p>There are no stores or loads in the loop
+which may alias the pointer. There are no calls in
+the loop which mod/ref the pointer.</p>
+</li>
+</ol>
+</li>
+</ol>
+<p>If these conditions are true, we can promote the loads
+and stores in the loop of the pointer to use a temporary
+alloca'd variable. We then use the mem2reg functionality
+to construct the appropriate SSA form for the variable.</p>
+</div><h4 id='method.add_loop_deletion_pass' class="method"><code id='add_loop_deletion_pass.v'>pub fn <a href='#method.add_loop_deletion_pass' class='fnname'>add_loop_deletion_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#703-707' title='goto source code'>[src]</a></h4><div class='docblock'><p>This file implements the Dead Loop Deletion Pass.
+This pass is responsible for eliminating loops with
+non-infinite computable trip counts that have no side
+effects or volatile instructions, and do not contribute
+to the computation of the function’s return value.</p>
+</div><h4 id='method.add_loop_idiom_pass' class="method"><code id='add_loop_idiom_pass.v'>pub fn <a href='#method.add_loop_idiom_pass' class='fnname'>add_loop_idiom_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#710-714' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_loop_rotate_pass' class="method"><code id='add_loop_rotate_pass.v'>pub fn <a href='#method.add_loop_rotate_pass' class='fnname'>add_loop_rotate_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#717-721' title='goto source code'>[src]</a></h4><div class='docblock'><p>A simple loop rotation transformation.</p>
+</div><h4 id='method.add_loop_reroll_pass' class="method"><code id='add_loop_reroll_pass.v'>pub fn <a href='#method.add_loop_reroll_pass' class='fnname'>add_loop_reroll_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#724-728' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_loop_unroll_pass' class="method"><code id='add_loop_unroll_pass.v'>pub fn <a href='#method.add_loop_unroll_pass' class='fnname'>add_loop_unroll_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#735-739' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass implements a simple loop unroller.
+It works best when loops have been canonicalized
+by the <a href="https://llvm.org/docs/Passes.html#passes-indvars">indvars</a>
+pass, allowing it to determine the trip counts
+of loops easily.</p>
+</div><h4 id='method.add_loop_unswitch_pass' class="method"><code id='add_loop_unswitch_pass.v'>pub fn <a href='#method.add_loop_unswitch_pass' class='fnname'>add_loop_unswitch_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#763-767' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass transforms loops that contain branches on
+loop-invariant conditions to have multiple loops.
+For example, it turns the left into the right code:</p>
+<pre><code class="language-c">for (...)                  if (lic)
+    A                          for (...)
+    if (lic)                       A; B; C
+        B                  else
+    C                          for (...)
+                                   A; C
+</code></pre>
+<p>This can increase the size of the code exponentially
+(doubling it every time a loop is unswitched) so we
+only unswitch if the resultant code will be smaller
+than a threshold.</p>
+<p>This pass expects <a href="https://llvm.org/docs/Passes.html#passes-licm">LICM</a>
+to be run before it to hoist invariant conditions
+out of the loop, to make the unswitching opportunity
+obvious.</p>
+</div><h4 id='method.add_memcpy_optimize_pass' class="method"><code id='add_memcpy_optimize_pass.v'>pub fn <a href='#method.add_memcpy_optimize_pass' class='fnname'>add_memcpy_optimize_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#772-776' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass performs various transformations related
+to eliminating memcpy calls, or transforming sets
+of stores into memsets.</p>
+</div><h4 id='method.add_partially_inline_lib_calls_pass' class="method"><code id='add_partially_inline_lib_calls_pass.v'>pub fn <a href='#method.add_partially_inline_lib_calls_pass' class='fnname'>add_partially_inline_lib_calls_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#780-784' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass performs partial inlining, typically by inlining
+an if statement that surrounds the body of the function.</p>
+</div><h4 id='method.add_lower_switch_pass' class="method"><code id='add_lower_switch_pass.v'>pub fn <a href='#method.add_lower_switch_pass' class='fnname'>add_lower_switch_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#789-798' title='goto source code'>[src]</a></h4><div class='docblock'><p>Rewrites switch instructions with a sequence of branches,
+which allows targets to get away with not implementing the
+switch instruction until it is convenient.</p>
+</div><h4 id='method.add_promote_memory_to_register_pass' class="method"><code id='add_promote_memory_to_register_pass.v'>pub fn <a href='#method.add_promote_memory_to_register_pass' class='fnname'>add_promote_memory_to_register_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#806-815' title='goto source code'>[src]</a></h4><div class='docblock'><p>This file promotes memory references to be register references.
+It promotes alloca instructions which only have loads and stores
+as uses. An alloca is transformed by using dominator frontiers
+to place phi nodes, then traversing the function in depth-first
+order to rewrite loads and stores as appropriate. This is just
+the standard SSA construction algorithm to construct &quot;pruned&quot; SSA form.</p>
+</div><h4 id='method.add_reassociate_pass' class="method"><code id='add_reassociate_pass.v'>pub fn <a href='#method.add_reassociate_pass' class='fnname'>add_reassociate_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#827-831' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass reassociates commutative expressions in an order that is designed
+to promote better constant propagation, GCSE, LICM, PRE, etc.</p>
+<p>For example: 4 + (x + 5) ⇒ x + (4 + 5)</p>
+<p>In the implementation of this algorithm, constants are assigned rank = 0,
+function arguments are rank = 1, and other values are assigned ranks
+corresponding to the reverse post order traversal of current function
+(starting at 2), which effectively gives values in deep loops higher
+rank than values not in loops.</p>
+</div><h4 id='method.add_sccp_pass' class="method"><code id='add_sccp_pass.v'>pub fn <a href='#method.add_sccp_pass' class='fnname'>add_sccp_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#843-847' title='goto source code'>[src]</a></h4><div class='docblock'><p>Sparse conditional constant propagation and merging, which can
+be summarized as:</p>
+<ul>
+<li>Assumes values are constant unless proven otherwise</li>
+<li>Assumes BasicBlocks are dead unless proven otherwise</li>
+<li>Proves values to be constant, and replaces them with constants</li>
+<li>Proves conditional branches to be unconditional</li>
+</ul>
+<p>Note that this pass has a habit of making definitions be dead.
+It is a good idea to run a DCE pass sometime after running this pass.</p>
+</div><h4 id='method.add_scalar_repl_aggregates_pass' class="method"><code id='add_scalar_repl_aggregates_pass.v'>pub fn <a href='#method.add_scalar_repl_aggregates_pass' class='fnname'>add_scalar_repl_aggregates_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#850-854' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_scalar_repl_aggregates_pass_ssa' class="method"><code id='add_scalar_repl_aggregates_pass_ssa.v'>pub fn <a href='#method.add_scalar_repl_aggregates_pass_ssa' class='fnname'>add_scalar_repl_aggregates_pass_ssa</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#861-865' title='goto source code'>[src]</a></h4><div class='docblock'><p>The well-known scalar replacement of aggregates transformation.
+This transform breaks up alloca instructions of aggregate type
+(structure or array) into individual alloca instructions for each
+member if possible. Then, if possible, it transforms the individual
+alloca instructions into nice clean scalar SSA form.</p>
+</div><h4 id='method.add_scalar_repl_aggregates_pass_with_threshold' class="method"><code id='add_scalar_repl_aggregates_pass_with_threshold.v'>pub fn <a href='#method.add_scalar_repl_aggregates_pass_with_threshold' class='fnname'>add_scalar_repl_aggregates_pass_with_threshold</a>(&amp;self, threshold: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#868-872' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_simplify_lib_calls_pass' class="method"><code id='add_simplify_lib_calls_pass.v'>pub fn <a href='#method.add_simplify_lib_calls_pass' class='fnname'>add_simplify_lib_calls_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#875-879' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_tail_call_elimination_pass' class="method"><code id='add_tail_call_elimination_pass.v'>pub fn <a href='#method.add_tail_call_elimination_pass' class='fnname'>add_tail_call_elimination_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#901-905' title='goto source code'>[src]</a></h4><div class='docblock'><p>This file transforms calls of the current function (self recursion) followed
+by a return instruction with a branch to the entry of the function, creating
+a loop. This pass also implements the following extensions to the basic algorithm:</p>
+<ol>
+<li>
+<p>Trivial instructions between the call and return do not prevent the
+transformation from taking place, though currently the analysis cannot support
+moving any really useful instructions (only dead ones).</p>
+</li>
+<li>
+<p>This pass transforms functions that are prevented from being tail
+recursive by an associative expression to use an accumulator variable, thus
+compiling the typical naive factorial or fib implementation into efficient code.</p>
+</li>
+<li>
+<p>TRE is performed if the function returns void, if the return returns
+the result returned by the call, or if the function returns a run-time constant
+on all exits from the function. It is possible, though unlikely, that the return
+returns something else (like constant 0), and can still be TRE’d. It can be
+TRE'd if all other return instructions in the function return the exact same value.</p>
+</li>
+<li>
+<p>If it can prove that callees do not access theier caller stack frame,
+they are marked as eligible for tail call elimination (by the code generator).</p>
+</li>
+</ol>
+</div><h4 id='method.add_constant_propagation_pass' class="method"><code id='add_constant_propagation_pass.v'>pub fn <a href='#method.add_constant_propagation_pass' class='fnname'>add_constant_propagation_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#923-927' title='goto source code'>[src]</a></h4><div class='docblock'><p>This pass implements constant propagation and merging. It looks for instructions
+involving only constant operands and replaces them with a constant value instead
+of an instruction. For example:</p>
+<pre><code class="language-ir">add i32 1, 2
+</code></pre>
+<p>becomes</p>
+<pre><code class="language-ir">i32 3
+</code></pre>
+<p>NOTE: this pass has a habit of making definitions be dead. It is a good idea to
+run a Dead Instruction Elimination pass sometime after running this pass.</p>
+</div><h4 id='method.add_demote_memory_to_register_pass' class="method"><code id='add_demote_memory_to_register_pass.v'>pub fn <a href='#method.add_demote_memory_to_register_pass' class='fnname'>add_demote_memory_to_register_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#935-939' title='goto source code'>[src]</a></h4><div class='docblock'><p>This file promotes memory references to be register references.
+It promotes alloca instructions which only have loads and stores
+as uses. An alloca is transformed by using dominator frontiers to
+place phi nodes, then traversing the function in depth-first order to
+rewrite loads and stores as appropriate. This is just the standard SSA
+construction algorithm to construct “pruned” SSA form.</p>
+</div><h4 id='method.add_verifier_pass' class="method"><code id='add_verifier_pass.v'>pub fn <a href='#method.add_verifier_pass' class='fnname'>add_verifier_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#992-996' title='goto source code'>[src]</a></h4><div class='docblock'><p>Verifies an LLVM IR code. This is useful to run after an optimization
+which is undergoing testing. Note that llvm-as verifies its input before
+emitting bitcode, and also that malformed bitcode is likely to make
+LLVM crash. All language front-ends are therefore encouraged to verify
+their output before performing optimizing transformations.</p>
+<ol>
+<li>
+<p>Both of a binary operator’s parameters are of the same type.</p>
+</li>
+<li>
+<p>Verify that the indices of mem access instructions match other operands.</p>
+</li>
+<li>
+<p>Verify that arithmetic and other things are only performed on
+first-class types. Verify that shifts and logicals only happen on
+integrals f.e.</p>
+</li>
+<li>
+<p>All of the constants in a switch statement are of the correct type.</p>
+</li>
+<li>
+<p>The code is in valid SSA form.</p>
+</li>
+<li>
+<p>It is illegal to put a label into any other type (like a structure)
+or to return one.</p>
+</li>
+<li>
+<p>Only phi nodes can be self referential: %x = add i32 %x, %x is invalid.</p>
+</li>
+<li>
+<p>PHI nodes must have an entry for each predecessor, with no extras.</p>
+</li>
+<li>
+<p>PHI nodes must be the first thing in a basic block, all grouped together.</p>
+</li>
+<li>
+<p>PHI nodes must have at least one entry.</p>
+</li>
+<li>
+<p>All basic blocks should only end with terminator insts, not contain them.</p>
+</li>
+<li>
+<p>The entry node to a function must not have predecessors.</p>
+</li>
+<li>
+<p>All Instructions must be embedded into a basic block.</p>
+</li>
+<li>
+<p>Functions cannot take a void-typed parameter.</p>
+</li>
+<li>
+<p>Verify that a function’s argument list agrees with its declared type.</p>
+</li>
+<li>
+<p>It is illegal to specify a name for a void value.</p>
+</li>
+<li>
+<p>It is illegal to have an internal global value with no initializer.</p>
+</li>
+<li>
+<p>It is illegal to have a ret instruction that returns a value that does
+not agree with the function return value type.</p>
+</li>
+<li>
+<p>Function call argument types match the function prototype.</p>
+</li>
+<li>
+<p>All other things that are tested by asserts spread about the code.</p>
+</li>
+</ol>
+<p>Note that this does not provide full security verification (like Java), but instead just tries to ensure that code is well-formed.</p>
+</div><h4 id='method.add_correlated_value_propagation_pass' class="method"><code id='add_correlated_value_propagation_pass.v'>pub fn <a href='#method.add_correlated_value_propagation_pass' class='fnname'>add_correlated_value_propagation_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#999-1003' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_early_cse_pass' class="method"><code id='add_early_cse_pass.v'>pub fn <a href='#method.add_early_cse_pass' class='fnname'>add_early_cse_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1006-1010' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_early_cse_mem_ssa_pass' class="method"><code id='add_early_cse_mem_ssa_pass.v'>pub fn <a href='#method.add_early_cse_mem_ssa_pass' class='fnname'>add_early_cse_mem_ssa_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1014-1020' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_lower_expect_intrinsic_pass' class="method"><code id='add_lower_expect_intrinsic_pass.v'>pub fn <a href='#method.add_lower_expect_intrinsic_pass' class='fnname'>add_lower_expect_intrinsic_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1023-1027' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_type_based_alias_analysis_pass' class="method"><code id='add_type_based_alias_analysis_pass.v'>pub fn <a href='#method.add_type_based_alias_analysis_pass' class='fnname'>add_type_based_alias_analysis_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1030-1034' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_scoped_no_alias_aa_pass' class="method"><code id='add_scoped_no_alias_aa_pass.v'>pub fn <a href='#method.add_scoped_no_alias_aa_pass' class='fnname'>add_scoped_no_alias_aa_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1037-1041' title='goto source code'>[src]</a></h4><div class='docblock'><p>No LLVM documentation is available at this time.</p>
+</div><h4 id='method.add_basic_alias_analysis_pass' class="method"><code id='add_basic_alias_analysis_pass.v'>pub fn <a href='#method.add_basic_alias_analysis_pass' class='fnname'>add_basic_alias_analysis_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1046-1050' title='goto source code'>[src]</a></h4><div class='docblock'><p>A basic alias analysis pass that implements identities
+(two different globals cannot alias, etc), but does no
+stateful analysis.</p>
+</div><h4 id='method.add_aggressive_inst_combiner_pass' class="method"><code id='add_aggressive_inst_combiner_pass.v'>pub fn <a href='#method.add_aggressive_inst_combiner_pass' class='fnname'>add_aggressive_inst_combiner_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1053-1062' title='goto source code'>[src]</a></h4><h4 id='method.add_loop_unroll_and_jam_pass' class="method"><code id='add_loop_unroll_and_jam_pass.v'>pub fn <a href='#method.add_loop_unroll_and_jam_pass' class='fnname'>add_loop_unroll_and_jam_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1065-1071' title='goto source code'>[src]</a></h4><h4 id='method.add_coroutine_early_pass' class="method"><code id='add_coroutine_early_pass.v'>pub fn <a href='#method.add_coroutine_early_pass' class='fnname'>add_coroutine_early_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1074-1080' title='goto source code'>[src]</a></h4><h4 id='method.add_coroutine_split_pass' class="method"><code id='add_coroutine_split_pass.v'>pub fn <a href='#method.add_coroutine_split_pass' class='fnname'>add_coroutine_split_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1083-1089' title='goto source code'>[src]</a></h4><h4 id='method.add_coroutine_elide_pass' class="method"><code id='add_coroutine_elide_pass.v'>pub fn <a href='#method.add_coroutine_elide_pass' class='fnname'>add_coroutine_elide_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1092-1098' title='goto source code'>[src]</a></h4><h4 id='method.add_coroutine_cleanup_pass' class="method"><code id='add_coroutine_cleanup_pass.v'>pub fn <a href='#method.add_coroutine_cleanup_pass' class='fnname'>add_coroutine_cleanup_pass</a>(&amp;self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1101-1107' title='goto source code'>[src]</a></h4></div><h2 id='implementations' class='small-section-header'>Trait Implementations<a href='#implementations' class='anchor'></a></h2><div id='implementations-list'><h3 id='impl-Debug' class='impl'><code class='in-band'>impl&lt;T:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt;</code><a href='#impl-Debug' class='anchor'></a><a class='srclink' href='../../src/inkwell/passes.rs.html#207' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.fmt' class="method hidden"><code id='fmt.v'>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="type" href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" title="type core::fmt::Result">Result</a></code><a class='srclink' href='../../src/inkwell/passes.rs.html#207' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Formats the value using the given formatter. <a href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt">Read more</a></p>
+</div></div><h3 id='impl-Drop' class='impl'><code class='in-band'>impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/ops/drop/trait.Drop.html" title="trait core::ops::drop::Drop">Drop</a> for <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt;</code><a href='#impl-Drop' class='anchor'></a><a class='srclink' href='../../src/inkwell/passes.rs.html#1110-1116' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.drop' class="method hidden"><code id='drop.v'>fn <a href='https://doc.rust-lang.org/nightly/core/ops/drop/trait.Drop.html#tymethod.drop' class='fnname'>drop</a>(&amp;mut self)</code><a class='srclink' href='../../src/inkwell/passes.rs.html#1111-1115' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Executes the destructor for this type. <a href="https://doc.rust-lang.org/nightly/core/ops/drop/trait.Drop.html#tymethod.drop">Read more</a></p>
+</div></div></div><h2 id='synthetic-implementations' class='small-section-header'>Auto Trait Implementations<a href='#synthetic-implementations' class='anchor'></a></h2><div id='synthetic-implementations-list'><h3 id='impl-RefUnwindSafe' class='impl'><code class='in-band'>impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/std/panic/trait.RefUnwindSafe.html" title="trait std::panic::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="https://doc.rust-lang.org/nightly/std/panic/trait.RefUnwindSafe.html" title="trait std::panic::RefUnwindSafe">RefUnwindSafe</a>,&nbsp;</span></code><a href='#impl-RefUnwindSafe' class='anchor'></a></h3><div class='impl-items'></div><h3 id='impl-Send' class='impl'><code class='in-band'>impl&lt;T&gt; !<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> for <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt;</code><a href='#impl-Send' class='anchor'></a></h3><div class='impl-items'></div><h3 id='impl-Sync' class='impl'><code class='in-band'>impl&lt;T&gt; !<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> for <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt;</code><a href='#impl-Sync' class='anchor'></a></h3><div class='impl-items'></div><h3 id='impl-Unpin' class='impl'><code class='in-band'>impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> for <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,&nbsp;</span></code><a href='#impl-Unpin' class='anchor'></a></h3><div class='impl-items'></div><h3 id='impl-UnwindSafe' class='impl'><code class='in-band'>impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/std/panic/trait.UnwindSafe.html" title="trait std::panic::UnwindSafe">UnwindSafe</a> for <a class="struct" href="../../inkwell/passes/struct.PassManager.html" title="struct inkwell::passes::PassManager">PassManager</a>&lt;T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="https://doc.rust-lang.org/nightly/std/panic/trait.UnwindSafe.html" title="trait std::panic::UnwindSafe">UnwindSafe</a>,&nbsp;</span></code><a href='#impl-UnwindSafe' class='anchor'></a></h3><div class='impl-items'></div></div><h2 id='blanket-implementations' class='small-section-header'>Blanket Implementations<a href='#blanket-implementations' class='anchor'></a></h2><div id='blanket-implementations-list'><h3 id='impl-Any' class='impl'><code class='in-band'>impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/any/trait.Any.html" title="trait core::any::Any">Any</a> for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: 'static + ?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code><a href='#impl-Any' class='anchor'></a><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/any.rs.html#98-100' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.type_id' class="method hidden"><code id='type_id.v'>fn <a href='https://doc.rust-lang.org/nightly/core/any/trait.Any.html#tymethod.type_id' class='fnname'>type_id</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/any/struct.TypeId.html" title="struct core::any::TypeId">TypeId</a></code><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/any.rs.html#99' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Gets the <code>TypeId</code> of <code>self</code>. <a href="https://doc.rust-lang.org/nightly/core/any/trait.Any.html#tymethod.type_id">Read more</a></p>
+</div></div><h3 id='impl-Borrow%3CT%3E' class='impl'><code class='in-band'>impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/borrow/trait.Borrow.html" title="trait core::borrow::Borrow">Borrow</a>&lt;T&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: ?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code><a href='#impl-Borrow%3CT%3E' class='anchor'></a><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/borrow.rs.html#213-215' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.borrow' class="method hidden"><code id='borrow.v'>fn <a href='https://doc.rust-lang.org/nightly/core/borrow/trait.Borrow.html#tymethod.borrow' class='fnname'>borrow</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>T</code><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/borrow.rs.html#214' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Immutably borrows from an owned value. <a href="https://doc.rust-lang.org/nightly/core/borrow/trait.Borrow.html#tymethod.borrow">Read more</a></p>
+</div></div><h3 id='impl-BorrowMut%3CT%3E' class='impl'><code class='in-band'>impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/borrow/trait.BorrowMut.html" title="trait core::borrow::BorrowMut">BorrowMut</a>&lt;T&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: ?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code><a href='#impl-BorrowMut%3CT%3E' class='anchor'></a><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/borrow.rs.html#218-220' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.borrow_mut' class="method hidden"><code id='borrow_mut.v'>fn <a href='https://doc.rust-lang.org/nightly/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut' class='fnname'>borrow_mut</a>(&amp;mut self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;mut </a>T</code><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/borrow.rs.html#219' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Mutably borrows from an owned value. <a href="https://doc.rust-lang.org/nightly/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut">Read more</a></p>
+</div></div><h3 id='impl-From%3CT%3E' class='impl'><code class='in-band'>impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for T</code><a href='#impl-From%3CT%3E' class='anchor'></a><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#564-568' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.from' class="method hidden"><code id='from.v'>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html#tymethod.from' class='fnname'>from</a>(t: T) -&gt; T</code><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#565-567' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Performs the conversion.</p>
+</div></div><h3 id='impl-Into%3CU%3E' class='impl'><code class='in-band'>impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;U&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;U: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt;,&nbsp;</span></code><a href='#impl-Into%3CU%3E' class='anchor'></a><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#553-560' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.into' class="method hidden"><code id='into.v'>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.Into.html#tymethod.into' class='fnname'>into</a>(self) -&gt; U</code><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#557-559' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Performs the conversion.</p>
+</div></div><h3 id='impl-TryFrom%3CU%3E' class='impl'><code class='in-band'>impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;U: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;T&gt;,&nbsp;</span></code><a href='#impl-TryFrom%3CU%3E' class='anchor'></a><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#601-610' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='associatedtype.Error' class="type"><code id='Error.t'>type <a href='https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#associatedtype.Error' class="type">Error</a> = <a class="enum" href="https://doc.rust-lang.org/nightly/core/convert/enum.Infallible.html" title="enum core::convert::Infallible">Infallible</a></code></h4><div class='docblock'><p>The type returned in the event of a conversion error.</p>
+</div><h4 id='method.try_from' class="method hidden"><code id='try_from.v'>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#tymethod.try_from' class='fnname'>try_from</a>(value: U) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, &lt;T as <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt;&gt;::<a class="type" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</code><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#607-609' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Performs the conversion.</p>
+</div></div><h3 id='impl-TryInto%3CU%3E' class='impl'><code class='in-band'>impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;U&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;U: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;,&nbsp;</span></code><a href='#impl-TryInto%3CU%3E' class='anchor'></a><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#587-596' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='associatedtype.Error-1' class="type"><code id='Error.t-1'>type <a href='https://doc.rust-lang.org/nightly/core/convert/trait.TryInto.html#associatedtype.Error' class="type">Error</a> = &lt;U as <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="type" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a></code></h4><div class='docblock'><p>The type returned in the event of a conversion error.</p>
+</div><h4 id='method.try_into' class="method hidden"><code id='try_into.v'>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.TryInto.html#tymethod.try_into' class='fnname'>try_into</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;U, &lt;U as <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="type" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</code><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#593-595' title='goto source code'>[src]</a></h4><div class='docblock hidden'><p>Performs the conversion.</p>
+</div></div></div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "inkwell";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

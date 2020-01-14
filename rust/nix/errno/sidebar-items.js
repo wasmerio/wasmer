@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["EDEADLOCK",""],["EL2NSYNC",""],["ELAST",""],["EWOULDBLOCK",""]],"enum":[["Errno",""]],"fn":[["errno","Returns the platform-specific value of errno"],["from_i32",""]],"trait":[["ErrnoSentinel","The sentinel value indicates that a function failed and more detailed information about the error can be found in `errno`"]]});

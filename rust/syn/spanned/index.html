@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `spanned` mod in crate `syn`."><meta name="keywords" content="rust, rustlang, rust-lang, spanned"><title>syn::spanned - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../syn/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a><p class='location'>Module spanned</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#traits">Traits</a></li></ul></div><p class='location'><a href='../index.html'>syn</a></p><script>window.sidebarCurrent = {name: 'spanned', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/syn/spanned.rs.html#1-144' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>syn</a>::<wbr><a class="mod" href=''>spanned</a></span></h1><div class='docblock'><p>A trait that can provide the <code>Span</code> of the complete contents of a syntax
+tree node.</p>
+<p><em>This module is available if Syn is built with both the <code>&quot;parsing&quot;</code> and
+<code>&quot;printing&quot;</code> features.</em></p>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<p>Suppose in a procedural macro we have a <a href="../enum.Type.html"><code>Type</code></a> that we want to assert
+implements the <a href="https://doc.rust-lang.org/std/marker/trait.Sync.html"><code>Sync</code></a> trait. Maybe this is the type of one of the fields
+of a struct for which we are deriving a trait implementation, and we need to
+be able to pass a reference to one of those fields across threads.</p>
+<p>If the field type does <em>not</em> implement <code>Sync</code> as required, we want the
+compiler to report an error pointing out exactly which type it was.</p>
+<p>The following macro code takes a variable <code>ty</code> of type <code>Type</code> and produces a
+static assertion that <code>Sync</code> is implemented for that type.</p>
+
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">use</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>;
+<span class="kw">use</span> <span class="ident">proc_macro2</span>::<span class="ident">Span</span>;
+<span class="kw">use</span> <span class="ident">quote</span>::<span class="ident">quote_spanned</span>;
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">Type</span>;
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">spanned</span>::<span class="ident">Spanned</span>;
+
+<span class="attribute">#[<span class="ident">proc_macro_derive</span>(<span class="ident">MyMacro</span>)]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">my_macro</span>(<span class="ident">input</span>: <span class="ident">TokenStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
+    <span class="comment">/* ... */</span>
+
+    <span class="kw">let</span> <span class="ident">assert_sync</span> <span class="op">=</span> <span class="macro">quote_spanned</span><span class="macro">!</span> {<span class="ident">ty</span>.<span class="ident">span</span>()<span class="op">=</span><span class="op">&gt;</span>
+        <span class="kw">struct</span> <span class="ident">_AssertSync</span> <span class="kw">where</span> #<span class="ident">ty</span>: <span class="ident">Sync</span>;
+    };
+
+    <span class="comment">/* ... */</span>
+}</pre></div>
+<p>By inserting this <code>assert_sync</code> fragment into the output code generated by
+our macro, the user's code will fail to compile if <code>ty</code> does not implement
+<code>Sync</code>. The errors they would see look like the following.</p>
+<pre><code class="language-text">error[E0277]: the trait bound `*const i32: std::marker::Sync` is not satisfied
+  --&gt; src/main.rs:10:21
+   |
+10 |     bad_field: *const i32,
+   |                ^^^^^^^^^^ `*const i32` cannot be shared between threads safely
+</code></pre>
+<p>In this technique, using the <code>Type</code>'s span for the error message makes the
+error appear in the correct place underlining the right type.</p>
+</div><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.Spanned.html" title='syn::spanned::Spanned trait'>Spanned</a></td><td class='docblock-short'><p>A trait that can provide the <code>Span</code> of the complete contents of a syntax
+tree node.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "syn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

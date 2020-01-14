@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `quote_spanned` macro in crate `quote`."><meta name="keywords" content="rust, rustlang, rust-lang, quote_spanned"><title>quote::quote_spanned - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc macro"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../quote/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><div class="sidebar-elems"><p class='location'><a href='index.html'>quote</a></p><script>window.sidebarCurrent = {name: 'quote_spanned', ty: 'macro', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/quote/lib.rs.html#435-442' title='goto source code'>[src]</a></span><span class='in-band'>Macro <a href='index.html'>quote</a>::<wbr><a class="macro" href=''>quote_spanned</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><div class="example-wrap"><pre class="rust macro">
+<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">quote_spanned</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">span</span>:<span class="ident">expr</span><span class="op">=</span><span class="op">&gt;</span> $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">tt</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> { ... };
+}</pre></div>
+</div><div class='docblock'><p>Same as <code>quote!</code>, but applies a given span to all tokens originating within
+the macro invocation.</p>
+<h1 id="syntax" class="section-header"><a href="#syntax">Syntax</a></h1>
+<p>A span expression of type <a href="https://docs.rs/proc-macro2/0.4/proc_macro2/struct.Span.html"><code>Span</code></a>, followed by <code>=&gt;</code>, followed by the tokens
+to quote. The span expression should be brief -- use a variable for anything
+more than a few characters. There should be no space before the <code>=&gt;</code> token.</p>
+
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="comment">/* ... */</span>;
+
+<span class="comment">// On one line, use parentheses.</span>
+<span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="macro">quote_spanned</span><span class="macro">!</span>(<span class="ident">span</span><span class="op">=</span><span class="op">&gt;</span> <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">Box</span>::<span class="ident">new</span>(#<span class="ident">init</span>)));
+
+<span class="comment">// On multiple lines, place the span at the top and use braces.</span>
+<span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="macro">quote_spanned</span><span class="macro">!</span> {<span class="ident">span</span><span class="op">=</span><span class="op">&gt;</span>
+    <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">Box</span>::<span class="ident">new</span>(#<span class="ident">init</span>))
+};</pre></div>
+<p>The lack of space before the <code>=&gt;</code> should look jarring to Rust programmers
+and this is intentional. The formatting is designed to be visibly
+off-balance and draw the eye a particular way, due to the span expression
+being evaluated in the context of the procedural macro and the remaining
+tokens being evaluated in the generated code.</p>
+<h1 id="hygiene" class="section-header"><a href="#hygiene">Hygiene</a></h1>
+<p>Any interpolated tokens preserve the <code>Span</code> information provided by their
+<code>ToTokens</code> implementation. Tokens that originate within the <code>quote_spanned!</code>
+invocation are spanned with the given span argument.</p>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<p>The following procedural macro code uses <code>quote_spanned!</code> to assert that a
+particular Rust type implements the <a href="https://doc.rust-lang.org/std/marker/trait.Sync.html"><code>Sync</code></a> trait so that references can be
+safely shared between threads.</p>
+
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">let</span> <span class="ident">ty_span</span> <span class="op">=</span> <span class="ident">ty</span>.<span class="ident">span</span>();
+<span class="kw">let</span> <span class="ident">assert_sync</span> <span class="op">=</span> <span class="macro">quote_spanned</span><span class="macro">!</span> {<span class="ident">ty_span</span><span class="op">=</span><span class="op">&gt;</span>
+    <span class="kw">struct</span> <span class="ident">_AssertSync</span> <span class="kw">where</span> #<span class="ident">ty</span>: <span class="ident">Sync</span>;
+};</pre></div>
+<p>If the assertion fails, the user will see an error like the following. The
+input span of their type is hightlighted in the error.</p>
+<pre><code class="language-text">error[E0277]: the trait bound `*const (): std::marker::Sync` is not satisfied
+  --&gt; src/main.rs:10:21
+   |
+10 |     static ref PTR: *const () = &amp;();
+   |                     ^^^^^^^^^ `*const ()` cannot be shared between threads safely
+</code></pre>
+<p>In this example it is important for the where-clause to be spanned with the
+line/column information of the user's input type so that error messages are
+placed appropriately by the compiler. But it is also incredibly important
+that <code>Sync</code> resolves at the macro definition site and not the macro call
+site. If we resolve <code>Sync</code> at the same span that the user's type is going to
+be resolved, then they could bypass our check by defining their own trait
+named <code>Sync</code> that is implemented for their type.</p>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "quote";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Context","A kind of Context."],["Export","Kind of WebAssembly export."]],"struct":[["ExportIter","An iterator to an instance's exports."],["FuncPointer","Const pointer to a `Func`."]]});

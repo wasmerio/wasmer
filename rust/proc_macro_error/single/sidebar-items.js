@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["MacroError","An single error in a proc-macro. This struct preserves the given span so `rustc` can highlight the exact place in user code responsible for the error."]]});

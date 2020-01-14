@@ -1,0 +1,60 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `thread_local` crate."><meta name="keywords" content="rust, rustlang, rust-lang, thread_local"><title>thread_local - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../thread_local/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate thread_local</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all thread_local's items</p></a><div class="block items"><ul><li><a href="#structs">Structs</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'thread_local', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/thread_local/lib.rs.html#8-607' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>thread_local</a></span></h1><div class='docblock'><p>Per-object thread-local storage</p>
+<p>This library provides the <code>ThreadLocal</code> type which allows a separate copy of
+an object to be used for each thread. This allows for per-object
+thread-local storage, unlike the standard library's <code>thread_local!</code> macro
+which only allows static thread-local storage.</p>
+<p>Per-thread objects are not destroyed when a thread exits. Instead, objects
+are only destroyed when the <code>ThreadLocal</code> containing them is destroyed.</p>
+<p>You can also iterate over the thread-local values of all thread in a
+<code>ThreadLocal</code> object using the <code>iter_mut</code> and <code>into_iter</code> methods. This can
+only be done if you have mutable access to the <code>ThreadLocal</code> object, which
+guarantees that you are the only thread currently accessing it.</p>
+<p>A <code>CachedThreadLocal</code> type is also provided which wraps a <code>ThreadLocal</code> but
+also uses a special fast path for the first thread that writes into it. The
+fast path has very low overhead (&lt;1ns per access) while keeping the same
+performance as <code>ThreadLocal</code> for other threads.</p>
+<p>Note that since thread IDs are recycled when a thread exits, it is possible
+for one thread to retrieve the object of another thread. Since this can only
+occur after a thread has exited this does not lead to any race conditions.</p>
+<h1 id="examples" class="section-header"><a href="#examples">Examples</a></h1>
+<p>Basic usage of <code>ThreadLocal</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">thread_local</span>::<span class="ident">ThreadLocal</span>;
+<span class="kw">let</span> <span class="ident">tls</span>: <span class="ident">ThreadLocal</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ThreadLocal</span>::<span class="ident">new</span>();
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">tls</span>.<span class="ident">get</span>(), <span class="prelude-val">None</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">tls</span>.<span class="ident">get_or</span>(<span class="op">|</span><span class="op">|</span> <span class="number">5</span>), <span class="kw-2">&amp;</span><span class="number">5</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">tls</span>.<span class="ident">get</span>(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="number">5</span>));</pre></div>
+<p>Combining thread-local values into a single result:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">thread_local</span>::<span class="ident">ThreadLocal</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">thread</span>;
+
+<span class="kw">let</span> <span class="ident">tls</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">ThreadLocal</span>::<span class="ident">new</span>());
+
+<span class="comment">// Create a bunch of threads to do stuff</span>
+<span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">5</span> {
+    <span class="kw">let</span> <span class="ident">tls2</span> <span class="op">=</span> <span class="ident">tls</span>.<span class="ident">clone</span>();
+    <span class="ident">thread</span>::<span class="ident">spawn</span>(<span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
+        <span class="comment">// Increment a counter to count some event...</span>
+        <span class="kw">let</span> <span class="ident">cell</span> <span class="op">=</span> <span class="ident">tls2</span>.<span class="ident">get_or</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="number">0</span>));
+        <span class="ident">cell</span>.<span class="ident">set</span>(<span class="ident">cell</span>.<span class="ident">get</span>() <span class="op">+</span> <span class="number">1</span>);
+    }).<span class="ident">join</span>().<span class="ident">unwrap</span>();
+}
+
+<span class="comment">// Once all threads are done, collect the counter values and return the</span>
+<span class="comment">// sum of all thread-local counter values.</span>
+<span class="kw">let</span> <span class="ident">tls</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">try_unwrap</span>(<span class="ident">tls</span>).<span class="ident">unwrap</span>();
+<span class="kw">let</span> <span class="ident">total</span> <span class="op">=</span> <span class="ident">tls</span>.<span class="ident">into_iter</span>().<span class="ident">fold</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">x</span>, <span class="ident">y</span><span class="op">|</span> <span class="ident">x</span> <span class="op">+</span> <span class="ident">y</span>.<span class="ident">get</span>());
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">total</span>, <span class="number">5</span>);</pre></div>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.CachedIntoIter.html" title='thread_local::CachedIntoIter struct'>CachedIntoIter</a></td><td class='docblock-short'><p>An iterator that moves out of a <code>CachedThreadLocal</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.CachedIterMut.html" title='thread_local::CachedIterMut struct'>CachedIterMut</a></td><td class='docblock-short'><p>Mutable iterator over the contents of a <code>CachedThreadLocal</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.CachedThreadLocal.html" title='thread_local::CachedThreadLocal struct'>CachedThreadLocal</a></td><td class='docblock-short'><p>Wrapper around <code>ThreadLocal</code> which adds a fast path for a single thread.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.IntoIter.html" title='thread_local::IntoIter struct'>IntoIter</a></td><td class='docblock-short'><p>An iterator that moves out of a <code>ThreadLocal</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.IterMut.html" title='thread_local::IterMut struct'>IterMut</a></td><td class='docblock-short'><p>Mutable iterator over the contents of a <code>ThreadLocal</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ThreadLocal.html" title='thread_local::ThreadLocal struct'>ThreadLocal</a></td><td class='docblock-short'><p>Thread-local variable wrapper</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "thread_local";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

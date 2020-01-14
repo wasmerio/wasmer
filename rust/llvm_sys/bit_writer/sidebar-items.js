@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["LLVMWriteBitcodeToFD","Write a module to an open file descriptor."],["LLVMWriteBitcodeToFile","Write a module to the specified path."],["LLVMWriteBitcodeToFileHandle","Deprecated: use LLVMWriteBitcodeToFD"],["LLVMWriteBitcodeToMemoryBuffer","Writes a module to a new memory buffer."]]});

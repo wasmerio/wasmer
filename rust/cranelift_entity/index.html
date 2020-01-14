@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `cranelift_entity` crate."><meta name="keywords" content="rust, rustlang, rust-lang, cranelift_entity"><title>cranelift_entity - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../cranelift_entity/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate cranelift_entity</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all cranelift_entity's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'cranelift_entity', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/cranelift_entity/lib.rs.html#1-143' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>cranelift_entity</a></span></h1><div class='docblock'><p>Array-based data structures using densely numbered entity references as mapping keys.</p>
+<p>This crate defines a number of data structures based on arrays. The arrays are not indexed by
+<code>usize</code> as usual, but by <em>entity references</em> which are integers wrapped in new-types. This has
+a couple advantages:</p>
+<ul>
+<li>Improved type safety. The various map and set types accept a specific key type, so there is
+no confusion about the meaning of an array index, as there is with plain arrays.</li>
+<li>Smaller indexes. The normal <code>usize</code> index is often 64 bits which is way too large for most
+purposes. The entity reference types can be smaller, allowing for more compact data
+structures.</li>
+</ul>
+<p>The <code>EntityRef</code> trait should be implemented by types to be used as indexed. The <code>entity_impl!</code>
+macro provides convenient defaults for types wrapping <code>u32</code> which is common.</p>
+<ul>
+<li><a href="struct.PrimaryMap.html"><code>PrimaryMap</code></a> is used to keep track of a vector of entities,
+assigning a unique entity reference to each.</li>
+<li><a href="struct.SecondaryMap.html"><code>SecondaryMap</code></a> is used to associate secondary information to an
+entity. The map is implemented as a simple vector, so it does not keep track of which
+entities have been inserted. Instead, any unknown entities map to the default value.</li>
+<li><a href="struct.SparseMap.html"><code>SparseMap</code></a> is used to associate secondary information to a small
+number of entities. It tracks accurately which entities have been inserted. This is a
+specialized data structure which can use a lot of memory, so read the documentation before
+using it.</li>
+<li><a href="struct.EntitySet.html"><code>EntitySet</code></a> is used to represent a secondary set of entities.
+The set is implemented as a simple vector, so it does not keep track of which entities have
+been inserted into the primary map. Instead, any unknown entities are not in the set.</li>
+<li><a href="struct.EntityList.html"><code>EntityList</code></a> is a compact representation of lists of entity
+references allocated from an associated memory pool. It has a much smaller footprint than
+<code>Vec</code>.</li>
+</ul>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table><tr class='module-item'><td><a class="mod" href="packed_option/index.html" title='cranelift_entity::packed_option mod'>packed_option</a></td><td class='docblock-short'><p>Compact representation of <code>Option&lt;T&gt;</code> for types with a reserved value.</p>
+</td></tr></table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table><tr class='module-item'><td><a class="macro" href="macro.entity_impl.html" title='cranelift_entity::entity_impl macro'>entity_impl</a></td><td class='docblock-short'><p>Macro which provides the common implementation of a 32-bit entity reference.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.BoxedSlice.html" title='cranelift_entity::BoxedSlice struct'>BoxedSlice</a></td><td class='docblock-short'><p>A slice mapping <code>K -&gt; V</code> allocating dense entity references.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.EntityList.html" title='cranelift_entity::EntityList struct'>EntityList</a></td><td class='docblock-short'><p>A small list of entity references allocated from a pool.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.EntitySet.html" title='cranelift_entity::EntitySet struct'>EntitySet</a></td><td class='docblock-short'><p>A set of <code>K</code> for densely indexed entity references.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Iter.html" title='cranelift_entity::Iter struct'>Iter</a></td><td class='docblock-short'><p>Iterate over all keys in order.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.IterMut.html" title='cranelift_entity::IterMut struct'>IterMut</a></td><td class='docblock-short'><p>Iterate over all keys in order.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Keys.html" title='cranelift_entity::Keys struct'>Keys</a></td><td class='docblock-short'><p>Iterate over all keys in order.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ListPool.html" title='cranelift_entity::ListPool struct'>ListPool</a></td><td class='docblock-short'><p>A memory pool for storing lists of <code>T</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PrimaryMap.html" title='cranelift_entity::PrimaryMap struct'>PrimaryMap</a></td><td class='docblock-short'><p>A primary mapping <code>K -&gt; V</code> allocating dense entity references.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.SecondaryMap.html" title='cranelift_entity::SecondaryMap struct'>SecondaryMap</a></td><td class='docblock-short'><p>A mapping <code>K -&gt; V</code> for densely indexed entity references.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.SparseMap.html" title='cranelift_entity::SparseMap struct'>SparseMap</a></td><td class='docblock-short'><p>A sparse mapping of entity references.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.EntityRef.html" title='cranelift_entity::EntityRef trait'>EntityRef</a></td><td class='docblock-short'><p>A type wrapping a small integer index should implement <code>EntityRef</code> so it can be used as the key
+of an <code>SecondaryMap</code> or <code>SparseMap</code>.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.SparseMapValue.html" title='cranelift_entity::SparseMapValue trait'>SparseMapValue</a></td><td class='docblock-short'><p>Trait for extracting keys from values stored in a <code>SparseMap</code>.</p>
+</td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table><tr class='module-item'><td><a class="type" href="type.SparseSet.html" title='cranelift_entity::SparseSet type'>SparseSet</a></td><td class='docblock-short'><p>A sparse set of entity references.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "cranelift_entity";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

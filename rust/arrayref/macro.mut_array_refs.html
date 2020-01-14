@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `mut_array_refs` macro in crate `arrayref`."><meta name="keywords" content="rust, rustlang, rust-lang, mut_array_refs"><title>arrayref::mut_array_refs - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc macro"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../arrayref/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><div class="sidebar-elems"><p class='location'><a href='index.html'>arrayref</a></p><script>window.sidebarCurrent = {name: 'mut_array_refs', ty: 'macro', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/arrayref/lib.rs.html#200-251' title='goto source code'>[src]</a></span><span class='in-band'>Macro <a href='index.html'>arrayref</a>::<wbr><a class="macro" href=''>mut_array_refs</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><div class="example-wrap"><pre class="rust macro">
+<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">mut_array_refs</span> {
+    ( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arr</span>:<span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">pre</span>:<span class="ident">expr</span> ),<span class="op">*</span> ; .. ;  $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">post</span>:<span class="ident">expr</span> ),<span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> { ... };
+    ( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arr</span>:<span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>:<span class="ident">expr</span> ),<span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> { ... };
+}</pre></div>
+</div><div class='docblock'><p>You can use <code>mut_array_refs</code> to generate a series of mutable array
+references to an input mutable array reference.  The idea is if
+you want to break an array into a series of contiguous and
+non-overlapping mutable array references.  Like <code>array_refs!</code>,
+<code>mut_array_refs!</code> is a bit funny in that it insists on slicing up
+the <em>entire</em> array.  This is intentional, as I find it handy to
+make me ensure that my sub-arrays add up to the entire array.
+This macro will <em>never</em> panic, since the sizes are all checked at
+compile time.</p>
+<p>Note that unlike <code>array_mut_ref!</code>, <code>mut_array_refs</code> <em>requires</em>
+that the first argument be a mutable array reference.  The
+following arguments are the lengths of each subarray you wish a
+reference to.  The total of these arguments <em>must</em> equal the size
+of the array itself.  Also note that this macro allows you to take
+out multiple mutable references to a single object, which is both
+weird and powerful.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">arrayref</span>;
+
+<span class="kw">fn</span> <span class="ident">write_u16</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>; <span class="number">2</span>], <span class="ident">num</span>: <span class="ident">u16</span>) {
+     <span class="ident">bytes</span>[<span class="number">0</span>] <span class="op">=</span> <span class="ident">num</span> <span class="kw">as</span> <span class="ident">u8</span>;
+     <span class="ident">bytes</span>[<span class="number">1</span>] <span class="op">=</span> (<span class="ident">num</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">u8</span>;
+}
+<span class="kw">fn</span> <span class="ident">write_u32</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>; <span class="number">4</span>], <span class="ident">num</span>: <span class="ident">u32</span>) {
+     <span class="ident">bytes</span>[<span class="number">0</span>] <span class="op">=</span> <span class="ident">num</span> <span class="kw">as</span> <span class="ident">u8</span>;
+     <span class="ident">bytes</span>[<span class="number">1</span>] <span class="op">=</span> (<span class="ident">num</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">u8</span>; <span class="comment">// this is buggy to save space...</span>
+}
+<span class="comment">// ...</span>
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> [<span class="number">0</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">0</span>,<span class="number">6</span>,<span class="number">7</span>];
+<span class="kw">let</span> (<span class="ident">a</span>,<span class="ident">b</span>,<span class="ident">c</span>) <span class="op">=</span> <span class="macro">mut_array_refs</span><span class="macro">!</span>[<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">data</span>,<span class="number">2</span>,<span class="number">2</span>,<span class="number">4</span>];
+<span class="comment">// let&#39;s write out some nice prime numbers!</span>
+<span class="ident">write_u16</span>(<span class="ident">a</span>, <span class="number">37</span>);
+<span class="ident">write_u16</span>(<span class="ident">b</span>, <span class="number">73</span>);
+<span class="ident">write_u32</span>(<span class="ident">c</span>, <span class="number">137</span>); <span class="comment">// approximate inverse of the fine structure constant!</span></pre></div>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "arrayref";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

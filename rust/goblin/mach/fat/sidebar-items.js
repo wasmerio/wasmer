@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["FAT_CIGAM",""],["FAT_MAGIC",""],["SIZEOF_FAT_ARCH",""],["SIZEOF_FAT_HEADER",""]],"struct":[["FatArch","The Mach-o `FatArch` always has its data bigendian"],["FatHeader","The Mach-o `FatHeader` always has its data bigendian"]]});

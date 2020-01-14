@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Detail","The different kind of settings along with descriptor bits that depend on the kind."]],"struct":[["Descriptor","A setting descriptor holds the information needed to generically set and print a setting."],["Template","An instruction group template."]]});

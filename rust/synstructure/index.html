@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `synstructure` crate."><meta name="keywords" content="rust, rustlang, rust-lang, synstructure"><title>synstructure - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../synstructure/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate synstructure</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all synstructure's items</p></a><div class="block items"><ul><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'synstructure', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/synstructure/lib.rs.html#1-2360' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>synstructure</a></span></h1><div class='docblock'><p>This crate provides helper types for matching against enum variants, and
+extracting bindings to each of the fields in the deriving Struct or Enum in
+a generic way.</p>
+<p>If you are writing a <code>#[derive]</code> which needs to perform some operation on
+every field, then you have come to the right place!</p>
+<h1 id="example-walkfields" class="section-header"><a href="#example-walkfields">Example: <code>WalkFields</code></a></h1><h3 id="trait-implementation" class="section-header"><a href="#trait-implementation">Trait Implementation</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">WalkFields</span>: <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span> {
+    <span class="kw">fn</span> <span class="ident">walk_fields</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">walk</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="ident">WalkFields</span>));
+}
+<span class="kw">impl</span> <span class="ident">WalkFields</span> <span class="kw">for</span> <span class="ident">i32</span> {
+    <span class="kw">fn</span> <span class="ident">walk_fields</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_walk</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="ident">WalkFields</span>)) {}
+}</pre></div>
+<h3 id="custom-derive" class="section-header"><a href="#custom-derive">Custom Derive</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">walkfields_derive</span>(<span class="ident">s</span>: <span class="ident">synstructure</span>::<span class="ident">Structure</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span> {
+    <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">each</span>(<span class="op">|</span><span class="ident">bi</span><span class="op">|</span> <span class="macro">quote</span><span class="macro">!</span>{
+        <span class="ident">walk</span>(#<span class="ident">bi</span>)
+    });
+
+    <span class="ident">s</span>.<span class="ident">gen_impl</span>(<span class="macro">quote</span><span class="macro">!</span> {
+        <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">synstructure_test_traits</span>;
+
+        <span class="ident">gen</span> <span class="kw">impl</span> <span class="ident">synstructure_test_traits</span>::<span class="ident">WalkFields</span> <span class="kw">for</span> @<span class="self">Self</span> {
+            <span class="kw">fn</span> <span class="ident">walk_fields</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">walk</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="ident">synstructure_test_traits</span>::<span class="ident">WalkFields</span>)) {
+                <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> { #<span class="ident">body</span> }
+            }
+        }
+    })
+}
+<span class="ident">synstructure</span>::<span class="macro">decl_derive</span><span class="macro">!</span>([<span class="ident">WalkFields</span>] <span class="op">=</span><span class="op">&gt;</span> <span class="ident">walkfields_derive</span>);
+
+<span class="comment">/*
+ * Test Case
+ */</span>
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="ident">synstructure</span>::<span class="macro">test_derive</span><span class="macro">!</span> {
+        <span class="ident">walkfields_derive</span> {
+            <span class="kw">enum</span> <span class="ident">A</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+                <span class="ident">B</span>(<span class="ident">i32</span>, <span class="ident">T</span>),
+                <span class="ident">C</span>(<span class="ident">i32</span>),
+            }
+        }
+        <span class="ident">expands</span> <span class="ident">to</span> {
+            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_upper_case_globals</span>)]</span>
+            <span class="kw">const</span> <span class="ident">_DERIVE_synstructure_test_traits_WalkFields_FOR_A</span>: () <span class="op">=</span> {
+                <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">synstructure_test_traits</span>;
+                <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">synstructure_test_traits</span>::<span class="ident">WalkFields</span> <span class="kw">for</span> <span class="ident">A</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
+                    <span class="kw">where</span> <span class="ident">T</span>: <span class="ident">synstructure_test_traits</span>::<span class="ident">WalkFields</span>
+                {
+                    <span class="kw">fn</span> <span class="ident">walk_fields</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">walk</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="ident">synstructure_test_traits</span>::<span class="ident">WalkFields</span>)) {
+                        <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
+                            <span class="ident">A</span>::<span class="ident">B</span>(<span class="kw-2">ref</span> <span class="ident">__binding_0</span>, <span class="kw-2">ref</span> <span class="ident">__binding_1</span>,) <span class="op">=</span><span class="op">&gt;</span> {
+                                { <span class="ident">walk</span>(<span class="ident">__binding_0</span>) }
+                                { <span class="ident">walk</span>(<span class="ident">__binding_1</span>) }
+                            }
+                            <span class="ident">A</span>::<span class="ident">C</span>(<span class="kw-2">ref</span> <span class="ident">__binding_0</span>,) <span class="op">=</span><span class="op">&gt;</span> {
+                                { <span class="ident">walk</span>(<span class="ident">__binding_0</span>) }
+                            }
+                        }
+                    }
+                }
+            };
+        }
+    }
+}</pre></div>
+<h1 id="example-interest" class="section-header"><a href="#example-interest">Example: <code>Interest</code></a></h1><h3 id="trait-implementation-1" class="section-header"><a href="#trait-implementation-1">Trait Implementation</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Interest</span> {
+    <span class="kw">fn</span> <span class="ident">interesting</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
+}
+<span class="kw">impl</span> <span class="ident">Interest</span> <span class="kw">for</span> <span class="ident">i32</span> {
+    <span class="kw">fn</span> <span class="ident">interesting</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> { <span class="kw-2">*</span><span class="self">self</span> <span class="op">&gt;</span> <span class="number">0</span> }
+}</pre></div>
+<h3 id="custom-derive-1" class="section-header"><a href="#custom-derive-1">Custom Derive</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">interest_derive</span>(<span class="kw-2">mut</span> <span class="ident">s</span>: <span class="ident">synstructure</span>::<span class="ident">Structure</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span> {
+    <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">fold</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">acc</span>, <span class="ident">bi</span><span class="op">|</span> <span class="macro">quote</span><span class="macro">!</span>{
+        #<span class="ident">acc</span> <span class="op">|</span><span class="op">|</span> <span class="ident">synstructure_test_traits</span>::<span class="ident">Interest</span>::<span class="ident">interesting</span>(#<span class="ident">bi</span>)
+    });
+
+    <span class="ident">s</span>.<span class="ident">gen_impl</span>(<span class="macro">quote</span><span class="macro">!</span> {
+        <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">synstructure_test_traits</span>;
+        <span class="ident">gen</span> <span class="kw">impl</span> <span class="ident">synstructure_test_traits</span>::<span class="ident">Interest</span> <span class="kw">for</span> @<span class="self">Self</span> {
+            <span class="kw">fn</span> <span class="ident">interesting</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+                <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
+                    #<span class="ident">body</span>
+                }
+            }
+        }
+    })
+}
+<span class="ident">synstructure</span>::<span class="macro">decl_derive</span><span class="macro">!</span>([<span class="ident">Interest</span>] <span class="op">=</span><span class="op">&gt;</span> <span class="ident">interest_derive</span>);
+
+<span class="comment">/*
+ * Test Case
+ */</span>
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="ident">synstructure</span>::<span class="macro">test_derive</span><span class="macro">!</span>{
+        <span class="ident">interest_derive</span> {
+            <span class="kw">enum</span> <span class="ident">A</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+                <span class="ident">B</span>(<span class="ident">i32</span>, <span class="ident">T</span>),
+                <span class="ident">C</span>(<span class="ident">i32</span>),
+            }
+        }
+        <span class="ident">expands</span> <span class="ident">to</span> {
+            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_upper_case_globals</span>)]</span>
+            <span class="kw">const</span> <span class="ident">_DERIVE_synstructure_test_traits_Interest_FOR_A</span>: () <span class="op">=</span> {
+                <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">synstructure_test_traits</span>;
+                <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">synstructure_test_traits</span>::<span class="ident">Interest</span> <span class="kw">for</span> <span class="ident">A</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
+                    <span class="kw">where</span> <span class="ident">T</span>: <span class="ident">synstructure_test_traits</span>::<span class="ident">Interest</span>
+                {
+                    <span class="kw">fn</span> <span class="ident">interesting</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+                        <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
+                            <span class="ident">A</span>::<span class="ident">B</span>(<span class="kw-2">ref</span> <span class="ident">__binding_0</span>, <span class="kw-2">ref</span> <span class="ident">__binding_1</span>,) <span class="op">=</span><span class="op">&gt;</span> {
+                                <span class="bool-val">false</span> <span class="op">|</span><span class="op">|</span>
+                                    <span class="ident">synstructure_test_traits</span>::<span class="ident">Interest</span>::<span class="ident">interesting</span>(<span class="ident">__binding_0</span>) <span class="op">|</span><span class="op">|</span>
+                                    <span class="ident">synstructure_test_traits</span>::<span class="ident">Interest</span>::<span class="ident">interesting</span>(<span class="ident">__binding_1</span>)
+                            }
+                            <span class="ident">A</span>::<span class="ident">C</span>(<span class="kw-2">ref</span> <span class="ident">__binding_0</span>,) <span class="op">=</span><span class="op">&gt;</span> {
+                                <span class="bool-val">false</span> <span class="op">|</span><span class="op">|</span>
+                                    <span class="ident">synstructure_test_traits</span>::<span class="ident">Interest</span>::<span class="ident">interesting</span>(<span class="ident">__binding_0</span>)
+                            }
+                        }
+                    }
+                }
+            };
+        }
+    }
+}</pre></div>
+<p>For more example usage, consider investigating the <code>abomonation_derive</code> crate,
+which makes use of this crate, and is fairly simple.</p>
+</div><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table><tr class='module-item'><td><a class="macro" href="macro.decl_attribute.html" title='synstructure::decl_attribute macro'>decl_attribute</a></td><td class='docblock-short'><p>The <code>decl_attribute!</code> macro declares a custom attribute wrapper. It will
+parse the incoming <code>TokenStream</code> into a <code>synstructure::Structure</code> object,
+and pass it into the inner function.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.decl_derive.html" title='synstructure::decl_derive macro'>decl_derive</a></td><td class='docblock-short'><p>The <code>decl_derive!</code> macro declares a custom derive wrapper. It will parse the
+incoming <code>TokenStream</code> into a <code>synstructure::Structure</code> object, and pass it
+into the inner function.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.test_derive.html" title='synstructure::test_derive macro'>test_derive</a></td><td class='docblock-short'><p>Run a test on a custom derive. This macro expands both the original struct
+and the expansion to ensure that they compile correctly, and confirms that
+feeding the original struct into the named derive will produce the written
+output.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.BindingInfo.html" title='synstructure::BindingInfo struct'>BindingInfo</a></td><td class='docblock-short'><p>Information about a specific binding. This contains both an <code>Ident</code>
+reference to the given field, and the syn <code>&amp;'a Field</code> descriptor for that
+field.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Structure.html" title='synstructure::Structure struct'>Structure</a></td><td class='docblock-short'><p>A wrapper around a <code>syn::DeriveInput</code> which provides utilities for creating
+custom derive trait implementations.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VariantAst.html" title='synstructure::VariantAst struct'>VariantAst</a></td><td class='docblock-short'><p>This type is similar to <code>syn</code>'s <code>Variant</code> type, however each of the fields
+are references rather than owned. When this is used as the AST for a real
+variant, this struct simply borrows the fields of the <code>syn::Variant</code>,
+however this type may also be used as the sole variant for a struct.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VariantInfo.html" title='synstructure::VariantInfo struct'>VariantInfo</a></td><td class='docblock-short'><p>A wrapper around a <code>syn::DeriveInput</code>'s variant which provides utilities
+for destructuring <code>Variant</code>s with <code>match</code> expressions.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.AddBounds.html" title='synstructure::AddBounds enum'>AddBounds</a></td><td class='docblock-short'><p>Changes how bounds are added</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.BindStyle.html" title='synstructure::BindStyle enum'>BindStyle</a></td><td class='docblock-short'><p>The type of binding to use when generating a pattern.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.MacroResult.html" title='synstructure::MacroResult trait'>MacroResult</a></td><td class='docblock-short'><p>Helper trait describing values which may be returned by macro implementation
+methods used by this crate's macros.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.unpretty_print.html" title='synstructure::unpretty_print fn'>unpretty_print</a></td><td class='docblock-short'><p>Dumps an unpretty version of a tokenstream. Takes any type which implements
+<code>Display</code>.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "synstructure";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

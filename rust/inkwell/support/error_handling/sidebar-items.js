@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["install_fatal_error_handler","Installs an error handler to be called before LLVM exits."],["reset_fatal_error_handler","Resets LLVM's fatal error handler back to the default"]]});

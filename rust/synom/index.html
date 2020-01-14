@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `synom` crate."><meta name="keywords" content="rust, rustlang, rust-lang, synom"><title>synom - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../synom/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate synom</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all synom's items</p></a><div class="block items"><ul><li><a href="#macros">Macros</a></li><li><a href="#enums">Enums</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'synom', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/synom/lib.rs.html#1-1225' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>synom</a></span></h1><div class='docblock'><p>Adapted from <a href="https://github.com/Geal/nom"><code>nom</code></a> by removing the
+<code>IResult::Incomplete</code> variant which:</p>
+<ul>
+<li>we don't need,</li>
+<li>is an unintuitive footgun when working with non-streaming use cases, and</li>
+<li>more than doubles compilation time.</li>
+</ul>
+<h2 id="whitespace-handling-strategy" class="section-header"><a href="#whitespace-handling-strategy">Whitespace handling strategy</a></h2>
+<p>As (sy)nom is a parser combinator library, the parsers provided here and
+that you implement yourself are all made up of successively more primitive
+parsers, eventually culminating in a small number of fundamental parsers
+that are implemented in Rust. Among these are <code>punct!</code> and <code>keyword!</code>.</p>
+<p>All synom fundamental parsers (those not combined out of other parsers)
+should be written to skip over leading whitespace in their input. This way,
+as long as every parser eventually boils down to some combination of
+fundamental parsers, we get correct whitespace handling at all levels for
+free.</p>
+<p>For our use case, this strategy is a huge improvement in usability,
+correctness, and compile time over nom's <code>ws!</code> strategy.</p>
+</div><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table><tr class='module-item'><td><a class="macro" href="macro.alt.html" title='synom::alt macro'>alt</a></td><td class='docblock-short'><p>Run a series of parsers, returning the result of the first one which
+succeeds.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.call.html" title='synom::call macro'>call</a></td><td class='docblock-short'><p>Invoke the given parser function with the passed in arguments.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.cond.html" title='synom::cond macro'>cond</a></td><td class='docblock-short'><p>Conditionally execute the given parser.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.cond_reduce.html" title='synom::cond_reduce macro'>cond_reduce</a></td><td class='docblock-short'><p>Fail to parse if condition is false, otherwise parse the given parser.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.delimited.html" title='synom::delimited macro'>delimited</a></td><td class='docblock-short'><p>Value surrounded by a pair of delimiters.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.do_parse.html" title='synom::do_parse macro'>do_parse</a></td><td class='docblock-short'><p>Run a series of parsers, one after another, optionally assigning the results
+a name. Fail if any of the parsers fails.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.epsilon.html" title='synom::epsilon macro'>epsilon</a></td><td class='docblock-short'><p>Parses nothing and always succeeds.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.keyword.html" title='synom::keyword macro'>keyword</a></td><td class='docblock-short'><p>Parse a keyword like &quot;fn&quot; or &quot;struct&quot;.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.many0.html" title='synom::many0 macro'>many0</a></td><td class='docblock-short'><p>Parse zero or more values using the given parser.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.map.html" title='synom::map macro'>map</a></td><td class='docblock-short'><p>Transform the result of a parser by applying a function or closure.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.named.html" title='synom::named macro'>named</a></td><td class='docblock-short'><p>Define a function from a parser combination.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.not.html" title='synom::not macro'>not</a></td><td class='docblock-short'><p>Parses successfully if the given parser fails to parse. Does not consume any
+of the input.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.opt_vec.html" title='synom::opt_vec macro'>opt_vec</a></td><td class='docblock-short'><p>Turn a failed parse into an empty vector. The argument parser must itself
+return a vector.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.option.html" title='synom::option macro'>option</a></td><td class='docblock-short'><p>Turn a failed parse into <code>None</code> and a successful parse into <code>Some</code>.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.peek.html" title='synom::peek macro'>peek</a></td><td class='docblock-short'><p>Parse a value without consuming it from the input data.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.preceded.html" title='synom::preceded macro'>preceded</a></td><td class='docblock-short'><p>Parse two things, returning the value of the second.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.punct.html" title='synom::punct macro'>punct</a></td><td class='docblock-short'><p>Parse a piece of punctuation like &quot;+&quot; or &quot;+=&quot;.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.separated_list.html" title='synom::separated_list macro'>separated_list</a></td><td class='docblock-short'><p>Zero or more values separated by some separator. Does not allow a trailing
+seperator.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.separated_nonempty_list.html" title='synom::separated_nonempty_list macro'>separated_nonempty_list</a></td><td class='docblock-short'><p>One or more values separated by some separator. Does not allow a trailing
+separator.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.switch.html" title='synom::switch macro'>switch</a></td><td class='docblock-short'><p>Pattern-match the result of a parser to select which other parser to run.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.tag.html" title='synom::tag macro'>tag</a></td><td class='docblock-short'><p>Parse the given string from exactly the current position in the input. You
+almost always want <code>punct!</code> or <code>keyword!</code> instead of this.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.take_until.html" title='synom::take_until macro'>take_until</a></td><td class='docblock-short'><p>Parse the part of the input up to but not including the given string. Fail
+to parse if the given string is not present in the input.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.terminated.html" title='synom::terminated macro'>terminated</a></td><td class='docblock-short'><p>Parse two things, returning the value of the first.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.terminated_list.html" title='synom::terminated_list macro'>terminated_list</a></td><td class='docblock-short'><p>Zero or more values separated by some separator. A trailing separator is
+allowed.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.tuple.html" title='synom::tuple macro'>tuple</a></td><td class='docblock-short'><p>Run a series of parsers and produce all of the results in a tuple.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.value.html" title='synom::value macro'>value</a></td><td class='docblock-short'><p>Produce the given value without parsing anything. Useful as an argument to
+<code>switch!</code>.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.IResult.html" title='synom::IResult enum'>IResult</a></td><td class='docblock-short'><p>The result of a parser.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "synom";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

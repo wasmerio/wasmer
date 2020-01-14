@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/Users/syrusakbary/.cargo/git/checkouts/cranelift-ce3a59f3bb7656b0/a81035e/cranelift-codegen/shared/src/constants.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>constants.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../cranelift_codegen_shared/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<span id="2"> 2</span>
+<span id="3"> 3</span>
+<span id="4"> 4</span>
+<span id="5"> 5</span>
+<span id="6"> 6</span>
+<span id="7"> 7</span>
+<span id="8"> 8</span>
+<span id="9"> 9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! This module contains constants that are shared between the codegen and the meta crate, so they</span>
+<span class="doccomment">//! are kept in sync.</span>
+
+<span class="comment">// Numbering scheme for value types:</span>
+<span class="comment">//</span>
+<span class="comment">// 0: Void</span>
+<span class="comment">// 0x01-0x6f: Special types</span>
+<span class="comment">// 0x70-0x7d: Lane types</span>
+<span class="comment">// 0x7e-0x7f: Reference types</span>
+<span class="comment">// 0x80-0xff: Vector types</span>
+<span class="comment">//</span>
+<span class="comment">// Vector types are encoded with the lane type in the low 4 bits and log2(lanes)</span>
+<span class="comment">// in the high 4 bits, giving a range of 2-256 lanes.</span>
+
+<span class="doccomment">/// Start of the lane types.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LANE_BASE</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">0x70</span>;
+
+<span class="doccomment">/// Base for reference types.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">REFERENCE_BASE</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">0x7E</span>;
+
+<span class="doccomment">/// Start of the 2-lane vector types.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VECTOR_BASE</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">0x80</span>;
+
+<span class="comment">// Some constants about register classes and types.</span>
+
+<span class="doccomment">/// Guaranteed maximum number of top-level register classes with pressure tracking in any ISA.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_TRACKED_TOP_RCS</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">4</span>;
+
+<span class="doccomment">/// Guaranteed maximum number of register classes in any ISA.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_NUM_REG_CLASSES</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">32</span>;
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "cranelift_codegen_shared";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

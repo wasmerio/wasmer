@@ -1,0 +1,899 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/Users/syrusakbary/.cargo/registry/src/github.com-1ecc6299db9ec823/goblin-0.0.24/src/mach/constants.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>constants.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="../../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../goblin/index.html'><div class='logo-container'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! Miscellaneous constants used inside of and when constructing, Mach-o binaries</span>
+<span class="comment">// Convienence constants for return values from dyld_get_sdk_version() and friends.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_4</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0400</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_5</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0500</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_6</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0600</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_7</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0700</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_8</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0800</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_9</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0900</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_10</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0A00</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_11</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0B00</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_12</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0C00</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_MACOSX_VERSION_10_13</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0D00</span>;
+
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_2_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0002_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_2_1</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0002_0100</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_2_2</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0002_0200</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_3_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0003_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_3_1</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0003_0100</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_3_2</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0003_0200</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_4_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0004_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_4_1</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0004_0100</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_4_2</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0004_0200</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_4_3</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0004_0300</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_5_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0005_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_5_1</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0005_0100</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_6_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0006_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_6_1</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0006_0100</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_7_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0007_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_7_1</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0007_0100</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_8_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0008_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_9_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0009_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_10_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000A_0000</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DYLD_IOS_VERSION_11_0</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x000B_0000</span>;
+
+<span class="comment">// Segment and Section Constants</span>
+
+<span class="comment">// The flags field of a section structure is separated into two parts a section</span>
+<span class="comment">// type and section attributes.  The section types are mutually exclusive (it</span>
+<span class="comment">// can only have one type) but the section attributes are not (it may have more</span>
+<span class="comment">// than one attribute).</span>
+<span class="doccomment">/// 256 section types</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECTION_TYPE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0000_00ff</span>;
+<span class="doccomment">///  24 section attributes</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECTION_ATTRIBUTES</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xffff_ff00</span>;
+
+<span class="comment">// Constants for the type of a section</span>
+<span class="doccomment">/// regular section</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_REGULAR</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0</span>;
+<span class="doccomment">/// zero fill on demand section</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ZEROFILL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x1</span>;
+<span class="doccomment">/// section with only literal C strings</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_CSTRING_LITERALS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x2</span>;
+<span class="doccomment">/// section with only 4 byte literals</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_4BYTE_LITERALS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x3</span>;
+<span class="doccomment">/// section with only 8 byte literals</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_8BYTE_LITERALS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x4</span>;
+<span class="doccomment">/// section with only pointers to</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_LITERAL_POINTERS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x5</span>;
+
+<span class="comment">// literals</span>
+<span class="comment">// For the two types of symbol pointers sections and the symbol stubs section</span>
+<span class="comment">// they have indirect symbol table entries.  For each of the entries in the</span>
+<span class="comment">// section the indirect symbol table entries, in corresponding order in the</span>
+<span class="comment">// indirect symbol table, start at the index stored in the reserved1 field</span>
+<span class="comment">// of the section structure.  Since the indirect symbol table entries</span>
+<span class="comment">// correspond to the entries in the section the number of indirect symbol table</span>
+<span class="comment">// entries is inferred from the size of the section divided by the size of the</span>
+<span class="comment">// entries in the section.  For symbol pointers sections the size of the entries</span>
+<span class="comment">// in the section is 4 bytes and for symbol stubs sections the byte size of the</span>
+<span class="comment">// stubs is stored in the reserved2 field of the section structure.</span>
+<span class="doccomment">/// section with only non-lazy symbol pointers</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_NON_LAZY_SYMBOL_POINTERS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x6</span>;
+<span class="doccomment">/// section with only lazy symbol pointers</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_LAZY_SYMBOL_POINTERS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x7</span>;
+<span class="doccomment">/// section with only symbol stubs, byte size of stub in the reserved2 field</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_SYMBOL_STUBS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x8</span>;
+<span class="doccomment">/// section with only function pointers for initialization</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_MOD_INIT_FUNC_POINTERS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x9</span>;
+<span class="doccomment">/// section with only function pointers for termination</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_MOD_TERM_FUNC_POINTERS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xa</span>;
+<span class="doccomment">/// section contains symbols that are to be coalesced</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_COALESCED</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xb</span>;
+<span class="doccomment">/// zero fill on demand section that can be larger than 4 gigabytes)</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_GB_ZEROFILL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xc</span>;
+<span class="doccomment">/// section with only pairs of function pointers for interposing</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_INTERPOSING</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xd</span>;
+<span class="doccomment">/// section with only 16 byte literals</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_16BYTE_LITERALS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xe</span>;
+<span class="doccomment">/// section contains DTrace Object Format</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_DTRACE_DOF</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xf</span>;
+<span class="doccomment">/// section with only lazy symbol pointers to lazy loaded dylibs</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_LAZY_DYLIB_SYMBOL_POINTERS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x10</span>;
+
+<span class="comment">// Section types to support thread local variables</span>
+<span class="doccomment">/// template of initial  values for TLVs</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_THREAD_LOCAL_REGULAR</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x11</span>;
+<span class="doccomment">/// template of initial  values for TLVs</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_THREAD_LOCAL_ZEROFILL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x12</span>;
+<span class="doccomment">/// TLV descriptors</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_THREAD_LOCAL_VARIABLES</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x13</span>;
+<span class="doccomment">/// pointers to TLV  descriptors</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_THREAD_LOCAL_VARIABLE_POINTERS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x14</span>;
+<span class="doccomment">/// functions to call to initialize TLV values</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_THREAD_LOCAL_INIT_FUNCTION_POINTERS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x15</span>;
+
+<span class="comment">// Constants for the section attributes part of the flags field of a section</span>
+<span class="comment">// structure.</span>
+<span class="doccomment">/// User setable attributes</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECTION_ATTRIBUTES_USR</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xff00_0000</span>;
+<span class="doccomment">/// section contains only true machine instructions</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_PURE_INSTRUCTIONS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x8000_0000</span>;
+<span class="doccomment">/// section contains coalesced symbols that are not to be in a ranlib table of contents</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_NO_TOC</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x4000_0000</span>;
+<span class="doccomment">/// ok to strip static symbols in this section in files with the MH_DYLDLINK flag</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_STRIP_STATIC_SYMS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x2000_0000</span>;
+<span class="doccomment">/// no dead stripping</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_NO_DEAD_STRIP</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x1000_0000</span>;
+<span class="doccomment">/// blocks are live if they reference live blocks</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_LIVE_SUPPORT</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0800_0000</span>;
+<span class="doccomment">/// Used with i386 code stubs written on by dyld</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_SELF_MODIFYING_CODE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0400_0000</span>;
+
+<span class="comment">// If a segment contains any sections marked with S_ATTR_DEBUG then all</span>
+<span class="comment">// sections in that segment must have this attribute.  No section other than</span>
+<span class="comment">// a section marked with this attribute may reference the contents of this</span>
+<span class="comment">// section.  A section with this attribute may contain no symbols and must have</span>
+<span class="comment">// a section type S_REGULAR.  The static linker will not copy section contents</span>
+<span class="comment">// from sections with this attribute into its output file.  These sections</span>
+<span class="comment">// generally contain DWARF debugging info.</span>
+<span class="doccomment">/// debug section</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_DEBUG</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0200_0000</span>;
+<span class="doccomment">/// system setable attributes</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECTION_ATTRIBUTES_SYS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x00ff_ff00</span>;
+<span class="doccomment">/// section contains some machine instructions</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_SOME_INSTRUCTIONS</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0000_0400</span>;
+<span class="doccomment">/// section has external relocation entries</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_EXT_RELOC</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0000_0200</span>;
+<span class="doccomment">/// section has local relocation entries</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">S_ATTR_LOC_RELOC</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0000_0100</span>;
+
+<span class="comment">// The names of segments and sections in them are mostly meaningless to the</span>
+<span class="comment">// link-editor.  But there are few things to support traditional UNIX</span>
+<span class="comment">// executables that require the link-editor and assembler to use some names</span>
+<span class="comment">// agreed upon by convention.</span>
+<span class="comment">// The initial protection of the &quot;__TEXT&quot; segment has write protection turned</span>
+<span class="comment">// off (not writeable).</span>
+<span class="comment">// The link-editor will allocate common symbols at the end of the &quot;__common&quot;</span>
+<span class="comment">// section in the &quot;__DATA&quot; segment.  It will create the section and segment</span>
+<span class="comment">// if needed.</span>
+
+<span class="comment">// The currently known segment names and the section names in those segments</span>
+<span class="doccomment">/// the pagezero segment which has no protections and catches NULL references for MH_EXECUTE files</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEG_PAGEZERO</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__PAGEZERO&quot;</span>;
+<span class="doccomment">/// the tradition UNIX text segment</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEG_TEXT</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__TEXT&quot;</span>;
+<span class="doccomment">/// the real text part of the text section no headers, and no padding</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_TEXT</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__text&quot;</span>;
+<span class="doccomment">/// the fvmlib initialization section</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_FVMLIB_INIT0</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__fvmlib_init0&quot;</span>;
+<span class="doccomment">/// the section following the fvmlib initialization section</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_FVMLIB_INIT1</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__fvmlib_init1&quot;</span>;
+<span class="doccomment">/// the tradition UNIX data segment</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEG_DATA</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__DATA&quot;</span>;
+<span class="doccomment">/// the real initialized data section no padding, no bss overlap</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_DATA</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__data&quot;</span>;
+<span class="doccomment">/// the real uninitialized data sectionno padding</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_BSS</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__bss&quot;</span>;
+<span class="doccomment">/// the section common symbols are allocated in by the link editor</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_COMMON</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__common&quot;</span>;
+<span class="doccomment">/// objective-C runtime segment</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEG_OBJC</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__OBJC&quot;</span>;
+<span class="doccomment">/// symbol table</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_OBJC_SYMBOLS</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__symbol_table&quot;</span>;
+<span class="doccomment">/// module information</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_OBJC_MODULES</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__module_info&quot;</span>;
+<span class="doccomment">/// string table</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_OBJC_STRINGS</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__selector_strs&quot;</span>;
+<span class="doccomment">/// string table</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_OBJC_REFS</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__selector_refs&quot;</span>;
+<span class="doccomment">/// the icon segment</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEG_ICON</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__ICON&quot;</span>;
+<span class="doccomment">/// the icon headers</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_ICON_HEADER</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__header&quot;</span>;
+<span class="doccomment">/// the icons in tiff format</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECT_ICON_TIFF</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__tiff&quot;</span>;
+<span class="doccomment">/// the segment containing all structs created and maintained by the link editor.  Created with -seglinkedit option to ld(1) for MH_EXECUTE and FVMLIB file types only</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEG_LINKEDIT</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__LINKEDIT&quot;</span>;
+<span class="doccomment">/// the unix stack segment</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEG_UNIXSTACK</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__UNIXSTACK&quot;</span>;
+<span class="doccomment">/// the segment for the self (dyld) modifing code stubs that has read, write and execute permissions</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEG_IMPORT</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;__IMPORT&quot;</span>;
+
+<span class="doccomment">/// Segment is readable.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VM_PROT_READ</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x1</span>;
+<span class="doccomment">/// Segment is writable.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VM_PROT_WRITE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x2</span>;
+<span class="doccomment">/// Segment is executable.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VM_PROT_EXECUTE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x4</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">cputype</span> {
+
+    <span class="doccomment">/// An alias for u32</span>
+    <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CpuType</span> <span class="op">=</span> <span class="ident">u32</span>;
+    <span class="doccomment">/// An alias for u32</span>
+    <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="ident">u32</span>;
+
+    <span class="doccomment">/// the mask for CPU feature flags</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MASK</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xff00_0000</span>;
+    <span class="doccomment">/// mask for architecture bits</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_ARCH_MASK</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">0xff00_0000</span>;
+    <span class="doccomment">/// the mask for 64 bit ABI</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_ARCH_ABI64</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">0x0100_0000</span>;
+    <span class="doccomment">/// the mask for ILP32 ABI on 64 bit hardware</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_ARCH_ABI64_32</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">0x0200_0000</span>;
+
+    <span class="comment">// CPU Types</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_ANY</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="op">!</span><span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_VAX</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_MC680X0</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">6</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_X86</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">7</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_I386</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="ident">CPU_TYPE_X86</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_X86_64</span>: <span class="ident">CpuType</span> <span class="op">=</span> (<span class="ident">CPU_TYPE_X86</span> <span class="op">|</span> <span class="ident">CPU_ARCH_ABI64</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_MIPS</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">8</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_MC98000</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">10</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_HPPA</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">11</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_ARM</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">12</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_ARM64</span>: <span class="ident">CpuType</span> <span class="op">=</span> (<span class="ident">CPU_TYPE_ARM</span> <span class="op">|</span> <span class="ident">CPU_ARCH_ABI64</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_ARM64_32</span>: <span class="ident">CpuType</span> <span class="op">=</span> (<span class="ident">CPU_TYPE_ARM</span> <span class="op">|</span> <span class="ident">CPU_ARCH_ABI64_32</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_MC88000</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">13</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_SPARC</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">14</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_I860</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">15</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_ALPHA</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">16</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_POWERPC</span>: <span class="ident">CpuType</span> <span class="op">=</span> <span class="number">18</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_TYPE_POWERPC64</span>: <span class="ident">CpuType</span> <span class="op">=</span> (<span class="ident">CPU_TYPE_POWERPC</span> <span class="op">|</span> <span class="ident">CPU_ARCH_ABI64</span>);
+
+    <span class="comment">// CPU Subtypes</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MULTIPLE</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="op">!</span><span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_LITTLE_ENDIAN</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_BIG_ENDIAN</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX780</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX785</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">2</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX750</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">3</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX730</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">4</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_UVAXI</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">5</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_UVAXII</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">6</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX8200</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">7</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX8500</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">8</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX8600</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">9</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX8650</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">10</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_VAX8800</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">11</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_UVAXIII</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">12</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC680X0_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC68030</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>; <span class="comment">/* compat */</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC68040</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">2</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC68030_ONLY</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">3</span>;
+
+    <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">CPU_SUBTYPE_INTEL</span> {
+        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">m</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> ({
+            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>) <span class="op">+</span> ((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">m</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">4</span>)
+        })
+    }
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_I386_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">3</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_386</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">3</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_486</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">4</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_486SX</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">4</span>, <span class="number">8</span>); <span class="comment">// 8 &lt;&lt; 4 = 128</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_586</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">5</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENT</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">5</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTPRO</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">6</span>, <span class="number">1</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTII_M3</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">6</span>, <span class="number">3</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTII_M5</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">6</span>, <span class="number">5</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_CELERON</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">7</span>, <span class="number">6</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_CELERON_MOBILE</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">7</span>, <span class="number">7</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTIUM_3</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">8</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTIUM_3_M</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">8</span>, <span class="number">1</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTIUM_3_XEON</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">8</span>, <span class="number">2</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTIUM_M</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">9</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTIUM_4</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">10</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_PENTIUM_4_M</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">10</span>, <span class="number">1</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ITANIUM</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">11</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ITANIUM_2</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">11</span>, <span class="number">1</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_XEON</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">12</span>, <span class="number">0</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_XEON_MP</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="macro">CPU_SUBTYPE_INTEL</span><span class="macro">!</span>(<span class="number">12</span>, <span class="number">1</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_INTEL_FAMILY_MAX</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">15</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_INTEL_MODEL_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_X86_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">3</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_X86_64_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">3</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_X86_ARCH1</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">4</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_X86_64_H</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">8</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MIPS_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MIPS_R2300</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MIPS_R2600</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">2</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MIPS_R2800</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">3</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MIPS_R2000A</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">4</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MIPS_R2000</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">5</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MIPS_R3000A</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">6</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MIPS_R3000</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">7</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC98000_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC98601</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_HPPA_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_HPPA_7100</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_HPPA_7100LC</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC88000_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC88100</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_MC88110</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">2</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_SPARC_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_I860_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_I860_860</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_601</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_602</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">2</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_603</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">3</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_603E</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">4</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_603EV</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">5</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_604</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">6</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_604E</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">7</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_620</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">8</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_750</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">9</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_7400</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">10</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_7450</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">11</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_POWERPC_970</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">100</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V4T</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">5</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V6</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">6</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V5TEJ</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">7</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_XSCALE</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">8</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V7</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">9</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V7F</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">10</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V7S</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">11</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V7K</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">12</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V6M</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">14</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V7M</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">15</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V7EM</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">16</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM_V8</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">13</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM64_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM64_V8</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM64_E</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">2</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM64_32_ALL</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CPU_SUBTYPE_ARM64_32_V8</span>: <span class="ident">CpuSubType</span> <span class="op">=</span> <span class="number">1</span>;
+
+    <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">cpu_flag_mapping</span> {
+        (
+            $((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cputype</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cpusubtype</span>:<span class="ident">ident</span>),)<span class="op">*</span>
+        ) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">fn</span> <span class="ident">get_arch_from_flag_no_alias</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">CpuType</span>, <span class="ident">CpuSubType</span>)<span class="op">&gt;</span> {
+                <span class="kw">match</span> <span class="ident">name</span> {
+                    $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">cputype</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cpusubtype</span>)),)<span class="op">*</span>
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>
+                }
+            }
+
+            <span class="doccomment">/// Get the architecture name from cputype and cpusubtype</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_arch_name_from_types</span>(<span class="ident">cputype</span>: <span class="ident">CpuType</span>, <span class="ident">cpusubtype</span>: <span class="ident">CpuSubType</span>)
+                <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span> {
+                <span class="kw">match</span> (<span class="ident">cputype</span>, <span class="ident">cpusubtype</span>) {
+                    $((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">cputype</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cpusubtype</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>),)<span class="op">*</span>
+                    (<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>
+                }
+            }
+        }
+    }
+
+    <span class="doccomment">/// Get the cputype and cpusubtype from a name</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_arch_from_flag</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">CpuType</span>, <span class="ident">CpuSubType</span>)<span class="op">&gt;</span> {
+        <span class="ident">get_arch_from_flag_no_alias</span>(<span class="ident">name</span>).<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> {
+            <span class="comment">// we also handle some common aliases</span>
+            <span class="kw">match</span> <span class="ident">name</span> {
+                <span class="comment">// these are used by apple</span>
+                <span class="string">&quot;pentium&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>((<span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_PENT</span>)),
+                <span class="string">&quot;pentpro&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>((<span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_PENTPRO</span>)),
+                <span class="comment">// these are used commonly for consistency</span>
+                <span class="string">&quot;x86&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>((<span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_I386_ALL</span>)),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+            }
+        })
+    }
+
+    <span class="macro">cpu_flag_mapping</span><span class="macro">!</span> {
+        <span class="comment">// generic types</span>
+        (<span class="string">&quot;any&quot;</span>, <span class="ident">CPU_TYPE_ANY</span>, <span class="ident">CPU_SUBTYPE_MULTIPLE</span>),
+        (<span class="string">&quot;little&quot;</span>, <span class="ident">CPU_TYPE_ANY</span>, <span class="ident">CPU_SUBTYPE_LITTLE_ENDIAN</span>),
+        (<span class="string">&quot;big&quot;</span>, <span class="ident">CPU_TYPE_ANY</span>, <span class="ident">CPU_SUBTYPE_BIG_ENDIAN</span>),
+
+        <span class="comment">// macho names</span>
+        (<span class="string">&quot;ppc64&quot;</span>, <span class="ident">CPU_TYPE_POWERPC64</span>, <span class="ident">CPU_SUBTYPE_POWERPC_ALL</span>),
+        (<span class="string">&quot;x86_64&quot;</span>, <span class="ident">CPU_TYPE_X86_64</span>, <span class="ident">CPU_SUBTYPE_X86_64_ALL</span>),
+        (<span class="string">&quot;x86_64h&quot;</span>, <span class="ident">CPU_TYPE_X86_64</span>, <span class="ident">CPU_SUBTYPE_X86_64_H</span>),
+        (<span class="string">&quot;arm64&quot;</span>, <span class="ident">CPU_TYPE_ARM64</span>, <span class="ident">CPU_SUBTYPE_ARM64_ALL</span>),
+        (<span class="string">&quot;arm64_32&quot;</span>, <span class="ident">CPU_TYPE_ARM64_32</span>, <span class="ident">CPU_SUBTYPE_ARM64_32_ALL</span>),
+        (<span class="string">&quot;ppc970-64&quot;</span>, <span class="ident">CPU_TYPE_POWERPC64</span>, <span class="ident">CPU_SUBTYPE_POWERPC_970</span>),
+        (<span class="string">&quot;ppc&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_ALL</span>),
+        (<span class="string">&quot;i386&quot;</span>, <span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_I386_ALL</span>),
+        (<span class="string">&quot;m68k&quot;</span>, <span class="ident">CPU_TYPE_MC680X0</span>, <span class="ident">CPU_SUBTYPE_MC680X0_ALL</span>),
+        (<span class="string">&quot;hppa&quot;</span>, <span class="ident">CPU_TYPE_HPPA</span>, <span class="ident">CPU_SUBTYPE_HPPA_ALL</span>),
+        (<span class="string">&quot;sparc&quot;</span>, <span class="ident">CPU_TYPE_SPARC</span>, <span class="ident">CPU_SUBTYPE_SPARC_ALL</span>),
+        (<span class="string">&quot;m88k&quot;</span>, <span class="ident">CPU_TYPE_MC88000</span>, <span class="ident">CPU_SUBTYPE_MC88000_ALL</span>),
+        (<span class="string">&quot;i860&quot;</span>, <span class="ident">CPU_TYPE_I860</span>, <span class="ident">CPU_SUBTYPE_I860_ALL</span>),
+        (<span class="string">&quot;arm&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_ALL</span>),
+        (<span class="string">&quot;ppc601&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_601</span>),
+        (<span class="string">&quot;ppc603&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_603</span>),
+        (<span class="string">&quot;ppc603e&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_603E</span>),
+        (<span class="string">&quot;ppc603ev&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>,<span class="ident">CPU_SUBTYPE_POWERPC_603EV</span>),
+        (<span class="string">&quot;ppc604&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_604</span>),
+        (<span class="string">&quot;ppc604e&quot;</span>,<span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_604E</span>),
+        (<span class="string">&quot;ppc750&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_750</span>),
+        (<span class="string">&quot;ppc7400&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_7400</span>),
+        (<span class="string">&quot;ppc7450&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_7450</span>),
+        (<span class="string">&quot;ppc970&quot;</span>, <span class="ident">CPU_TYPE_POWERPC</span>, <span class="ident">CPU_SUBTYPE_POWERPC_970</span>),
+        (<span class="string">&quot;i486&quot;</span>, <span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_486</span>),
+        (<span class="string">&quot;i486SX&quot;</span>, <span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_486SX</span>),
+        (<span class="string">&quot;i586&quot;</span>, <span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_586</span>),
+        (<span class="string">&quot;i686&quot;</span>, <span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_PENTPRO</span>),
+        (<span class="string">&quot;pentIIm3&quot;</span>, <span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_PENTII_M3</span>),
+        (<span class="string">&quot;pentIIm5&quot;</span>, <span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_PENTII_M5</span>),
+        (<span class="string">&quot;pentium4&quot;</span>, <span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_PENTIUM_4</span>),
+        (<span class="string">&quot;m68030&quot;</span>, <span class="ident">CPU_TYPE_MC680X0</span>, <span class="ident">CPU_SUBTYPE_MC68030_ONLY</span>),
+        (<span class="string">&quot;m68040&quot;</span>, <span class="ident">CPU_TYPE_MC680X0</span>, <span class="ident">CPU_SUBTYPE_MC68040</span>),
+        (<span class="string">&quot;hppa7100LC&quot;</span>, <span class="ident">CPU_TYPE_HPPA</span>,  <span class="ident">CPU_SUBTYPE_HPPA_7100LC</span>),
+        (<span class="string">&quot;armv4t&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V4T</span>),
+        (<span class="string">&quot;armv5&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V5TEJ</span>),
+        (<span class="string">&quot;xscale&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_XSCALE</span>),
+        (<span class="string">&quot;armv6&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V6</span>),
+        (<span class="string">&quot;armv6m&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V6M</span>),
+        (<span class="string">&quot;armv7&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V7</span>),
+        (<span class="string">&quot;armv7f&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V7F</span>),
+        (<span class="string">&quot;armv7s&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V7S</span>),
+        (<span class="string">&quot;armv7k&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V7K</span>),
+        (<span class="string">&quot;armv7m&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V7M</span>),
+        (<span class="string">&quot;armv7em&quot;</span>, <span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V7EM</span>),
+        (<span class="string">&quot;arm64v8&quot;</span>, <span class="ident">CPU_TYPE_ARM64</span>, <span class="ident">CPU_SUBTYPE_ARM64_V8</span>),
+        (<span class="string">&quot;arm64e&quot;</span>, <span class="ident">CPU_TYPE_ARM64</span>, <span class="ident">CPU_SUBTYPE_ARM64_E</span>),
+        (<span class="string">&quot;arm64_32_v8&quot;</span>, <span class="ident">CPU_TYPE_ARM64_32</span>, <span class="ident">CPU_SUBTYPE_ARM64_32_V8</span>),
+    }
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_basic_mapping</span>() {
+        <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">cputype</span>::<span class="kw-2">*</span>;
+
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">get_arch_from_flag</span>(<span class="string">&quot;armv7&quot;</span>), <span class="prelude-val">Some</span>((<span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V7</span>)));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">get_arch_name_from_types</span>(<span class="ident">CPU_TYPE_ARM</span>, <span class="ident">CPU_SUBTYPE_ARM_V7</span>), <span class="prelude-val">Some</span>(<span class="string">&quot;armv7&quot;</span>));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">get_arch_from_flag</span>(<span class="string">&quot;i386&quot;</span>), <span class="prelude-val">Some</span>((<span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_I386_ALL</span>)));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">get_arch_from_flag</span>(<span class="string">&quot;x86&quot;</span>), <span class="prelude-val">Some</span>((<span class="ident">CPU_TYPE_I386</span>, <span class="ident">CPU_SUBTYPE_I386_ALL</span>)));
+    }
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "goblin";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `aio` mod in crate `nix`."><meta name="keywords" content="rust, rustlang, rust-lang, aio"><title>nix::sys::aio - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="../../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../nix/index.html'><div class='logo-container'><img src='../../../rust-logo.png' alt='logo'></div></a><p class='location'>Module aio</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'><a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a></p><script>window.sidebarCurrent = {name: 'aio', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../../src/nix/sys/aio.rs.html#2-1280' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a>::<wbr><a class="mod" href=''>aio</a></span></h1><div class='docblock'><p>POSIX Asynchronous I/O</p>
+<p>The POSIX AIO interface is used for asynchronous I/O on files and disk-like
+devices.  It supports <a href="struct.AioCb.html#method.read"><code>read</code></a>,
+<a href="struct.AioCb.html#method.write"><code>write</code></a>, and
+<a href="struct.AioCb.html#method.fsync"><code>fsync</code></a> operations.  Completion
+notifications can optionally be delivered via
+<a href="../signal/enum.SigevNotify.html#variant.SigevSignal">signals</a>, via the
+<a href="fn.aio_suspend.html"><code>aio_suspend</code></a> function, or via polling.  Some
+platforms support other completion
+notifications, such as
+<a href="../signal/enum.SigevNotify.html#variant.SigevKevent">kevent</a>.</p>
+<p>Multiple operations may be submitted in a batch with
+<a href="fn.lio_listio.html"><code>lio_listio</code></a>, though the standard does not guarantee
+that they will be executed atomically.</p>
+<p>Outstanding operations may be cancelled with
+<a href="struct.AioCb.html#method.cancel"><code>cancel</code></a> or
+<a href="fn.aio_cancel_all.html"><code>aio_cancel_all</code></a>, though the operating system may
+not support this for all filesystems and devices.</p>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.AioCb.html" title='nix::sys::aio::AioCb struct'>AioCb</a></td><td class='docblock-short'><p>AIO Control Block.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.AioCancelStat.html" title='nix::sys::aio::AioCancelStat enum'>AioCancelStat</a></td><td class='docblock-short'><p>Return values for <a href="struct.AioCb.html#method.cancel"><code>AioCb::cancel</code></a> and
+<a href="fn.aio_cancel_all.html"><code>aio_cancel_all</code></a></p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.AioFsyncMode.html" title='nix::sys::aio::AioFsyncMode enum'>AioFsyncMode</a></td><td class='docblock-short'><p>Mode for <code>AioCb::fsync</code>.  Controls whether only data or both data and
+metadata are synced.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Buffer.html" title='nix::sys::aio::Buffer enum'>Buffer</a></td><td class='docblock-short'><p>Owns (uniquely or shared) a memory buffer to keep it from <code>Drop</code>ing while
+the kernel has a pointer to it.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.LioMode.html" title='nix::sys::aio::LioMode enum'>LioMode</a></td><td class='docblock-short'><p>Mode for <a href="fn.lio_listio.html"><code>lio_listio</code></a></p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.LioOpcode.html" title='nix::sys::aio::LioOpcode enum'>LioOpcode</a></td><td class='docblock-short'><p>When used with <a href="fn.lio_listio.html"><code>lio_listio</code></a>, determines whether a
+given <code>aiocb</code> should be used for a read operation, a write operation, or
+ignored.  Has no effect for any other aio functions.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.aio_cancel_all.html" title='nix::sys::aio::aio_cancel_all fn'>aio_cancel_all</a></td><td class='docblock-short'><p>Cancels outstanding AIO requests for a given file descriptor.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.aio_suspend.html" title='nix::sys::aio::aio_suspend fn'>aio_suspend</a></td><td class='docblock-short'><p>Suspends the calling process until at least one of the specified <code>AioCb</code>s
+has completed, a signal is delivered, or the timeout has passed.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "nix";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script defer src="../../../search-index.js"></script></body></html>

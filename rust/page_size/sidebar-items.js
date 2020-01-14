@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["get","This function retrieves the system's memory page size."],["get_granularity","This function retrieves the system's memory allocation granularity."]]});

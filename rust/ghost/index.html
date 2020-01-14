@@ -1,0 +1,144 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `ghost` crate."><meta name="keywords" content="rust, rustlang, rust-lang, ghost"><title>ghost - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../ghost/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate ghost</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all ghost's items</p></a><p class='location'></p><script>window.sidebarCurrent = {name: 'ghost', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/ghost/lib.rs.html#1-323' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>ghost</a></span></h1><div class='docblock'><p><strong>Define your own PhantomData and similarly behaved unit types.</strong></p>
+<h1 id="background" class="section-header"><a href="#background">Background</a></h1>
+<p><a href="https://doc.rust-lang.org/std/marker/struct.PhantomData.html"><code>PhantomData</code></a> as defined by the Rust standard library is magical in that
+the same type is impossible to define in ordinary Rust code. It is defined
+in the standard library like this:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">lang</span> <span class="op">=</span> <span class="string">&quot;phantom_data&quot;</span>]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>;</pre></div>
+<p>The <code>#[lang = &quot;...&quot;]</code> attribute indicates that this is a <a href="https://manishearth.github.io/blog/2017/01/11/rust-tidbits-what-is-a-lang-item/">lang item</a>, a
+special case known to the compiler. It is the only type permitted to carry
+an unused type parameter.</p>
+<p>If we try to define an equivalent unit struct with type parameter, the
+compiler rejects that.</p>
+
+<div class='information'><div class='tooltip compile_fail'>ⓘ<span class='tooltiptext'>This example deliberately fails to compile</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered compile_fail">
+<span class="kw">struct</span> <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>;</pre></div>
+<pre><code class="language-text">error[E0392]: parameter `T` is never used
+ --&gt; src/main.rs:1:18
+  |
+1 | struct MyPhantom&lt;T: ?Sized&gt;;
+  |                  ^ unused type parameter
+  |
+  = help: consider removing `T` or using a marker such as `std::marker::PhantomData`
+</code></pre>
+<p>This crate provides a <code>#[phantom]</code> attribute that makes it possible to
+define unit structs with generic parameters.</p>
+<h1 id="examples" class="section-header"><a href="#examples">Examples</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ghost</span>::<span class="ident">phantom</span>;
+
+<span class="attribute">#[<span class="ident">phantom</span>]</span>
+<span class="kw">struct</span> <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>;
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="comment">// Proof that MyPhantom behaves like PhantomData.</span>
+    <span class="kw">let</span> <span class="kw">_</span>: <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">MyPhantom</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>;
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">0</span>, <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>());
+}
+
+<span class="comment">// Proof that MyPhantom is not just a re-export of PhantomData.</span>
+<span class="comment">// If it were a re-export, these would be conflicting impls.</span>
+<span class="kw">trait</span> <span class="ident">Trait</span> {}
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Trait</span> <span class="kw">for</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Trait</span> <span class="kw">for</span> <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
+
+<span class="comment">// Proof that MyPhantom is local to the current crate.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+}</pre></div>
+<p>The implementation accepts where-clauses, lifetimes, multiple generic
+parameters, and derives. Here is a contrived invocation that demonstrates
+everything at once:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ghost</span>::<span class="ident">phantom</span>;
+
+<span class="attribute">#[<span class="ident">phantom</span>]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Debug</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Crazy</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">V</span>: <span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="kw">where</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">V</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">T</span><span class="op">&gt;</span>;
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Crazy</span>::<span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">String</span><span class="op">&gt;</span>;
+
+    <span class="comment">// Lifetime elision.</span>
+    <span class="kw">let</span> <span class="ident">crazy</span> <span class="op">=</span> <span class="ident">Crazy</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="ident">String</span><span class="op">&gt;</span>;
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">crazy</span>);
+}</pre></div>
+<h1 id="variance" class="section-header"><a href="#variance">Variance</a></h1>
+<p>The <code>#[phantom]</code> attribute accepts attributes on individual generic
+parameters (both lifetime and type parameters) to make them contravariant or
+invariant. The default is covariance.</p>
+<ul>
+<li><code>#[contra]</code> — contravariant generic parameter</li>
+<li><code>#[invariant]</code> — invariant generic parameter</li>
+</ul>
+<p>The implications of variance are explained in more detail by the <a href="https://doc.rust-lang.org/nomicon/subtyping.html">Subtyping
+chapter</a> of the Rustonomicon.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ghost</span>::<span class="ident">phantom</span>;
+
+<span class="attribute">#[<span class="ident">phantom</span>]</span>
+<span class="kw">struct</span> <span class="ident">ContravariantLifetime</span><span class="op">&lt;</span><span class="attribute">#[<span class="ident">contra</span>]</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span>;
+
+<span class="kw">fn</span> <span class="ident">f</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">arg</span>: <span class="ident">ContravariantLifetime</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ContravariantLifetime</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
+    <span class="comment">// This coercion is only legal because the lifetime parameter is</span>
+    <span class="comment">// contravariant. If it were covariant (the default) or invariant,</span>
+    <span class="comment">// this would not compile.</span>
+    <span class="ident">arg</span>
+}
+
+<span class="attribute">#[<span class="ident">phantom</span>]</span>
+<span class="kw">struct</span> <span class="ident">Demo</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="attribute">#[<span class="ident">contra</span>]</span> <span class="ident">B</span>, <span class="attribute">#[<span class="ident">invariant</span>]</span> <span class="ident">C</span><span class="op">&gt;</span>;</pre></div>
+<h1 id="documentation" class="section-header"><a href="#documentation">Documentation</a></h1>
+<p>There are two alternatives for how to handle Rustdoc documentation on
+publicly exposed phantom types.</p>
+<p>You may provide documentation directly on the phantom struct in the obvious
+way, but Rustdoc will blithely display the somewhat distracting
+implementation details of the mechanism emitted by the <code>#[phantom]</code> macro.
+This way should be preferred if you need to document any public methods, as
+methods will not be visible in the other alternative.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">ghost</span>::<span class="ident">phantom</span>;
+
+<span class="doccomment">/// Documentation.</span>
+<span class="attribute">#[<span class="ident">phantom</span>]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>;
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span> <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Documentation on methods.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">foo</span>() {}
+}</pre></div>
+<p>If you aren't adding methods or don't need methods to be rendered in the
+documentation, the recommended idiom is as follows. Rustdoc will show a much
+less distracting type signature and all of your trait impls, but will not
+show inherent methods.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">mod</span> <span class="ident">private</span> {
+    <span class="kw">use</span> <span class="ident">ghost</span>::<span class="ident">phantom</span>;
+
+    <span class="attribute">#[<span class="ident">phantom</span>]</span>
+    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>;
+}
+
+<span class="doccomment">/// Documentation goes here.</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">type_alias_bounds</span>)]</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">private</span>::<span class="ident">MyPhantom</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>;
+
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">private</span>::<span class="kw-2">*</span>;</pre></div>
+<h1 id="use-cases" class="section-header"><a href="#use-cases">Use cases</a></h1>
+<p>Entirely up to your imagination. Just to name one, how about a typed
+registry library that admits the following syntax for iterating over values
+registered of a particular type:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">for</span> <span class="ident">flag</span> <span class="kw">in</span> <span class="ident">Registry</span>::<span class="op">&lt;</span><span class="ident">Flag</span><span class="op">&gt;</span> {
+    <span class="comment">/* ... */</span>
+}</pre></div>
+</div><h2 id='attributes' class='section-header'><a href="#attributes">Attribute Macros</a></h2>
+<table><tr class='module-item'><td><a class="attr" href="attr.phantom.html" title='ghost::phantom attr'>phantom</a></td><td class='docblock-short'><p>Define your own PhantomData and similarly behaved unit types.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "ghost";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `utf8` mod in crate `regex_syntax`."><meta name="keywords" content="rust, rustlang, rust-lang, utf8"><title>regex_syntax::utf8 - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../regex_syntax/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a><p class='location'>Module utf8</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></div><p class='location'><a href='../index.html'>regex_syntax</a></p><script>window.sidebarCurrent = {name: 'utf8', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/regex_syntax/utf8.rs.html#1-521' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>regex_syntax</a>::<wbr><a class="mod" href=''>utf8</a></span></h1><div class='docblock'><p>Converts ranges of Unicode scalar values to equivalent ranges of UTF-8 bytes.</p>
+<p>This is sub-module is useful for constructing byte based automatons that need
+to embed UTF-8 decoding. The most common use of this module is in conjunction
+with the <a href="../hir/struct.ClassUnicodeRange.html"><code>hir::ClassUnicodeRange</code></a> type.</p>
+<p>See the documentation on the <code>Utf8Sequences</code> iterator for more details and
+an example.</p>
+<h1 id="wait-what-is-this" class="section-header"><a href="#wait-what-is-this">Wait, what is this?</a></h1>
+<p>This is simplest to explain with an example. Let's say you wanted to test
+whether a particular byte sequence was a Cyrillic character. One possible
+scalar value range is <code>[0400-04FF]</code>. The set of allowed bytes for this
+range can be expressed as a sequence of byte ranges:</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
+[<span class="ident">D0</span><span class="op">-</span><span class="ident">D3</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]</pre></div>
+<p>This is simple enough: simply encode the boundaries, <code>0400</code> encodes to
+<code>D0 80</code> and <code>04FF</code> encodes to <code>D3 BF</code>, and create ranges from each
+corresponding pair of bytes: <code>D0</code> to <code>D3</code> and <code>80</code> to <code>BF</code>.</p>
+<p>However, what if you wanted to add the Cyrillic Supplementary characters to
+your range? Your range might then become <code>[0400-052F]</code>. The same procedure
+as above doesn't quite work because <code>052F</code> encodes to <code>D4 AF</code>. The byte ranges
+you'd get from the previous transformation would be <code>[D0-D4][80-AF]</code>. However,
+this isn't quite correct because this range doesn't capture many characters,
+for example, <code>04FF</code> (because its last byte, <code>BF</code> isn't in the range <code>80-AF</code>).</p>
+<p>Instead, you need multiple sequences of byte ranges:</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
+[<span class="ident">D0</span><span class="op">-</span><span class="ident">D3</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]  # <span class="ident">matches</span> <span class="ident">codepoints</span> <span class="number">0400</span><span class="op">-</span><span class="number">04FF</span>
+[<span class="ident">D4</span>][<span class="number">80</span><span class="op">-</span><span class="ident">AF</span>]     # <span class="ident">matches</span> <span class="ident">codepoints</span> <span class="number">0500</span><span class="op">-</span><span class="number">052F</span></pre></div>
+<p>This gets even more complicated if you want bigger ranges, particularly if
+they naively contain surrogate codepoints. For example, the sequence of byte
+ranges for the basic multilingual plane (<code>[0000-FFFF]</code>) look like this:</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
+[<span class="number">0</span><span class="op">-</span><span class="number">7F</span>]
+[<span class="ident">C2</span><span class="op">-</span><span class="ident">DF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">E0</span>][<span class="ident">A0</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">E1</span><span class="op">-</span><span class="ident">EC</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">ED</span>][<span class="number">80</span><span class="op">-</span><span class="number">9F</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">EE</span><span class="op">-</span><span class="ident">EF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]</pre></div>
+<p>Note that the byte ranges above will <em>not</em> match any erroneous encoding of
+UTF-8, including encodings of surrogate codepoints.</p>
+<p>And, of course, for all of Unicode (<code>[000000-10FFFF]</code>):</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
+[<span class="number">0</span><span class="op">-</span><span class="number">7F</span>]
+[<span class="ident">C2</span><span class="op">-</span><span class="ident">DF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">E0</span>][<span class="ident">A0</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">E1</span><span class="op">-</span><span class="ident">EC</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">ED</span>][<span class="number">80</span><span class="op">-</span><span class="number">9F</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">EE</span><span class="op">-</span><span class="ident">EF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">F0</span>][<span class="number">90</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">F1</span><span class="op">-</span><span class="ident">F3</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]
+[<span class="ident">F4</span>][<span class="number">80</span><span class="op">-</span><span class="number">8F</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>][<span class="number">80</span><span class="op">-</span><span class="ident">BF</span>]</pre></div>
+<p>This module automates the process of creating these byte ranges from ranges of
+Unicode scalar values.</p>
+<h1 id="lineage" class="section-header"><a href="#lineage">Lineage</a></h1>
+<p>I got the idea and general implementation strategy from Russ Cox in his
+<a href="https://web.archive.org/web/20160404141123/https://swtch.com/%7Ersc/regexp/regexp3.html">article on regexps</a> and RE2.
+Russ Cox got it from Ken Thompson's <code>grep</code> (no source, folk lore?).
+I also got the idea from
+<a href="https://github.com/apache/lucene-solr/blob/ae93f4e7ac6a3908046391de35d4f50a0d3c59ca/lucene/core/src/java/org/apache/lucene/util/automaton/UTF32ToUTF8.java">Lucene</a>,
+which uses it for executing automata on their term index.</p>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.Utf8Range.html" title='regex_syntax::utf8::Utf8Range struct'>Utf8Range</a></td><td class='docblock-short'><p>A single inclusive range of UTF-8 bytes.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Utf8Sequences.html" title='regex_syntax::utf8::Utf8Sequences struct'>Utf8Sequences</a></td><td class='docblock-short'><p>An iterator over ranges of matching UTF-8 byte sequences.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.Utf8Sequence.html" title='regex_syntax::utf8::Utf8Sequence enum'>Utf8Sequence</a></td><td class='docblock-short'><p>Utf8Sequence represents a sequence of byte ranges.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "regex_syntax";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

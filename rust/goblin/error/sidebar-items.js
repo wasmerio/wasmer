@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Error","A custom Goblin error"]],"type":[["Result","An impish result"]]});

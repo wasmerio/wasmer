@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `switch` macro in crate `synom`."><meta name="keywords" content="rust, rustlang, rust-lang, switch"><title>synom::switch - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc macro"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../synom/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><div class="sidebar-elems"><p class='location'><a href='index.html'>synom</a></p><script>window.sidebarCurrent = {name: 'switch', ty: 'macro', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/synom/lib.rs.html#799-811' title='goto source code'>[src]</a></span><span class='in-band'>Macro <a href='index.html'>synom</a>::<wbr><a class="macro" href=''>switch</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><div class="example-wrap"><pre class="rust macro">
+<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">switch</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">i</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">submac</span>:<span class="macro">ident</span><span class="macro">!</span>( $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">args</span>:<span class="ident">tt</span>)<span class="op">*</span> ), $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">p</span>:<span class="ident">pat</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">subrule</span>:<span class="macro">ident</span><span class="macro">!</span>( $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">args2</span>:<span class="ident">tt</span>)<span class="op">*</span> ))<span class="op">|</span><span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> { ... };
+}</pre></div>
+</div><div class='docblock'><p>Pattern-match the result of a parser to select which other parser to run.</p>
+<ul>
+<li><strong>Syntax:</strong> <code>switch!(TARGET, PAT1 =&gt; THEN1 | PAT2 =&gt; THEN2 | ...)</code></li>
+<li><strong>Output:</strong> <code>T</code>, the return type of <code>THEN1</code> and <code>THEN2</code> and ...</li>
+</ul>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">syn</span>;
+<span class="attribute">#[<span class="ident">macro_use</span>]</span> <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">synom</span>;
+
+<span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">Ident</span>, <span class="ident">Ty</span>};
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">parse</span>::{<span class="ident">ident</span>, <span class="ident">ty</span>};
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">enum</span> <span class="ident">UnitType</span> {
+    <span class="ident">Struct</span> {
+        <span class="ident">name</span>: <span class="ident">Ident</span>,
+    },
+    <span class="ident">Enum</span> {
+        <span class="ident">name</span>: <span class="ident">Ident</span>,
+        <span class="ident">variant</span>: <span class="ident">Ident</span>,
+    },
+}
+
+<span class="comment">// Parse a unit struct or enum: either `struct S;` or `enum E { V }`.</span>
+<span class="macro">named</span><span class="macro">!</span>(<span class="ident">unit_type</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">UnitType</span>, <span class="macro">do_parse</span><span class="macro">!</span>(
+    <span class="ident">which</span>: <span class="macro">alt</span><span class="macro">!</span>(<span class="macro">keyword</span><span class="macro">!</span>(<span class="string">&quot;struct&quot;</span>) <span class="op">|</span> <span class="macro">keyword</span><span class="macro">!</span>(<span class="string">&quot;enum&quot;</span>)) <span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="ident">id</span>: <span class="ident">ident</span> <span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="ident">item</span>: <span class="macro">switch</span><span class="macro">!</span>(<span class="macro">value</span><span class="macro">!</span>(<span class="ident">which</span>),
+        <span class="string">&quot;struct&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">map</span><span class="macro">!</span>(
+            <span class="macro">punct</span><span class="macro">!</span>(<span class="string">&quot;;&quot;</span>),
+            <span class="kw">move</span> <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">UnitType</span>::<span class="ident">Struct</span> {
+                <span class="ident">name</span>: <span class="ident">id</span>,
+            }
+        )
+        <span class="op">|</span>
+        <span class="string">&quot;enum&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">map</span><span class="macro">!</span>(
+            <span class="macro">delimited</span><span class="macro">!</span>(<span class="macro">punct</span><span class="macro">!</span>(<span class="string">&quot;{&quot;</span>), <span class="ident">ident</span>, <span class="macro">punct</span><span class="macro">!</span>(<span class="string">&quot;}&quot;</span>)),
+            <span class="kw">move</span> <span class="op">|</span><span class="ident">variant</span><span class="op">|</span> <span class="ident">UnitType</span>::<span class="ident">Enum</span> {
+                <span class="ident">name</span>: <span class="ident">id</span>,
+                <span class="ident">variant</span>: <span class="ident">variant</span>,
+            }
+        )
+    ) <span class="op">&gt;</span><span class="op">&gt;</span>
+    (<span class="ident">item</span>)
+));
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="string">&quot;struct S;&quot;</span>;
+    <span class="kw">let</span> <span class="ident">parsed</span> <span class="op">=</span> <span class="ident">unit_type</span>(<span class="ident">input</span>).<span class="ident">expect</span>(<span class="string">&quot;unit struct or enum&quot;</span>);
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">parsed</span>);
+
+    <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="string">&quot;enum E { V }&quot;</span>;
+    <span class="kw">let</span> <span class="ident">parsed</span> <span class="op">=</span> <span class="ident">unit_type</span>(<span class="ident">input</span>).<span class="ident">expect</span>(<span class="string">&quot;unit struct or enum&quot;</span>);
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">parsed</span>);
+}</pre></div>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "synom";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

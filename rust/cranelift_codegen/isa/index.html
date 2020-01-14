@@ -1,0 +1,73 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `isa` mod in crate `cranelift_codegen`."><meta name="keywords" content="rust, rustlang, rust-lang, isa"><title>cranelift_codegen::isa - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../cranelift_codegen/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a><p class='location'>Module isa</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'><a href='../index.html'>cranelift_codegen</a></p><script>window.sidebarCurrent = {name: 'isa', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/cranelift_codegen/isa/mod.rs.html#1-388' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>cranelift_codegen</a>::<wbr><a class="mod" href=''>isa</a></span></h1><div class='docblock'><p>Instruction Set Architectures.</p>
+<p>The <code>isa</code> module provides a <code>TargetIsa</code> trait which provides the behavior specialization needed
+by the ISA-independent code generator. The sub-modules of this module provide definitions for
+the instruction sets that Cranelift can target. Each sub-module has it's own implementation of
+<code>TargetIsa</code>.</p>
+<h1 id="constructing-a-targetisa-instance" class="section-header"><a href="#constructing-a-targetisa-instance">Constructing a <code>TargetIsa</code> instance</a></h1>
+<p>The target ISA is built from the following information:</p>
+<ul>
+<li>The name of the target ISA as a string. Cranelift is a cross-compiler, so the ISA to target
+can be selected dynamically. Individual ISAs can be left out when Cranelift is compiled, so a
+string is used to identify the proper sub-module.</li>
+<li>Values for settings that apply to all ISAs. This is represented by a <code>settings::Flags</code>
+instance.</li>
+<li>Values for ISA-specific settings.</li>
+</ul>
+<p>The <code>isa::lookup()</code> function is the main entry point which returns an <code>isa::Builder</code>
+appropriate for the requested ISA:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">isa</span>;
+<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">settings</span>::{<span class="self">self</span>, <span class="ident">Configurable</span>};
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">FromStr</span>;
+<span class="kw">use</span> <span class="ident">target_lexicon</span>::<span class="ident">Triple</span>;
+
+<span class="kw">let</span> <span class="ident">shared_builder</span> <span class="op">=</span> <span class="ident">settings</span>::<span class="ident">builder</span>();
+<span class="kw">let</span> <span class="ident">shared_flags</span> <span class="op">=</span> <span class="ident">settings</span>::<span class="ident">Flags</span>::<span class="ident">new</span>(<span class="ident">shared_builder</span>);
+
+<span class="kw">match</span> <span class="ident">isa</span>::<span class="ident">lookup</span>(<span class="macro">triple</span><span class="macro">!</span>(<span class="string">&quot;riscv32&quot;</span>)) {
+    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="comment">// The RISC-V target ISA is not available.</span>
+    }
+    <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">isa_builder</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">isa_builder</span>.<span class="ident">set</span>(<span class="string">&quot;supports_m&quot;</span>, <span class="string">&quot;on&quot;</span>);
+        <span class="kw">let</span> <span class="ident">isa</span> <span class="op">=</span> <span class="ident">isa_builder</span>.<span class="ident">finish</span>(<span class="ident">shared_flags</span>);
+    }
+}</pre></div>
+<p>The configured target ISA trait object is a <code>Box&lt;TargetIsa&gt;</code> which can be used for multiple
+concurrent function compilations.</p>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Re-exports</a></h2>
+<table><tr><td><code>pub use crate::isa::registers::<a class="fn" href="../../cranelift_codegen/isa/registers/fn.regs_overlap.html" title="fn cranelift_codegen::isa::registers::regs_overlap">regs_overlap</a>;</code></td></tr><tr><td><code>pub use crate::isa::registers::<a class="type" href="../../cranelift_codegen/isa/registers/type.RegClass.html" title="type cranelift_codegen::isa::registers::RegClass">RegClass</a>;</code></td></tr><tr><td><code>pub use crate::isa::registers::<a class="struct" href="../../cranelift_codegen/isa/registers/struct.RegClassIndex.html" title="struct cranelift_codegen::isa::registers::RegClassIndex">RegClassIndex</a>;</code></td></tr><tr><td><code>pub use crate::isa::registers::<a class="struct" href="../../cranelift_codegen/isa/registers/struct.RegInfo.html" title="struct cranelift_codegen::isa::registers::RegInfo">RegInfo</a>;</code></td></tr><tr><td><code>pub use crate::isa::registers::<a class="type" href="../../cranelift_codegen/isa/registers/type.RegUnit.html" title="type cranelift_codegen::isa::registers::RegUnit">RegUnit</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table><tr class='module-item'><td><a class="mod" href="registers/index.html" title='cranelift_codegen::isa::registers mod'>registers</a></td><td class='docblock-short'><p>Data structures describing the registers in an ISA.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.BranchRange.html" title='cranelift_codegen::isa::BranchRange struct'>BranchRange</a></td><td class='docblock-short'><p>Constraints on the range of a branch instruction.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Builder.html" title='cranelift_codegen::isa::Builder struct'>Builder</a></td><td class='docblock-short'><p>Builder for a <code>TargetIsa</code>.
+Modify the ISA-specific settings before creating the <code>TargetIsa</code> trait object with <code>finish</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.EncInfo.html" title='cranelift_codegen::isa::EncInfo struct'>EncInfo</a></td><td class='docblock-short'><p>Information about all the encodings in this ISA.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Encoding.html" title='cranelift_codegen::isa::Encoding struct'>Encoding</a></td><td class='docblock-short'><p>Bits needed to encode an instruction as binary machine code.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.OperandConstraint.html" title='cranelift_codegen::isa::OperandConstraint struct'>OperandConstraint</a></td><td class='docblock-short'><p>Register constraint for a single value operand or instruction result.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.RecipeConstraints.html" title='cranelift_codegen::isa::RecipeConstraints struct'>RecipeConstraints</a></td><td class='docblock-short'><p>Value operand constraints for an encoding recipe.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.StackBaseMask.html" title='cranelift_codegen::isa::StackBaseMask struct'>StackBaseMask</a></td><td class='docblock-short'><p>Bit mask of supported stack bases.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.StackRef.html" title='cranelift_codegen::isa::StackRef struct'>StackRef</a></td><td class='docblock-short'><p>A method for referencing a stack slot in the current stack frame.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.TargetFrontendConfig.html" title='cranelift_codegen::isa::TargetFrontendConfig struct'>TargetFrontendConfig</a></td><td class='docblock-short'><p>This struct provides information that a frontend may need to know about a target to
+produce Cranelift IR for the target.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.CallConv.html" title='cranelift_codegen::isa::CallConv enum'>CallConv</a></td><td class='docblock-short'><p>Calling convention identifiers.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.ConstraintKind.html" title='cranelift_codegen::isa::ConstraintKind enum'>ConstraintKind</a></td><td class='docblock-short'><p>The different kinds of operand constraints.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.LookupError.html" title='cranelift_codegen::isa::LookupError enum'>LookupError</a></td><td class='docblock-short'><p>Describes reason for target lookup failure</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.StackBase.html" title='cranelift_codegen::isa::StackBase enum'>StackBase</a></td><td class='docblock-short'><p>Generic base register for referencing stack slots.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.TargetIsa.html" title='cranelift_codegen::isa::TargetIsa trait'>TargetIsa</a></td><td class='docblock-short'><p>Methods that are specialized to a target ISA. Implies a Display trait that shows the
+shared flags, as well as any isa-specific flags.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.base_size.html" title='cranelift_codegen::isa::base_size fn'>base_size</a></td><td class='docblock-short'><p>Returns the base size of the Recipe, assuming it's fixed. This is the default for most
+encodings; others can be variable and longer than this base size, depending on the registers
+they're using and use a different function, specific per platform.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.lookup.html" title='cranelift_codegen::isa::lookup fn'>lookup</a></td><td class='docblock-short'><p>Look for an ISA for the given <code>triple</code>.
+Return a builder that can create a corresponding <code>TargetIsa</code>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.lookup_by_name.html" title='cranelift_codegen::isa::lookup_by_name fn'>lookup_by_name</a></td><td class='docblock-short'><p>Look for a supported ISA with the given <code>name</code>.
+Return a builder that can create a corresponding <code>TargetIsa</code>.</p>
+</td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table><tr class='module-item'><td><a class="type" href="type.Legalize.html" title='cranelift_codegen::isa::Legalize type'>Legalize</a></td><td class='docblock-short'><p>After determining that an instruction doesn't have an encoding, how should we proceed to
+legalize it?</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "cranelift_codegen";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

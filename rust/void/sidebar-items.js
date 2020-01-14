@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Void","The empty type for cases which can't occur."]],"fn":[["unreachable","A safe version of `intrinsincs::unreachable`."]],"trait":[["ResultVoidErrExt","Extensions to `Result<Void, E>`"],["ResultVoidExt","Extensions to `Result<T, Void>`"]]});

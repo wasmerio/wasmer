@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `syn_mid` crate."><meta name="keywords" content="rust, rustlang, rust-lang, syn_mid"><title>syn_mid - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../syn_mid/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate syn_mid</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all syn_mid's items</p></a><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'syn_mid', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/syn_mid/lib.rs.html#1-190' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>syn_mid</a></span></h1><div class='docblock'><p>Providing the features between &quot;full&quot; and &quot;derive&quot; of syn.</p>
+<p>This crate provides the following two unique data structures.</p>
+<ul>
+<li>
+<p><a href="struct.ItemFn.html"><code>syn_mid::ItemFn</code></a> -- A function whose body is not parsed.</p>
+<pre><code class="language-text">fn process(n: usize) -&gt; Result&lt;()&gt; { ... }
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^     ^
+</code></pre>
+</li>
+<li>
+<p><a href="struct.Block.html"><code>syn_mid::Block</code></a> -- A block whose body is not parsed.</p>
+<pre><code class="language-text">{ ... }
+^     ^
+</code></pre>
+</li>
+</ul>
+<p>Other data structures are the same as data structures of <a href="https://github.com/dtolnay/syn">syn</a>. These are defined in this crate
+because they cannot be used in <a href="https://github.com/dtolnay/syn">syn</a> without &quot;full&quot; feature.</p>
+<h2 id="optional-features" class="section-header"><a href="#optional-features">Optional features</a></h2>
+<p>syn-mid in the default features aims to provide the features between &quot;full&quot;
+and &quot;derive&quot; of <a href="https://github.com/dtolnay/syn">syn</a>.</p>
+<ul>
+<li><strong><code>clone-impls</code></strong> — Clone impls for all syntax tree types.</li>
+</ul>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.Block.html" title='syn_mid::Block struct'>Block</a></td><td class='docblock-short'><p>A braced block containing Rust statements.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.FieldPat.html" title='syn_mid::FieldPat struct'>FieldPat</a></td><td class='docblock-short'><p>A single field in a struct pattern.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ItemFn.html" title='syn_mid::ItemFn struct'>ItemFn</a></td><td class='docblock-short'><p>A free-standing function: <code>fn process(n: usize) -&gt; Result&lt;()&gt; { ... }</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PatIdent.html" title='syn_mid::PatIdent struct'>PatIdent</a></td><td class='docblock-short'><p>A pattern that binds a new variable: <code>ref mut binding @ SUBPATTERN</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PatPath.html" title='syn_mid::PatPath struct'>PatPath</a></td><td class='docblock-short'><p>A path pattern like <code>Color::Red</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PatReference.html" title='syn_mid::PatReference struct'>PatReference</a></td><td class='docblock-short'><p>A reference pattern: <code>&amp;mut var</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PatStruct.html" title='syn_mid::PatStruct struct'>PatStruct</a></td><td class='docblock-short'><p>A struct or struct variant pattern: <code>Variant { x, y, .. }</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PatTuple.html" title='syn_mid::PatTuple struct'>PatTuple</a></td><td class='docblock-short'><p>A tuple pattern: <code>(a, b)</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PatTupleStruct.html" title='syn_mid::PatTupleStruct struct'>PatTupleStruct</a></td><td class='docblock-short'><p>A tuple struct or tuple variant pattern: <code>Variant(x, y, .., z)</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PatType.html" title='syn_mid::PatType struct'>PatType</a></td><td class='docblock-short'><p>A type ascription pattern: <code>foo: f64</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.PatWild.html" title='syn_mid::PatWild struct'>PatWild</a></td><td class='docblock-short'><p>A pattern that matches any value: <code>_</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Receiver.html" title='syn_mid::Receiver struct'>Receiver</a></td><td class='docblock-short'><p>The <code>self</code> argument of an associated method, whether taken by value
+or by reference.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.FnArg.html" title='syn_mid::FnArg enum'>FnArg</a></td><td class='docblock-short'><p>An argument in a function signature: the <code>n: usize</code> in <code>fn f(n: usize)</code>.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Pat.html" title='syn_mid::Pat enum'>Pat</a></td><td class='docblock-short'><p>A pattern in a local binding, function signature, match expression, or
+various other places.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "syn_mid";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

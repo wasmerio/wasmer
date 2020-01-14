@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["OpcodePrefix","Opcode prefix representation."]],"struct":[["EncodingBits","Named interface to the `u16` Encoding bits, representing an opcode."]]});

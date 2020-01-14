@@ -1,0 +1,145 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `plain` crate."><meta name="keywords" content="rust, rustlang, rust-lang, plain"><title>plain - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../plain/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate plain</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all plain's items</p></a><div class="block items"><ul><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'plain', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/plain/lib.rs.html#1-158' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>plain</a></span></h1><div class='docblock'><p>A small Rust library that allows users to interpret arrays of bytes
+as certain kinds of structures safely.</p>
+<p>This crate provides an unsafe trait <a href="trait.Plain.html"><code>Plain</code></a>, which the user
+of the crate uses to mark types for which operations of this library are safe.
+See <a href="trait.Plain.html"><code>Plain</code></a> for the contractual obligation.</p>
+<p>Other than that, everything else in this crate is perfectly safe to use as long
+as the <code>Plain</code> trait is not implemented on inadmissible types (similar to how
+<code>Send</code> and <code>Sync</code> in the standard library work).</p>
+<h1 id="purpose" class="section-header"><a href="#purpose">Purpose</a></h1>
+<p>In low level systems development, it is sometimes necessary to
+interpret locations in memory as data structures. Functions of
+this crate serve to avoid pitfalls associated with that, without
+having to resort to big, full-featured (de)serialization libraries.</p>
+<p>On the other hand, this crate contains no provisions when it comes
+to handling differences in encoding and byte ordering between
+platforms. As such, it is entirely unsuitable for processing
+external data such as file contents or network packets.</p>
+<h1 id="examples" class="section-header"><a href="#examples">Examples</a></h1>
+<p>To start using the crate, simply do <code>extern crate plain;</code>.</p>
+<p>If you want your plain types to have methods from this crate, also include <code>use plain.Plain;</code>.</p>
+<p>Then it's just a matter of marking the right types and using them.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">plain</span>;
+<span class="kw">use</span> <span class="ident">plain</span>::<span class="ident">Plain</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
+
+
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
+<span class="kw">struct</span> <span class="ident">ELF64Header</span> {
+    <span class="kw">pub</span> <span class="ident">e_ident</span>: [<span class="ident">u8</span>; <span class="number">16</span>],
+    <span class="kw">pub</span> <span class="ident">e_type</span>: <span class="ident">u16</span>,
+    <span class="kw">pub</span> <span class="ident">e_machine</span>: <span class="ident">u16</span>,
+    <span class="kw">pub</span> <span class="ident">e_version</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">e_entry</span>: <span class="ident">u64</span>,
+    <span class="kw">pub</span> <span class="ident">e_phoff</span>: <span class="ident">u64</span>,
+    <span class="kw">pub</span> <span class="ident">e_shoff</span>: <span class="ident">u64</span>,
+    <span class="kw">pub</span> <span class="ident">e_flags</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">e_ehsize</span>: <span class="ident">u16</span>,
+    <span class="kw">pub</span> <span class="ident">e_phentsize</span>: <span class="ident">u16</span>,
+    <span class="kw">pub</span> <span class="ident">e_phnum</span>: <span class="ident">u16</span>,
+    <span class="kw">pub</span> <span class="ident">e_shentsize</span>: <span class="ident">u16</span>,
+    <span class="kw">pub</span> <span class="ident">e_shnum</span>: <span class="ident">u16</span>,
+    <span class="kw">pub</span> <span class="ident">e_shstrndx</span>: <span class="ident">u16</span>,
+}
+
+<span class="comment">// SAFE: ELF64Header satisfies all the requirements of `Plain`.</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Plain</span> <span class="kw">for</span> <span class="ident">ELF64Header</span> {}
+
+<span class="kw">impl</span> <span class="ident">ELF64Header</span> {
+	<span class="kw">fn</span> <span class="ident">from_bytes</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">ELF64Header</span> {
+		<span class="ident">plain</span>::<span class="ident">from_bytes</span>(<span class="ident">buf</span>).<span class="ident">expect</span>(<span class="string">&quot;The buffer is either too short or not aligned!&quot;</span>)
+	}
+
+	<span class="kw">fn</span> <span class="ident">from_mut_bytes</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ELF64Header</span> {
+		<span class="ident">plain</span>::<span class="ident">from_mut_bytes</span>(<span class="ident">buf</span>).<span class="ident">expect</span>(<span class="string">&quot;The buffer is either too short or not aligned!&quot;</span>)
+	}
+
+	<span class="kw">fn</span> <span class="ident">copy_from_bytes</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ELF64Header</span> {
+		<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">h</span> <span class="op">=</span> <span class="ident">ELF64Header</span>::<span class="ident">default</span>();
+		<span class="ident">h</span>.<span class="ident">copy_from_bytes</span>(<span class="ident">buf</span>).<span class="ident">expect</span>(<span class="string">&quot;The buffer is too short!&quot;</span>);
+		<span class="ident">h</span>
+	}
+}
+
+
+<span class="comment">// Conditional copying for ultimate hackery.</span>
+<span class="kw">fn</span> <span class="ident">opportunistic_elf_processing</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) {
+	<span class="kw">if</span> <span class="ident">plain</span>::<span class="ident">is_aligned</span>::<span class="op">&lt;</span><span class="ident">ELF64Header</span><span class="op">&gt;</span>(<span class="ident">buf</span>) {
+        <span class="comment">// No copy necessary.</span>
+		<span class="kw">let</span> <span class="ident">elf_ref</span> <span class="op">=</span> <span class="ident">ELF64Header</span>::<span class="ident">from_bytes</span>(<span class="ident">buf</span>);
+		<span class="ident">process_elf</span>(<span class="ident">elf_ref</span>);
+    } <span class="kw">else</span> {
+        <span class="comment">// Not aligned properly, copy to stack first.</span>
+		<span class="kw">let</span> <span class="ident">elf</span> <span class="op">=</span> <span class="ident">ELF64Header</span>::<span class="ident">copy_from_bytes</span>(<span class="ident">buf</span>);
+		<span class="ident">process_elf</span>(<span class="kw-2">&amp;</span><span class="ident">elf</span>);
+    }
+}
+
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">struct</span> <span class="ident">ArrayEntry</span> {
+    <span class="kw">pub</span> <span class="ident">name</span>: [<span class="ident">u8</span>; <span class="number">32</span>],
+    <span class="kw">pub</span> <span class="ident">tag</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">score</span>: <span class="ident">u32</span>,
+}
+
+<span class="comment">// SAFE: ArrayEntry satisfies all the requirements of `Plain`.</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Plain</span> <span class="kw">for</span> <span class="ident">ArrayEntry</span> {}
+
+<span class="kw">fn</span> <span class="ident">array_from_bytes</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">ArrayEntry</span>] {
+    <span class="comment">// NOTE: length is not a concern here,</span>
+    <span class="comment">// since slice_from_bytes() can return empty slice.</span>
+
+    <span class="kw">match</span> <span class="ident">plain</span>::<span class="ident">slice_from_bytes</span>(<span class="ident">buf</span>) {
+        <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;The buffer is not aligned!&quot;</span>),
+        <span class="prelude-val">Ok</span>(<span class="ident">arr</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">arr</span>,
+    }
+}
+
+<span class="kw">fn</span> <span class="ident">array_from_unaligned_bytes</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ArrayEntry</span><span class="op">&gt;</span> {
+	<span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">len</span>() <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">ArrayEntry</span><span class="op">&gt;</span>();
+	<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">ArrayEntry</span>::<span class="ident">default</span>(); <span class="ident">length</span>];
+ 	(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">result</span>).<span class="ident">copy_from_bytes</span>(<span class="ident">buf</span>).<span class="ident">expect</span>(<span class="string">&quot;Cannot fail here.&quot;</span>);
+	<span class="ident">result</span>
+}
+
+</pre></div>
+<h1 id="comparison-to-pod" class="section-header"><a href="#comparison-to-pod">Comparison to <a href="https://crates.io/crates/pod"><code>pod</code></a></a></h1>
+<p><a href="https://crates.io/crates/pod"><code>pod</code></a> is another crate created to help working with plain data.
+The major difference between <code>pod</code> and <code>plain</code> is scope.</p>
+<p><code>plain</code> currently provides only a few functions (+method wrappers) and its implementation
+involves very few lines of unsafe code. It can be used in <code>no_std</code> code. Also, it doesn't
+deal with <a href="https://en.wikipedia.org/wiki/Endianness">endianness</a> in any way,
+so it is only suitable for certain kinds of low-level work.</p>
+<p><code>pod</code>, on the other hand, provides a wide arsenal
+of various methods, most of which may be unnecessary for a given use case.
+It has dependencies on <code>std</code> as well as other crates, but among other things
+it provides tools to handle endianness properly.</p>
+<p>In short, <code>plain</code> is much, much <em>plainer</em>...</p>
+</div><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.Error.html" title='plain::Error enum'>Error</a></td><td class='docblock-short'></td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.Plain.html" title='plain::Plain trait'>Plain</a></td><td class='docblock-short'><p>A trait for plain data types that can be safely read from a byte slice.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.as_bytes.html" title='plain::as_bytes fn'>as_bytes</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Interpret data as bytes. Not safe for data with padding.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.as_mut_bytes.html" title='plain::as_mut_bytes fn'>as_mut_bytes</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Interpret data as mutable bytes.
+Reading is not safe for data with padding. Writing is ok.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.copy_from_bytes.html" title='plain::copy_from_bytes fn'>copy_from_bytes</a></td><td class='docblock-short'><p>Copies data from a byte slice into existing memory.
+Suitable when <a href="fn.from_bytes.html"><code>from_bytes()</code></a> would normally
+be used, but the data is not aligned properly in memory.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.from_bytes.html" title='plain::from_bytes fn'>from_bytes</a></td><td class='docblock-short'><p>Safely converts a byte slice to a reference.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.from_mut_bytes.html" title='plain::from_mut_bytes fn'>from_mut_bytes</a></td><td class='docblock-short'><p>See <a href="fn.from_bytes.html"><code>from_bytes()</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.is_aligned.html" title='plain::is_aligned fn'>is_aligned</a></td><td class='docblock-short'><p>Check if a byte slice is aligned suitably for type T.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.slice_from_bytes.html" title='plain::slice_from_bytes fn'>slice_from_bytes</a></td><td class='docblock-short'><p>Similar to <a href="fn.from_bytes.html"><code>from_bytes()</code></a>,
+except that the output is a slice of T, instead
+of a reference to a single T. All concerns about
+alignment also apply here, but size is handled
+differently.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.slice_from_bytes_len.html" title='plain::slice_from_bytes_len fn'>slice_from_bytes_len</a></td><td class='docblock-short'><p>Same as <a href="fn.slice_from_bytes.html"><code>slice_from_bytes()</code></a>,
+except that it takes explicit length of the result slice.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.slice_from_mut_bytes.html" title='plain::slice_from_mut_bytes fn'>slice_from_mut_bytes</a></td><td class='docblock-short'><p>See <a href="fn.slice_from_bytes.html"><code>slice_from_bytes()</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.slice_from_mut_bytes_len.html" title='plain::slice_from_mut_bytes_len fn'>slice_from_mut_bytes_len</a></td><td class='docblock-short'><p>See <a href="fn.slice_from_bytes_len.html"><code>slice_from_bytes_len()</code></a>.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "plain";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

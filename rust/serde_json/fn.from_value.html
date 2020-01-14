@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `from_value` fn in crate `serde_json`."><meta name="keywords" content="rust, rustlang, rust-lang, from_value"><title>serde_json::from_value - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc fn"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../serde_json/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><div class="sidebar-elems"><p class='location'><a href='index.html'>serde_json</a></p><script>window.sidebarCurrent = {name: 'from_value', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/serde_json/value/mod.rs.html#997-1002' title='goto source code'>[src]</a></span><span class='in-band'>Function <a href='index.html'>serde_json</a>::<wbr><a class="fn" href=''>from_value</a></span></h1><pre class='rust fn'>pub fn from_value&lt;T&gt;(value: <a class="enum" href="../serde_json/value/enum.Value.html" title="enum serde_json::value::Value">Value</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, <a class="struct" href="../serde_json/error/struct.Error.html" title="struct serde_json::error::Error">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../serde/de/trait.DeserializeOwned.html" title="trait serde::de::DeserializeOwned">DeserializeOwned</a>,&nbsp;</span></pre><div class='docblock'><p>Interpret a <code>serde_json::Value</code> as an instance of type <code>T</code>.</p>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">use</span> <span class="ident">serde</span>::<span class="ident">Deserialize</span>;
+<span class="kw">use</span> <span class="ident">serde_json</span>::<span class="ident">json</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Debug</span>)]</span>
+<span class="kw">struct</span> <span class="ident">User</span> {
+    <span class="ident">fingerprint</span>: <span class="ident">String</span>,
+    <span class="ident">location</span>: <span class="ident">String</span>,
+}
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="comment">// The type of `j` is `serde_json::Value`</span>
+    <span class="kw">let</span> <span class="ident">j</span> <span class="op">=</span> <span class="macro">json</span><span class="macro">!</span>({
+        <span class="string">&quot;fingerprint&quot;</span>: <span class="string">&quot;0xF9BA143B95FF6D82&quot;</span>,
+        <span class="string">&quot;location&quot;</span>: <span class="string">&quot;Menlo Park, CA&quot;</span>
+    });
+
+    <span class="kw">let</span> <span class="ident">u</span>: <span class="ident">User</span> <span class="op">=</span> <span class="ident">serde_json</span>::<span class="ident">from_value</span>(<span class="ident">j</span>).<span class="ident">unwrap</span>();
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:#?}&quot;</span>, <span class="ident">u</span>);
+}</pre></div>
+<h1 id="errors" class="section-header"><a href="#errors">Errors</a></h1>
+<p>This conversion can fail if the structure of the Value does not match the
+structure expected by <code>T</code>, for example if <code>T</code> is a struct type but the Value
+contains something other than a JSON map. It can also fail if the structure
+is correct but <code>T</code>'s implementation of <code>Deserialize</code> decides that something
+is wrong with the data, for example required struct fields are missing from
+the JSON map or some number is too big to fit in the expected primitive
+type.</p>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "serde_json";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

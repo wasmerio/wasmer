@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `erased_serde` crate."><meta name="keywords" content="rust, rustlang, rust-lang, erased_serde"><title>erased_serde - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../erased_serde/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate erased_serde</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all erased_serde's items</p></a><div class="block items"><ul><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'erased_serde', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/erased_serde/lib.rs.html#1-117' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>erased_serde</a></span></h1><div class='docblock'><p>This crate provides type-erased versions of Serde's <code>Serialize</code>, <code>Serializer</code>
+and <code>Deserializer</code> traits that can be used as <a href="https://doc.rust-lang.org/book/trait-objects.html">trait
+objects</a>.</p>
+<p>The usual Serde <code>Serialize</code>, <code>Serializer</code> and <code>Deserializer</code> traits cannot
+be used as trait objects like <code>&amp;Serialize</code> or boxed trait objects like
+<code>Box&lt;Serialize&gt;</code> because of Rust's <a href="http://huonw.github.io/blog/2015/01/object-safety/">&quot;object safety&quot;
+rules</a>. In particular,
+all three traits contain generic methods which cannot be made into a trait
+object.</p>
+<p><strong>The traits in this crate work seamlessly with any existing Serde
+<code>Serialize</code> and <code>Deserialize</code> type and any existing Serde <code>Serializer</code> and
+<code>Deserializer</code> format.</strong></p>
+<h2 id="serialization" class="section-header"><a href="#serialization">Serialization</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">erased_serde</span>;
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde_json</span>;
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde_cbor</span>;
+
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">BTreeMap</span> <span class="kw">as</span> <span class="ident">Map</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>;
+
+<span class="kw">use</span> <span class="ident">erased_serde</span>::{<span class="ident">Serialize</span>, <span class="ident">Serializer</span>};
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="comment">// Construct some serializers.</span>
+    <span class="kw">let</span> <span class="ident">json</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">serde_json</span>::<span class="ident">ser</span>::<span class="ident">Serializer</span>::<span class="ident">new</span>(<span class="ident">io</span>::<span class="ident">stdout</span>());
+    <span class="kw">let</span> <span class="ident">cbor</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">serde_cbor</span>::<span class="ident">ser</span>::<span class="ident">Serializer</span>::<span class="ident">new</span>(<span class="ident">io</span>::<span class="ident">stdout</span>());
+
+    <span class="comment">// The values in this map are boxed trait objects. Ordinarily this would not</span>
+    <span class="comment">// be possible with serde::Serializer because of object safety, but type</span>
+    <span class="comment">// erasure makes it possible with erased_serde::Serializer.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">formats</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Serializer</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Map</span>::<span class="ident">new</span>();
+    <span class="ident">formats</span>.<span class="ident">insert</span>(<span class="string">&quot;json&quot;</span>, <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">Serializer</span>::<span class="ident">erase</span>(<span class="ident">json</span>)));
+    <span class="ident">formats</span>.<span class="ident">insert</span>(<span class="string">&quot;cbor&quot;</span>, <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">Serializer</span>::<span class="ident">erase</span>(<span class="ident">cbor</span>)));
+
+    <span class="comment">// These are boxed trait objects as well. Same thing here - type erasure</span>
+    <span class="comment">// makes this possible.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">values</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Serialize</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Map</span>::<span class="ident">new</span>();
+    <span class="ident">values</span>.<span class="ident">insert</span>(<span class="string">&quot;vec&quot;</span>, <span class="ident">Box</span>::<span class="ident">new</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>]));
+    <span class="ident">values</span>.<span class="ident">insert</span>(<span class="string">&quot;int&quot;</span>, <span class="ident">Box</span>::<span class="ident">new</span>(<span class="number">65536</span>));
+
+    <span class="comment">// Pick a Serializer out of the formats map.</span>
+    <span class="kw">let</span> <span class="ident">format</span> <span class="op">=</span> <span class="ident">formats</span>.<span class="ident">get_mut</span>(<span class="string">&quot;json&quot;</span>).<span class="ident">unwrap</span>();
+
+    <span class="comment">// Pick a Serialize out of the values map.</span>
+    <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">values</span>.<span class="ident">get</span>(<span class="string">&quot;vec&quot;</span>).<span class="ident">unwrap</span>();
+
+    <span class="comment">// This line prints `[&quot;a&quot;,&quot;b&quot;]` to stdout.</span>
+    <span class="ident">value</span>.<span class="ident">erased_serialize</span>(<span class="ident">format</span>).<span class="ident">unwrap</span>();
+}</pre></div>
+<h2 id="deserialization" class="section-header"><a href="#deserialization">Deserialization</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">erased_serde</span>;
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde_json</span>;
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde_cbor</span>;
+
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">BTreeMap</span> <span class="kw">as</span> <span class="ident">Map</span>;
+
+<span class="kw">use</span> <span class="ident">erased_serde</span>::<span class="ident">Deserializer</span>;
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="kw">static</span> <span class="ident">JSON</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>] <span class="op">=</span> <span class="string">br#&quot;{&quot;A&quot;: 65, &quot;B&quot;: 66}&quot;#</span>;
+    <span class="kw">static</span> <span class="ident">CBOR</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="number">162</span>, <span class="number">97</span>, <span class="number">65</span>, <span class="number">24</span>, <span class="number">65</span>, <span class="number">97</span>, <span class="number">66</span>, <span class="number">24</span>, <span class="number">66</span>];
+
+    <span class="comment">// Construct some deserializers.</span>
+    <span class="kw">let</span> <span class="ident">json</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">serde_json</span>::<span class="ident">de</span>::<span class="ident">Deserializer</span>::<span class="ident">from_slice</span>(<span class="ident">JSON</span>);
+    <span class="kw">let</span> <span class="ident">cbor</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">serde_cbor</span>::<span class="ident">de</span>::<span class="ident">Deserializer</span>::<span class="ident">from_slice</span>(<span class="ident">CBOR</span>);
+
+    <span class="comment">// The values in this map are boxed trait objects, which is not possible</span>
+    <span class="comment">// with the normal serde::Deserializer because of object safety.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">formats</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Deserializer</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Map</span>::<span class="ident">new</span>();
+    <span class="ident">formats</span>.<span class="ident">insert</span>(<span class="string">&quot;json&quot;</span>, <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">Deserializer</span>::<span class="ident">erase</span>(<span class="ident">json</span>)));
+    <span class="ident">formats</span>.<span class="ident">insert</span>(<span class="string">&quot;cbor&quot;</span>, <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">Deserializer</span>::<span class="ident">erase</span>(<span class="ident">cbor</span>)));
+
+    <span class="comment">// Pick a Deserializer out of the formats map.</span>
+    <span class="kw">let</span> <span class="ident">format</span> <span class="op">=</span> <span class="ident">formats</span>.<span class="ident">get_mut</span>(<span class="string">&quot;json&quot;</span>).<span class="ident">unwrap</span>();
+
+    <span class="kw">let</span> <span class="ident">data</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">erased_serde</span>::<span class="ident">deserialize</span>(<span class="ident">format</span>).<span class="ident">unwrap</span>();
+
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">data</span>[<span class="string">&quot;A&quot;</span>] <span class="op">+</span> <span class="ident">data</span>[<span class="string">&quot;B&quot;</span>]);
+}</pre></div>
+</div><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table><tr class='module-item'><td><a class="macro" href="macro.serialize_trait_object.html" title='erased_serde::serialize_trait_object macro'>serialize_trait_object</a></td><td class='docblock-short'><p>Implement <code>serde::Serialize</code> for a trait object that has
+<code>erased_serde::Serialize</code> as a supertrait.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.Error.html" title='erased_serde::Error struct'>Error</a></td><td class='docblock-short'><p>Error when a <code>Serializer</code> or <code>Deserializer</code> trait object fails.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.Deserializer.html" title='erased_serde::Deserializer trait'>Deserializer</a></td><td class='docblock-short'><p>An object-safe equivalent of Serde's <code>Deserializer</code> trait.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Serialize.html" title='erased_serde::Serialize trait'>Serialize</a></td><td class='docblock-short'><p>An object-safe equivalent of Serde's <code>Serialize</code> trait.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Serializer.html" title='erased_serde::Serializer trait'>Serializer</a></td><td class='docblock-short'><p>An object-safe equivalent of Serde's <code>Serializer</code> trait.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.deserialize.html" title='erased_serde::deserialize fn'>deserialize</a></td><td class='docblock-short'><p>Deserialize a value of type <code>T</code> from the given trait object.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.serialize.html" title='erased_serde::serialize fn'>serialize</a></td><td class='docblock-short'><p>Serialize the given type-erased serializable value.</p>
+</td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table><tr class='module-item'><td><a class="type" href="type.Result.html" title='erased_serde::Result type'>Result</a></td><td class='docblock-short'><p>Result type alias where the error is <code>erased_serde::Error</code>.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "erased_serde";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `cond_reduce` macro in crate `synom`."><meta name="keywords" content="rust, rustlang, rust-lang, cond_reduce"><title>synom::cond_reduce - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc macro"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../synom/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><div class="sidebar-elems"><p class='location'><a href='index.html'>synom</a></p><script>window.sidebarCurrent = {name: 'cond_reduce', ty: 'macro', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/synom/lib.rs.html#383-395' title='goto source code'>[src]</a></span><span class='in-band'>Macro <a href='index.html'>synom</a>::<wbr><a class="macro" href=''>cond_reduce</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><div class="example-wrap"><pre class="rust macro">
+<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">cond_reduce</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">i</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cond</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">submac</span>:<span class="macro">ident</span><span class="macro">!</span>( $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">args</span>:<span class="ident">tt</span>)<span class="op">*</span> )) <span class="op">=</span><span class="op">&gt;</span> { ... };
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">i</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cond</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> { ... };
+}</pre></div>
+</div><div class='docblock'><p>Fail to parse if condition is false, otherwise parse the given parser.</p>
+<p>This is typically used inside of <code>option!</code> or <code>alt!</code>.</p>
+<ul>
+<li><strong>Syntax:</strong> <code>cond_reduce!(CONDITION, THING)</code></li>
+<li><strong>Output:</strong> <code>THING</code></li>
+</ul>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">syn</span>;
+<span class="attribute">#[<span class="ident">macro_use</span>]</span> <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">synom</span>;
+
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">parse</span>::<span class="ident">boolean</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">struct</span> <span class="ident">VariadicBools</span> {
+    <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>,
+    <span class="ident">variadic</span>: <span class="ident">bool</span>,
+}
+
+<span class="comment">// Parse one or more comma-separated booleans, possibly ending in &quot;...&quot; to</span>
+<span class="comment">// indicate there may be more.</span>
+<span class="macro">named</span><span class="macro">!</span>(<span class="ident">variadic_bools</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VariadicBools</span>, <span class="macro">do_parse</span><span class="macro">!</span>(
+    <span class="ident">data</span>: <span class="macro">separated_nonempty_list</span><span class="macro">!</span>(<span class="macro">punct</span><span class="macro">!</span>(<span class="string">&quot;,&quot;</span>), <span class="ident">boolean</span>) <span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="ident">trailing_comma</span>: <span class="macro">option</span><span class="macro">!</span>(<span class="macro">punct</span><span class="macro">!</span>(<span class="string">&quot;,&quot;</span>)) <span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="comment">// Only allow &quot;...&quot; if there is a comma after the last boolean. Using</span>
+    <span class="comment">// `cond_reduce!` is more convenient here than using `cond!`. The</span>
+    <span class="comment">// alternatives are:</span>
+    <span class="comment">//</span>
+    <span class="comment">//   - `cond!(c, option!(p))` or `option!(cond!(c, p))`</span>
+    <span class="comment">//     Gives `Some(Some(&quot;...&quot;))` for variadic and `Some(None)` or `None`</span>
+    <span class="comment">//     which both mean not variadic.</span>
+    <span class="comment">//   - `cond_reduce!(c, option!(p))`</span>
+    <span class="comment">//     Incorrect; would fail to parse if there is no trailing comma.</span>
+    <span class="comment">//   - `option!(cond_reduce!(c, p))`</span>
+    <span class="comment">//     Gives `Some(&quot;...&quot;)` for variadic and `None` otherwise. Perfect!</span>
+    <span class="ident">variadic</span>: <span class="macro">option</span><span class="macro">!</span>(<span class="macro">cond_reduce</span><span class="macro">!</span>(<span class="ident">trailing_comma</span>.<span class="ident">is_some</span>(), <span class="macro">punct</span><span class="macro">!</span>(<span class="string">&quot;...&quot;</span>))) <span class="op">&gt;</span><span class="op">&gt;</span>
+    (<span class="ident">VariadicBools</span> {
+        <span class="ident">data</span>: <span class="ident">data</span>,
+        <span class="ident">variadic</span>: <span class="ident">variadic</span>.<span class="ident">is_some</span>(),
+    })
+));
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="string">&quot;true, true&quot;</span>;
+    <span class="kw">let</span> <span class="ident">parsed</span> <span class="op">=</span> <span class="ident">variadic_bools</span>(<span class="ident">input</span>).<span class="ident">expect</span>(<span class="string">&quot;variadic bools&quot;</span>);
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>, <span class="ident">VariadicBools</span> {
+        <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="bool-val">true</span>, <span class="bool-val">true</span>],
+        <span class="ident">variadic</span>: <span class="bool-val">false</span>,
+    });
+
+    <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="string">&quot;true, ...&quot;</span>;
+    <span class="kw">let</span> <span class="ident">parsed</span> <span class="op">=</span> <span class="ident">variadic_bools</span>(<span class="ident">input</span>).<span class="ident">expect</span>(<span class="string">&quot;variadic bools&quot;</span>);
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>, <span class="ident">VariadicBools</span> {
+        <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="bool-val">true</span>],
+        <span class="ident">variadic</span>: <span class="bool-val">true</span>,
+    });
+}</pre></div>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "synom";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

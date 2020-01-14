@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/Users/syrusakbary/.cargo/git/checkouts/cranelift-ce3a59f3bb7656b0/a81035e/cranelift-codegen/src/result.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>result.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../cranelift_codegen/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<span id="2"> 2</span>
+<span id="3"> 3</span>
+<span id="4"> 4</span>
+<span id="5"> 5</span>
+<span id="6"> 6</span>
+<span id="7"> 7</span>
+<span id="8"> 8</span>
+<span id="9"> 9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! Result and error types representing the outcome of compiling a function.</span>
+
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">verifier</span>::<span class="ident">VerifierErrors</span>;
+<span class="kw">use</span> <span class="ident">thiserror</span>::<span class="ident">Error</span>;
+
+<span class="doccomment">/// A compilation error.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// When Cranelift fails to compile a function, it will return one of these error codes.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CodegenError</span> {
+    <span class="doccomment">/// A list of IR verifier errors.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This always represents a bug, either in the code that generated IR for Cranelift, or a bug</span>
+    <span class="doccomment">/// in Cranelift itself.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Verifier errors&quot;</span>)]</span>
+    <span class="ident">Verifier</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">VerifierErrors</span>),
+
+    <span class="doccomment">/// An implementation limit was exceeded.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Cranelift can compile very large and complicated functions, but the [implementation has</span>
+    <span class="doccomment">/// limits][limits] that cause compilation to fail when they are exceeded.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// [limits]: https://cranelift.readthedocs.io/en/latest/ir.html#implementation-limits</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Implementation limit exceeded&quot;</span>)]</span>
+    <span class="ident">ImplLimitExceeded</span>,
+
+    <span class="doccomment">/// The code size for the function is too large.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Different target ISAs may impose a limit on the size of a compiled function. If that limit</span>
+    <span class="doccomment">/// is exceeded, compilation fails.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Code for function is too large&quot;</span>)]</span>
+    <span class="ident">CodeTooLarge</span>,
+}
+
+<span class="doccomment">/// A convenient alias for a `Result` that uses `CodegenError` as the error type.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CodegenResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "cranelift_codegen";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

@@ -1,0 +1,2445 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/Users/syrusakbary/.cargo/git/checkouts/inkwell-946411d814d2c9f8/0a864eb/src/passes.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>passes.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../inkwell/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<span id="2">   2</span>
+<span id="3">   3</span>
+<span id="4">   4</span>
+<span id="5">   5</span>
+<span id="6">   6</span>
+<span id="7">   7</span>
+<span id="8">   8</span>
+<span id="9">   9</span>
+<span id="10">  10</span>
+<span id="11">  11</span>
+<span id="12">  12</span>
+<span id="13">  13</span>
+<span id="14">  14</span>
+<span id="15">  15</span>
+<span id="16">  16</span>
+<span id="17">  17</span>
+<span id="18">  18</span>
+<span id="19">  19</span>
+<span id="20">  20</span>
+<span id="21">  21</span>
+<span id="22">  22</span>
+<span id="23">  23</span>
+<span id="24">  24</span>
+<span id="25">  25</span>
+<span id="26">  26</span>
+<span id="27">  27</span>
+<span id="28">  28</span>
+<span id="29">  29</span>
+<span id="30">  30</span>
+<span id="31">  31</span>
+<span id="32">  32</span>
+<span id="33">  33</span>
+<span id="34">  34</span>
+<span id="35">  35</span>
+<span id="36">  36</span>
+<span id="37">  37</span>
+<span id="38">  38</span>
+<span id="39">  39</span>
+<span id="40">  40</span>
+<span id="41">  41</span>
+<span id="42">  42</span>
+<span id="43">  43</span>
+<span id="44">  44</span>
+<span id="45">  45</span>
+<span id="46">  46</span>
+<span id="47">  47</span>
+<span id="48">  48</span>
+<span id="49">  49</span>
+<span id="50">  50</span>
+<span id="51">  51</span>
+<span id="52">  52</span>
+<span id="53">  53</span>
+<span id="54">  54</span>
+<span id="55">  55</span>
+<span id="56">  56</span>
+<span id="57">  57</span>
+<span id="58">  58</span>
+<span id="59">  59</span>
+<span id="60">  60</span>
+<span id="61">  61</span>
+<span id="62">  62</span>
+<span id="63">  63</span>
+<span id="64">  64</span>
+<span id="65">  65</span>
+<span id="66">  66</span>
+<span id="67">  67</span>
+<span id="68">  68</span>
+<span id="69">  69</span>
+<span id="70">  70</span>
+<span id="71">  71</span>
+<span id="72">  72</span>
+<span id="73">  73</span>
+<span id="74">  74</span>
+<span id="75">  75</span>
+<span id="76">  76</span>
+<span id="77">  77</span>
+<span id="78">  78</span>
+<span id="79">  79</span>
+<span id="80">  80</span>
+<span id="81">  81</span>
+<span id="82">  82</span>
+<span id="83">  83</span>
+<span id="84">  84</span>
+<span id="85">  85</span>
+<span id="86">  86</span>
+<span id="87">  87</span>
+<span id="88">  88</span>
+<span id="89">  89</span>
+<span id="90">  90</span>
+<span id="91">  91</span>
+<span id="92">  92</span>
+<span id="93">  93</span>
+<span id="94">  94</span>
+<span id="95">  95</span>
+<span id="96">  96</span>
+<span id="97">  97</span>
+<span id="98">  98</span>
+<span id="99">  99</span>
+<span id="100"> 100</span>
+<span id="101"> 101</span>
+<span id="102"> 102</span>
+<span id="103"> 103</span>
+<span id="104"> 104</span>
+<span id="105"> 105</span>
+<span id="106"> 106</span>
+<span id="107"> 107</span>
+<span id="108"> 108</span>
+<span id="109"> 109</span>
+<span id="110"> 110</span>
+<span id="111"> 111</span>
+<span id="112"> 112</span>
+<span id="113"> 113</span>
+<span id="114"> 114</span>
+<span id="115"> 115</span>
+<span id="116"> 116</span>
+<span id="117"> 117</span>
+<span id="118"> 118</span>
+<span id="119"> 119</span>
+<span id="120"> 120</span>
+<span id="121"> 121</span>
+<span id="122"> 122</span>
+<span id="123"> 123</span>
+<span id="124"> 124</span>
+<span id="125"> 125</span>
+<span id="126"> 126</span>
+<span id="127"> 127</span>
+<span id="128"> 128</span>
+<span id="129"> 129</span>
+<span id="130"> 130</span>
+<span id="131"> 131</span>
+<span id="132"> 132</span>
+<span id="133"> 133</span>
+<span id="134"> 134</span>
+<span id="135"> 135</span>
+<span id="136"> 136</span>
+<span id="137"> 137</span>
+<span id="138"> 138</span>
+<span id="139"> 139</span>
+<span id="140"> 140</span>
+<span id="141"> 141</span>
+<span id="142"> 142</span>
+<span id="143"> 143</span>
+<span id="144"> 144</span>
+<span id="145"> 145</span>
+<span id="146"> 146</span>
+<span id="147"> 147</span>
+<span id="148"> 148</span>
+<span id="149"> 149</span>
+<span id="150"> 150</span>
+<span id="151"> 151</span>
+<span id="152"> 152</span>
+<span id="153"> 153</span>
+<span id="154"> 154</span>
+<span id="155"> 155</span>
+<span id="156"> 156</span>
+<span id="157"> 157</span>
+<span id="158"> 158</span>
+<span id="159"> 159</span>
+<span id="160"> 160</span>
+<span id="161"> 161</span>
+<span id="162"> 162</span>
+<span id="163"> 163</span>
+<span id="164"> 164</span>
+<span id="165"> 165</span>
+<span id="166"> 166</span>
+<span id="167"> 167</span>
+<span id="168"> 168</span>
+<span id="169"> 169</span>
+<span id="170"> 170</span>
+<span id="171"> 171</span>
+<span id="172"> 172</span>
+<span id="173"> 173</span>
+<span id="174"> 174</span>
+<span id="175"> 175</span>
+<span id="176"> 176</span>
+<span id="177"> 177</span>
+<span id="178"> 178</span>
+<span id="179"> 179</span>
+<span id="180"> 180</span>
+<span id="181"> 181</span>
+<span id="182"> 182</span>
+<span id="183"> 183</span>
+<span id="184"> 184</span>
+<span id="185"> 185</span>
+<span id="186"> 186</span>
+<span id="187"> 187</span>
+<span id="188"> 188</span>
+<span id="189"> 189</span>
+<span id="190"> 190</span>
+<span id="191"> 191</span>
+<span id="192"> 192</span>
+<span id="193"> 193</span>
+<span id="194"> 194</span>
+<span id="195"> 195</span>
+<span id="196"> 196</span>
+<span id="197"> 197</span>
+<span id="198"> 198</span>
+<span id="199"> 199</span>
+<span id="200"> 200</span>
+<span id="201"> 201</span>
+<span id="202"> 202</span>
+<span id="203"> 203</span>
+<span id="204"> 204</span>
+<span id="205"> 205</span>
+<span id="206"> 206</span>
+<span id="207"> 207</span>
+<span id="208"> 208</span>
+<span id="209"> 209</span>
+<span id="210"> 210</span>
+<span id="211"> 211</span>
+<span id="212"> 212</span>
+<span id="213"> 213</span>
+<span id="214"> 214</span>
+<span id="215"> 215</span>
+<span id="216"> 216</span>
+<span id="217"> 217</span>
+<span id="218"> 218</span>
+<span id="219"> 219</span>
+<span id="220"> 220</span>
+<span id="221"> 221</span>
+<span id="222"> 222</span>
+<span id="223"> 223</span>
+<span id="224"> 224</span>
+<span id="225"> 225</span>
+<span id="226"> 226</span>
+<span id="227"> 227</span>
+<span id="228"> 228</span>
+<span id="229"> 229</span>
+<span id="230"> 230</span>
+<span id="231"> 231</span>
+<span id="232"> 232</span>
+<span id="233"> 233</span>
+<span id="234"> 234</span>
+<span id="235"> 235</span>
+<span id="236"> 236</span>
+<span id="237"> 237</span>
+<span id="238"> 238</span>
+<span id="239"> 239</span>
+<span id="240"> 240</span>
+<span id="241"> 241</span>
+<span id="242"> 242</span>
+<span id="243"> 243</span>
+<span id="244"> 244</span>
+<span id="245"> 245</span>
+<span id="246"> 246</span>
+<span id="247"> 247</span>
+<span id="248"> 248</span>
+<span id="249"> 249</span>
+<span id="250"> 250</span>
+<span id="251"> 251</span>
+<span id="252"> 252</span>
+<span id="253"> 253</span>
+<span id="254"> 254</span>
+<span id="255"> 255</span>
+<span id="256"> 256</span>
+<span id="257"> 257</span>
+<span id="258"> 258</span>
+<span id="259"> 259</span>
+<span id="260"> 260</span>
+<span id="261"> 261</span>
+<span id="262"> 262</span>
+<span id="263"> 263</span>
+<span id="264"> 264</span>
+<span id="265"> 265</span>
+<span id="266"> 266</span>
+<span id="267"> 267</span>
+<span id="268"> 268</span>
+<span id="269"> 269</span>
+<span id="270"> 270</span>
+<span id="271"> 271</span>
+<span id="272"> 272</span>
+<span id="273"> 273</span>
+<span id="274"> 274</span>
+<span id="275"> 275</span>
+<span id="276"> 276</span>
+<span id="277"> 277</span>
+<span id="278"> 278</span>
+<span id="279"> 279</span>
+<span id="280"> 280</span>
+<span id="281"> 281</span>
+<span id="282"> 282</span>
+<span id="283"> 283</span>
+<span id="284"> 284</span>
+<span id="285"> 285</span>
+<span id="286"> 286</span>
+<span id="287"> 287</span>
+<span id="288"> 288</span>
+<span id="289"> 289</span>
+<span id="290"> 290</span>
+<span id="291"> 291</span>
+<span id="292"> 292</span>
+<span id="293"> 293</span>
+<span id="294"> 294</span>
+<span id="295"> 295</span>
+<span id="296"> 296</span>
+<span id="297"> 297</span>
+<span id="298"> 298</span>
+<span id="299"> 299</span>
+<span id="300"> 300</span>
+<span id="301"> 301</span>
+<span id="302"> 302</span>
+<span id="303"> 303</span>
+<span id="304"> 304</span>
+<span id="305"> 305</span>
+<span id="306"> 306</span>
+<span id="307"> 307</span>
+<span id="308"> 308</span>
+<span id="309"> 309</span>
+<span id="310"> 310</span>
+<span id="311"> 311</span>
+<span id="312"> 312</span>
+<span id="313"> 313</span>
+<span id="314"> 314</span>
+<span id="315"> 315</span>
+<span id="316"> 316</span>
+<span id="317"> 317</span>
+<span id="318"> 318</span>
+<span id="319"> 319</span>
+<span id="320"> 320</span>
+<span id="321"> 321</span>
+<span id="322"> 322</span>
+<span id="323"> 323</span>
+<span id="324"> 324</span>
+<span id="325"> 325</span>
+<span id="326"> 326</span>
+<span id="327"> 327</span>
+<span id="328"> 328</span>
+<span id="329"> 329</span>
+<span id="330"> 330</span>
+<span id="331"> 331</span>
+<span id="332"> 332</span>
+<span id="333"> 333</span>
+<span id="334"> 334</span>
+<span id="335"> 335</span>
+<span id="336"> 336</span>
+<span id="337"> 337</span>
+<span id="338"> 338</span>
+<span id="339"> 339</span>
+<span id="340"> 340</span>
+<span id="341"> 341</span>
+<span id="342"> 342</span>
+<span id="343"> 343</span>
+<span id="344"> 344</span>
+<span id="345"> 345</span>
+<span id="346"> 346</span>
+<span id="347"> 347</span>
+<span id="348"> 348</span>
+<span id="349"> 349</span>
+<span id="350"> 350</span>
+<span id="351"> 351</span>
+<span id="352"> 352</span>
+<span id="353"> 353</span>
+<span id="354"> 354</span>
+<span id="355"> 355</span>
+<span id="356"> 356</span>
+<span id="357"> 357</span>
+<span id="358"> 358</span>
+<span id="359"> 359</span>
+<span id="360"> 360</span>
+<span id="361"> 361</span>
+<span id="362"> 362</span>
+<span id="363"> 363</span>
+<span id="364"> 364</span>
+<span id="365"> 365</span>
+<span id="366"> 366</span>
+<span id="367"> 367</span>
+<span id="368"> 368</span>
+<span id="369"> 369</span>
+<span id="370"> 370</span>
+<span id="371"> 371</span>
+<span id="372"> 372</span>
+<span id="373"> 373</span>
+<span id="374"> 374</span>
+<span id="375"> 375</span>
+<span id="376"> 376</span>
+<span id="377"> 377</span>
+<span id="378"> 378</span>
+<span id="379"> 379</span>
+<span id="380"> 380</span>
+<span id="381"> 381</span>
+<span id="382"> 382</span>
+<span id="383"> 383</span>
+<span id="384"> 384</span>
+<span id="385"> 385</span>
+<span id="386"> 386</span>
+<span id="387"> 387</span>
+<span id="388"> 388</span>
+<span id="389"> 389</span>
+<span id="390"> 390</span>
+<span id="391"> 391</span>
+<span id="392"> 392</span>
+<span id="393"> 393</span>
+<span id="394"> 394</span>
+<span id="395"> 395</span>
+<span id="396"> 396</span>
+<span id="397"> 397</span>
+<span id="398"> 398</span>
+<span id="399"> 399</span>
+<span id="400"> 400</span>
+<span id="401"> 401</span>
+<span id="402"> 402</span>
+<span id="403"> 403</span>
+<span id="404"> 404</span>
+<span id="405"> 405</span>
+<span id="406"> 406</span>
+<span id="407"> 407</span>
+<span id="408"> 408</span>
+<span id="409"> 409</span>
+<span id="410"> 410</span>
+<span id="411"> 411</span>
+<span id="412"> 412</span>
+<span id="413"> 413</span>
+<span id="414"> 414</span>
+<span id="415"> 415</span>
+<span id="416"> 416</span>
+<span id="417"> 417</span>
+<span id="418"> 418</span>
+<span id="419"> 419</span>
+<span id="420"> 420</span>
+<span id="421"> 421</span>
+<span id="422"> 422</span>
+<span id="423"> 423</span>
+<span id="424"> 424</span>
+<span id="425"> 425</span>
+<span id="426"> 426</span>
+<span id="427"> 427</span>
+<span id="428"> 428</span>
+<span id="429"> 429</span>
+<span id="430"> 430</span>
+<span id="431"> 431</span>
+<span id="432"> 432</span>
+<span id="433"> 433</span>
+<span id="434"> 434</span>
+<span id="435"> 435</span>
+<span id="436"> 436</span>
+<span id="437"> 437</span>
+<span id="438"> 438</span>
+<span id="439"> 439</span>
+<span id="440"> 440</span>
+<span id="441"> 441</span>
+<span id="442"> 442</span>
+<span id="443"> 443</span>
+<span id="444"> 444</span>
+<span id="445"> 445</span>
+<span id="446"> 446</span>
+<span id="447"> 447</span>
+<span id="448"> 448</span>
+<span id="449"> 449</span>
+<span id="450"> 450</span>
+<span id="451"> 451</span>
+<span id="452"> 452</span>
+<span id="453"> 453</span>
+<span id="454"> 454</span>
+<span id="455"> 455</span>
+<span id="456"> 456</span>
+<span id="457"> 457</span>
+<span id="458"> 458</span>
+<span id="459"> 459</span>
+<span id="460"> 460</span>
+<span id="461"> 461</span>
+<span id="462"> 462</span>
+<span id="463"> 463</span>
+<span id="464"> 464</span>
+<span id="465"> 465</span>
+<span id="466"> 466</span>
+<span id="467"> 467</span>
+<span id="468"> 468</span>
+<span id="469"> 469</span>
+<span id="470"> 470</span>
+<span id="471"> 471</span>
+<span id="472"> 472</span>
+<span id="473"> 473</span>
+<span id="474"> 474</span>
+<span id="475"> 475</span>
+<span id="476"> 476</span>
+<span id="477"> 477</span>
+<span id="478"> 478</span>
+<span id="479"> 479</span>
+<span id="480"> 480</span>
+<span id="481"> 481</span>
+<span id="482"> 482</span>
+<span id="483"> 483</span>
+<span id="484"> 484</span>
+<span id="485"> 485</span>
+<span id="486"> 486</span>
+<span id="487"> 487</span>
+<span id="488"> 488</span>
+<span id="489"> 489</span>
+<span id="490"> 490</span>
+<span id="491"> 491</span>
+<span id="492"> 492</span>
+<span id="493"> 493</span>
+<span id="494"> 494</span>
+<span id="495"> 495</span>
+<span id="496"> 496</span>
+<span id="497"> 497</span>
+<span id="498"> 498</span>
+<span id="499"> 499</span>
+<span id="500"> 500</span>
+<span id="501"> 501</span>
+<span id="502"> 502</span>
+<span id="503"> 503</span>
+<span id="504"> 504</span>
+<span id="505"> 505</span>
+<span id="506"> 506</span>
+<span id="507"> 507</span>
+<span id="508"> 508</span>
+<span id="509"> 509</span>
+<span id="510"> 510</span>
+<span id="511"> 511</span>
+<span id="512"> 512</span>
+<span id="513"> 513</span>
+<span id="514"> 514</span>
+<span id="515"> 515</span>
+<span id="516"> 516</span>
+<span id="517"> 517</span>
+<span id="518"> 518</span>
+<span id="519"> 519</span>
+<span id="520"> 520</span>
+<span id="521"> 521</span>
+<span id="522"> 522</span>
+<span id="523"> 523</span>
+<span id="524"> 524</span>
+<span id="525"> 525</span>
+<span id="526"> 526</span>
+<span id="527"> 527</span>
+<span id="528"> 528</span>
+<span id="529"> 529</span>
+<span id="530"> 530</span>
+<span id="531"> 531</span>
+<span id="532"> 532</span>
+<span id="533"> 533</span>
+<span id="534"> 534</span>
+<span id="535"> 535</span>
+<span id="536"> 536</span>
+<span id="537"> 537</span>
+<span id="538"> 538</span>
+<span id="539"> 539</span>
+<span id="540"> 540</span>
+<span id="541"> 541</span>
+<span id="542"> 542</span>
+<span id="543"> 543</span>
+<span id="544"> 544</span>
+<span id="545"> 545</span>
+<span id="546"> 546</span>
+<span id="547"> 547</span>
+<span id="548"> 548</span>
+<span id="549"> 549</span>
+<span id="550"> 550</span>
+<span id="551"> 551</span>
+<span id="552"> 552</span>
+<span id="553"> 553</span>
+<span id="554"> 554</span>
+<span id="555"> 555</span>
+<span id="556"> 556</span>
+<span id="557"> 557</span>
+<span id="558"> 558</span>
+<span id="559"> 559</span>
+<span id="560"> 560</span>
+<span id="561"> 561</span>
+<span id="562"> 562</span>
+<span id="563"> 563</span>
+<span id="564"> 564</span>
+<span id="565"> 565</span>
+<span id="566"> 566</span>
+<span id="567"> 567</span>
+<span id="568"> 568</span>
+<span id="569"> 569</span>
+<span id="570"> 570</span>
+<span id="571"> 571</span>
+<span id="572"> 572</span>
+<span id="573"> 573</span>
+<span id="574"> 574</span>
+<span id="575"> 575</span>
+<span id="576"> 576</span>
+<span id="577"> 577</span>
+<span id="578"> 578</span>
+<span id="579"> 579</span>
+<span id="580"> 580</span>
+<span id="581"> 581</span>
+<span id="582"> 582</span>
+<span id="583"> 583</span>
+<span id="584"> 584</span>
+<span id="585"> 585</span>
+<span id="586"> 586</span>
+<span id="587"> 587</span>
+<span id="588"> 588</span>
+<span id="589"> 589</span>
+<span id="590"> 590</span>
+<span id="591"> 591</span>
+<span id="592"> 592</span>
+<span id="593"> 593</span>
+<span id="594"> 594</span>
+<span id="595"> 595</span>
+<span id="596"> 596</span>
+<span id="597"> 597</span>
+<span id="598"> 598</span>
+<span id="599"> 599</span>
+<span id="600"> 600</span>
+<span id="601"> 601</span>
+<span id="602"> 602</span>
+<span id="603"> 603</span>
+<span id="604"> 604</span>
+<span id="605"> 605</span>
+<span id="606"> 606</span>
+<span id="607"> 607</span>
+<span id="608"> 608</span>
+<span id="609"> 609</span>
+<span id="610"> 610</span>
+<span id="611"> 611</span>
+<span id="612"> 612</span>
+<span id="613"> 613</span>
+<span id="614"> 614</span>
+<span id="615"> 615</span>
+<span id="616"> 616</span>
+<span id="617"> 617</span>
+<span id="618"> 618</span>
+<span id="619"> 619</span>
+<span id="620"> 620</span>
+<span id="621"> 621</span>
+<span id="622"> 622</span>
+<span id="623"> 623</span>
+<span id="624"> 624</span>
+<span id="625"> 625</span>
+<span id="626"> 626</span>
+<span id="627"> 627</span>
+<span id="628"> 628</span>
+<span id="629"> 629</span>
+<span id="630"> 630</span>
+<span id="631"> 631</span>
+<span id="632"> 632</span>
+<span id="633"> 633</span>
+<span id="634"> 634</span>
+<span id="635"> 635</span>
+<span id="636"> 636</span>
+<span id="637"> 637</span>
+<span id="638"> 638</span>
+<span id="639"> 639</span>
+<span id="640"> 640</span>
+<span id="641"> 641</span>
+<span id="642"> 642</span>
+<span id="643"> 643</span>
+<span id="644"> 644</span>
+<span id="645"> 645</span>
+<span id="646"> 646</span>
+<span id="647"> 647</span>
+<span id="648"> 648</span>
+<span id="649"> 649</span>
+<span id="650"> 650</span>
+<span id="651"> 651</span>
+<span id="652"> 652</span>
+<span id="653"> 653</span>
+<span id="654"> 654</span>
+<span id="655"> 655</span>
+<span id="656"> 656</span>
+<span id="657"> 657</span>
+<span id="658"> 658</span>
+<span id="659"> 659</span>
+<span id="660"> 660</span>
+<span id="661"> 661</span>
+<span id="662"> 662</span>
+<span id="663"> 663</span>
+<span id="664"> 664</span>
+<span id="665"> 665</span>
+<span id="666"> 666</span>
+<span id="667"> 667</span>
+<span id="668"> 668</span>
+<span id="669"> 669</span>
+<span id="670"> 670</span>
+<span id="671"> 671</span>
+<span id="672"> 672</span>
+<span id="673"> 673</span>
+<span id="674"> 674</span>
+<span id="675"> 675</span>
+<span id="676"> 676</span>
+<span id="677"> 677</span>
+<span id="678"> 678</span>
+<span id="679"> 679</span>
+<span id="680"> 680</span>
+<span id="681"> 681</span>
+<span id="682"> 682</span>
+<span id="683"> 683</span>
+<span id="684"> 684</span>
+<span id="685"> 685</span>
+<span id="686"> 686</span>
+<span id="687"> 687</span>
+<span id="688"> 688</span>
+<span id="689"> 689</span>
+<span id="690"> 690</span>
+<span id="691"> 691</span>
+<span id="692"> 692</span>
+<span id="693"> 693</span>
+<span id="694"> 694</span>
+<span id="695"> 695</span>
+<span id="696"> 696</span>
+<span id="697"> 697</span>
+<span id="698"> 698</span>
+<span id="699"> 699</span>
+<span id="700"> 700</span>
+<span id="701"> 701</span>
+<span id="702"> 702</span>
+<span id="703"> 703</span>
+<span id="704"> 704</span>
+<span id="705"> 705</span>
+<span id="706"> 706</span>
+<span id="707"> 707</span>
+<span id="708"> 708</span>
+<span id="709"> 709</span>
+<span id="710"> 710</span>
+<span id="711"> 711</span>
+<span id="712"> 712</span>
+<span id="713"> 713</span>
+<span id="714"> 714</span>
+<span id="715"> 715</span>
+<span id="716"> 716</span>
+<span id="717"> 717</span>
+<span id="718"> 718</span>
+<span id="719"> 719</span>
+<span id="720"> 720</span>
+<span id="721"> 721</span>
+<span id="722"> 722</span>
+<span id="723"> 723</span>
+<span id="724"> 724</span>
+<span id="725"> 725</span>
+<span id="726"> 726</span>
+<span id="727"> 727</span>
+<span id="728"> 728</span>
+<span id="729"> 729</span>
+<span id="730"> 730</span>
+<span id="731"> 731</span>
+<span id="732"> 732</span>
+<span id="733"> 733</span>
+<span id="734"> 734</span>
+<span id="735"> 735</span>
+<span id="736"> 736</span>
+<span id="737"> 737</span>
+<span id="738"> 738</span>
+<span id="739"> 739</span>
+<span id="740"> 740</span>
+<span id="741"> 741</span>
+<span id="742"> 742</span>
+<span id="743"> 743</span>
+<span id="744"> 744</span>
+<span id="745"> 745</span>
+<span id="746"> 746</span>
+<span id="747"> 747</span>
+<span id="748"> 748</span>
+<span id="749"> 749</span>
+<span id="750"> 750</span>
+<span id="751"> 751</span>
+<span id="752"> 752</span>
+<span id="753"> 753</span>
+<span id="754"> 754</span>
+<span id="755"> 755</span>
+<span id="756"> 756</span>
+<span id="757"> 757</span>
+<span id="758"> 758</span>
+<span id="759"> 759</span>
+<span id="760"> 760</span>
+<span id="761"> 761</span>
+<span id="762"> 762</span>
+<span id="763"> 763</span>
+<span id="764"> 764</span>
+<span id="765"> 765</span>
+<span id="766"> 766</span>
+<span id="767"> 767</span>
+<span id="768"> 768</span>
+<span id="769"> 769</span>
+<span id="770"> 770</span>
+<span id="771"> 771</span>
+<span id="772"> 772</span>
+<span id="773"> 773</span>
+<span id="774"> 774</span>
+<span id="775"> 775</span>
+<span id="776"> 776</span>
+<span id="777"> 777</span>
+<span id="778"> 778</span>
+<span id="779"> 779</span>
+<span id="780"> 780</span>
+<span id="781"> 781</span>
+<span id="782"> 782</span>
+<span id="783"> 783</span>
+<span id="784"> 784</span>
+<span id="785"> 785</span>
+<span id="786"> 786</span>
+<span id="787"> 787</span>
+<span id="788"> 788</span>
+<span id="789"> 789</span>
+<span id="790"> 790</span>
+<span id="791"> 791</span>
+<span id="792"> 792</span>
+<span id="793"> 793</span>
+<span id="794"> 794</span>
+<span id="795"> 795</span>
+<span id="796"> 796</span>
+<span id="797"> 797</span>
+<span id="798"> 798</span>
+<span id="799"> 799</span>
+<span id="800"> 800</span>
+<span id="801"> 801</span>
+<span id="802"> 802</span>
+<span id="803"> 803</span>
+<span id="804"> 804</span>
+<span id="805"> 805</span>
+<span id="806"> 806</span>
+<span id="807"> 807</span>
+<span id="808"> 808</span>
+<span id="809"> 809</span>
+<span id="810"> 810</span>
+<span id="811"> 811</span>
+<span id="812"> 812</span>
+<span id="813"> 813</span>
+<span id="814"> 814</span>
+<span id="815"> 815</span>
+<span id="816"> 816</span>
+<span id="817"> 817</span>
+<span id="818"> 818</span>
+<span id="819"> 819</span>
+<span id="820"> 820</span>
+<span id="821"> 821</span>
+<span id="822"> 822</span>
+<span id="823"> 823</span>
+<span id="824"> 824</span>
+<span id="825"> 825</span>
+<span id="826"> 826</span>
+<span id="827"> 827</span>
+<span id="828"> 828</span>
+<span id="829"> 829</span>
+<span id="830"> 830</span>
+<span id="831"> 831</span>
+<span id="832"> 832</span>
+<span id="833"> 833</span>
+<span id="834"> 834</span>
+<span id="835"> 835</span>
+<span id="836"> 836</span>
+<span id="837"> 837</span>
+<span id="838"> 838</span>
+<span id="839"> 839</span>
+<span id="840"> 840</span>
+<span id="841"> 841</span>
+<span id="842"> 842</span>
+<span id="843"> 843</span>
+<span id="844"> 844</span>
+<span id="845"> 845</span>
+<span id="846"> 846</span>
+<span id="847"> 847</span>
+<span id="848"> 848</span>
+<span id="849"> 849</span>
+<span id="850"> 850</span>
+<span id="851"> 851</span>
+<span id="852"> 852</span>
+<span id="853"> 853</span>
+<span id="854"> 854</span>
+<span id="855"> 855</span>
+<span id="856"> 856</span>
+<span id="857"> 857</span>
+<span id="858"> 858</span>
+<span id="859"> 859</span>
+<span id="860"> 860</span>
+<span id="861"> 861</span>
+<span id="862"> 862</span>
+<span id="863"> 863</span>
+<span id="864"> 864</span>
+<span id="865"> 865</span>
+<span id="866"> 866</span>
+<span id="867"> 867</span>
+<span id="868"> 868</span>
+<span id="869"> 869</span>
+<span id="870"> 870</span>
+<span id="871"> 871</span>
+<span id="872"> 872</span>
+<span id="873"> 873</span>
+<span id="874"> 874</span>
+<span id="875"> 875</span>
+<span id="876"> 876</span>
+<span id="877"> 877</span>
+<span id="878"> 878</span>
+<span id="879"> 879</span>
+<span id="880"> 880</span>
+<span id="881"> 881</span>
+<span id="882"> 882</span>
+<span id="883"> 883</span>
+<span id="884"> 884</span>
+<span id="885"> 885</span>
+<span id="886"> 886</span>
+<span id="887"> 887</span>
+<span id="888"> 888</span>
+<span id="889"> 889</span>
+<span id="890"> 890</span>
+<span id="891"> 891</span>
+<span id="892"> 892</span>
+<span id="893"> 893</span>
+<span id="894"> 894</span>
+<span id="895"> 895</span>
+<span id="896"> 896</span>
+<span id="897"> 897</span>
+<span id="898"> 898</span>
+<span id="899"> 899</span>
+<span id="900"> 900</span>
+<span id="901"> 901</span>
+<span id="902"> 902</span>
+<span id="903"> 903</span>
+<span id="904"> 904</span>
+<span id="905"> 905</span>
+<span id="906"> 906</span>
+<span id="907"> 907</span>
+<span id="908"> 908</span>
+<span id="909"> 909</span>
+<span id="910"> 910</span>
+<span id="911"> 911</span>
+<span id="912"> 912</span>
+<span id="913"> 913</span>
+<span id="914"> 914</span>
+<span id="915"> 915</span>
+<span id="916"> 916</span>
+<span id="917"> 917</span>
+<span id="918"> 918</span>
+<span id="919"> 919</span>
+<span id="920"> 920</span>
+<span id="921"> 921</span>
+<span id="922"> 922</span>
+<span id="923"> 923</span>
+<span id="924"> 924</span>
+<span id="925"> 925</span>
+<span id="926"> 926</span>
+<span id="927"> 927</span>
+<span id="928"> 928</span>
+<span id="929"> 929</span>
+<span id="930"> 930</span>
+<span id="931"> 931</span>
+<span id="932"> 932</span>
+<span id="933"> 933</span>
+<span id="934"> 934</span>
+<span id="935"> 935</span>
+<span id="936"> 936</span>
+<span id="937"> 937</span>
+<span id="938"> 938</span>
+<span id="939"> 939</span>
+<span id="940"> 940</span>
+<span id="941"> 941</span>
+<span id="942"> 942</span>
+<span id="943"> 943</span>
+<span id="944"> 944</span>
+<span id="945"> 945</span>
+<span id="946"> 946</span>
+<span id="947"> 947</span>
+<span id="948"> 948</span>
+<span id="949"> 949</span>
+<span id="950"> 950</span>
+<span id="951"> 951</span>
+<span id="952"> 952</span>
+<span id="953"> 953</span>
+<span id="954"> 954</span>
+<span id="955"> 955</span>
+<span id="956"> 956</span>
+<span id="957"> 957</span>
+<span id="958"> 958</span>
+<span id="959"> 959</span>
+<span id="960"> 960</span>
+<span id="961"> 961</span>
+<span id="962"> 962</span>
+<span id="963"> 963</span>
+<span id="964"> 964</span>
+<span id="965"> 965</span>
+<span id="966"> 966</span>
+<span id="967"> 967</span>
+<span id="968"> 968</span>
+<span id="969"> 969</span>
+<span id="970"> 970</span>
+<span id="971"> 971</span>
+<span id="972"> 972</span>
+<span id="973"> 973</span>
+<span id="974"> 974</span>
+<span id="975"> 975</span>
+<span id="976"> 976</span>
+<span id="977"> 977</span>
+<span id="978"> 978</span>
+<span id="979"> 979</span>
+<span id="980"> 980</span>
+<span id="981"> 981</span>
+<span id="982"> 982</span>
+<span id="983"> 983</span>
+<span id="984"> 984</span>
+<span id="985"> 985</span>
+<span id="986"> 986</span>
+<span id="987"> 987</span>
+<span id="988"> 988</span>
+<span id="989"> 989</span>
+<span id="990"> 990</span>
+<span id="991"> 991</span>
+<span id="992"> 992</span>
+<span id="993"> 993</span>
+<span id="994"> 994</span>
+<span id="995"> 995</span>
+<span id="996"> 996</span>
+<span id="997"> 997</span>
+<span id="998"> 998</span>
+<span id="999"> 999</span>
+<span id="1000">1000</span>
+<span id="1001">1001</span>
+<span id="1002">1002</span>
+<span id="1003">1003</span>
+<span id="1004">1004</span>
+<span id="1005">1005</span>
+<span id="1006">1006</span>
+<span id="1007">1007</span>
+<span id="1008">1008</span>
+<span id="1009">1009</span>
+<span id="1010">1010</span>
+<span id="1011">1011</span>
+<span id="1012">1012</span>
+<span id="1013">1013</span>
+<span id="1014">1014</span>
+<span id="1015">1015</span>
+<span id="1016">1016</span>
+<span id="1017">1017</span>
+<span id="1018">1018</span>
+<span id="1019">1019</span>
+<span id="1020">1020</span>
+<span id="1021">1021</span>
+<span id="1022">1022</span>
+<span id="1023">1023</span>
+<span id="1024">1024</span>
+<span id="1025">1025</span>
+<span id="1026">1026</span>
+<span id="1027">1027</span>
+<span id="1028">1028</span>
+<span id="1029">1029</span>
+<span id="1030">1030</span>
+<span id="1031">1031</span>
+<span id="1032">1032</span>
+<span id="1033">1033</span>
+<span id="1034">1034</span>
+<span id="1035">1035</span>
+<span id="1036">1036</span>
+<span id="1037">1037</span>
+<span id="1038">1038</span>
+<span id="1039">1039</span>
+<span id="1040">1040</span>
+<span id="1041">1041</span>
+<span id="1042">1042</span>
+<span id="1043">1043</span>
+<span id="1044">1044</span>
+<span id="1045">1045</span>
+<span id="1046">1046</span>
+<span id="1047">1047</span>
+<span id="1048">1048</span>
+<span id="1049">1049</span>
+<span id="1050">1050</span>
+<span id="1051">1051</span>
+<span id="1052">1052</span>
+<span id="1053">1053</span>
+<span id="1054">1054</span>
+<span id="1055">1055</span>
+<span id="1056">1056</span>
+<span id="1057">1057</span>
+<span id="1058">1058</span>
+<span id="1059">1059</span>
+<span id="1060">1060</span>
+<span id="1061">1061</span>
+<span id="1062">1062</span>
+<span id="1063">1063</span>
+<span id="1064">1064</span>
+<span id="1065">1065</span>
+<span id="1066">1066</span>
+<span id="1067">1067</span>
+<span id="1068">1068</span>
+<span id="1069">1069</span>
+<span id="1070">1070</span>
+<span id="1071">1071</span>
+<span id="1072">1072</span>
+<span id="1073">1073</span>
+<span id="1074">1074</span>
+<span id="1075">1075</span>
+<span id="1076">1076</span>
+<span id="1077">1077</span>
+<span id="1078">1078</span>
+<span id="1079">1079</span>
+<span id="1080">1080</span>
+<span id="1081">1081</span>
+<span id="1082">1082</span>
+<span id="1083">1083</span>
+<span id="1084">1084</span>
+<span id="1085">1085</span>
+<span id="1086">1086</span>
+<span id="1087">1087</span>
+<span id="1088">1088</span>
+<span id="1089">1089</span>
+<span id="1090">1090</span>
+<span id="1091">1091</span>
+<span id="1092">1092</span>
+<span id="1093">1093</span>
+<span id="1094">1094</span>
+<span id="1095">1095</span>
+<span id="1096">1096</span>
+<span id="1097">1097</span>
+<span id="1098">1098</span>
+<span id="1099">1099</span>
+<span id="1100">1100</span>
+<span id="1101">1101</span>
+<span id="1102">1102</span>
+<span id="1103">1103</span>
+<span id="1104">1104</span>
+<span id="1105">1105</span>
+<span id="1106">1106</span>
+<span id="1107">1107</span>
+<span id="1108">1108</span>
+<span id="1109">1109</span>
+<span id="1110">1110</span>
+<span id="1111">1111</span>
+<span id="1112">1112</span>
+<span id="1113">1113</span>
+<span id="1114">1114</span>
+<span id="1115">1115</span>
+<span id="1116">1116</span>
+<span id="1117">1117</span>
+<span id="1118">1118</span>
+<span id="1119">1119</span>
+<span id="1120">1120</span>
+<span id="1121">1121</span>
+<span id="1122">1122</span>
+<span id="1123">1123</span>
+<span id="1124">1124</span>
+<span id="1125">1125</span>
+<span id="1126">1126</span>
+<span id="1127">1127</span>
+<span id="1128">1128</span>
+<span id="1129">1129</span>
+<span id="1130">1130</span>
+<span id="1131">1131</span>
+<span id="1132">1132</span>
+<span id="1133">1133</span>
+<span id="1134">1134</span>
+<span id="1135">1135</span>
+<span id="1136">1136</span>
+<span id="1137">1137</span>
+<span id="1138">1138</span>
+<span id="1139">1139</span>
+<span id="1140">1140</span>
+<span id="1141">1141</span>
+<span id="1142">1142</span>
+<span id="1143">1143</span>
+<span id="1144">1144</span>
+<span id="1145">1145</span>
+<span id="1146">1146</span>
+<span id="1147">1147</span>
+<span id="1148">1148</span>
+<span id="1149">1149</span>
+<span id="1150">1150</span>
+<span id="1151">1151</span>
+<span id="1152">1152</span>
+<span id="1153">1153</span>
+<span id="1154">1154</span>
+<span id="1155">1155</span>
+<span id="1156">1156</span>
+<span id="1157">1157</span>
+<span id="1158">1158</span>
+<span id="1159">1159</span>
+<span id="1160">1160</span>
+<span id="1161">1161</span>
+<span id="1162">1162</span>
+<span id="1163">1163</span>
+<span id="1164">1164</span>
+<span id="1165">1165</span>
+<span id="1166">1166</span>
+<span id="1167">1167</span>
+<span id="1168">1168</span>
+<span id="1169">1169</span>
+<span id="1170">1170</span>
+<span id="1171">1171</span>
+<span id="1172">1172</span>
+<span id="1173">1173</span>
+<span id="1174">1174</span>
+<span id="1175">1175</span>
+<span id="1176">1176</span>
+<span id="1177">1177</span>
+<span id="1178">1178</span>
+<span id="1179">1179</span>
+<span id="1180">1180</span>
+<span id="1181">1181</span>
+<span id="1182">1182</span>
+<span id="1183">1183</span>
+<span id="1184">1184</span>
+<span id="1185">1185</span>
+<span id="1186">1186</span>
+<span id="1187">1187</span>
+<span id="1188">1188</span>
+<span id="1189">1189</span>
+<span id="1190">1190</span>
+<span id="1191">1191</span>
+<span id="1192">1192</span>
+<span id="1193">1193</span>
+<span id="1194">1194</span>
+<span id="1195">1195</span>
+<span id="1196">1196</span>
+<span id="1197">1197</span>
+<span id="1198">1198</span>
+<span id="1199">1199</span>
+<span id="1200">1200</span>
+<span id="1201">1201</span>
+<span id="1202">1202</span>
+<span id="1203">1203</span>
+<span id="1204">1204</span>
+<span id="1205">1205</span>
+<span id="1206">1206</span>
+<span id="1207">1207</span>
+<span id="1208">1208</span>
+<span id="1209">1209</span>
+<span id="1210">1210</span>
+<span id="1211">1211</span>
+<span id="1212">1212</span>
+<span id="1213">1213</span>
+<span id="1214">1214</span>
+<span id="1215">1215</span>
+<span id="1216">1216</span>
+<span id="1217">1217</span>
+<span id="1218">1218</span>
+<span id="1219">1219</span>
+<span id="1220">1220</span>
+<span id="1221">1221</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">core</span>::{<span class="ident">LLVMDisposePassManager</span>, <span class="ident">LLVMInitializeFunctionPassManager</span>, <span class="ident">LLVMFinalizeFunctionPassManager</span>, <span class="ident">LLVMRunFunctionPassManager</span>, <span class="ident">LLVMRunPassManager</span>, <span class="ident">LLVMCreatePassManager</span>, <span class="ident">LLVMCreateFunctionPassManagerForModule</span>, <span class="ident">LLVMGetGlobalPassRegistry</span>};
+<span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">initialization</span>::{<span class="ident">LLVMInitializeCore</span>, <span class="ident">LLVMInitializeTransformUtils</span>, <span class="ident">LLVMInitializeScalarOpts</span>, <span class="ident">LLVMInitializeObjCARCOpts</span>, <span class="ident">LLVMInitializeVectorization</span>, <span class="ident">LLVMInitializeInstCombine</span>, <span class="ident">LLVMInitializeIPO</span>, <span class="ident">LLVMInitializeInstrumentation</span>, <span class="ident">LLVMInitializeAnalysis</span>, <span class="ident">LLVMInitializeIPA</span>, <span class="ident">LLVMInitializeCodeGen</span>, <span class="ident">LLVMInitializeTarget</span>};
+<span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">prelude</span>::{<span class="ident">LLVMPassManagerRef</span>, <span class="ident">LLVMPassRegistryRef</span>};
+<span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">ipo</span>::{<span class="ident">LLVMAddArgumentPromotionPass</span>, <span class="ident">LLVMAddConstantMergePass</span>, <span class="ident">LLVMAddDeadArgEliminationPass</span>, <span class="ident">LLVMAddFunctionAttrsPass</span>, <span class="ident">LLVMAddFunctionInliningPass</span>, <span class="ident">LLVMAddAlwaysInlinerPass</span>, <span class="ident">LLVMAddGlobalDCEPass</span>, <span class="ident">LLVMAddGlobalOptimizerPass</span>, <span class="ident">LLVMAddIPConstantPropagationPass</span>, <span class="ident">LLVMAddIPSCCPPass</span>, <span class="ident">LLVMAddInternalizePass</span>, <span class="ident">LLVMAddStripDeadPrototypesPass</span>, <span class="ident">LLVMAddPruneEHPass</span>, <span class="ident">LLVMAddStripSymbolsPass</span>};
+<span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">pass_manager_builder</span>::{<span class="ident">LLVMPassManagerBuilderRef</span>, <span class="ident">LLVMPassManagerBuilderCreate</span>, <span class="ident">LLVMPassManagerBuilderDispose</span>, <span class="ident">LLVMPassManagerBuilderSetOptLevel</span>, <span class="ident">LLVMPassManagerBuilderSetSizeLevel</span>, <span class="ident">LLVMPassManagerBuilderSetDisableUnitAtATime</span>, <span class="ident">LLVMPassManagerBuilderSetDisableUnrollLoops</span>, <span class="ident">LLVMPassManagerBuilderSetDisableSimplifyLibCalls</span>, <span class="ident">LLVMPassManagerBuilderUseInlinerWithThreshold</span>, <span class="ident">LLVMPassManagerBuilderPopulateFunctionPassManager</span>, <span class="ident">LLVMPassManagerBuilderPopulateModulePassManager</span>, <span class="ident">LLVMPassManagerBuilderPopulateLTOPassManager</span>};
+<span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">scalar</span>::{<span class="ident">LLVMAddAggressiveDCEPass</span>, <span class="ident">LLVMAddMemCpyOptPass</span>, <span class="ident">LLVMAddAlignmentFromAssumptionsPass</span>, <span class="ident">LLVMAddCFGSimplificationPass</span>, <span class="ident">LLVMAddDeadStoreEliminationPass</span>, <span class="ident">LLVMAddScalarizerPass</span>, <span class="ident">LLVMAddMergedLoadStoreMotionPass</span>, <span class="ident">LLVMAddGVNPass</span>, <span class="ident">LLVMAddIndVarSimplifyPass</span>, <span class="ident">LLVMAddInstructionCombiningPass</span>, <span class="ident">LLVMAddJumpThreadingPass</span>, <span class="ident">LLVMAddLICMPass</span>, <span class="ident">LLVMAddLoopDeletionPass</span>, <span class="ident">LLVMAddLoopIdiomPass</span>, <span class="ident">LLVMAddLoopRotatePass</span>, <span class="ident">LLVMAddLoopRerollPass</span>, <span class="ident">LLVMAddLoopUnrollPass</span>, <span class="ident">LLVMAddLoopUnswitchPass</span>, <span class="ident">LLVMAddPartiallyInlineLibCallsPass</span>, <span class="ident">LLVMAddSCCPPass</span>, <span class="ident">LLVMAddScalarReplAggregatesPass</span>, <span class="ident">LLVMAddScalarReplAggregatesPassSSA</span>, <span class="ident">LLVMAddScalarReplAggregatesPassWithThreshold</span>, <span class="ident">LLVMAddSimplifyLibCallsPass</span>, <span class="ident">LLVMAddTailCallEliminationPass</span>, <span class="ident">LLVMAddConstantPropagationPass</span>, <span class="ident">LLVMAddDemoteMemoryToRegisterPass</span>, <span class="ident">LLVMAddVerifierPass</span>, <span class="ident">LLVMAddCorrelatedValuePropagationPass</span>, <span class="ident">LLVMAddEarlyCSEPass</span>, <span class="ident">LLVMAddLowerExpectIntrinsicPass</span>, <span class="ident">LLVMAddTypeBasedAliasAnalysisPass</span>, <span class="ident">LLVMAddScopedNoAliasAAPass</span>, <span class="ident">LLVMAddBasicAliasAnalysisPass</span>, <span class="ident">LLVMAddReassociatePass</span>};
+<span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">3.7</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+<span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">scalar</span>::<span class="ident">LLVMAddBitTrackingDCEPass</span>;
+<span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">vectorize</span>::{<span class="ident">LLVMAddLoopVectorizePass</span>, <span class="ident">LLVMAddSLPVectorizePass</span>};
+
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">OptimizationLevel</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">module</span>::<span class="ident">Module</span>;
+<span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">3.6</span>..<span class="op">=</span><span class="number">3.8</span>)]</span>
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">targets</span>::<span class="ident">TargetData</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">values</span>::{<span class="ident">AsValueRef</span>, <span class="ident">FunctionValue</span>};
+
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">Borrow</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>;
+
+<span class="comment">// REVIEW: Opt Level might be identical to targets::Option&lt;CodeGenOptLevel&gt;</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PassManagerBuilder</span> {
+    <span class="ident">pass_manager_builder</span>: <span class="ident">LLVMPassManagerBuilderRef</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">PassManagerBuilder</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">pass_manager_builder</span>: <span class="ident">LLVMPassManagerBuilderRef</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">pass_manager_builder</span>.<span class="ident">is_null</span>());
+
+        <span class="ident">PassManagerBuilder</span> {
+            <span class="ident">pass_manager_builder</span>,
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">pass_manager_builder</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderCreate</span>()
+        };
+
+        <span class="ident">PassManagerBuilder</span>::<span class="ident">new</span>(<span class="ident">pass_manager_builder</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_optimization_level</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">opt_level</span>: <span class="ident">OptimizationLevel</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderSetOptLevel</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">opt_level</span> <span class="kw">as</span> <span class="ident">u32</span>)
+        }
+    }
+
+    <span class="comment">// REVIEW: Valid input 0-2 according to llvmlite. Maybe better as an enum?</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_size_level</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">size_level</span>: <span class="ident">u32</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderSetSizeLevel</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">size_level</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_disable_unit_at_a_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">disable</span>: <span class="ident">bool</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderSetDisableUnitAtATime</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">disable</span> <span class="kw">as</span> <span class="ident">i32</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_disable_unroll_loops</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">disable</span>: <span class="ident">bool</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderSetDisableUnrollLoops</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">disable</span> <span class="kw">as</span> <span class="ident">i32</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_disable_simplify_lib_calls</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">disable</span>: <span class="ident">bool</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderSetDisableSimplifyLibCalls</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">disable</span> <span class="kw">as</span> <span class="ident">i32</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_inliner_with_threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">threshold</span>: <span class="ident">u32</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderUseInlinerWithThreshold</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">threshold</span>)
+        }
+    }
+
+    <span class="doccomment">/// Populates a PassManager&lt;FunctionValue&gt; with the expectation of function</span>
+    <span class="doccomment">/// transformations.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// use inkwell::context::Context;</span>
+    <span class="doccomment">/// use inkwell::OptimizationLevel::Aggressive;</span>
+    <span class="doccomment">/// use inkwell::passes::{PassManager, PassManagerBuilder};</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// let context = Context::create();</span>
+    <span class="doccomment">/// let module = context.create_module(&quot;mod&quot;);</span>
+    <span class="doccomment">/// let pass_manager_builder = PassManagerBuilder::create();</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// pass_manager_builder.set_optimization_level(Aggressive);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// let fpm = PassManager::create(&amp;module);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// pass_manager_builder.populate_function_pass_manager(&amp;fpm);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">populate_function_pass_manager</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pass_manager</span>: <span class="kw-2">&amp;</span><span class="ident">PassManager</span><span class="op">&lt;</span><span class="ident">FunctionValue</span><span class="op">&gt;</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderPopulateFunctionPassManager</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">pass_manager</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Populates a PassManager&lt;Module&gt; with the expectation of whole module</span>
+    <span class="doccomment">/// transformations.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// use inkwell::OptimizationLevel::Aggressive;</span>
+    <span class="doccomment">/// use inkwell::passes::{PassManager, PassManagerBuilder};</span>
+    <span class="doccomment">/// use inkwell::targets::{InitializationConfig, Target};</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// let config = InitializationConfig::default();</span>
+    <span class="doccomment">/// Target::initialize_native(&amp;config).unwrap();</span>
+    <span class="doccomment">/// let pass_manager_builder = PassManagerBuilder::create();</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// pass_manager_builder.set_optimization_level(Aggressive);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// let fpm = PassManager::create(());</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// pass_manager_builder.populate_module_pass_manager(&amp;fpm);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">populate_module_pass_manager</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pass_manager</span>: <span class="kw-2">&amp;</span><span class="ident">PassManager</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderPopulateModulePassManager</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">pass_manager</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Populates a PassManager&lt;Module&gt; with the expectation of link time</span>
+    <span class="doccomment">/// optimization transformations.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// use inkwell::OptimizationLevel::Aggressive;</span>
+    <span class="doccomment">/// use inkwell::passes::{PassManager, PassManagerBuilder};</span>
+    <span class="doccomment">/// use inkwell::targets::{InitializationConfig, Target};</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// let config = InitializationConfig::default();</span>
+    <span class="doccomment">/// Target::initialize_native(&amp;config).unwrap();</span>
+    <span class="doccomment">/// let pass_manager_builder = PassManagerBuilder::create();</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// pass_manager_builder.set_optimization_level(Aggressive);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// let lpm = PassManager::create(());</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// pass_manager_builder.populate_lto_pass_manager(&amp;lpm, false, false);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">populate_lto_pass_manager</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pass_manager</span>: <span class="kw-2">&amp;</span><span class="ident">PassManager</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span>, <span class="ident">internalize</span>: <span class="ident">bool</span>, <span class="ident">run_inliner</span>: <span class="ident">bool</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderPopulateLTOPassManager</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>, <span class="ident">pass_manager</span>.<span class="ident">pass_manager</span>, <span class="ident">internalize</span> <span class="kw">as</span> <span class="ident">i32</span>, <span class="ident">run_inliner</span> <span class="kw">as</span> <span class="ident">i32</span>)
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">PassManagerBuilder</span> {
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMPassManagerBuilderDispose</span>(<span class="self">self</span>.<span class="ident">pass_manager_builder</span>)
+        }
+    }
+}
+
+<span class="comment">// This is an ugly privacy hack so that PassManagerSubType can stay private</span>
+<span class="comment">// to this module and so that super traits using this trait will be not be</span>
+<span class="comment">// implementable outside this library</span>
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">PassManagerSubType</span> {
+    <span class="kw">type</span> <span class="ident">Input</span>;
+
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Borrow</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Input</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">input</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LLVMPassManagerRef</span>;
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">run_in_pass_manager</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pass_manager</span>: <span class="kw-2">&amp;</span><span class="ident">PassManager</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> <span class="kw">where</span> <span class="self">Self</span>: <span class="ident">Sized</span>;
+}
+
+<span class="kw">impl</span> <span class="ident">PassManagerSubType</span> <span class="kw">for</span> <span class="ident">Module</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+    <span class="kw">type</span> <span class="ident">Input</span> <span class="op">=</span> ();
+
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Borrow</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Input</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw">_</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LLVMPassManagerRef</span> {
+        <span class="ident">LLVMCreatePassManager</span>()
+    }
+
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">run_in_pass_manager</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pass_manager</span>: <span class="kw-2">&amp;</span><span class="ident">PassManager</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="ident">LLVMRunPassManager</span>(<span class="ident">pass_manager</span>.<span class="ident">pass_manager</span>, <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">get</span>()) <span class="op">=</span><span class="op">=</span> <span class="number">1</span>
+    }
+}
+
+<span class="comment">// With GATs https://github.com/rust-lang/rust/issues/44265 this could be</span>
+<span class="comment">// type Input&lt;&#39;a&gt; = &amp;&#39;a Module;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> <span class="ident">PassManagerSubType</span> <span class="kw">for</span> <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
+    <span class="kw">type</span> <span class="ident">Input</span> <span class="op">=</span> <span class="ident">Module</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>;
+
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Borrow</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Input</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">input</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LLVMPassManagerRef</span> {
+        <span class="ident">LLVMCreateFunctionPassManagerForModule</span>(<span class="ident">input</span>.<span class="ident">borrow</span>().<span class="ident">module</span>.<span class="ident">get</span>())
+    }
+
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">run_in_pass_manager</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pass_manager</span>: <span class="kw-2">&amp;</span><span class="ident">PassManager</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="ident">LLVMRunFunctionPassManager</span>(<span class="ident">pass_manager</span>.<span class="ident">pass_manager</span>, <span class="self">self</span>.<span class="ident">as_value_ref</span>()) <span class="op">=</span><span class="op">=</span> <span class="number">1</span>
+    }
+}
+
+<span class="comment">// SubTypes: PassManager&lt;Module&gt;, PassManager&lt;FunctionValue&gt;</span>
+<span class="doccomment">/// A manager for running optimization and simplification passes. Much of the</span>
+<span class="doccomment">/// documenation for specific passes is directly from the [LLVM</span>
+<span class="doccomment">/// documentation](https://llvm.org/docs/Passes.html).</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PassManager</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">pass_manager</span>: <span class="ident">LLVMPassManagerRef</span>,
+    <span class="ident">sub_type</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">PassManager</span><span class="op">&lt;</span><span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="comment">// return true means some pass modified the module, not an error occurred</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeFunctionPassManager</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>) <span class="op">=</span><span class="op">=</span> <span class="number">1</span>
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMFinalizeFunctionPassManager</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>) <span class="op">=</span><span class="op">=</span> <span class="number">1</span>
+        }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">PassManagerSubType</span><span class="op">&gt;</span> <span class="ident">PassManager</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">pass_manager</span>: <span class="ident">LLVMPassManagerRef</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">pass_manager</span>.<span class="ident">is_null</span>());
+
+        <span class="ident">PassManager</span> {
+            <span class="ident">pass_manager</span>,
+            <span class="ident">sub_type</span>: <span class="ident">PhantomData</span>,
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Borrow</span><span class="op">&lt;</span><span class="ident">T</span>::<span class="ident">Input</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">input</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PassManager</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">pass_manager</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="ident">T</span>::<span class="ident">create</span>(<span class="ident">input</span>)
+        };
+
+        <span class="ident">PassManager</span>::<span class="ident">new</span>(<span class="ident">pass_manager</span>)
+    }
+
+    <span class="doccomment">/// This method returns true if any of the passes modified the function or module</span>
+    <span class="doccomment">/// and false otherwise.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_on</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">unsafe</span> {
+            <span class="ident">input</span>.<span class="ident">run_in_pass_manager</span>(<span class="self">self</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">3.6</span>..<span class="op">=</span><span class="number">3.8</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_target_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">target_data</span>: <span class="kw-2">&amp;</span><span class="ident">TargetData</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">target</span>::<span class="ident">LLVMAddTargetData</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddTargetData</span>(<span class="ident">target_data</span>.<span class="ident">target_data</span>, <span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass promotes &quot;by reference&quot; arguments to be &quot;by value&quot; arguments.</span>
+    <span class="doccomment">/// In practice, this means looking for internal functions that have pointer</span>
+    <span class="doccomment">/// arguments. If it can prove, through the use of alias analysis, that an</span>
+    <span class="doccomment">/// argument is only loaded, then it can pass the value into the function</span>
+    <span class="doccomment">/// instead of the address of the value. This can cause recursive simplification</span>
+    <span class="doccomment">/// of code and lead to the elimination of allocas (especially in C++ template</span>
+    <span class="doccomment">/// code like the STL).</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This pass also handles aggregate arguments that are passed into a function,</span>
+    <span class="doccomment">/// scalarizing them if the elements of the aggregate are only loaded. Note that</span>
+    <span class="doccomment">/// it refuses to scalarize aggregates which would require passing in more than</span>
+    <span class="doccomment">/// three operands to the function, because passing thousands of operands for a</span>
+    <span class="doccomment">/// large array or structure is unprofitable!</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note that this transformation could also be done for arguments that are</span>
+    <span class="doccomment">/// only stored to (returning the value instead), but does not currently.</span>
+    <span class="doccomment">/// This case would be best handled when and if LLVM starts supporting multiple</span>
+    <span class="doccomment">/// return values from functions.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_argument_promotion_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddArgumentPromotionPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Merges duplicate global constants together into a single constant that is</span>
+    <span class="doccomment">/// shared. This is useful because some passes (i.e., TraceValues) insert a lot</span>
+    <span class="doccomment">/// of string constants into the program, regardless of whether or not an existing</span>
+    <span class="doccomment">/// string is available.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_constant_merge_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddConstantMergePass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass deletes dead arguments from internal functions. Dead argument</span>
+    <span class="doccomment">/// elimination removes arguments which are directly dead, as well as arguments</span>
+    <span class="doccomment">/// only passed into function calls as dead arguments of other functions. This</span>
+    <span class="doccomment">/// pass also deletes dead arguments in a similar way.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This pass is often useful as a cleanup pass to run after aggressive</span>
+    <span class="doccomment">/// interprocedural passes, which add possibly-dead arguments.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_dead_arg_elimination_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddDeadArgEliminationPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// A simple interprocedural pass which walks the call-graph, looking for</span>
+    <span class="doccomment">/// functions which do not access or only read non-local memory, and marking</span>
+    <span class="doccomment">/// them readnone/readonly. In addition, it marks function arguments (of</span>
+    <span class="doccomment">/// pointer type) “nocapture” if a call to the function does not create</span>
+    <span class="doccomment">/// any copies of the pointer value that outlive the call. This more or</span>
+    <span class="doccomment">/// less means that the pointer is only dereferenced, and not returned</span>
+    <span class="doccomment">/// from the function or stored in a global. This pass is implemented</span>
+    <span class="doccomment">/// as a bottom-up traversal of the call-graph.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_function_attrs_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddFunctionAttrsPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Bottom-up inlining of functions into callees.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_function_inlining_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddFunctionInliningPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// A custom inliner that handles only functions that are marked as “always inline”.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_always_inliner_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddAlwaysInlinerPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This transform is designed to eliminate unreachable internal</span>
+    <span class="doccomment">/// globals from the program. It uses an aggressive algorithm,</span>
+    <span class="doccomment">/// searching out globals that are known to be alive. After it</span>
+    <span class="doccomment">/// finds all of the globals which are needed, it deletes</span>
+    <span class="doccomment">/// whatever is left over. This allows it to delete recursive</span>
+    <span class="doccomment">/// chunks of the program which are unreachable.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_global_dce_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddGlobalDCEPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass transforms simple global variables that never have</span>
+    <span class="doccomment">/// their address taken. If obviously true, it marks read/write</span>
+    <span class="doccomment">/// globals as constant, deletes variables only stored to, etc.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_global_optimizer_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddGlobalOptimizerPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass implements an extremely simple interprocedural</span>
+    <span class="doccomment">/// constant propagation pass. It could certainly be improved</span>
+    <span class="doccomment">/// in many different ways, like using a worklist. This pass</span>
+    <span class="doccomment">/// makes arguments dead, but does not remove them. The existing</span>
+    <span class="doccomment">/// dead argument elimination pass should be run after this to</span>
+    <span class="doccomment">/// clean up the mess.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_ip_constant_propagation_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddIPConstantPropagationPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This file implements a simple interprocedural pass which</span>
+    <span class="doccomment">/// walks the call-graph, turning invoke instructions into</span>
+    <span class="doccomment">/// call instructions if and only if the callee cannot throw</span>
+    <span class="doccomment">/// an exception. It implements this as a bottom-up traversal</span>
+    <span class="doccomment">/// of the call-graph.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_prune_eh_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddPruneEHPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// An interprocedural variant of [Sparse Conditional Constant</span>
+    <span class="doccomment">/// Propagation](https://llvm.org/docs/Passes.html#passes-sccp).</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_ipsccp_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddIPSCCPPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass loops over all of the functions in the input module,</span>
+    <span class="doccomment">/// looking for a main function. If a main function is found, all</span>
+    <span class="doccomment">/// other functions and all global variables with initializers are</span>
+    <span class="doccomment">/// marked as internal.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_internalize_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">all_but_main</span>: <span class="ident">bool</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddInternalizePass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>, <span class="ident">all_but_main</span> <span class="kw">as</span> <span class="ident">u32</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass loops over all of the functions in the input module,</span>
+    <span class="doccomment">/// looking for dead declarations and removes them. Dead declarations</span>
+    <span class="doccomment">/// are declarations of functions for which no implementation is available</span>
+    <span class="doccomment">/// (i.e., declarations for unused library functions).</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_strip_dead_prototypes_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddStripDeadPrototypesPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Performs code stripping. This transformation can delete:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * Names for virtual registers</span>
+    <span class="doccomment">/// * Symbols for internal globals and functions</span>
+    <span class="doccomment">/// * Debug information</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note that this transformation makes code much less readable,</span>
+    <span class="doccomment">/// so it should only be used in situations where the strip utility</span>
+    <span class="doccomment">/// would be used, such as reducing code size or making it harder</span>
+    <span class="doccomment">/// to reverse engineer code.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_strip_symbol_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddStripSymbolsPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass combines instructions inside basic blocks to form</span>
+    <span class="doccomment">/// vector instructions. It iterates over each basic block,</span>
+    <span class="doccomment">/// attempting to pair compatible instructions, repeating this</span>
+    <span class="doccomment">/// process until no additional pairs are selected for vectorization.</span>
+    <span class="doccomment">/// When the outputs of some pair of compatible instructions are</span>
+    <span class="doccomment">/// used as inputs by some other pair of compatible instructions,</span>
+    <span class="doccomment">/// those pairs are part of a potential vectorization chain.</span>
+    <span class="doccomment">/// Instruction pairs are only fused into vector instructions when</span>
+    <span class="doccomment">/// they are part of a chain longer than some threshold length.</span>
+    <span class="doccomment">/// Moreover, the pass attempts to find the best possible chain</span>
+    <span class="doccomment">/// for each pair of compatible instructions. These heuristics</span>
+    <span class="doccomment">/// are intended to prevent vectorization in cases where it would</span>
+    <span class="doccomment">/// not yield a performance increase of the resulting code.</span>
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">3.6</span>..<span class="op">=</span><span class="number">4.0</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_bb_vectorize_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">vectorize</span>::<span class="ident">LLVMAddBBVectorizePass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddBBVectorizePass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_loop_vectorize_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLoopVectorizePass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_slp_vectorize_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddSLPVectorizePass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// ADCE aggressively tries to eliminate code. This pass is similar</span>
+    <span class="doccomment">/// to [DCE](https://llvm.org/docs/Passes.html#passes-dce) but it</span>
+    <span class="doccomment">/// assumes that values are dead until proven otherwise. This is</span>
+    <span class="doccomment">/// similar to [SCCP](https://llvm.org/docs/Passes.html#passes-sccp),</span>
+    <span class="doccomment">/// except applied to the liveness of values.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_aggressive_dce_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddAggressiveDCEPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">3.7</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_bit_tracking_dce_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddBitTrackingDCEPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_alignment_from_assumptions_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddAlignmentFromAssumptionsPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Performs dead code elimination and basic block merging. Specifically:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * Removes basic blocks with no predecessors.</span>
+    <span class="doccomment">/// * Merges a basic block into its predecessor if there is only one and the predecessor only has one successor.</span>
+    <span class="doccomment">/// * Eliminates PHI nodes for basic blocks with a single predecessor.</span>
+    <span class="doccomment">/// * Eliminates a basic block that only contains an unconditional branch.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_cfg_simplification_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddCFGSimplificationPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// A trivial dead store elimination that only considers basic-block local redundant stores.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_dead_store_elimination_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddDeadStoreEliminationPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_scalarizer_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddScalarizerPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_merged_load_store_motion_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddMergedLoadStoreMotionPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass performs global value numbering to eliminate</span>
+    <span class="doccomment">/// fully and partially redundant instructions. It also</span>
+    <span class="doccomment">/// performs redundant load elimination.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_gvn_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddGVNPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass performs global value numbering to eliminate</span>
+    <span class="doccomment">/// fully and partially redundant instructions. It also</span>
+    <span class="doccomment">/// performs redundant load elimination.</span>
+    <span class="comment">// REVIEW: Is `LLVMAddGVNPass` deprecated? Should we just seemlessly replace</span>
+    <span class="comment">// the old one with this one in 4.0+?</span>
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">4.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_new_gvn_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">scalar</span>::<span class="ident">LLVMAddNewGVNPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddNewGVNPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This transformation analyzes and transforms the induction variables (and</span>
+    <span class="doccomment">/// computations derived from them) into simpler forms suitable for subsequent</span>
+    <span class="doccomment">/// analysis and transformation.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This transformation makes the following changes to each loop with an</span>
+    <span class="doccomment">/// identifiable induction variable:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * All loops are transformed to have a single canonical induction variable</span>
+    <span class="doccomment">/// which starts at zero and steps by one.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * The canonical induction variable is guaranteed to be the first PHI node</span>
+    <span class="doccomment">/// in the loop header block.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * Any pointer arithmetic recurrences are raised to use array subscripts.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If the trip count of a loop is computable, this pass also makes the</span>
+    <span class="doccomment">/// following changes:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * The exit condition for the loop is canonicalized to compare the induction</span>
+    <span class="doccomment">/// value against the exit value. This turns loops like:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```c</span>
+    <span class="doccomment">/// for (i = 7; i*i &lt; 1000; ++i)</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// into</span>
+    <span class="doccomment">/// ```c</span>
+    <span class="doccomment">/// for (i = 0; i != 25; ++i)</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * Any use outside of the loop of an expression derived from the indvar is</span>
+    <span class="doccomment">/// changed to compute the derived value outside of the loop, eliminating the</span>
+    <span class="doccomment">/// dependence on the exit value of the induction variable. If the only purpose</span>
+    <span class="doccomment">/// of the loop is to compute the exit value of some derived expression, this</span>
+    <span class="doccomment">/// transformation will make the loop dead.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This transformation should be followed by strength reduction after all of</span>
+    <span class="doccomment">/// the desired loop transformations have been performed. Additionally, on</span>
+    <span class="doccomment">/// targets where it is profitable, the loop could be transformed to count</span>
+    <span class="doccomment">/// down to zero (the &quot;do loop&quot; optimization).</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_ind_var_simplify_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddIndVarSimplifyPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Combine instructions to form fewer, simple instructions. This pass</span>
+    <span class="doccomment">/// does not modify the CFG. This pass is where algebraic simplification happens.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This pass combines things like:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```c</span>
+    <span class="doccomment">/// %Y = add i32 %X, 1</span>
+    <span class="doccomment">/// %Z = add i32 %Y, 1</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// into:</span>
+    <span class="doccomment">/// ```c</span>
+    <span class="doccomment">/// %Z = add i32 %X, 2</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is a simple worklist driven algorithm.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This pass guarantees that the following canonicalizations are performed</span>
+    <span class="doccomment">/// on the program:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 1. If a binary operator has a constant operand, it is moved to the</span>
+    <span class="doccomment">/// right-hand side.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 2. Bitwise operators with constant operands are always grouped so that</span>
+    <span class="doccomment">/// shifts are performed first, then ors, then ands, then xors.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 3. Compare instructions are converted from &lt;, &gt;, ≤, or ≥ to = or ≠ if possible.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 4. All cmp instructions on boolean values are replaced with logical operations.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 5. add X, X is represented as mul X, 2 ⇒ shl X, 1</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 6. Multiplies with a constant power-of-two argument are transformed into shifts.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 7. ... etc.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This pass can also simplify calls to specific well-known function calls</span>
+    <span class="doccomment">/// (e.g. runtime library functions). For example, a call exit(3) that occurs within</span>
+    <span class="doccomment">/// the main() function can be transformed into simply return 3. Whether or not library</span>
+    <span class="doccomment">/// calls are simplified is controlled by the [-functionattrs](https://llvm.org/docs/Passes.html#passes-functionattrs)</span>
+    <span class="doccomment">/// pass and LLVM’s knowledge of library calls on different targets.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_instruction_combining_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddInstructionCombiningPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Jump threading tries to find distinct threads of control flow</span>
+    <span class="doccomment">/// running through a basic block. This pass looks at blocks that</span>
+    <span class="doccomment">/// have multiple predecessors and multiple successors. If one or</span>
+    <span class="doccomment">/// more of the predecessors of the block can be proven to always</span>
+    <span class="doccomment">/// cause a jump to one of the successors, we forward the edge from</span>
+    <span class="doccomment">/// the predecessor to the successor by duplicating the contents of</span>
+    <span class="doccomment">/// this block.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// An example of when this can occur is code like this:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```c</span>
+    <span class="doccomment">/// if () { ...</span>
+    <span class="doccomment">///   X = 4;</span>
+    <span class="doccomment">/// }</span>
+    <span class="doccomment">/// if (X &lt; 3) {</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// In this case, the unconditional branch at the end of the first</span>
+    <span class="doccomment">/// if can be revectored to the false side of the second if.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_jump_threading_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddJumpThreadingPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass performs loop invariant code motion,</span>
+    <span class="doccomment">/// attempting to remove as much code from the body of</span>
+    <span class="doccomment">/// a loop as possible. It does this by either hoisting</span>
+    <span class="doccomment">/// code into the preheader block, or by sinking code to</span>
+    <span class="doccomment">/// the exit blocks if it is safe. This pass also promotes</span>
+    <span class="doccomment">/// must-aliased memory locations in the loop to live in</span>
+    <span class="doccomment">/// registers, thus hoisting and sinking “invariant” loads</span>
+    <span class="doccomment">/// and stores.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This pass uses alias analysis for two purposes:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 1. Moving loop invariant loads and calls out of loops.</span>
+    <span class="doccomment">/// If we can determine that a load or call inside of a</span>
+    <span class="doccomment">/// loop never aliases anything stored to, we can hoist</span>
+    <span class="doccomment">/// it or sink it like any other instruction.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 2. Scalar Promotion of Memory. If there is a store</span>
+    <span class="doccomment">/// instruction inside of the loop, we try to move the</span>
+    <span class="doccomment">/// store to happen AFTER the loop instead of inside of</span>
+    <span class="doccomment">/// the loop. This can only happen if a few conditions</span>
+    <span class="doccomment">/// are true:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">///     1. The pointer stored through is loop invariant.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">///     2. There are no stores or loads in the loop</span>
+    <span class="doccomment">/// which may alias the pointer. There are no calls in</span>
+    <span class="doccomment">/// the loop which mod/ref the pointer.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If these conditions are true, we can promote the loads</span>
+    <span class="doccomment">/// and stores in the loop of the pointer to use a temporary</span>
+    <span class="doccomment">/// alloca&#39;d variable. We then use the mem2reg functionality</span>
+    <span class="doccomment">/// to construct the appropriate SSA form for the variable.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_licm_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLICMPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This file implements the Dead Loop Deletion Pass.</span>
+    <span class="doccomment">/// This pass is responsible for eliminating loops with</span>
+    <span class="doccomment">/// non-infinite computable trip counts that have no side</span>
+    <span class="doccomment">/// effects or volatile instructions, and do not contribute</span>
+    <span class="doccomment">/// to the computation of the function’s return value.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_loop_deletion_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLoopDeletionPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_loop_idiom_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLoopIdiomPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// A simple loop rotation transformation.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_loop_rotate_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLoopRotatePass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_loop_reroll_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLoopRerollPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass implements a simple loop unroller.</span>
+    <span class="doccomment">/// It works best when loops have been canonicalized</span>
+    <span class="doccomment">/// by the [indvars](https://llvm.org/docs/Passes.html#passes-indvars)</span>
+    <span class="doccomment">/// pass, allowing it to determine the trip counts</span>
+    <span class="doccomment">/// of loops easily.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_loop_unroll_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLoopUnrollPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass transforms loops that contain branches on</span>
+    <span class="doccomment">/// loop-invariant conditions to have multiple loops.</span>
+    <span class="doccomment">/// For example, it turns the left into the right code:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```c</span>
+    <span class="doccomment">/// for (...)                  if (lic)</span>
+    <span class="doccomment">///     A                          for (...)</span>
+    <span class="doccomment">///     if (lic)                       A; B; C</span>
+    <span class="doccomment">///         B                  else</span>
+    <span class="doccomment">///     C                          for (...)</span>
+    <span class="doccomment">///                                    A; C</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This can increase the size of the code exponentially</span>
+    <span class="doccomment">/// (doubling it every time a loop is unswitched) so we</span>
+    <span class="doccomment">/// only unswitch if the resultant code will be smaller</span>
+    <span class="doccomment">/// than a threshold.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This pass expects [LICM](https://llvm.org/docs/Passes.html#passes-licm)</span>
+    <span class="doccomment">/// to be run before it to hoist invariant conditions</span>
+    <span class="doccomment">/// out of the loop, to make the unswitching opportunity</span>
+    <span class="doccomment">/// obvious.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_loop_unswitch_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLoopUnswitchPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass performs various transformations related</span>
+    <span class="doccomment">/// to eliminating memcpy calls, or transforming sets</span>
+    <span class="doccomment">/// of stores into memsets.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_memcpy_optimize_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddMemCpyOptPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass performs partial inlining, typically by inlining</span>
+    <span class="doccomment">/// an if statement that surrounds the body of the function.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_partially_inline_lib_calls_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddPartiallyInlineLibCallsPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Rewrites switch instructions with a sequence of branches,</span>
+    <span class="doccomment">/// which allows targets to get away with not implementing the</span>
+    <span class="doccomment">/// switch instruction until it is convenient.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_lower_switch_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">3.6</span>..<span class="op">=</span><span class="number">6.0</span>)]</span>
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">scalar</span>::<span class="ident">LLVMAddLowerSwitchPass</span>;
+        <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">7.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">util</span>::<span class="ident">LLVMAddLowerSwitchPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLowerSwitchPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This file promotes memory references to be register references.</span>
+    <span class="doccomment">/// It promotes alloca instructions which only have loads and stores</span>
+    <span class="doccomment">/// as uses. An alloca is transformed by using dominator frontiers</span>
+    <span class="doccomment">/// to place phi nodes, then traversing the function in depth-first</span>
+    <span class="doccomment">/// order to rewrite loads and stores as appropriate. This is just</span>
+    <span class="doccomment">/// the standard SSA construction algorithm to construct &quot;pruned&quot; SSA form.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_promote_memory_to_register_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">3.6</span>..<span class="number">7.0</span>)]</span>
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">scalar</span>::<span class="ident">LLVMAddPromoteMemoryToRegisterPass</span>;
+        <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">7.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">util</span>::<span class="ident">LLVMAddPromoteMemoryToRegisterPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddPromoteMemoryToRegisterPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass reassociates commutative expressions in an order that is designed</span>
+    <span class="doccomment">/// to promote better constant propagation, GCSE, LICM, PRE, etc.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// For example: 4 + (x + 5) ⇒ x + (4 + 5)</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// In the implementation of this algorithm, constants are assigned rank = 0,</span>
+    <span class="doccomment">/// function arguments are rank = 1, and other values are assigned ranks</span>
+    <span class="doccomment">/// corresponding to the reverse post order traversal of current function</span>
+    <span class="doccomment">/// (starting at 2), which effectively gives values in deep loops higher</span>
+    <span class="doccomment">/// rank than values not in loops.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_reassociate_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddReassociatePass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Sparse conditional constant propagation and merging, which can</span>
+    <span class="doccomment">/// be summarized as:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * Assumes values are constant unless proven otherwise</span>
+    <span class="doccomment">/// * Assumes BasicBlocks are dead unless proven otherwise</span>
+    <span class="doccomment">/// * Proves values to be constant, and replaces them with constants</span>
+    <span class="doccomment">/// * Proves conditional branches to be unconditional</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note that this pass has a habit of making definitions be dead.</span>
+    <span class="doccomment">/// It is a good idea to run a DCE pass sometime after running this pass.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_sccp_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddSCCPPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_scalar_repl_aggregates_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddScalarReplAggregatesPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// The well-known scalar replacement of aggregates transformation.</span>
+    <span class="doccomment">/// This transform breaks up alloca instructions of aggregate type</span>
+    <span class="doccomment">/// (structure or array) into individual alloca instructions for each</span>
+    <span class="doccomment">/// member if possible. Then, if possible, it transforms the individual</span>
+    <span class="doccomment">/// alloca instructions into nice clean scalar SSA form.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_scalar_repl_aggregates_pass_ssa</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddScalarReplAggregatesPassSSA</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_scalar_repl_aggregates_pass_with_threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">threshold</span>: <span class="ident">i32</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddScalarReplAggregatesPassWithThreshold</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>, <span class="ident">threshold</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_simplify_lib_calls_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddSimplifyLibCallsPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This file transforms calls of the current function (self recursion) followed</span>
+    <span class="doccomment">/// by a return instruction with a branch to the entry of the function, creating</span>
+    <span class="doccomment">/// a loop. This pass also implements the following extensions to the basic algorithm:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 1. Trivial instructions between the call and return do not prevent the</span>
+    <span class="doccomment">/// transformation from taking place, though currently the analysis cannot support</span>
+    <span class="doccomment">/// moving any really useful instructions (only dead ones).</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 2. This pass transforms functions that are prevented from being tail</span>
+    <span class="doccomment">/// recursive by an associative expression to use an accumulator variable, thus</span>
+    <span class="doccomment">/// compiling the typical naive factorial or fib implementation into efficient code.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 3. TRE is performed if the function returns void, if the return returns</span>
+    <span class="doccomment">/// the result returned by the call, or if the function returns a run-time constant</span>
+    <span class="doccomment">/// on all exits from the function. It is possible, though unlikely, that the return</span>
+    <span class="doccomment">/// returns something else (like constant 0), and can still be TRE’d. It can be</span>
+    <span class="doccomment">/// TRE&#39;d if all other return instructions in the function return the exact same value.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 4. If it can prove that callees do not access theier caller stack frame,</span>
+    <span class="doccomment">/// they are marked as eligible for tail call elimination (by the code generator).</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_tail_call_elimination_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddTailCallEliminationPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This pass implements constant propagation and merging. It looks for instructions</span>
+    <span class="doccomment">/// involving only constant operands and replaces them with a constant value instead</span>
+    <span class="doccomment">/// of an instruction. For example:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```ir</span>
+    <span class="doccomment">/// add i32 1, 2</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// becomes</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```ir</span>
+    <span class="doccomment">/// i32 3</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// NOTE: this pass has a habit of making definitions be dead. It is a good idea to</span>
+    <span class="doccomment">/// run a Dead Instruction Elimination pass sometime after running this pass.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_constant_propagation_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddConstantPropagationPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// This file promotes memory references to be register references.</span>
+    <span class="doccomment">/// It promotes alloca instructions which only have loads and stores</span>
+    <span class="doccomment">/// as uses. An alloca is transformed by using dominator frontiers to</span>
+    <span class="doccomment">/// place phi nodes, then traversing the function in depth-first order to</span>
+    <span class="doccomment">/// rewrite loads and stores as appropriate. This is just the standard SSA</span>
+    <span class="doccomment">/// construction algorithm to construct “pruned” SSA form.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_demote_memory_to_register_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddDemoteMemoryToRegisterPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// Verifies an LLVM IR code. This is useful to run after an optimization</span>
+    <span class="doccomment">/// which is undergoing testing. Note that llvm-as verifies its input before</span>
+    <span class="doccomment">/// emitting bitcode, and also that malformed bitcode is likely to make</span>
+    <span class="doccomment">/// LLVM crash. All language front-ends are therefore encouraged to verify</span>
+    <span class="doccomment">/// their output before performing optimizing transformations.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 1. Both of a binary operator’s parameters are of the same type.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 2. Verify that the indices of mem access instructions match other operands.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 3. Verify that arithmetic and other things are only performed on</span>
+    <span class="doccomment">/// first-class types. Verify that shifts and logicals only happen on</span>
+    <span class="doccomment">/// integrals f.e.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 4. All of the constants in a switch statement are of the correct type.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 5. The code is in valid SSA form.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 6. It is illegal to put a label into any other type (like a structure)</span>
+    <span class="doccomment">/// or to return one.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 7. Only phi nodes can be self referential: %x = add i32 %x, %x is invalid.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 8. PHI nodes must have an entry for each predecessor, with no extras.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 9. PHI nodes must be the first thing in a basic block, all grouped together.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 10. PHI nodes must have at least one entry.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 11. All basic blocks should only end with terminator insts, not contain them.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 12. The entry node to a function must not have predecessors.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 13. All Instructions must be embedded into a basic block.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 14. Functions cannot take a void-typed parameter.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 15. Verify that a function’s argument list agrees with its declared type.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 16. It is illegal to specify a name for a void value.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 17. It is illegal to have an internal global value with no initializer.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 18. It is illegal to have a ret instruction that returns a value that does</span>
+    <span class="doccomment">/// not agree with the function return value type.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 19. Function call argument types match the function prototype.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// 20. All other things that are tested by asserts spread about the code.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note that this does not provide full security verification (like Java), but instead just tries to ensure that code is well-formed.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_verifier_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddVerifierPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_correlated_value_propagation_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddCorrelatedValuePropagationPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_early_cse_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddEarlyCSEPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">4.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_early_cse_mem_ssa_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">scalar</span>::<span class="ident">LLVMAddEarlyCSEMemSSAPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddEarlyCSEMemSSAPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_lower_expect_intrinsic_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLowerExpectIntrinsicPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_type_based_alias_analysis_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddTypeBasedAliasAnalysisPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// No LLVM documentation is available at this time.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_scoped_no_alias_aa_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddScopedNoAliasAAPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="doccomment">/// A basic alias analysis pass that implements identities</span>
+    <span class="doccomment">/// (two different globals cannot alias, etc), but does no</span>
+    <span class="doccomment">/// stateful analysis.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_basic_alias_analysis_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddBasicAliasAnalysisPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">7.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_aggressive_inst_combiner_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm7-0&quot;</span>)]</span>
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">scalar</span>::<span class="ident">LLVMAddAggressiveInstCombinerPass</span>;
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm7-0&quot;</span>))]</span>
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">aggressive_instcombine</span>::<span class="ident">LLVMAddAggressiveInstCombinerPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddAggressiveInstCombinerPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">7.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_loop_unroll_and_jam_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">scalar</span>::<span class="ident">LLVMAddLoopUnrollAndJamPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddLoopUnrollAndJamPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">8.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_coroutine_early_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">coroutines</span>::<span class="ident">LLVMAddCoroEarlyPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddCoroEarlyPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">8.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_coroutine_split_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">coroutines</span>::<span class="ident">LLVMAddCoroSplitPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddCoroSplitPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">8.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_coroutine_elide_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">coroutines</span>::<span class="ident">LLVMAddCoroElidePass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddCoroElidePass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">8.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_coroutine_cleanup_pass</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">transforms</span>::<span class="ident">coroutines</span>::<span class="ident">LLVMAddCoroCleanupPass</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMAddCoroCleanupPass</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">PassManager</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMDisposePassManager</span>(<span class="self">self</span>.<span class="ident">pass_manager</span>)
+        }
+    }
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PassRegistry</span> {
+    <span class="ident">pass_registry</span>: <span class="ident">LLVMPassRegistryRef</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">PassRegistry</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">pass_registry</span>: <span class="ident">LLVMPassRegistryRef</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PassRegistry</span> {
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">pass_registry</span>.<span class="ident">is_null</span>());
+
+        <span class="ident">PassRegistry</span> {
+            <span class="ident">pass_registry</span>,
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_global</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PassRegistry</span> {
+        <span class="kw">let</span> <span class="ident">pass_registry</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="ident">LLVMGetGlobalPassRegistry</span>()
+        };
+
+        <span class="ident">PassRegistry</span>::<span class="ident">new</span>(<span class="ident">pass_registry</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_core</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeCore</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_transform_utils</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeTransformUtils</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_scalar_opts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeScalarOpts</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_obj_carc_opts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeObjCARCOpts</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_vectorization</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeVectorization</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_inst_combine</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeInstCombine</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="comment">// Let us begin our initial public offering</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_ipo</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeIPO</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_instrumentation</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeInstrumentation</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_analysis</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeAnalysis</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_ipa</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeIPA</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_codegen</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeCodeGen</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeTarget</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">llvm_versions</span>(<span class="number">7.0</span>..<span class="op">=</span><span class="ident">latest</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialize_aggressive_inst_combiner</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">use</span> <span class="ident">llvm_sys</span>::<span class="ident">initialization</span>::<span class="ident">LLVMInitializeAggressiveInstCombiner</span>;
+
+        <span class="kw">unsafe</span> {
+            <span class="ident">LLVMInitializeAggressiveInstCombiner</span>(<span class="self">self</span>.<span class="ident">pass_registry</span>)
+        }
+    }
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "inkwell";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `many` mod in crate `blake2b_simd`."><meta name="keywords" content="rust, rustlang, rust-lang, many"><title>blake2b_simd::many - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../blake2b_simd/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a><p class='location'>Module many</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#constants">Constants</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'><a href='../index.html'>blake2b_simd</a></p><script>window.sidebarCurrent = {name: 'many', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/blake2b_simd/many.rs.html#1-529' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>blake2b_simd</a>::<wbr><a class="mod" href=''>many</a></span></h1><div class='docblock'><p>Interfaces for hashing multiple inputs at once, using SIMD more
+efficiently.</p>
+<p>The throughput of these interfaces is comparable to BLAKE2bp, about twice
+the throughput of regular BLAKE2b when AVX2 is available.</p>
+<p>These interfaces can accept any number of inputs, and the implementation
+does its best to parallelize them. In general, the more inputs you can pass
+in at once the better. If you need to batch your inputs in smaller groups,
+see the <a href="fn.degree.html"><code>degree</code></a> function for a good batch size.</p>
+<p>The implementation keeps working in parallel even when inputs are of
+different lengths, by managing a working set of jobs whose input isn't yet
+exhausted. However, if one or two inputs are much longer than the others,
+and they're encountered only at the end, there might not be any remaining
+work to parallelize them with. In this case, sorting the inputs
+longest-first can improve parallelism.</p>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">blake2b_simd</span>::{<span class="ident">blake2b</span>, <span class="ident">State</span>, <span class="ident">many</span>::<span class="ident">update_many</span>};
+
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">states</span> <span class="op">=</span> [
+    <span class="ident">State</span>::<span class="ident">new</span>(),
+    <span class="ident">State</span>::<span class="ident">new</span>(),
+    <span class="ident">State</span>::<span class="ident">new</span>(),
+    <span class="ident">State</span>::<span class="ident">new</span>(),
+];
+
+<span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> [
+    <span class="kw-2">&amp;</span><span class="string">b&quot;foo&quot;</span>[..],
+    <span class="kw-2">&amp;</span><span class="string">b&quot;bar&quot;</span>[..],
+    <span class="kw-2">&amp;</span><span class="string">b&quot;baz&quot;</span>[..],
+    <span class="kw-2">&amp;</span><span class="string">b&quot;bing&quot;</span>[..],
+];
+
+<span class="ident">update_many</span>(<span class="ident">states</span>.<span class="ident">iter_mut</span>().<span class="ident">zip</span>(<span class="ident">inputs</span>.<span class="ident">iter</span>()));
+
+<span class="kw">for</span> (<span class="ident">state</span>, <span class="ident">input</span>) <span class="kw">in</span> <span class="ident">states</span>.<span class="ident">iter_mut</span>().<span class="ident">zip</span>(<span class="ident">inputs</span>.<span class="ident">iter</span>()) {
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">blake2b</span>(<span class="ident">input</span>), <span class="ident">state</span>.<span class="ident">finalize</span>());
+}</pre></div>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.HashManyJob.html" title='blake2b_simd::many::HashManyJob struct'>HashManyJob</a></td><td class='docblock-short'><p>A job for the <a href="fn.hash_many.html"><code>hash_many</code></a> function. After calling <a href="fn.hash_many.html"><code>hash_many</code></a> on a
+collection of <code>HashManyJob</code> objects, you can call <a href="struct.HashManyJob.html#method.to_hash"><code>to_hash</code></a> on each job
+to get the result.</p>
+</td></tr></table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table><tr class='module-item'><td><a class="constant" href="constant.MAX_DEGREE.html" title='blake2b_simd::many::MAX_DEGREE constant'>MAX_DEGREE</a></td><td class='docblock-short'><p>The largest possible value of <a href="fn.degree.html"><code>degree</code></a> on the target
+platform.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.degree.html" title='blake2b_simd::many::degree fn'>degree</a></td><td class='docblock-short'><p>The parallelism degree of the implementation, detected at runtime. If you
+hash your inputs in small batches, making the batch size a multiple of
+<code>degree</code> will generally give good performance.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.hash_many.html" title='blake2b_simd::many::hash_many fn'>hash_many</a></td><td class='docblock-short'><p>Hash any number of complete inputs all at once.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.update_many.html" title='blake2b_simd::many::update_many fn'>update_many</a></td><td class='docblock-short'><p>Update any number of <code>State</code> objects at once.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "blake2b_simd";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

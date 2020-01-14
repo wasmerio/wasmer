@@ -1,0 +1,1801 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/Users/syrusakbary/.cargo/git/checkouts/cranelift-ce3a59f3bb7656b0/a81035e/cranelift-codegen/src/redundant_reload_remover.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>redundant_reload_remover.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../cranelift_codegen/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
+<span id="670">670</span>
+<span id="671">671</span>
+<span id="672">672</span>
+<span id="673">673</span>
+<span id="674">674</span>
+<span id="675">675</span>
+<span id="676">676</span>
+<span id="677">677</span>
+<span id="678">678</span>
+<span id="679">679</span>
+<span id="680">680</span>
+<span id="681">681</span>
+<span id="682">682</span>
+<span id="683">683</span>
+<span id="684">684</span>
+<span id="685">685</span>
+<span id="686">686</span>
+<span id="687">687</span>
+<span id="688">688</span>
+<span id="689">689</span>
+<span id="690">690</span>
+<span id="691">691</span>
+<span id="692">692</span>
+<span id="693">693</span>
+<span id="694">694</span>
+<span id="695">695</span>
+<span id="696">696</span>
+<span id="697">697</span>
+<span id="698">698</span>
+<span id="699">699</span>
+<span id="700">700</span>
+<span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
+<span id="715">715</span>
+<span id="716">716</span>
+<span id="717">717</span>
+<span id="718">718</span>
+<span id="719">719</span>
+<span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
+<span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+<span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
+<span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
+<span id="773">773</span>
+<span id="774">774</span>
+<span id="775">775</span>
+<span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
+<span id="791">791</span>
+<span id="792">792</span>
+<span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
+<span id="886">886</span>
+<span id="887">887</span>
+<span id="888">888</span>
+<span id="889">889</span>
+<span id="890">890</span>
+<span id="891">891</span>
+<span id="892">892</span>
+<span id="893">893</span>
+<span id="894">894</span>
+<span id="895">895</span>
+<span id="896">896</span>
+<span id="897">897</span>
+<span id="898">898</span>
+<span id="899">899</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! This module implements a late-stage redundant-reload remover, which runs after registers have</span>
+<span class="doccomment">//! been allocated and stack slots have been given specific offsets.</span>
+
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">cursor</span>::{<span class="ident">Cursor</span>, <span class="ident">CursorPosition</span>, <span class="ident">EncCursor</span>, <span class="ident">FuncCursor</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">entity</span>::<span class="ident">EntitySet</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">flowgraph</span>::<span class="ident">ControlFlowGraph</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ir</span>::<span class="ident">dfg</span>::<span class="ident">DataFlowGraph</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ir</span>::<span class="ident">instructions</span>::<span class="ident">BranchInfo</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ir</span>::<span class="ident">stackslot</span>::{<span class="ident">StackSlotKind</span>, <span class="ident">StackSlots</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ir</span>::{
+    <span class="ident">Ebb</span>, <span class="ident">Function</span>, <span class="ident">Inst</span>, <span class="ident">InstBuilder</span>, <span class="ident">InstructionData</span>, <span class="ident">Opcode</span>, <span class="ident">StackSlotData</span>, <span class="ident">Type</span>, <span class="ident">Value</span>, <span class="ident">ValueLoc</span>,
+};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">isa</span>::{<span class="ident">RegInfo</span>, <span class="ident">RegUnit</span>, <span class="ident">TargetIsa</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">regalloc</span>::<span class="ident">RegDiversions</span>;
+<span class="kw">use</span> <span class="ident">alloc</span>::<span class="ident">vec</span>::<span class="ident">Vec</span>;
+<span class="kw">use</span> <span class="ident">core</span>::<span class="ident">convert</span>::<span class="ident">TryInto</span>;
+<span class="kw">use</span> <span class="ident">cranelift_entity</span>::{<span class="ident">PrimaryMap</span>, <span class="ident">SecondaryMap</span>};
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// A description of the redundant-fill-removal algorithm</span>
+<span class="comment">//</span>
+<span class="comment">//</span>
+<span class="comment">// The algorithm works forwards through each Ebb.  It carries along and updates a table,</span>
+<span class="comment">// AvailEnv, with which it tracks registers that are known to have the same value as some stack</span>
+<span class="comment">// slot.  The actions on encountering an instruction depend on the instruction, as follows:</span>
+<span class="comment">//</span>
+<span class="comment">// ss1 = spill r0: update the AvailEnv so as to note that slot `ss1` and register `r0`</span>
+<span class="comment">//                 have the same value.</span>
+<span class="comment">//</span>
+<span class="comment">// r1 = fill ss0: look in the AvailEnv.  If it tells us that register `r1` and slot `ss0`</span>
+<span class="comment">//                have the same value, then delete the instruction by converting it to a</span>
+<span class="comment">//                `fill_nop`.</span>
+<span class="comment">//</span>
+<span class="comment">//                If it tells us that some other register `r2` has the same value as</span>
+<span class="comment">//                slot `ss0`, convert the instruction into a copy from `r2` to `r1`.</span>
+<span class="comment">//</span>
+<span class="comment">// any other insn: remove from the AvailEnv, any bindings associated with registers</span>
+<span class="comment">//                 written by this instruction, since they will be invalidated by it.</span>
+<span class="comment">//</span>
+<span class="comment">// Tracking the effects of `copy` instructions in AvailEnv for the case when both source and</span>
+<span class="comment">// destination are registers does not cause any more fills to be removed or converted to copies.</span>
+<span class="comment">// It&#39;s not clear why.</span>
+<span class="comment">//</span>
+<span class="comment">// There are various other instruction-handling cases in `visit_inst`, which are documented</span>
+<span class="comment">// in-line, and do not change the core algorithm, so are not described here.</span>
+<span class="comment">//</span>
+<span class="comment">// The registers tracked by AvailEnv are the post-diversion registers that are really used by the</span>
+<span class="comment">// code; they are not the pre-diversion names associated with each SSA `Value`.  The second</span>
+<span class="comment">// `fill` case above opportunistically copies values from registers that may have been diversion</span>
+<span class="comment">// targets in some predecessor block, and so are no longer associated with any specific SSA-level</span>
+<span class="comment">// name at the point the copy is made.  Hence those copies (from `r2` to `r1`) cannot be done</span>
+<span class="comment">// with an ordinary `copy` instruction.  Instead they have to be done using a new `copy_to_ssa`</span>
+<span class="comment">// instruction, which copies from an arbitrary register to a register-resident `Value` (that is,</span>
+<span class="comment">// &quot;back to&quot; SSA-world).</span>
+<span class="comment">//</span>
+<span class="comment">// That completes the description of the core algorithm.</span>
+<span class="comment">//</span>
+<span class="comment">// In the case where a block `A` jumps to `B` and `A` is the only predecessor of `B`, the</span>
+<span class="comment">// AvailEnv at the end of `A` will still be valid at the entry to `B`.  In such a case, we can</span>
+<span class="comment">// profitably transform `B` using the AvailEnv &quot;inherited&quot; from `A`.  In order to take full</span>
+<span class="comment">// advantage of this, this module partitions the function&#39;s CFG into tree-shaped groups of</span>
+<span class="comment">// blocks, and processes each tree as described above.  So the AvailEnv is only initialised to</span>
+<span class="comment">// empty at the start of blocks that form the root of each tree; that is, for blocks which have</span>
+<span class="comment">// two or more predecessors.</span>
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Top level algorithm structure</span>
+<span class="comment">//</span>
+<span class="comment">// The overall algorithm, for a function, starts like this:</span>
+<span class="comment">//</span>
+<span class="comment">// * (once per function): finds Ebbs that have two or more predecessors, since they will be the</span>
+<span class="comment">//   roots of Ebb trees.  Also, the entry node for the function is considered to be a root.</span>
+<span class="comment">//</span>
+<span class="comment">// It then continues with a loop that first finds a tree of Ebbs (&quot;discovery&quot;) and then removes</span>
+<span class="comment">// redundant fills as described above (&quot;processing&quot;):</span>
+<span class="comment">//</span>
+<span class="comment">// * (discovery; once per tree): for each root, performs a depth first search to find all the Ebbs</span>
+<span class="comment">//   in the tree, guided by RedundantReloadRemover::discovery_stack.</span>
+<span class="comment">//</span>
+<span class="comment">// * (processing; once per tree): the just-discovered tree is then processed as described above,</span>
+<span class="comment">//   guided by RedundantReloadRemover::processing_stack.</span>
+<span class="comment">//</span>
+<span class="comment">// In this way, all Ebbs reachable from the function&#39;s entry point are eventually processed.  Note</span>
+<span class="comment">// that each tree is processed as soon as it has been discovered, so the algorithm never creates a</span>
+<span class="comment">// list of trees for the function.</span>
+<span class="comment">//</span>
+<span class="comment">// The running state is stored in `RedundantReloadRemover`.  This is allocated once and can be</span>
+<span class="comment">// reused for multiple functions so as to minimise heap turnover.  The fields are, roughly:</span>
+<span class="comment">//</span>
+<span class="comment">//   num_regunits -- constant for the whole function; used by the tree processing phase</span>
+<span class="comment">//   num_preds_per_ebb -- constant for the whole function; used by the tree discovery process</span>
+<span class="comment">//</span>
+<span class="comment">//   discovery_stack -- used to guide the tree discovery process</span>
+<span class="comment">//   nodes_in_tree -- the discovered nodes are recorded here</span>
+<span class="comment">//</span>
+<span class="comment">//   processing_stack -- used to guide the tree processing process</span>
+<span class="comment">//   nodes_already_visited -- used to ensure the tree processing logic terminates in the case</span>
+<span class="comment">//                            where a tree has a branch back to its root node.</span>
+<span class="comment">//</span>
+<span class="comment">// There is further documentation in line below, as appropriate.</span>
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// A side note on register choice heuristics</span>
+
+<span class="comment">// The core algorithm opportunistically replaces fill instructions when it knows of a register</span>
+<span class="comment">// that already holds the required value.  How effective this is largely depends on how long</span>
+<span class="comment">// reloaded values happen to stay alive before the relevant register is overwritten.  And that</span>
+<span class="comment">// depends on the register allocator&#39;s register choice heuristics.  The worst case is, when the</span>
+<span class="comment">// register allocator reuses registers as soon as possible after they become free.  Unfortunately</span>
+<span class="comment">// that was indeed the selection scheme, prior to development of this pass.</span>
+<span class="comment">//</span>
+<span class="comment">// As part of this work, the register selection scheme has been changed as follows: for registers</span>
+<span class="comment">// written by any instruction other than a fill, use the lowest numbered available register.  But</span>
+<span class="comment">// for registers written by a fill instruction, use the highest numbered available register.  The</span>
+<span class="comment">// aim is to try and keep reload- and non-reload registers disjoint to the extent possible.</span>
+<span class="comment">// Several other schemes were tried, but this one is simple and can be worth an extra 2% of</span>
+<span class="comment">// performance in some cases.</span>
+<span class="comment">//</span>
+<span class="comment">// The relevant change is more or less a one-line change in the solver.</span>
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Data structures used for discovery of trees</span>
+
+<span class="comment">// `ZeroOneOrMany` is used to record the number of predecessors an Ebb block has.  The `Zero` case</span>
+<span class="comment">// is included so as to cleanly handle the case where the incoming graph has unreachable Ebbs.</span>
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">enum</span> <span class="ident">ZeroOneOrMany</span> {
+    <span class="ident">Zero</span>,
+    <span class="ident">One</span>,
+    <span class="ident">Many</span>,
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Data structures used for processing of trees</span>
+
+<span class="comment">// `SlotInfo` describes a spill slot in the obvious way.  Note that it doesn&#39;t indicate which</span>
+<span class="comment">// register(s) are currently associated with the slot.  That job is done by `AvailEnv` instead.</span>
+<span class="comment">//</span>
+<span class="comment">// In the CL framework, stack slots are partitioned into disjoint sets, one for each</span>
+<span class="comment">// `StackSlotKind`.  The offset and size only give a unique identity within any particular</span>
+<span class="comment">// `StackSlotKind`.  So, to uniquely identify a stack slot, all three fields are necessary.</span>
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="kw">struct</span> <span class="ident">SlotInfo</span> {
+    <span class="ident">kind</span>: <span class="ident">StackSlotKind</span>,
+    <span class="ident">offset</span>: <span class="ident">i32</span>,
+    <span class="ident">size</span>: <span class="ident">u32</span>,
+}
+
+<span class="comment">// `AvailEnv` maps each possible register to a stack slot that holds the same value.  The index</span>
+<span class="comment">// space of `AvailEnv::map` is exactly the set of registers available on the current target.  If</span>
+<span class="comment">// (as is mostly the case) a register is not known to have the same value as a stack slot, then</span>
+<span class="comment">// its entry is `None` rather than `Some(..)`.</span>
+<span class="comment">//</span>
+<span class="comment">// Invariants for AvailEnv:</span>
+<span class="comment">//</span>
+<span class="comment">// AvailEnv may have multiple different registers bound to the same stack slot -- that is, `(kind,</span>
+<span class="comment">// offset, size)` triple.  That&#39;s OK, and reflects the reality that those two registers contain</span>
+<span class="comment">// the same value.  This could happen, for example, in the case</span>
+<span class="comment">//</span>
+<span class="comment">//   ss1 = spill r0</span>
+<span class="comment">//   ..</span>
+<span class="comment">//   r2 = fill ss1</span>
+<span class="comment">//</span>
+<span class="comment">// Then both `r0` and `r2` will have the same value as `ss1`, provided that &quot;..&quot; doesn&#39;t write to</span>
+<span class="comment">// `r1`.</span>
+<span class="comment">//</span>
+<span class="comment">// To say that two different registers may be bound to the same stack slot is the same as saying</span>
+<span class="comment">// that it is allowed to have two different entries in AvailEnv with the same `(kind, offset,</span>
+<span class="comment">// size)` triple.  What is *not* allowed is to have partial overlaps.  That is, if two SlotInfos</span>
+<span class="comment">// have the same `kind` field and have `offset` and `size` fields that overlap, then their</span>
+<span class="comment">// `offset` and `size` fields must be identical.  This is so as to make the algorithm safe against</span>
+<span class="comment">// situations where, for example, a 64 bit register is spilled, but then only the bottom 32 bits</span>
+<span class="comment">// are reloaded from the slot.</span>
+<span class="comment">//</span>
+<span class="comment">// Although in such a case it seems likely that the Cranelift IR would be ill-typed, and so this</span>
+<span class="comment">// case could probably not occur in practice.</span>
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
+<span class="kw">struct</span> <span class="ident">AvailEnv</span> {
+    <span class="ident">map</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SlotInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+}
+
+<span class="comment">// `ProcessingStackElem` combines AvailEnv with contextual information needed to &quot;navigate&quot; within</span>
+<span class="comment">// an Ebb.</span>
+<span class="comment">//</span>
+<span class="comment">// A ProcessingStackElem conceptually has the lifetime of exactly one Ebb: once the current Ebb is</span>
+<span class="comment">// completed, the ProcessingStackElem will be abandoned.  In practice the top level state,</span>
+<span class="comment">// RedundantReloadRemover, caches them, so as to avoid heap turnover.</span>
+<span class="comment">//</span>
+<span class="comment">// Note that ProcessingStackElem must contain a CursorPosition.  The CursorPosition, which</span>
+<span class="comment">// indicates where we are in the current Ebb, cannot be implicitly maintained by looping over all</span>
+<span class="comment">// the instructions in an Ebb in turn, because we may choose to suspend processing the current Ebb</span>
+<span class="comment">// at a side exit, continue by processing the subtree reached via the side exit, and only later</span>
+<span class="comment">// resume the current Ebb.</span>
+
+<span class="kw">struct</span> <span class="ident">ProcessingStackElem</span> {
+    <span class="doccomment">/// Indicates the AvailEnv at the current point in the Ebb.</span>
+    <span class="ident">avail_env</span>: <span class="ident">AvailEnv</span>,
+
+    <span class="doccomment">/// Shows where we currently are inside the Ebb.</span>
+    <span class="ident">cursor</span>: <span class="ident">CursorPosition</span>,
+
+    <span class="doccomment">/// Indicates the currently active register diversions at the current point.</span>
+    <span class="ident">diversions</span>: <span class="ident">RegDiversions</span>,
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// The top level data structure</span>
+
+<span class="comment">// `RedundantReloadRemover` contains data structures for the two passes: discovery of tree shaped</span>
+<span class="comment">// regions, and processing of them.  These are allocated once and stay alive for the entire</span>
+<span class="comment">// function, even though they are cleared out for each new tree shaped region.  It also caches</span>
+<span class="comment">// `num_regunits` and `num_preds_per_ebb`, which are computed at the start of each function and</span>
+<span class="comment">// then remain constant.</span>
+
+<span class="doccomment">/// The redundant reload remover&#39;s state.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RedundantReloadRemover</span> {
+    <span class="doccomment">/// The total number of RegUnits available on this architecture.  This is unknown when the</span>
+    <span class="doccomment">/// RedundantReloadRemover is created.  It becomes known at the beginning of processing of a</span>
+    <span class="doccomment">/// function.</span>
+    <span class="ident">num_regunits</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// This stores, for each Ebb, a characterisation of the number of predecessors it has.</span>
+    <span class="ident">num_preds_per_ebb</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">Ebb</span>, <span class="ident">ZeroOneOrMany</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// The stack used for the first phase (discovery).  There is one element on the discovery</span>
+    <span class="doccomment">/// stack for each currently unexplored Ebb in the tree being searched.</span>
+    <span class="ident">discovery_stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ebb</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// The nodes in the discovered tree are inserted here.</span>
+    <span class="ident">nodes_in_tree</span>: <span class="ident">EntitySet</span><span class="op">&lt;</span><span class="ident">Ebb</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// The stack used during the second phase (transformation).  There is one element on the</span>
+    <span class="doccomment">/// processing stack for each currently-open node in the tree being transformed.</span>
+    <span class="ident">processing_stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ProcessingStackElem</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Used in the second phase to avoid visiting nodes more than once.</span>
+    <span class="ident">nodes_already_visited</span>: <span class="ident">EntitySet</span><span class="op">&lt;</span><span class="ident">Ebb</span><span class="op">&gt;</span>,
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Miscellaneous small helper functions</span>
+
+<span class="comment">// Is this a kind of stack slot that is safe to track in AvailEnv?  This is probably overly</span>
+<span class="comment">// conservative, but tracking only the SpillSlot and IncomingArgument kinds catches almost all</span>
+<span class="comment">// available redundancy in practice.</span>
+<span class="kw">fn</span> <span class="ident">is_slot_kind_tracked</span>(<span class="ident">kind</span>: <span class="ident">StackSlotKind</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">match</span> <span class="ident">kind</span> {
+        <span class="ident">StackSlotKind</span>::<span class="ident">SpillSlot</span> <span class="op">|</span> <span class="ident">StackSlotKind</span>::<span class="ident">IncomingArg</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
+    }
+}
+
+<span class="comment">// Find out if the range `[offset, +size)` overlaps with the range in `si`.</span>
+<span class="kw">fn</span> <span class="ident">overlaps</span>(<span class="ident">si</span>: <span class="kw-2">&amp;</span><span class="ident">SlotInfo</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">size</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">let</span> <span class="ident">a_offset</span> <span class="op">=</span> <span class="ident">si</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i64</span>;
+    <span class="kw">let</span> <span class="ident">a_size</span> <span class="op">=</span> <span class="ident">si</span>.<span class="ident">size</span> <span class="kw">as</span> <span class="ident">i64</span>;
+    <span class="kw">let</span> <span class="ident">b_offset</span> <span class="op">=</span> <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i64</span>;
+    <span class="kw">let</span> <span class="ident">b_size</span> <span class="op">=</span> <span class="ident">size</span> <span class="kw">as</span> <span class="ident">i64</span>;
+    <span class="kw">let</span> <span class="ident">no_overlap</span> <span class="op">=</span> <span class="ident">a_offset</span> <span class="op">+</span> <span class="ident">a_size</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">b_offset</span> <span class="op">|</span><span class="op">|</span> <span class="ident">b_offset</span> <span class="op">+</span> <span class="ident">b_size</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">a_offset</span>;
+    <span class="op">!</span><span class="ident">no_overlap</span>
+}
+
+<span class="comment">// Find, in `reginfo`, the register bank that `reg` lives in, and return the lower limit and size</span>
+<span class="comment">// of the bank.  This is so the caller can conveniently iterate over all RegUnits in the bank that</span>
+<span class="comment">// `reg` lives in.</span>
+<span class="kw">fn</span> <span class="ident">find_bank_limits</span>(<span class="ident">reginfo</span>: <span class="kw-2">&amp;</span><span class="ident">RegInfo</span>, <span class="ident">reg</span>: <span class="ident">RegUnit</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">RegUnit</span>, <span class="ident">u16</span>) {
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">bank</span>) <span class="op">=</span> <span class="ident">reginfo</span>.<span class="ident">bank_containing_regunit</span>(<span class="ident">reg</span>) {
+        <span class="kw">return</span> (<span class="ident">bank</span>.<span class="ident">first_unit</span>, <span class="ident">bank</span>.<span class="ident">units</span>);
+    }
+    <span class="comment">// We should never get here, since `reg` must come from *some* RegBank.</span>
+    <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;find_regclass_limits: reg not found&quot;</span>);
+}
+
+<span class="comment">// Returns the register that `v` is allocated to.  Assumes that `v` actually resides in a</span>
+<span class="comment">// register.</span>
+<span class="kw">fn</span> <span class="ident">reg_of_value</span>(<span class="ident">locations</span>: <span class="kw-2">&amp;</span><span class="ident">SecondaryMap</span><span class="op">&lt;</span><span class="ident">Value</span>, <span class="ident">ValueLoc</span><span class="op">&gt;</span>, <span class="ident">v</span>: <span class="ident">Value</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RegUnit</span> {
+    <span class="kw">match</span> <span class="ident">locations</span>[<span class="ident">v</span>] {
+        <span class="ident">ValueLoc</span>::<span class="ident">Reg</span>(<span class="ident">ru</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ru</span>,
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;reg_of_value: value isn&#39;t in a reg&quot;</span>),
+    }
+}
+
+<span class="comment">// Returns the stack slot that `v` is allocated to.  Assumes that `v` actually resides in a stack</span>
+<span class="comment">// slot.</span>
+<span class="kw">fn</span> <span class="ident">slot_of_value</span><span class="op">&lt;</span><span class="lifetime">&#39;s</span><span class="op">&gt;</span>(
+    <span class="ident">locations</span>: <span class="kw-2">&amp;</span><span class="ident">SecondaryMap</span><span class="op">&lt;</span><span class="ident">Value</span>, <span class="ident">ValueLoc</span><span class="op">&gt;</span>,
+    <span class="ident">stack_slots</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;s</span> <span class="ident">StackSlots</span>,
+    <span class="ident">v</span>: <span class="ident">Value</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;s</span> <span class="ident">StackSlotData</span> {
+    <span class="kw">match</span> <span class="ident">locations</span>[<span class="ident">v</span>] {
+        <span class="ident">ValueLoc</span>::<span class="ident">Stack</span>(<span class="ident">slot</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">stack_slots</span>[<span class="ident">slot</span>],
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;slot_of_value: value isn&#39;t in a stack slot&quot;</span>),
+    }
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Top level: discovery of tree shaped regions</span>
+
+<span class="kw">impl</span> <span class="ident">RedundantReloadRemover</span> {
+    <span class="comment">// A helper for `add_nodes_to_tree` below.</span>
+    <span class="kw">fn</span> <span class="ident">discovery_stack_push_successors_of</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">cfg</span>: <span class="kw-2">&amp;</span><span class="ident">ControlFlowGraph</span>, <span class="ident">node</span>: <span class="ident">Ebb</span>) {
+        <span class="kw">for</span> <span class="ident">successor</span> <span class="kw">in</span> <span class="ident">cfg</span>.<span class="ident">succ_iter</span>(<span class="ident">node</span>) {
+            <span class="self">self</span>.<span class="ident">discovery_stack</span>.<span class="ident">push</span>(<span class="ident">successor</span>);
+        }
+    }
+
+    <span class="comment">// Visit the tree of Ebbs rooted at `starting_point` and add them to `self.nodes_in_tree`.</span>
+    <span class="comment">// `self.num_preds_per_ebb` guides the process, ensuring we don&#39;t leave the tree-ish region</span>
+    <span class="comment">// and indirectly ensuring that the process will terminate in the presence of cycles in the</span>
+    <span class="comment">// graph.  `self.discovery_stack` holds the search state in this function.</span>
+    <span class="kw">fn</span> <span class="ident">add_nodes_to_tree</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">cfg</span>: <span class="kw-2">&amp;</span><span class="ident">ControlFlowGraph</span>, <span class="ident">starting_point</span>: <span class="ident">Ebb</span>) {
+        <span class="comment">// One might well ask why this doesn&#39;t loop forever when it encounters cycles in the</span>
+        <span class="comment">// control flow graph.  The reason is that any cycle in the graph that is reachable from</span>
+        <span class="comment">// anywhere outside the cycle -- in particular, that is reachable from the function&#39;s</span>
+        <span class="comment">// entry node -- must have at least one node that has two or more predecessors.  So the</span>
+        <span class="comment">// logic below won&#39;t follow into it, because it regards any such node as the root of some</span>
+        <span class="comment">// other tree.</span>
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">discovery_stack</span>.<span class="ident">is_empty</span>());
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">nodes_in_tree</span>.<span class="ident">is_empty</span>());
+
+        <span class="self">self</span>.<span class="ident">nodes_in_tree</span>.<span class="ident">insert</span>(<span class="ident">starting_point</span>);
+        <span class="self">self</span>.<span class="ident">discovery_stack_push_successors_of</span>(<span class="ident">cfg</span>, <span class="ident">starting_point</span>);
+
+        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">node</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">discovery_stack</span>.<span class="ident">pop</span>() {
+            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>[<span class="ident">node</span>] {
+                <span class="comment">// We arrived at a node with multiple predecessors, so it&#39;s a new root.  Ignore it.</span>
+                <span class="ident">ZeroOneOrMany</span>::<span class="ident">Many</span> <span class="op">=</span><span class="op">&gt;</span> {}
+                <span class="comment">// This node has just one predecessor, so we should incorporate it in the tree and</span>
+                <span class="comment">// immediately transition into searching from it instead.</span>
+                <span class="ident">ZeroOneOrMany</span>::<span class="ident">One</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="self">self</span>.<span class="ident">nodes_in_tree</span>.<span class="ident">insert</span>(<span class="ident">node</span>);
+                    <span class="self">self</span>.<span class="ident">discovery_stack_push_successors_of</span>(<span class="ident">cfg</span>, <span class="ident">node</span>);
+                }
+                <span class="comment">// This is meaningless.  We arrived at a node that doesn&#39;t point back at where we</span>
+                <span class="comment">// came from.</span>
+                <span class="ident">ZeroOneOrMany</span>::<span class="ident">Zero</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;add_nodes_to_tree: inconsistent graph&quot;</span>),
+            }
+        }
+    }
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Operations relating to `AvailEnv`</span>
+
+<span class="kw">impl</span> <span class="ident">AvailEnv</span> {
+    <span class="comment">// Create a new one.</span>
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">size</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">env</span> <span class="op">=</span> <span class="self">Self</span> {
+            <span class="ident">map</span>: <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SlotInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>::<span class="ident">new</span>(),
+        };
+        <span class="ident">env</span>.<span class="ident">map</span>.<span class="ident">resize</span>(<span class="ident">size</span>, <span class="prelude-val">None</span>);
+        <span class="ident">env</span>
+    }
+
+    <span class="comment">// Debug only: checks (some of) the required AvailEnv invariants.</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">debug_assertions</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">check_invariants</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="comment">// Check that any overlapping entries overlap exactly.  This is super lame (quadratic),</span>
+        <span class="comment">// but it&#39;s only used in debug builds.</span>
+        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="self">self</span>.<span class="ident">map</span>.<span class="ident">len</span>() {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">si</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>[<span class="ident">i</span>] {
+                <span class="kw">for</span> <span class="ident">j</span> <span class="kw">in</span> <span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>..<span class="self">self</span>.<span class="ident">map</span>.<span class="ident">len</span>() {
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">sj</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>[<span class="ident">j</span>] {
+                        <span class="comment">// &quot;si and sj overlap, but not exactly&quot;</span>
+                        <span class="kw">if</span> <span class="ident">si</span>.<span class="ident">kind</span> <span class="op">=</span><span class="op">=</span> <span class="ident">sj</span>.<span class="ident">kind</span>
+                            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">overlaps</span>(<span class="kw-2">&amp;</span><span class="ident">si</span>, <span class="ident">sj</span>.<span class="ident">offset</span>, <span class="ident">sj</span>.<span class="ident">size</span>)
+                            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="op">!</span>(<span class="ident">si</span>.<span class="ident">offset</span> <span class="op">=</span><span class="op">=</span> <span class="ident">sj</span>.<span class="ident">offset</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">si</span>.<span class="ident">size</span> <span class="op">=</span><span class="op">=</span> <span class="ident">sj</span>.<span class="ident">size</span>)
+                        {
+                            <span class="kw">return</span> <span class="bool-val">false</span>;
+                        }
+                    }
+                }
+            }
+        }
+        <span class="bool-val">true</span>
+    }
+
+    <span class="comment">// Invalidates the binding associated with `reg`.  Note that by construction of AvailEnv,</span>
+    <span class="comment">// `reg` can only be associated with one binding at once.</span>
+    <span class="kw">fn</span> <span class="ident">invalidate_by_reg</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">RegUnit</span>) {
+        <span class="self">self</span>.<span class="ident">map</span>[<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span> <span class="prelude-val">None</span>;
+    }
+
+    <span class="comment">// Invalidates any binding that has any overlap with `(kind, offset, size)`.</span>
+    <span class="kw">fn</span> <span class="ident">invalidate_by_offset</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">kind</span>: <span class="ident">StackSlotKind</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">size</span>: <span class="ident">u32</span>) {
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">is_slot_kind_tracked</span>(<span class="ident">kind</span>));
+        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="self">self</span>.<span class="ident">map</span>.<span class="ident">len</span>() {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">si</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">map</span>[<span class="ident">i</span>] {
+                <span class="kw">if</span> <span class="ident">si</span>.<span class="ident">kind</span> <span class="op">=</span><span class="op">=</span> <span class="ident">kind</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">overlaps</span>(<span class="kw-2">&amp;</span><span class="ident">si</span>, <span class="ident">offset</span>, <span class="ident">size</span>) {
+                    <span class="self">self</span>.<span class="ident">map</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="prelude-val">None</span>;
+                }
+            }
+        }
+    }
+
+    <span class="comment">// Invalidates all bindings.</span>
+    <span class="kw">fn</span> <span class="ident">invalidate_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="self">self</span>.<span class="ident">map</span>.<span class="ident">len</span>() {
+            <span class="self">self</span>.<span class="ident">map</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="prelude-val">None</span>;
+        }
+    }
+
+    <span class="comment">// Updates AvailEnv to track the effect of a `regmove` instruction.</span>
+    <span class="kw">fn</span> <span class="ident">copy_reg</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">src</span>: <span class="ident">RegUnit</span>, <span class="ident">dst</span>: <span class="ident">RegUnit</span>) {
+        <span class="self">self</span>.<span class="ident">map</span>[<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>[<span class="ident">src</span> <span class="kw">as</span> <span class="ident">usize</span>];
+    }
+
+    <span class="comment">// Does `env` have the exact binding characterised by `(reg, kind, offset, size)` ?</span>
+    <span class="kw">fn</span> <span class="ident">has_exact_binding</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">RegUnit</span>, <span class="ident">kind</span>: <span class="ident">StackSlotKind</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">size</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">is_slot_kind_tracked</span>(<span class="ident">kind</span>));
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">si</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">map</span>[<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">usize</span>] {
+            <span class="kw">return</span> <span class="ident">si</span>.<span class="ident">kind</span> <span class="op">=</span><span class="op">=</span> <span class="ident">kind</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">si</span>.<span class="ident">offset</span> <span class="op">=</span><span class="op">=</span> <span class="ident">offset</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">si</span>.<span class="ident">size</span> <span class="op">=</span><span class="op">=</span> <span class="ident">size</span>;
+        }
+        <span class="comment">// No such binding.</span>
+        <span class="bool-val">false</span>
+    }
+
+    <span class="comment">// Does `env` have a binding characterised by `(kind, offset, size)` but to a register, let&#39;s</span>
+    <span class="comment">// call it `other_reg`, that isn&#39;t `reg`?  If so, return `other_reg`.  Note that `other_reg`</span>
+    <span class="comment">// will have the same bank as `reg`.  It is a checked error to call this function with a</span>
+    <span class="comment">// binding matching all four of `(reg, kind, offset, size)`.</span>
+    <span class="kw">fn</span> <span class="ident">has_inexact_binding</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">reginfo</span>: <span class="kw-2">&amp;</span><span class="ident">RegInfo</span>,
+        <span class="ident">reg</span>: <span class="ident">RegUnit</span>,
+        <span class="ident">kind</span>: <span class="ident">StackSlotKind</span>,
+        <span class="ident">offset</span>: <span class="ident">i32</span>,
+        <span class="ident">size</span>: <span class="ident">u32</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RegUnit</span><span class="op">&gt;</span> {
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">is_slot_kind_tracked</span>(<span class="ident">kind</span>));
+        <span class="comment">// Find the range of RegUnit numbers for the bank that contains `reg`, and use that as our</span>
+        <span class="comment">// search space.  This is so as to guarantee that any match is restricted to the same bank</span>
+        <span class="comment">// as `reg`.</span>
+        <span class="kw">let</span> (<span class="ident">first_unit</span>, <span class="ident">num_units</span>) <span class="op">=</span> <span class="ident">find_bank_limits</span>(<span class="ident">reginfo</span>, <span class="ident">reg</span>);
+        <span class="kw">for</span> <span class="ident">other_reg</span> <span class="kw">in</span> <span class="ident">first_unit</span>..<span class="ident">first_unit</span> <span class="op">+</span> <span class="ident">num_units</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">si</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">map</span>[<span class="ident">other_reg</span> <span class="kw">as</span> <span class="ident">usize</span>] {
+                <span class="kw">if</span> <span class="ident">si</span>.<span class="ident">kind</span> <span class="op">=</span><span class="op">=</span> <span class="ident">kind</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">si</span>.<span class="ident">offset</span> <span class="op">=</span><span class="op">=</span> <span class="ident">offset</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">si</span>.<span class="ident">size</span> <span class="op">=</span><span class="op">=</span> <span class="ident">size</span> {
+                    <span class="kw">if</span> <span class="ident">other_reg</span> <span class="op">=</span><span class="op">=</span> <span class="ident">reg</span> {
+                        <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;has_inexact_binding: binding *is* exact!&quot;</span>);
+                    }
+                    <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">other_reg</span>);
+                }
+            }
+        }
+        <span class="comment">// No such binding.</span>
+        <span class="prelude-val">None</span>
+    }
+
+    <span class="comment">// Create the binding `(reg, kind, offset, size)` in `env`, and throw away any previous</span>
+    <span class="comment">// binding associated with either `reg` or the `(kind, offset, size)` triple.</span>
+    <span class="kw">fn</span> <span class="ident">bind</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">RegUnit</span>, <span class="ident">kind</span>: <span class="ident">StackSlotKind</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">size</span>: <span class="ident">u32</span>) {
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">is_slot_kind_tracked</span>(<span class="ident">kind</span>));
+        <span class="self">self</span>.<span class="ident">invalidate_by_offset</span>(<span class="ident">kind</span>, <span class="ident">offset</span>, <span class="ident">size</span>);
+        <span class="self">self</span>.<span class="ident">map</span>[<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">SlotInfo</span> { <span class="ident">kind</span>, <span class="ident">offset</span>, <span class="ident">size</span> });
+    }
+}
+
+<span class="comment">// Invalidates in `avail_env`, any binding associated with a regunit that is written by `inst`.</span>
+<span class="kw">fn</span> <span class="ident">invalidate_regs_written_by_inst</span>(
+    <span class="ident">locations</span>: <span class="kw-2">&amp;</span><span class="ident">SecondaryMap</span><span class="op">&lt;</span><span class="ident">Value</span>, <span class="ident">ValueLoc</span><span class="op">&gt;</span>,
+    <span class="ident">diversions</span>: <span class="kw-2">&amp;</span><span class="ident">RegDiversions</span>,
+    <span class="ident">dfg</span>: <span class="kw-2">&amp;</span><span class="ident">DataFlowGraph</span>,
+    <span class="ident">avail_env</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AvailEnv</span>,
+    <span class="ident">inst</span>: <span class="ident">Inst</span>,
+) {
+    <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">dfg</span>.<span class="ident">inst_results</span>(<span class="ident">inst</span>).<span class="ident">iter</span>() {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ValueLoc</span>::<span class="ident">Reg</span>(<span class="ident">ru</span>) <span class="op">=</span> <span class="ident">locations</span>[<span class="kw-2">*</span><span class="ident">v</span>] {
+            <span class="comment">// This must be true.  It would be meaningless for an SSA value to be diverted before</span>
+            <span class="comment">// the point where it is defined.</span>
+            <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">diversions</span>.<span class="ident">reg</span>(<span class="kw-2">*</span><span class="ident">v</span>, <span class="ident">locations</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">ru</span>);
+            <span class="ident">avail_env</span>.<span class="ident">invalidate_by_reg</span>(<span class="ident">ru</span>);
+        }
+    }
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Processing of individual instructions</span>
+
+<span class="kw">impl</span> <span class="ident">RedundantReloadRemover</span> {
+    <span class="comment">// Process `inst`, possibly changing it into a different instruction, and possibly changing</span>
+    <span class="comment">// `self.avail_env` and `func.dfg`.</span>
+    <span class="kw">fn</span> <span class="ident">visit_inst</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Function</span>,
+        <span class="ident">reginfo</span>: <span class="kw-2">&amp;</span><span class="ident">RegInfo</span>,
+        <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TargetIsa</span>,
+        <span class="ident">inst</span>: <span class="ident">Inst</span>,
+    ) {
+        <span class="comment">// Get hold of the top-of-stack work item.  This is the state that we will mutate during</span>
+        <span class="comment">// processing of this instruction.</span>
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">is_empty</span>());
+        <span class="kw">let</span> <span class="ident">ProcessingStackElem</span> {
+            <span class="ident">avail_env</span>,
+            <span class="ident">diversions</span>,
+            ..
+        } <span class="op">=</span> <span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">last_mut</span>().<span class="ident">unwrap</span>();
+
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">debug_assertions</span>)]</span>
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">avail_env</span>.<span class="ident">check_invariants</span>(),
+            <span class="string">&quot;visit_inst: env invariants not ok&quot;</span>
+        );
+
+        <span class="kw">let</span> <span class="ident">dfg</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">func</span>.<span class="ident">dfg</span>;
+        <span class="kw">let</span> <span class="ident">locations</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">func</span>.<span class="ident">locations</span>;
+        <span class="kw">let</span> <span class="ident">stack_slots</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">func</span>.<span class="ident">stack_slots</span>;
+
+        <span class="comment">// To avoid difficulties with the borrow checker, do this in two stages.  First, examine</span>
+        <span class="comment">// the instruction to see if it can be deleted or modified, and park the relevant</span>
+        <span class="comment">// information in `transform`.  Update `self.avail_env` too.  Later, use `transform` to</span>
+        <span class="comment">// actually do the transformation if necessary.</span>
+        <span class="kw">enum</span> <span class="ident">Transform</span> {
+            <span class="ident">NoChange</span>,
+            <span class="ident">ChangeToNopFill</span>(<span class="ident">Value</span>),           <span class="comment">// delete this insn entirely</span>
+            <span class="ident">ChangeToCopyToSSA</span>(<span class="ident">Type</span>, <span class="ident">RegUnit</span>), <span class="comment">// change it into a copy from the specified reg</span>
+        }
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">transform</span> <span class="op">=</span> <span class="ident">Transform</span>::<span class="ident">NoChange</span>;
+
+        <span class="comment">// In this match { .. } statement, either we must treat the instruction specially, or we</span>
+        <span class="comment">// must call `invalidate_regs_written_by_inst` on it.</span>
+        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">dfg</span>[<span class="ident">inst</span>] {
+            <span class="ident">InstructionData</span>::<span class="ident">Unary</span> {
+                <span class="ident">opcode</span>: <span class="ident">Opcode</span>::<span class="ident">Spill</span>,
+                <span class="ident">arg</span>: <span class="ident">src_value</span>,
+            } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// Extract: (src_reg, kind, offset, size)</span>
+                <span class="comment">// Invalidate: (kind, offset, size)</span>
+                <span class="comment">// Add new binding: {src_reg -&gt; (kind, offset, size)}</span>
+                <span class="comment">// Don&#39;t forget that src_value might be diverted, so we have to deref it.</span>
+                <span class="kw">let</span> <span class="ident">slot</span> <span class="op">=</span> <span class="ident">slot_of_value</span>(<span class="ident">locations</span>, <span class="ident">stack_slots</span>, <span class="ident">dfg</span>.<span class="ident">inst_results</span>(<span class="ident">inst</span>)[<span class="number">0</span>]);
+                <span class="kw">let</span> <span class="ident">src_reg</span> <span class="op">=</span> <span class="ident">diversions</span>.<span class="ident">reg</span>(<span class="kw-2">*</span><span class="ident">src_value</span>, <span class="ident">locations</span>);
+                <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="ident">slot</span>.<span class="ident">kind</span>;
+                <span class="kw">if</span> <span class="ident">is_slot_kind_tracked</span>(<span class="ident">kind</span>) {
+                    <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">slot</span>.<span class="ident">offset</span>.<span class="ident">expect</span>(<span class="string">&quot;visit_inst: spill with no offset&quot;</span>);
+                    <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">slot</span>.<span class="ident">size</span>;
+                    <span class="ident">avail_env</span>.<span class="ident">bind</span>(<span class="ident">src_reg</span>, <span class="ident">kind</span>, <span class="ident">offset</span>, <span class="ident">size</span>);
+                } <span class="kw">else</span> {
+                    <span class="comment">// We don&#39;t expect this insn to write any regs.  But to be consistent with the</span>
+                    <span class="comment">// rule above, do this anyway.</span>
+                    <span class="ident">invalidate_regs_written_by_inst</span>(<span class="ident">locations</span>, <span class="ident">diversions</span>, <span class="ident">dfg</span>, <span class="ident">avail_env</span>, <span class="ident">inst</span>);
+                }
+            }
+            <span class="ident">InstructionData</span>::<span class="ident">Unary</span> {
+                <span class="ident">opcode</span>: <span class="ident">Opcode</span>::<span class="ident">Fill</span>,
+                <span class="ident">arg</span>: <span class="ident">src_value</span>,
+            } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// Extract: (dst_reg, kind, offset, size)</span>
+                <span class="comment">// Invalidate: (kind, offset, size)</span>
+                <span class="comment">// Add new: {dst_reg -&gt; (dst_value, kind, offset, size)}</span>
+                <span class="kw">let</span> <span class="ident">slot</span> <span class="op">=</span> <span class="ident">slot_of_value</span>(<span class="ident">locations</span>, <span class="ident">stack_slots</span>, <span class="kw-2">*</span><span class="ident">src_value</span>);
+                <span class="kw">let</span> <span class="ident">dst_value</span> <span class="op">=</span> <span class="ident">dfg</span>.<span class="ident">inst_results</span>(<span class="ident">inst</span>)[<span class="number">0</span>];
+                <span class="kw">let</span> <span class="ident">dst_reg</span> <span class="op">=</span> <span class="ident">reg_of_value</span>(<span class="ident">locations</span>, <span class="ident">dst_value</span>);
+                <span class="comment">// This must be true.  It would be meaningless for an SSA value to be diverted</span>
+                <span class="comment">// before it was defined.</span>
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">dst_reg</span> <span class="op">=</span><span class="op">=</span> <span class="ident">diversions</span>.<span class="ident">reg</span>(<span class="ident">dst_value</span>, <span class="ident">locations</span>));
+                <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="ident">slot</span>.<span class="ident">kind</span>;
+                <span class="kw">if</span> <span class="ident">is_slot_kind_tracked</span>(<span class="ident">kind</span>) {
+                    <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">slot</span>.<span class="ident">offset</span>.<span class="ident">expect</span>(<span class="string">&quot;visit_inst: fill with no offset&quot;</span>);
+                    <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">slot</span>.<span class="ident">size</span>;
+                    <span class="kw">if</span> <span class="ident">avail_env</span>.<span class="ident">has_exact_binding</span>(<span class="ident">dst_reg</span>, <span class="ident">kind</span>, <span class="ident">offset</span>, <span class="ident">size</span>) {
+                        <span class="comment">// This instruction is an exact copy of a fill we saw earlier, and the</span>
+                        <span class="comment">// loaded value is still valid.  So we&#39;ll schedule this instruction for</span>
+                        <span class="comment">// deletion (below).  No need to make any changes to `avail_env`.</span>
+                        <span class="ident">transform</span> <span class="op">=</span> <span class="ident">Transform</span>::<span class="ident">ChangeToNopFill</span>(<span class="kw-2">*</span><span class="ident">src_value</span>);
+                    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">other_reg</span>) <span class="op">=</span>
+                        <span class="ident">avail_env</span>.<span class="ident">has_inexact_binding</span>(<span class="ident">reginfo</span>, <span class="ident">dst_reg</span>, <span class="ident">kind</span>, <span class="ident">offset</span>, <span class="ident">size</span>)
+                    {
+                        <span class="comment">// This fill is from the required slot, but into a different register</span>
+                        <span class="comment">// `other_reg`.  So replace it with a copy from `other_reg` to `dst_reg`</span>
+                        <span class="comment">// and update `dst_reg`s binding to make it the same as `other_reg`&#39;s, so</span>
+                        <span class="comment">// as to maximise the chances of future matches after this instruction.</span>
+                        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">other_reg</span> <span class="op">!</span><span class="op">=</span> <span class="ident">dst_reg</span>);
+                        <span class="ident">transform</span> <span class="op">=</span>
+                            <span class="ident">Transform</span>::<span class="ident">ChangeToCopyToSSA</span>(<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">dst_value</span>), <span class="ident">other_reg</span>);
+                        <span class="ident">avail_env</span>.<span class="ident">copy_reg</span>(<span class="ident">other_reg</span>, <span class="ident">dst_reg</span>);
+                    } <span class="kw">else</span> {
+                        <span class="comment">// This fill creates some new binding we don&#39;t know about.  Update</span>
+                        <span class="comment">// `avail_env` to track it.</span>
+                        <span class="ident">avail_env</span>.<span class="ident">bind</span>(<span class="ident">dst_reg</span>, <span class="ident">kind</span>, <span class="ident">offset</span>, <span class="ident">size</span>);
+                    }
+                } <span class="kw">else</span> {
+                    <span class="comment">// Else it&#39;s &quot;just another instruction that writes a reg&quot;, so we&#39;d better</span>
+                    <span class="comment">// treat it as such, just as we do below for instructions that we don&#39;t handle</span>
+                    <span class="comment">// specially.</span>
+                    <span class="ident">invalidate_regs_written_by_inst</span>(<span class="ident">locations</span>, <span class="ident">diversions</span>, <span class="ident">dfg</span>, <span class="ident">avail_env</span>, <span class="ident">inst</span>);
+                }
+            }
+            <span class="ident">InstructionData</span>::<span class="ident">RegMove</span> { <span class="ident">src</span>, <span class="ident">dst</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// These happen relatively rarely, but just frequently enough that it&#39;s worth</span>
+                <span class="comment">// tracking the copy (at the machine level, it&#39;s really a copy) in `avail_env`.</span>
+                <span class="ident">avail_env</span>.<span class="ident">copy_reg</span>(<span class="kw-2">*</span><span class="ident">src</span>, <span class="kw-2">*</span><span class="ident">dst</span>);
+            }
+            <span class="ident">InstructionData</span>::<span class="ident">RegSpill</span> { .. }
+            <span class="op">|</span> <span class="ident">InstructionData</span>::<span class="ident">RegFill</span> { .. }
+            <span class="op">|</span> <span class="ident">InstructionData</span>::<span class="ident">Call</span> { .. }
+            <span class="op">|</span> <span class="ident">InstructionData</span>::<span class="ident">CallIndirect</span> { .. }
+            <span class="op">|</span> <span class="ident">InstructionData</span>::<span class="ident">StackLoad</span> { .. }
+            <span class="op">|</span> <span class="ident">InstructionData</span>::<span class="ident">StackStore</span> { .. }
+            <span class="op">|</span> <span class="ident">InstructionData</span>::<span class="ident">Unary</span> {
+                <span class="ident">opcode</span>: <span class="ident">Opcode</span>::<span class="ident">AdjustSpDown</span>,
+                ..
+            }
+            <span class="op">|</span> <span class="ident">InstructionData</span>::<span class="ident">UnaryImm</span> {
+                <span class="ident">opcode</span>: <span class="ident">Opcode</span>::<span class="ident">AdjustSpUpImm</span>,
+                ..
+            }
+            <span class="op">|</span> <span class="ident">InstructionData</span>::<span class="ident">UnaryImm</span> {
+                <span class="ident">opcode</span>: <span class="ident">Opcode</span>::<span class="ident">AdjustSpDownImm</span>,
+                ..
+            } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// All of these change, or might change, the memory-register bindings tracked in</span>
+                <span class="comment">// `avail_env` in some way we don&#39;t know about, or at least, we might be able to</span>
+                <span class="comment">// track, but for which the effort-to-benefit ratio seems too low to bother.  So</span>
+                <span class="comment">// play safe: forget everything we know.</span>
+                <span class="comment">//</span>
+                <span class="comment">// For Call/CallIndirect, we could do better when compiling for calling</span>
+                <span class="comment">// conventions that have callee-saved registers, since bindings for them would</span>
+                <span class="comment">// remain valid across the call.</span>
+                <span class="ident">avail_env</span>.<span class="ident">invalidate_all</span>();
+            }
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// Invalidate: any `avail_env` entry associated with a reg written by `inst`.</span>
+                <span class="ident">invalidate_regs_written_by_inst</span>(<span class="ident">locations</span>, <span class="ident">diversions</span>, <span class="ident">dfg</span>, <span class="ident">avail_env</span>, <span class="ident">inst</span>);
+            }
+        }
+
+        <span class="comment">// Actually do the transformation.</span>
+        <span class="kw">match</span> <span class="ident">transform</span> {
+            <span class="ident">Transform</span>::<span class="ident">NoChange</span> <span class="op">=</span><span class="op">&gt;</span> {}
+            <span class="ident">Transform</span>::<span class="ident">ChangeToNopFill</span>(<span class="ident">arg</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// Load is completely redundant.  Convert it to a no-op.</span>
+                <span class="ident">dfg</span>.<span class="ident">replace</span>(<span class="ident">inst</span>).<span class="ident">fill_nop</span>(<span class="ident">arg</span>);
+                <span class="kw">let</span> <span class="ident">ok</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">update_encoding</span>(<span class="ident">inst</span>, <span class="ident">isa</span>).<span class="ident">is_ok</span>();
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">ok</span>, <span class="string">&quot;fill_nop encoding missing for this type&quot;</span>);
+            }
+            <span class="ident">Transform</span>::<span class="ident">ChangeToCopyToSSA</span>(<span class="ident">ty</span>, <span class="ident">reg</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// We already have the relevant value in some other register.  Convert the</span>
+                <span class="comment">// load into a reg-reg copy.</span>
+                <span class="ident">dfg</span>.<span class="ident">replace</span>(<span class="ident">inst</span>).<span class="ident">copy_to_ssa</span>(<span class="ident">ty</span>, <span class="ident">reg</span>);
+                <span class="kw">let</span> <span class="ident">ok</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">update_encoding</span>(<span class="ident">inst</span>, <span class="ident">isa</span>).<span class="ident">is_ok</span>();
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">ok</span>, <span class="string">&quot;copy_to_ssa encoding missing for type {}&quot;</span>, <span class="ident">ty</span>);
+            }
+        }
+    }
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Top level: processing of tree shaped regions</span>
+
+<span class="kw">impl</span> <span class="ident">RedundantReloadRemover</span> {
+    <span class="comment">// Push a clone of the top-of-stack ProcessingStackElem.  This will be used to process exactly</span>
+    <span class="comment">// one Ebb.  The diversions are created new, rather than cloned, to reflect the fact</span>
+    <span class="comment">// that diversions are local to each Ebb.</span>
+    <span class="kw">fn</span> <span class="ident">processing_stack_push</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">cursor</span>: <span class="ident">CursorPosition</span>) {
+        <span class="kw">let</span> <span class="ident">avail_env</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stack_top</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">last</span>() {
+            <span class="ident">stack_top</span>.<span class="ident">avail_env</span>.<span class="ident">clone</span>()
+        } <span class="kw">else</span> {
+            <span class="ident">AvailEnv</span>::<span class="ident">new</span>(
+                <span class="self">self</span>.<span class="ident">num_regunits</span>
+                    .<span class="ident">expect</span>(<span class="string">&quot;processing_stack_push: num_regunits unknown!&quot;</span>)
+                    <span class="kw">as</span> <span class="ident">usize</span>,
+            )
+        };
+        <span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">push</span>(<span class="ident">ProcessingStackElem</span> {
+            <span class="ident">avail_env</span>,
+            <span class="ident">cursor</span>,
+            <span class="ident">diversions</span>: <span class="ident">RegDiversions</span>::<span class="ident">new</span>(),
+        });
+    }
+
+    <span class="comment">// This pushes the node `dst` onto the processing stack, and sets up the new</span>
+    <span class="comment">// ProcessingStackElem accordingly.  But it does all that only if `dst` is part of the current</span>
+    <span class="comment">// tree *and* we haven&#39;t yet visited it.</span>
+    <span class="kw">fn</span> <span class="ident">processing_stack_maybe_push</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">Ebb</span>) {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">nodes_in_tree</span>.<span class="ident">contains</span>(<span class="ident">dst</span>) <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">nodes_already_visited</span>.<span class="ident">contains</span>(<span class="ident">dst</span>) {
+            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">is_empty</span>() {
+                <span class="comment">// If this isn&#39;t the outermost node in the tree (that is, the root), then it must</span>
+                <span class="comment">// have exactly one predecessor.  Nodes with no predecessors are dead and not</span>
+                <span class="comment">// incorporated in any tree.  Nodes with two or more predecessors are the root of</span>
+                <span class="comment">// some other tree, and visiting them as if they were part of the current tree</span>
+                <span class="comment">// would be a serious error.</span>
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>[<span class="ident">dst</span>] <span class="op">=</span><span class="op">=</span> <span class="ident">ZeroOneOrMany</span>::<span class="ident">One</span>);
+            }
+            <span class="self">self</span>.<span class="ident">processing_stack_push</span>(<span class="ident">CursorPosition</span>::<span class="ident">Before</span>(<span class="ident">dst</span>));
+            <span class="self">self</span>.<span class="ident">nodes_already_visited</span>.<span class="ident">insert</span>(<span class="ident">dst</span>);
+        }
+    }
+
+    <span class="comment">// Perform redundant-reload removal on the tree shaped region of graph defined by `root` and</span>
+    <span class="comment">// `self.nodes_in_tree`.  The following state is modified: `self.processing_stack`,</span>
+    <span class="comment">// `self.nodes_already_visited`, and `func.dfg`.</span>
+    <span class="kw">fn</span> <span class="ident">process_tree</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Function</span>,
+        <span class="ident">reginfo</span>: <span class="kw-2">&amp;</span><span class="ident">RegInfo</span>,
+        <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TargetIsa</span>,
+        <span class="ident">root</span>: <span class="ident">Ebb</span>,
+    ) {
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">nodes_in_tree</span>.<span class="ident">contains</span>(<span class="ident">root</span>));
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">is_empty</span>());
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">nodes_already_visited</span>.<span class="ident">is_empty</span>());
+
+        <span class="comment">// Create the initial work item</span>
+        <span class="self">self</span>.<span class="ident">processing_stack_maybe_push</span>(<span class="ident">root</span>);
+
+        <span class="kw">while</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">is_empty</span>() {
+            <span class="comment">// It seems somewhat ridiculous to construct a whole new FuncCursor just so we can do</span>
+            <span class="comment">// next_inst() on it once, and then copy the resulting position back out.  But use of</span>
+            <span class="comment">// a function-global FuncCursor, or of the EncCursor in struct Context, leads to</span>
+            <span class="comment">// borrow checker problems, as does including FuncCursor directly in</span>
+            <span class="comment">// ProcessingStackElem.  In any case this is not as bad as it looks, since profiling</span>
+            <span class="comment">// shows that the build-insert-step-extract work is reduced to just 8 machine</span>
+            <span class="comment">// instructions in an optimised x86_64 build, presumably because rustc can inline and</span>
+            <span class="comment">// then optimise out almost all the work.</span>
+            <span class="kw">let</span> <span class="ident">tos</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>;
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pos</span> <span class="op">=</span> <span class="ident">FuncCursor</span>::<span class="ident">new</span>(<span class="ident">func</span>).<span class="ident">at_position</span>(<span class="self">self</span>.<span class="ident">processing_stack</span>[<span class="ident">tos</span>].<span class="ident">cursor</span>);
+            <span class="kw">let</span> <span class="ident">maybe_inst</span> <span class="op">=</span> <span class="ident">pos</span>.<span class="ident">next_inst</span>();
+            <span class="self">self</span>.<span class="ident">processing_stack</span>[<span class="ident">tos</span>].<span class="ident">cursor</span> <span class="op">=</span> <span class="ident">pos</span>.<span class="ident">position</span>();
+
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inst</span>) <span class="op">=</span> <span class="ident">maybe_inst</span> {
+                <span class="comment">// Deal with this insn, possibly changing it, possibly updating the top item of</span>
+                <span class="comment">// `self.processing_stack`.</span>
+                <span class="self">self</span>.<span class="ident">visit_inst</span>(<span class="ident">func</span>, <span class="ident">reginfo</span>, <span class="ident">isa</span>, <span class="ident">inst</span>);
+
+                <span class="comment">// Update diversions after the insn.</span>
+                <span class="self">self</span>.<span class="ident">processing_stack</span>[<span class="ident">tos</span>].<span class="ident">diversions</span>.<span class="ident">apply</span>(<span class="kw-2">&amp;</span><span class="ident">func</span>.<span class="ident">dfg</span>[<span class="ident">inst</span>]);
+
+                <span class="comment">// If the insn can branch outside this Ebb, push work items on the stack for all</span>
+                <span class="comment">// target Ebbs that are part of the same tree and that we haven&#39;t yet visited.</span>
+                <span class="comment">// The next iteration of this instruction-processing loop will immediately start</span>
+                <span class="comment">// work on the most recently pushed Ebb, and will eventually continue in this Ebb</span>
+                <span class="comment">// when those new items have been removed from the stack.</span>
+                <span class="kw">match</span> <span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">analyze_branch</span>(<span class="ident">inst</span>) {
+                    <span class="ident">BranchInfo</span>::<span class="ident">NotABranch</span> <span class="op">=</span><span class="op">&gt;</span> (),
+                    <span class="ident">BranchInfo</span>::<span class="ident">SingleDest</span>(<span class="ident">dst</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="self">self</span>.<span class="ident">processing_stack_maybe_push</span>(<span class="ident">dst</span>);
+                    }
+                    <span class="ident">BranchInfo</span>::<span class="ident">Table</span>(<span class="ident">jt</span>, <span class="ident">default</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">func</span>.<span class="ident">jump_tables</span>[<span class="ident">jt</span>]
+                            .<span class="ident">iter</span>()
+                            .<span class="ident">for_each</span>(<span class="op">|</span><span class="ident">dst</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">processing_stack_maybe_push</span>(<span class="kw-2">*</span><span class="ident">dst</span>));
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dst</span>) <span class="op">=</span> <span class="ident">default</span> {
+                            <span class="self">self</span>.<span class="ident">processing_stack_maybe_push</span>(<span class="ident">dst</span>);
+                        }
+                    }
+                }
+            } <span class="kw">else</span> {
+                <span class="comment">// We&#39;ve come to the end of the current work-item (Ebb).  We&#39;ll already have</span>
+                <span class="comment">// processed the fallthrough/continuation/whatever for it using the logic above.</span>
+                <span class="comment">// Pop it off the stack and resume work on its parent.</span>
+                <span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">pop</span>();
+            }
+        }
+    }
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Top level: perform redundant fill removal for a complete function</span>
+
+<span class="kw">impl</span> <span class="ident">RedundantReloadRemover</span> {
+    <span class="doccomment">/// Create a new remover state.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">num_regunits</span>: <span class="prelude-val">None</span>,
+            <span class="ident">num_preds_per_ebb</span>: <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">Ebb</span>, <span class="ident">ZeroOneOrMany</span><span class="op">&gt;</span>::<span class="ident">with_capacity</span>(<span class="number">8</span>),
+            <span class="ident">discovery_stack</span>: <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">Ebb</span><span class="op">&gt;</span>::<span class="ident">with_capacity</span>(<span class="number">16</span>),
+            <span class="ident">nodes_in_tree</span>: <span class="ident">EntitySet</span>::<span class="op">&lt;</span><span class="ident">Ebb</span><span class="op">&gt;</span>::<span class="ident">new</span>(),
+            <span class="ident">processing_stack</span>: <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">ProcessingStackElem</span><span class="op">&gt;</span>::<span class="ident">with_capacity</span>(<span class="number">8</span>),
+            <span class="ident">nodes_already_visited</span>: <span class="ident">EntitySet</span>::<span class="op">&lt;</span><span class="ident">Ebb</span><span class="op">&gt;</span>::<span class="ident">new</span>(),
+        }
+    }
+
+    <span class="doccomment">/// Clear the state of the remover.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clear</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="self">self</span>.<span class="ident">clear_for_new_function</span>();
+    }
+
+    <span class="kw">fn</span> <span class="ident">clear_for_new_function</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>.<span class="ident">clear</span>();
+        <span class="self">self</span>.<span class="ident">clear_for_new_tree</span>();
+    }
+
+    <span class="kw">fn</span> <span class="ident">clear_for_new_tree</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="self">self</span>.<span class="ident">discovery_stack</span>.<span class="ident">clear</span>();
+        <span class="self">self</span>.<span class="ident">nodes_in_tree</span>.<span class="ident">clear</span>();
+        <span class="self">self</span>.<span class="ident">processing_stack</span>.<span class="ident">clear</span>();
+        <span class="self">self</span>.<span class="ident">nodes_already_visited</span>.<span class="ident">clear</span>();
+    }
+
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">do_redundant_fill_removal_on_function</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Function</span>,
+        <span class="ident">reginfo</span>: <span class="kw-2">&amp;</span><span class="ident">RegInfo</span>,
+        <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TargetIsa</span>,
+        <span class="ident">cfg</span>: <span class="kw-2">&amp;</span><span class="ident">ControlFlowGraph</span>,
+    ) {
+        <span class="comment">// Fail in an obvious way if there are more than (2^32)-1 Ebbs in this function.</span>
+        <span class="kw">let</span> <span class="ident">num_ebbs</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">num_ebbs</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
+
+        <span class="comment">// Clear out per-tree state.</span>
+        <span class="self">self</span>.<span class="ident">clear_for_new_function</span>();
+
+        <span class="comment">// Create a PrimaryMap that summarises the number of predecessors for each block, as 0, 1</span>
+        <span class="comment">// or &quot;many&quot;, and that also claims the entry block as having &quot;many&quot; predecessors.</span>
+        <span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>.<span class="ident">clear</span>();
+        <span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>.<span class="ident">reserve</span>(<span class="ident">num_ebbs</span> <span class="kw">as</span> <span class="ident">usize</span>);
+
+        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_ebbs</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pi</span> <span class="op">=</span> <span class="ident">cfg</span>.<span class="ident">pred_iter</span>(<span class="ident">Ebb</span>::<span class="ident">from_u32</span>(<span class="ident">i</span>));
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">n_pi</span> <span class="op">=</span> <span class="ident">ZeroOneOrMany</span>::<span class="ident">Zero</span>;
+            <span class="kw">if</span> <span class="ident">pi</span>.<span class="ident">next</span>().<span class="ident">is_some</span>() {
+                <span class="ident">n_pi</span> <span class="op">=</span> <span class="ident">ZeroOneOrMany</span>::<span class="ident">One</span>;
+                <span class="kw">if</span> <span class="ident">pi</span>.<span class="ident">next</span>().<span class="ident">is_some</span>() {
+                    <span class="ident">n_pi</span> <span class="op">=</span> <span class="ident">ZeroOneOrMany</span>::<span class="ident">Many</span>;
+                    <span class="comment">// We don&#39;t care if there are more than two preds, so stop counting now.</span>
+                }
+            }
+            <span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>.<span class="ident">push</span>(<span class="ident">n_pi</span>);
+        }
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">num_ebbs</span> <span class="kw">as</span> <span class="ident">usize</span>);
+
+        <span class="comment">// The entry block must be the root of some tree, so set up the state to reflect that.</span>
+        <span class="kw">let</span> <span class="ident">entry_ebb</span> <span class="op">=</span> <span class="ident">func</span>
+            .<span class="ident">layout</span>
+            .<span class="ident">entry_block</span>()
+            .<span class="ident">expect</span>(<span class="string">&quot;do_redundant_fill_removal_on_function: entry ebb unknown&quot;</span>);
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>[<span class="ident">entry_ebb</span>] <span class="op">=</span><span class="op">=</span> <span class="ident">ZeroOneOrMany</span>::<span class="ident">Zero</span>);
+        <span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>[<span class="ident">entry_ebb</span>] <span class="op">=</span> <span class="ident">ZeroOneOrMany</span>::<span class="ident">Many</span>;
+
+        <span class="comment">// Now build and process trees.</span>
+        <span class="kw">for</span> <span class="ident">root_ix</span> <span class="kw">in</span> <span class="number">0</span>..<span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>.<span class="ident">len</span>() {
+            <span class="kw">let</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">Ebb</span>::<span class="ident">from_u32</span>(<span class="ident">root_ix</span> <span class="kw">as</span> <span class="ident">u32</span>);
+
+            <span class="comment">// Build a tree for each node that has two or more preds, and ignore all other nodes.</span>
+            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>[<span class="ident">root</span>] <span class="op">!</span><span class="op">=</span> <span class="ident">ZeroOneOrMany</span>::<span class="ident">Many</span> {
+                <span class="kw">continue</span>;
+            }
+
+            <span class="comment">// Clear out per-tree state.</span>
+            <span class="self">self</span>.<span class="ident">clear_for_new_tree</span>();
+
+            <span class="comment">// Discovery phase: build the tree, as `root` and `self.nodes_in_tree`.</span>
+            <span class="self">self</span>.<span class="ident">add_nodes_to_tree</span>(<span class="ident">cfg</span>, <span class="ident">root</span>);
+            <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">nodes_in_tree</span>.<span class="ident">cardinality</span>() <span class="op">&gt;</span> <span class="number">0</span>);
+            <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">num_preds_per_ebb</span>[<span class="ident">root</span>] <span class="op">=</span><span class="op">=</span> <span class="ident">ZeroOneOrMany</span>::<span class="ident">Many</span>);
+
+            <span class="comment">// Processing phase: do redundant-reload-removal.</span>
+            <span class="self">self</span>.<span class="ident">process_tree</span>(<span class="ident">func</span>, <span class="ident">reginfo</span>, <span class="ident">isa</span>, <span class="ident">root</span>);
+            <span class="macro">debug_assert</span><span class="macro">!</span>(
+                <span class="self">self</span>.<span class="ident">nodes_in_tree</span>.<span class="ident">cardinality</span>() <span class="op">=</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">nodes_already_visited</span>.<span class="ident">cardinality</span>()
+            );
+        }
+    }
+}
+
+<span class="comment">// =============================================================================================</span>
+<span class="comment">// Top level: the external interface</span>
+
+<span class="kw">struct</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="comment">// Current instruction as well as reference to function and ISA.</span>
+    <span class="ident">cur</span>: <span class="ident">EncCursor</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
+
+    <span class="comment">// Cached ISA information.  We save it here to avoid frequent virtual function calls on the</span>
+    <span class="comment">// `TargetIsa` trait object.</span>
+    <span class="ident">reginfo</span>: <span class="ident">RegInfo</span>,
+
+    <span class="comment">// References to contextual data structures we need.</span>
+    <span class="ident">cfg</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">ControlFlowGraph</span>,
+
+    <span class="comment">// The running state.</span>
+    <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">RedundantReloadRemover</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">RedundantReloadRemover</span> {
+    <span class="doccomment">/// Run the remover.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TargetIsa</span>, <span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Function</span>, <span class="ident">cfg</span>: <span class="kw-2">&amp;</span><span class="ident">ControlFlowGraph</span>) {
+        <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="ident">Context</span> {
+            <span class="ident">cur</span>: <span class="ident">EncCursor</span>::<span class="ident">new</span>(<span class="ident">func</span>, <span class="ident">isa</span>),
+            <span class="ident">reginfo</span>: <span class="ident">isa</span>.<span class="ident">register_info</span>(),
+            <span class="ident">cfg</span>,
+            <span class="ident">state</span>: <span class="self">self</span>,
+        };
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_regunits</span> <span class="op">=</span> <span class="number">0</span>;
+        <span class="kw">for</span> <span class="ident">rb</span> <span class="kw">in</span> <span class="ident">isa</span>.<span class="ident">register_info</span>().<span class="ident">banks</span> {
+            <span class="ident">total_regunits</span> <span class="op">+</span><span class="op">=</span> <span class="ident">rb</span>.<span class="ident">units</span>;
+        }
+        <span class="ident">ctx</span>.<span class="ident">state</span>.<span class="ident">num_regunits</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">total_regunits</span>);
+        <span class="ident">ctx</span>.<span class="ident">state</span>.<span class="ident">do_redundant_fill_removal_on_function</span>(
+            <span class="ident">ctx</span>.<span class="ident">cur</span>.<span class="ident">func</span>,
+            <span class="kw-2">&amp;</span><span class="ident">ctx</span>.<span class="ident">reginfo</span>,
+            <span class="ident">ctx</span>.<span class="ident">cur</span>.<span class="ident">isa</span>,
+            <span class="kw-2">&amp;</span><span class="ident">ctx</span>.<span class="ident">cfg</span>,
+        );
+    }
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "cranelift_codegen";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

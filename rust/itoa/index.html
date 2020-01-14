@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `itoa` crate."><meta name="keywords" content="rust, rustlang, rust-lang, itoa"><title>itoa - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../itoa/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate itoa</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all itoa's items</p></a><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'itoa', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/itoa/lib.rs.html#1-342' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>itoa</a></span></h1><div class='docblock'><p>This crate provides fast functions for printing integer primitives to an
+<a href="https://doc.rust-lang.org/std/io/trait.Write.html"><code>io::Write</code></a> or a <a href="https://doc.rust-lang.org/core/fmt/trait.Write.html"><code>fmt::Write</code></a>. The implementation comes straight from
+<a href="https://github.com/rust-lang/rust/blob/b8214dc6c6fc20d0a660fb5700dca9ebf51ebe89/src/libcore/fmt/num.rs#L201-L254">libcore</a> but avoids the performance penalty of going through
+<a href="https://doc.rust-lang.org/std/fmt/struct.Formatter.html"><code>fmt::Formatter</code></a>.</p>
+<p>See also <a href="https://github.com/dtolnay/dtoa"><code>dtoa</code></a> for printing floating point primitives.</p>
+<br>
+<h1 id="performance-lower-is-better" class="section-header"><a href="#performance-lower-is-better">Performance (lower is better)</a></h1>
+<p><img src="https://raw.githubusercontent.com/dtolnay/itoa/master/performance.png" alt="performance" /></p>
+<br>
+<h1 id="examples" class="section-header"><a href="#examples">Examples</a></h1>
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">io</span>};
+
+<span class="kw">fn</span> <span class="ident">demo_itoa_write</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="comment">// Write to a vector or other io::Write.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+    <span class="ident">itoa</span>::<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>, <span class="number">128u64</span>)<span class="question-mark">?</span>;
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">buf</span>);
+
+    <span class="comment">// Write to a stack buffer.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="number">20</span>];
+    <span class="kw">let</span> <span class="ident">n</span> <span class="op">=</span> <span class="ident">itoa</span>::<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bytes</span>[..], <span class="number">128u64</span>)<span class="question-mark">?</span>;
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>[..<span class="ident">n</span>]);
+
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">fn</span> <span class="ident">demo_itoa_fmt</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+    <span class="comment">// Write to a string.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
+    <span class="ident">itoa</span>::<span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">s</span>, <span class="number">128u64</span>)<span class="question-mark">?</span>;
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">s</span>);
+
+    <span class="prelude-val">Ok</span>(())
+}</pre></div>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.Buffer.html" title='itoa::Buffer struct'>Buffer</a></td><td class='docblock-short'><p>A safe API for formatting integers to text.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.Integer.html" title='itoa::Integer trait'>Integer</a></td><td class='docblock-short'><p>An integer that can be formatted by <code>itoa::write</code> and <code>itoa::fmt</code>.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.fmt.html" title='itoa::fmt fn'>fmt</a></td><td class='docblock-short'><p>Write integer to an <code>fmt::Write</code>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.write.html" title='itoa::write fn'>write</a></td><td class='docblock-short'><p>Write integer to an <code>io::Write</code>.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "itoa";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

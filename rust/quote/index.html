@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `quote` crate."><meta name="keywords" content="rust, rustlang, rust-lang, quote"><title>quote - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../quote/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate quote</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all quote's items</p></a><div class="block items"><ul><li><a href="#macros">Macros</a></li><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'quote', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/quote/lib.rs.html#1-861' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>quote</a></span></h1><div class='docblock'><p>This crate provides the <a href="macro.quote.html"><code>quote!</code></a> macro for turning Rust syntax tree data
+structures into tokens of source code.</p>
+<p>Procedural macros in Rust receive a stream of tokens as input, execute
+arbitrary Rust code to determine how to manipulate those tokens, and produce
+a stream of tokens to hand back to the compiler to compile into the caller's
+crate. Quasi-quoting is a solution to one piece of that -- producing tokens
+to return to the compiler.</p>
+<p>The idea of quasi-quoting is that we write <em>code</em> that we treat as <em>data</em>.
+Within the <code>quote!</code> macro, we can write what looks like code to our text
+editor or IDE. We get all the benefits of the editor's brace matching,
+syntax highlighting, indentation, and maybe autocompletion. But rather than
+compiling that as code into the current crate, we can treat it as data, pass
+it around, mutate it, and eventually hand it back to the compiler as tokens
+to compile into the macro caller's crate.</p>
+<p>This crate is motivated by the procedural macro use case, but is a
+general-purpose Rust quasi-quoting library and is not specific to procedural
+macros.</p>
+<p><em>Version requirement: Quote supports any compiler version back to Rust's
+very first support for procedural macros in Rust 1.15.0.</em></p>
+<pre><code class="language-toml">[dependencies]
+quote = &quot;0.6&quot;
+</code></pre>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<p>The following quasi-quoted block of code is something you might find in <a href="https://serde.rs/">a</a>
+procedural macro having to do with data structure serialization. The <code>#var</code>
+syntax performs interpolation of runtime variables into the quoted tokens.
+Check out the documentation of the <a href="macro.quote.html"><code>quote!</code></a> macro for more detail about
+the syntax. See also the <a href="macro.quote_spanned.html"><code>quote_spanned!</code></a> macro which is important for
+implementing hygienic procedural macros.</p>
+
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="macro">quote</span><span class="macro">!</span> {
+    <span class="kw">struct</span> <span class="ident">SerializeWith</span> #<span class="ident">generics</span> #<span class="ident">where_clause</span> {
+        <span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> #<span class="ident">field_ty</span>,
+        <span class="ident">phantom</span>: <span class="ident">core</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span><span class="op">&lt;</span>#<span class="ident">item_ty</span><span class="op">&gt;</span>,
+    }
+
+    <span class="kw">impl</span> #<span class="ident">generics</span> <span class="ident">serde</span>::<span class="ident">Serialize</span> <span class="kw">for</span> <span class="ident">SerializeWith</span> #<span class="ident">generics</span> #<span class="ident">where_clause</span> {
+        <span class="kw">fn</span> <span class="ident">serialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">serializer</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">S</span>::<span class="prelude-val">Ok</span>, <span class="ident">S</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+        <span class="kw">where</span>
+            <span class="ident">S</span>: <span class="ident">serde</span>::<span class="ident">Serializer</span>,
+        {
+            #<span class="ident">path</span>(<span class="self">self</span>.<span class="ident">value</span>, <span class="ident">serializer</span>)
+        }
+    }
+
+    <span class="ident">SerializeWith</span> {
+        <span class="ident">value</span>: #<span class="ident">value</span>,
+        <span class="ident">phantom</span>: <span class="ident">core</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>::<span class="op">&lt;</span>#<span class="ident">item_ty</span><span class="op">&gt;</span>,
+    }
+};</pre></div>
+<h1 id="recursion-limit" class="section-header"><a href="#recursion-limit">Recursion limit</a></h1>
+<p>The <code>quote!</code> macro relies on deep recursion so some large invocations may
+fail with &quot;recursion limit reached&quot; when you compile. If it fails, bump up
+the recursion limit by adding <code>#![recursion_limit = &quot;128&quot;]</code> to your crate.
+An even higher limit may be necessary for especially large invocations.</p>
+</div><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table><tr class='module-item'><td><a class="macro" href="macro.quote.html" title='quote::quote macro'>quote</a></td><td class='docblock-short'><p>The whole point.</p>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.quote_spanned.html" title='quote::quote_spanned macro'>quote_spanned</a></td><td class='docblock-short'><p>Same as <code>quote!</code>, but applies a given span to all tokens originating within
+the macro invocation.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.ToTokens.html" title='quote::ToTokens trait'>ToTokens</a></td><td class='docblock-short'><p>Types that can be interpolated inside a <a href="macro.quote.html"><code>quote!</code></a> invocation.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.TokenStreamExt.html" title='quote::TokenStreamExt trait'>TokenStreamExt</a></td><td class='docblock-short'><p>TokenStream extension trait with methods for appending tokens.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "quote";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

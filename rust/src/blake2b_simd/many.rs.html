@@ -1,0 +1,1061 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/Users/syrusakbary/.cargo/registry/src/github.com-1ecc6299db9ec823/blake2b_simd-0.5.10/src/many.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>many.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../blake2b_simd/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! Interfaces for hashing multiple inputs at once, using SIMD more</span>
+<span class="doccomment">//! efficiently.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The throughput of these interfaces is comparable to BLAKE2bp, about twice</span>
+<span class="doccomment">//! the throughput of regular BLAKE2b when AVX2 is available.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! These interfaces can accept any number of inputs, and the implementation</span>
+<span class="doccomment">//! does its best to parallelize them. In general, the more inputs you can pass</span>
+<span class="doccomment">//! in at once the better. If you need to batch your inputs in smaller groups,</span>
+<span class="doccomment">//! see the [`degree`](fn.degree.html) function for a good batch size.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The implementation keeps working in parallel even when inputs are of</span>
+<span class="doccomment">//! different lengths, by managing a working set of jobs whose input isn&#39;t yet</span>
+<span class="doccomment">//! exhausted. However, if one or two inputs are much longer than the others,</span>
+<span class="doccomment">//! and they&#39;re encountered only at the end, there might not be any remaining</span>
+<span class="doccomment">//! work to parallelize them with. In this case, sorting the inputs</span>
+<span class="doccomment">//! longest-first can improve parallelism.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # Example</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//! use blake2b_simd::{blake2b, State, many::update_many};</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! let mut states = [</span>
+<span class="doccomment">//!     State::new(),</span>
+<span class="doccomment">//!     State::new(),</span>
+<span class="doccomment">//!     State::new(),</span>
+<span class="doccomment">//!     State::new(),</span>
+<span class="doccomment">//! ];</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! let inputs = [</span>
+<span class="doccomment">//!     &amp;b&quot;foo&quot;[..],</span>
+<span class="doccomment">//!     &amp;b&quot;bar&quot;[..],</span>
+<span class="doccomment">//!     &amp;b&quot;baz&quot;[..],</span>
+<span class="doccomment">//!     &amp;b&quot;bing&quot;[..],</span>
+<span class="doccomment">//! ];</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! update_many(states.iter_mut().zip(inputs.iter()));</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! for (state, input) in states.iter_mut().zip(inputs.iter()) {</span>
+<span class="doccomment">//!     assert_eq!(blake2b(input), state.finalize());</span>
+<span class="doccomment">//! }</span>
+<span class="doccomment">//! ```</span>
+
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">guts</span>::{<span class="self">self</span>, <span class="ident">Finalize</span>, <span class="ident">Implementation</span>, <span class="ident">Job</span>, <span class="ident">LastNode</span>, <span class="ident">Stride</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">state_words_to_bytes</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Count</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Hash</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Params</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">State</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Word</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">BLOCKBYTES</span>;
+<span class="kw">use</span> <span class="ident">arrayref</span>::<span class="ident">array_mut_ref</span>;
+<span class="kw">use</span> <span class="ident">arrayvec</span>::<span class="ident">ArrayVec</span>;
+<span class="kw">use</span> <span class="ident">core</span>::<span class="ident">fmt</span>;
+
+<span class="doccomment">/// The largest possible value of [`degree`](fn.degree.html) on the target</span>
+<span class="doccomment">/// platform.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Note that this constant reflects the parallelism degree supported by this</span>
+<span class="doccomment">/// crate, so it will change over time as support is added or removed. For</span>
+<span class="doccomment">/// example, when Rust stabilizes AVX-512 support and this crate adds an</span>
+<span class="doccomment">/// AVX-512 implementation, this constant will double on x86 targets. If that</span>
+<span class="doccomment">/// implementation is an optional feature (e.g. because it&#39;s nightly-only), the</span>
+<span class="doccomment">/// value of this constant will depend on that optional feature also.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_DEGREE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">guts</span>::<span class="ident">MAX_DEGREE</span>;
+
+<span class="doccomment">/// The parallelism degree of the implementation, detected at runtime. If you</span>
+<span class="doccomment">/// hash your inputs in small batches, making the batch size a multiple of</span>
+<span class="doccomment">/// `degree` will generally give good performance.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// For example, an x86 processor that supports AVX2 can compute four BLAKE2b</span>
+<span class="doccomment">/// hashes in parallel, so `degree` returns 4 on that machine. If you call</span>
+<span class="doccomment">/// [`hash_many`] with only three inputs, that&#39;s not enough to use the AVX2</span>
+<span class="doccomment">/// implementation, and your average throughput will be lower. Likewise if you</span>
+<span class="doccomment">/// call it with five inputs of equal length, the first four will be hashed in</span>
+<span class="doccomment">/// parallel with AVX2, but the last one will have to be hashed by itself, and</span>
+<span class="doccomment">/// again your average throughput will be lower.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// As noted in the module level docs, performance is more complicated if your</span>
+<span class="doccomment">/// inputs are of different lengths. When parallelizing long and short inputs</span>
+<span class="doccomment">/// together, the longer ones will have bytes left over, and the implementation</span>
+<span class="doccomment">/// will try to parallelize those leftover bytes with subsequent inputs. The</span>
+<span class="doccomment">/// more inputs available in that case, the more the implementation will be</span>
+<span class="doccomment">/// able to parallelize.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// If you need a constant batch size, for example to collect inputs in an</span>
+<span class="doccomment">/// array, see [`MAX_DEGREE`].</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [`hash_many`]: fn.hash_many.html</span>
+<span class="doccomment">/// [`MAX_DEGREE`]: constant.MAX_DEGREE.html</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">degree</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="ident">guts</span>::<span class="ident">Implementation</span>::<span class="ident">detect</span>().<span class="ident">degree</span>()
+}
+
+<span class="kw">type</span> <span class="ident">JobsVec</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ArrayVec</span><span class="op">&lt;</span>[<span class="ident">Job</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>; <span class="ident">guts</span>::<span class="ident">MAX_DEGREE</span>]<span class="op">&gt;</span>;
+
+<span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+<span class="kw">fn</span> <span class="ident">fill_jobs_vec</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
+    <span class="ident">jobs_iter</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Job</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">vec</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JobsVec</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>,
+    <span class="ident">target_len</span>: <span class="ident">usize</span>,
+) {
+    <span class="kw">while</span> <span class="ident">vec</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="ident">target_len</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">job</span>) <span class="op">=</span> <span class="ident">jobs_iter</span>.<span class="ident">next</span>() {
+            <span class="ident">vec</span>.<span class="ident">push</span>(<span class="ident">job</span>);
+        } <span class="kw">else</span> {
+            <span class="kw">break</span>;
+        }
+    }
+}
+
+<span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+<span class="kw">fn</span> <span class="ident">evict_finished</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(<span class="ident">vec</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JobsVec</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>, <span class="ident">num_jobs</span>: <span class="ident">usize</span>) {
+    <span class="comment">// Iterate backwards so that removal doesn&#39;t cause an out-of-bounds panic.</span>
+    <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> (<span class="number">0</span>..<span class="ident">num_jobs</span>).<span class="ident">rev</span>() {
+        <span class="comment">// Note that is_empty() is only valid because we know all these jobs</span>
+        <span class="comment">// have been run at least once. Otherwise we could confuse the empty</span>
+        <span class="comment">// input for a finished job, which would be incorrect.</span>
+        <span class="comment">//</span>
+        <span class="comment">// Avoid a panic branch here in release mode.</span>
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">vec</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">i</span>);
+        <span class="kw">if</span> <span class="ident">vec</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">i</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">vec</span>[<span class="ident">i</span>].<span class="ident">input</span>.<span class="ident">is_empty</span>() {
+            <span class="comment">// Note that calling pop_at() repeatedly has some overhead, because</span>
+            <span class="comment">// later elements need to be shifted up. However, the JobsVec is</span>
+            <span class="comment">// small, and this approach guarantees that jobs are encountered in</span>
+            <span class="comment">// order.</span>
+            <span class="ident">vec</span>.<span class="ident">pop_at</span>(<span class="ident">i</span>);
+        }
+    }
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">compress_many</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="ident">I</span><span class="op">&gt;</span>(
+    <span class="ident">jobs</span>: <span class="ident">I</span>,
+    <span class="ident">imp</span>: <span class="ident">Implementation</span>,
+    <span class="ident">finalize</span>: <span class="ident">Finalize</span>,
+    <span class="ident">stride</span>: <span class="ident">Stride</span>,
+) <span class="kw">where</span>
+    <span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Job</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+{
+    <span class="comment">// Fuse is important for correctness, since each of these blocks tries to</span>
+    <span class="comment">// advance the iterator, even if a previous block emptied it.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">jobs_iter</span> <span class="op">=</span> <span class="ident">jobs</span>.<span class="ident">into_iter</span>().<span class="ident">fuse</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">jobs_vec</span> <span class="op">=</span> <span class="ident">JobsVec</span>::<span class="ident">new</span>();
+
+    <span class="kw">if</span> <span class="ident">imp</span>.<span class="ident">degree</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">4</span> {
+        <span class="kw">loop</span> {
+            <span class="ident">fill_jobs_vec</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">jobs_iter</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">jobs_vec</span>, <span class="number">4</span>);
+            <span class="kw">if</span> <span class="ident">jobs_vec</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="number">4</span> {
+                <span class="kw">break</span>;
+            }
+            <span class="kw">let</span> <span class="ident">jobs_array</span> <span class="op">=</span> <span class="macro">array_mut_ref</span><span class="macro">!</span>(<span class="ident">jobs_vec</span>, <span class="number">0</span>, <span class="number">4</span>);
+            <span class="ident">imp</span>.<span class="ident">compress4_loop</span>(<span class="ident">jobs_array</span>, <span class="ident">finalize</span>, <span class="ident">stride</span>);
+            <span class="ident">evict_finished</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">jobs_vec</span>, <span class="number">4</span>);
+        }
+    }
+
+    <span class="kw">if</span> <span class="ident">imp</span>.<span class="ident">degree</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">2</span> {
+        <span class="kw">loop</span> {
+            <span class="ident">fill_jobs_vec</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">jobs_iter</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">jobs_vec</span>, <span class="number">2</span>);
+            <span class="kw">if</span> <span class="ident">jobs_vec</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="number">2</span> {
+                <span class="kw">break</span>;
+            }
+            <span class="kw">let</span> <span class="ident">jobs_array</span> <span class="op">=</span> <span class="macro">array_mut_ref</span><span class="macro">!</span>(<span class="ident">jobs_vec</span>, <span class="number">0</span>, <span class="number">2</span>);
+            <span class="ident">imp</span>.<span class="ident">compress2_loop</span>(<span class="ident">jobs_array</span>, <span class="ident">finalize</span>, <span class="ident">stride</span>);
+            <span class="ident">evict_finished</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">jobs_vec</span>, <span class="number">2</span>);
+        }
+    }
+
+    <span class="kw">for</span> <span class="ident">job</span> <span class="kw">in</span> <span class="ident">jobs_vec</span>.<span class="ident">into_iter</span>().<span class="ident">chain</span>(<span class="ident">jobs_iter</span>) {
+        <span class="kw">let</span> <span class="ident">Job</span> {
+            <span class="ident">input</span>,
+            <span class="ident">words</span>,
+            <span class="ident">count</span>,
+            <span class="ident">last_node</span>,
+        } <span class="op">=</span> <span class="ident">job</span>;
+        <span class="ident">imp</span>.<span class="ident">compress1_loop</span>(<span class="ident">input</span>, <span class="ident">words</span>, <span class="ident">count</span>, <span class="ident">last_node</span>, <span class="ident">finalize</span>, <span class="ident">stride</span>);
+    }
+}
+
+<span class="doccomment">/// Update any number of `State` objects at once.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// use blake2b_simd::{blake2b, State, many::update_many};</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let mut states = [</span>
+<span class="doccomment">///     State::new(),</span>
+<span class="doccomment">///     State::new(),</span>
+<span class="doccomment">///     State::new(),</span>
+<span class="doccomment">///     State::new(),</span>
+<span class="doccomment">/// ];</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let inputs = [</span>
+<span class="doccomment">///     &amp;b&quot;foo&quot;[..],</span>
+<span class="doccomment">///     &amp;b&quot;bar&quot;[..],</span>
+<span class="doccomment">///     &amp;b&quot;baz&quot;[..],</span>
+<span class="doccomment">///     &amp;b&quot;bing&quot;[..],</span>
+<span class="doccomment">/// ];</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// update_many(states.iter_mut().zip(inputs.iter()));</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// for (state, input) in states.iter_mut().zip(inputs.iter()) {</span>
+<span class="doccomment">///     assert_eq!(blake2b(input), state.finalize());</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// ```</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">update_many</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="ident">I</span>, <span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">pairs</span>: <span class="ident">I</span>)
+<span class="kw">where</span>
+    <span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">State</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">T</span>)<span class="op">&gt;</span>,
+    <span class="ident">T</span>: <span class="lifetime">&#39;b</span> <span class="op">+</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span>,
+{
+    <span class="comment">// Get the guts::Implementation from the first state, if any.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">peekable_pairs</span> <span class="op">=</span> <span class="ident">pairs</span>.<span class="ident">into_iter</span>().<span class="ident">peekable</span>();
+    <span class="kw">let</span> <span class="ident">implementation</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">state</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">peekable_pairs</span>.<span class="ident">peek</span>() {
+        <span class="ident">state</span>.<span class="ident">implementation</span>
+    } <span class="kw">else</span> {
+        <span class="comment">// No work items, just short circuit.</span>
+        <span class="kw">return</span>;
+    };
+
+    <span class="comment">// Adapt the pairs iterator into a Jobs iterator, but skip over the Jobs</span>
+    <span class="comment">// where there&#39;s not actually any work to do (e.g. because there&#39;s not much</span>
+    <span class="comment">// input and it&#39;s all just going in the State buffer).</span>
+    <span class="kw">let</span> <span class="ident">jobs</span> <span class="op">=</span> <span class="ident">peekable_pairs</span>.<span class="ident">flat_map</span>(<span class="op">|</span>(<span class="ident">state</span>, <span class="ident">input_t</span>)<span class="op">|</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">input_t</span>.<span class="ident">as_ref</span>();
+        <span class="comment">// For each pair, if the State has some input in its buffer, try to</span>
+        <span class="comment">// finish that buffer. If there wasn&#39;t enough input to do that --</span>
+        <span class="comment">// or if the input was empty to begin with -- skip this pair.</span>
+        <span class="ident">state</span>.<span class="ident">compress_buffer_if_possible</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">input</span>);
+        <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">is_empty</span>() {
+            <span class="kw">return</span> <span class="prelude-val">None</span>;
+        }
+        <span class="comment">// Now we know the buffer is empty and there&#39;s more input. Make sure we</span>
+        <span class="comment">// buffer the final block, because update() doesn&#39;t finalize.</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">last_block_start</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>;
+        <span class="ident">last_block_start</span> <span class="op">-</span><span class="op">=</span> <span class="ident">last_block_start</span> <span class="op">%</span> <span class="ident">BLOCKBYTES</span>;
+        <span class="kw">let</span> (<span class="ident">blocks</span>, <span class="ident">last_block</span>) <span class="op">=</span> <span class="ident">input</span>.<span class="ident">split_at</span>(<span class="ident">last_block_start</span>);
+        <span class="ident">state</span>.<span class="ident">buf</span>[..<span class="ident">last_block</span>.<span class="ident">len</span>()].<span class="ident">copy_from_slice</span>(<span class="ident">last_block</span>);
+        <span class="ident">state</span>.<span class="ident">buflen</span> <span class="op">=</span> <span class="ident">last_block</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u8</span>;
+        <span class="comment">// Finally, if the full blocks slice is non-empty, prepare that job for</span>
+        <span class="comment">// compression, and bump the State count.</span>
+        <span class="kw">if</span> <span class="ident">blocks</span>.<span class="ident">is_empty</span>() {
+            <span class="prelude-val">None</span>
+        } <span class="kw">else</span> {
+            <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">count</span>;
+            <span class="ident">state</span>.<span class="ident">count</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">count</span>.<span class="ident">wrapping_add</span>(<span class="ident">blocks</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">Count</span>);
+            <span class="prelude-val">Some</span>(<span class="ident">Job</span> {
+                <span class="ident">input</span>: <span class="ident">blocks</span>,
+                <span class="ident">words</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">words</span>,
+                <span class="ident">count</span>,
+                <span class="ident">last_node</span>: <span class="ident">state</span>.<span class="ident">last_node</span>,
+            })
+        }
+    });
+
+    <span class="comment">// Run all the Jobs in the iterator.</span>
+    <span class="ident">compress_many</span>(<span class="ident">jobs</span>, <span class="ident">implementation</span>, <span class="ident">Finalize</span>::<span class="ident">No</span>, <span class="ident">Stride</span>::<span class="ident">Serial</span>);
+}
+
+<span class="doccomment">/// A job for the [`hash_many`] function. After calling [`hash_many`] on a</span>
+<span class="doccomment">/// collection of `HashManyJob` objects, you can call [`to_hash`] on each job</span>
+<span class="doccomment">/// to get the result.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [`hash_many`]: fn.hash_many.html</span>
+<span class="doccomment">/// [`to_hash`]: struct.HashManyJob.html#method.to_hash</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HashManyJob</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="ident">words</span>: [<span class="ident">Word</span>; <span class="number">8</span>],
+    <span class="ident">count</span>: <span class="ident">Count</span>,
+    <span class="ident">last_node</span>: <span class="ident">LastNode</span>,
+    <span class="ident">hash_length</span>: <span class="ident">u8</span>,
+    <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
+    <span class="ident">finished</span>: <span class="ident">bool</span>,
+    <span class="ident">implementation</span>: <span class="ident">guts</span>::<span class="ident">Implementation</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">HashManyJob</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Construct a new `HashManyJob` from a set of hashing parameters and an</span>
+    <span class="doccomment">/// input.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">params</span>: <span class="kw-2">&amp;</span><span class="ident">Params</span>, <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">words</span> <span class="op">=</span> <span class="ident">params</span>.<span class="ident">to_words</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">count</span> <span class="op">=</span> <span class="number">0</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">finished</span> <span class="op">=</span> <span class="bool-val">false</span>;
+        <span class="comment">// If we have key bytes, compress them into the state words. If there&#39;s</span>
+        <span class="comment">// no additional input, this compression needs to finalize and set</span>
+        <span class="comment">// finished=true.</span>
+        <span class="kw">if</span> <span class="ident">params</span>.<span class="ident">key_length</span> <span class="op">&gt;</span> <span class="number">0</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">finalization</span> <span class="op">=</span> <span class="ident">Finalize</span>::<span class="ident">No</span>;
+            <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">is_empty</span>() {
+                <span class="ident">finalization</span> <span class="op">=</span> <span class="ident">Finalize</span>::<span class="ident">Yes</span>;
+                <span class="ident">finished</span> <span class="op">=</span> <span class="bool-val">true</span>;
+            }
+            <span class="ident">params</span>.<span class="ident">implementation</span>.<span class="ident">compress1_loop</span>(
+                <span class="kw-2">&amp;</span><span class="ident">params</span>.<span class="ident">key_block</span>,
+                <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">words</span>,
+                <span class="number">0</span>,
+                <span class="ident">params</span>.<span class="ident">last_node</span>,
+                <span class="ident">finalization</span>,
+                <span class="ident">Stride</span>::<span class="ident">Serial</span>,
+            );
+            <span class="ident">count</span> <span class="op">=</span> <span class="ident">BLOCKBYTES</span> <span class="kw">as</span> <span class="ident">Count</span>;
+        }
+        <span class="self">Self</span> {
+            <span class="ident">words</span>,
+            <span class="ident">count</span>,
+            <span class="ident">last_node</span>: <span class="ident">params</span>.<span class="ident">last_node</span>,
+            <span class="ident">hash_length</span>: <span class="ident">params</span>.<span class="ident">hash_length</span>,
+            <span class="ident">input</span>,
+            <span class="ident">finished</span>,
+            <span class="ident">implementation</span>: <span class="ident">params</span>.<span class="ident">implementation</span>,
+        }
+    }
+
+    <span class="doccomment">/// Get the hash from a finished job. If you call this before calling</span>
+    <span class="doccomment">/// [`hash_many`], it will panic in debug mode.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// [`hash_many`]: fn.hash_many.html</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Hash</span> {
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">finished</span>, <span class="string">&quot;job hasn&#39;t been run yet&quot;</span>);
+        <span class="ident">Hash</span> {
+            <span class="ident">bytes</span>: <span class="ident">state_words_to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">words</span>),
+            <span class="ident">len</span>: <span class="self">self</span>.<span class="ident">hash_length</span>,
+        }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">HashManyJob</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="comment">// NB: Don&#39;t print the words. Leaking them would allow length extension.</span>
+        <span class="macro">write</span><span class="macro">!</span>(
+            <span class="ident">f</span>,
+            <span class="string">&quot;HashManyJob {{ count: {}, hash_length: {}, last_node: {}, input_len: {} }}&quot;</span>,
+            <span class="self">self</span>.<span class="ident">count</span>,
+            <span class="self">self</span>.<span class="ident">hash_length</span>,
+            <span class="self">self</span>.<span class="ident">last_node</span>.<span class="ident">yes</span>(),
+            <span class="self">self</span>.<span class="ident">input</span>.<span class="ident">len</span>(),
+        )
+    }
+}
+
+<span class="doccomment">/// Hash any number of complete inputs all at once.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This is slightly more efficient than using `update_many` with `State`</span>
+<span class="doccomment">/// objects, because it doesn&#39;t need to do any buffering.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Running `hash_many` on the same `HashManyJob` object more than once has no</span>
+<span class="doccomment">/// effect.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// use blake2b_simd::{blake2b, Params, many::{HashManyJob, hash_many}};</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let inputs = [</span>
+<span class="doccomment">///     &amp;b&quot;foo&quot;[..],</span>
+<span class="doccomment">///     &amp;b&quot;bar&quot;[..],</span>
+<span class="doccomment">///     &amp;b&quot;baz&quot;[..],</span>
+<span class="doccomment">///     &amp;b&quot;bing&quot;[..],</span>
+<span class="doccomment">/// ];</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let mut params = Params::new();</span>
+<span class="doccomment">/// params.hash_length(16);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let mut jobs = [</span>
+<span class="doccomment">///     HashManyJob::new(&amp;params, inputs[0]),</span>
+<span class="doccomment">///     HashManyJob::new(&amp;params, inputs[1]),</span>
+<span class="doccomment">///     HashManyJob::new(&amp;params, inputs[2]),</span>
+<span class="doccomment">///     HashManyJob::new(&amp;params, inputs[3]),</span>
+<span class="doccomment">/// ];</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// hash_many(jobs.iter_mut());</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// for (input, job) in inputs.iter().zip(jobs.iter()) {</span>
+<span class="doccomment">///     let expected = params.hash(input);</span>
+<span class="doccomment">///     assert_eq!(expected, job.to_hash());</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// ```</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">hash_many</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="ident">I</span><span class="op">&gt;</span>(<span class="ident">hash_many_jobs</span>: <span class="ident">I</span>)
+<span class="kw">where</span>
+    <span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>,
+    <span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">HashManyJob</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+{
+    <span class="comment">// Get the guts::Implementation from the first job, if any.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">peekable_jobs</span> <span class="op">=</span> <span class="ident">hash_many_jobs</span>.<span class="ident">into_iter</span>().<span class="ident">peekable</span>();
+    <span class="kw">let</span> <span class="ident">implementation</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">job</span>) <span class="op">=</span> <span class="ident">peekable_jobs</span>.<span class="ident">peek</span>() {
+        <span class="ident">job</span>.<span class="ident">implementation</span>
+    } <span class="kw">else</span> {
+        <span class="comment">// No work items, just short circuit.</span>
+        <span class="kw">return</span>;
+    };
+
+    <span class="comment">// In the jobs iterator, skip HashManyJobs that have already been run. This</span>
+    <span class="comment">// is less because we actually expect callers to call hash_many twice</span>
+    <span class="comment">// (though they&#39;re allowed to if they want), and more because</span>
+    <span class="comment">// HashManyJob::new might need to finalize if there are key bytes but no</span>
+    <span class="comment">// input. Tying the job lifetime to the Params reference is an alternative,</span>
+    <span class="comment">// but I&#39;ve found it too constraining in practice. We could also put key</span>
+    <span class="comment">// bytes in every HashManyJob, but that would add unnecessary storage and</span>
+    <span class="comment">// zeroing for all callers.</span>
+    <span class="kw">let</span> <span class="ident">unfinished_jobs</span> <span class="op">=</span> <span class="ident">peekable_jobs</span>.<span class="ident">into_iter</span>().<span class="ident">filter</span>(<span class="op">|</span><span class="ident">j</span><span class="op">|</span> <span class="op">!</span><span class="ident">j</span>.<span class="ident">finished</span>);
+    <span class="kw">let</span> <span class="ident">jobs</span> <span class="op">=</span> <span class="ident">unfinished_jobs</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">j</span><span class="op">|</span> {
+        <span class="ident">j</span>.<span class="ident">finished</span> <span class="op">=</span> <span class="bool-val">true</span>;
+        <span class="ident">Job</span> {
+            <span class="ident">input</span>: <span class="ident">j</span>.<span class="ident">input</span>,
+            <span class="ident">words</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">j</span>.<span class="ident">words</span>,
+            <span class="ident">count</span>: <span class="ident">j</span>.<span class="ident">count</span>,
+            <span class="ident">last_node</span>: <span class="ident">j</span>.<span class="ident">last_node</span>,
+        }
+    });
+    <span class="ident">compress_many</span>(<span class="ident">jobs</span>, <span class="ident">implementation</span>, <span class="ident">Finalize</span>::<span class="ident">Yes</span>, <span class="ident">Stride</span>::<span class="ident">Serial</span>);
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">test</span> {
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">guts</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">paint_test_input</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">BLOCKBYTES</span>;
+    <span class="kw">use</span> <span class="ident">arrayvec</span>::<span class="ident">ArrayVec</span>;
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_degree</span>() {
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">degree</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="ident">MAX_DEGREE</span>);
+
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span>
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>)]</span>
+        {
+            <span class="kw">if</span> <span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;avx2&quot;</span>) {
+                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">degree</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">4</span>);
+            }
+            <span class="kw">if</span> <span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;sse4.1&quot;</span>) {
+                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">degree</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">2</span>);
+            }
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_hash_many</span>() {
+        <span class="comment">// Use a length of inputs that will exercise all of the power-of-two loops.</span>
+        <span class="kw">const</span> <span class="ident">LEN</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">2</span> <span class="op">*</span> <span class="ident">guts</span>::<span class="ident">MAX_DEGREE</span> <span class="op">-</span> <span class="number">1</span>;
+
+        <span class="comment">// Rerun LEN inputs LEN different times, with the empty input starting in a</span>
+        <span class="comment">// different spot each time.</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">input</span> <span class="op">=</span> [<span class="number">0</span>; <span class="ident">LEN</span> <span class="op">*</span> <span class="ident">BLOCKBYTES</span>];
+        <span class="ident">paint_test_input</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">input</span>);
+        <span class="kw">for</span> <span class="ident">start_offset</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inputs</span>: [<span class="kw-2">&amp;</span>[<span class="ident">u8</span>]; <span class="ident">LEN</span>] <span class="op">=</span> [<span class="kw-2">&amp;</span>[]; <span class="ident">LEN</span>];
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+                <span class="kw">let</span> <span class="ident">chunks</span> <span class="op">=</span> (<span class="ident">i</span> <span class="op">+</span> <span class="ident">start_offset</span>) <span class="op">%</span> <span class="ident">LEN</span>;
+                <span class="ident">inputs</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">input</span>[..<span class="ident">chunks</span> <span class="op">*</span> <span class="ident">BLOCKBYTES</span>];
+            }
+
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">params</span>: <span class="ident">ArrayVec</span><span class="op">&lt;</span>[<span class="ident">Params</span>; <span class="ident">LEN</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ArrayVec</span>::<span class="ident">new</span>();
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">Params</span>::<span class="ident">new</span>();
+                <span class="ident">p</span>.<span class="ident">node_offset</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                <span class="kw">if</span> <span class="ident">i</span> <span class="op">%</span> <span class="number">2</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> {
+                    <span class="ident">p</span>.<span class="ident">last_node</span>(<span class="bool-val">true</span>);
+                    <span class="ident">p</span>.<span class="ident">key</span>(<span class="string">b&quot;foo&quot;</span>);
+                }
+                <span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">p</span>);
+            }
+
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">jobs</span>: <span class="ident">ArrayVec</span><span class="op">&lt;</span>[<span class="ident">HashManyJob</span>; <span class="ident">LEN</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ArrayVec</span>::<span class="ident">new</span>();
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+                <span class="ident">jobs</span>.<span class="ident">push</span>(<span class="ident">HashManyJob</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">params</span>[<span class="ident">i</span>], <span class="ident">inputs</span>[<span class="ident">i</span>]));
+            }
+
+            <span class="ident">hash_many</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">jobs</span>);
+
+            <span class="comment">// Check the outputs.</span>
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+                <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">params</span>[<span class="ident">i</span>].<span class="ident">hash</span>(<span class="ident">inputs</span>[<span class="ident">i</span>]);
+                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">jobs</span>[<span class="ident">i</span>].<span class="ident">to_hash</span>());
+            }
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_update_many</span>() {
+        <span class="comment">// Use a length of inputs that will exercise all of the power-of-two loops.</span>
+        <span class="kw">const</span> <span class="ident">LEN</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">2</span> <span class="op">*</span> <span class="ident">guts</span>::<span class="ident">MAX_DEGREE</span> <span class="op">-</span> <span class="number">1</span>;
+
+        <span class="comment">// Rerun LEN inputs LEN different times, with the empty input starting in a</span>
+        <span class="comment">// different spot each time.</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">input</span> <span class="op">=</span> [<span class="number">0</span>; <span class="ident">LEN</span> <span class="op">*</span> <span class="ident">BLOCKBYTES</span>];
+        <span class="ident">paint_test_input</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">input</span>);
+        <span class="kw">for</span> <span class="ident">start_offset</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inputs</span>: [<span class="kw-2">&amp;</span>[<span class="ident">u8</span>]; <span class="ident">LEN</span>] <span class="op">=</span> [<span class="kw-2">&amp;</span>[]; <span class="ident">LEN</span>];
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+                <span class="kw">let</span> <span class="ident">chunks</span> <span class="op">=</span> (<span class="ident">i</span> <span class="op">+</span> <span class="ident">start_offset</span>) <span class="op">%</span> <span class="ident">LEN</span>;
+                <span class="ident">inputs</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">input</span>[..<span class="ident">chunks</span> <span class="op">*</span> <span class="ident">BLOCKBYTES</span>];
+            }
+
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">params</span>: <span class="ident">ArrayVec</span><span class="op">&lt;</span>[<span class="ident">Params</span>; <span class="ident">LEN</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ArrayVec</span>::<span class="ident">new</span>();
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">Params</span>::<span class="ident">new</span>();
+                <span class="ident">p</span>.<span class="ident">node_offset</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                <span class="kw">if</span> <span class="ident">i</span> <span class="op">%</span> <span class="number">2</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> {
+                    <span class="ident">p</span>.<span class="ident">last_node</span>(<span class="bool-val">true</span>);
+                    <span class="ident">p</span>.<span class="ident">key</span>(<span class="string">b&quot;foo&quot;</span>);
+                }
+                <span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">p</span>);
+            }
+
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">states</span>: <span class="ident">ArrayVec</span><span class="op">&lt;</span>[<span class="ident">State</span>; <span class="ident">LEN</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ArrayVec</span>::<span class="ident">new</span>();
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+                <span class="ident">states</span>.<span class="ident">push</span>(<span class="ident">params</span>[<span class="ident">i</span>].<span class="ident">to_state</span>());
+            }
+
+            <span class="comment">// Run each input twice through, to exercise buffering.</span>
+            <span class="ident">update_many</span>(<span class="ident">states</span>.<span class="ident">iter_mut</span>().<span class="ident">zip</span>(<span class="ident">inputs</span>.<span class="ident">iter</span>()));
+            <span class="ident">update_many</span>(<span class="ident">states</span>.<span class="ident">iter_mut</span>().<span class="ident">zip</span>(<span class="ident">inputs</span>.<span class="ident">iter</span>()));
+
+            <span class="comment">// Check the outputs.</span>
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">LEN</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reference_state</span> <span class="op">=</span> <span class="ident">params</span>[<span class="ident">i</span>].<span class="ident">to_state</span>();
+                <span class="comment">// Again, run the input twice.</span>
+                <span class="ident">reference_state</span>.<span class="ident">update</span>(<span class="ident">inputs</span>[<span class="ident">i</span>]);
+                <span class="ident">reference_state</span>.<span class="ident">update</span>(<span class="ident">inputs</span>[<span class="ident">i</span>]);
+                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">reference_state</span>.<span class="ident">finalize</span>(), <span class="ident">states</span>[<span class="ident">i</span>].<span class="ident">finalize</span>());
+                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">2</span> <span class="op">*</span> <span class="ident">inputs</span>[<span class="ident">i</span>].<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">Count</span>, <span class="ident">states</span>[<span class="ident">i</span>].<span class="ident">count</span>());
+            }
+        }
+    }
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "blake2b_simd";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

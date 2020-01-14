@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `IdentExt` trait in crate `syn`."><meta name="keywords" content="rust, rustlang, rust-lang, IdentExt"><title>syn::ext::IdentExt - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc trait"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../syn/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a><p class='location'>Trait IdentExt</p><div class="sidebar-elems"><div class="block items"><a class="sidebar-title" href="#associated-const">Associated Constants</a><div class="sidebar-links"><a href="#associatedconstant.peek_any">peek_any</a></div><a class="sidebar-title" href="#required-methods">Required Methods</a><div class="sidebar-links"><a href="#tymethod.parse_any">parse_any</a><a href="#tymethod.unraw">unraw</a></div><a class="sidebar-title" href="#implementors">Implementors</a></div><p class='location'><a href='../index.html'>syn</a>::<wbr><a href='index.html'>ext</a></p><script>window.sidebarCurrent = {name: 'IdentExt', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/syn/ext.rs.html#24-94' title='goto source code'>[src]</a></span><span class='in-band'>Trait <a href='../index.html'>syn</a>::<wbr><a href='index.html'>ext</a>::<wbr><a class="trait" href=''>IdentExt</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><pre class='rust trait'>pub trait IdentExt: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + Sealed {
+    const <a href='#associatedconstant.peek_any' class="constant"><b>peek_any</b></a>: PeekFn;
+
+    fn <a href='#tymethod.parse_any' class='fnname'>parse_any</a>(input: <a class="type" href="../../syn/parse/type.ParseStream.html" title="type syn::parse::ParseStream">ParseStream</a>) -&gt; <a class="type" href="../../syn/parse/type.Result.html" title="type syn::parse::Result">Result</a>&lt;Self&gt;;
+<div class='item-spacer'></div>    fn <a href='#tymethod.unraw' class='fnname'>unraw</a>(&amp;self) -&gt; <a class="struct" href="../../syn/struct.Ident.html" title="struct syn::Ident">Ident</a>;
+}</pre></div><div class='docblock'><p>Additional methods for <code>Ident</code> not provided by proc-macro2 or libproc_macro.</p>
+<p>This trait is sealed and cannot be implemented for types outside of Syn. It
+is implemented only for <code>proc_macro2::Ident</code>.</p>
+<p><em>This trait is available if Syn is built with the <code>&quot;parsing&quot;</code> feature.</em></p>
+</div>
+            <h2 id='associated-const' class='small-section-header'>Associated Constants<a href='#associated-const' class='anchor'></a></h2><div class='methods'><h3 id='associatedconstant.peek_any' class='method'><code id='peek_any.v'>const <a href='#associatedconstant.peek_any' class="constant"><b>peek_any</b></a>: PeekFn</code></h3><div class='docblock'><p>Peeks any identifier including keywords. Usage:
+<code>input.peek(Ident::peek_any)</code></p>
+<p>This is different from <code>input.peek(Ident)</code> which only returns true in
+the case of an ident which is not a Rust keyword.</p>
+</div></div><span class='loading-content'>Loading content...</span>
+            <h2 id='required-methods' class='small-section-header'>Required methods<a href='#required-methods' class='anchor'></a></h2><div class='methods'><h3 id='tymethod.parse_any' class='method'><code id='parse_any.v'>fn <a href='#tymethod.parse_any' class='fnname'>parse_any</a>(input: <a class="type" href="../../syn/parse/type.ParseStream.html" title="type syn::parse::ParseStream">ParseStream</a>) -&gt; <a class="type" href="../../syn/parse/type.Result.html" title="type syn::parse::Result">Result</a>&lt;Self&gt;</code></h3><div class='docblock'><p>Parses any identifier including keywords.</p>
+<p>This is useful when parsing macro input which allows Rust keywords as
+identifiers.</p>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">Error</span>, <span class="ident">Ident</span>, <span class="prelude-ty">Result</span>, <span class="ident">Token</span>};
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">ext</span>::<span class="ident">IdentExt</span>;
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">parse</span>::<span class="ident">ParseStream</span>;
+
+<span class="kw">mod</span> <span class="ident">kw</span> {
+    <span class="ident">syn</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">name</span>);
+}
+
+<span class="comment">// Parses input that looks like `name = NAME` where `NAME` can be</span>
+<span class="comment">// any identifier.</span>
+<span class="comment">//</span>
+<span class="comment">// Examples:</span>
+<span class="comment">//</span>
+<span class="comment">//     name = anything</span>
+<span class="comment">//     name = impl</span>
+<span class="kw">fn</span> <span class="ident">parse_dsl</span>(<span class="ident">input</span>: <span class="ident">ParseStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Ident</span><span class="op">&gt;</span> {
+    <span class="ident">input</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">kw</span>::<span class="ident">name</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="ident">input</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="macro">Token</span><span class="macro">!</span>[<span class="op">=</span>]<span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">call</span>(<span class="ident">Ident</span>::<span class="ident">parse_any</span>)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(<span class="ident">name</span>)
+}</pre></div>
+</div><h3 id='tymethod.unraw' class='method'><code id='unraw.v'>fn <a href='#tymethod.unraw' class='fnname'>unraw</a>(&amp;self) -&gt; <a class="struct" href="../../syn/struct.Ident.html" title="struct syn::Ident">Ident</a></code></h3><div class='docblock'><p>Strips the raw marker <code>r#</code>, if any, from the beginning of an ident.</p>
+<ul>
+<li>unraw(<code>x</code>) = <code>x</code></li>
+<li>unraw(<code>move</code>) = <code>move</code></li>
+<li>unraw(<code>r#move</code>) = <code>move</code></li>
+</ul>
+<h1 id="example-1" class="section-header"><a href="#example-1">Example</a></h1>
+<p>In the case of interop with other languages like Python that have a
+different set of keywords than Rust, we might come across macro input
+that involves raw identifiers to refer to ordinary variables in the
+other language with a name that happens to be a Rust keyword.</p>
+<p>The function below appends an identifier from the caller's input onto a
+fixed prefix. Without using <code>unraw()</code>, this would tend to produce
+invalid identifiers like <code>__pyo3_get_r#move</code>.</p>
+
+<div class='information'><div class='tooltip edition'>ⓘ<span class='tooltiptext'>This code runs with edition 2018</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered edition ">
+<span class="kw">use</span> <span class="ident">proc_macro2</span>::<span class="ident">Span</span>;
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">Ident</span>;
+<span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">ext</span>::<span class="ident">IdentExt</span>;
+
+<span class="kw">fn</span> <span class="ident">ident_for_getter</span>(<span class="ident">variable</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Ident</span> {
+    <span class="kw">let</span> <span class="ident">getter</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;__pyo3_get_{}&quot;</span>, <span class="ident">variable</span>.<span class="ident">unraw</span>());
+    <span class="ident">Ident</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">getter</span>, <span class="ident">Span</span>::<span class="ident">call_site</span>())
+}</pre></div>
+</div></div><span class='loading-content'>Loading content...</span>
+            <h2 id='implementors' class='small-section-header'>Implementors<a href='#implementors' class='anchor'></a></h2><div class='item-list' id='implementors-list'><h3 id='impl-IdentExt' class='impl'><code class='in-band'>impl IdentExt for <a class="struct" href="../../syn/struct.Ident.html" title="struct syn::Ident">Ident</a></code><a href='#impl-IdentExt' class='anchor'></a><a class='srclink' href='../../src/syn/ext.rs.html#96-112' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.parse_any' class="method hidden"><code id='parse_any.v-1'>fn <a href='#method.parse_any' class='fnname'>parse_any</a>(input: <a class="type" href="../../syn/parse/type.ParseStream.html" title="type syn::parse::ParseStream">ParseStream</a>) -&gt; <a class="type" href="../../syn/parse/type.Result.html" title="type syn::parse::Result">Result</a>&lt;Self&gt;</code><a class='srclink' href='../../src/syn/ext.rs.html#97-102' title='goto source code'>[src]</a></h4><h4 id='method.unraw' class="method hidden"><code id='unraw.v-1'>fn <a href='#method.unraw' class='fnname'>unraw</a>(&amp;self) -&gt; <a class="struct" href="../../syn/struct.Ident.html" title="struct syn::Ident">Ident</a></code><a class='srclink' href='../../src/syn/ext.rs.html#104-111' title='goto source code'>[src]</a></h4></div></div><span class='loading-content'>Loading content...</span><script type="text/javascript">window.inlined_types=new Set([]);</script><script type="text/javascript" async
+                         src="../../implementors/syn/ext/trait.IdentExt.js">
+                 </script></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "syn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

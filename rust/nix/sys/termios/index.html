@@ -1,0 +1,119 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `termios` mod in crate `nix`."><meta name="keywords" content="rust, rustlang, rust-lang, termios"><title>nix::sys::termios - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="../../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../nix/index.html'><div class='logo-container'><img src='../../../rust-logo.png' alt='logo'></div></a><p class='location'>Module termios</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'><a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a></p><script>window.sidebarCurrent = {name: 'termios', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../../src/nix/sys/termios.rs.html#1-1107' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a>::<wbr><a class="mod" href=''>termios</a></span></h1><div class='docblock'><p>An interface for controlling asynchronous communication ports</p>
+<p>This interface provides a safe wrapper around the termios subsystem defined by POSIX. The
+underlying types are all implemented in libc for most platforms and either wrapped in safer
+types here or exported directly.</p>
+<p>If you are unfamiliar with the <code>termios</code> API, you should first read the
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/termios.h.html">API documentation</a> and
+then come back to understand how <code>nix</code> safely wraps it.</p>
+<p>It should be noted that this API incurs some runtime overhead above the base <code>libc</code> definitions.
+As this interface is not used with high-bandwidth information, this should be fine in most
+cases. The primary cost when using this API is that the <code>Termios</code> datatype here duplicates the
+standard fields of the underlying <code>termios</code> struct and uses safe type wrappers for those fields.
+This means that when crossing the FFI interface to the underlying C library, data is first
+copied into the underlying <code>termios</code> struct, then the operation is done, and the data is copied
+back (with additional sanity checking) into the safe wrapper types. The <code>termios</code> struct is
+relatively small across all platforms (on the order of 32-64 bytes).</p>
+<p>The following examples highlight some of the API use cases such that users coming from using C
+or reading the standard documentation will understand how to use the safe API exposed here.</p>
+<p>Example disabling processing of the end-of-file control character:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="ident">termios</span>.<span class="ident">control_chars</span>[<span class="ident">VEOF</span> <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span> <span class="ident">_POSIX_VDISABLE</span>;</pre></div>
+<p>The flags within <code>Termios</code> are defined as bitfields using the <code>bitflags</code> crate. This provides
+an interface for working with bitfields that is similar to working with the raw unsigned
+integer types but offers type safety because of the internal checking that values will always
+be a valid combination of the defined flags.</p>
+<p>An example showing some of the basic operations for interacting with the control flags:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="ident">termios</span>.<span class="ident">control_flags</span> <span class="op">&amp;</span> <span class="ident">ControlFlags</span>::<span class="ident">CSIZE</span> <span class="op">=</span><span class="op">=</span> <span class="ident">ControlFlags</span>::<span class="ident">CS5</span>;
+<span class="ident">termios</span>.<span class="ident">control_flags</span> <span class="op">|</span><span class="op">=</span> <span class="ident">ControlFlags</span>::<span class="ident">CS5</span>;</pre></div>
+<h1 id="baud-rates" class="section-header"><a href="#baud-rates">Baud rates</a></h1>
+<p>This API is not consistent across platforms when it comes to <code>BaudRate</code>: Android and Linux both
+only support the rates specified by the <code>BaudRate</code> enum through their termios API while the BSDs
+support arbitrary baud rates as the values of the <code>BaudRate</code> enum constants are the same integer
+value of the constant (<code>B9600</code> == <code>9600</code>). Therefore the <code>nix::termios</code> API uses the following
+conventions:</p>
+<ul>
+<li><code>cfgetispeed()</code> - Returns <code>u32</code> on BSDs, <code>BaudRate</code> on Android/Linux</li>
+<li><code>cfgetospeed()</code> - Returns <code>u32</code> on BSDs, <code>BaudRate</code> on Android/Linux</li>
+<li><code>cfsetispeed()</code> - Takes <code>u32</code> or <code>BaudRate</code> on BSDs, <code>BaudRate</code> on Android/Linux</li>
+<li><code>cfsetospeed()</code> - Takes <code>u32</code> or <code>BaudRate</code> on BSDs, <code>BaudRate</code> on Android/Linux</li>
+<li><code>cfsetspeed()</code> - Takes <code>u32</code> or <code>BaudRate</code> on BSDs, <code>BaudRate</code> on Android/Linux</li>
+</ul>
+<p>The most common use case of specifying a baud rate using the enum will work the same across
+platforms:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="ident">cfsetispeed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">t</span>, <span class="ident">BaudRate</span>::<span class="ident">B9600</span>);
+<span class="ident">cfsetospeed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">t</span>, <span class="ident">BaudRate</span>::<span class="ident">B9600</span>);
+<span class="ident">cfsetspeed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">t</span>, <span class="ident">BaudRate</span>::<span class="ident">B9600</span>);</pre></div>
+<p>Additionally round-tripping baud rates is consistent across platforms:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">let</span> <span class="ident">speed</span> <span class="op">=</span> <span class="ident">cfgetispeed</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>);
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">speed</span> <span class="op">=</span><span class="op">=</span> <span class="ident">cfgetospeed</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>));
+<span class="ident">cfsetispeed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">t</span>, <span class="ident">speed</span>);</pre></div>
+<p>On non-BSDs, <code>cfgetispeed()</code> and <code>cfgetospeed()</code> both return a <code>BaudRate</code>:</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">cfgetispeed</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">BaudRate</span>::<span class="ident">B9600</span>);
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">cfgetospeed</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">BaudRate</span>::<span class="ident">B9600</span>);</pre></div>
+<p>But on the BSDs, <code>cfgetispeed()</code> and <code>cfgetospeed()</code> both return <code>u32</code>s:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">cfgetispeed</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>) <span class="op">=</span><span class="op">=</span> <span class="number">9600u32</span>);
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">cfgetospeed</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>) <span class="op">=</span><span class="op">=</span> <span class="number">9600u32</span>);</pre></div>
+<p>It's trivial to convert from a <code>BaudRate</code> to a <code>u32</code> on BSDs:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">cfgetispeed</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">BaudRate</span>::<span class="ident">B9600</span>.<span class="ident">into</span>());
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">u32</span>::<span class="ident">from</span>(<span class="ident">BaudRate</span>::<span class="ident">B9600</span>) <span class="op">=</span><span class="op">=</span> <span class="number">9600u32</span>);</pre></div>
+<p>And on BSDs you can specify arbitrary baud rates (<strong>note</strong> this depends on hardware support)
+by specifying baud rates directly using <code>u32</code>s:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="ident">cfsetispeed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">t</span>, <span class="number">9600u32</span>);
+<span class="ident">cfsetospeed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">t</span>, <span class="number">9600u32</span>);
+<span class="ident">cfsetspeed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">t</span>, <span class="number">9600u32</span>);</pre></div>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.ControlFlags.html" title='nix::sys::termios::ControlFlags struct'>ControlFlags</a></td><td class='docblock-short'><p>Flags for setting the control mode of a terminal</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.InputFlags.html" title='nix::sys::termios::InputFlags struct'>InputFlags</a></td><td class='docblock-short'><p>Flags for configuring the input mode of a terminal</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.LocalFlags.html" title='nix::sys::termios::LocalFlags struct'>LocalFlags</a></td><td class='docblock-short'><p>Flags for setting any local modes</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.OutputFlags.html" title='nix::sys::termios::OutputFlags struct'>OutputFlags</a></td><td class='docblock-short'><p>Flags for configuring the output mode of a terminal</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Termios.html" title='nix::sys::termios::Termios struct'>Termios</a></td><td class='docblock-short'><p>Stores settings for the termios API</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.BaudRate.html" title='nix::sys::termios::BaudRate enum'>BaudRate</a></td><td class='docblock-short'><p>Baud rates supported by the system.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.FlowArg.html" title='nix::sys::termios::FlowArg enum'>FlowArg</a></td><td class='docblock-short'><p>Specify how transmission flow should be altered</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.FlushArg.html" title='nix::sys::termios::FlushArg enum'>FlushArg</a></td><td class='docblock-short'><p>Specify a combination of the input and output buffers to flush</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.SetArg.html" title='nix::sys::termios::SetArg enum'>SetArg</a></td><td class='docblock-short'><p>Specify when a port configuration change should occur.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.SpecialCharacterIndices.html" title='nix::sys::termios::SpecialCharacterIndices enum'>SpecialCharacterIndices</a></td><td class='docblock-short'><p>Indices into the <code>termios.c_cc</code> array for special characters.</p>
+</td></tr></table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table><tr class='module-item'><td><a class="constant" href="constant.NCCS.html" title='nix::sys::termios::NCCS constant'>NCCS</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="constant" href="constant._POSIX_VDISABLE.html" title='nix::sys::termios::_POSIX_VDISABLE constant'>_POSIX_VDISABLE</a></td><td class='docblock-short'></td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.cfgetispeed.html" title='nix::sys::termios::cfgetispeed fn'>cfgetispeed</a></td><td class='docblock-short'><p>Get input baud rate (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/cfgetispeed.html">cfgetispeed(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.cfgetospeed.html" title='nix::sys::termios::cfgetospeed fn'>cfgetospeed</a></td><td class='docblock-short'><p>Get output baud rate (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/cfgetospeed.html">cfgetospeed(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.cfmakeraw.html" title='nix::sys::termios::cfmakeraw fn'>cfmakeraw</a></td><td class='docblock-short'><p>Configures the port to something like the &quot;raw&quot; mode of the old Version 7 terminal driver (see
+<a href="http://man7.org/linux/man-pages/man3/termios.3.html">termios(3)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.cfsetispeed.html" title='nix::sys::termios::cfsetispeed fn'>cfsetispeed</a></td><td class='docblock-short'><p>Set input baud rate (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/cfsetispeed.html">cfsetispeed(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.cfsetospeed.html" title='nix::sys::termios::cfsetospeed fn'>cfsetospeed</a></td><td class='docblock-short'><p>Set output baud rate (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/cfsetospeed.html">cfsetospeed(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.cfsetspeed.html" title='nix::sys::termios::cfsetspeed fn'>cfsetspeed</a></td><td class='docblock-short'><p>Set both the input and output baud rates (see
+<a href="https://www.freebsd.org/cgi/man.cgi?query=cfsetspeed">termios(3)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.tcdrain.html" title='nix::sys::termios::tcdrain fn'>tcdrain</a></td><td class='docblock-short'><p>Block until all output data is written (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/tcdrain.html">tcdrain(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.tcflow.html" title='nix::sys::termios::tcflow fn'>tcflow</a></td><td class='docblock-short'><p>Suspend or resume the transmission or reception of data (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/tcflow.html">tcflow(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.tcflush.html" title='nix::sys::termios::tcflush fn'>tcflush</a></td><td class='docblock-short'><p>Discard data in the output or input queue (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/tcflush.html">tcflush(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.tcgetattr.html" title='nix::sys::termios::tcgetattr fn'>tcgetattr</a></td><td class='docblock-short'><p>Return the configuration of a port
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/tcgetattr.html">tcgetattr(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.tcgetsid.html" title='nix::sys::termios::tcgetsid fn'>tcgetsid</a></td><td class='docblock-short'><p>Get the session controlled by the given terminal (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/tcgetsid.html">tcgetsid(3)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.tcsendbreak.html" title='nix::sys::termios::tcsendbreak fn'>tcsendbreak</a></td><td class='docblock-short'><p>Send a break for a specific duration (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/tcsendbreak.html">tcsendbreak(3p)</a>).</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.tcsetattr.html" title='nix::sys::termios::tcsetattr fn'>tcsetattr</a></td><td class='docblock-short'><p>Set the configuration for a terminal (see
+<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/tcsetattr.html">tcsetattr(3p)</a>).</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "nix";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script defer src="../../../search-index.js"></script></body></html>

@@ -1,0 +1,30 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `fork` fn in crate `nix`."><meta name="keywords" content="rust, rustlang, rust-lang, fork"><title>nix::unistd::fork - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc fn"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../nix/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a><div class="sidebar-elems"><p class='location'><a href='../index.html'>nix</a>::<wbr><a href='index.html'>unistd</a></p><script>window.sidebarCurrent = {name: 'fork', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/nix/unistd.rs.html#225-233' title='goto source code'>[src]</a></span><span class='in-band'>Function <a href='../index.html'>nix</a>::<wbr><a href='index.html'>unistd</a>::<wbr><a class="fn" href=''>fork</a></span></h1><pre class='rust fn'>pub fn fork() -&gt; <a class="type" href="../../nix/type.Result.html" title="type nix::Result">Result</a>&lt;<a class="enum" href="../../nix/unistd/enum.ForkResult.html" title="enum nix::unistd::ForkResult">ForkResult</a>&gt;</pre><div class='docblock'><p>Create a new child process duplicating the parent process (<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/fork.html">see
+fork(2)</a>).</p>
+<p>After calling the fork system call (successfully) two processes will
+be created that are identical with the exception of their pid and the
+return value of this function.  As an example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">nix</span>::<span class="ident">unistd</span>::{<span class="ident">fork</span>, <span class="ident">ForkResult</span>};
+
+<span class="kw">match</span> <span class="ident">fork</span>() {
+   <span class="prelude-val">Ok</span>(<span class="ident">ForkResult</span>::<span class="ident">Parent</span> { <span class="ident">child</span>, .. }) <span class="op">=</span><span class="op">&gt;</span> {
+       <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Continuing execution in parent process, new child has pid: {}&quot;</span>, <span class="ident">child</span>);
+   }
+   <span class="prelude-val">Ok</span>(<span class="ident">ForkResult</span>::<span class="ident">Child</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;I&#39;m a new child process&quot;</span>),
+   <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Fork failed&quot;</span>),
+}</pre></div>
+<p>This will print something like the following (order indeterministic).  The
+thing to note is that you end up with two processes continuing execution
+immediately after the fork call but with different match arms.</p>
+<pre><code class="language-text">Continuing execution in parent process, new child has pid: 1234
+I'm a new child process
+</code></pre>
+<h1 id="safety" class="section-header"><a href="#safety">Safety</a></h1>
+<p>In a multithreaded program, only <a href="http://man7.org/linux/man-pages/man7/signal-safety.7.html">async-signal-safe</a> functions like <code>pause</code>
+and <code>_exit</code> may be called by the child (the parent isn't restricted). Note
+that memory allocation may <strong>not</strong> be async-signal-safe and thus must be
+prevented.</p>
+<p>Those functions are only a small subset of your operating system's API, so
+special care must be taken to only invoke code you can control and audit.</p>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "nix";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

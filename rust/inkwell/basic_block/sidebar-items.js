@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BasicBlock","A `BasicBlock` is a container of instructions."]]});

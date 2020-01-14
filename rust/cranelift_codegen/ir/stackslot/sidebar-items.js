@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["StackSlotKind","The kind of a stack slot."]],"struct":[["StackSlotData","Contents of a stack slot."],["StackSlots","Stack frame manager."]],"type":[["StackOffset","A stack offset."],["StackSize","The size of an object on the stack, or the size of a stack frame."]]});

@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `heck` crate."><meta name="keywords" content="rust, rustlang, rust-lang, heck"><title>heck - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../heck/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate heck</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all heck's items</p></a><div class="block items"><ul><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'heck', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/heck/lib.rs.html#1-165' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>heck</a></span></h1><div class='docblock'><p><strong>heck</strong> is a case conversion library.</p>
+<p>This library exists to provide case conversion between common cases like
+CamelCase and snake_case. It is intended to be unicode aware, internally,
+consistent, and reasonably well performing.</p>
+<h2 id="definition-of-a-word-boundary" class="section-header"><a href="#definition-of-a-word-boundary">Definition of a word boundary</a></h2>
+<p>Word boundaries are defined as the &quot;unicode words&quot; defined in the
+<code>unicode_segmentation</code> library, as well as within those words in this manner:</p>
+<ol>
+<li>All underscore characters are considered word boundaries.</li>
+<li>If an uppercase character is followed by lowercase letters, a word boundary
+is considered to be just prior to that uppercase character.</li>
+<li>If multiple uppercase characters are consecutive, they are considered to be
+within a single word, except that the last will be part of the next word if it
+is followed by lowercase characters (see rule 2).</li>
+</ol>
+<p>That is, &quot;HelloWorld&quot; is segmented <code>Hello|World</code> whereas &quot;XMLHttpRequest&quot; is
+segmented <code>XML|Http|Request</code>.</p>
+<p>Characters not within words (such as spaces, punctuations, and underscores)
+are not included in the output string except as they are a part of the case
+being converted to. Multiple adjacent word boundaries (such as a series of
+underscores) are folded into one. (&quot;hello__world&quot; in snake case is therefore
+&quot;hello_world&quot;, not the exact same string). Leading or trailing word boundary
+indicators are dropped, except insofar as CamelCase capitalizes the first word.</p>
+<h3 id="cases-contained-in-this-library" class="section-header"><a href="#cases-contained-in-this-library">Cases contained in this library:</a></h3>
+<ol>
+<li>CamelCase</li>
+<li>snake_case</li>
+<li>kebab-case</li>
+<li>SHOUTY_SNAKE_CASE</li>
+<li>mixedCase</li>
+<li>Title Case</li>
+</ol>
+</div><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.CamelCase.html" title='heck::CamelCase trait'>CamelCase</a></td><td class='docblock-short'><p>This trait defines a camel case conversion.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.KebabCase.html" title='heck::KebabCase trait'>KebabCase</a></td><td class='docblock-short'><p>This trait defines a kebab case conversion.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.MixedCase.html" title='heck::MixedCase trait'>MixedCase</a></td><td class='docblock-short'><p>This trait defines a mixed case conversion.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.ShoutySnakeCase.html" title='heck::ShoutySnakeCase trait'>ShoutySnakeCase</a></td><td class='docblock-short'><p>This trait defines a shouty snake case conversion.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.ShoutySnekCase.html" title='heck::ShoutySnekCase trait'>ShoutySnekCase</a></td><td class='docblock-short'><p>Oh heck, ShoutySnekCase is an alias for ShoutySnakeCase. See ShoutySnakeCase for
+more documentation.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.SnakeCase.html" title='heck::SnakeCase trait'>SnakeCase</a></td><td class='docblock-short'><p>This trait defines a camel case conversion.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.SnekCase.html" title='heck::SnekCase trait'>SnekCase</a></td><td class='docblock-short'><p>Oh heck, SnekCase is an alias for SnakeCase. See SnakeCase for
+more documentation.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.TitleCase.html" title='heck::TitleCase trait'>TitleCase</a></td><td class='docblock-short'><p>This trait defines a title case conversion.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "heck";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

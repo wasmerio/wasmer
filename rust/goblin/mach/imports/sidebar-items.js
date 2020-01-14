@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BindInterpreter","An interpreter for mach BIND opcodes. Runs on prebound (non lazy) symbols (usually dylib extern consts and extern variables), and lazy symbols (usually dylib functions)"],["Import","An dynamically linked symbolic import"]]});

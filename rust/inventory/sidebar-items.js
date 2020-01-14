@@ -1,0 +1,1 @@
+initSidebarItems({"macro":[["collect","Associate a plugin registry with the specified type."],["submit","Enter an element into the plugin registry corresponding to its type."]],"trait":[["Collect","Trait bound corresponding to types that can be iterated by inventory::iter."]],"type":[["iter","An iterator over plugins registered of a given type."]]});
