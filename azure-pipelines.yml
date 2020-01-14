@@ -295,11 +295,12 @@ jobs:
       - task: DownloadPipelineArtifact@2
         inputs:
           artifactName: api-docs
-          targetPath: $(Pipeline.Workspace)/api-docs
+          targetPath: $(System.DefaultWorkingDirectory)/api-docs
+          # targetPath  : $(Pipeline.Workspace)/api-docs
       - bash: |
           make docs-publish
-        env:
-          RUST_DOCS_DIR: $(Pipeline.Workspace)/api-docs
+        # env:
+        #   RUST_DOCS_DIR: $(Pipeline.Workspace)/api-docs
 
 # We only run the pipelines on PRs to Master
 pr:
