@@ -312,8 +312,8 @@ docs:
 
 docs-publish:
 	git clone -b "gh-pages" --depth=1 https://wasmerbot:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git api-docs-repo
-	# cp -R ${RUST_DOCS_DIR:-api-docs}/* api-docs-repo
-	# cd api-docs-repo && git add index.html rust/* c/*
+	cp -R ${RUST_DOCS_DIR:-api-docs}/* api-docs-repo
+	cd api-docs-repo && git add index.html rust/* c/*
 	# cd api-docs-repo && git commit -m "Publishing GitHub Pages ***CI***"
 	# cd api-docs-repo && git push origin gh-pages
 
