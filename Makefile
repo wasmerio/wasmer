@@ -231,34 +231,34 @@ check: check-bench
 	cargo check --release --manifest-path lib/runtime/Cargo.toml
 
 	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-singlepass
+		--features=cranelift,cache,llvm,singlepass,default-backend-singlepass
 	$(RUNTIME_CHECK) --release \
 		--features=cranelift,cache,llvm,singlepass,default-backend-singlepass
 	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-cranelift
+		--features=cranelift,cache,llvm,singlepass,default-backend-cranelift
 	$(RUNTIME_CHECK) --release \
 		--features=cranelift,cache,llvm,singlepass,default-backend-cranelift
 	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-llvm
+		--features=cranelift,cache,llvm,singlepass,default-backend-llvm
 	$(RUNTIME_CHECK) --release \
 		--features=cranelift,cache,llvm,singlepass,default-backend-llvm
 	$(RUNTIME_CHECK) \
-		--features=singlepass,default-backend-singlepass,debug
+		--features=singlepass,default-backend-singlepass
 	$(RUNTIME_CHECK) --release \
 		--features=singlepass,default-backend-singlepass
 	$(RUNTIME_CHECK) \
-		--features=cranelift,default-backend-cranelift,debug
+		--features=cranelift,default-backend-cranelift
 	$(RUNTIME_CHECK) --release \
 		--features=cranelift,default-backend-cranelift
 	$(RUNTIME_CHECK) \
-		--features=llvm,default-backend-llvm,debug
+		--features=llvm,default-backend-llvm
 	$(RUNTIME_CHECK) --release \
 		--features=llvm,default-backend-llvm
-		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,debug,deterministic-execution
+		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,deterministic-execution
 
 # Release
 release:
-	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices
+	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices,log/release_max_level_off
 
 # Only one backend (cranelift)
 release-clif:

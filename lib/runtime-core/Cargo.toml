@@ -50,7 +50,5 @@ rustc_version = "0.2"
 cc = "1.0"
 
 [features]
-debug = []
-trace = ["debug"]
 managed = []
 deterministic-execution = ["wasmparser/deterministic"]

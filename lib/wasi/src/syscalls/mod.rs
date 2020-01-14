@@ -21,7 +21,7 @@ use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
-use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
+use wasmer_runtime_core::{memory::Memory, vm::Ctx};
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub use unix::*;

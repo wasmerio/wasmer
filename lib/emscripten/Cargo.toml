@@ -13,11 +13,9 @@ edition = "2018"
 byteorder = "1.3"
 lazy_static = "1.4"
 libc = "0.2.60"
+log = "0.4"
 time = "0.1"
 wasmer-runtime-core = { path = "../runtime-core", version = "0.12.0" }
 
 [target.'cfg(windows)'.dependencies]
 getrandom = "0.1"
-
-[features]
-debug = ["wasmer-runtime-core/debug"]

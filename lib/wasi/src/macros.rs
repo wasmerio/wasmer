@@ -3,11 +3,11 @@ macro_rules! wasi_try {
         let res: Result<_, crate::syscalls::types::__wasi_errno_t> = $expr;
         match res {
             Ok(val) => {
-                wasmer_runtime_core::trace!("wasi::wasi_try::val: {:?}", val);
+                trace!("wasi::wasi_try::val: {:?}", val);
                 val
             }
             Err(err) => {
-                wasmer_runtime_core::trace!("wasi::wasi_try::err: {:?}", err);
+                trace!("wasi::wasi_try::err: {:?}", err);
                 return err;
             }
         }
