@@ -224,7 +224,7 @@ jobs:
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - bash: |
-        sudo apt-get install doxygen graphviz
+          sudo apt-get install doxygen graphviz
         displayName: Install doxygen
       - bash: |
           make docs
