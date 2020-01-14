@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["VERSION","The current version of this crate"]],"type":[["CraneliftCompiler","Streaming compiler implementation for the Cranelift backed. Compiles web assembly binary into machine code."]]});

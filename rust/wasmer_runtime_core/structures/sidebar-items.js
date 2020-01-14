@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BoxedMap","Boxed map."],["Iter","Iterator for a `Map`."],["IterMut","Mutable iterator for a `Map`."],["Map","Dense item map"],["SliceMap","This is a dynamically-sized slice that can only be indexed by the correct index type."]],"trait":[["TypedIndex","A trait for dealing with type-safe indices into associative data structures like [`Map`]s."]]});

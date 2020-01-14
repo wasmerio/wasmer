@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CodeMemory","A pointer to code in memory."],["LocalInstance","A local instance."],["LocalLoader","A local implementation for `Loader`."]],"trait":[["Instance","This trait represents an instance used by the loader."],["Loader","The loader trait represents the functions used to load an instance."]]});
