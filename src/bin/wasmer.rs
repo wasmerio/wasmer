@@ -984,7 +984,7 @@ fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
 
 fn run(options: &mut Run) {
     options.backend = get_backend(options.backend, &options.path);
-    #[cfg(feature = "debug")]
+    #[cfg(any(feature = "debug", feature = "trace"))]
     {
         if options.debug {
             logging::set_up_logging().expect("failed to set up logging");

@@ -1934,6 +1934,7 @@ dependencies = [
 name = "wasmer-wasi-experimental-io-devices"
 version = "0.12.0"
 dependencies = [
+ "log",
  "minifb",
  "ref_thread_local",
  "serde",

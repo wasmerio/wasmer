@@ -38,6 +38,3 @@ version = "0.0.7"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["errhandlingapi", "minwindef", "minwinbase", "winnt"] }
 wasmer-win-exception-handler = { path = "../win-exception-handler", version = "0.12.0" }
-
-[features]
-debug = ["wasmer-runtime-core/debug"]

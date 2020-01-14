@@ -1,8 +1,10 @@
+#[macro_use]
+extern crate log;
+
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
-use wasmer_runtime_core::debug;
 use wasmer_wasi::{
     state::{Fd, WasiFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD},
     types::*,
