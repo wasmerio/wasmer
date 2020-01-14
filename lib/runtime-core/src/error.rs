@@ -210,7 +210,7 @@ impl std::fmt::Display for RuntimeError {
                 } else if let Some(s) = data.downcast_ref::<&str>() {
                     write!(f, "\"{}\"", s)
                 } else if let Some(exc_code) = data.downcast_ref::<ExceptionCode>() {
-                    write!(f, "\"{:?}\"", exc_code)
+                    write!(f, "Caught exception of type \"{:?}\".", exc_code)
                 } else {
                     write!(f, "unknown error")
                 }
