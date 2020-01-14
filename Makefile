@@ -301,21 +301,21 @@ dep-graph:
 	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
 docs:
-	# cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --all --no-deps
-	# cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
-	mkdir -p api-docs/rust
-	# mkdir -p api-docs/c
-	# cp -R target/doc api-docs/rust
-	# cp -R lib/runtime-c-api/doc/html api-docs/c/runtime-c-api
+	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --all --no-deps
+	cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
+	mkdir -p api-docs
+	mkdir -p api-docs/c
+	cp -R target/doc api-docs/rust
+	cp -R lib/runtime-c-api/doc/html api-docs/c/runtime-c-api
 	echo '<meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html#test1">' > api-docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html#test1">' > api-docs/rust/index.html
 
 docs-publish:
 	git clone -b "gh-pages" --depth=1 https://wasmerbot:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git api-docs-repo
-	cp -R ${RUST_DOCS_DIR:-api-docs}/* api-docs-repo
+	cp -R api-docs/* api-docs-repo/
 	cd api-docs-repo && git add index.html rust/* c/*
-	# cd api-docs-repo && git commit -m "Publishing GitHub Pages ***CI***"
-	# cd api-docs-repo && git push origin gh-pages
+	cd api-docs-repo && git commit -m "Publishing GitHub Pages ***CI***"
+	cd api-docs-repo && git push origin gh-pages
 
 wapm:
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
