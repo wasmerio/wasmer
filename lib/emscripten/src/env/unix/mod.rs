@@ -9,11 +9,9 @@ use std::mem;
 use std::os::raw::c_char;
 
 use crate::env::{call_malloc, call_malloc_with_cast, EmAddrInfo, EmSockAddr};
+use crate::ptr::{Array, WasmPtr};
 use crate::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use wasmer_runtime_core::{
-    memory::ptr::{Array, WasmPtr},
-    vm::Ctx,
-};
+use wasmer_runtime_core::vm::Ctx;
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;

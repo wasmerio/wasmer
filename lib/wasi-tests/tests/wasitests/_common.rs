@@ -1,39 +1,22 @@
 macro_rules! assert_wasi_output {
     ($file:expr, $name:expr, $po_dir_args: expr, $mapdir_args:expr, $envvar_args:expr, $expected:expr) => {{
         use wasmer_dev_utils::stdio::StdioCapturer;
-        use wasmer_runtime_core::{backend::Compiler, Func};
-        use wasmer_wasi::generate_import_object;
-
-        #[cfg(feature = "clif")]
-        fn get_compiler() -> impl Compiler {
-            use wasmer_clif_backend::CraneliftCompiler;
-            CraneliftCompiler::new()
-        }
-
-        #[cfg(feature = "llvm")]
-        fn get_compiler() -> impl Compiler {
-            use wasmer_llvm_backend::LLVMCompiler;
-            LLVMCompiler::new()
-        }
-
-        #[cfg(feature = "singlepass")]
-        fn get_compiler() -> impl Compiler {
-            use wasmer_singlepass_backend::SinglePassCompiler;
-            SinglePassCompiler::new()
-        }
-
-        #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
-        fn get_compiler() -> impl Compiler {
-            compile_error!("compiler not specified, activate a compiler via features");
-            unreachable!();
-        }
+        use wasmer_runtime::Func;
+        use wasmer_wasi::{generate_import_object_for_version, get_wasi_version};
 
         let wasm_bytes = include_bytes!($file);
 
-        let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &get_compiler())
-            .expect("WASM can't be compiled");
+        let module = wasmer_runtime::compile(&wasm_bytes[..]).expect("WASM can't be compiled");
 
-        let import_object = generate_import_object(vec![], vec![], $po_dir_args, $mapdir_args);
+        let wasi_version = get_wasi_version(&module, true).expect("WASI module");
+
+        let import_object = generate_import_object_for_version(
+            wasi_version,
+            vec![],
+            vec![],
+            $po_dir_args,
+            $mapdir_args,
+        );
 
         let instance = module
             .instantiate(&import_object)

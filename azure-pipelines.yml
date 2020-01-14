@@ -22,24 +22,24 @@ jobs:
       - script: cargo fmt --all -- --check
         displayName: Lint
     variables:
-      rust_toolchain: stable
+      rust_toolchain: '1.39.0'
 
   - job: Test
     strategy:
       matrix:
         linux:
           imageName: "ubuntu-16.04"
-          rust_toolchain: nightly-2019-08-15
+          rust_toolchain: nightly-2019-12-19
         mac:
           imageName: "macos-10.14"
-          rust_toolchain: nightly-2019-08-15
+          rust_toolchain: nightly-2019-12-19
           # By default schannel checks revocation of certificates unlike some other SSL
           # backends, but we've historically had problems on CI where a revocation
           # server goes down presumably. See #43333 for more info
           CARGO_HTTP_CHECK_REVOKE: false
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: stable
+          rust_toolchain: '1.39.0'
     pool:
       vmImage: $(imageName)
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
@@ -50,6 +50,20 @@ jobs:
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
+      - bash: |
+          hostname
+          uname -a
+        displayName: System info (*nix)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: |
+          cat /proc/cpuinfo
+          cat /proc/meminfo
+        displayName: System info - Extended (Linux)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+      - bash: |
+          sysctl -a | grep machdep.cpu
+        displayName: System info - Extended (Mac)
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
         displayName: Tests (*nix)
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
@@ -61,7 +75,7 @@ jobs:
     pool:
       vmImage: "ubuntu-16.04"
     variables:
-      rust_toolchain: nightly-2019-08-15
+      rust_toolchain: nightly-2019-12-19
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
@@ -79,18 +93,22 @@ jobs:
       matrix:
         linux:
           imageName: "ubuntu-16.04"
-          rust_toolchain: nightly-2019-08-15
+          rust_toolchain: nightly-2019-12-19
         mac:
           imageName: "macos-10.14"
-          rust_toolchain: nightly-2019-08-15
+          rust_toolchain: nightly-2019-12-19
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: stable
+          rust_toolchain: '1.39.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: |
+      or(
+        in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'),
+        startsWith(variables['Build.SourceBranch'], 'refs/tags')
+      )
     steps:
       - checkout: self
         submodules: true
@@ -109,10 +127,10 @@ jobs:
         displayName: Build (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
-          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+          make wapm
         displayName: Build WAPM
         condition: |
-          eq(variables['Build.SourceBranch'], 'refs/heads/master')
+          startsWith(variables['Build.SourceBranch'], 'refs/tags')
       - bash: |
           make build-install
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
@@ -120,7 +138,7 @@ jobs:
         condition: |
           and(
             succeeded(),
-            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            startsWith(variables['Build.SourceBranch'], 'refs/tags'),
             not(eq(variables['Agent.OS'], 'Windows_NT'))
           )
       - bash: |
@@ -131,7 +149,7 @@ jobs:
         condition: |
           and(
             succeeded(),
-            eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+            startsWith(variables['Build.SourceBranch'], 'refs/tags'),
             eq(variables['Agent.OS'], 'Windows_NT')
           )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
@@ -142,45 +160,50 @@ jobs:
       matrix:
         linux:
           imageName: "ubuntu-16.04"
-          rust_toolchain: nightly-2019-08-15
+          rust_toolchain: nightly-2019-12-19
         mac:
           imageName: "macos-10.14"
-          rust_toolchain: nightly-2019-08-15
+          rust_toolchain: nightly-2019-12-19
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: stable
+          rust_toolchain: '1.39.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: |
+      or(
+        in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'),
+        startsWith(variables['Build.SourceBranch'], 'refs/tags')
+      )
     steps:
       - checkout: self
         submodules: true
       - template: .azure/install-rust.yml
-      # - template: .azure/install-llvm.yml
+      - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
       - bash: |
           mkdir -p artifacts
         displayName: Create Artifacts Dir
       - bash: |
-          make capi
           make test-capi
+        displayName: Test c-api
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: |
+          make capi
           cp target/release/libwasmer_runtime_c_api.so ./artifacts
+          find target/release/build -name 'wasmer.h*' -exec cp {} ./artifacts ';'
         displayName: Build c-api (Linux)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
       - bash: |
           make capi
-          make test-capi
           install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
           cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
         displayName: Build c-api (Darwin)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: |
           make capi
-          # Tests are failing on Windows, comment for now
-          # make test-capi
           cp target/release/wasmer_runtime_c_api.dll ./artifacts
         displayName: Build c-api (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
@@ -210,7 +233,8 @@ jobs:
     dependsOn:
       - Build_CLI
       - Build_Library
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    condition: |
+      startsWith(variables['Build.SourceBranch'], 'refs/tags')
     steps:
       # - download: current
       - task: DownloadPipelineArtifact@1
@@ -221,14 +245,38 @@ jobs:
         displayName: List Artifacts
         env:
           ARTIFACT_STAGING_DIRECTORY: $(Build.ArtifactStagingDirectory)
+      - script: VERSION_TAG=`git describe --tags` && echo "##vso[task.setvariable variable=VERSION_TAG]$VERSION_TAG"
+        displayName: Set the tag name as an environment variable
       - task: GithubRelease@0
         displayName: "Create GitHub Release"
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
+        continueOnError: true
         inputs:
-          gitHubConnection: wasmer
-          repositoryName: wasmerio/wasmer
-          tag: dev
-          assets: $(Build.ArtifactStagingDirectory)
+          gitHubConnection: 'wasmer'
+          repositoryName: 'wasmerio/wasmer'
+          action: 'create'
+          target: '$(Build.SourceVersion)'
+          title: '$(VERSION_TAG)'
+          addChangeLog: false
+          tagSource: 'auto'
+          # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
+          isDraft: false
+          isPreRelease: false
+      - task: GithubRelease@0
+        displayName: "Update GitHub Release with assets"
+        condition: and(succeededOrFailed(), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
+        inputs:
+          gitHubConnection: 'wasmer'
+          repositoryName: 'wasmerio/wasmer'
+          action: 'edit'
+          target: '$(Build.SourceVersion)'
+          title: '$(VERSION_TAG)'
+          addChangeLog: false
+          tagSource: 'auto'
+          # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
+          isDraft: false
+          isPreRelease: false
+          assets: '$(Build.ArtifactStagingDirectory)/**'
 
   - job: Publish_Docs
     dependsOn:
@@ -237,7 +285,7 @@ jobs:
     pool:
       vmImage: "ubuntu-16.04"
     variables:
-      rust_toolchain: nightly-2019-08-15
+      rust_toolchain: nightly-2019-12-19
     steps:
       - checkout: self
       - task: DownloadPipelineArtifact@2
@@ -258,3 +306,4 @@ trigger:
   - master
   - staging
   - trying
+  - refs/tags/*

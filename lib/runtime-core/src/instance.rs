@@ -1,3 +1,5 @@
+//! The instance module contains the implementation data structures and helper functions used to
+//! manipulate and access wasm instances.
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
@@ -16,7 +18,12 @@ use crate::{
     vm::{self, InternalField},
 };
 use smallvec::{smallvec, SmallVec};
-use std::{mem, pin::Pin, ptr::NonNull, sync::Arc};
+use std::{
+    mem,
+    pin::Pin,
+    ptr::NonNull,
+    sync::{Arc, Mutex},
+};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -24,6 +31,9 @@ pub(crate) struct InstanceInner {
     import_backing: ImportBacking,
     pub(crate) vmctx: *mut vm::Ctx,
 }
+
+// manually implemented because InstanceInner contains a raw pointer to Ctx
+unsafe impl Send for InstanceInner {}
 
 impl Drop for InstanceInner {
     fn drop(&mut self) {
@@ -40,6 +50,7 @@ impl Drop for InstanceInner {
 ///
 /// [`ImportObject`]: struct.ImportObject.html
 pub struct Instance {
+    /// Reference to the module used to instantiate this instance.
     pub module: Arc<ModuleInner>,
     inner: Pin<Box<InstanceInner>>,
     #[allow(dead_code)]
@@ -102,9 +113,13 @@ impl Instance {
 
             let ctx_ptr = match start_index.local_or_import(&instance.module.info) {
                 LocalOrImport::Local(_) => instance.inner.vmctx,
-                LocalOrImport::Import(imported_func_index) => {
-                    instance.inner.import_backing.vm_functions[imported_func_index].vmctx
+                LocalOrImport::Import(imported_func_index) => unsafe {
+                    instance.inner.import_backing.vm_functions[imported_func_index]
+                        .func_ctx
+                        .as_ref()
                 }
+                .vmctx
+                .as_ptr(),
             };
 
             let sig_index = *instance
@@ -121,7 +136,7 @@ impl Instance {
                 .expect("wasm trampoline");
 
             let start_func: Func<(), (), Wasm> =
-                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, ctx_ptr) };
+                unsafe { Func::from_raw_parts(wasm_trampoline, func_ptr, None, ctx_ptr) };
 
             start_func.call()?;
         }
@@ -129,8 +144,9 @@ impl Instance {
         Ok(instance)
     }
 
+    /// Load an `Instance` using the given loader.
     pub fn load<T: Loader>(&self, loader: T) -> ::std::result::Result<T::Instance, T::Error> {
-        loader.load(&*self.module.runnable_module, &self.module.info, unsafe {
+        loader.load(&**self.module.runnable_module, &self.module.info, unsafe {
             &*self.inner.vmctx
         })
     }
@@ -187,9 +203,13 @@ impl Instance {
 
             let ctx = match func_index.local_or_import(&self.module.info) {
                 LocalOrImport::Local(_) => self.inner.vmctx,
-                LocalOrImport::Import(imported_func_index) => {
-                    self.inner.import_backing.vm_functions[imported_func_index].vmctx
+                LocalOrImport::Import(imported_func_index) => unsafe {
+                    self.inner.import_backing.vm_functions[imported_func_index]
+                        .func_ctx
+                        .as_ref()
                 }
+                .vmctx
+                .as_ptr(),
             };
 
             let func_wasm_inner = self
@@ -198,20 +218,26 @@ impl Instance {
                 .get_trampoline(&self.module.info, sig_index)
                 .unwrap();
 
-            let func_ptr = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(local_func_index) => self
-                    .module
-                    .runnable_module
-                    .get_func(&self.module.info, local_func_index)
-                    .unwrap(),
-                LocalOrImport::Import(import_func_index) => NonNull::new(
-                    self.inner.import_backing.vm_functions[import_func_index].func as *mut _,
-                )
-                .unwrap(),
+            let (func_ptr, func_env) = match func_index.local_or_import(&self.module.info) {
+                LocalOrImport::Local(local_func_index) => (
+                    self.module
+                        .runnable_module
+                        .get_func(&self.module.info, local_func_index)
+                        .unwrap(),
+                    None,
+                ),
+                LocalOrImport::Import(import_func_index) => {
+                    let imported_func = &self.inner.import_backing.vm_functions[import_func_index];
+
+                    (
+                        NonNull::new(imported_func.func as *mut _).unwrap(),
+                        unsafe { imported_func.func_ctx.as_ref() }.func_env,
+                    )
+                }
             };
 
             let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, ctx) };
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
 
             Ok(typed_func)
         } else {
@@ -222,6 +248,7 @@ impl Instance {
         }
     }
 
+    /// Resolve a function by name.
     pub fn resolve_func(&self, name: &str) -> ResolveResult<usize> {
         let export_index =
             self.module
@@ -335,7 +362,7 @@ impl Instance {
 
         call_func_with_index(
             &self.module.info,
-            &*self.module.runnable_module,
+            &**self.module.runnable_module,
             &self.inner.import_backing,
             self.inner.vmctx,
             func_index,
@@ -373,10 +400,12 @@ impl Instance {
         Module::new(Arc::clone(&self.module))
     }
 
+    /// Get the value of an internal field
     pub fn get_internal(&self, field: &InternalField) -> u64 {
         self.inner.backing.internals.0[field.index()]
     }
 
+    /// Set the value of an internal field.
     pub fn set_internal(&mut self, field: &InternalField, value: u64) {
         self.inner.backing.internals.0[field.index()] = value;
     }
@@ -397,6 +426,7 @@ impl InstanceInner {
                     ctx: match ctx {
                         Context::Internal => Context::External(self.vmctx),
                         ctx @ Context::External(_) => ctx,
+                        ctx @ Context::ExternalWithEnv(_, _) => ctx,
                     },
                     signature,
                 }
@@ -439,15 +469,16 @@ impl InstanceInner {
             ),
             LocalOrImport::Import(imported_func_index) => {
                 let imported_func = &self.import_backing.vm_functions[imported_func_index];
+                let func_ctx = unsafe { imported_func.func_ctx.as_ref() };
+
                 (
                     imported_func.func as *const _,
-                    Context::External(imported_func.vmctx),
+                    Context::ExternalWithEnv(func_ctx.vmctx.as_ptr(), func_ctx.func_env),
                 )
             }
         };
 
         let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
-        // let signature = &module.info.signatures[sig_index];
 
         (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
@@ -517,6 +548,27 @@ impl LikeNamespace for Rc<Instance> {
     }
 }
 
+impl LikeNamespace for Arc<Mutex<Instance>> {
+    fn get_export(&self, name: &str) -> Option<Export> {
+        let instance = self.lock().unwrap();
+        let export_index = instance.module.info.exports.get(name)?;
+
+        Some(
+            instance
+                .inner
+                .get_export_from_index(&instance.module, export_index),
+        )
+    }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        unimplemented!("Use the exports method instead");
+    }
+
+    fn maybe_insert(&mut self, _name: &str, _export: Export) -> Option<()> {
+        None
+    }
+}
+
 #[must_use]
 fn call_func_with_index(
     info: &ModuleInfo,
@@ -527,14 +579,50 @@ fn call_func_with_index(
     args: &[Value],
     rets: &mut Vec<Value>,
 ) -> CallResult<()> {
-    rets.clear();
-
     let sig_index = *info
         .func_assoc
         .get(func_index)
         .expect("broken invariant, incorrect func index");
 
     let signature = &info.signatures[sig_index];
+
+    let func_ptr = match func_index.local_or_import(info) {
+        LocalOrImport::Local(local_func_index) => {
+            runnable.get_func(info, local_func_index).unwrap()
+        }
+        LocalOrImport::Import(import_func_index) => {
+            NonNull::new(import_backing.vm_functions[import_func_index].func as *mut _).unwrap()
+        }
+    };
+
+    let ctx_ptr = match func_index.local_or_import(info) {
+        LocalOrImport::Local(_) => local_ctx,
+        LocalOrImport::Import(imported_func_index) => unsafe {
+            import_backing.vm_functions[imported_func_index]
+                .func_ctx
+                .as_ref()
+        }
+        .vmctx
+        .as_ptr(),
+    };
+
+    let wasm = runnable
+        .get_trampoline(info, sig_index)
+        .expect("wasm trampoline");
+
+    call_func_with_index_inner(ctx_ptr, func_ptr, signature, wasm, args, rets)
+}
+
+pub(crate) fn call_func_with_index_inner(
+    ctx_ptr: *mut vm::Ctx,
+    func_ptr: NonNull<vm::Func>,
+    signature: &FuncSig,
+    wasm: Wasm,
+    args: &[Value],
+    rets: &mut Vec<Value>,
+) -> CallResult<()> {
+    rets.clear();
+
     let num_results = signature.returns().len();
     let num_results = num_results
         + signature
@@ -550,22 +638,6 @@ fn call_func_with_index(
             found: args.iter().map(|val| val.ty()).collect(),
         })?
     }
-
-    let func_ptr = match func_index.local_or_import(info) {
-        LocalOrImport::Local(local_func_index) => {
-            runnable.get_func(info, local_func_index).unwrap()
-        }
-        LocalOrImport::Import(import_func_index) => {
-            NonNull::new(import_backing.vm_functions[import_func_index].func as *mut _).unwrap()
-        }
-    };
-
-    let ctx_ptr = match func_index.local_or_import(info) {
-        LocalOrImport::Local(_) => local_ctx,
-        LocalOrImport::Import(imported_func_index) => {
-            import_backing.vm_functions[imported_func_index].vmctx
-        }
-    };
 
     let mut raw_args: SmallVec<[u64; 8]> = SmallVec::new();
     for v in args {
@@ -598,9 +670,7 @@ fn call_func_with_index(
         trampoline,
         invoke,
         invoke_env,
-    } = runnable
-        .get_trampoline(info, sig_index)
-        .expect("wasm trampoline");
+    } = wasm;
 
     let run_wasm = |result_space: *mut u64| unsafe {
         let mut trap_info = WasmTrapInfo::Unknown;
@@ -720,7 +790,7 @@ impl<'a> DynFunc<'a> {
 
         call_func_with_index(
             &self.module.info,
-            &*self.module.runnable_module,
+            &**self.module.runnable_module,
             &self.instance_inner.import_backing,
             self.instance_inner.vmctx,
             self.func_index,
@@ -731,10 +801,12 @@ impl<'a> DynFunc<'a> {
         Ok(results)
     }
 
+    /// Gets the signature of this `Dynfunc`.
     pub fn signature(&self) -> &FuncSig {
         &*self.signature
     }
 
+    /// Gets a const pointer to the function represent by this `DynFunc`.
     pub fn raw(&self) -> *const vm::Func {
         match self.func_index.local_or_import(&self.module.info) {
             LocalOrImport::Local(local_func_index) => self
@@ -747,5 +819,17 @@ impl<'a> DynFunc<'a> {
                 self.instance_inner.import_backing.vm_functions[import_func_index].func
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn is_send<T: Send>() {}
+
+    #[test]
+    fn test_instance_is_send() {
+        is_send::<Instance>();
     }
 }

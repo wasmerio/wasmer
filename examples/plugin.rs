@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
-use wasmer_runtime::{func, imports, instantiate};
+use wasmer_runtime::{compile, func, imports};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_wasi::{
-    generate_import_object,
-    state::{self, WasiFile},
+    generate_import_object_for_version,
+    state::{self, WasiFile, WasiFsError},
     types,
 };
 
@@ -102,6 +102,16 @@ impl WasiFile for LoggingWrapper {
     fn size(&self) -> u64 {
         0
     }
+    fn set_len(&mut self, _len: u64) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        // return an arbitrary amount
+        Ok(1024)
+    }
 }
 
 /// Called by the program when it wants to set itself up
@@ -123,9 +133,16 @@ fn main() {
         "Could not read in WASM plugin at {}",
         PLUGIN_LOCATION
     ));
+    let module = compile(&wasm_bytes).expect("wasm compilation");
+
+    // get the version of the WASI module in a non-strict way, meaning we're
+    // allowed to have extra imports
+    let wasi_version = wasmer_wasi::get_wasi_version(&module, false)
+        .expect("WASI version detected from Wasm module");
 
     // WASI imports
-    let mut base_imports = generate_import_object(vec![], vec![], vec![], vec![]);
+    let mut base_imports =
+        generate_import_object_for_version(wasi_version, vec![], vec![], vec![], vec![]);
     // env is the default namespace for extern functions
     let custom_imports = imports! {
         "env" => {
@@ -135,8 +152,9 @@ fn main() {
     // The WASI imports object contains all required import functions for a WASI module to run.
     // Extend this imports with our custom imports containing "it_works" function so that our custom wasm code may run.
     base_imports.extend(custom_imports);
-    let mut instance =
-        instantiate(&wasm_bytes[..], &base_imports).expect("failed to instantiate wasm module");
+    let mut instance = module
+        .instantiate(&base_imports)
+        .expect("failed to instantiate wasm module");
     // set up logging by replacing stdout
     initialize(instance.context_mut());
 

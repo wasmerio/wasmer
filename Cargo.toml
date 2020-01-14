@@ -1,12 +1,13 @@
 [package]
 name = "wasmer"
-version = "0.6.0"
+version = "0.12.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
 publish = true
 description = "High-Performance WebAssembly JIT interpreter"
 license = "MIT"
+default-run = "wasmer"
 include = [
     "examples/**/*",
     "src/**/*",
@@ -19,15 +20,14 @@ include = [
 ]
 
 [dependencies]
-byteorder = "1.3.2"
-errno = "0.2.4"
-structopt = "0.2.18"
+byteorder = "1.3"
+errno = "0.2"
+structopt = "0.3"
 wabt = "0.9.1"
-wasmer-clif-backend = { path = "lib/clif-backend" }
+wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
-# wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
@@ -37,34 +37,39 @@ wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
 wasmer-middleware-common-tests = { path = "lib/middleware-common-tests", optional = true }
 wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
+wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 
 [workspace]
 members = [
     "lib/clif-backend",
     "lib/singlepass-backend",
     "lib/runtime",
-    # "lib/runtime-abi",
     "lib/runtime-core",
+    "lib/runtime-core-tests",
     "lib/emscripten",
     "lib/spectests",
     "lib/win-exception-handler",
     "lib/runtime-c-api",
     "lib/llvm-backend",
+    "lib/llvm-backend-tests",
     "lib/wasi",
     "lib/middleware-common",
     "lib/kernel-loader",
     "lib/kernel-net",
     "lib/dev-utils",
+    "lib/wasi-experimental-io-devices",
     "lib/wasi-tests",
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
-    "examples/plugin-for-example"
+    "examples/parallel",
+    "examples/plugin-for-example",
+    "examples/parallel-guest",
 ]
 
 [build-dependencies]
 wabt = "0.9.1"
-glob = "0.3.0"
-rustc_version = "0.2.3"
+glob = "0.3"
+rustc_version = "0.2"
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] } # used by the plugin example
@@ -75,33 +80,33 @@ default = ["fast-tests", "wasi", "backend-cranelift"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["wasmer-runtime-core/debug"]
 trace = ["wasmer-runtime-core/trace"]
+docs = ["wasmer-runtime/docs"]
 extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
 backend-cranelift = [
-    "wasmer-runtime-core/backend-cranelift",
+    "wasmer-clif-backend",
     "wasmer-runtime/cranelift",
     "wasmer-middleware-common-tests/clif",
-    "wasmer-wasi-tests/clif"
 ]
 backend-llvm = [
     "wasmer-llvm-backend",
-    "wasmer-runtime-core/backend-llvm",
     "wasmer-runtime/llvm",
     "wasmer-middleware-common-tests/llvm",
-    "wasmer-wasi-tests/llvm"
 ]
 backend-singlepass = [
     "wasmer-singlepass-backend",
-    "wasmer-runtime-core/backend-singlepass",
     "wasmer-runtime/singlepass",
     "wasmer-middleware-common-tests/singlepass",
-    "wasmer-wasi-tests/singlepass"
 ]
 wasi = ["wasmer-wasi"]
+experimental-io-devices = ["wasmer-wasi-experimental-io-devices"]
 managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
-# vfs = ["wasmer-runtime-abi"]
 
 [[example]]
 name = "plugin"
+crate-type = ["bin"]
+
+[[example]]
+name = "callback"
 crate-type = ["bin"]

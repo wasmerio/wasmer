@@ -12,9 +12,12 @@ use crate::{
 };
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 
+/// Array.
 pub struct Array;
+/// Item.
 pub struct Item;
 
+/// A pointer to a Wasm item.
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = Item> {
     offset: u32,
@@ -22,6 +25,7 @@ pub struct WasmPtr<T: Copy, Ty = Item> {
 }
 
 impl<T: Copy, Ty> WasmPtr<T, Ty> {
+    /// Create a new `WasmPtr` at the given offset.
     #[inline]
     pub fn new(offset: u32) -> Self {
         Self {
@@ -30,6 +34,7 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
         }
     }
 
+    /// Get the offset for this `WasmPtr`.
     #[inline]
     pub fn offset(self) -> u32 {
         self.offset
@@ -44,11 +49,10 @@ fn align_pointer(ptr: usize, align: usize) -> usize {
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
+    /// Dereference this `WasmPtr`.
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
-        if self.offset == 0
-            || (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0
-        {
+        if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
             return None;
         }
         unsafe {
@@ -60,11 +64,10 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
         }
     }
 
+    /// Mutable dereference this `WasmPtr`.
     #[inline]
     pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<&'a mut Cell<T>> {
-        if self.offset == 0
-            || (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0
-        {
+        if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
             return None;
         }
         let cell_ptr = align_pointer(
@@ -76,6 +79,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
+    /// Dereference this `WasmPtr`.
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
         // gets the size of the item in the array with padding added such that
@@ -83,9 +87,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
         let slice_full_len = index as usize + length as usize;
 
-        if self.offset == 0
-            || (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0
-        {
+        if (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0 {
             return None;
         }
 
@@ -100,6 +102,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         }
     }
 
+    /// Mutable dereference this `WasmPtr`.
     #[inline]
     pub unsafe fn deref_mut<'a>(
         self,
@@ -112,9 +115,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
         let slice_full_len = index as usize + length as usize;
 
-        if self.offset == 0
-            || (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0
-        {
+        if (self.offset as usize) + (item_size * slice_full_len) >= memory.size().bytes().0 {
             return None;
         }
 
@@ -127,6 +128,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         Some(cell_ptrs)
     }
 
+    /// Get a UTF-8 string representation of this `WasmPtr` with the given length.
     pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
         if self.offset as usize + str_len as usize > memory.size().bytes().0 {
             return None;
@@ -134,6 +136,17 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let ptr = unsafe { memory.view::<u8>().as_ptr().add(self.offset as usize) as *const u8 };
         let slice: &[u8] = unsafe { std::slice::from_raw_parts(ptr, str_len as usize) };
         std::str::from_utf8(slice).ok()
+    }
+
+    /// Get a UTF-8 string representation of this `WasmPtr`, where the string is nul-terminated.
+    /// Note that this does not account for UTF-8 strings that _contain_ nul themselves,
+    /// [`get_utf8_string`] has to be used for those.
+    pub fn get_utf8_string_with_nul<'a>(self, memory: &'a Memory) -> Option<&'a str> {
+        memory.view::<u8>()[(self.offset as usize)..]
+            .iter()
+            .map(|cell| cell.get())
+            .position(|byte| byte == 0)
+            .and_then(|length| self.get_utf8_string(memory, length as u32))
     }
 }
 

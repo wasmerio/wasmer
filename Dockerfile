@@ -1,4 +1,4 @@
-FROM circleci/rust:1.33.0-stretch as wasmer-build-env
+FROM circleci/rust:1.39.0-stretch as wasmer-build-env
 RUN sudo apt-get update && \
   sudo apt-get install -y --no-install-recommends \
   cmake \
@@ -17,7 +17,7 @@ FROM wasmer-build-env AS wasmer-build
 WORKDIR /home/circleci/wasmer
 COPY . /home/circleci/wasmer
 RUN sudo chmod -R 777 .
-RUN cargo build --release
+RUN cargo build --release --features backend-cranelift
 
 FROM debian:stretch AS wasmer
 WORKDIR /root/

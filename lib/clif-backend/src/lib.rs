@@ -1,5 +1,10 @@
+//! The Wasmer Cranelift Backend crate is used to compile wasm binary code via parse events from the
+//! Wasmer runtime common parser code into machine code.
+//!
+
 #![deny(
     dead_code,
+    missing_docs,
     nonstandard_style,
     unused_imports,
     unused_mut,
@@ -34,7 +39,7 @@ extern crate serde;
 fn get_isa() -> Box<dyn isa::TargetIsa> {
     let flags = {
         let mut builder = settings::builder();
-        builder.set("opt_level", "best").unwrap();
+        builder.set("opt_level", "speed_and_size").unwrap();
         builder.set("jump_tables_enabled", "false").unwrap();
 
         if cfg!(not(test)) {
@@ -42,7 +47,7 @@ fn get_isa() -> Box<dyn isa::TargetIsa> {
         }
 
         let flags = settings::Flags::new(builder);
-        debug_assert_eq!(flags.opt_level(), settings::OptLevel::Best);
+        debug_assert_eq!(flags.opt_level(), settings::OptLevel::SpeedAndSize);
         flags
     };
     isa::lookup(Triple::host()).unwrap().finish(flags)
@@ -53,6 +58,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
 
+/// Streaming compiler implementation for the Cranelift backed. Compiles web assembly binary into
+/// machine code.
 pub type CraneliftCompiler = SimpleStreamingCompilerGen<
     code::CraneliftModuleCodeGenerator,
     code::CraneliftFunctionCodeGenerator,

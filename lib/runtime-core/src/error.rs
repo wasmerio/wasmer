@@ -1,13 +1,28 @@
+//! The error module contains the data structures and helper functions used to implement errors that
+//! are produced and returned from the wasmer runtime core.
 use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
 use core::borrow::Borrow;
 use std::any::Any;
 
+/// Aliases the standard `Result` type as `Result` within this module.
 pub type Result<T> = std::result::Result<T, Error>;
+/// Result of an attempt to compile the provided WebAssembly module into a `Module`.
+/// Aliases the standard `Result` with `CompileError` as the default error type.
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
+/// Result of an attempt to link the provided WebAssembly instance.
+/// Aliases the standard `Result` with `Vec<LinkError>` as the default error type.
 pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
+/// Result of an attempt to run the provided WebAssembly instance.
+/// Aliases the standard `Result` with `RuntimeError` as the default error type.
 pub type RuntimeResult<T> = std::result::Result<T, RuntimeError>;
+/// Result of an attempt to call the provided WebAssembly instance.
+/// Aliases the standard `Result` with `CallError` as the default error type.
 pub type CallResult<T> = std::result::Result<T, CallError>;
+/// Result of an attempt to resolve a WebAssembly function by name.
+/// Aliases the standard `Result` with `ResolveError` as the default error type.
 pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
+/// Result of an attempt to parse bytes into a WebAssembly module.
+/// Aliases the standard `Result` with `ParseError` as the default error type.
 pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
 /// This is returned when the chosen compiler is unable to
@@ -17,8 +32,16 @@ pub type ParseResult<T> = std::result::Result<T, ParseError>;
 /// Comparing two `CompileError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum CompileError {
-    ValidationError { msg: String },
-    InternalError { msg: String },
+    /// A validation error containing an error message.
+    ValidationError {
+        /// An error message.
+        msg: String,
+    },
+    /// A internal error containing an error message.
+    InternalError {
+        /// An error message.
+        msg: String,
+    },
 }
 
 impl PartialEq for CompileError {
@@ -46,41 +69,71 @@ impl std::error::Error for CompileError {}
 /// Comparing two `LinkError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum LinkError {
+    /// The type of the provided import does not match the expected type.
     IncorrectImportType {
+        /// Namespace.
         namespace: String,
+        /// Name.
         name: String,
+        /// Expected.
         expected: String,
+        /// Found.
         found: String,
     },
+    /// The signature of the provided import does not match the expected signature.
     IncorrectImportSignature {
+        /// Namespace.
         namespace: String,
+        /// Name.
         name: String,
+        /// Expected.
         expected: FuncSig,
+        /// Found.
         found: FuncSig,
     },
+    /// An expected import was not provided.
     ImportNotFound {
+        /// Namespace.
         namespace: String,
+        /// Name.
         name: String,
     },
+    /// The memory descriptor provided does not match the expected descriptor.
     IncorrectMemoryDescriptor {
+        /// Namespace.
         namespace: String,
+        /// Name.
         name: String,
+        /// Expected.
         expected: MemoryDescriptor,
+        /// Found.
         found: MemoryDescriptor,
     },
+    /// The table descriptor provided does not match the expected descriptor.
     IncorrectTableDescriptor {
+        /// Namespace.
         namespace: String,
+        /// Name.
         name: String,
+        /// Expected.
         expected: TableDescriptor,
+        /// Found.
         found: TableDescriptor,
     },
+    /// The global descriptor provided does not match the expected descriptor.
     IncorrectGlobalDescriptor {
+        /// Namespace.
         namespace: String,
+        /// Name.
         name: String,
+        /// Expected.
         expected: GlobalDescriptor,
+        /// Found.
         found: GlobalDescriptor,
     },
+    /// A generic error with a message.
     Generic {
+        /// Error message.
         message: String,
     },
 }
@@ -126,8 +179,16 @@ impl std::error::Error for LinkError {}
 ///
 /// Comparing two `RuntimeError`s always evaluates to false.
 pub enum RuntimeError {
-    Trap { msg: Box<str> },
-    Error { data: Box<dyn Any> },
+    /// Trap.
+    Trap {
+        /// Trap message.
+        msg: Box<str>,
+    },
+    /// Error.
+    Error {
+        /// Error data.
+        data: Box<dyn Any + Send>,
+    },
 }
 
 impl PartialEq for RuntimeError {
@@ -169,9 +230,23 @@ impl std::error::Error for RuntimeError {}
 /// Comparing two `ResolveError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum ResolveError {
-    Signature { expected: FuncSig, found: Vec<Type> },
-    ExportNotFound { name: String },
-    ExportWrongType { name: String },
+    /// Found signature did not match expected signature.
+    Signature {
+        /// Expected `FuncSig`.
+        expected: FuncSig,
+        /// Found type.
+        found: Vec<Type>,
+    },
+    /// Export not found.
+    ExportNotFound {
+        /// Name.
+        name: String,
+    },
+    /// Export found with the wrong type.
+    ExportWrongType {
+        /// Name.
+        name: String,
+    },
 }
 
 impl PartialEq for ResolveError {
@@ -213,7 +288,9 @@ impl std::error::Error for ResolveError {}
 ///
 /// Comparing two `CallError`s always evaluates to false.
 pub enum CallError {
+    /// An error occured resolving the functions name or types.
     Resolve(ResolveError),
+    /// A runtime error occurred during the function call.
     Runtime(RuntimeError),
 }
 
@@ -247,8 +324,11 @@ impl std::error::Error for CallError {}
 /// like a `Memory` or a `Table`.
 #[derive(Debug, Clone)]
 pub enum CreationError {
+    /// Unable to create memory error.
     UnableToCreateMemory,
+    /// Unable to create table error.
     UnableToCreateTable,
+    /// Invalid descriptor error with message.
     InvalidDescriptor(String),
 }
 
@@ -281,11 +361,17 @@ impl std::error::Error for CreationError {}
 /// Comparing two `Error`s always evaluates to false.
 #[derive(Debug)]
 pub enum Error {
+    /// Compile error.
     CompileError(CompileError),
+    /// Link errors.
     LinkError(Vec<LinkError>),
+    /// Runtime error.
     RuntimeError(RuntimeError),
+    /// Resolve error.
     ResolveError(ResolveError),
+    /// Call error.
     CallError(CallError),
+    /// Creation error.
     CreationError(CreationError),
 }
 
@@ -368,13 +454,20 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// An error occurred while growing a memory or table.
 #[derive(Debug)]
 pub enum GrowError {
+    /// Error growing memory.
     MemoryGrowError,
+    /// Error growing table.
     TableGrowError,
+    /// Max pages were exceeded.
     ExceededMaxPages(PageError),
+    /// Max pages for memory were exceeded.
     ExceededMaxPagesForMemory(usize, usize),
+    /// Error protecting memory.
     CouldNotProtectMemory(MemoryProtectionError),
+    /// Error creating memory.
     CouldNotCreateMemory(MemoryCreationError),
 }
 
@@ -393,9 +486,11 @@ impl std::fmt::Display for GrowError {
 
 impl std::error::Error for GrowError {}
 
+/// A kind of page error.
 #[derive(Debug)]
 pub enum PageError {
     // left, right, added
+    /// Max pages were exceeded error.
     ExceededMaxPages(usize, usize, usize),
 }
 
@@ -414,9 +509,12 @@ impl Into<GrowError> for PageError {
     }
 }
 
+/// Error occured while creating memory.
 #[derive(Debug)]
 pub enum MemoryCreationError {
+    /// Allocation of virtual memory failed error.
     VirtualMemoryAllocationFailed(usize, String),
+    /// Error creating memory from file.
     CouldNotCreateMemoryFromFile(std::io::Error),
 }
 
@@ -446,8 +544,10 @@ impl From<std::io::Error> for MemoryCreationError {
     }
 }
 
+/// Error protecting memory.
 #[derive(Debug)]
 pub enum MemoryProtectionError {
+    /// Protection failed error.
     ProtectionFailed(usize, usize, String),
 }
 
@@ -470,8 +570,10 @@ impl Into<GrowError> for MemoryProtectionError {
     }
 }
 
+/// Parse Error.
 #[derive(Debug)]
 pub enum ParseError {
+    /// Error reading binary.
     BinaryReadError,
 }
 

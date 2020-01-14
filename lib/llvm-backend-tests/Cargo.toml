@@ -1,0 +1,16 @@
+[package]
+name = "wasmer-llvm-backend-tests"
+version = "0.10.2"
+authors = ["Nick Lewycky <nick@wasmer.io>"]
+license = "MIT"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wabt = "0.9.1"
+wasmer-runtime-core = { path = "../runtime-core", version = "0.12.0" }
+wasmer-runtime = { path = "../runtime", version = "0.12.0" }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.12.0", features = ["test"] }
+
+[features]

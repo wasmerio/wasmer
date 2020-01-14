@@ -1,3 +1,36 @@
+
+#if !defined(WASMER_H_MACROS)
+
+#define WASMER_H_MACROS
+
+// Define the `ARCH_X86_X64` constant.
+#if defined(MSVC) && defined(_M_AMD64)
+#  define ARCH_X86_64
+#elif (defined(GCC) || defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
+#  define ARCH_X86_64
+#endif
+
+// Compatibility with non-Clang compilers.
+#if !defined(__has_attribute)
+#  define __has_attribute(x) 0
+#endif
+
+// Compatibility with non-Clang compilers.
+#if !defined(__has_declspec_attribute)
+#  define __has_declspec_attribute(x) 0
+#endif
+
+// Define the `DEPRECATED` macro.
+#if defined(GCC) || defined(__GNUC__) || __has_attribute(deprecated)
+#  define DEPRECATED(message) __attribute__((deprecated(message)))
+#elif defined(MSVC) || __has_declspec_attribute(deprecated)
+#  define DEPRECATED(message) __declspec(deprecated(message))
+#endif
+
+#define WASMER_WASI_ENABLED
+#endif // WASMER_H_MACROS
+
+
 #ifndef WASMER_H
 #define WASMER_H
 
@@ -6,14 +39,37 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#if defined(WASMER_WASI_ENABLED)
+enum Version {
+  /**
+   * Version cannot be detected or is unknown.
+   */
+  Unknown = 0,
+  /**
+   * Latest version. See `wasmer_wasi::WasiVersion::Latest` to
+   * leran more.
+   */
+  Latest = 1,
+  /**
+   * `wasi_unstable`.
+   */
+  Snapshot0 = 2,
+  /**
+   * `wasi_snapshot_preview1`.
+   */
+  Snapshot1 = 3,
+};
+typedef uint8_t Version;
+#endif
+
 /**
  * List of export/import kinds.
  */
 enum wasmer_import_export_kind {
-  WASM_FUNCTION,
-  WASM_GLOBAL,
-  WASM_MEMORY,
-  WASM_TABLE,
+  WASM_FUNCTION = 0,
+  WASM_GLOBAL = 1,
+  WASM_MEMORY = 2,
+  WASM_TABLE = 3,
 };
 typedef uint32_t wasmer_import_export_kind;
 
@@ -34,17 +90,34 @@ typedef struct {
 
 } wasmer_module_t;
 
+typedef struct {
+
+} wasmer_instance_t;
+
+typedef struct {
+  const uint8_t *bytes;
+  uint32_t bytes_len;
+} wasmer_byte_array;
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Type used to construct an import_object_t with Emscripten imports.
+ */
+typedef struct {
+
+} wasmer_emscripten_globals_t;
+#endif
+
+typedef struct {
+
+} wasmer_import_object_t;
+
 /**
  * Opaque pointer to `NamedExportDescriptor`.
  */
 typedef struct {
 
 } wasmer_export_descriptor_t;
-
-typedef struct {
-  const uint8_t *bytes;
-  uint32_t bytes_len;
-} wasmer_byte_array;
 
 /**
  * Opaque pointer to `NamedExportDescriptors`.
@@ -113,10 +186,6 @@ typedef struct {
 
 typedef struct {
 
-} wasmer_import_object_t;
-
-typedef struct {
-
 } wasmer_table_t;
 
 /**
@@ -138,7 +207,7 @@ typedef struct {
 
 typedef struct {
 
-} wasmer_instance_t;
+} wasmer_import_object_iter_t;
 
 typedef struct {
 
@@ -158,17 +227,40 @@ typedef struct {
 
 } wasmer_serialized_module_t;
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_buffer_builder_t;
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_callable_t;
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 typedef struct {
 
 } wasmer_trampoline_buffer_t;
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Opens a directory that's visible to the WASI module as `alias` but
+ * is backed by the host file at `host_file_path`
+ */
+typedef struct {
+  /**
+   * What the WASI module will see in its virtual root
+   */
+  wasmer_byte_array alias;
+  /**
+   * The backing file that the WASI module will interact with via the alias
+   */
+  wasmer_byte_array host_file_path;
+} wasmer_wasi_map_dir_entry_t;
+#endif
 
 /**
  * Creates a new Module from the given wasm bytes.
@@ -181,6 +273,64 @@ typedef struct {
 wasmer_result_t wasmer_compile(wasmer_module_t **module,
                                uint8_t *wasm_bytes,
                                uint32_t wasm_bytes_len);
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Convenience function for setting up arguments and calling the Emscripten
+ * main function.
+ *
+ * WARNING:
+ *
+ * Do not call this function on untrusted code when operating without
+ * additional sandboxing in place.
+ * Emscripten has access to many host system calls and therefore may do very
+ * bad things.
+ */
+wasmer_result_t wasmer_emscripten_call_main(wasmer_instance_t *instance,
+                                            const wasmer_byte_array *args,
+                                            unsigned int args_len);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Destroy `wasmer_emscrpten_globals_t` created by
+ * `wasmer_emscripten_get_emscripten_globals`.
+ */
+void wasmer_emscripten_destroy_globals(wasmer_emscripten_globals_t *globals);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Create a `wasmer_import_object_t` with Emscripten imports, use
+ * `wasmer_emscripten_get_emscripten_globals` to get a
+ * `wasmer_emscripten_globals_t` from a `wasmer_module_t`.
+ *
+ * WARNING:
+ *1
+ * This `import_object_t` contains thin-wrappers around host system calls.
+ * Do not use this to execute untrusted code without additional sandboxing.
+ */
+wasmer_import_object_t *wasmer_emscripten_generate_import_object(wasmer_emscripten_globals_t *globals);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Create a `wasmer_emscripten_globals_t` from a Wasm module.
+ */
+wasmer_emscripten_globals_t *wasmer_emscripten_get_globals(const wasmer_module_t *module);
+#endif
+
+#if defined(WASMER_EMSCRIPTEN_ENABLED)
+/**
+ * Execute global constructors (required if the module is compiled from C++)
+ * and sets up the internal environment.
+ *
+ * This function sets the data pointer in the same way that
+ * [`wasmer_instance_context_data_set`] does.
+ */
+wasmer_result_t wasmer_emscripten_set_up(wasmer_instance_t *instance,
+                                         wasmer_emscripten_globals_t *globals);
+#endif
 
 /**
  * Gets export descriptor kind
@@ -451,8 +601,59 @@ void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
  * Extends an existing import object with new imports
  */
 wasmer_result_t wasmer_import_object_extend(wasmer_import_object_t *import_object,
-                                            wasmer_import_t *imports,
+                                            const wasmer_import_t *imports,
                                             unsigned int imports_len);
+
+/**
+ * Gets an entry from an ImportObject at the name and namespace.
+ * Stores `name`, `namespace`, and `import_export_value` in `import`.
+ * Thus these must remain valid for the lifetime of `import`.
+ *
+ * The caller owns all data involved.
+ * `import_export_value` will be written to based on `tag`.
+ */
+wasmer_result_t wasmer_import_object_get_import(const wasmer_import_object_t *import_object,
+                                                wasmer_byte_array namespace_,
+                                                wasmer_byte_array name,
+                                                wasmer_import_t *import,
+                                                wasmer_import_export_value *import_export_value,
+                                                uint32_t tag);
+
+/**
+ * Frees the memory allocated in `wasmer_import_object_iter_next`
+ *
+ * This function does not free the memory in `wasmer_import_object_t`;
+ * it only frees memory allocated while querying a `wasmer_import_object_t`.
+ */
+void wasmer_import_object_imports_destroy(wasmer_import_t *imports, uint32_t imports_len);
+
+/**
+ * Returns true if further calls to `wasmer_import_object_iter_next` will
+ * not return any new data
+ */
+bool wasmer_import_object_iter_at_end(wasmer_import_object_iter_t *import_object_iter);
+
+/**
+ * Frees the memory allocated by `wasmer_import_object_iterate_functions`
+ */
+void wasmer_import_object_iter_destroy(wasmer_import_object_iter_t *import_object_iter);
+
+/**
+ * Writes the next value to `import`.  `WASMER_ERROR` is returned if there
+ * was an error or there's nothing left to return.
+ *
+ * To free the memory allocated here, pass the import to `wasmer_import_object_imports_destroy`.
+ * To check if the iterator is done, use `wasmer_import_object_iter_at_end`.
+ */
+wasmer_result_t wasmer_import_object_iter_next(wasmer_import_object_iter_t *import_object_iter,
+                                               wasmer_import_t *import);
+
+/**
+ * Create an iterator over the functions in the import object.
+ * Get the next import with `wasmer_import_object_iter_next`
+ * Free the iterator with `wasmer_import_object_iter_destroy`
+ */
+wasmer_import_object_iter_t *wasmer_import_object_iterate_functions(const wasmer_import_object_t *import_object);
 
 /**
  * Creates a new empty import object.
@@ -710,6 +911,7 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
  */
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Adds a callinfo trampoline to the builder.
  */
@@ -717,43 +919,114 @@ uintptr_t wasmer_trampoline_buffer_builder_add_callinfo_trampoline(wasmer_trampo
                                                                    const wasmer_trampoline_callable_t *func,
                                                                    const void *ctx,
                                                                    uint32_t num_params);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Adds a context trampoline to the builder.
  */
 uintptr_t wasmer_trampoline_buffer_builder_add_context_trampoline(wasmer_trampoline_buffer_builder_t *builder,
                                                                   const wasmer_trampoline_callable_t *func,
                                                                   const void *ctx);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Finalizes the trampoline builder into an executable buffer.
  */
 wasmer_trampoline_buffer_t *wasmer_trampoline_buffer_builder_build(wasmer_trampoline_buffer_builder_t *builder);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Creates a new trampoline builder.
  */
 wasmer_trampoline_buffer_builder_t *wasmer_trampoline_buffer_builder_new(void);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Destroys the trampoline buffer if not null.
  */
 void wasmer_trampoline_buffer_destroy(wasmer_trampoline_buffer_t *buffer);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Returns the callable pointer for the trampoline with index `idx`.
  */
 const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(const wasmer_trampoline_buffer_t *buffer,
                                                                             uintptr_t idx);
+#endif
 
+#if (!defined(_WIN32) && defined(ARCH_X86_64))
 /**
  * Returns the context added by `add_context_trampoline`, from within the callee function.
  */
 void *wasmer_trampoline_get_context(void);
+#endif
 
 /**
  * Returns true for valid wasm bytes and false for invalid bytes
  */
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Convenience function that creates a WASI import object with no arguments,
+ * environment variables, preopened files, or mapped directories.
+ *
+ * This function is the same as calling [`wasmer_wasi_generate_import_object`] with all
+ * empty values.
+ */
+wasmer_import_object_t *wasmer_wasi_generate_default_import_object(void);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Creates a WASI import object.
+ *
+ * This function treats null pointers as empty collections.
+ * For example, passing null for a string in `args`, will lead to a zero
+ * length argument in that position.
+ */
+wasmer_import_object_t *wasmer_wasi_generate_import_object(const wasmer_byte_array *args,
+                                                           unsigned int args_len,
+                                                           const wasmer_byte_array *envs,
+                                                           unsigned int envs_len,
+                                                           const wasmer_byte_array *preopened_files,
+                                                           unsigned int preopened_files_len,
+                                                           const wasmer_wasi_map_dir_entry_t *mapped_dirs,
+                                                           unsigned int mapped_dirs_len);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Creates a WASI import object for a specific version.
+ *
+ * This function is similar to `wasmer_wasi_generate_import_object`
+ * except that the first argument describes the WASI version.
+ *
+ * The version is expected to be of kind `Version`.
+ */
+wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned char version,
+                                                                       const wasmer_byte_array *args,
+                                                                       unsigned int args_len,
+                                                                       const wasmer_byte_array *envs,
+                                                                       unsigned int envs_len,
+                                                                       const wasmer_byte_array *preopened_files,
+                                                                       unsigned int preopened_files_len,
+                                                                       const wasmer_wasi_map_dir_entry_t *mapped_dirs,
+                                                                       unsigned int mapped_dirs_len);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Find the version of WASI used by the module.
+ *
+ * In case of error, the returned version is `Version::Unknown`.
+ */
+Version wasmer_wasi_get_version(const wasmer_module_t *module);
+#endif
 
 #endif /* WASMER_H */

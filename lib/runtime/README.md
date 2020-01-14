@@ -1,21 +1,21 @@
 <p align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="400" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
+    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://circleci.com/gh/wasmerio/wasmer/">
-    <img src="https://img.shields.io/circleci/project/github/wasmerio/wasmer/master.svg" alt="Build Status">
+  <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
+    <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
   </a>
   <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+    <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
   </a>
   <a href="https://spectrum.chat/wasmer">
     <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
   </a>
   <a href="https://crates.io/crates/wasmer-runtime">
-    <img src="https://img.shields.io/crates/d/wasmer-runtime.svg" alt="Number of downloads from crates.io">
+    <img src="https://img.shields.io/crates/d/wasmer-runtime.svg?style=flat-square" alt="Number of downloads from crates.io">
   </a>
   <a href="https://docs.rs/wasmer-runtime">
     <img src="https://docs.rs/wasmer-runtime/badge.svg" alt="Read our API documentation">
@@ -80,10 +80,10 @@ fn main() -> error::Result<()> {
     // We're not importing anything, so make an empty import object.
     let import_object = imports! {};
 
-    let mut instance = instantiate(WASM, &import_object)?;
+    let instance = instantiate(WASM, &import_object)?;
 
     let values = instance
-        .func("add_one")?
+        .dyn_func("add_one")?
         .call(&[Value::I32(42)])?;
 
     assert_eq!(values[0], Value::I32(43));
@@ -94,12 +94,17 @@ fn main() -> error::Result<()> {
 
 ## Additional Notes
 
-The `wasmer-runtime` crate is build to support multiple compiler
-backends.  Currently, we support the [Cranelift] compiler with the
-[`wasmer-clif-backend`] crate by default.
+The `wasmer-runtime` crate is built to support multiple compiler
+backends.  We support having a [Cranelift] backend in the
+[`wasmer-clif-backend`] crate, a [LLVM] backend in the
+[`wasmer-llvm-backend`] crate, and the [Singlepass] backend in the
+[`wasmer-singlepass-backend`] crate.  Currently, the Cranelift backend
+is the default.
 
 You can specify the compiler you wish to use with the [`compile_with`] function.
 
 [Cranelift]: https://github.com/CraneStation/cranelift
+[LLVM]: https://llvm.org
+[Singlepass]: https://github.com/wasmerio/wasmer/tree/master/lib/singlepass-backend
 [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 [`compile_with`]: https://docs.rs/wasmer-runtime/*/wasmer_runtime/fn.compile_with.html

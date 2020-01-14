@@ -41,6 +41,30 @@ add $8, %rsp
 movq (%rsp), %xmm7
 add $8, %rsp
 
+movq (%rsp), %xmm8
+add $8, %rsp
+
+movq (%rsp), %xmm9
+add $8, %rsp
+
+movq (%rsp), %xmm10
+add $8, %rsp
+
+movq (%rsp), %xmm11
+add $8, %rsp
+
+movq (%rsp), %xmm12
+add $8, %rsp
+
+movq (%rsp), %xmm13
+add $8, %rsp
+
+movq (%rsp), %xmm14
+add $8, %rsp
+
+movq (%rsp), %xmm15
+add $8, %rsp
+
 popq %rbp
 popq %rax
 popq %rbx
@@ -81,7 +105,7 @@ pushq %r8
 pushq %r9
 pushq %r10
 
-callq get_boundary_register_preservation
+callq get_boundary_register_preservation@PLT
 
 # Keep this consistent with BoundaryRegisterPreservation
 movq %r15, 0(%rax)

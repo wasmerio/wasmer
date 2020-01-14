@@ -6,7 +6,10 @@
     unused_unsafe,
     unreachable_patterns
 )]
-#![cfg_attr(not(target_os = "windows"), deny(dead_code))]
+#![cfg_attr(
+    all(not(target_os = "windows"), not(target_arch = "aarch64")),
+    deny(dead_code)
+)]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
@@ -21,35 +24,27 @@ mod state;
 mod structs;
 mod trampolines;
 
-use std::path::PathBuf;
-
 pub use code::LLVMFunctionCodeGenerator as FunctionCodeGenerator;
 pub use code::LLVMModuleCodeGenerator as ModuleCodeGenerator;
 
 use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
 
 pub type LLVMCompiler = SimpleStreamingCompilerGen<
-    code::LLVMModuleCodeGenerator,
-    code::LLVMFunctionCodeGenerator,
+    code::LLVMModuleCodeGenerator<'static>,
+    code::LLVMFunctionCodeGenerator<'static>,
     backend::LLVMBackend,
     code::CodegenError,
 >;
 
-#[derive(Debug, Clone)]
-/// LLVM backend flags.
-pub struct LLVMOptions {
-    /// Emit LLVM IR before optimization pipeline.
-    pub pre_opt_ir: Option<PathBuf>,
+pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
+pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
 
-    /// Emit LLVM IR after optimization pipeline.
-    pub post_opt_ir: Option<PathBuf>,
-
-    /// Emit LLVM generated native code object file.
-    pub obj_file: Option<PathBuf>,
+pub trait LLVMCallbacks: std::any::Any + 'static {
+    fn preopt_ir_callback(&mut self, _module: &InkwellModule) {}
+    fn postopt_ir_callback(&mut self, _module: &InkwellModule) {}
+    fn obj_memory_buffer_callback(&mut self, _memory_buffer: &InkwellMemoryBuffer) {}
 }
 
-pub static mut GLOBAL_OPTIONS: LLVMOptions = LLVMOptions {
-    pre_opt_ir: None,
-    post_opt_ir: None,
-    obj_file: None,
-};
+pub struct LLVMBackendConfig {
+    pub callbacks: Option<std::rc::Rc<std::cell::RefCell<dyn LLVMCallbacks>>>,
+}

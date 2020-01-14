@@ -4,7 +4,16 @@ use std::process::Command;
 fn test_c_api() {
     let project_tests_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
 
-    run_command("cmake", project_tests_dir, vec!["."]);
+    let cmake_args = vec![
+        ".",
+        #[cfg(feature = "wasi")]
+        "-DWASI_TESTS=ON",
+        #[cfg(feature = "emscripten")]
+        "-DEMSCRIPTEN_TESTS=ON",
+    ];
+    // we use -f so it doesn't fail if the file doesn't exist
+    run_command("rm", project_tests_dir, vec!["-f", "CMakeCache.txt"]);
+    run_command("cmake", project_tests_dir, cmake_args);
     run_command("make", project_tests_dir, vec!["-Wdev", "-Werror=dev"]);
     run_command("make", project_tests_dir, vec!["test", "ARGS=\"-V\""]);
 }

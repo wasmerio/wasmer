@@ -12,14 +12,14 @@ pub use self::windows::*;
 
 use libc::c_char;
 
-use crate::{allocate_on_stack, EmscriptenData};
+use crate::{
+    allocate_on_stack,
+    ptr::{Array, WasmPtr},
+    EmscriptenData,
+};
 
 use std::os::raw::c_int;
-use wasmer_runtime_core::{
-    memory::ptr::{Array, WasmPtr},
-    types::ValueType,
-    vm::Ctx,
-};
+use wasmer_runtime_core::{types::ValueType, vm::Ctx};
 
 pub fn call_malloc(ctx: &mut Ctx, size: u32) -> u32 {
     get_emscripten_data(ctx)

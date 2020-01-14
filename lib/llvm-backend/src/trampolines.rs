@@ -13,14 +13,14 @@ use wasmer_runtime_core::{
     types::{FuncSig, SigIndex, Type},
 };
 
-pub fn generate_trampolines(
+pub fn generate_trampolines<'ctx>(
     info: &ModuleInfo,
-    signatures: &SliceMap<SigIndex, FunctionType>,
-    module: &Module,
-    context: &Context,
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-) {
+    signatures: &SliceMap<SigIndex, FunctionType<'ctx>>,
+    module: &Module<'ctx>,
+    context: &'ctx Context,
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+) -> Result<(), String> {
     for (sig_index, sig) in info.signatures.iter() {
         let func_type = signatures[sig_index];
 
@@ -42,18 +42,19 @@ pub fn generate_trampolines(
             Some(Linkage::External),
         );
 
-        generate_trampoline(trampoline_func, sig, context, builder, intrinsics);
+        generate_trampoline(trampoline_func, sig, context, builder, intrinsics)?;
     }
+    Ok(())
 }
 
-fn generate_trampoline(
+fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
     func_sig: &FuncSig,
-    context: &Context,
-    builder: &Builder,
-    intrinsics: &Intrinsics,
-) {
-    let entry_block = context.append_basic_block(&trampoline_func, "entry");
+    context: &'ctx Context,
+    builder: &Builder<'ctx>,
+    intrinsics: &Intrinsics<'ctx>,
+) -> Result<(), String> {
+    let entry_block = context.append_basic_block(trampoline_func, "entry");
     builder.position_at_end(&entry_block);
 
     let (vmctx_ptr, func_ptr, args_ptr, returns_ptr) = match trampoline_func.get_params().as_slice()
@@ -64,12 +65,14 @@ fn generate_trampoline(
             args_ptr.into_pointer_value(),
             returns_ptr.into_pointer_value(),
         ),
-        _ => unimplemented!(),
+        _ => return Err("trampoline function unimplemented".to_string()),
     };
 
     let cast_ptr_ty = |wasmer_ty| match wasmer_ty {
-        Type::I32 | Type::F32 => intrinsics.i32_ptr_ty,
-        Type::I64 | Type::F64 => intrinsics.i64_ptr_ty,
+        Type::I32 => intrinsics.i32_ptr_ty,
+        Type::F32 => intrinsics.f32_ptr_ty,
+        Type::I64 => intrinsics.i64_ptr_ty,
+        Type::F64 => intrinsics.f64_ptr_ty,
         Type::V128 => intrinsics.i128_ptr_ty,
     };
 
@@ -108,8 +111,11 @@ fn generate_trampoline(
                 call_site.try_as_basic_value().left().unwrap(),
             );
         }
-        _ => unimplemented!("multi-value returns"),
+        _ => {
+            return Err("trampoline function multi-value returns unimplemented".to_string());
+        }
     }
 
     builder.build_return(None);
+    Ok(())
 }

@@ -1,6 +1,6 @@
 //! Create, read, write, grow, destroy memory of an instance.
 
-use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
+use crate::{error::update_last_error, error::CApiError, wasmer_limits_t, wasmer_result_t};
 use std::cell::Cell;
 use wasmer_runtime::Memory;
 use wasmer_runtime_core::{
@@ -31,12 +31,17 @@ pub unsafe extern "C" fn wasmer_memory_new(
     } else {
         None
     };
-    let desc = MemoryDescriptor {
-        minimum: Pages(limits.min),
-        maximum: max,
-        shared: false,
+    let desc = MemoryDescriptor::new(Pages(limits.min), max, false);
+    let new_desc = match desc {
+        Ok(desc) => desc,
+        Err(error) => {
+            update_last_error(CApiError {
+                msg: error.to_string(),
+            });
+            return wasmer_result_t::WASMER_ERROR;
+        }
     };
-    let result = Memory::new(desc);
+    let result = Memory::new(new_desc);
     let new_memory = match result {
         Ok(memory) => memory,
         Err(error) => {

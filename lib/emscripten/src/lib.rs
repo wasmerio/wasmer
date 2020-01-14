@@ -62,6 +62,7 @@ mod math;
 mod memory;
 mod process;
 mod pthread;
+mod ptr;
 mod signal;
 mod storage;
 mod syscalls;
@@ -110,7 +111,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_iii: Option<Func<'a, (i32, i32, i32), i32>>,
     pub dyn_call_iiii: Option<Func<'a, (i32, i32, i32, i32), i32>>,
     pub dyn_call_iifi: Option<Func<'a, (i32, i32, f64, i32), i32>>,
-    pub dyn_call_v: Option<Func<'a, (i32)>>,
+    pub dyn_call_v: Option<Func<'a, i32>>,
     pub dyn_call_vi: Option<Func<'a, (i32, i32)>>,
     pub dyn_call_vii: Option<Func<'a, (i32, i32, i32)>>,
     pub dyn_call_viii: Option<Func<'a, (i32, i32, i32, i32)>>,
@@ -167,7 +168,7 @@ pub struct EmscriptenData<'a> {
     pub temp_ret_0: i32,
 
     pub stack_save: Option<Func<'a, (), i32>>,
-    pub stack_restore: Option<Func<'a, (i32)>>,
+    pub stack_restore: Option<Func<'a, i32>>,
     pub set_threw: Option<Func<'a, (i32, i32)>>,
     pub mapped_dirs: HashMap<String, PathBuf>,
 }
@@ -324,6 +325,61 @@ impl<'a> EmscriptenData<'a> {
     }
 }
 
+/// Call the global constructors for C++ and set up the emscripten environment.
+///
+/// Note that this function does not completely set up Emscripten to be called.
+/// before calling this function, please initialize `Ctx::data` with a pointer
+/// to [`EmscriptenData`].
+pub fn set_up_emscripten(instance: &mut Instance) -> CallResult<()> {
+    // ATINIT
+    // (used by C++)
+    if let Ok(_func) = instance.dyn_func("globalCtors") {
+        instance.call("globalCtors", &[])?;
+    }
+
+    if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
+        instance.call("___emscripten_environ_constructor", &[])?;
+    }
+    Ok(())
+}
+
+/// Call the main function in emscripten, assumes that the emscripten state is
+/// set up.
+///
+/// If you don't want to set it up yourself, consider using [`run_emscripten_instance`].
+pub fn emscripten_call_main(instance: &mut Instance, path: &str, args: &[&str]) -> CallResult<()> {
+    let (func_name, main_func) = match instance.dyn_func("_main") {
+        Ok(func) => Ok(("_main", func)),
+        Err(_e) => match instance.dyn_func("main") {
+            Ok(func) => Ok(("main", func)),
+            Err(e) => Err(e),
+        },
+    }?;
+    let num_params = main_func.signature().params().len();
+    let _result = match num_params {
+        2 => {
+            let mut new_args = vec![path];
+            new_args.extend(args);
+            let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
+            instance.call(
+                func_name,
+                &[Value::I32(argc as i32), Value::I32(argv as i32)],
+            )?;
+        }
+        0 => {
+            instance.call(func_name, &[])?;
+        }
+        _ => {
+            return Err(CallError::Resolve(ResolveError::ExportWrongType {
+                name: "main".to_string(),
+            }))
+        }
+    };
+
+    Ok(())
+}
+
+/// Top level function to execute emscripten
 pub fn run_emscripten_instance(
     _module: &Module,
     instance: &mut Instance,
@@ -337,15 +393,7 @@ pub fn run_emscripten_instance(
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
-    // ATINIT
-    // (used by C++)
-    if let Ok(_func) = instance.dyn_func("globalCtors") {
-        instance.call("globalCtors", &[])?;
-    }
-
-    if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
-        instance.call("___emscripten_environ_constructor", &[])?;
-    }
+    set_up_emscripten(instance)?;
 
     // println!("running emscripten instance");
 
@@ -355,33 +403,7 @@ pub fn run_emscripten_instance(
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         instance.call(&ep, &[Value::I32(arg as i32)])?;
     } else {
-        let (func_name, main_func) = match instance.dyn_func("_main") {
-            Ok(func) => Ok(("_main", func)),
-            Err(_e) => match instance.dyn_func("main") {
-                Ok(func) => Ok(("main", func)),
-                Err(e) => Err(e),
-            },
-        }?;
-        let num_params = main_func.signature().params().len();
-        let _result = match num_params {
-            2 => {
-                let mut new_args = vec![path];
-                new_args.extend(args);
-                let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
-                instance.call(
-                    func_name,
-                    &[Value::I32(argc as i32), Value::I32(argv as i32)],
-                )?;
-            }
-            0 => {
-                instance.call(func_name, &[])?;
-            }
-            _ => {
-                return Err(CallError::Resolve(ResolveError::ExportWrongType {
-                    name: "main".to_string(),
-                }))
-            }
-        };
+        emscripten_call_main(instance, path, &args)?;
     }
 
     // TODO atexit for emscripten
@@ -473,11 +495,7 @@ impl EmscriptenGlobals {
         let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
 
         // Memory initialization
-        let memory_type = MemoryDescriptor {
-            minimum: memory_min,
-            maximum: memory_max,
-            shared: shared,
-        };
+        let memory_type = MemoryDescriptor::new(memory_min, memory_max, shared)?;
         let memory = Memory::new(memory_type).unwrap();
 
         let table_type = TableDescriptor {
@@ -736,6 +754,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         // Process
         "abort" => func!(crate::process::em_abort),
         "_abort" => func!(crate::process::_abort),
+        "_prctl" => func!(crate::process::_prctl),
         "abortStackOverflow" => func!(crate::process::abort_stack_overflow),
         "_llvm_trap" => func!(crate::process::_llvm_trap),
         "_fork" => func!(crate::process::_fork),
@@ -828,6 +847,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_gmtime" => func!(crate::time::_gmtime),
 
         // Math
+        "sqrt" => func!(crate::math::sqrt),
+        "floor" => func!(crate::math::floor),
+        "fabs" => func!(crate::math::fabs),
         "f64-rem" => func!(crate::math::f64_rem),
         "_llvm_copysign_f32" => func!(crate::math::_llvm_copysign_f32),
         "_llvm_copysign_f64" => func!(crate::math::_llvm_copysign_f64),

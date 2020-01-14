@@ -1,16 +1,37 @@
+//! The cache module provides the common data structures used by compiler backends to allow
+//! serializing compiled wasm code to a binary format.  The binary format can be persisted,
+//! and loaded to allow skipping compilation and fast startup.
+
 use crate::Module;
 use memmap::Mmap;
 use std::{
+    fmt,
     fs::{create_dir_all, File},
     io::{self, Write},
     path::PathBuf,
 };
 
+pub use super::Backend;
 use wasmer_runtime_core::cache::Error as CacheError;
-pub use wasmer_runtime_core::{
-    backend::Backend,
-    cache::{Artifact, Cache, WasmHash},
-};
+pub use wasmer_runtime_core::cache::{Artifact, WasmHash};
+
+/// A generic cache for storing and loading compiled wasm modules.
+///
+/// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
+pub trait Cache {
+    /// Error type to return when load error occurs
+    type LoadError: fmt::Debug;
+    /// Error type to return when store error occurs
+    type StoreError: fmt::Debug;
+
+    /// loads a module using the default `Backend`
+    fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
+    /// loads a cached module using a specific `Backend`
+    fn load_with_backend(&self, key: WasmHash, backend: Backend)
+        -> Result<Module, Self::LoadError>;
+    /// Store a module into the cache with the given key
+    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
+}
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
@@ -100,8 +121,8 @@ impl Cache for FileSystemCache {
         unsafe {
             wasmer_runtime_core::load_cache_with(
                 serialized_cache,
-                super::compiler_for_backend(backend)
-                    .ok_or_else(|| CacheError::UnsupportedBackend(backend))?
+                crate::compiler_for_backend(backend)
+                    .ok_or_else(|| CacheError::UnsupportedBackend(backend.to_string().to_owned()))?
                     .as_ref(),
             )
         }
@@ -125,7 +146,7 @@ impl Cache for FileSystemCache {
     }
 }
 
-#[cfg(all(test, not(feature = "singlepass")))]
+#[cfg(test)]
 mod tests {
 
     use super::*;
