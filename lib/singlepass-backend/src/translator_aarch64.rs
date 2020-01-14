@@ -1634,6 +1634,17 @@ impl Emitter for Assembler {
             ; str X(map_gpr(GPR::RSP).x()), [sp, 64]
             ; adr x30, >after
 
+            ; sub sp, sp, 64
+            // FIXME: This is a workaround for copying stack arguments.
+            ; ldr x0, [x_rsp, 8]
+            ; str x0, [sp, 0]
+
+            ; ldr x0, [x_rsp, 16]
+            ; str x0, [sp, 8]
+
+            ; ldr x0, [x_rsp, 24]
+            ; str x0, [sp, 16]
+
             // Put parameters in correct order
             ; sub sp, sp, 64
             ; str X(map_gpr(GPR::RDI).x()), [sp, 0]
@@ -1651,10 +1662,11 @@ impl Emitter for Assembler {
             ; add sp, sp, 64
 
             // Branch to saved target
-            ; ldr x8, [sp, 8]
+            ; ldr x8, [sp, 8 + 64]
             ; br x8
 
             ; after:
+            ; add sp, sp, 64
             ; ldr x30, [sp, 0] // LR
             ; ldr X(map_gpr(GPR::RBX).x()), [sp, 16]
             ; ldr X(map_gpr(GPR::R12).x()), [sp, 24]
