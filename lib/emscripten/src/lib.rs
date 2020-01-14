@@ -12,6 +12,8 @@
 
 #[macro_use]
 extern crate wasmer_runtime_core;
+#[macro_use]
+extern crate log;
 
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;

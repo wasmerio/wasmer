@@ -258,7 +258,7 @@ check: check-bench
 
 # Release
 release:
-	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices
+	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices,log/release_max_level_off
 
 # Only one backend (cranelift)
 release-clif:

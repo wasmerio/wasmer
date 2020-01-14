@@ -31,7 +31,7 @@ use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use wasmer_runtime_core::{debug, vm::Ctx};
+use wasmer_runtime_core::vm::Ctx;
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;

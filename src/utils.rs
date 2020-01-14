@@ -119,3 +119,10 @@ pub fn parse_args(
             )
     }
 }
+
+/// Whether or not Wasmer should print with color
+pub fn wasmer_should_print_color() -> bool {
+    std::env::var("WASMER_DISABLE_COLOR")
+        .map(|_| false)
+        .unwrap_or(true)
+}
