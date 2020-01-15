@@ -676,24 +676,6 @@ wasmer_import_object_iter_t *wasmer_import_object_iterate_functions(const wasmer
 wasmer_import_object_t *wasmer_import_object_new(void);
 
 /**
- * Stop the execution of a host function, aka imported function. The
- * function must be used _only_ inside a host function.
- *
- * The pointer to `wasmer_instance_context_t` is received by the host
- * function as its first argument. Just passing it to `ctx` is fine.
- *
- * The error message must have a greater lifetime than the host
- * function itself since the error is read outside the host function
- * with `wasmer_last_error_message`.
- *
- * This function returns `wasmer_result_t::WASMER_ERROR` if `ctx` or
- * `error_message` are null.
- *
- * This function never returns otherwise.
- */
-wasmer_result_t wasmer_import_trap(const wasmer_instance_context_t *ctx, const char *error_message);
-
-/**
  * Calls an instances exported function by `name` with the provided parameters.
  * Results are set using the provided `results` pointer.
  *
@@ -997,6 +979,24 @@ const wasmer_trampoline_callable_t *wasmer_trampoline_buffer_get_trampoline(cons
  */
 void *wasmer_trampoline_get_context(void);
 #endif
+
+/**
+ * Stop the execution of a host function, aka imported function. The
+ * function must be used _only_ inside a host function.
+ *
+ * The pointer to `wasmer_instance_context_t` is received by the host
+ * function as its first argument. Just passing it to `ctx` is fine.
+ *
+ * The error message must have a greater lifetime than the host
+ * function itself since the error is read outside the host function
+ * with `wasmer_last_error_message`.
+ *
+ * This function returns `wasmer_result_t::WASMER_ERROR` if `ctx` or
+ * `error_message` are null.
+ *
+ * This function never returns otherwise.
+ */
+wasmer_result_t wasmer_trap(const wasmer_instance_context_t *ctx, const char *error_message);
 
 /**
  * Returns true for valid wasm bytes and false for invalid bytes
