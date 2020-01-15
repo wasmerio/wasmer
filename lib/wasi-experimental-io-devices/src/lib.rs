@@ -1,8 +1,10 @@
+#[macro_use]
+extern crate log;
+
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
-use wasmer_runtime_core::debug;
 use wasmer_wasi::{
     state::{Fd, WasiFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD},
     types::*,
@@ -28,7 +30,7 @@ pub const MAX_Y: u32 = 4320;
 pub enum FrameBufferFileType {
     Buffer,
     Resolution,
-    IndexDisplay,
+    Draw,
     Input,
 }
 
@@ -263,7 +265,7 @@ impl Read for FrameBuffer {
                     Ok(bytes_to_copy)
                 }
 
-                FrameBufferFileType::IndexDisplay => {
+                FrameBufferFileType::Draw => {
                     if buf.len() == 0 {
                         Ok(0)
                     } else {
@@ -378,17 +380,10 @@ impl Write for FrameBuffer {
                     Ok(0)
                 }
 
-                FrameBufferFileType::IndexDisplay => {
+                FrameBufferFileType::Draw => {
                     if buf.len() == 0 {
                         Ok(0)
                     } else {
-                        match buf[0] {
-                            b'0' => fb_state.front_buffer = true,
-                            b'1' => fb_state.front_buffer = false,
-                            _ => (),
-                        }
-                        // TODO: probably remove this
-                        //fb_state.fill_input_buffer();
                         fb_state.draw();
                         Ok(1)
                     }
@@ -442,8 +437,8 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         fb_type: FrameBufferFileType::Resolution,
         cursor: 0,
     });
-    let index_file = Box::new(FrameBuffer {
-        fb_type: FrameBufferFileType::IndexDisplay,
+    let draw_file = Box::new(FrameBuffer {
+        fb_type: FrameBufferFileType::Draw,
         cursor: 0,
     });
     let input_file = Box::new(FrameBuffer {
@@ -451,21 +446,10 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
         cursor: 0,
     });
 
-    let dev_fd = unsafe {
+    let base_dir_fd = unsafe {
         fs.open_dir_all(
             VIRTUAL_ROOT_FD,
-            "dev".to_string(),
-            ALL_RIGHTS,
-            ALL_RIGHTS,
-            0,
-        )
-        .map_err(|e| format!("fb: Failed to create dev folder {:?}", e))?
-    };
-
-    let fb_fd = unsafe {
-        fs.open_dir_all(
-            VIRTUAL_ROOT_FD,
-            "sys/class/graphics/wasmerfb0".to_string(),
+            "_wasmer/dev/fb0".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
             0,
@@ -475,7 +459,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
-            dev_fd,
+            base_dir_fd,
             input_file,
             Fd::READ,
             "input".to_string(),
@@ -489,10 +473,10 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
-            dev_fd,
+            base_dir_fd,
             frame_buffer_file,
             Fd::READ | Fd::WRITE,
-            "wasmerfb0".to_string(),
+            "fb".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
             0,
@@ -503,7 +487,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
-            fb_fd,
+            base_dir_fd,
             resolution_file,
             Fd::READ | Fd::WRITE,
             "virtual_size".to_string(),
@@ -517,10 +501,10 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
-            fb_fd,
-            index_file,
+            base_dir_fd,
+            draw_file,
             Fd::READ | Fd::WRITE,
-            "buffer_index_display".to_string(),
+            "draw".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
             0,

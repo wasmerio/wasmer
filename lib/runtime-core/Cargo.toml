@@ -50,11 +50,5 @@ rustc_version = "0.2"
 cc = "1.0"
 
 [features]
-debug = []
-trace = ["debug"]
-# backend flags used in conditional compilation of Backend::variants
-"backend-cranelift" = []
-"backend-singlepass" = []
-"backend-llvm" = []
 managed = []
 deterministic-execution = ["wasmparser/deterministic"]

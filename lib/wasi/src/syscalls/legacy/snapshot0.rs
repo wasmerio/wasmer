@@ -1,7 +1,7 @@
 use crate::ptr::{Array, WasmPtr};
 use crate::syscalls;
 use crate::syscalls::types::{self, snapshot0};
-use wasmer_runtime_core::{debug, vm::Ctx};
+use wasmer_runtime_core::vm::Ctx;
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`

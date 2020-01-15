@@ -4,7 +4,7 @@
 use crate::fault::FaultInfo;
 use crate::{
     backend::RunnableModule,
-    backend::{Backend, CacheGen, Compiler, CompilerConfig, Features, Token},
+    backend::{CacheGen, Compiler, CompilerConfig, Features, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
@@ -92,7 +92,12 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     ) -> Self;
 
     /// Returns the backend id associated with this MCG.
-    fn backend_id() -> Backend;
+    fn backend_id() -> String;
+
+    /// It sets if the current compiler requires validation before compilation
+    fn requires_pre_validation() -> bool {
+        true
+    }
 
     /// Feeds the compiler config.
     fn feed_compiler_config(&mut self, _config: &CompilerConfig) -> Result<(), E> {
@@ -222,12 +227,12 @@ impl<
         compiler_config: CompilerConfig,
         _: Token,
     ) -> CompileResult<ModuleInner> {
-        if requires_pre_validation(MCG::backend_id()) {
+        if MCG::requires_pre_validation() {
             validate_with_features(wasm, &compiler_config.features)?;
         }
 
-        let mut mcg = match MCG::backend_id() {
-            Backend::LLVM => MCG::new_with_target(
+        let mut mcg = match MCG::backend_id().as_ref() {
+            "llvm" => MCG::new_with_target(
                 compiler_config.triple.clone(),
                 compiler_config.cpu_name.clone(),
                 compiler_config.cpu_features.clone(),
@@ -235,13 +240,7 @@ impl<
             _ => MCG::new(),
         };
         let mut chain = (self.middleware_chain_generator)();
-        let info = crate::parse::read_module(
-            wasm,
-            MCG::backend_id(),
-            &mut mcg,
-            &mut chain,
-            &compiler_config,
-        )?;
+        let info = crate::parse::read_module(wasm, &mut mcg, &mut chain, &compiler_config)?;
         let (exec_context, cache_gen) =
             mcg.finalize(&info.read().unwrap())
                 .map_err(|x| CompileError::InternalError {
@@ -260,15 +259,6 @@ impl<
         token: Token,
     ) -> Result<ModuleInner, CacheError> {
         MCG::from_cache(artifact, token)
-    }
-}
-
-fn requires_pre_validation(backend: Backend) -> bool {
-    match backend {
-        Backend::Cranelift => true,
-        Backend::LLVM => true,
-        Backend::Singlepass => false,
-        Backend::Auto => false,
     }
 }
 
