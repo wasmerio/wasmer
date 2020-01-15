@@ -448,7 +448,7 @@ fn execute_wasi(
                 &import_object,
                 start_raw,
                 &mut instance,
-                options.backend,
+                options.backend.to_string(),
                 options
                     .optimized_backends
                     .iter()
@@ -456,7 +456,7 @@ fn execute_wasi(
                         |&backend| -> (Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
                             let options = options.clone();
                             (
-                                backend,
+                                backend.to_string(),
                                 Box::new(move || {
                                     get_compiler_by_backend(backend, &options).unwrap()
                                 }),
