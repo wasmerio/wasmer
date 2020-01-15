@@ -231,7 +231,7 @@ jobs:
         displayName: Build docs
       - publish: $(System.DefaultWorkingDirectory)/api-docs
         artifact: api-docs
-        displayName: Publish doc artifact
+        displayName: Save Docs artifact
 
   - job: Publish
     dependsOn:
@@ -295,7 +295,6 @@ jobs:
         inputs:
           artifactName: api-docs
           targetPath: $(System.DefaultWorkingDirectory)/api-docs
-          # targetPath  : $(Pipeline.Workspace)/api-docs
       - bash: |
           git config --global user.email "bot@wasmer.io"
           git config --global user.name "wasmerbot"
