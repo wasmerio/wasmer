@@ -82,7 +82,7 @@ pub fn read_module<
 
         func_assoc: Map::new(),
         signatures: Map::new(),
-        backend: MCG::backend_id(),
+        backend: MCG::backend_id().to_string(),
 
         namespace_table: StringTable::new(),
         name_table: StringTable::new(),

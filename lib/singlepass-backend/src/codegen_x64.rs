@@ -59,6 +59,8 @@ pub const INLINE_BREAKPOINT_SIZE_X86_SINGLEPASS: usize = 7;
 /// Inline breakpoint size for aarch64.
 pub const INLINE_BREAKPOINT_SIZE_AARCH64_SINGLEPASS: usize = 12;
 
+static BACKEND_ID: &str = "singlepass";
+
 #[cfg(target_arch = "x86_64")]
 lazy_static! {
     /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
@@ -661,8 +663,8 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         false
     }
 
-    fn backend_id() -> String {
-        "singlepass".to_string()
+    fn backend_id() -> &'static str {
+        BACKEND_ID
     }
 
     fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {

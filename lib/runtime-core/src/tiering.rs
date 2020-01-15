@@ -43,7 +43,7 @@ struct OptimizationState {
 }
 
 struct OptimizationOutcome {
-    backend_id: String,
+    backend_id: &'static str,
     module: Module,
 }
 
@@ -54,7 +54,7 @@ unsafe impl Sync for CtxWrapper {}
 
 unsafe fn do_optimize(
     binary: &[u8],
-    backend_id: String,
+    backend_id: &'static str,
     compiler: Box<dyn Compiler>,
     ctx: &Mutex<CtxWrapper>,
     state: &OptimizationState,
@@ -87,8 +87,8 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     import_object: &ImportObject,
     start_raw: extern "C" fn(&mut Ctx),
     baseline: &mut Instance,
-    baseline_backend: String,
-    optimized_backends: Vec<(String, Box<dyn Fn() -> Box<dyn Compiler> + Send>)>,
+    baseline_backend: &'static str,
+    optimized_backends: Vec<(&'static str, Box<dyn Fn() -> Box<dyn Compiler> + Send>)>,
     interactive_shell: F,
 ) -> Result<(), String> {
     ensure_sighandler();
@@ -140,7 +140,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     }));
 
     loop {
-        let new_optimized: Option<(String, &mut Instance)> = {
+        let new_optimized: Option<(&'static str, &mut Instance)> = {
             let mut outcome = opt_state.outcome.lock().unwrap();
             if let Some(x) = outcome.take() {
                 let instance = x

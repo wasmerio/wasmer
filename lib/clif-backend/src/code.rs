@@ -32,6 +32,8 @@ use wasmer_runtime_core::{
 };
 use wasmparser::Type as WpType;
 
+static BACKEND_ID: &str = "cranelift";
+
 pub struct CraneliftModuleCodeGenerator {
     isa: Box<dyn isa::TargetIsa>,
     signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
@@ -58,8 +60,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         unimplemented!("cross compilation is not available for clif backend")
     }
 
-    fn backend_id() -> String {
-        "cranelift".to_string()
+    fn backend_id() -> &'static str {
+        BACKEND_ID
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {

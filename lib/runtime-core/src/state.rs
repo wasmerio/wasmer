@@ -186,7 +186,7 @@ pub struct CodeVersion {
     pub base: usize,
 
     /// The backend used to compile this module.
-    pub backend: String,
+    pub backend: &'static str,
 
     /// `RunnableModule` for this code version.
     pub runnable_module: Arc<Box<dyn RunnableModule>>,
