@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/wasi-experimental-io-devices/src/util.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>util.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_wasi_experimental_io_devices/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/wasi-experimental-io-devices/src/util.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>util.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_wasi_experimental_io_devices/index.html'><div class='logo-container'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -203,22 +203,22 @@
 <span class="doccomment">/// Returns the tag as the first return value</span>
 <span class="doccomment">/// The data as the second return value</span>
 <span class="doccomment">/// and the amount of data to read from it as the third value</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bytes_for_input_event</span>(<span class="ident">input_event</span>: <span class="ident">InputEvent</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">u8</span>, [<span class="ident">u8</span>; <span class="number">8</span>], <span class="ident">usize</span>) {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bytes_for_input_event</span>(<span class="ident">input_event</span>: <span class="ident">InputEvent</span>) <span class="op">-&gt;</span> (<span class="ident">u8</span>, [<span class="ident">u8</span>; <span class="number">8</span>], <span class="ident">usize</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="number">8</span>];
     <span class="kw">match</span> <span class="ident">input_event</span> {
-        <span class="ident">InputEvent</span>::<span class="ident">KeyPress</span>(<span class="ident">k</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">InputEvent</span>::<span class="ident">KeyPress</span>(<span class="ident">k</span>) <span class="op">=&gt;</span> {
             <span class="ident">data</span>[<span class="number">0</span>] <span class="op">=</span> <span class="ident">map_key_to_bytes</span>(<span class="ident">k</span>);
             (<span class="ident">KEY_PRESS</span>, <span class="ident">data</span>, <span class="number">1</span>)
         }
-        <span class="ident">InputEvent</span>::<span class="ident">KeyRelease</span>(<span class="ident">k</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">InputEvent</span>::<span class="ident">KeyRelease</span>(<span class="ident">k</span>) <span class="op">=&gt;</span> {
             <span class="ident">data</span>[<span class="number">0</span>] <span class="op">=</span> <span class="ident">map_key_to_bytes</span>(<span class="ident">k</span>);
             (<span class="ident">KEY_RELEASE</span>, <span class="ident">data</span>, <span class="number">1</span>)
         }
-        <span class="ident">InputEvent</span>::<span class="ident">MouseEvent</span>(<span class="ident">x</span>, <span class="ident">y</span>, <span class="ident">btn</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">InputEvent</span>::<span class="ident">MouseEvent</span>(<span class="ident">x</span>, <span class="ident">y</span>, <span class="ident">btn</span>) <span class="op">=&gt;</span> {
             <span class="kw">let</span> <span class="ident">tag</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">btn</span> {
-                <span class="ident">MouseButton</span>::<span class="ident">Left</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MOUSE_PRESS_LEFT</span>,
-                <span class="ident">MouseButton</span>::<span class="ident">Right</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MOUSE_PRESS_RIGHT</span>,
-                <span class="ident">MouseButton</span>::<span class="ident">Middle</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MOUSE_PRESS_MIDDLE</span>,
+                <span class="ident">MouseButton</span>::<span class="ident">Left</span> <span class="op">=&gt;</span> <span class="ident">MOUSE_PRESS_LEFT</span>,
+                <span class="ident">MouseButton</span>::<span class="ident">Right</span> <span class="op">=&gt;</span> <span class="ident">MOUSE_PRESS_RIGHT</span>,
+                <span class="ident">MouseButton</span>::<span class="ident">Middle</span> <span class="op">=&gt;</span> <span class="ident">MOUSE_PRESS_MIDDLE</span>,
             };
             <span class="kw">let</span> <span class="ident">x_bytes</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">to_le_bytes</span>();
             <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">4</span> {
@@ -230,7 +230,7 @@
             }
             (<span class="ident">tag</span>, <span class="ident">data</span>, <span class="number">8</span>)
         }
-        <span class="ident">InputEvent</span>::<span class="ident">MouseMoved</span>(<span class="ident">x</span>, <span class="ident">y</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">InputEvent</span>::<span class="ident">MouseMoved</span>(<span class="ident">x</span>, <span class="ident">y</span>) <span class="op">=&gt;</span> {
             <span class="kw">let</span> <span class="ident">x_bytes</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">to_le_bytes</span>();
             <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">4</span> {
                 <span class="ident">data</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">x_bytes</span>[<span class="ident">i</span>];
@@ -241,123 +241,123 @@
             }
             (<span class="ident">MOUSE_MOVE</span>, <span class="ident">data</span>, <span class="number">8</span>)
         }
-        <span class="ident">InputEvent</span>::<span class="ident">WindowClosed</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">WINDOW_CLOSED</span>, <span class="ident">data</span>, <span class="number">0</span>),
+        <span class="ident">InputEvent</span>::<span class="ident">WindowClosed</span> <span class="op">=&gt;</span> (<span class="ident">WINDOW_CLOSED</span>, <span class="ident">data</span>, <span class="number">0</span>),
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map_key_to_bytes</span>(<span class="ident">key</span>: <span class="ident">Key</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map_key_to_bytes</span>(<span class="ident">key</span>: <span class="ident">Key</span>) <span class="op">-&gt;</span> <span class="ident">u8</span> {
     <span class="kw">match</span> <span class="ident">key</span> {
-        <span class="ident">Key</span>::<span class="ident">Backspace</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">8</span>,
-        <span class="ident">Key</span>::<span class="ident">Tab</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">9</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPadEnter</span> <span class="op">|</span> <span class="ident">Key</span>::<span class="ident">Enter</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">13</span>,
-        <span class="ident">Key</span>::<span class="ident">LeftShift</span> <span class="op">|</span> <span class="ident">Key</span>::<span class="ident">RightShift</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">16</span>,
-        <span class="ident">Key</span>::<span class="ident">LeftCtrl</span> <span class="op">|</span> <span class="ident">Key</span>::<span class="ident">RightCtrl</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">17</span>,
-        <span class="ident">Key</span>::<span class="ident">LeftAlt</span> <span class="op">|</span> <span class="ident">Key</span>::<span class="ident">RightAlt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">18</span>,
-        <span class="ident">Key</span>::<span class="ident">Pause</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">19</span>,
-        <span class="ident">Key</span>::<span class="ident">CapsLock</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">20</span>,
-        <span class="ident">Key</span>::<span class="ident">Escape</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">27</span>,
-        <span class="ident">Key</span>::<span class="ident">Space</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">32</span>,
-        <span class="ident">Key</span>::<span class="ident">PageUp</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">33</span>,
-        <span class="ident">Key</span>::<span class="ident">PageDown</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">34</span>,
-        <span class="ident">Key</span>::<span class="ident">End</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">35</span>,
-        <span class="ident">Key</span>::<span class="ident">Home</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">36</span>,
+        <span class="ident">Key</span>::<span class="ident">Backspace</span> <span class="op">=&gt;</span> <span class="number">8</span>,
+        <span class="ident">Key</span>::<span class="ident">Tab</span> <span class="op">=&gt;</span> <span class="number">9</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPadEnter</span> <span class="op">|</span> <span class="ident">Key</span>::<span class="ident">Enter</span> <span class="op">=&gt;</span> <span class="number">13</span>,
+        <span class="ident">Key</span>::<span class="ident">LeftShift</span> <span class="op">|</span> <span class="ident">Key</span>::<span class="ident">RightShift</span> <span class="op">=&gt;</span> <span class="number">16</span>,
+        <span class="ident">Key</span>::<span class="ident">LeftCtrl</span> <span class="op">|</span> <span class="ident">Key</span>::<span class="ident">RightCtrl</span> <span class="op">=&gt;</span> <span class="number">17</span>,
+        <span class="ident">Key</span>::<span class="ident">LeftAlt</span> <span class="op">|</span> <span class="ident">Key</span>::<span class="ident">RightAlt</span> <span class="op">=&gt;</span> <span class="number">18</span>,
+        <span class="ident">Key</span>::<span class="ident">Pause</span> <span class="op">=&gt;</span> <span class="number">19</span>,
+        <span class="ident">Key</span>::<span class="ident">CapsLock</span> <span class="op">=&gt;</span> <span class="number">20</span>,
+        <span class="ident">Key</span>::<span class="ident">Escape</span> <span class="op">=&gt;</span> <span class="number">27</span>,
+        <span class="ident">Key</span>::<span class="ident">Space</span> <span class="op">=&gt;</span> <span class="number">32</span>,
+        <span class="ident">Key</span>::<span class="ident">PageUp</span> <span class="op">=&gt;</span> <span class="number">33</span>,
+        <span class="ident">Key</span>::<span class="ident">PageDown</span> <span class="op">=&gt;</span> <span class="number">34</span>,
+        <span class="ident">Key</span>::<span class="ident">End</span> <span class="op">=&gt;</span> <span class="number">35</span>,
+        <span class="ident">Key</span>::<span class="ident">Home</span> <span class="op">=&gt;</span> <span class="number">36</span>,
 
-        <span class="ident">Key</span>::<span class="ident">Left</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">37</span>,
-        <span class="ident">Key</span>::<span class="ident">Up</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">38</span>,
-        <span class="ident">Key</span>::<span class="ident">Right</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">39</span>,
-        <span class="ident">Key</span>::<span class="ident">Down</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">40</span>,
+        <span class="ident">Key</span>::<span class="ident">Left</span> <span class="op">=&gt;</span> <span class="number">37</span>,
+        <span class="ident">Key</span>::<span class="ident">Up</span> <span class="op">=&gt;</span> <span class="number">38</span>,
+        <span class="ident">Key</span>::<span class="ident">Right</span> <span class="op">=&gt;</span> <span class="number">39</span>,
+        <span class="ident">Key</span>::<span class="ident">Down</span> <span class="op">=&gt;</span> <span class="number">40</span>,
 
-        <span class="ident">Key</span>::<span class="ident">Insert</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">45</span>,
-        <span class="ident">Key</span>::<span class="ident">Delete</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">46</span>,
+        <span class="ident">Key</span>::<span class="ident">Insert</span> <span class="op">=&gt;</span> <span class="number">45</span>,
+        <span class="ident">Key</span>::<span class="ident">Delete</span> <span class="op">=&gt;</span> <span class="number">46</span>,
 
-        <span class="ident">Key</span>::<span class="ident">Key0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">48</span>,
-        <span class="ident">Key</span>::<span class="ident">Key1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">49</span>,
-        <span class="ident">Key</span>::<span class="ident">Key2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">50</span>,
-        <span class="ident">Key</span>::<span class="ident">Key3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">51</span>,
-        <span class="ident">Key</span>::<span class="ident">Key4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">52</span>,
-        <span class="ident">Key</span>::<span class="ident">Key5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">53</span>,
-        <span class="ident">Key</span>::<span class="ident">Key6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">54</span>,
-        <span class="ident">Key</span>::<span class="ident">Key7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">55</span>,
-        <span class="ident">Key</span>::<span class="ident">Key8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">56</span>,
-        <span class="ident">Key</span>::<span class="ident">Key9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">57</span>,
+        <span class="ident">Key</span>::<span class="ident">Key0</span> <span class="op">=&gt;</span> <span class="number">48</span>,
+        <span class="ident">Key</span>::<span class="ident">Key1</span> <span class="op">=&gt;</span> <span class="number">49</span>,
+        <span class="ident">Key</span>::<span class="ident">Key2</span> <span class="op">=&gt;</span> <span class="number">50</span>,
+        <span class="ident">Key</span>::<span class="ident">Key3</span> <span class="op">=&gt;</span> <span class="number">51</span>,
+        <span class="ident">Key</span>::<span class="ident">Key4</span> <span class="op">=&gt;</span> <span class="number">52</span>,
+        <span class="ident">Key</span>::<span class="ident">Key5</span> <span class="op">=&gt;</span> <span class="number">53</span>,
+        <span class="ident">Key</span>::<span class="ident">Key6</span> <span class="op">=&gt;</span> <span class="number">54</span>,
+        <span class="ident">Key</span>::<span class="ident">Key7</span> <span class="op">=&gt;</span> <span class="number">55</span>,
+        <span class="ident">Key</span>::<span class="ident">Key8</span> <span class="op">=&gt;</span> <span class="number">56</span>,
+        <span class="ident">Key</span>::<span class="ident">Key9</span> <span class="op">=&gt;</span> <span class="number">57</span>,
 
-        <span class="ident">Key</span>::<span class="ident">A</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;A&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">B</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;B&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">C</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;C&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">D</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;D&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">E</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;E&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">F</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;F&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">G</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;G&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">H</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;H&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">I</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;I&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">J</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;J&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">K</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;K&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">L</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;L&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">M</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;M&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">N</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;N&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">O</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;O&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">P</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;P&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">Q</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;Q&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">R</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;R&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">S</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;S&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">T</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;T&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">U</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;U&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">V</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;V&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">W</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;W&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;X&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">Y</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;Y&#39;</span>,
-        <span class="ident">Key</span>::<span class="ident">Z</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">b&#39;Z&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">A</span> <span class="op">=&gt;</span> <span class="string">b&#39;A&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">B</span> <span class="op">=&gt;</span> <span class="string">b&#39;B&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">C</span> <span class="op">=&gt;</span> <span class="string">b&#39;C&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">D</span> <span class="op">=&gt;</span> <span class="string">b&#39;D&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">E</span> <span class="op">=&gt;</span> <span class="string">b&#39;E&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">F</span> <span class="op">=&gt;</span> <span class="string">b&#39;F&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">G</span> <span class="op">=&gt;</span> <span class="string">b&#39;G&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">H</span> <span class="op">=&gt;</span> <span class="string">b&#39;H&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">I</span> <span class="op">=&gt;</span> <span class="string">b&#39;I&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">J</span> <span class="op">=&gt;</span> <span class="string">b&#39;J&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">K</span> <span class="op">=&gt;</span> <span class="string">b&#39;K&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">L</span> <span class="op">=&gt;</span> <span class="string">b&#39;L&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">M</span> <span class="op">=&gt;</span> <span class="string">b&#39;M&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">N</span> <span class="op">=&gt;</span> <span class="string">b&#39;N&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">O</span> <span class="op">=&gt;</span> <span class="string">b&#39;O&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">P</span> <span class="op">=&gt;</span> <span class="string">b&#39;P&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">Q</span> <span class="op">=&gt;</span> <span class="string">b&#39;Q&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">R</span> <span class="op">=&gt;</span> <span class="string">b&#39;R&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">S</span> <span class="op">=&gt;</span> <span class="string">b&#39;S&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">T</span> <span class="op">=&gt;</span> <span class="string">b&#39;T&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">U</span> <span class="op">=&gt;</span> <span class="string">b&#39;U&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">V</span> <span class="op">=&gt;</span> <span class="string">b&#39;V&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">W</span> <span class="op">=&gt;</span> <span class="string">b&#39;W&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">X</span> <span class="op">=&gt;</span> <span class="string">b&#39;X&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">Y</span> <span class="op">=&gt;</span> <span class="string">b&#39;Y&#39;</span>,
+        <span class="ident">Key</span>::<span class="ident">Z</span> <span class="op">=&gt;</span> <span class="string">b&#39;Z&#39;</span>,
 
-        <span class="ident">Key</span>::<span class="ident">LeftSuper</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">91</span>,
-        <span class="ident">Key</span>::<span class="ident">RightSuper</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">92</span>,
+        <span class="ident">Key</span>::<span class="ident">LeftSuper</span> <span class="op">=&gt;</span> <span class="number">91</span>,
+        <span class="ident">Key</span>::<span class="ident">RightSuper</span> <span class="op">=&gt;</span> <span class="number">92</span>,
 
-        <span class="ident">Key</span>::<span class="ident">NumPad0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">96</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">97</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">98</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">99</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">100</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">101</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">102</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">103</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">104</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPad9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">105</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPadAsterisk</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">106</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPadPlus</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">107</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPadMinus</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">109</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPadDot</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">110</span>,
-        <span class="ident">Key</span>::<span class="ident">NumPadSlash</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">111</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad0</span> <span class="op">=&gt;</span> <span class="number">96</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad1</span> <span class="op">=&gt;</span> <span class="number">97</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad2</span> <span class="op">=&gt;</span> <span class="number">98</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad3</span> <span class="op">=&gt;</span> <span class="number">99</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad4</span> <span class="op">=&gt;</span> <span class="number">100</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad5</span> <span class="op">=&gt;</span> <span class="number">101</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad6</span> <span class="op">=&gt;</span> <span class="number">102</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad7</span> <span class="op">=&gt;</span> <span class="number">103</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad8</span> <span class="op">=&gt;</span> <span class="number">104</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPad9</span> <span class="op">=&gt;</span> <span class="number">105</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPadAsterisk</span> <span class="op">=&gt;</span> <span class="number">106</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPadPlus</span> <span class="op">=&gt;</span> <span class="number">107</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPadMinus</span> <span class="op">=&gt;</span> <span class="number">109</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPadDot</span> <span class="op">=&gt;</span> <span class="number">110</span>,
+        <span class="ident">Key</span>::<span class="ident">NumPadSlash</span> <span class="op">=&gt;</span> <span class="number">111</span>,
 
-        <span class="ident">Key</span>::<span class="ident">F1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">112</span>,
-        <span class="ident">Key</span>::<span class="ident">F2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">113</span>,
-        <span class="ident">Key</span>::<span class="ident">F3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">114</span>,
-        <span class="ident">Key</span>::<span class="ident">F4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">115</span>,
-        <span class="ident">Key</span>::<span class="ident">F5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">116</span>,
-        <span class="ident">Key</span>::<span class="ident">F6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">117</span>,
-        <span class="ident">Key</span>::<span class="ident">F7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">118</span>,
-        <span class="ident">Key</span>::<span class="ident">F8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">119</span>,
-        <span class="ident">Key</span>::<span class="ident">F9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">120</span>,
-        <span class="ident">Key</span>::<span class="ident">F10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">121</span>,
-        <span class="ident">Key</span>::<span class="ident">F11</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">122</span>,
-        <span class="ident">Key</span>::<span class="ident">F12</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">123</span>,
+        <span class="ident">Key</span>::<span class="ident">F1</span> <span class="op">=&gt;</span> <span class="number">112</span>,
+        <span class="ident">Key</span>::<span class="ident">F2</span> <span class="op">=&gt;</span> <span class="number">113</span>,
+        <span class="ident">Key</span>::<span class="ident">F3</span> <span class="op">=&gt;</span> <span class="number">114</span>,
+        <span class="ident">Key</span>::<span class="ident">F4</span> <span class="op">=&gt;</span> <span class="number">115</span>,
+        <span class="ident">Key</span>::<span class="ident">F5</span> <span class="op">=&gt;</span> <span class="number">116</span>,
+        <span class="ident">Key</span>::<span class="ident">F6</span> <span class="op">=&gt;</span> <span class="number">117</span>,
+        <span class="ident">Key</span>::<span class="ident">F7</span> <span class="op">=&gt;</span> <span class="number">118</span>,
+        <span class="ident">Key</span>::<span class="ident">F8</span> <span class="op">=&gt;</span> <span class="number">119</span>,
+        <span class="ident">Key</span>::<span class="ident">F9</span> <span class="op">=&gt;</span> <span class="number">120</span>,
+        <span class="ident">Key</span>::<span class="ident">F10</span> <span class="op">=&gt;</span> <span class="number">121</span>,
+        <span class="ident">Key</span>::<span class="ident">F11</span> <span class="op">=&gt;</span> <span class="number">122</span>,
+        <span class="ident">Key</span>::<span class="ident">F12</span> <span class="op">=&gt;</span> <span class="number">123</span>,
 
-        <span class="ident">Key</span>::<span class="ident">NumLock</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">144</span>,
-        <span class="ident">Key</span>::<span class="ident">ScrollLock</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">145</span>,
+        <span class="ident">Key</span>::<span class="ident">NumLock</span> <span class="op">=&gt;</span> <span class="number">144</span>,
+        <span class="ident">Key</span>::<span class="ident">ScrollLock</span> <span class="op">=&gt;</span> <span class="number">145</span>,
 
-        <span class="ident">Key</span>::<span class="ident">Semicolon</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">186</span>,
-        <span class="ident">Key</span>::<span class="ident">Equal</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">187</span>,
-        <span class="ident">Key</span>::<span class="ident">Comma</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">188</span>,
-        <span class="ident">Key</span>::<span class="ident">Minus</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">189</span>,
-        <span class="ident">Key</span>::<span class="ident">Period</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">190</span>,
-        <span class="ident">Key</span>::<span class="ident">Slash</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">191</span>,
-        <span class="ident">Key</span>::<span class="ident">Backquote</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">192</span>,
-        <span class="ident">Key</span>::<span class="ident">Backslash</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">220</span>,
-        <span class="ident">Key</span>::<span class="ident">Apostrophe</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">220</span>,
+        <span class="ident">Key</span>::<span class="ident">Semicolon</span> <span class="op">=&gt;</span> <span class="number">186</span>,
+        <span class="ident">Key</span>::<span class="ident">Equal</span> <span class="op">=&gt;</span> <span class="number">187</span>,
+        <span class="ident">Key</span>::<span class="ident">Comma</span> <span class="op">=&gt;</span> <span class="number">188</span>,
+        <span class="ident">Key</span>::<span class="ident">Minus</span> <span class="op">=&gt;</span> <span class="number">189</span>,
+        <span class="ident">Key</span>::<span class="ident">Period</span> <span class="op">=&gt;</span> <span class="number">190</span>,
+        <span class="ident">Key</span>::<span class="ident">Slash</span> <span class="op">=&gt;</span> <span class="number">191</span>,
+        <span class="ident">Key</span>::<span class="ident">Backquote</span> <span class="op">=&gt;</span> <span class="number">192</span>,
+        <span class="ident">Key</span>::<span class="ident">Backslash</span> <span class="op">=&gt;</span> <span class="number">220</span>,
+        <span class="ident">Key</span>::<span class="ident">Apostrophe</span> <span class="op">=&gt;</span> <span class="number">220</span>,
 
-        <span class="ident">Key</span>::<span class="ident">LeftBracket</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">219</span>,
-        <span class="ident">Key</span>::<span class="ident">RightBracket</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">221</span>,
+        <span class="ident">Key</span>::<span class="ident">LeftBracket</span> <span class="op">=&gt;</span> <span class="number">219</span>,
+        <span class="ident">Key</span>::<span class="ident">RightBracket</span> <span class="op">=&gt;</span> <span class="number">221</span>,
 
-        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">255</span>,
+        <span class="kw">_</span> <span class="op">=&gt;</span> <span class="number">255</span>,
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_wasi_experimental_io_devices";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_wasi_experimental_io_devices";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

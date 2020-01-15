@@ -6,4 +6,5 @@ implementors["wasmer_runtime_core"] = [];
             } else {
                 window.pending_implementors = implementors;
             }
-        })()
+        
+})()

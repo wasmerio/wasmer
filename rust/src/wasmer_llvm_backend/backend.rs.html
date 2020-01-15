@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/llvm-backend/src/backend.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>backend.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_llvm_backend/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/llvm-backend/src/backend.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>backend.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_llvm_backend/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -497,22 +497,22 @@
         <span class="ident">mem_size</span>: <span class="ident">usize</span>,
         <span class="ident">callbacks</span>: <span class="ident">Callbacks</span>,
         <span class="ident">module_out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">LLVMModule</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LLVMResult</span>;
+    ) <span class="op">-&gt;</span> <span class="ident">LLVMResult</span>;
     <span class="kw">fn</span> <span class="ident">module_delete</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">LLVMModule</span>);
-    <span class="kw">fn</span> <span class="ident">get_func_symbol</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">LLVMModule</span>, <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">vm</span>::<span class="ident">Func</span>;
-    <span class="kw">fn</span> <span class="ident">llvm_backend_get_stack_map_ptr</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">LLVMModule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
-    <span class="kw">fn</span> <span class="ident">llvm_backend_get_stack_map_size</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">LLVMModule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
-    <span class="kw">fn</span> <span class="ident">llvm_backend_get_code_ptr</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">LLVMModule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
-    <span class="kw">fn</span> <span class="ident">llvm_backend_get_code_size</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">LLVMModule</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
+    <span class="kw">fn</span> <span class="ident">get_func_symbol</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">LLVMModule</span>, <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">vm</span>::<span class="ident">Func</span>;
+    <span class="kw">fn</span> <span class="ident">llvm_backend_get_stack_map_ptr</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">LLVMModule</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
+    <span class="kw">fn</span> <span class="ident">llvm_backend_get_stack_map_size</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">LLVMModule</span>) <span class="op">-&gt;</span> <span class="ident">usize</span>;
+    <span class="kw">fn</span> <span class="ident">llvm_backend_get_code_ptr</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">LLVMModule</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
+    <span class="kw">fn</span> <span class="ident">llvm_backend_get_code_size</span>(<span class="ident">module</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">LLVMModule</span>) <span class="op">-&gt;</span> <span class="ident">usize</span>;
 
-    <span class="kw">fn</span> <span class="ident">throw_trap</span>(<span class="ident">ty</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span>;
-    <span class="kw">fn</span> <span class="ident">throw_breakpoint</span>(<span class="ident">ty</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span>;
+    <span class="kw">fn</span> <span class="ident">throw_trap</span>(<span class="ident">ty</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="op">!</span>;
+    <span class="kw">fn</span> <span class="ident">throw_breakpoint</span>(<span class="ident">ty</span>: <span class="ident">i64</span>) <span class="op">-&gt;</span> <span class="op">!</span>;
 
     <span class="doccomment">/// This should be the same as spliting up the fat pointer into two arguments,</span>
     <span class="doccomment">/// but this is cleaner, I think?</span>
     <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">nightly</span>, <span class="ident">unwind</span>(<span class="ident">allowed</span>))]</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">improper_ctypes</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">throw_any</span>(<span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">Any</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span>;
+    <span class="kw">fn</span> <span class="ident">throw_any</span>(<span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">Any</span>) <span class="op">-&gt;</span> <span class="op">!</span>;
 
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">improper_ctypes</span>)]</span>
     <span class="kw">fn</span> <span class="ident">invoke_trampoline</span>(
@@ -522,42 +522,42 @@
         <span class="ident">params</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u64</span>,
         <span class="ident">results</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span>,
         <span class="ident">trap_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">WasmTrapInfo</span>,
-        <span class="ident">user_error</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">invoke_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
+        <span class="ident">user_error</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;&gt;</span>,
+        <span class="ident">invoke_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;&gt;</span>,
+    ) <span class="op">-&gt;</span> <span class="ident">bool</span>;
 }
 
 <span class="kw">static</span> <span class="ident">SIGNAL_HANDLER_INSTALLED</span>: <span class="ident">Once</span> <span class="op">=</span> <span class="ident">Once</span>::<span class="ident">new</span>();
 
-<span class="kw">fn</span> <span class="ident">get_callbacks</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Callbacks</span> {
+<span class="kw">fn</span> <span class="ident">get_callbacks</span>() <span class="op">-&gt;</span> <span class="ident">Callbacks</span> {
     <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">alloc_memory</span>(
         <span class="ident">size</span>: <span class="ident">usize</span>,
         <span class="ident">protect</span>: <span class="ident">MemProtect</span>,
         <span class="ident">ptr_out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>,
         <span class="ident">size_out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">usize</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LLVMResult</span> {
+    ) <span class="op">-&gt;</span> <span class="ident">LLVMResult</span> {
         <span class="kw">unsafe</span> { <span class="kw">crate</span>::<span class="ident">platform</span>::<span class="ident">alloc_memory</span>(<span class="ident">size</span>, <span class="ident">protect</span>, <span class="ident">ptr_out</span>, <span class="ident">size_out</span>) }
     }
 
-    <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">protect_memory</span>(<span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, <span class="ident">size</span>: <span class="ident">usize</span>, <span class="ident">protect</span>: <span class="ident">MemProtect</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LLVMResult</span> {
+    <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">protect_memory</span>(<span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, <span class="ident">size</span>: <span class="ident">usize</span>, <span class="ident">protect</span>: <span class="ident">MemProtect</span>) <span class="op">-&gt;</span> <span class="ident">LLVMResult</span> {
         <span class="kw">unsafe</span> { <span class="kw">crate</span>::<span class="ident">platform</span>::<span class="ident">protect_memory</span>(<span class="ident">ptr</span>, <span class="ident">size</span>, <span class="ident">protect</span>) }
     }
 
-    <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">dealloc_memory</span>(<span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, <span class="ident">size</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LLVMResult</span> {
+    <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">dealloc_memory</span>(<span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, <span class="ident">size</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">LLVMResult</span> {
         <span class="kw">unsafe</span> { <span class="kw">crate</span>::<span class="ident">platform</span>::<span class="ident">dealloc_memory</span>(<span class="ident">ptr</span>, <span class="ident">size</span>) }
     }
 
-    <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">lookup_vm_symbol</span>(<span class="ident">name_ptr</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>, <span class="ident">length</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">vm</span>::<span class="ident">Func</span> {
+    <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">lookup_vm_symbol</span>(<span class="ident">name_ptr</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>, <span class="ident">length</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">vm</span>::<span class="ident">Func</span> {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
         <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">fn_name</span> {
-            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">s</span>:<span class="ident">literal</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">s</span>:<span class="ident">literal</span>) <span class="op">=&gt;</span> {
                 <span class="macro">concat</span><span class="macro">!</span>(<span class="string">&quot;_&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">s</span>)
             };
         }
 
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
         <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">fn_name</span> {
-            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">s</span>:<span class="ident">literal</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">s</span>:<span class="ident">literal</span>) <span class="op">=&gt;</span> {
                 <span class="macro-nonterminal">$</span><span class="macro-nonterminal">s</span>
             };
         }
@@ -566,20 +566,20 @@
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="ident">name_slice</span>).<span class="ident">unwrap</span>();
 
         <span class="kw">match</span> <span class="ident">name</span> {
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.grow.dynamic.local&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">local_dynamic_memory_grow</span> <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.size.dynamic.local&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">local_dynamic_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.grow.static.local&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">local_static_memory_grow</span> <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.size.static.local&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">local_static_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.grow.dynamic.local&quot;</span>) <span class="op">=&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">local_dynamic_memory_grow</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.size.dynamic.local&quot;</span>) <span class="op">=&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">local_dynamic_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.grow.static.local&quot;</span>) <span class="op">=&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">local_static_memory_grow</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.size.static.local&quot;</span>) <span class="op">=&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">local_static_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
 
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.grow.dynamic.import&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">imported_dynamic_memory_grow</span> <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.size.dynamic.import&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">imported_dynamic_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.grow.static.import&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">imported_static_memory_grow</span> <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.size.static.import&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">imported_static_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.grow.dynamic.import&quot;</span>) <span class="op">=&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">imported_dynamic_memory_grow</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.size.dynamic.import&quot;</span>) <span class="op">=&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">imported_dynamic_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.grow.static.import&quot;</span>) <span class="op">=&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">imported_static_memory_grow</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.memory.size.static.import&quot;</span>) <span class="op">=&gt;</span> <span class="ident">vmcalls</span>::<span class="ident">imported_static_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
 
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.exception.trap&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">throw_trap</span> <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.breakpoint&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">throw_breakpoint</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.exception.trap&quot;</span>) <span class="op">=&gt;</span> <span class="ident">throw_trap</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="macro">fn_name</span><span class="macro">!</span>(<span class="string">&quot;vm.breakpoint&quot;</span>) <span class="op">=&gt;</span> <span class="ident">throw_breakpoint</span> <span class="kw">as</span> <span class="kw">_</span>,
 
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr</span>::<span class="ident">null</span>(),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ptr</span>::<span class="ident">null</span>(),
         }
     }
 
@@ -605,10 +605,10 @@
 
 <span class="kw">impl</span> <span class="ident">Deref</span> <span class="kw">for</span> <span class="ident">Buffer</span> {
     <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> [<span class="ident">u8</span>];
-    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
+    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Buffer</span>::<span class="ident">LlvmMemory</span>(<span class="ident">mem_buffer</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem_buffer</span>.<span class="ident">as_slice</span>(),
-            <span class="ident">Buffer</span>::<span class="ident">Memory</span>(<span class="ident">memory</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { <span class="ident">memory</span>.<span class="ident">as_slice</span>() },
+            <span class="ident">Buffer</span>::<span class="ident">LlvmMemory</span>(<span class="ident">mem_buffer</span>) <span class="op">=&gt;</span> <span class="ident">mem_buffer</span>.<span class="ident">as_slice</span>(),
+            <span class="ident">Buffer</span>::<span class="ident">Memory</span>(<span class="ident">memory</span>) <span class="op">=&gt;</span> <span class="kw">unsafe</span> { <span class="ident">memory</span>.<span class="ident">as_slice</span>() },
         }
     }
 }
@@ -626,13 +626,13 @@
 
 <span class="kw">impl</span> <span class="ident">LLVMBackend</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">module</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">module</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;&gt;</span>,
         <span class="ident">_intrinsics</span>: <span class="ident">Intrinsics</span>,
         <span class="ident">_stackmaps</span>: <span class="kw-2">&amp;</span><span class="ident">StackmapRegistry</span>,
         <span class="ident">_module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
         <span class="ident">target_machine</span>: <span class="kw-2">&amp;</span><span class="ident">TargetMachine</span>,
-        <span class="ident">llvm_callbacks</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LLVMCallbacks</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> (<span class="self">Self</span>, <span class="ident">LLVMCache</span>) {
+        <span class="ident">llvm_callbacks</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LLVMCallbacks</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
+    ) <span class="op">-&gt;</span> (<span class="self">Self</span>, <span class="ident">LLVMCache</span>) {
         <span class="kw">let</span> <span class="ident">memory_buffer</span> <span class="op">=</span> <span class="ident">target_machine</span>
             .<span class="ident">write_to_memory_buffer</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">borrow_mut</span>(), <span class="ident">FileType</span>::<span class="ident">Object</span>)
             .<span class="ident">unwrap</span>();
@@ -656,7 +656,7 @@
             )
         };
 
-        <span class="kw">if</span> <span class="ident">res</span> <span class="op">!</span><span class="op">=</span> <span class="ident">LLVMResult</span>::<span class="ident">OK</span> {
+        <span class="kw">if</span> <span class="ident">res</span> <span class="op">!=</span> <span class="ident">LLVMResult</span>::<span class="ident">OK</span> {
             <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;failed to load object&quot;</span>)
         }
 
@@ -760,7 +760,7 @@
                 <span class="kw">let</span> <span class="ident">local_func_id_to_offset</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">local_func_id_to_addr</span>
                     .<span class="ident">iter</span>()
                     .<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">x</span><span class="op">|</span> {
-                        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">code_ptr</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">x</span> <span class="op">&lt;</span> <span class="ident">code_ptr</span> <span class="op">+</span> <span class="ident">code_len</span>);
+                        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&gt;=</span> <span class="ident">code_ptr</span> <span class="op">&amp;&amp;</span> <span class="ident">x</span> <span class="op">&lt;</span> <span class="ident">code_ptr</span> <span class="op">+</span> <span class="ident">code_len</span>);
                         <span class="ident">x</span> <span class="op">-</span> <span class="ident">code_ptr</span>
                     })
                     .<span class="ident">collect</span>();
@@ -789,7 +789,7 @@
         )
     }
 
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_buffer</span>(<span class="ident">memory</span>: <span class="ident">Memory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="self">Self</span>, <span class="ident">LLVMCache</span>), <span class="ident">String</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_buffer</span>(<span class="ident">memory</span>: <span class="ident">Memory</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="self">Self</span>, <span class="ident">LLVMCache</span>), <span class="ident">String</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">callbacks</span> <span class="op">=</span> <span class="ident">get_callbacks</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">LLVMModule</span> <span class="op">=</span> <span class="ident">ptr</span>::<span class="ident">null_mut</span>();
 
@@ -797,11 +797,11 @@
 
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">module_load</span>(<span class="ident">slice</span>.<span class="ident">as_ptr</span>(), <span class="ident">slice</span>.<span class="ident">len</span>(), <span class="ident">callbacks</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">module</span>);
 
-        <span class="kw">if</span> <span class="ident">res</span> <span class="op">!</span><span class="op">=</span> <span class="ident">LLVMResult</span>::<span class="ident">OK</span> {
+        <span class="kw">if</span> <span class="ident">res</span> <span class="op">!=</span> <span class="ident">LLVMResult</span>::<span class="ident">OK</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;failed to load object&quot;</span>.<span class="ident">to_string</span>());
         }
 
-        <span class="ident">SIGNAL_HANDLER_INSTALLED</span>.<span class="ident">call_once</span>(<span class="op">|</span><span class="op">|</span> {
+        <span class="ident">SIGNAL_HANDLER_INSTALLED</span>.<span class="ident">call_once</span>(<span class="op">||</span> {
             <span class="kw">crate</span>::<span class="ident">platform</span>::<span class="ident">install_signal_handler</span>();
         });
 
@@ -830,7 +830,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
         <span class="ident">local_func_index</span>: <span class="ident">LocalFuncIndex</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;&gt;</span> {
         <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">imported_functions</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="ident">local_func_index</span>.<span class="ident">index</span>();
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>) {
             <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;_fn{}&quot;</span>, <span class="ident">index</span>)
@@ -844,7 +844,7 @@
         <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw">_</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">get_trampoline</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">sig_index</span>: <span class="ident">SigIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wasm</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_trampoline</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">sig_index</span>: <span class="ident">SigIndex</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wasm</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">trampoline</span>: <span class="ident">Trampoline</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>) {
                 <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;_trmp{}&quot;</span>, <span class="ident">sig_index</span>.<span class="ident">index</span>())
@@ -859,14 +859,14 @@
             <span class="ident">mem</span>::<span class="ident">transmute</span>(<span class="ident">symbol</span>)
         };
 
-        <span class="ident">SIGNAL_HANDLER_INSTALLED</span>.<span class="ident">call_once</span>(<span class="op">|</span><span class="op">|</span> <span class="kw">unsafe</span> {
+        <span class="ident">SIGNAL_HANDLER_INSTALLED</span>.<span class="ident">call_once</span>(<span class="op">||</span> <span class="kw">unsafe</span> {
             <span class="kw">crate</span>::<span class="ident">platform</span>::<span class="ident">install_signal_handler</span>();
         });
 
         <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">Wasm</span>::<span class="ident">from_raw_parts</span>(<span class="ident">trampoline</span>, <span class="ident">invoke_trampoline</span>, <span class="prelude-val">None</span>) })
     }
 
-    <span class="kw">fn</span> <span class="ident">get_code</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_code</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> {
             <span class="ident">std</span>::<span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(
                 <span class="ident">llvm_backend_get_code_ptr</span>(<span class="self">self</span>.<span class="ident">module</span>),
@@ -875,15 +875,15 @@
         })
     }
 
-    <span class="kw">fn</span> <span class="ident">get_local_function_offsets</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_local_function_offsets</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">local_func_id_to_offset</span>.<span class="ident">clone</span>())
     }
 
-    <span class="kw">fn</span> <span class="ident">get_module_state_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ModuleStateMap</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_module_state_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ModuleStateMap</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">msm</span>.<span class="ident">clone</span>()
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">do_early_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">do_early_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="op">!</span> {
         <span class="ident">throw_any</span>(<span class="ident">Box</span>::<span class="ident">leak</span>(<span class="ident">data</span>))
     }
 }
@@ -896,7 +896,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">CacheGen</span> <span class="kw">for</span> <span class="ident">LLVMCache</span> {
-    <span class="kw">fn</span> <span class="ident">generate_cache</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>, <span class="ident">Memory</span>), <span class="ident">CacheError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">generate_cache</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>, <span class="ident">Memory</span>), <span class="ident">CacheError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">Memory</span>::<span class="ident">with_size_protect</span>(<span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">len</span>(), <span class="ident">Protect</span>::<span class="ident">ReadWrite</span>)
             .<span class="ident">map_err</span>(<span class="ident">CacheError</span>::<span class="ident">SerializeError</span>)<span class="question-mark">?</span>;
 
@@ -910,4 +910,4 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_llvm_backend";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_llvm_backend";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

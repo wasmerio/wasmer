@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/wasi/src/state/types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_wasi/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/wasi/src/state/types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_wasi/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -918,7 +918,6 @@
 <span id="918">918</span>
 <span id="919">919</span>
 <span id="920">920</span>
-<span id="921">921</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">/// types for use in the WASI filesystem</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">syscalls</span>::<span class="ident">types</span>::<span class="kw-2">*</span>;
@@ -931,7 +930,6 @@
     <span class="ident">path</span>::<span class="ident">PathBuf</span>,
     <span class="ident">time</span>::<span class="ident">SystemTime</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">debug</span>;
 
 <span class="doccomment">/// Error type for external users</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
@@ -990,56 +988,56 @@
 }
 
 <span class="kw">impl</span> <span class="ident">WasiFsError</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_wasi_err</span>(<span class="ident">err</span>: <span class="ident">__wasi_errno_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_wasi_err</span>(<span class="ident">err</span>: <span class="ident">__wasi_errno_t</span>) <span class="op">-&gt;</span> <span class="ident">WasiFsError</span> {
         <span class="kw">match</span> <span class="ident">err</span> {
-            <span class="ident">__WASI_EBADF</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">InvalidFd</span>,
-            <span class="ident">__WASI_EEXIST</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AlreadyExists</span>,
-            <span class="ident">__WASI_EIO</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">IOError</span>,
-            <span class="ident">__WASI_EADDRINUSE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AddressInUse</span>,
-            <span class="ident">__WASI_EADDRNOTAVAIL</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AddressNotAvailable</span>,
-            <span class="ident">__WASI_EPIPE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">BrokenPipe</span>,
-            <span class="ident">__WASI_ECONNABORTED</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionAborted</span>,
-            <span class="ident">__WASI_ECONNREFUSED</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionRefused</span>,
-            <span class="ident">__WASI_ECONNRESET</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionReset</span>,
-            <span class="ident">__WASI_EINTR</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">Interrupted</span>,
-            <span class="ident">__WASI_EINVAL</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span>,
-            <span class="ident">__WASI_ENOTCONN</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">NotConnected</span>,
-            <span class="ident">__WASI_ENODEV</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">NoDevice</span>,
-            <span class="ident">__WASI_ENOENT</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">EntityNotFound</span>,
-            <span class="ident">__WASI_EPERM</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span>,
-            <span class="ident">__WASI_ETIMEDOUT</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">TimedOut</span>,
-            <span class="ident">__WASI_EPROTO</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">UnexpectedEof</span>,
-            <span class="ident">__WASI_EAGAIN</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">WouldBlock</span>,
-            <span class="ident">__WASI_ENOSPC</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">WriteZero</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">UnknownError</span>(<span class="ident">err</span>),
+            <span class="ident">__WASI_EBADF</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">InvalidFd</span>,
+            <span class="ident">__WASI_EEXIST</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AlreadyExists</span>,
+            <span class="ident">__WASI_EIO</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">IOError</span>,
+            <span class="ident">__WASI_EADDRINUSE</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AddressInUse</span>,
+            <span class="ident">__WASI_EADDRNOTAVAIL</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AddressNotAvailable</span>,
+            <span class="ident">__WASI_EPIPE</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">BrokenPipe</span>,
+            <span class="ident">__WASI_ECONNABORTED</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionAborted</span>,
+            <span class="ident">__WASI_ECONNREFUSED</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionRefused</span>,
+            <span class="ident">__WASI_ECONNRESET</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionReset</span>,
+            <span class="ident">__WASI_EINTR</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">Interrupted</span>,
+            <span class="ident">__WASI_EINVAL</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span>,
+            <span class="ident">__WASI_ENOTCONN</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">NotConnected</span>,
+            <span class="ident">__WASI_ENODEV</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">NoDevice</span>,
+            <span class="ident">__WASI_ENOENT</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">EntityNotFound</span>,
+            <span class="ident">__WASI_EPERM</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span>,
+            <span class="ident">__WASI_ETIMEDOUT</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">TimedOut</span>,
+            <span class="ident">__WASI_EPROTO</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">UnexpectedEof</span>,
+            <span class="ident">__WASI_EAGAIN</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">WouldBlock</span>,
+            <span class="ident">__WASI_ENOSPC</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">WriteZero</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">UnknownError</span>(<span class="ident">err</span>),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_wasi_err</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_wasi_err</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">__wasi_errno_t</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">WasiFsError</span>::<span class="ident">AlreadyExists</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EEXIST</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">AddressInUse</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EADDRINUSE</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">AddressNotAvailable</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EADDRNOTAVAIL</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">BaseNotDirectory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOTDIR</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">BrokenPipe</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EPIPE</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">ConnectionAborted</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ECONNABORTED</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">ConnectionRefused</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ECONNREFUSED</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">ConnectionReset</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ECONNRESET</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">Interrupted</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EINTR</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">InvalidData</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EIO</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">InvalidFd</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EBADF</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EINVAL</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">IOError</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EIO</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">NoDevice</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENODEV</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">NotAFile</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EINVAL</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">NotConnected</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOTCONN</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">EntityNotFound</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOENT</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EPERM</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">TimedOut</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ETIMEDOUT</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">UnexpectedEof</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EPROTO</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">WouldBlock</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EAGAIN</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">WriteZero</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOSPC</span>,
-            <span class="ident">WasiFsError</span>::<span class="ident">UnknownError</span>(<span class="ident">ec</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ec</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">AlreadyExists</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EEXIST</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">AddressInUse</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EADDRINUSE</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">AddressNotAvailable</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EADDRNOTAVAIL</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">BaseNotDirectory</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ENOTDIR</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">BrokenPipe</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EPIPE</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">ConnectionAborted</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ECONNABORTED</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">ConnectionRefused</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ECONNREFUSED</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">ConnectionReset</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ECONNRESET</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">Interrupted</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EINTR</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">InvalidData</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EIO</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">InvalidFd</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EBADF</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EINVAL</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">IOError</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EIO</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">NoDevice</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ENODEV</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">NotAFile</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EINVAL</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">NotConnected</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ENOTCONN</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">EntityNotFound</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ENOENT</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EPERM</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">TimedOut</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ETIMEDOUT</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">UnexpectedEof</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EPROTO</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">WouldBlock</span> <span class="op">=&gt;</span> <span class="ident">__WASI_EAGAIN</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">WriteZero</span> <span class="op">=&gt;</span> <span class="ident">__WASI_ENOSPC</span>,
+            <span class="ident">WasiFsError</span>::<span class="ident">UnknownError</span>(<span class="ident">ec</span>) <span class="op">=&gt;</span> <span class="ident">ec</span>,
         }
     }
 }
@@ -1048,13 +1046,13 @@
 <span class="attribute">#[<span class="ident">typetag</span>::<span class="ident">serde</span>(<span class="ident">tag</span> <span class="op">=</span> <span class="string">&quot;type&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">WasiFile</span>: <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Write</span> <span class="op">+</span> <span class="ident">Read</span> <span class="op">+</span> <span class="ident">Seek</span> {
     <span class="doccomment">/// the last time the file was accessed in nanoseconds as a UNIX timestamp</span>
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_timestamp_t</span>;
+    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">__wasi_timestamp_t</span>;
 
     <span class="doccomment">/// the last time the file was modified in nanoseconds as a UNIX timestamp</span>
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_timestamp_t</span>;
+    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">__wasi_timestamp_t</span>;
 
     <span class="doccomment">/// the time at which the file was created in nanoseconds as a UNIX timestamp</span>
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_timestamp_t</span>;
+    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">__wasi_timestamp_t</span>;
 
     <span class="doccomment">/// set the last time the file was accessed in nanoseconds as a UNIX timestamp</span>
     <span class="kw">fn</span> <span class="ident">set_last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_last_accessed</span>: <span class="ident">__wasi_timestamp_t</span>) {
@@ -1075,35 +1073,35 @@
     }
 
     <span class="doccomment">/// the size of the file in bytes</span>
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span>;
+    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span>;
 
     <span class="doccomment">/// Change the size of the file, if the `new_size` is greater than the current size</span>
     <span class="doccomment">/// the extra bytes will be allocated and zeroed</span>
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Request deletion of the file</span>
-    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Store file contents and metadata to disk</span>
     <span class="doccomment">/// Default implementation returns `Ok(())`.  You should implement this method if you care</span>
     <span class="doccomment">/// about flushing your cache to permanent storage</span>
-    <span class="kw">fn</span> <span class="ident">sync_to_disk</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">sync_to_disk</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Moves the file to a new location</span>
     <span class="doccomment">/// NOTE: the signature of this function will change before stabilization</span>
     <span class="comment">// TODO: stablizie this in 0.7.0 or 0.8.0 by removing default impl</span>
-    <span class="kw">fn</span> <span class="ident">rename_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_new_name</span>: <span class="kw-2">&amp;</span><span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">rename_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_new_name</span>: <span class="kw-2">&amp;</span><span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Default implementation for now as this method is unstable; this default implementation or this entire method may be removed in a future release.&quot;</span>);
     }
 
     <span class="doccomment">/// Returns the number of bytes available.  This function must not block</span>
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Used for polling.  Default returns `None` because this method cannot be implemented for most types</span>
     <span class="doccomment">/// Returns the underlying host fd</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="prelude-val">None</span>
     }
 }
@@ -1124,14 +1122,14 @@
 }
 
 <span class="kw">impl</span> <span class="ident">PollEvent</span> {
-    <span class="kw">fn</span> <span class="ident">from_i16</span>(<span class="ident">raw_num</span>: <span class="ident">i16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PollEvent</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">from_i16</span>(<span class="ident">raw_num</span>: <span class="ident">i16</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PollEvent</span><span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="ident">raw_num</span> {
-            <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollIn</span>,
-            <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollOut</span>,
-            <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollError</span>,
-            <span class="number">8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollHangUp</span>,
-            <span class="number">16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollInvalid</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
+            <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollIn</span>,
+            <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollOut</span>,
+            <span class="number">4</span> <span class="op">=&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollError</span>,
+            <span class="number">8</span> <span class="op">=&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollHangUp</span>,
+            <span class="number">16</span> <span class="op">=&gt;</span> <span class="ident">PollEvent</span>::<span class="ident">PollInvalid</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
         })
     }
 }
@@ -1152,14 +1150,14 @@
 <span class="kw">impl</span> <span class="ident">Iterator</span> <span class="kw">for</span> <span class="ident">PollEventIter</span> {
     <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> <span class="ident">PollEvent</span>;
 
-    <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Item</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pes</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">i</span> <span class="op">&gt;</span> <span class="number">15</span> {
+    <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Item</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pes</span> <span class="op">==</span> <span class="number">0</span> <span class="op">||</span> <span class="self">self</span>.<span class="ident">i</span> <span class="op">&gt;</span> <span class="number">15</span> {
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {
             <span class="kw">while</span> <span class="self">self</span>.<span class="ident">i</span> <span class="op">&lt;</span> <span class="number">16</span> {
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">PollEvent</span>::<span class="ident">from_i16</span>(<span class="self">self</span>.<span class="ident">pes</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">i</span>));
-                <span class="self">self</span>.<span class="ident">pes</span> <span class="kw-2">&amp;</span><span class="op">=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">i</span>);
-                <span class="self">self</span>.<span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">PollEvent</span>::<span class="ident">from_i16</span>(<span class="self">self</span>.<span class="ident">pes</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;&lt;</span> <span class="self">self</span>.<span class="ident">i</span>));
+                <span class="self">self</span>.<span class="ident">pes</span> <span class="op">&amp;=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;&lt;</span> <span class="self">self</span>.<span class="ident">i</span>);
+                <span class="self">self</span>.<span class="ident">i</span> <span class="op">+=</span> <span class="number">1</span>;
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>) <span class="op">=</span> <span class="ident">result</span> {
                     <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>);
                 }
@@ -1169,55 +1167,55 @@
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iterate_poll_events</span>(<span class="ident">pes</span>: <span class="ident">PollEventSet</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventIter</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iterate_poll_events</span>(<span class="ident">pes</span>: <span class="ident">PollEventSet</span>) <span class="op">-&gt;</span> <span class="ident">PollEventIter</span> {
     <span class="ident">PollEventIter</span> { <span class="ident">pes</span>, <span class="ident">i</span>: <span class="number">0</span> }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">fn</span> <span class="ident">poll_event_set_to_platform_poll_events</span>(<span class="kw-2">mut</span> <span class="ident">pes</span>: <span class="ident">PollEventSet</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i16</span> {
+<span class="kw">fn</span> <span class="ident">poll_event_set_to_platform_poll_events</span>(<span class="kw-2">mut</span> <span class="ident">pes</span>: <span class="ident">PollEventSet</span>) <span class="op">-&gt;</span> <span class="ident">i16</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">16</span> {
-        <span class="ident">out</span> <span class="op">|</span><span class="op">=</span> <span class="kw">match</span> <span class="ident">PollEvent</span>::<span class="ident">from_i16</span>(<span class="ident">pes</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>)) {
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollIn</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLIN</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollOut</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLOUT</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollError</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLERR</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollHangUp</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLHUP</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollInvalid</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLNVAL</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
+        <span class="ident">out</span> <span class="op">|=</span> <span class="kw">match</span> <span class="ident">PollEvent</span>::<span class="ident">from_i16</span>(<span class="ident">pes</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;&lt;</span> <span class="ident">i</span>)) {
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollIn</span>) <span class="op">=&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLIN</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollOut</span>) <span class="op">=&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLOUT</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollError</span>) <span class="op">=&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLERR</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollHangUp</span>) <span class="op">=&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLHUP</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent</span>::<span class="ident">PollInvalid</span>) <span class="op">=&gt;</span> <span class="ident">libc</span>::<span class="ident">POLLNVAL</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="number">0</span>,
         };
-        <span class="ident">pes</span> <span class="kw-2">&amp;</span><span class="op">=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>);
+        <span class="ident">pes</span> <span class="op">&amp;=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;&lt;</span> <span class="ident">i</span>);
     }
     <span class="ident">out</span>
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">fn</span> <span class="ident">platform_poll_events_to_pollevent_set</span>(<span class="kw-2">mut</span> <span class="ident">num</span>: <span class="ident">i16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventSet</span> {
+<span class="kw">fn</span> <span class="ident">platform_poll_events_to_pollevent_set</span>(<span class="kw-2">mut</span> <span class="ident">num</span>: <span class="ident">i16</span>) <span class="op">-&gt;</span> <span class="ident">PollEventSet</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">peb</span> <span class="op">=</span> <span class="ident">PollEventBuilder</span>::<span class="ident">new</span>();
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">16</span> {
-        <span class="ident">peb</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">num</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>) {
-            <span class="ident">libc</span>::<span class="ident">POLLIN</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollIn</span>),
-            <span class="ident">libc</span>::<span class="ident">POLLOUT</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollOut</span>),
-            <span class="ident">libc</span>::<span class="ident">POLLERR</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollError</span>),
-            <span class="ident">libc</span>::<span class="ident">POLLHUP</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollHangUp</span>),
-            <span class="ident">libc</span>::<span class="ident">POLLNVAL</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollInvalid</span>),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>,
+        <span class="ident">peb</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">num</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;&lt;</span> <span class="ident">i</span>) {
+            <span class="ident">libc</span>::<span class="ident">POLLIN</span> <span class="op">=&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollIn</span>),
+            <span class="ident">libc</span>::<span class="ident">POLLOUT</span> <span class="op">=&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollOut</span>),
+            <span class="ident">libc</span>::<span class="ident">POLLERR</span> <span class="op">=&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollError</span>),
+            <span class="ident">libc</span>::<span class="ident">POLLHUP</span> <span class="op">=&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollHangUp</span>),
+            <span class="ident">libc</span>::<span class="ident">POLLNVAL</span> <span class="op">=&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent</span>::<span class="ident">PollInvalid</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">peb</span>,
         };
-        <span class="ident">num</span> <span class="kw-2">&amp;</span><span class="op">=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>);
+        <span class="ident">num</span> <span class="op">&amp;=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;&lt;</span> <span class="ident">i</span>);
     }
     <span class="ident">peb</span>.<span class="ident">build</span>()
 }
 
 <span class="kw">impl</span> <span class="ident">PollEventBuilder</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventBuilder</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="ident">PollEventBuilder</span> {
         <span class="ident">PollEventBuilder</span> { <span class="ident">inner</span>: <span class="number">0</span> }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">PollEvent</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventBuilder</span> {
-        <span class="self">self</span>.<span class="ident">inner</span> <span class="op">|</span><span class="op">=</span> <span class="ident">event</span> <span class="kw">as</span> <span class="ident">PollEventSet</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">PollEvent</span>) <span class="op">-&gt;</span> <span class="ident">PollEventBuilder</span> {
+        <span class="self">self</span>.<span class="ident">inner</span> <span class="op">|=</span> <span class="ident">event</span> <span class="kw">as</span> <span class="ident">PollEventSet</span>;
         <span class="self">self</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventSet</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">PollEventSet</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
     }
 }
@@ -1227,8 +1225,8 @@
     <span class="ident">selfs</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span>],
     <span class="ident">events</span>: <span class="kw-2">&amp;</span>[<span class="ident">PollEventSet</span>],
     <span class="ident">seen_events</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">PollEventSet</span>],
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="op">!</span>(<span class="ident">selfs</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">events</span>.<span class="ident">len</span>() <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">events</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">seen_events</span>.<span class="ident">len</span>()) {
+) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">if</span> <span class="op">!</span>(<span class="ident">selfs</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">events</span>.<span class="ident">len</span>() <span class="op">&amp;&amp;</span> <span class="ident">events</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">seen_events</span>.<span class="ident">len</span>()) {
         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span>);
     }
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fds</span> <span class="op">=</span> <span class="ident">selfs</span>
@@ -1240,7 +1238,7 @@
             <span class="ident">events</span>: <span class="ident">poll_event_set_to_platform_poll_events</span>(<span class="ident">events</span>[<span class="ident">i</span>]),
             <span class="ident">revents</span>: <span class="number">0</span>,
         })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">libc</span>::<span class="ident">poll</span>(<span class="ident">fds</span>.<span class="ident">as_mut_ptr</span>(), <span class="ident">selfs</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>, <span class="number">1</span>) };
 
     <span class="kw">if</span> <span class="ident">result</span> <span class="op">&lt;</span> <span class="number">0</span> {
@@ -1260,7 +1258,7 @@
     <span class="ident">_selfs</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span>],
     <span class="ident">_events</span>: <span class="kw-2">&amp;</span>[<span class="ident">PollEventSet</span>],
     <span class="ident">_seen_events</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">PollEventSet</span>],
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
     <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;HostFile::poll in WasiFile is not implemented for non-Unix-like targets yet&quot;</span>);
 }
 
@@ -1276,7 +1274,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span> <span class="ident">Deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">HostFile</span> {
-    <span class="kw">fn</span> <span class="ident">deserialize</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>(<span class="ident">deserializer</span>: <span class="ident">D</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HostFile</span>, <span class="ident">D</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">deserialize</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>(<span class="ident">deserializer</span>: <span class="ident">D</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HostFile</span>, <span class="ident">D</span>::<span class="ident">Error</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">D</span>: <span class="ident">serde</span>::<span class="ident">Deserializer</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span>,
     {
@@ -1292,24 +1290,24 @@
         <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span> <span class="ident">de</span>::<span class="ident">Visitor</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">HostFileVisitor</span> {
             <span class="kw">type</span> <span class="ident">Value</span> <span class="op">=</span> <span class="ident">HostFile</span>;
 
-            <span class="kw">fn</span> <span class="ident">expecting</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">formatter</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+            <span class="kw">fn</span> <span class="ident">expecting</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">formatter</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
                 <span class="ident">formatter</span>.<span class="ident">write_str</span>(<span class="string">&quot;struct HostFile&quot;</span>)
             }
 
-            <span class="kw">fn</span> <span class="ident">visit_seq</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">seq</span>: <span class="ident">V</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Value</span>, <span class="ident">V</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+            <span class="kw">fn</span> <span class="ident">visit_seq</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">seq</span>: <span class="ident">V</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Value</span>, <span class="ident">V</span>::<span class="ident">Error</span><span class="op">&gt;</span>
             <span class="kw">where</span>
                 <span class="ident">V</span>: <span class="ident">de</span>::<span class="ident">SeqAccess</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span>,
             {
                 <span class="kw">let</span> <span class="ident">host_path</span> <span class="op">=</span> <span class="ident">seq</span>
                     .<span class="ident">next_element</span>()<span class="question-mark">?</span>
-                    .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">invalid_length</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="self">self</span>))<span class="question-mark">?</span>;
+                    .<span class="ident">ok_or_else</span>(<span class="op">||</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">invalid_length</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="self">self</span>))<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">seq</span>
                     .<span class="ident">next_element</span>()<span class="question-mark">?</span>
-                    .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">invalid_length</span>(<span class="number">1</span>, <span class="kw-2">&amp;</span><span class="self">self</span>))<span class="question-mark">?</span>;
+                    .<span class="ident">ok_or_else</span>(<span class="op">||</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">invalid_length</span>(<span class="number">1</span>, <span class="kw-2">&amp;</span><span class="self">self</span>))<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">OpenOptions</span>::<span class="ident">new</span>()
-                    .<span class="ident">read</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">READ</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
-                    .<span class="ident">write</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">WRITE</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
-                    .<span class="ident">append</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">APPEND</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
+                    .<span class="ident">read</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">READ</span> <span class="op">!=</span> <span class="number">0</span>)
+                    .<span class="ident">write</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">WRITE</span> <span class="op">!=</span> <span class="number">0</span>)
+                    .<span class="ident">append</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">APPEND</span> <span class="op">!=</span> <span class="number">0</span>)
                     .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">host_path</span>)
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">custom</span>(<span class="string">&quot;Could not open file on this system&quot;</span>))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="ident">HostFile</span> {
@@ -1319,7 +1317,7 @@
                 })
             }
 
-            <span class="kw">fn</span> <span class="ident">visit_map</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">V</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Value</span>, <span class="ident">V</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+            <span class="kw">fn</span> <span class="ident">visit_map</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">V</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Value</span>, <span class="ident">V</span>::<span class="ident">Error</span><span class="op">&gt;</span>
             <span class="kw">where</span>
                 <span class="ident">V</span>: <span class="ident">de</span>::<span class="ident">MapAccess</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span>,
             {
@@ -1327,13 +1325,13 @@
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">flags</span> <span class="op">=</span> <span class="prelude-val">None</span>;
                 <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">key</span>) <span class="op">=</span> <span class="ident">map</span>.<span class="ident">next_key</span>()<span class="question-mark">?</span> {
                     <span class="kw">match</span> <span class="ident">key</span> {
-                        <span class="ident">Field</span>::<span class="ident">HostPath</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">Field</span>::<span class="ident">HostPath</span> <span class="op">=&gt;</span> {
                             <span class="kw">if</span> <span class="ident">host_path</span>.<span class="ident">is_some</span>() {
                                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">duplicate_field</span>(<span class="string">&quot;host_path&quot;</span>));
                             }
                             <span class="ident">host_path</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">map</span>.<span class="ident">next_value</span>()<span class="question-mark">?</span>);
                         }
-                        <span class="ident">Field</span>::<span class="ident">Flags</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">Field</span>::<span class="ident">Flags</span> <span class="op">=&gt;</span> {
                             <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">is_some</span>() {
                                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">duplicate_field</span>(<span class="string">&quot;flags&quot;</span>));
                             }
@@ -1341,12 +1339,12 @@
                         }
                     }
                 }
-                <span class="kw">let</span> <span class="ident">host_path</span> <span class="op">=</span> <span class="ident">host_path</span>.<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">missing_field</span>(<span class="string">&quot;host_path&quot;</span>))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">flags</span>.<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">missing_field</span>(<span class="string">&quot;flags&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">host_path</span> <span class="op">=</span> <span class="ident">host_path</span>.<span class="ident">ok_or_else</span>(<span class="op">||</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">missing_field</span>(<span class="string">&quot;host_path&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">flags</span>.<span class="ident">ok_or_else</span>(<span class="op">||</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">missing_field</span>(<span class="string">&quot;flags&quot;</span>))<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">OpenOptions</span>::<span class="ident">new</span>()
-                    .<span class="ident">read</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">READ</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
-                    .<span class="ident">write</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">WRITE</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
-                    .<span class="ident">append</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">APPEND</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
+                    .<span class="ident">read</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">READ</span> <span class="op">!=</span> <span class="number">0</span>)
+                    .<span class="ident">write</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">WRITE</span> <span class="op">!=</span> <span class="number">0</span>)
+                    .<span class="ident">append</span>(<span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">HostFile</span>::<span class="ident">APPEND</span> <span class="op">!=</span> <span class="number">0</span>)
                     .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">host_path</span>)
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">de</span>::<span class="ident">Error</span>::<span class="ident">custom</span>(<span class="string">&quot;Could not open file on this system&quot;</span>))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="ident">HostFile</span> {
@@ -1368,16 +1366,16 @@
     <span class="kw">const</span> <span class="ident">APPEND</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="number">4</span>;
 
     <span class="doccomment">/// creates a new host file from a `std::fs::File` and a path</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">file</span>: <span class="ident">fs</span>::<span class="ident">File</span>, <span class="ident">host_path</span>: <span class="ident">PathBuf</span>, <span class="ident">read</span>: <span class="ident">bool</span>, <span class="ident">write</span>: <span class="ident">bool</span>, <span class="ident">append</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">file</span>: <span class="ident">fs</span>::<span class="ident">File</span>, <span class="ident">host_path</span>: <span class="ident">PathBuf</span>, <span class="ident">read</span>: <span class="ident">bool</span>, <span class="ident">write</span>: <span class="ident">bool</span>, <span class="ident">append</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">flags</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">if</span> <span class="ident">read</span> {
-            <span class="ident">flags</span> <span class="op">|</span><span class="op">=</span> <span class="self">Self</span>::<span class="ident">READ</span>;
+            <span class="ident">flags</span> <span class="op">|=</span> <span class="self">Self</span>::<span class="ident">READ</span>;
         }
         <span class="kw">if</span> <span class="ident">write</span> {
-            <span class="ident">flags</span> <span class="op">|</span><span class="op">=</span> <span class="self">Self</span>::<span class="ident">WRITE</span>;
+            <span class="ident">flags</span> <span class="op">|=</span> <span class="self">Self</span>::<span class="ident">WRITE</span>;
         }
         <span class="kw">if</span> <span class="ident">append</span> {
-            <span class="ident">flags</span> <span class="op">|</span><span class="op">=</span> <span class="self">Self</span>::<span class="ident">APPEND</span>;
+            <span class="ident">flags</span> <span class="op">|=</span> <span class="self">Self</span>::<span class="ident">APPEND</span>;
         }
         <span class="self">Self</span> {
             <span class="ident">inner</span>: <span class="ident">file</span>,
@@ -1386,48 +1384,48 @@
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fs</span>::<span class="ident">Metadata</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">fs</span>::<span class="ident">Metadata</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">metadata</span>().<span class="ident">unwrap</span>()
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">HostFile</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read_to_end</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read_to_string</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read_exact</span>(<span class="ident">buf</span>)
     }
 }
 <span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">HostFile</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">seek</span>(<span class="ident">pos</span>)
     }
 }
 <span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">HostFile</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">flush</span>()
     }
-    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write_all</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write_fmt</span>(<span class="ident">fmt</span>)
     }
 }
 
 <span class="attribute">#[<span class="ident">typetag</span>::<span class="ident">serde</span>]</span>
 <span class="kw">impl</span> <span class="ident">WasiFile</span> <span class="kw">for</span> <span class="ident">HostFile</span> {
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">metadata</span>()
             .<span class="ident">accessed</span>()
             .<span class="ident">ok</span>()
@@ -1440,7 +1438,7 @@
         <span class="comment">// TODO: figure out how to do this</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">metadata</span>()
             .<span class="ident">modified</span>()
             .<span class="ident">ok</span>()
@@ -1453,7 +1451,7 @@
         <span class="comment">// TODO: figure out how to do this</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">metadata</span>()
             .<span class="ident">created</span>()
             .<span class="ident">ok</span>()
@@ -1466,26 +1464,26 @@
         <span class="comment">// TODO: figure out how to do this</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">metadata</span>().<span class="ident">len</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="ident">fs</span>::<span class="ident">File</span>::<span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>, <span class="ident">new_size</span>).<span class="ident">map_err</span>(<span class="ident">Into</span>::<span class="ident">into</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">remove_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">host_path</span>).<span class="ident">map_err</span>(<span class="ident">Into</span>::<span class="ident">into</span>)
     }
-    <span class="kw">fn</span> <span class="ident">sync_to_disk</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">sync_to_disk</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">sync_all</span>().<span class="ident">map_err</span>(<span class="ident">Into</span>::<span class="ident">into</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">rename_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">new_name</span>: <span class="kw-2">&amp;</span><span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">rename_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">new_name</span>: <span class="kw-2">&amp;</span><span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">host_path</span>, <span class="ident">new_name</span>).<span class="ident">map_err</span>(<span class="ident">Into</span>::<span class="ident">into</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="comment">// unwrap is safe because of get_raw_fd implementation</span>
         <span class="kw">let</span> <span class="ident">host_fd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_raw_fd</span>().<span class="ident">unwrap</span>();
 
@@ -1493,12 +1491,12 @@
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">unix</span>::<span class="ident">io</span>::<span class="ident">AsRawFd</span>;
         <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">as_raw_fd</span>())
     }
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">unix</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="macro">unimplemented</span><span class="macro">!</span>(
             <span class="string">&quot;HostFile::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet&quot;</span>
         );
@@ -1506,49 +1504,49 @@
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">io</span>::<span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WasiFsError</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">io_error</span>: <span class="ident">io</span>::<span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">io_error</span>: <span class="ident">io</span>::<span class="ident">Error</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">io_error</span>.<span class="ident">kind</span>() {
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">AddrInUse</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AddressInUse</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">AddrNotAvailable</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AddressNotAvailable</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">AlreadyExists</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AlreadyExists</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">BrokenPipe</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">BrokenPipe</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">ConnectionAborted</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionAborted</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">ConnectionRefused</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionRefused</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">ConnectionReset</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionReset</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Interrupted</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">Interrupted</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">InvalidData</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">InvalidData</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">InvalidInput</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">NotConnected</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">NotConnected</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">NotFound</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">EntityNotFound</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">PermissionDenied</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">TimedOut</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">TimedOut</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">UnexpectedEof</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">UnexpectedEof</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">WouldBlock</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">WouldBlock</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">WriteZero</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">WriteZero</span>,
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">IOError</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">AddrInUse</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AddressInUse</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">AddrNotAvailable</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AddressNotAvailable</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">AlreadyExists</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">AlreadyExists</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">BrokenPipe</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">BrokenPipe</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">ConnectionAborted</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionAborted</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">ConnectionRefused</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionRefused</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">ConnectionReset</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">ConnectionReset</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Interrupted</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">Interrupted</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">InvalidData</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">InvalidData</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">InvalidInput</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">NotConnected</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">NotConnected</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">NotFound</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">EntityNotFound</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">PermissionDenied</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">TimedOut</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">TimedOut</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">UnexpectedEof</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">UnexpectedEof</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">WouldBlock</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">WouldBlock</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">WriteZero</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">WriteZero</span>,
+            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">IOError</span>,
             <span class="comment">// if the following triggers, a new error type was added to this non-exhaustive enum</span>
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">UnknownError</span>(<span class="ident">__WASI_EIO</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">WasiFsError</span>::<span class="ident">UnknownError</span>(<span class="ident">__WASI_EIO</span>),
         }
     }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">fn</span> <span class="ident">host_file_bytes_available</span>(<span class="ident">host_fd</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">host_file_bytes_available</span>(<span class="ident">host_fd</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes_found</span> <span class="op">=</span> <span class="number">0</span> <span class="kw">as</span> <span class="ident">libc</span>::<span class="ident">c_int</span>;
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">libc</span>::<span class="ident">ioctl</span>(<span class="ident">host_fd</span>, <span class="ident">libc</span>::<span class="ident">FIONREAD</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bytes_found</span>) };
 
     <span class="kw">match</span> <span class="ident">result</span> {
         <span class="comment">// success</span>
-        <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">bytes_found</span>.<span class="ident">try_into</span>().<span class="ident">unwrap_or</span>(<span class="number">0</span>)),
-        <span class="ident">libc</span>::<span class="ident">EBADF</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">InvalidFd</span>),
-        <span class="ident">libc</span>::<span class="ident">EFAULT</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">InvalidData</span>),
-        <span class="ident">libc</span>::<span class="ident">EINVAL</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span>),
-        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">IOError</span>),
+        <span class="number">0</span> <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">bytes_found</span>.<span class="ident">try_into</span>().<span class="ident">unwrap_or</span>(<span class="number">0</span>)),
+        <span class="ident">libc</span>::<span class="ident">EBADF</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">InvalidFd</span>),
+        <span class="ident">libc</span>::<span class="ident">EFAULT</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">InvalidData</span>),
+        <span class="ident">libc</span>::<span class="ident">EINVAL</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">InvalidInput</span>),
+        <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">IOError</span>),
     }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">unix</span>))]</span>
-<span class="kw">fn</span> <span class="ident">host_file_bytes_available</span>(<span class="ident">_raw_fd</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">host_file_bytes_available</span>(<span class="ident">_raw_fd</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
     <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff&quot;</span>)
 }
 
@@ -1557,25 +1555,25 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Stdout</span>;
 <span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">Stdout</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not read from stdout&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not read from stdout&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not read from stdout&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not read from stdout&quot;</span>,
@@ -1583,48 +1581,48 @@
     }
 }
 <span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">Stdout</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="string">&quot;can not seek stdout&quot;</span>))
     }
 }
 <span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">Stdout</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stdout</span>().<span class="ident">write</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stdout</span>().<span class="ident">flush</span>()
     }
-    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stdout</span>().<span class="ident">write_all</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stdout</span>().<span class="ident">write_fmt</span>(<span class="ident">fmt</span>)
     }
 }
 
 <span class="attribute">#[<span class="ident">typetag</span>::<span class="ident">serde</span>]</span>
 <span class="kw">impl</span> <span class="ident">WasiFile</span> <span class="kw">for</span> <span class="ident">Stdout</span> {
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Calling WasiFile::set_len on stdout; this is probably a bug&quot;</span>);
         <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span>)
     }
-    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="comment">// unwrap is safe because of get_raw_fd implementation</span>
         <span class="kw">let</span> <span class="ident">host_fd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_raw_fd</span>().<span class="ident">unwrap</span>();
 
@@ -1632,13 +1630,13 @@
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">unix</span>::<span class="ident">io</span>::<span class="ident">AsRawFd</span>;
         <span class="prelude-val">Some</span>(<span class="ident">io</span>::<span class="ident">stdout</span>().<span class="ident">as_raw_fd</span>())
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">unix</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="macro">unimplemented</span><span class="macro">!</span>(
             <span class="string">&quot;Stdout::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet&quot;</span>
         );
@@ -1650,25 +1648,25 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Stderr</span>;
 <span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">Stderr</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not read from stderr&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not read from stderr&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not read from stderr&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not read from stderr&quot;</span>,
@@ -1676,48 +1674,48 @@
     }
 }
 <span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">Stderr</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="string">&quot;can not seek stderr&quot;</span>))
     }
 }
 <span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">Stderr</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stderr</span>().<span class="ident">write</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stderr</span>().<span class="ident">flush</span>()
     }
-    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stderr</span>().<span class="ident">write_all</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stderr</span>().<span class="ident">write_fmt</span>(<span class="ident">fmt</span>)
     }
 }
 
 <span class="attribute">#[<span class="ident">typetag</span>::<span class="ident">serde</span>]</span>
 <span class="kw">impl</span> <span class="ident">WasiFile</span> <span class="kw">for</span> <span class="ident">Stderr</span> {
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Calling WasiFile::set_len on stderr; this is probably a bug&quot;</span>);
         <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span>)
     }
-    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="comment">// unwrap is safe because of get_raw_fd implementation</span>
         <span class="kw">let</span> <span class="ident">host_fd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_raw_fd</span>().<span class="ident">unwrap</span>();
 
@@ -1725,13 +1723,13 @@
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">unix</span>::<span class="ident">io</span>::<span class="ident">AsRawFd</span>;
         <span class="prelude-val">Some</span>(<span class="ident">io</span>::<span class="ident">stderr</span>().<span class="ident">as_raw_fd</span>())
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">unix</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="macro">unimplemented</span><span class="macro">!</span>(
             <span class="string">&quot;Stderr::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet&quot;</span>
         );
@@ -1743,44 +1741,44 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Stdin</span>;
 <span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">Stdin</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stdin</span>().<span class="ident">read</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stdin</span>().<span class="ident">read_to_end</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stdin</span>().<span class="ident">read_to_string</span>(<span class="ident">buf</span>)
     }
-    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="ident">io</span>::<span class="ident">stdin</span>().<span class="ident">read_exact</span>(<span class="ident">buf</span>)
     }
 }
 <span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">Stdin</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="string">&quot;can not seek stdin&quot;</span>))
     }
 }
 <span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">Stdin</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not write to stdin&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not write to stdin&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not write to stdin&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_fmt</span>: ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_fmt</span>: ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
             <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
             <span class="string">&quot;can not write to stdin&quot;</span>,
@@ -1790,28 +1788,28 @@
 
 <span class="attribute">#[<span class="ident">typetag</span>::<span class="ident">serde</span>]</span>
 <span class="kw">impl</span> <span class="ident">WasiFile</span> <span class="kw">for</span> <span class="ident">Stdin</span> {
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">__wasi_filesize_t</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Calling WasiFile::set_len on stdin; this is probably a bug&quot;</span>);
         <span class="prelude-val">Err</span>(<span class="ident">WasiFsError</span>::<span class="ident">PermissionDenied</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="comment">// unwrap is safe because of get_raw_fd implementation</span>
         <span class="kw">let</span> <span class="ident">host_fd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_raw_fd</span>().<span class="ident">unwrap</span>();
 
@@ -1819,13 +1817,13 @@
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">unix</span>::<span class="ident">io</span>::<span class="ident">AsRawFd</span>;
         <span class="prelude-val">Some</span>(<span class="ident">io</span>::<span class="ident">stdin</span>().<span class="ident">as_raw_fd</span>())
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">unix</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_raw_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="macro">unimplemented</span><span class="macro">!</span>(
             <span class="string">&quot;Stdin::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet&quot;</span>
         );
@@ -1842,4 +1840,4 @@ trait WasiFdBacking: std::fmt::Debug {
 }
 */</span>
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "wasmer_wasi";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../../";window.currentCrate = "wasmer_wasi";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

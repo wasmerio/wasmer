@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/state.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>state.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/state.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>state.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1314,7 +1314,7 @@
     <span class="kw">pub</span> <span class="ident">reg_diff</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">RegisterIndex</span>, <span class="ident">MachineValue</span>)<span class="op">&gt;</span>,
 
     <span class="doccomment">/// Previous frame diff.</span>
-    <span class="kw">pub</span> <span class="ident">prev_frame_diff</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="comment">// None for removal</span>
+    <span class="kw">pub</span> <span class="ident">prev_frame_diff</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;&gt;</span>, <span class="comment">// None for removal</span>
 
     <span class="doccomment">/// Wasm stack push.</span>
     <span class="kw">pub</span> <span class="ident">wasm_stack_push</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmAbstractValue</span><span class="op">&gt;</span>,
@@ -1413,9 +1413,9 @@
     <span class="doccomment">/// Wasm instruction offset.</span>
     <span class="kw">pub</span> <span class="ident">wasm_inst_offset</span>: <span class="ident">usize</span>,
     <span class="doccomment">/// Stack.</span>
-    <span class="kw">pub</span> <span class="ident">stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;&gt;</span>,
     <span class="doccomment">/// Locals.</span>
-    <span class="kw">pub</span> <span class="ident">locals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">locals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;&gt;</span>,
 }
 
 <span class="doccomment">/// An image of the execution state.</span>
@@ -1429,7 +1429,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceImage</span> {
     <span class="doccomment">/// Memory for this `InstanceImage`</span>
-    <span class="kw">pub</span> <span class="ident">memory</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">memory</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>,
     <span class="doccomment">/// Stored globals for this `InstanceImage`</span>
     <span class="kw">pub</span> <span class="ident">globals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span>,
     <span class="doccomment">/// `ExecutionStateImage` for this `InstanceImage`</span>
@@ -1452,18 +1452,18 @@
     <span class="kw">pub</span> <span class="ident">backend</span>: <span class="ident">String</span>,
 
     <span class="doccomment">/// `RunnableModule` for this code version.</span>
-    <span class="kw">pub</span> <span class="ident">runnable_module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">RunnableModule</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">runnable_module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">RunnableModule</span><span class="op">&gt;&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ModuleStateMap</span> {
     <span class="doccomment">/// Looks up an ip from self using the given ip, base, and offset table provider.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup_ip</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">OffsetInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup_ip</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">OffsetInfo</span><span class="op">&gt;&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">ip</span>: <span class="ident">usize</span>,
         <span class="ident">base</span>: <span class="ident">usize</span>,
         <span class="ident">offset_table_provider</span>: <span class="ident">F</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>, <span class="ident">MachineState</span>)<span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">ip</span> <span class="op">&lt;</span> <span class="ident">base</span> <span class="op">|</span><span class="op">|</span> <span class="ident">ip</span> <span class="op">-</span> <span class="ident">base</span> <span class="op">&gt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">total_size</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>, <span class="ident">MachineState</span>)<span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="ident">ip</span> <span class="op">&lt;</span> <span class="ident">base</span> <span class="op">||</span> <span class="ident">ip</span> <span class="op">-</span> <span class="ident">base</span> <span class="op">&gt;=</span> <span class="self">self</span>.<span class="ident">total_size</span> {
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {
             <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">fsm</span>) <span class="op">=</span> <span class="self">self</span>
@@ -1476,8 +1476,8 @@
                 .<span class="ident">range</span>((<span class="ident">Unbounded</span>, <span class="ident">Included</span>(<span class="kw-2">&amp;</span>(<span class="ident">ip</span> <span class="op">-</span> <span class="ident">base</span>))))
                 .<span class="ident">last</span>()
             {
-                <span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="ident">x</span>)) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw">if</span> <span class="ident">ip</span> <span class="op">-</span> <span class="ident">base</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">x</span>.<span class="ident">end_offset</span> {
+                <span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="ident">x</span>)) <span class="op">=&gt;</span> {
+                    <span class="kw">if</span> <span class="ident">ip</span> <span class="op">-</span> <span class="ident">base</span> <span class="op">&gt;=</span> <span class="ident">x</span>.<span class="ident">end_offset</span> {
                         <span class="prelude-val">None</span>
                     } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">diff_id</span> <span class="op">&lt;</span> <span class="ident">fsm</span>.<span class="ident">diffs</span>.<span class="ident">len</span>() {
                         <span class="prelude-val">Some</span>((<span class="ident">fsm</span>, <span class="ident">fsm</span>.<span class="ident">diffs</span>[<span class="ident">x</span>.<span class="ident">diff_id</span>].<span class="ident">build_state</span>(<span class="ident">fsm</span>)))
@@ -1485,7 +1485,7 @@
                         <span class="prelude-val">None</span>
                     }
                 }
-                <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+                <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
             }
         }
     }
@@ -1494,7 +1494,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">ip</span>: <span class="ident">usize</span>,
         <span class="ident">base</span>: <span class="ident">usize</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>, <span class="ident">MachineState</span>)<span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>, <span class="ident">MachineState</span>)<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">lookup_ip</span>(<span class="ident">ip</span>, <span class="ident">base</span>, <span class="op">|</span><span class="ident">fsm</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">fsm</span>.<span class="ident">call_offsets</span>)
     }
 
@@ -1503,7 +1503,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">ip</span>: <span class="ident">usize</span>,
         <span class="ident">base</span>: <span class="ident">usize</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>, <span class="ident">MachineState</span>)<span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>, <span class="ident">MachineState</span>)<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">lookup_ip</span>(<span class="ident">ip</span>, <span class="ident">base</span>, <span class="op">|</span><span class="ident">fsm</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">fsm</span>.<span class="ident">trappable_offsets</span>)
     }
 
@@ -1512,7 +1512,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">ip</span>: <span class="ident">usize</span>,
         <span class="ident">base</span>: <span class="ident">usize</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>, <span class="ident">MachineState</span>)<span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>, <span class="ident">MachineState</span>)<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">lookup_ip</span>(<span class="ident">ip</span>, <span class="ident">base</span>, <span class="op">|</span><span class="ident">fsm</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">fsm</span>.<span class="ident">loop_offsets</span>)
     }
 }
@@ -1524,7 +1524,7 @@
         <span class="ident">local_function_id</span>: <span class="ident">usize</span>,
         <span class="ident">shadow_size</span>: <span class="ident">usize</span>,
         <span class="ident">locals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmAbstractValue</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionStateMap</span> {
+    ) <span class="op">-&gt;</span> <span class="ident">FunctionStateMap</span> {
         <span class="ident">FunctionStateMap</span> {
             <span class="ident">initial</span>,
             <span class="ident">local_function_id</span>,
@@ -1542,13 +1542,13 @@
 
 <span class="kw">impl</span> <span class="ident">MachineState</span> {
     <span class="doccomment">/// Creates a `MachineStateDiff` from self and the given `&amp;MachineState`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">diff</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">old</span>: <span class="kw-2">&amp;</span><span class="ident">MachineState</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MachineStateDiff</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">diff</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">old</span>: <span class="kw-2">&amp;</span><span class="ident">MachineState</span>) <span class="op">-&gt;</span> <span class="ident">MachineStateDiff</span> {
         <span class="kw">let</span> <span class="ident">first_diff_stack_depth</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">stack_values</span>
             .<span class="ident">iter</span>()
             .<span class="ident">zip</span>(<span class="ident">old</span>.<span class="ident">stack_values</span>.<span class="ident">iter</span>())
             .<span class="ident">enumerate</span>()
-            .<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!</span><span class="op">=</span> <span class="ident">b</span>)
+            .<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!=</span> <span class="ident">b</span>)
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>)
             .<span class="ident">unwrap_or</span>(<span class="ident">old</span>.<span class="ident">stack_values</span>.<span class="ident">len</span>().<span class="ident">min</span>(<span class="self">self</span>.<span class="ident">stack_values</span>.<span class="ident">len</span>()));
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">register_values</span>.<span class="ident">len</span>(), <span class="ident">old</span>.<span class="ident">register_values</span>.<span class="ident">len</span>());
@@ -1557,15 +1557,15 @@
             .<span class="ident">iter</span>()
             .<span class="ident">zip</span>(<span class="ident">old</span>.<span class="ident">register_values</span>.<span class="ident">iter</span>())
             .<span class="ident">enumerate</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!</span><span class="op">=</span> <span class="ident">b</span>)
+            .<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!=</span> <span class="ident">b</span>)
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">i</span>, (<span class="ident">a</span>, <span class="kw">_</span>))<span class="op">|</span> (<span class="ident">RegisterIndex</span>(<span class="ident">i</span>), <span class="ident">a</span>.<span class="ident">clone</span>()))
             .<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="ident">prev_frame_diff</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>
+        <span class="kw">let</span> <span class="ident">prev_frame_diff</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;&gt;</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">prev_frame</span>
             .<span class="ident">iter</span>()
             .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">old_v</span>) <span class="op">=</span> <span class="ident">old</span>.<span class="ident">prev_frame</span>.<span class="ident">get</span>(<span class="ident">k</span>) {
-                    <span class="ident">v</span> <span class="op">!</span><span class="op">=</span> <span class="ident">old_v</span>
+                    <span class="ident">v</span> <span class="op">!=</span> <span class="ident">old_v</span>
                 } <span class="kw">else</span> {
                     <span class="bool-val">true</span>
                 }
@@ -1583,7 +1583,7 @@
             .<span class="ident">iter</span>()
             .<span class="ident">zip</span>(<span class="ident">old</span>.<span class="ident">wasm_stack</span>.<span class="ident">iter</span>())
             .<span class="ident">enumerate</span>()
-            .<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!</span><span class="op">=</span> <span class="ident">b</span>)
+            .<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!=</span> <span class="ident">b</span>)
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>)
             .<span class="ident">unwrap_or</span>(<span class="ident">old</span>.<span class="ident">wasm_stack</span>.<span class="ident">len</span>().<span class="ident">min</span>(<span class="self">self</span>.<span class="ident">wasm_stack</span>.<span class="ident">len</span>()));
         <span class="ident">MachineStateDiff</span> {
@@ -1605,7 +1605,7 @@
 
 <span class="kw">impl</span> <span class="ident">MachineStateDiff</span> {
     <span class="doccomment">/// Creates a `MachineState` from the given `&amp;FunctionStateMap`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MachineState</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>) <span class="op">-&gt;</span> <span class="ident">MachineState</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">chain</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">MachineStateDiff</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
         <span class="ident">chain</span>.<span class="ident">push</span>(<span class="self">self</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">last</span>;
@@ -1652,7 +1652,7 @@
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>;
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">env</span>::<span class="ident">var</span>(<span class="string">&quot;WASMER_BACKTRACE&quot;</span>) {
-            <span class="kw">if</span> <span class="ident">x</span> <span class="op">=</span><span class="op">=</span> <span class="string">&quot;1&quot;</span> {
+            <span class="kw">if</span> <span class="ident">x</span> <span class="op">==</span> <span class="string">&quot;1&quot;</span> {
                 <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="ident">output</span>());
                 <span class="kw">return</span>;
             }
@@ -1662,8 +1662,8 @@
     }
 
     <span class="doccomment">/// Converts self into a `String`, used for display purposes.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">output</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
-        <span class="kw">fn</span> <span class="ident">join_strings</span>(<span class="ident">x</span>: <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">sep</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">output</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">String</span> {
+        <span class="kw">fn</span> <span class="ident">join_strings</span>(<span class="ident">x</span>: <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">sep</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="ident">String</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">first</span> <span class="op">=</span> <span class="bool-val">true</span>;
 
@@ -1671,16 +1671,16 @@
                 <span class="kw">if</span> <span class="ident">first</span> {
                     <span class="ident">first</span> <span class="op">=</span> <span class="bool-val">false</span>;
                 } <span class="kw">else</span> {
-                    <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="ident">sep</span>;
+                    <span class="ident">ret</span> <span class="op">+=</span> <span class="ident">sep</span>;
                 }
-                <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">s</span>;
+                <span class="ident">ret</span> <span class="op">+=</span> <span class="kw-2">&amp;</span><span class="ident">s</span>;
             }
 
             <span class="ident">ret</span>
         }
 
-        <span class="kw">fn</span> <span class="ident">format_optional_u64_sequence</span>(<span class="ident">x</span>: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
-            <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
+        <span class="kw">fn</span> <span class="ident">format_optional_u64_sequence</span>(<span class="ident">x</span>: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>]) <span class="op">-&gt;</span> <span class="ident">String</span> {
+            <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span> {
                 <span class="string">&quot;(empty)&quot;</span>.<span class="ident">into</span>()
             } <span class="kw">else</span> {
                 <span class="ident">join_strings</span>(
@@ -1689,7 +1689,7 @@
                             <span class="string">&quot;[{}] = {}&quot;</span>,
                             <span class="ident">i</span>,
                             <span class="ident">x</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">x</span>))
-                                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;?&quot;</span>.<span class="ident">to_string</span>())
+                                .<span class="ident">unwrap_or_else</span>(<span class="op">||</span> <span class="string">&quot;?&quot;</span>.<span class="ident">to_string</span>())
                         )
                     }),
                     <span class="string">&quot;, &quot;</span>,
@@ -1699,22 +1699,22 @@
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
 
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">frames</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="kw-2">&amp;</span><span class="string">&quot;Unknown fault address, cannot read stack.&quot;</span>;
-            <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="string">&quot;\n&quot;</span>;
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">frames</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span> {
+            <span class="ident">ret</span> <span class="op">+=</span> <span class="kw-2">&amp;</span><span class="string">&quot;Unknown fault address, cannot read stack.&quot;</span>;
+            <span class="ident">ret</span> <span class="op">+=</span> <span class="string">&quot;\n&quot;</span>;
         } <span class="kw">else</span> {
-            <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="kw-2">&amp;</span><span class="string">&quot;Backtrace:&quot;</span>;
-            <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="string">&quot;\n&quot;</span>;
+            <span class="ident">ret</span> <span class="op">+=</span> <span class="kw-2">&amp;</span><span class="string">&quot;Backtrace:&quot;</span>;
+            <span class="ident">ret</span> <span class="op">+=</span> <span class="string">&quot;\n&quot;</span>;
             <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">f</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">frames</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-                <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;* Frame {} @ Local function {}&quot;</span>, <span class="ident">i</span>, <span class="ident">f</span>.<span class="ident">local_function_id</span>);
-                <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="string">&quot;\n&quot;</span>;
-                <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;  {} {}\n&quot;</span>, <span class="string">&quot;Offset:&quot;</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">f</span>.<span class="ident">wasm_inst_offset</span>),);
-                <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
+                <span class="ident">ret</span> <span class="op">+=</span> <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;* Frame {} @ Local function {}&quot;</span>, <span class="ident">i</span>, <span class="ident">f</span>.<span class="ident">local_function_id</span>);
+                <span class="ident">ret</span> <span class="op">+=</span> <span class="string">&quot;\n&quot;</span>;
+                <span class="ident">ret</span> <span class="op">+=</span> <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;  {} {}\n&quot;</span>, <span class="string">&quot;Offset:&quot;</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">f</span>.<span class="ident">wasm_inst_offset</span>),);
+                <span class="ident">ret</span> <span class="op">+=</span> <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
                     <span class="string">&quot;  {} {}\n&quot;</span>,
                     <span class="string">&quot;Locals:&quot;</span>,
                     <span class="ident">format_optional_u64_sequence</span>(<span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="ident">locals</span>)
                 );
-                <span class="ident">ret</span> <span class="op">+</span><span class="op">=</span> <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
+                <span class="ident">ret</span> <span class="op">+=</span> <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
                     <span class="string">&quot;  {} {}\n\n&quot;</span>,
                     <span class="string">&quot;Stack:&quot;</span>,
                     <span class="ident">format_optional_u64_sequence</span>(<span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="ident">stack</span>)
@@ -1728,16 +1728,16 @@
 
 <span class="kw">impl</span> <span class="ident">InstanceImage</span> {
     <span class="doccomment">/// Converts a slice of bytes into an `Option&lt;InstanceImage&gt;`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">InstanceImage</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">InstanceImage</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">bincode</span>::<span class="ident">deserialize</span>;
         <span class="kw">match</span> <span class="ident">deserialize</span>(<span class="ident">input</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+            <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
         }
     }
 
     <span class="doccomment">/// Converts self into a vector of bytes.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">bincode</span>::<span class="ident">serialize</span>;
         <span class="ident">serialize</span>(<span class="self">self</span>).<span class="ident">unwrap</span>()
     }
@@ -1835,42 +1835,42 @@
 
     <span class="kw">impl</span> <span class="ident">X64Register</span> {
         <span class="doccomment">/// Returns the index of the register.</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RegisterIndex</span> {
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">RegisterIndex</span> {
             <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
-                <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RegisterIndex</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>),
-                <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RegisterIndex</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="number">16</span>),
+                <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">RegisterIndex</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>),
+                <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">RegisterIndex</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="number">16</span>),
             }
         }
 
         <span class="doccomment">/// Converts a DWARD regnum to X64Register.</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_dwarf_regnum</span>(<span class="ident">x</span>: <span class="ident">u16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">X64Register</span><span class="op">&gt;</span> {
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_dwarf_regnum</span>(<span class="ident">x</span>: <span class="ident">u16</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">X64Register</span><span class="op">&gt;</span> {
             <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="ident">x</span> {
-                <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
-                <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDX</span>),
-                <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>),
-                <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBX</span>),
-                <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSI</span>),
-                <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDI</span>),
-                <span class="number">6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>),
-                <span class="number">7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
-                <span class="number">8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R8</span>),
-                <span class="number">9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R9</span>),
-                <span class="number">10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R10</span>),
-                <span class="number">11</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R11</span>),
-                <span class="number">12</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R12</span>),
-                <span class="number">13</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R13</span>),
-                <span class="number">14</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R14</span>),
-                <span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R15</span>),
+                <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
+                <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDX</span>),
+                <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>),
+                <span class="number">3</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBX</span>),
+                <span class="number">4</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSI</span>),
+                <span class="number">5</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDI</span>),
+                <span class="number">6</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>),
+                <span class="number">7</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
+                <span class="number">8</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R8</span>),
+                <span class="number">9</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R9</span>),
+                <span class="number">10</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R10</span>),
+                <span class="number">11</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R11</span>),
+                <span class="number">12</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R12</span>),
+                <span class="number">13</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R13</span>),
+                <span class="number">14</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R14</span>),
+                <span class="number">15</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R15</span>),
 
-                <span class="number">17</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM0</span>),
-                <span class="number">18</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM1</span>),
-                <span class="number">19</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM2</span>),
-                <span class="number">20</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM3</span>),
-                <span class="number">21</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM4</span>),
-                <span class="number">22</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM5</span>),
-                <span class="number">23</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM6</span>),
-                <span class="number">24</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM7</span>),
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
+                <span class="number">17</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM0</span>),
+                <span class="number">18</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM1</span>),
+                <span class="number">19</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM2</span>),
+                <span class="number">20</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM3</span>),
+                <span class="number">21</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM4</span>),
+                <span class="number">22</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM5</span>),
+                <span class="number">23</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM6</span>),
+                <span class="number">24</span> <span class="op">=&gt;</span> <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM7</span>),
+                <span class="kw">_</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
             })
         }
     }
@@ -1890,7 +1890,7 @@
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vm</span>::<span class="ident">Ctx</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">compute_vmctx_deref</span>(<span class="ident">vmctx</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Ctx</span>, <span class="ident">seq</span>: <span class="kw-2">&amp;</span>[<span class="ident">usize</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">compute_vmctx_deref</span>(<span class="ident">vmctx</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Ctx</span>, <span class="ident">seq</span>: <span class="kw-2">&amp;</span>[<span class="ident">usize</span>]) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Ctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
         <span class="kw">for</span> <span class="ident">x</span> <span class="kw">in</span> <span class="ident">seq</span> {
             <span class="ident">ptr</span> <span class="op">=</span> (<span class="kw-2">*</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>)).<span class="ident">offset</span>(<span class="kw-2">*</span><span class="ident">x</span> <span class="kw">as</span> <span class="ident">isize</span>);
@@ -1899,7 +1899,7 @@
     }
 
     <span class="doccomment">/// Create a new `MachineState` with default values.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_machine_state</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MachineState</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_machine_state</span>() <span class="op">-&gt;</span> <span class="ident">MachineState</span> {
         <span class="ident">MachineState</span> {
             <span class="ident">stack_values</span>: <span class="macro">vec</span><span class="macro">!</span>[],
             <span class="ident">register_values</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">MachineValue</span>::<span class="ident">Undefined</span>; <span class="number">16</span> <span class="op">+</span> <span class="number">8</span>],
@@ -1919,11 +1919,11 @@
         <span class="ident">image</span>: <span class="ident">InstanceImage</span>,
         <span class="ident">vmctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
         <span class="ident">breakpoints</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BreakpointMap</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">0</span>; <span class="number">1048576</span> <span class="op">*</span> <span class="number">8</span> <span class="op">/</span> <span class="number">8</span>]; <span class="comment">// 8MB stack</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">len</span>();
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">3</span>; <span class="comment">// placeholder for call return</span>
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">3</span>; <span class="comment">// placeholder for call return</span>
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">last_stack_offset</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0</span>; <span class="comment">// rbp</span>
 
@@ -1935,7 +1935,7 @@
         <span class="comment">// Bottom to top</span>
         <span class="kw">for</span> <span class="ident">f</span> <span class="kw">in</span> <span class="ident">image</span>.<span class="ident">execution_state</span>.<span class="ident">frames</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
             <span class="kw">let</span> <span class="ident">fsm</span> <span class="op">=</span> <span class="ident">local_functions_vec</span>[<span class="ident">f</span>.<span class="ident">local_function_id</span>];
-            <span class="kw">let</span> <span class="ident">suspend_offset</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">f</span>.<span class="ident">wasm_inst_offset</span> <span class="op">=</span><span class="op">=</span> ::<span class="ident">std</span>::<span class="ident">usize</span>::<span class="ident">MAX</span> {
+            <span class="kw">let</span> <span class="ident">suspend_offset</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">f</span>.<span class="ident">wasm_inst_offset</span> <span class="op">==</span> ::<span class="ident">std</span>::<span class="ident">usize</span>::<span class="ident">MAX</span> {
                 <span class="ident">fsm</span>.<span class="ident">wasm_function_header_target_offset</span>
             } <span class="kw">else</span> {
                 <span class="ident">fsm</span>.<span class="ident">wasm_offset_to_target_offset</span>
@@ -1945,9 +1945,9 @@
             .<span class="ident">expect</span>(<span class="string">&quot;instruction is not a critical point&quot;</span>);
 
             <span class="kw">let</span> (<span class="ident">activate_offset</span>, <span class="ident">diff_id</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">suspend_offset</span> {
-                <span class="ident">SuspendOffset</span>::<span class="ident">Loop</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">fsm</span>.<span class="ident">loop_offsets</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">x</span>),
-                <span class="ident">SuspendOffset</span>::<span class="ident">Call</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">fsm</span>.<span class="ident">call_offsets</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">x</span>),
-                <span class="ident">SuspendOffset</span>::<span class="ident">Trappable</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">fsm</span>.<span class="ident">trappable_offsets</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">x</span>),
+                <span class="ident">SuspendOffset</span>::<span class="ident">Loop</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">fsm</span>.<span class="ident">loop_offsets</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">x</span>),
+                <span class="ident">SuspendOffset</span>::<span class="ident">Call</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">fsm</span>.<span class="ident">call_offsets</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">x</span>),
+                <span class="ident">SuspendOffset</span>::<span class="ident">Trappable</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">fsm</span>.<span class="ident">trappable_offsets</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">x</span>),
             }
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">x</span>.<span class="ident">activate_offset</span>, <span class="ident">x</span>.<span class="ident">diff_id</span>))
             .<span class="ident">expect</span>(<span class="string">&quot;offset cannot be found in table&quot;</span>);
@@ -1955,7 +1955,7 @@
             <span class="kw">let</span> <span class="ident">diff</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fsm</span>.<span class="ident">diffs</span>[<span class="ident">diff_id</span>];
             <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">diff</span>.<span class="ident">build_state</span>(<span class="ident">fsm</span>);
 
-            <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+            <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
             <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">as_ptr</span>().<span class="ident">offset</span>(<span class="ident">last_stack_offset</span> <span class="kw">as</span> <span class="ident">isize</span>) <span class="kw">as</span> <span class="ident">usize</span> <span class="kw">as</span> <span class="ident">u64</span>; <span class="comment">// push rbp</span>
             <span class="ident">last_stack_offset</span> <span class="op">=</span> <span class="ident">stack_offset</span> <span class="kw">as</span> <span class="kw">_</span>;
 
@@ -1963,271 +1963,271 @@
 
             <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">iter</span>() {
                 <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">v</span> {
-                    <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>,
-                    <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span> <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                    <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>,
+                    <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span> <span class="op">=&gt;</span> {
+                        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
                         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Ctx</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="kw">as</span> <span class="ident">u64</span>;
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw-2">ref</span> <span class="ident">seq</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                    <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw-2">ref</span> <span class="ident">seq</span>) <span class="op">=&gt;</span> {
+                        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
                         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">compute_vmctx_deref</span>(<span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Ctx</span>, <span class="ident">seq</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">PreserveRegister</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                    <span class="ident">MachineValue</span>::<span class="ident">PreserveRegister</span>(<span class="ident">index</span>) <span class="op">=&gt;</span> {
+                        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
                         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">index</span>.<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">CopyStackBPRelative</span>(<span class="ident">byte_offset</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">byte_offset</span> <span class="op">%</span> <span class="number">8</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>);
+                    <span class="ident">MachineValue</span>::<span class="ident">CopyStackBPRelative</span>(<span class="ident">byte_offset</span>) <span class="op">=&gt;</span> {
+                        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">byte_offset</span> <span class="op">%</span> <span class="number">8</span> <span class="op">==</span> <span class="number">0</span>);
                         <span class="kw">let</span> <span class="ident">target_offset</span> <span class="op">=</span> (<span class="ident">byte_offset</span> <span class="op">/</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">isize</span>;
                         <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">stack</span>[(<span class="ident">last_stack_offset</span> <span class="kw">as</span> <span class="ident">isize</span> <span class="op">+</span> <span class="ident">target_offset</span>) <span class="kw">as</span> <span class="ident">usize</span>];
-                        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
                         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">v</span>;
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span> <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">%</span> <span class="number">8</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>);
-                        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>;
+                    <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span> <span class="op">=&gt;</span> {
+                        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">%</span> <span class="number">8</span> <span class="op">==</span> <span class="number">0</span>);
+                        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>;
                         <span class="ident">got_explicit_shadow</span> <span class="op">=</span> <span class="bool-val">true</span>;
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
+                        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
                         <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">wasm_stack</span>[<span class="ident">x</span>] {
-                            <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
                                 <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">x</span>;
                             }
-                            <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> {
                                 <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">f</span>.<span class="ident">stack</span>[<span class="ident">x</span>].<span class="ident">unwrap</span>();
                             }
                         }
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
+                        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
                         <span class="kw">match</span> <span class="ident">fsm</span>.<span class="ident">locals</span>[<span class="ident">x</span>] {
-                            <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
                                 <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">x</span>;
                             }
-                            <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> {
                                 <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">f</span>.<span class="ident">locals</span>[<span class="ident">x</span>].<span class="ident">unwrap</span>();
                             }
                         }
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">TwoHalves</span>(<span class="kw-2">ref</span> <span class="ident">inner</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                    <span class="ident">MachineValue</span>::<span class="ident">TwoHalves</span>(<span class="kw-2">ref</span> <span class="ident">inner</span>) <span class="op">=&gt;</span> {
+                        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
                         <span class="comment">// TODO: Cleanup</span>
                         <span class="kw">match</span> <span class="ident">inner</span>.<span class="number">0</span> {
-                            <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">wasm_stack</span>[<span class="ident">x</span>] {
-                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span> <span class="ident">x</span>;
+                            <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">wasm_stack</span>[<span class="ident">x</span>] {
+                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
+                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span> <span class="ident">x</span>;
                                 }
-                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> {
+                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> {
                                     <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">stack</span>[<span class="ident">x</span>].<span class="ident">unwrap</span>();
-                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">v</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span> <span class="ident">v</span>;
+                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">v</span> <span class="op">&lt;=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span> <span class="ident">v</span>;
                                 }
                             },
-                            <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">fsm</span>.<span class="ident">locals</span>[<span class="ident">x</span>] {
-                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span> <span class="ident">x</span>;
+                            <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">fsm</span>.<span class="ident">locals</span>[<span class="ident">x</span>] {
+                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
+                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span> <span class="ident">x</span>;
                                 }
-                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> {
+                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> {
                                     <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">locals</span>[<span class="ident">x</span>].<span class="ident">unwrap</span>();
-                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">v</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span> <span class="ident">v</span>;
+                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">v</span> <span class="op">&lt;=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span> <span class="ident">v</span>;
                                 }
                             },
-                            <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw-2">ref</span> <span class="ident">seq</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span>
+                            <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw-2">ref</span> <span class="ident">seq</span>) <span class="op">=&gt;</span> {
+                                <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span>
                                     <span class="ident">compute_vmctx_deref</span>(<span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Ctx</span>, <span class="ident">seq</span>)
                                         <span class="op">&amp;</span> (<span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
                             }
-                            <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> {}
-                            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;TwoHalves.0&quot;</span>),
+                            <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> {}
+                            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;TwoHalves.0&quot;</span>),
                         }
                         <span class="kw">match</span> <span class="ident">inner</span>.<span class="number">1</span> {
-                            <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">wasm_stack</span>[<span class="ident">x</span>] {
-                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span> <span class="ident">x</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">32</span>;
+                            <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">wasm_stack</span>[<span class="ident">x</span>] {
+                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
+                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span> <span class="ident">x</span> <span class="op">&lt;&lt;</span> <span class="number">32</span>;
                                 }
-                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> {
+                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> {
                                     <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">stack</span>[<span class="ident">x</span>].<span class="ident">unwrap</span>();
-                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">v</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span> <span class="ident">v</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">32</span>;
+                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">v</span> <span class="op">&lt;=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span> <span class="ident">v</span> <span class="op">&lt;&lt;</span> <span class="number">32</span>;
                                 }
                             },
-                            <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">fsm</span>.<span class="ident">locals</span>[<span class="ident">x</span>] {
-                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span> <span class="ident">x</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">32</span>;
+                            <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">fsm</span>.<span class="ident">locals</span>[<span class="ident">x</span>] {
+                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
+                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span> <span class="ident">x</span> <span class="op">&lt;&lt;</span> <span class="number">32</span>;
                                 }
-                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> {
+                                <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> {
                                     <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">locals</span>[<span class="ident">x</span>].<span class="ident">unwrap</span>();
-                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">v</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span> <span class="ident">v</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">32</span>;
+                                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">v</span> <span class="op">&lt;=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                                    <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span> <span class="ident">v</span> <span class="op">&lt;&lt;</span> <span class="number">32</span>;
                                 }
                             },
-                            <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw-2">ref</span> <span class="ident">seq</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|</span><span class="op">=</span>
+                            <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw-2">ref</span> <span class="ident">seq</span>) <span class="op">=&gt;</span> {
+                                <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">|=</span>
                                     (<span class="ident">compute_vmctx_deref</span>(<span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Ctx</span>, <span class="ident">seq</span>)
                                         <span class="op">&amp;</span> (<span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>))
-                                        <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">32</span>;
+                                        <span class="op">&lt;&lt;</span> <span class="number">32</span>;
                             }
-                            <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> {}
-                            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;TwoHalves.1&quot;</span>),
+                            <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> {}
+                            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;TwoHalves.1&quot;</span>),
                         }
                     }
                 }
             }
             <span class="kw">if</span> <span class="op">!</span><span class="ident">got_explicit_shadow</span> {
-                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">%</span> <span class="number">8</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>);
-                <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>;
+                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">%</span> <span class="number">8</span> <span class="op">==</span> <span class="number">0</span>);
+                <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>;
             }
             <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="ident">state</span>.<span class="ident">register_values</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
                 <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">v</span> {
-                    <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> {}
-                    <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> {}
+                    <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span> <span class="op">=&gt;</span> {
                         <span class="ident">known_registers</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Ctx</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="kw">as</span> <span class="ident">u64</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw-2">ref</span> <span class="ident">seq</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw-2">ref</span> <span class="ident">seq</span>) <span class="op">=&gt;</span> {
                         <span class="ident">known_registers</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">compute_vmctx_deref</span>(<span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Ctx</span>, <span class="ident">seq</span>));
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">wasm_stack</span>[<span class="ident">x</span>] {
-                        <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">wasm_stack</span>[<span class="ident">x</span>] {
+                        <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
                             <span class="ident">known_registers</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>);
                         }
-                        <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> {
                             <span class="ident">known_registers</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">f</span>.<span class="ident">stack</span>[<span class="ident">x</span>].<span class="ident">unwrap</span>());
                         }
                     },
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">fsm</span>.<span class="ident">locals</span>[<span class="ident">x</span>] {
-                        <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">fsm</span>.<span class="ident">locals</span>[<span class="ident">x</span>] {
+                        <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
                             <span class="ident">known_registers</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>);
                         }
-                        <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> {
                             <span class="ident">known_registers</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">f</span>.<span class="ident">locals</span>[<span class="ident">x</span>].<span class="ident">unwrap</span>());
                         }
                     },
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+                    <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
                 }
             }
 
             <span class="comment">// no need to check 16-byte alignment here because it&#39;s possible that we&#39;re not at a call entry.</span>
 
-            <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+            <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
             <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> (<span class="ident">code_base</span> <span class="op">+</span> <span class="ident">activate_offset</span>) <span class="kw">as</span> <span class="ident">u64</span>; <span class="comment">// return address</span>
         }
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R15</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R14</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R13</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R12</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R11</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R10</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R9</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R8</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSI</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDI</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDX</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBX</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">as_ptr</span>().<span class="ident">offset</span>(<span class="ident">last_stack_offset</span> <span class="kw">as</span> <span class="ident">isize</span>) <span class="kw">as</span> <span class="ident">usize</span> <span class="kw">as</span> <span class="ident">u64</span>; <span class="comment">// rbp</span>
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM15</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM14</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM13</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM12</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM11</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM10</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM9</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM8</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM7</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM6</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM5</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM4</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM3</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM2</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM1</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
-        <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="ident">stack_offset</span> <span class="op">-=</span> <span class="number">1</span>;
         <span class="ident">stack</span>[<span class="ident">stack_offset</span>] <span class="op">=</span>
             <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM0</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">memory</span>) <span class="op">=</span> <span class="ident">image</span>.<span class="ident">memory</span> {
-            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">vmctx</span>.<span class="ident">internal</span>.<span class="ident">memory_bound</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">memory</span>.<span class="ident">len</span>());
+            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">vmctx</span>.<span class="ident">internal</span>.<span class="ident">memory_bound</span> <span class="op">&lt;=</span> <span class="ident">memory</span>.<span class="ident">len</span>());
 
             <span class="kw">if</span> <span class="ident">vmctx</span>.<span class="ident">internal</span>.<span class="ident">memory_bound</span> <span class="op">&lt;</span> <span class="ident">memory</span>.<span class="ident">len</span>() {
                 <span class="kw">let</span> <span class="ident">grow</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">memory_index</span>: <span class="ident">usize</span>, <span class="ident">delta</span>: <span class="ident">usize</span>) <span class="op">=</span>
@@ -2253,7 +2253,7 @@
         <span class="ident">drop</span>(<span class="ident">image</span>); <span class="comment">// free up host memory</span>
 
         <span class="ident">catch_unsafe_unwind</span>(
-            <span class="op">|</span><span class="op">|</span> {
+            <span class="op">||</span> {
                 <span class="ident">run_on_alternative_stack</span>(
                     <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">offset</span>(<span class="ident">stack</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">isize</span>),
                     <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">offset</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">isize</span>),
@@ -2267,7 +2267,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build_instance_image</span>(
         <span class="ident">vmctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
         <span class="ident">execution_state</span>: <span class="ident">ExecutionStateImage</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">InstanceImage</span> {
+    ) <span class="op">-&gt;</span> <span class="ident">InstanceImage</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">vmctx</span>.<span class="ident">internal</span>.<span class="ident">memory_base</span>.<span class="ident">is_null</span>() {
                 <span class="prelude-val">None</span>
@@ -2302,25 +2302,25 @@
     <span class="doccomment">/// Returns a `ExecutionStateImage` for the given versions, stack, initial registers and</span>
     <span class="doccomment">/// initial address.</span>
     <span class="attribute">#[<span class="ident">warn</span>(<span class="ident">unused_variables</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">read_stack</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">CodeVersion</span><span class="op">&gt;</span>, <span class="ident">F</span>: <span class="ident">Fn</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">I</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">read_stack</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">CodeVersion</span><span class="op">&gt;</span>, <span class="ident">F</span>: <span class="ident">Fn</span>() <span class="op">-&gt;</span> <span class="ident">I</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
         <span class="ident">versions</span>: <span class="ident">F</span>,
         <span class="kw-2">mut</span> <span class="ident">stack</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u64</span>,
         <span class="ident">initially_known_registers</span>: [<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>; <span class="number">32</span>],
         <span class="kw-2">mut</span> <span class="ident">initial_address</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>,
         <span class="ident">max_depth</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ExecutionStateImage</span> {
+    ) <span class="op">-&gt;</span> <span class="ident">ExecutionStateImage</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">known_registers</span>: [<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>; <span class="number">32</span>] <span class="op">=</span> <span class="ident">initially_known_registers</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmFunctionStateDump</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">was_baseline</span> <span class="op">=</span> <span class="bool-val">true</span>;
 
         <span class="kw">for</span> <span class="ident">depth</span> <span class="kw">in</span> <span class="number">0</span>.. {
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">max_depth</span>) <span class="op">=</span> <span class="ident">max_depth</span> {
-                <span class="kw">if</span> <span class="ident">depth</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">max_depth</span> {
+                <span class="kw">if</span> <span class="ident">depth</span> <span class="op">&gt;=</span> <span class="ident">max_depth</span> {
                     <span class="kw">return</span> <span class="ident">ExecutionStateImage</span> { <span class="ident">frames</span>: <span class="ident">results</span> };
                 }
             }
 
-            <span class="kw">let</span> <span class="ident">ret_addr</span> <span class="op">=</span> <span class="ident">initial_address</span>.<span class="ident">take</span>().<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">ret_addr</span> <span class="op">=</span> <span class="ident">initial_address</span>.<span class="ident">take</span>().<span class="ident">unwrap_or_else</span>(<span class="op">||</span> {
                 <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">stack</span>;
                 <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                 <span class="ident">x</span>
@@ -2333,19 +2333,19 @@
                 <span class="kw">match</span> <span class="ident">version</span>
                     .<span class="ident">msm</span>
                     .<span class="ident">lookup_call_ip</span>(<span class="ident">ret_addr</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">version</span>.<span class="ident">base</span>)
-                    .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> {
+                    .<span class="ident">or_else</span>(<span class="op">||</span> {
                         <span class="ident">version</span>
                             .<span class="ident">msm</span>
                             .<span class="ident">lookup_trappable_ip</span>(<span class="ident">ret_addr</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">version</span>.<span class="ident">base</span>)
                     })
-                    .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">version</span>.<span class="ident">msm</span>.<span class="ident">lookup_loop_ip</span>(<span class="ident">ret_addr</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">version</span>.<span class="ident">base</span>))
+                    .<span class="ident">or_else</span>(<span class="op">||</span> <span class="ident">version</span>.<span class="ident">msm</span>.<span class="ident">lookup_loop_ip</span>(<span class="ident">ret_addr</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">version</span>.<span class="ident">base</span>))
                 {
-                    <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
                         <span class="ident">fsm_state</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>);
                         <span class="ident">is_baseline</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">version</span>.<span class="ident">baseline</span>);
                         <span class="kw">break</span>;
                     }
-                    <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> {}
+                    <span class="prelude-val">None</span> <span class="op">=&gt;</span> {}
                 };
             }
 
@@ -2359,7 +2359,7 @@
                 <span class="kw">let</span> <span class="ident">is_baseline</span> <span class="op">=</span> <span class="ident">is_baseline</span>.<span class="ident">unwrap</span>();
 
                 <span class="comment">// Are we unwinding through an optimized/baseline boundary?</span>
-                <span class="kw">if</span> <span class="ident">is_baseline</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="op">!</span><span class="ident">was_baseline</span> {
+                <span class="kw">if</span> <span class="ident">is_baseline</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">was_baseline</span> {
                     <span class="kw">let</span> <span class="ident">callee_saved</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">get_boundary_register_preservation</span>();
                     <span class="ident">known_registers</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R15</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
                         <span class="prelude-val">Some</span>(<span class="ident">callee_saved</span>.<span class="ident">r15</span>);
@@ -2376,30 +2376,30 @@
                 <span class="ident">was_baseline</span> <span class="op">=</span> <span class="ident">is_baseline</span>;
             }
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">state</span>
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;&gt;</span> <span class="op">=</span> <span class="ident">state</span>
                 .<span class="ident">wasm_stack</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">x</span> {
-                    <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>),
-                    <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+                    <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>),
+                    <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
                 })
                 .<span class="ident">collect</span>();
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_locals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">fsm</span>
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_locals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;&gt;</span> <span class="op">=</span> <span class="ident">fsm</span>
                 .<span class="ident">locals</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">x</span> {
-                    <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>),
-                    <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+                    <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>),
+                    <span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
                 })
                 .<span class="ident">collect</span>();
 
             <span class="comment">// This must be before the next loop because that modifies `known_registers`.</span>
             <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="ident">state</span>.<span class="ident">register_values</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
                 <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">v</span> {
-                    <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> {}
-                    <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span> <span class="op">=</span><span class="op">&gt;</span> {}
-                    <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> {}
+                    <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span> <span class="op">=&gt;</span> {}
+                    <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {}
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">i</span>] {
                             <span class="ident">wasm_stack</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>);
                         } <span class="kw">else</span> {
@@ -2409,23 +2409,23 @@
                             );
                         }
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=</span> <span class="ident">known_registers</span>[<span class="ident">i</span>] {
                             <span class="ident">wasm_locals</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>);
                         }
                     }
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+                    <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
                 }
             }
 
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">found_shadow</span> <span class="op">=</span> <span class="bool-val">false</span>;
             <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">iter</span>() {
                 <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">v</span> {
-                    <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span> <span class="op">=&gt;</span> {
                         <span class="ident">found_shadow</span> <span class="op">=</span> <span class="bool-val">true</span>;
                         <span class="kw">break</span>;
                     }
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
+                    <span class="kw">_</span> <span class="op">=&gt;</span> {}
                 }
             }
             <span class="kw">if</span> <span class="op">!</span><span class="ident">found_shadow</span> {
@@ -2434,57 +2434,57 @@
 
             <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
                 <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">v</span> {
-                    <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span> <span class="op">=&gt;</span> {
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>((<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">isize</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> {
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span> <span class="op">=&gt;</span> {
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">PreserveRegister</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">PreserveRegister</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                         <span class="ident">known_registers</span>[<span class="ident">idx</span>.<span class="number">0</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">stack</span>);
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">CopyStackBPRelative</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">CopyStackBPRelative</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                         <span class="ident">wasm_stack</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">stack</span>);
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                         <span class="ident">wasm_locals</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">stack</span>);
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">TwoHalves</span>(<span class="kw-2">ref</span> <span class="ident">inner</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">TwoHalves</span>(<span class="kw-2">ref</span> <span class="ident">inner</span>) <span class="op">=&gt;</span> {
                         <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">stack</span>;
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);
                         <span class="kw">match</span> <span class="ident">inner</span>.<span class="number">0</span> {
-                            <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                                 <span class="ident">wasm_stack</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">v</span> <span class="op">&amp;</span> <span class="number">0xffffffffu64</span>);
                             }
-                            <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                                 <span class="ident">wasm_locals</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">v</span> <span class="op">&amp;</span> <span class="number">0xffffffffu64</span>);
                             }
-                            <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
-                            <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> {}
-                            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;TwoHalves.0 (read)&quot;</span>),
+                            <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {}
+                            <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> {}
+                            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;TwoHalves.0 (read)&quot;</span>),
                         }
                         <span class="kw">match</span> <span class="ident">inner</span>.<span class="number">1</span> {
-                            <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                <span class="ident">wasm_stack</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">v</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">32</span>);
+                            <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
+                                <span class="ident">wasm_stack</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">v</span> <span class="op">&gt;&gt;</span> <span class="number">32</span>);
                             }
-                            <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                <span class="ident">wasm_locals</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">v</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">32</span>);
+                            <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
+                                <span class="ident">wasm_locals</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">v</span> <span class="op">&gt;&gt;</span> <span class="number">32</span>);
                             }
-                            <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
-                            <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> {}
-                            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;TwoHalves.1 (read)&quot;</span>),
+                            <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {}
+                            <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> {}
+                            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;TwoHalves.1 (read)&quot;</span>),
                         }
                     }
                 }
@@ -2493,13 +2493,13 @@
             <span class="kw">for</span> (<span class="ident">offset</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="ident">state</span>.<span class="ident">prev_frame</span>.<span class="ident">iter</span>() {
                 <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">offset</span> <span class="op">+</span> <span class="number">2</span>) <span class="kw">as</span> <span class="ident">isize</span>; <span class="comment">// (saved_rbp, return_address)</span>
                 <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">v</span> {
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                         <span class="ident">wasm_stack</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">stack</span>.<span class="ident">offset</span>(<span class="ident">offset</span>));
                     }
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
                         <span class="ident">wasm_locals</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">stack</span>.<span class="ident">offset</span>(<span class="ident">offset</span>));
                     }
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(<span class="string">&quot;values in prev frame can only be stack/local&quot;</span>),
+                    <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(<span class="string">&quot;values in prev frame can only be stack/local&quot;</span>),
                 }
             }
             <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>); <span class="comment">// saved_rbp</span>
@@ -2524,4 +2524,4 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

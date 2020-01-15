@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/macros.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>macros.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/macros.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>macros.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -134,99 +134,7 @@
 <span id="134">134</span>
 <span id="135">135</span>
 <span id="136">136</span>
-<span id="137">137</span>
-<span id="138">138</span>
-<span id="139">139</span>
-<span id="140">140</span>
-<span id="141">141</span>
-<span id="142">142</span>
-<span id="143">143</span>
-<span id="144">144</span>
-<span id="145">145</span>
-<span id="146">146</span>
-<span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">/// Prints a log message with args, similar to println, when the debug feature is enabled.</span>
-<span class="doccomment">/// If the debug feature is disabled, arguments are not evaluated or printed.</span>
-<span class="attribute">#[<span class="ident">macro_export</span>]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
-<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">debug</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> (<span class="macro">println</span><span class="macro">!</span>(<span class="macro">concat</span><span class="macro">!</span>(<span class="string">&quot;[{}] wasmer-runtime(:{}) &quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>), {
-       <span class="kw">let</span> <span class="ident">time</span> <span class="op">=</span> ::<span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">SystemTime</span>::<span class="ident">now</span>().<span class="ident">duration_since</span>(::<span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">UNIX_EPOCH</span>).<span class="ident">expect</span>(<span class="string">&quot;Can&#39;t get time&quot;</span>);
-       <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}.{:03}&quot;</span>, <span class="ident">time</span>.<span class="ident">as_secs</span>(), <span class="ident">time</span>.<span class="ident">subsec_millis</span>())
-    }, <span class="macro">line</span><span class="macro">!</span>()));
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>:<span class="ident">expr</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> (<span class="macro">println</span><span class="macro">!</span>(<span class="macro">concat</span><span class="macro">!</span>(<span class="string">&quot;[{}] wasmer-runtime(:{}) &quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>, <span class="string">&quot;\n&quot;</span>), {
-       <span class="kw">let</span> <span class="ident">time</span> <span class="op">=</span> ::<span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">SystemTime</span>::<span class="ident">now</span>().<span class="ident">duration_since</span>(::<span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">UNIX_EPOCH</span>).<span class="ident">expect</span>(<span class="string">&quot;Can&#39;t get time&quot;</span>);
-       <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}.{:03}&quot;</span>, <span class="ident">time</span>.<span class="ident">as_secs</span>(), <span class="ident">time</span>.<span class="ident">subsec_millis</span>())
-    }, <span class="macro">line</span><span class="macro">!</span>(), $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>)<span class="kw-2">*</span>));
-}
-
-<span class="doccomment">/// Prints a log message with args, similar to println, when the debug feature is enabled.</span>
-<span class="doccomment">/// If the debug feature is disabled, arguments are not evaluated or printed.</span>
-<span class="attribute">#[<span class="ident">macro_export</span>]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>))]</span>
-<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">debug</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {};
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>:<span class="ident">expr</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {};
-}
-
-<span class="doccomment">/// Prints a log message with args, similar to println, when the trace feature is enabled.</span>
-<span class="doccomment">/// If the trace feature is disabled, arguments are not evaluated or printed.</span>
-<span class="attribute">#[<span class="ident">macro_export</span>]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>)]</span>
-<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">trace</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>)
-    };
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>:<span class="ident">expr</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>)<span class="kw-2">*</span>);
-    }
-}
-
-<span class="doccomment">/// Prints a log message with args, similar to println, when the trace feature is enabled.</span>
-<span class="doccomment">/// If the trace feature is disabled, arguments are not evaluated or printed.</span>
-<span class="attribute">#[<span class="ident">macro_export</span>]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>))]</span>
-<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">trace</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {};
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">fmt</span>:<span class="ident">expr</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {};
-}
-
 <span class="doccomment">/// Helper macro to create a new `Func` object using the provided function pointer.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Usage</span>
@@ -268,7 +176,7 @@
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">func</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">func</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">func</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
         <span class="macro-nonterminal">$</span><span class="kw">crate</span>::<span class="macro-nonterminal">Func</span>::<span class="ident">new</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">func</span>)
     }};
 }
@@ -305,7 +213,7 @@
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">imports</span> {
-    ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns_name</span>:<span class="ident">expr</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns</span>:<span class="ident">tt</span>, )<span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> {{
+    ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns_name</span>:<span class="ident">expr</span> <span class="op">=&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns</span>:<span class="ident">tt</span>, )<span class="op">*</span> ) <span class="op">=&gt;</span> {{
         <span class="kw">use</span> <span class="macro-nonterminal">$</span><span class="kw">crate</span>::{
             <span class="macro-nonterminal">import</span>::{<span class="ident">ImportObject</span>, <span class="ident">Namespace</span>},
         };
@@ -320,7 +228,7 @@
 
         <span class="ident">import_object</span>
     }};
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">state_gen</span>:<span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns_name</span>:<span class="ident">expr</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns</span>:<span class="ident">tt</span>, )<span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> {{
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">state_gen</span>:<span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns_name</span>:<span class="ident">expr</span> <span class="op">=&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns</span>:<span class="ident">tt</span>, )<span class="op">*</span> ) <span class="op">=&gt;</span> {{
         <span class="kw">use</span> <span class="macro-nonterminal">$</span><span class="kw">crate</span>::{
             <span class="macro-nonterminal">import</span>::{<span class="ident">ImportObject</span>, <span class="ident">Namespace</span>},
         };
@@ -340,14 +248,14 @@
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">__imports_internal</span> {
-    ( { $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imp_name</span>:<span class="ident">expr</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">import_item</span>:<span class="ident">expr</span>, )<span class="op">*</span> } ) <span class="op">=</span><span class="op">&gt;</span> {{
+    ( { $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imp_name</span>:<span class="ident">expr</span> <span class="op">=&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">import_item</span>:<span class="ident">expr</span>, )<span class="op">*</span> } ) <span class="op">=&gt;</span> {{
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ns</span> <span class="op">=</span> <span class="ident">Namespace</span>::<span class="ident">new</span>();
         $(
             <span class="ident">ns</span>.<span class="ident">insert</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">imp_name</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">import_item</span>);
         )<span class="op">*</span>
         <span class="ident">ns</span>
     }};
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns</span>:<span class="ident">ident</span>) <span class="op">=</span><span class="op">&gt;</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns</span>:<span class="ident">ident</span>) <span class="op">=&gt;</span> {
         <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ns</span>
     };
 }
@@ -355,7 +263,7 @@
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">namespace</span> {
-    ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imp_name</span>:<span class="ident">expr</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">import_item</span>:<span class="ident">expr</span>, )<span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> {{
+    ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imp_name</span>:<span class="ident">expr</span> <span class="op">=&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">import_item</span>:<span class="ident">expr</span>, )<span class="op">*</span> ) <span class="op">=&gt;</span> {{
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ns</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="kw">crate</span>::<span class="macro-nonterminal">import</span>::<span class="ident">Namespace</span>::<span class="ident">new</span>();
         $(
             <span class="ident">ns</span>.<span class="ident">insert</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">imp_name</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">import_item</span>);
@@ -364,4 +272,4 @@
     }};
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

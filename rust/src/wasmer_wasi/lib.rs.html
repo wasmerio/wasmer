@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/wasi/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_wasi/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/wasi/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_wasi/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -275,6 +275,8 @@
 <span id="275">275</span>
 <span id="276">276</span>
 <span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(
     <span class="ident">dead_code</span>,
@@ -300,6 +302,8 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">winapi</span>;
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">log</span>;
 
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">mod</span> <span class="ident">macros</span>;
@@ -328,12 +332,12 @@
 <span class="doccomment">/// Creates a Wasi [`ImportObject`] with [`WasiState`] with the latest snapshot</span>
 <span class="doccomment">/// of WASI.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_import_object</span>(
-    <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">envs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>,
+    <span class="ident">envs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>,
     <span class="ident">preopened_files</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
     <span class="ident">mapped_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>)<span class="op">&gt;</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ImportObject</span> {
-    <span class="kw">let</span> <span class="ident">state_gen</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
+) <span class="op">-&gt;</span> <span class="ident">ImportObject</span> {
+    <span class="kw">let</span> <span class="ident">state_gen</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">||</span> {
         <span class="comment">// TODO: look into removing all these unnecessary clones</span>
         <span class="kw">fn</span> <span class="ident">state_destructor</span>(<span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>) {
             <span class="kw">unsafe</span> {
@@ -363,12 +367,12 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_import_object_from_state</span>(
     <span class="ident">wasi_state</span>: <span class="ident">WasiState</span>,
     <span class="ident">version</span>: <span class="ident">WasiVersion</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ImportObject</span> {
+) <span class="op">-&gt;</span> <span class="ident">ImportObject</span> {
     <span class="comment">// HACK(mark): this is really quite nasty and inefficient, a proper fix will</span>
     <span class="comment">//             require substantial changes to the internals of the WasiFS</span>
     <span class="comment">// copy WasiState by serializing and deserializing</span>
     <span class="kw">let</span> <span class="ident">wasi_state_bytes</span> <span class="op">=</span> <span class="ident">wasi_state</span>.<span class="ident">freeze</span>().<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">state_gen</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
+    <span class="kw">let</span> <span class="ident">state_gen</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">||</span> {
         <span class="kw">fn</span> <span class="ident">state_destructor</span>(<span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>) {
             <span class="kw">unsafe</span> {
                 <span class="ident">drop</span>(<span class="ident">Box</span>::<span class="ident">from_raw</span>(<span class="ident">data</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">WasiState</span>));
@@ -383,8 +387,8 @@
         )
     };
     <span class="kw">match</span> <span class="ident">version</span> {
-        <span class="ident">WasiVersion</span>::<span class="ident">Snapshot0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">generate_import_object_snapshot0_inner</span>(<span class="ident">state_gen</span>),
-        <span class="ident">WasiVersion</span>::<span class="ident">Snapshot1</span> <span class="op">|</span> <span class="ident">WasiVersion</span>::<span class="ident">Latest</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">WasiVersion</span>::<span class="ident">Snapshot0</span> <span class="op">=&gt;</span> <span class="ident">generate_import_object_snapshot0_inner</span>(<span class="ident">state_gen</span>),
+        <span class="ident">WasiVersion</span>::<span class="ident">Snapshot1</span> <span class="op">|</span> <span class="ident">WasiVersion</span>::<span class="ident">Latest</span> <span class="op">=&gt;</span> {
             <span class="ident">generate_import_object_snapshot1_inner</span>(<span class="ident">state_gen</span>)
         }
     }
@@ -393,16 +397,16 @@
 <span class="doccomment">/// Creates a Wasi [`ImportObject`] with [`WasiState`] for the given [`WasiVersion`].</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_import_object_for_version</span>(
     <span class="ident">version</span>: <span class="ident">WasiVersion</span>,
-    <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">envs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>,
+    <span class="ident">envs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>,
     <span class="ident">preopened_files</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
     <span class="ident">mapped_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>)<span class="op">&gt;</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ImportObject</span> {
+) <span class="op">-&gt;</span> <span class="ident">ImportObject</span> {
     <span class="kw">match</span> <span class="ident">version</span> {
-        <span class="ident">WasiVersion</span>::<span class="ident">Snapshot0</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">WasiVersion</span>::<span class="ident">Snapshot0</span> <span class="op">=&gt;</span> {
             <span class="ident">generate_import_object_snapshot0</span>(<span class="ident">args</span>, <span class="ident">envs</span>, <span class="ident">preopened_files</span>, <span class="ident">mapped_dirs</span>)
         }
-        <span class="ident">WasiVersion</span>::<span class="ident">Snapshot1</span> <span class="op">|</span> <span class="ident">WasiVersion</span>::<span class="ident">Latest</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">WasiVersion</span>::<span class="ident">Snapshot1</span> <span class="op">|</span> <span class="ident">WasiVersion</span>::<span class="ident">Latest</span> <span class="op">=&gt;</span> {
             <span class="ident">generate_import_object</span>(<span class="ident">args</span>, <span class="ident">envs</span>, <span class="ident">preopened_files</span>, <span class="ident">mapped_dirs</span>)
         }
     }
@@ -410,12 +414,12 @@
 
 <span class="doccomment">/// Creates a legacy Wasi [`ImportObject`] with [`WasiState`].</span>
 <span class="kw">fn</span> <span class="ident">generate_import_object_snapshot0</span>(
-    <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">envs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>,
+    <span class="ident">envs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>,
     <span class="ident">preopened_files</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
     <span class="ident">mapped_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>)<span class="op">&gt;</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ImportObject</span> {
-    <span class="kw">let</span> <span class="ident">state_gen</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
+) <span class="op">-&gt;</span> <span class="ident">ImportObject</span> {
+    <span class="kw">let</span> <span class="ident">state_gen</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">||</span> {
         <span class="comment">// TODO: look into removing all these unnecessary clones</span>
         <span class="kw">fn</span> <span class="ident">state_destructor</span>(<span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>) {
             <span class="kw">unsafe</span> {
@@ -441,117 +445,117 @@
 }
 
 <span class="doccomment">/// Combines a state generating function with the import list for legacy WASI</span>
-<span class="kw">fn</span> <span class="ident">generate_import_object_snapshot0_inner</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="ident">state_gen</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ImportObject</span>
+<span class="kw">fn</span> <span class="ident">generate_import_object_snapshot0_inner</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="ident">state_gen</span>: <span class="ident">F</span>) <span class="op">-&gt;</span> <span class="ident">ImportObject</span>
 <span class="kw">where</span>
-    <span class="ident">F</span>: <span class="ident">Fn</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>, <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>)) <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">F</span>: <span class="ident">Fn</span>() <span class="op">-&gt;</span> (<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>, <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>)) <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
     <span class="macro">imports</span><span class="macro">!</span> {
         <span class="ident">state_gen</span>,
-        <span class="string">&quot;wasi_unstable&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="string">&quot;args_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">args_get</span>),
-            <span class="string">&quot;args_sizes_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">args_sizes_get</span>),
-            <span class="string">&quot;clock_res_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">clock_res_get</span>),
-            <span class="string">&quot;clock_time_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">clock_time_get</span>),
-            <span class="string">&quot;environ_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">environ_get</span>),
-            <span class="string">&quot;environ_sizes_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">environ_sizes_get</span>),
-            <span class="string">&quot;fd_advise&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_advise</span>),
-            <span class="string">&quot;fd_allocate&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_allocate</span>),
-            <span class="string">&quot;fd_close&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_close</span>),
-            <span class="string">&quot;fd_datasync&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_datasync</span>),
-            <span class="string">&quot;fd_fdstat_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_get</span>),
-            <span class="string">&quot;fd_fdstat_set_flags&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_set_flags</span>),
-            <span class="string">&quot;fd_fdstat_set_rights&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_set_rights</span>),
-            <span class="string">&quot;fd_filestat_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">legacy</span>::<span class="ident">snapshot0</span>::<span class="ident">fd_filestat_get</span>),
-            <span class="string">&quot;fd_filestat_set_size&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_set_size</span>),
-            <span class="string">&quot;fd_filestat_set_times&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_set_times</span>),
-            <span class="string">&quot;fd_pread&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_pread</span>),
-            <span class="string">&quot;fd_prestat_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_prestat_get</span>),
-            <span class="string">&quot;fd_prestat_dir_name&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_prestat_dir_name</span>),
-            <span class="string">&quot;fd_pwrite&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_pwrite</span>),
-            <span class="string">&quot;fd_read&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_read</span>),
-            <span class="string">&quot;fd_readdir&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_readdir</span>),
-            <span class="string">&quot;fd_renumber&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_renumber</span>),
-            <span class="string">&quot;fd_seek&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">legacy</span>::<span class="ident">snapshot0</span>::<span class="ident">fd_seek</span>),
-            <span class="string">&quot;fd_sync&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_sync</span>),
-            <span class="string">&quot;fd_tell&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_tell</span>),
-            <span class="string">&quot;fd_write&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_write</span>),
-            <span class="string">&quot;path_create_directory&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_create_directory</span>),
-            <span class="string">&quot;path_filestat_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">legacy</span>::<span class="ident">snapshot0</span>::<span class="ident">path_filestat_get</span>),
-            <span class="string">&quot;path_filestat_set_times&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_filestat_set_times</span>),
-            <span class="string">&quot;path_link&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_link</span>),
-            <span class="string">&quot;path_open&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_open</span>),
-            <span class="string">&quot;path_readlink&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_readlink</span>),
-            <span class="string">&quot;path_remove_directory&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_remove_directory</span>),
-            <span class="string">&quot;path_rename&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_rename</span>),
-            <span class="string">&quot;path_symlink&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_symlink</span>),
-            <span class="string">&quot;path_unlink_file&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_unlink_file</span>),
-            <span class="string">&quot;poll_oneoff&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">legacy</span>::<span class="ident">snapshot0</span>::<span class="ident">poll_oneoff</span>),
-            <span class="string">&quot;proc_exit&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">proc_exit</span>),
-            <span class="string">&quot;proc_raise&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">proc_raise</span>),
-            <span class="string">&quot;random_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">random_get</span>),
-            <span class="string">&quot;sched_yield&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sched_yield</span>),
-            <span class="string">&quot;sock_recv&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_recv</span>),
-            <span class="string">&quot;sock_send&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_send</span>),
-            <span class="string">&quot;sock_shutdown&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_shutdown</span>),
+        <span class="string">&quot;wasi_unstable&quot;</span> <span class="op">=&gt;</span> {
+            <span class="string">&quot;args_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">args_get</span>),
+            <span class="string">&quot;args_sizes_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">args_sizes_get</span>),
+            <span class="string">&quot;clock_res_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">clock_res_get</span>),
+            <span class="string">&quot;clock_time_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">clock_time_get</span>),
+            <span class="string">&quot;environ_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">environ_get</span>),
+            <span class="string">&quot;environ_sizes_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">environ_sizes_get</span>),
+            <span class="string">&quot;fd_advise&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_advise</span>),
+            <span class="string">&quot;fd_allocate&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_allocate</span>),
+            <span class="string">&quot;fd_close&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_close</span>),
+            <span class="string">&quot;fd_datasync&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_datasync</span>),
+            <span class="string">&quot;fd_fdstat_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_get</span>),
+            <span class="string">&quot;fd_fdstat_set_flags&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_set_flags</span>),
+            <span class="string">&quot;fd_fdstat_set_rights&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_set_rights</span>),
+            <span class="string">&quot;fd_filestat_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">legacy</span>::<span class="ident">snapshot0</span>::<span class="ident">fd_filestat_get</span>),
+            <span class="string">&quot;fd_filestat_set_size&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_set_size</span>),
+            <span class="string">&quot;fd_filestat_set_times&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_set_times</span>),
+            <span class="string">&quot;fd_pread&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_pread</span>),
+            <span class="string">&quot;fd_prestat_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_prestat_get</span>),
+            <span class="string">&quot;fd_prestat_dir_name&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_prestat_dir_name</span>),
+            <span class="string">&quot;fd_pwrite&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_pwrite</span>),
+            <span class="string">&quot;fd_read&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_read</span>),
+            <span class="string">&quot;fd_readdir&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_readdir</span>),
+            <span class="string">&quot;fd_renumber&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_renumber</span>),
+            <span class="string">&quot;fd_seek&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">legacy</span>::<span class="ident">snapshot0</span>::<span class="ident">fd_seek</span>),
+            <span class="string">&quot;fd_sync&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_sync</span>),
+            <span class="string">&quot;fd_tell&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_tell</span>),
+            <span class="string">&quot;fd_write&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_write</span>),
+            <span class="string">&quot;path_create_directory&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_create_directory</span>),
+            <span class="string">&quot;path_filestat_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">legacy</span>::<span class="ident">snapshot0</span>::<span class="ident">path_filestat_get</span>),
+            <span class="string">&quot;path_filestat_set_times&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_filestat_set_times</span>),
+            <span class="string">&quot;path_link&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_link</span>),
+            <span class="string">&quot;path_open&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_open</span>),
+            <span class="string">&quot;path_readlink&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_readlink</span>),
+            <span class="string">&quot;path_remove_directory&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_remove_directory</span>),
+            <span class="string">&quot;path_rename&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_rename</span>),
+            <span class="string">&quot;path_symlink&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_symlink</span>),
+            <span class="string">&quot;path_unlink_file&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_unlink_file</span>),
+            <span class="string">&quot;poll_oneoff&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">legacy</span>::<span class="ident">snapshot0</span>::<span class="ident">poll_oneoff</span>),
+            <span class="string">&quot;proc_exit&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">proc_exit</span>),
+            <span class="string">&quot;proc_raise&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">proc_raise</span>),
+            <span class="string">&quot;random_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">random_get</span>),
+            <span class="string">&quot;sched_yield&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sched_yield</span>),
+            <span class="string">&quot;sock_recv&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_recv</span>),
+            <span class="string">&quot;sock_send&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_send</span>),
+            <span class="string">&quot;sock_shutdown&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_shutdown</span>),
         },
     }
 }
 
 <span class="doccomment">/// Combines a state generating function with the import list for snapshot 1</span>
-<span class="kw">fn</span> <span class="ident">generate_import_object_snapshot1_inner</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="ident">state_gen</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ImportObject</span>
+<span class="kw">fn</span> <span class="ident">generate_import_object_snapshot1_inner</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="ident">state_gen</span>: <span class="ident">F</span>) <span class="op">-&gt;</span> <span class="ident">ImportObject</span>
 <span class="kw">where</span>
-    <span class="ident">F</span>: <span class="ident">Fn</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>, <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>)) <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">F</span>: <span class="ident">Fn</span>() <span class="op">-&gt;</span> (<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>, <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>)) <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
     <span class="macro">imports</span><span class="macro">!</span> {
             <span class="ident">state_gen</span>,
-            <span class="string">&quot;wasi_snapshot_preview1&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="string">&quot;args_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">args_get</span>),
-                <span class="string">&quot;args_sizes_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">args_sizes_get</span>),
-                <span class="string">&quot;clock_res_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">clock_res_get</span>),
-                <span class="string">&quot;clock_time_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">clock_time_get</span>),
-                <span class="string">&quot;environ_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">environ_get</span>),
-                <span class="string">&quot;environ_sizes_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">environ_sizes_get</span>),
-                <span class="string">&quot;fd_advise&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_advise</span>),
-                <span class="string">&quot;fd_allocate&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_allocate</span>),
-                <span class="string">&quot;fd_close&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_close</span>),
-                <span class="string">&quot;fd_datasync&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_datasync</span>),
-                <span class="string">&quot;fd_fdstat_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_get</span>),
-                <span class="string">&quot;fd_fdstat_set_flags&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_set_flags</span>),
-                <span class="string">&quot;fd_fdstat_set_rights&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_set_rights</span>),
-                <span class="string">&quot;fd_filestat_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_get</span>),
-                <span class="string">&quot;fd_filestat_set_size&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_set_size</span>),
-                <span class="string">&quot;fd_filestat_set_times&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_set_times</span>),
-                <span class="string">&quot;fd_pread&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_pread</span>),
-                <span class="string">&quot;fd_prestat_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_prestat_get</span>),
-                <span class="string">&quot;fd_prestat_dir_name&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_prestat_dir_name</span>),
-                <span class="string">&quot;fd_pwrite&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_pwrite</span>),
-                <span class="string">&quot;fd_read&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_read</span>),
-                <span class="string">&quot;fd_readdir&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_readdir</span>),
-                <span class="string">&quot;fd_renumber&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_renumber</span>),
-                <span class="string">&quot;fd_seek&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_seek</span>),
-                <span class="string">&quot;fd_sync&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_sync</span>),
-                <span class="string">&quot;fd_tell&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_tell</span>),
-                <span class="string">&quot;fd_write&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_write</span>),
-                <span class="string">&quot;path_create_directory&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_create_directory</span>),
-                <span class="string">&quot;path_filestat_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_filestat_get</span>),
-                <span class="string">&quot;path_filestat_set_times&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_filestat_set_times</span>),
-                <span class="string">&quot;path_link&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_link</span>),
-                <span class="string">&quot;path_open&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_open</span>),
-                <span class="string">&quot;path_readlink&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_readlink</span>),
-                <span class="string">&quot;path_remove_directory&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_remove_directory</span>),
-                <span class="string">&quot;path_rename&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_rename</span>),
-                <span class="string">&quot;path_symlink&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_symlink</span>),
-                <span class="string">&quot;path_unlink_file&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_unlink_file</span>),
-                <span class="string">&quot;poll_oneoff&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">poll_oneoff</span>),
-                <span class="string">&quot;proc_exit&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">proc_exit</span>),
-                <span class="string">&quot;proc_raise&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">proc_raise</span>),
-                <span class="string">&quot;random_get&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">random_get</span>),
-                <span class="string">&quot;sched_yield&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sched_yield</span>),
-                <span class="string">&quot;sock_recv&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_recv</span>),
-                <span class="string">&quot;sock_send&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_send</span>),
-                <span class="string">&quot;sock_shutdown&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_shutdown</span>),
+            <span class="string">&quot;wasi_snapshot_preview1&quot;</span> <span class="op">=&gt;</span> {
+                <span class="string">&quot;args_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">args_get</span>),
+                <span class="string">&quot;args_sizes_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">args_sizes_get</span>),
+                <span class="string">&quot;clock_res_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">clock_res_get</span>),
+                <span class="string">&quot;clock_time_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">clock_time_get</span>),
+                <span class="string">&quot;environ_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">environ_get</span>),
+                <span class="string">&quot;environ_sizes_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">environ_sizes_get</span>),
+                <span class="string">&quot;fd_advise&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_advise</span>),
+                <span class="string">&quot;fd_allocate&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_allocate</span>),
+                <span class="string">&quot;fd_close&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_close</span>),
+                <span class="string">&quot;fd_datasync&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_datasync</span>),
+                <span class="string">&quot;fd_fdstat_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_get</span>),
+                <span class="string">&quot;fd_fdstat_set_flags&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_set_flags</span>),
+                <span class="string">&quot;fd_fdstat_set_rights&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_fdstat_set_rights</span>),
+                <span class="string">&quot;fd_filestat_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_get</span>),
+                <span class="string">&quot;fd_filestat_set_size&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_set_size</span>),
+                <span class="string">&quot;fd_filestat_set_times&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_filestat_set_times</span>),
+                <span class="string">&quot;fd_pread&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_pread</span>),
+                <span class="string">&quot;fd_prestat_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_prestat_get</span>),
+                <span class="string">&quot;fd_prestat_dir_name&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_prestat_dir_name</span>),
+                <span class="string">&quot;fd_pwrite&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_pwrite</span>),
+                <span class="string">&quot;fd_read&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_read</span>),
+                <span class="string">&quot;fd_readdir&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_readdir</span>),
+                <span class="string">&quot;fd_renumber&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_renumber</span>),
+                <span class="string">&quot;fd_seek&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_seek</span>),
+                <span class="string">&quot;fd_sync&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_sync</span>),
+                <span class="string">&quot;fd_tell&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_tell</span>),
+                <span class="string">&quot;fd_write&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">fd_write</span>),
+                <span class="string">&quot;path_create_directory&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_create_directory</span>),
+                <span class="string">&quot;path_filestat_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_filestat_get</span>),
+                <span class="string">&quot;path_filestat_set_times&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_filestat_set_times</span>),
+                <span class="string">&quot;path_link&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_link</span>),
+                <span class="string">&quot;path_open&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_open</span>),
+                <span class="string">&quot;path_readlink&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_readlink</span>),
+                <span class="string">&quot;path_remove_directory&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_remove_directory</span>),
+                <span class="string">&quot;path_rename&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_rename</span>),
+                <span class="string">&quot;path_symlink&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_symlink</span>),
+                <span class="string">&quot;path_unlink_file&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">path_unlink_file</span>),
+                <span class="string">&quot;poll_oneoff&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">poll_oneoff</span>),
+                <span class="string">&quot;proc_exit&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">proc_exit</span>),
+                <span class="string">&quot;proc_raise&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">proc_raise</span>),
+                <span class="string">&quot;random_get&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">random_get</span>),
+                <span class="string">&quot;sched_yield&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sched_yield</span>),
+                <span class="string">&quot;sock_recv&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_recv</span>),
+                <span class="string">&quot;sock_send&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_send</span>),
+                <span class="string">&quot;sock_shutdown&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">sock_shutdown</span>),
             },
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_wasi";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_wasi";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

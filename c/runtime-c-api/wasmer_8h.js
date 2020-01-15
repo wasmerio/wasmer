@@ -143,6 +143,7 @@ var wasmer_8h =
     [ "wasmer_table_grow", "wasmer_8h.html#a65d62b59cad4296eec9de24a1fb8d8d4", null ],
     [ "wasmer_table_length", "wasmer_8h.html#a519437dc559e49aeeccc7ddf5022fa93", null ],
     [ "wasmer_table_new", "wasmer_8h.html#a37eba7704422990faa7fa58ee25dbd8f", null ],
+    [ "wasmer_trap", "wasmer_8h.html#a13dc1d637eb18301ff0a27b825cd38d3", null ],
     [ "wasmer_validate", "wasmer_8h.html#a1f96f627f4c0ab0a11bbff31f429fd76", null ],
     [ "wasmer_wasi_generate_default_import_object", "wasmer_8h.html#a22af18f3c6df35a02847ad67bf9c9144", null ],
     [ "wasmer_wasi_generate_import_object", "wasmer_8h.html#a01fb8c4d08b0210aa12608ad1834be57", null ],

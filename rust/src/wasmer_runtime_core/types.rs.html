@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -668,7 +668,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">Type</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>)
     }
 }
@@ -693,54 +693,54 @@
 
 <span class="kw">impl</span> <span class="ident">Value</span> {
     <span class="doccomment">/// The `Type` of this `Value`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Type</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Type</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type</span>::<span class="ident">I32</span>,
-            <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type</span>::<span class="ident">I64</span>,
-            <span class="ident">Value</span>::<span class="ident">F32</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type</span>::<span class="ident">F32</span>,
-            <span class="ident">Value</span>::<span class="ident">F64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type</span>::<span class="ident">F64</span>,
-            <span class="ident">Value</span>::<span class="ident">V128</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type</span>::<span class="ident">V128</span>,
+            <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Type</span>::<span class="ident">I32</span>,
+            <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Type</span>::<span class="ident">I64</span>,
+            <span class="ident">Value</span>::<span class="ident">F32</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Type</span>::<span class="ident">F32</span>,
+            <span class="ident">Value</span>::<span class="ident">F64</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Type</span>::<span class="ident">F64</span>,
+            <span class="ident">Value</span>::<span class="ident">V128</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Type</span>::<span class="ident">V128</span>,
         }
     }
 
     <span class="doccomment">/// Convert this `Value` to a u128 binary representation.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_u128</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u128</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_u128</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u128</span> {
         <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
-            <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span> <span class="kw">as</span> <span class="ident">u128</span>,
-            <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span> <span class="kw">as</span> <span class="ident">u128</span>,
-            <span class="ident">Value</span>::<span class="ident">F32</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f32</span>::<span class="ident">to_bits</span>(<span class="ident">x</span>) <span class="kw">as</span> <span class="ident">u128</span>,
-            <span class="ident">Value</span>::<span class="ident">F64</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f64</span>::<span class="ident">to_bits</span>(<span class="ident">x</span>) <span class="kw">as</span> <span class="ident">u128</span>,
-            <span class="ident">Value</span>::<span class="ident">V128</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span>,
+            <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">x</span> <span class="kw">as</span> <span class="ident">u128</span>,
+            <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">x</span> <span class="kw">as</span> <span class="ident">u128</span>,
+            <span class="ident">Value</span>::<span class="ident">F32</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">f32</span>::<span class="ident">to_bits</span>(<span class="ident">x</span>) <span class="kw">as</span> <span class="ident">u128</span>,
+            <span class="ident">Value</span>::<span class="ident">F64</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">f64</span>::<span class="ident">to_bits</span>(<span class="ident">x</span>) <span class="kw">as</span> <span class="ident">u128</span>,
+            <span class="ident">Value</span>::<span class="ident">V128</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">x</span>,
         }
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">i</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">i</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="ident">i</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">i</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">i</span>: <span class="ident">i64</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="ident">i</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">f</span>: <span class="ident">f32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">f</span>: <span class="ident">f32</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">Value</span>::<span class="ident">F32</span>(<span class="ident">f</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">f64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">f</span>: <span class="ident">f64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">f</span>: <span class="ident">f64</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">Value</span>::<span class="ident">F64</span>(<span class="ident">f</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">v</span>: <span class="ident">u128</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">v</span>: <span class="ident">u128</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">Value</span>::<span class="ident">V128</span>(<span class="ident">v</span>)
     }
 }
@@ -753,44 +753,44 @@
     <span class="doccomment">/// Type for this `NativeWasmType`.</span>
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span>;
     <span class="doccomment">/// Convert from u64 bites to self.</span>
-    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>;
+    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-&gt;</span> <span class="self">Self</span>;
     <span class="doccomment">/// Convert self to u64 binary representation.</span>
-    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span>;
+    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span>;
 }
 
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">i32</span> {
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I32</span>;
-    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">bits</span> <span class="kw">as</span> <span class="kw">_</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">i64</span> {
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I64</span>;
-    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">bits</span> <span class="kw">as</span> <span class="kw">_</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">f32</span> {
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type</span>::<span class="ident">F32</span>;
-    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">f32</span>::<span class="ident">from_bits</span>(<span class="ident">bits</span> <span class="kw">as</span> <span class="ident">u32</span>)
     }
-    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">to_bits</span>() <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">f64</span> {
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type</span>::<span class="ident">F64</span>;
-    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">f64</span>::<span class="ident">from_bits</span>(<span class="ident">bits</span>)
     }
-    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">to_bits</span>()
     }
 }
@@ -803,98 +803,98 @@
     <span class="doccomment">/// Native wasm type for this `WasmExternType`.</span>
     <span class="kw">type</span> <span class="ident">Native</span>: <span class="ident">NativeWasmType</span>;
     <span class="doccomment">/// Convert from given `Native` type to self.</span>
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>;
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span>;
     <span class="doccomment">/// Convert self to `Native` type.</span>
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span>;
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span>;
 }
 
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">i8</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">u8</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">i16</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">u16</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">i32</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">u32</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">i64</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i64</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">u64</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i64</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">f32</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">f32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span>
     }
 }
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">f64</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">f64</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">native</span>
     }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
         <span class="self">self</span>
     }
 }
@@ -924,10 +924,10 @@
 }
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">convert_value_impl</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ty</span>) <span class="op">=</span><span class="op">&gt;</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ty</span>) <span class="op">=&gt;</span> {
         <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span> {}
     };
-    ( $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ty</span>),<span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> {
+    ( $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ty</span>),<span class="op">*</span> ) <span class="op">=&gt;</span> {
         $(
             <span class="macro">convert_value_impl</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>);
         )<span class="op">*</span>
@@ -956,13 +956,13 @@
 }
 
 <span class="kw">impl</span> <span class="ident">TableDescriptor</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fits_in_imported</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">imported</span>: <span class="ident">TableDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fits_in_imported</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">imported</span>: <span class="ident">TableDescriptor</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="comment">// TODO: We should define implementation limits.</span>
         <span class="kw">let</span> <span class="ident">imported_max</span> <span class="op">=</span> <span class="ident">imported</span>.<span class="ident">maximum</span>.<span class="ident">unwrap_or</span>(<span class="ident">u32</span>::<span class="ident">max_value</span>());
         <span class="kw">let</span> <span class="ident">self_max</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">maximum</span>.<span class="ident">unwrap_or</span>(<span class="ident">u32</span>::<span class="ident">max_value</span>());
-        <span class="self">self</span>.<span class="ident">element</span> <span class="op">=</span><span class="op">=</span> <span class="ident">imported</span>.<span class="ident">element</span>
-            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">imported_max</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">self_max</span>
-            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="self">self</span>.<span class="ident">minimum</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">imported</span>.<span class="ident">minimum</span>
+        <span class="self">self</span>.<span class="ident">element</span> <span class="op">==</span> <span class="ident">imported</span>.<span class="ident">element</span>
+            <span class="op">&amp;&amp;</span> <span class="ident">imported_max</span> <span class="op">&lt;=</span> <span class="ident">self_max</span>
+            <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">minimum</span> <span class="op">&lt;=</span> <span class="ident">imported</span>.<span class="ident">minimum</span>
     }
 }
 
@@ -1010,12 +1010,12 @@
 
 <span class="kw">impl</span> <span class="ident">MemoryDescriptor</span> {
     <span class="doccomment">/// Create a new memory descriptor with the given min/max pages and shared flag.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">minimum</span>: <span class="ident">Pages</span>, <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span>, <span class="ident">shared</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">minimum</span>: <span class="ident">Pages</span>, <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span>, <span class="ident">shared</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">memory_type</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">maximum</span>.<span class="ident">is_some</span>(), <span class="ident">shared</span>) {
-            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MemoryType</span>::<span class="ident">SharedStatic</span>,
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MemoryType</span>::<span class="ident">Static</span>,
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MemoryType</span>::<span class="ident">Dynamic</span>,
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) <span class="op">=&gt;</span> <span class="ident">MemoryType</span>::<span class="ident">SharedStatic</span>,
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) <span class="op">=&gt;</span> <span class="ident">MemoryType</span>::<span class="ident">Static</span>,
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) <span class="op">=&gt;</span> <span class="ident">MemoryType</span>::<span class="ident">Dynamic</span>,
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) <span class="op">=&gt;</span> {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Max number of pages is required for shared memory&quot;</span>.<span class="ident">to_string</span>());
             }
         };
@@ -1028,17 +1028,17 @@
     }
 
     <span class="doccomment">/// Returns the `MemoryType` for this descriptor.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MemoryType</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">MemoryType</span> {
         <span class="self">self</span>.<span class="ident">memory_type</span>
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fits_in_imported</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">imported</span>: <span class="ident">MemoryDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fits_in_imported</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">imported</span>: <span class="ident">MemoryDescriptor</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">let</span> <span class="ident">imported_max</span> <span class="op">=</span> <span class="ident">imported</span>.<span class="ident">maximum</span>.<span class="ident">unwrap_or</span>(<span class="ident">Pages</span>(<span class="number">65_536</span>));
         <span class="kw">let</span> <span class="ident">self_max</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">maximum</span>.<span class="ident">unwrap_or</span>(<span class="ident">Pages</span>(<span class="number">65_536</span>));
 
-        <span class="self">self</span>.<span class="ident">shared</span> <span class="op">=</span><span class="op">=</span> <span class="ident">imported</span>.<span class="ident">shared</span>
-            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">imported_max</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">self_max</span>
-            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="self">self</span>.<span class="ident">minimum</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">imported</span>.<span class="ident">minimum</span>
+        <span class="self">self</span>.<span class="ident">shared</span> <span class="op">==</span> <span class="ident">imported</span>.<span class="ident">shared</span>
+            <span class="op">&amp;&amp;</span> <span class="ident">imported_max</span> <span class="op">&lt;=</span> <span class="ident">self_max</span>
+            <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">minimum</span> <span class="op">&lt;=</span> <span class="ident">imported</span>.<span class="ident">minimum</span>
     }
 }
 
@@ -1052,10 +1052,10 @@
 
 <span class="kw">impl</span> <span class="ident">FuncSig</span> {
     <span class="doccomment">/// Creates a new function signatures with the given parameter and return types.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">Params</span>, <span class="ident">Returns</span><span class="op">&gt;</span>(<span class="ident">params</span>: <span class="ident">Params</span>, <span class="ident">returns</span>: <span class="ident">Returns</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">Params</span>, <span class="ident">Returns</span><span class="op">&gt;</span>(<span class="ident">params</span>: <span class="ident">Params</span>, <span class="ident">returns</span>: <span class="ident">Returns</span>) <span class="op">-&gt;</span> <span class="self">Self</span>
     <span class="kw">where</span>
-        <span class="ident">Params</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">Type</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">Returns</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">Type</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">Params</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">Type</span>]<span class="op">&gt;&gt;</span>,
+        <span class="ident">Returns</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">Type</span>]<span class="op">&gt;&gt;</span>,
     {
         <span class="self">Self</span> {
             <span class="ident">params</span>: <span class="ident">params</span>.<span class="ident">into</span>(),
@@ -1064,39 +1064,39 @@
     }
 
     <span class="doccomment">/// Parameter types.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">params</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">Type</span>] {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">params</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">Type</span>] {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">params</span>
     }
 
     <span class="doccomment">/// Return types.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">returns</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">Type</span>] {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">returns</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">Type</span>] {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">returns</span>
     }
 
     <span class="doccomment">/// Returns true if parameter types match the function signature.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">check_param_value_types</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">params</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">params</span>.<span class="ident">len</span>()
-            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="self">self</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">check_param_value_types</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>]) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">params</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">params</span>.<span class="ident">len</span>()
+            <span class="op">&amp;&amp;</span> <span class="self">self</span>
                 .<span class="ident">params</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">zip</span>(<span class="ident">params</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">ty</span>()))
-                .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">t0</span>, <span class="kw-2">ref</span> <span class="ident">t1</span>)<span class="op">|</span> <span class="ident">t0</span> <span class="op">=</span><span class="op">=</span> <span class="ident">t1</span>)
+                .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">t0</span>, <span class="kw-2">ref</span> <span class="ident">t1</span>)<span class="op">|</span> <span class="ident">t0</span> <span class="op">==</span> <span class="ident">t1</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">FuncSig</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="kw">let</span> <span class="ident">params</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">params</span>
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">to_string</span>())
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>()
             .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>);
         <span class="kw">let</span> <span class="ident">returns</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">returns</span>
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">to_string</span>())
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>()
             .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>);
         <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;[{}] -&gt; [{}]&quot;</span>, <span class="ident">params</span>, <span class="ident">returns</span>)
     }
@@ -1112,24 +1112,24 @@
 
 <span class="attribute">#[<span class="ident">rustfmt</span>::<span class="ident">skip</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">define_map_index</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ident</span>) <span class="op">=</span><span class="op">&gt;</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ident</span>) <span class="op">=&gt;</span> {
         <span class="doccomment">/// Typed Index</span>
         <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
         <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
         <span class="kw">pub</span> <span class="kw">struct</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> (<span class="ident">u32</span>);
         <span class="kw">impl</span> <span class="ident">TypedIndex</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
             <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-            <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">index</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">index</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
                 <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> (<span class="ident">index</span> <span class="kw">as</span> <span class="kw">_</span>)
             }
 
             <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-            <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+            <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
                 <span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">usize</span>
             }
         }
     };
-    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">normal_ty</span>:<span class="ident">ident</span>,)<span class="op">*</span> <span class="op">|</span> <span class="ident">local</span>: $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span>:<span class="ident">ident</span>,)<span class="op">*</span> <span class="op">|</span> <span class="ident">imported</span>: $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">imported_ty</span>:<span class="ident">ident</span>,)<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {
+    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">normal_ty</span>:<span class="ident">ident</span>,)<span class="op">*</span> <span class="op">|</span> <span class="ident">local</span>: $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span>:<span class="ident">ident</span>,)<span class="op">*</span> <span class="op">|</span> <span class="ident">imported</span>: $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">imported_ty</span>:<span class="ident">ident</span>,)<span class="kw-2">*</span>) <span class="op">=&gt;</span> {
         $(
             <span class="macro">define_map_index</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">normal_ty</span>);
             <span class="macro">define_map_index</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span>);
@@ -1152,10 +1152,10 @@
 
 <span class="attribute">#[<span class="ident">rustfmt</span>::<span class="ident">skip</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">define_local_or_import</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imported_ty</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imports</span>:<span class="ident">ident</span>) <span class="op">=</span><span class="op">&gt;</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imported_ty</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imports</span>:<span class="ident">ident</span>) <span class="op">=&gt;</span> {
         <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
             <span class="doccomment">/// Converts self into `LocalOrImport`.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">local_or_import</span>(<span class="self">self</span>, <span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LocalOrImport</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span><span class="op">&gt;</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">local_or_import</span>(<span class="self">self</span>, <span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-&gt;</span> <span class="ident">LocalOrImport</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span><span class="op">&gt;</span> {
                 <span class="kw">if</span> <span class="self">self</span>.<span class="ident">index</span>() <span class="op">&lt;</span> <span class="ident">info</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">imports</span>.<span class="ident">len</span>() {
                     <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">LocalImport</span><span class="op">&gt;</span>::<span class="ident">Import</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">index</span>()))
                 } <span class="kw">else</span> {
@@ -1166,19 +1166,19 @@
 
         <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span> {
             <span class="doccomment">/// Convert up.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">convert_up</span>(<span class="self">self</span>, <span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">convert_up</span>(<span class="self">self</span>, <span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
                 <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> ((<span class="self">self</span>.<span class="ident">index</span>() <span class="op">+</span> <span class="ident">info</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">imports</span>.<span class="ident">len</span>()) <span class="kw">as</span> <span class="ident">u32</span>)
             }
         }
 
         <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imported_ty</span> {
             <span class="doccomment">/// Convert up.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">convert_up</span>(<span class="self">self</span>, <span class="ident">_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">convert_up</span>(<span class="self">self</span>, <span class="ident">_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
                 <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> (<span class="self">self</span>.<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">u32</span>)
             }
         }
     };
-    ($((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ident</span> <span class="op">|</span> (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imported_ty</span>:<span class="ident">ident</span>): <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imports</span>:<span class="ident">ident</span>),)<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {
+    ($((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ident</span> <span class="op">|</span> (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imported_ty</span>:<span class="ident">ident</span>): <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imports</span>:<span class="ident">ident</span>),)<span class="kw-2">*</span>) <span class="op">=&gt;</span> {
         $(
             <span class="macro">define_local_or_import</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">local_ty</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imported_ty</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">imports</span>);
         )<span class="op">*</span>
@@ -1198,12 +1198,12 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SigIndex</span>(<span class="ident">u32</span>);
 <span class="kw">impl</span> <span class="ident">TypedIndex</span> <span class="kw">for</span> <span class="ident">SigIndex</span> {
     <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">index</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">index</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">SigIndex</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="kw">_</span>)
     }
 
     <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">usize</span>
     }
 }
@@ -1224,18 +1224,18 @@
     <span class="ident">T</span>: <span class="ident">LocalImport</span>,
 {
     <span class="doccomment">/// Returns `Some` if self is local,  `None` if self is an import.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">local</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span>::<span class="ident">Local</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">local</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span>::<span class="ident">Local</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">local</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">local</span>),
-            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">local</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">local</span>),
+            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
         }
     }
 
     <span class="doccomment">/// Returns `Some` if self is an import,  `None` if self is local.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">import</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span>::<span class="ident">Import</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">import</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span>::<span class="ident">Import</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">import</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">import</span>),
-            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">import</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">import</span>),
+            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
         }
     }
 }
@@ -1294,4 +1294,4 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

@@ -6,4 +6,5 @@ implementors["wasmer_wasi"] = [];
             } else {
                 window.pending_implementors = implementors;
             }
-        })()
+        
+})()
