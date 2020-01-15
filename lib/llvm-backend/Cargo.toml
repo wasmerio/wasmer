@@ -46,5 +46,4 @@ rustc_version = "0.2"
 wabt = "0.9.1"
 
 [features]
-debug = ["wasmer-runtime-core/debug"]
 test = []

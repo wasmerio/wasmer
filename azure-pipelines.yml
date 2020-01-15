@@ -210,6 +210,29 @@ jobs:
       - publish: $(System.DefaultWorkingDirectory)/artifacts
         artifact: library-$(Agent.OS)
 
+  - job: Build_Docs
+    pool:
+      vmImage: "ubuntu-16.04"
+    variables:
+      rust_toolchain: nightly-2019-08-15
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - bash: |
+          sudo apt-get install doxygen graphviz
+        displayName: Install doxygen
+      - bash: |
+          make docs
+        displayName: Build docs
+      - publish: $(System.DefaultWorkingDirectory)/api-docs
+        artifact: api-docs
+        displayName: Save Docs artifact
+
   - job: Publish
     dependsOn:
       - Build_CLI
@@ -259,27 +282,33 @@ jobs:
           isPreRelease: false
           assets: '$(Build.ArtifactStagingDirectory)/**'
 
-  - job: Docs
+  - job: Publish_Docs
+    dependsOn:
+      - Build_Docs
+    displayName: Deploy API Documentation to GitHub
     pool:
       vmImage: "ubuntu-16.04"
-    variables:
-      rust_toolchain: nightly-2019-12-19
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master')
     steps:
       - checkout: self
-        submodules: true
-      - template: .azure/install-rust.yml
-      - template: .azure/install-llvm.yml
-      - template: .azure/install-sccache.yml
-      - template: .azure/install-cmake.yml
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          artifactName: api-docs
+          targetPath: $(System.DefaultWorkingDirectory)/api-docs
       - bash: |
-          make docs
-        displayName: Build documentation
+          git config --global user.email "bot@wasmer.io"
+          git config --global user.name "wasmerbot"
+          make docs-publish
+        env:
+          RUST_DOCS_DIR: $(Pipeline.Workspace)/api-docs
+          GITHUB_DOCS_TOKEN: $(GITHUB_DOCS_TOKEN)
+          SOURCE_VERSION: $(Build.SourceVersion)
 
 # We only run the pipelines on PRs to Master
 pr:
   - master
 
-# Otherwise, we test in any of this branches (master or bors related)
+# Otherwise, we test in any of these branches (master or bors related)
 trigger:
   - master
   - staging

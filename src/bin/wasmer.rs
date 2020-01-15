@@ -8,6 +8,8 @@
     unreachable_patterns
 )]
 extern crate structopt;
+#[macro_use]
+extern crate log;
 
 use std::collections::HashMap;
 use std::env;
@@ -37,7 +39,6 @@ use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellEx
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
-    debug,
     loader::{Instance as LoadedInstance, LocalLoader},
     Module,
 };
@@ -251,6 +252,11 @@ struct Run {
     #[cfg(feature = "experimental-io-devices")]
     #[structopt(long = "enable-experimental-io-devices", hidden = true)]
     enable_experimental_io_devices: bool,
+
+    /// Enable debug output
+    #[cfg(feature = "debug")]
+    #[structopt(long = "debug", short = "d")]
+    debug: bool,
 
     /// Application arguments
     #[structopt(name = "--", multiple = true)]
@@ -962,7 +968,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables, unreachable_code)]
 fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
     // Update backend when a backend flag is `auto`.
     // Use the Singlepass backend if it's enabled and the file provided is larger
@@ -999,6 +1005,12 @@ fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
 
 fn run(options: &mut Run) {
     options.backend = get_backend(options.backend, &options.path);
+    #[cfg(any(feature = "debug", feature = "trace"))]
+    {
+        if options.debug {
+            logging::set_up_logging().expect("failed to set up logging");
+        }
+    }
     match execute_wasm(options) {
         Ok(()) => {}
         Err(message) => {

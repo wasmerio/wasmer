@@ -2,6 +2,7 @@
 name = "wasmer-runtime"
 version = "0.12.0"
 description = "Wasmer runtime library"
+documentation = "https://wasmerio.github.io/wasmer/c/runtime-c-api/"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -46,7 +47,6 @@ default = ["cranelift", "default-backend-cranelift"]
 docs = []
 cranelift = ["wasmer-clif-backend"]
 cache = ["cranelift"]
-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 llvm = ["wasmer-llvm-backend"]
 singlepass = ["wasmer-singlepass-backend"]
 default-backend-singlepass = ["singlepass"]

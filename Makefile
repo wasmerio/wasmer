@@ -157,10 +157,8 @@ test-rest:
 		--exclude wasmer-emscripten-tests \
 		--exclude wasmer-runtime-core-tests
 
-circleci-clean:
-	@if [ ! -z "${CIRCLE_JOB}" ]; then rm -f /home/circleci/project/target/debug/deps/libcranelift_wasm* && rm -f /Users/distiller/project/target/debug/deps/libcranelift_wasm*; fi;
 
-test: spectests emtests middleware wasitests circleci-clean test-rest examples
+test: spectests emtests middleware wasitests test-rest examples
 
 
 # Integration tests
@@ -231,34 +229,34 @@ check: check-bench
 	cargo check --release --manifest-path lib/runtime/Cargo.toml
 
 	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-singlepass
+		--features=cranelift,cache,llvm,singlepass,default-backend-singlepass
 	$(RUNTIME_CHECK) --release \
 		--features=cranelift,cache,llvm,singlepass,default-backend-singlepass
 	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-cranelift
+		--features=cranelift,cache,llvm,singlepass,default-backend-cranelift
 	$(RUNTIME_CHECK) --release \
 		--features=cranelift,cache,llvm,singlepass,default-backend-cranelift
 	$(RUNTIME_CHECK) \
-		--features=cranelift,cache,debug,llvm,singlepass,default-backend-llvm
+		--features=cranelift,cache,llvm,singlepass,default-backend-llvm
 	$(RUNTIME_CHECK) --release \
 		--features=cranelift,cache,llvm,singlepass,default-backend-llvm
 	$(RUNTIME_CHECK) \
-		--features=singlepass,default-backend-singlepass,debug
+		--features=singlepass,default-backend-singlepass
 	$(RUNTIME_CHECK) --release \
 		--features=singlepass,default-backend-singlepass
 	$(RUNTIME_CHECK) \
-		--features=cranelift,default-backend-cranelift,debug
+		--features=cranelift,default-backend-cranelift
 	$(RUNTIME_CHECK) --release \
 		--features=cranelift,default-backend-cranelift
 	$(RUNTIME_CHECK) \
-		--features=llvm,default-backend-llvm,debug
+		--features=llvm,default-backend-llvm
 	$(RUNTIME_CHECK) --release \
 		--features=llvm,default-backend-llvm
-		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,debug,deterministic-execution
+		--features=default-backend-singlepass,singlepass,cranelift,llvm,cache,deterministic-execution
 
 # Release
 release:
-	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices
+	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices,log/release_max_level_off
 
 # Only one backend (cranelift)
 release-clif:
@@ -303,7 +301,21 @@ dep-graph:
 	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
 docs:
-	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed
+	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --all --no-deps
+	cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
+	mkdir -p api-docs
+	mkdir -p api-docs/c
+	cp -R target/doc api-docs/crates
+	cp -R lib/runtime-c-api/doc/html api-docs/c/runtime-c-api
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > api-docs/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > api-docs/crates/index.html
+
+docs-publish:
+	git clone -b "gh-pages" --depth=1 https://wasmerbot:$(GITHUB_DOCS_TOKEN)@github.com/wasmerio/wasmer.git api-docs-repo
+	cp -R api-docs/* api-docs-repo/
+	cd api-docs-repo && git add index.html crates/* c/*
+	cd api-docs-repo && (git diff-index --quiet HEAD || git commit -m "Publishing GitHub Pages")
+	cd api-docs-repo && git push origin gh-pages
 
 wapm:
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
