@@ -149,10 +149,11 @@ pub trait RunnableModule: Send + Sync {
     }
 
     /// A wasm trampoline contains the necessary data to dynamically call an exported wasm function.
-    /// Given a particular signature index, we are returned a trampoline that is matched with that
+    /// Given a particular signature index, we return a trampoline that is matched with that
     /// signature and an invoke function that can call the trampoline.
     fn get_trampoline(&self, info: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm>;
 
+    /// Trap an error.
     unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> !;
 
     /// Returns the machine code associated with this module.
