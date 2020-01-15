@@ -45,6 +45,8 @@ use wasmer_runtime_core::{
 };
 use wasmparser::{BinaryReaderError, MemoryImmediate, Operator, Type as WpType};
 
+static BACKEND_ID: &str = "llvm";
+
 fn func_sig_to_llvm<'ctx>(
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
@@ -8721,8 +8723,8 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         }
     }
 
-    fn backend_id() -> String {
-        "llvm".to_string()
+    fn backend_id() -> &'static str {
+        BACKEND_ID
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {

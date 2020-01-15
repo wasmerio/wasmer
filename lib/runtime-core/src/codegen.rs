@@ -92,7 +92,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     ) -> Self;
 
     /// Returns the backend id associated with this MCG.
-    fn backend_id() -> String;
+    fn backend_id() -> &'static str;
 
     /// It sets if the current compiler requires validation before compilation
     fn requires_pre_validation() -> bool {
@@ -231,7 +231,7 @@ impl<
             validate_with_features(wasm, &compiler_config.features)?;
         }
 
-        let mut mcg = match MCG::backend_id().as_ref() {
+        let mut mcg = match MCG::backend_id() {
             "llvm" => MCG::new_with_target(
                 compiler_config.triple.clone(),
                 compiler_config.cpu_name.clone(),
