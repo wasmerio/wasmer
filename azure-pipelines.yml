@@ -298,6 +298,8 @@ jobs:
           targetPath: $(System.DefaultWorkingDirectory)/api-docs
           # targetPath  : $(Pipeline.Workspace)/api-docs
       - bash: |
+          git config --global user.email "bot@wasmer.io"
+          git config --global user.name "wasmerbot"
           make docs-publish
         # env:
         #   RUST_DOCS_DIR: $(Pipeline.Workspace)/api-docs
