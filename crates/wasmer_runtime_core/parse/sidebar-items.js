@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["LoadError","Kind of load error."]],"fn":[["read_module","Read wasm binary into module data using the given backend, module code generator, middlewares, and compiler configuration."],["type_to_wp_type","Convert given `Type` to `WpType`."],["wp_type_to_type","Convert given `WpType` to `Type`."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["WASM_MAX_PAGES","Tbe max number of wasm pages allowed."],["WASM_MIN_PAGES","The minimum number of wasm pages allowed."],["WASM_PAGE_SIZE","The page size in bytes of a wasm page."]],"struct":[["Bytes","Units of WebAssembly memory in terms of 8-bit bytes."],["Pages","Units of WebAssembly pages (as specified to be 65,536 bytes)."]]});
