@@ -704,7 +704,7 @@ pub unsafe extern "C" fn wasmer_trap(
 ) -> wasmer_result_t {
     if ctx.is_null() {
         update_last_error(CApiError {
-            msg: "ctx ptr is null in wasmer_import_trap".to_string(),
+            msg: "ctx ptr is null in wasmer_trap".to_string(),
         });
 
         return wasmer_result_t::WASMER_ERROR;
@@ -712,7 +712,7 @@ pub unsafe extern "C" fn wasmer_trap(
 
     if error_message.is_null() {
         update_last_error(CApiError {
-            msg: "error_message is null in wasmer_import_trap".to_string(),
+            msg: "error_message is null in wasmer_trap".to_string(),
         });
 
         return wasmer_result_t::WASMER_ERROR;
