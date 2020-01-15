@@ -1449,7 +1449,7 @@
     <span class="kw">pub</span> <span class="ident">base</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// The backend used to compile this module.</span>
-    <span class="kw">pub</span> <span class="ident">backend</span>: <span class="ident">String</span>,
+    <span class="kw">pub</span> <span class="ident">backend</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>,
 
     <span class="doccomment">/// `RunnableModule` for this code version.</span>
     <span class="kw">pub</span> <span class="ident">runnable_module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">RunnableModule</span><span class="op">&gt;&gt;</span>,

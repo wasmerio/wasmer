@@ -1236,6 +1236,8 @@
 <span id="1236">1236</span>
 <span id="1237">1237</span>
 <span id="1238">1238</span>
+<span id="1239">1239</span>
+<span id="1240">1240</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Parts of the following code are Copyright 2018 Cranelift Developers</span>
 <span class="comment">// and subject to the license https://github.com/CraneStation/cranelift/blob/c47ca7bafc8fc48358f1baa72360e61fc1f7a0f2/cranelift-wasm/LICENSE</span>
@@ -1271,6 +1273,8 @@
 };
 <span class="kw">use</span> <span class="ident">wasmparser</span>::<span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
 
+<span class="kw">static</span> <span class="ident">BACKEND_ID</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>;
+
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CraneliftModuleCodeGenerator</span> {
     <span class="ident">isa</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">isa</span>::<span class="ident">TargetIsa</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Map</span><span class="op">&lt;</span><span class="ident">SigIndex</span>, <span class="ident">FuncSig</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
@@ -1297,8 +1301,8 @@
         <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;cross compilation is not available for clif backend&quot;</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">backend_id</span>() <span class="op">-&gt;</span> <span class="ident">String</span> {
-        <span class="string">&quot;cranelift&quot;</span>.<span class="ident">to_string</span>()
+    <span class="kw">fn</span> <span class="ident">backend_id</span>() <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
+        <span class="ident">BACKEND_ID</span>
     }
 
     <span class="kw">fn</span> <span class="ident">check_precondition</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
