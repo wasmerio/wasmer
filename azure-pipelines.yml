@@ -300,9 +300,11 @@ jobs:
       - bash: |
           git config --global user.email "bot@wasmer.io"
           git config --global user.name "wasmerbot"
+          env
           make docs-publish
-        # env:
-        #   RUST_DOCS_DIR: $(Pipeline.Workspace)/api-docs
+        env:
+          RUST_DOCS_DIR: $(Pipeline.Workspace)/api-docs
+          GITHUB_DOCS_TOKEN: $(GITHUB_DOCS_TOKEN)
 
 # We only run the pipelines on PRs to Master
 pr:
