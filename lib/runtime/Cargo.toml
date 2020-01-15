@@ -2,6 +2,7 @@
 name = "wasmer-runtime"
 version = "0.12.0"
 description = "Wasmer runtime library"
+documentation = "https://wasmerio.github.io/wasmer/c/runtime-c-api/"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
