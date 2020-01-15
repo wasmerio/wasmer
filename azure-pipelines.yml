@@ -215,7 +215,7 @@ jobs:
       vmImage: "ubuntu-16.04"
     variables:
       rust_toolchain: nightly-2019-08-15
-    # condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
         submodules: true
@@ -288,8 +288,7 @@ jobs:
     displayName: Deploy API Documentation to GitHub
     pool:
       vmImage: "ubuntu-16.04"
-    variables:
-      rust_toolchain: nightly-2019-12-19
+    condition: in(variables['Build.SourceBranch'], 'refs/heads/master')
     steps:
       - checkout: self
       - task: DownloadPipelineArtifact@2
