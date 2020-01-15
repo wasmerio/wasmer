@@ -245,7 +245,7 @@ struct Run {
 
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices", hidden = true)]
+    #[structopt(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
 
     /// Enable debug output
