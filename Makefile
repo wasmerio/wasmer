@@ -307,8 +307,8 @@ docs:
 	mkdir -p api-docs/c
 	cp -R target/doc api-docs/rust
 	cp -R lib/runtime-c-api/doc/html api-docs/c/runtime-c-api
-	echo '<meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html#test1">' > api-docs/index.html
-	echo '<meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html#test1">' > api-docs/rust/index.html
+	echo '<meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > api-docs/index.html
+	echo '<meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > api-docs/rust/index.html
 
 docs-publish:
 	git clone -b "gh-pages" --depth=1 https://wasmerbot:${GITHUB_DOCS_TOKEN}@github.com/wasmerio/wasmer.git api-docs-repo
