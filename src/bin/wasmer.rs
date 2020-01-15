@@ -947,7 +947,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables, unreachable_code)]
 fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
     // Update backend when a backend flag is `auto`.
     // Use the Singlepass backend if it's enabled and the file provided is larger
