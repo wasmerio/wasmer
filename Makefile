@@ -305,15 +305,15 @@ docs:
 	cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
 	mkdir -p api-docs
 	mkdir -p api-docs/c
-	cp -R target/doc api-docs/rust
+	cp -R target/doc api-docs/crates
 	cp -R lib/runtime-c-api/doc/html api-docs/c/runtime-c-api
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > api-docs/index.html
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > api-docs/rust/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > api-docs/crates/index.html
 
 docs-publish:
 	git clone -b "gh-pages" --depth=1 https://wasmerbot:$(GITHUB_DOCS_TOKEN)@github.com/wasmerio/wasmer.git api-docs-repo
 	cp -R api-docs/* api-docs-repo/
-	cd api-docs-repo && git add index.html rust/* c/*
+	cd api-docs-repo && git add index.html crates/* c/*
 	cd api-docs-repo && (git diff-index --quiet HEAD || git commit -m "Publishing GitHub Pages")
 	cd api-docs-repo && git push origin gh-pages
 
