@@ -1,0 +1,14 @@
+[package]
+name = "wasmer-debug-writer"
+version = "0.12.0"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+repository = "https://github.com/wasmerio/wasmer"
+publish = false
+description = "Library for writing debug information from Wasm"
+license = "MIT"
+
+[dependencies]
+gimli = "0.20"
+target-lexicon = "0.9"
+wasmer-runtime-core = { path = "../runtime-core", version = "0.12" }

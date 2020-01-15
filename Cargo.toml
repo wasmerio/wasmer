@@ -28,6 +28,8 @@ log = "0.4"
 structopt = "0.3"
 wabt = "0.9.1"
 wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
+# TOOD: make optional:
+wasmer-debug-writer = { path = "lib/debug-writer" }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
 wasmer-runtime = { path = "lib/runtime" }
@@ -45,6 +47,7 @@ wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices
 [workspace]
 members = [
     "lib/clif-backend",
+    "lib/debug-writer",
     "lib/singlepass-backend",
     "lib/runtime",
     "lib/runtime-core",

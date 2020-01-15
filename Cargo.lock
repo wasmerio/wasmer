@@ -461,6 +461,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fallible-iterator"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
+
+[[package]]
 name = "fern"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -522,6 +528,20 @@ dependencies = [
  "proc-macro2 1.0.6",
  "quote 1.0.2",
  "syn 1.0.11",
+]
+
+[[package]]
+name = "gimli"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81dd6190aad0f05ddbbf3245c54ed14ca4aa6dd32f22312b70d8f168c3e3e633"
+dependencies = [
+ "arrayvec",
+ "byteorder",
+ "fallible-iterator",
+ "indexmap",
+ "smallvec 1.1.0",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -1687,6 +1707,7 @@ dependencies = [
  "typetag",
  "wabt",
  "wasmer-clif-backend",
+ "wasmer-debug-writer",
  "wasmer-dev-utils",
  "wasmer-emscripten",
  "wasmer-emscripten-tests",
@@ -1724,6 +1745,15 @@ dependencies = [
  "wasmer-win-exception-handler",
  "wasmparser",
  "winapi",
+]
+
+[[package]]
+name = "wasmer-debug-writer"
+version = "0.12.0"
+dependencies = [
+ "gimli",
+ "target-lexicon",
+ "wasmer-runtime-core",
 ]
 
 [[package]]
