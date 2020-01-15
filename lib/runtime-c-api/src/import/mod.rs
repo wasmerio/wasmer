@@ -698,7 +698,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 /// This function never returns otherwise.
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
-pub unsafe extern "C" fn wasmer_import_trap(
+pub unsafe extern "C" fn wasmer_trap(
     ctx: *const wasmer_instance_context_t,
     error_message: *const c_char,
 ) -> wasmer_result_t {
