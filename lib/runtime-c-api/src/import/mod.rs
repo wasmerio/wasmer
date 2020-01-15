@@ -725,6 +725,12 @@ pub unsafe extern "C" fn wasmer_trap(
         .runnable_module
         .do_early_trap(Box::new(error_message)); // never returns
 
+    // cbindgen does not generate a binding for a function that
+    // returns `!`. Since we also need to error in some cases, the
+    // output type of `wasmer_trap` is `wasmer_result_t`. But the OK
+    // case is not reachable because `do_early_trap` never
+    // returns. That's a compromise to satisfy the Rust type system,
+    // cbindgen, and get an acceptable clean code.
     #[allow(unreachable_code)]
     wasmer_result_t::WASMER_OK
 }
