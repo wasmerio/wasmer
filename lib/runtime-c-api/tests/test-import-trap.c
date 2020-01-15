@@ -6,9 +6,9 @@
 
 static const char *trap_error_message = "Hello";
 
-void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
+void print_str(wasmer_instance_context_t *ctx, int32_t _ptr, int32_t _len)
 {
-    wasmer_import_trap(ctx, trap_error_message);
+    wasmer_trap(ctx, trap_error_message);
 }
 
 int main()
