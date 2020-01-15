@@ -158,7 +158,7 @@ test-rest:
 		--exclude wasmer-runtime-core-tests
 
 
-test: spectests emtests middleware wasitests circleci-clean test-rest examples
+test: spectests emtests middleware wasitests test-rest examples
 
 
 # Integration tests
