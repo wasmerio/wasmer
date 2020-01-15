@@ -304,7 +304,7 @@ docs:
 	# cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --all --no-deps
 	# cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
 	mkdir -p api-docs
-	mkdir -/p api-docs/c
+	mkdir -p api-docs/c
 	# cp -R target/doc api-docs/rust
 	# cp -R lib/runtime-c-api/doc/html api-docs/c/runtime-c-api
 	echo '<meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > api-docs/index.html
