@@ -7,6 +7,7 @@
 
 Special thanks to [@repi](https://github.com/repi) and [@srenatus](https://github.com/srenatus) for their contributions!
 
+- [#1153](https://github.com/wasmerio/wasmer/pull/1153) Added Wasmex, an Elixir language integration, to the README
 - [#1133](https://github.com/wasmerio/wasmer/pull/1133) New `wasmer_trap` function in the C API, to properly error from within a host function
 - [#1147](https://github.com/wasmerio/wasmer/pull/1147) Remove `log` and `trace` macros from `wasmer-runtime-core`, remove `debug` and `trace` features from `wasmer-*` crates, use the `log` crate for logging and use `fern` in the Wasmer CLI binary to output log messages.  Colorized output will be enabled automatically if printing to a terminal, to force colorization on or off, set the `WASMER_COLOR` environment variable to `true` or `false`.
 - [#1128](https://github.com/wasmerio/wasmer/pull/1128) Fix a crash when a host function is missing and the `allow_missing_functions` flag is enabled
