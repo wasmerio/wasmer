@@ -25,6 +25,29 @@ use wasmer_runtime_core::{
 #[repr(C)]
 pub struct wasmer_instance_t;
 
+/// Opaque pointer to a `wasmer_runtime::Ctx` value in Rust.
+///
+/// An instance context is passed to any host function (aka imported
+/// function) as the first argument. It is necessary to read the
+/// instance data or the memory, respectively with the
+/// `wasmer_instance_context_data_get()` function, and the
+/// `wasmer_instance_context_memory()` function.
+///
+/// It is also possible to get the instance context outside a host
+/// function by using the `wasmer_instance_context_get()` function.
+///
+/// Example:
+///
+/// ```c
+/// // A host function that prints data from the WebAssembly memory to
+/// // the standard output.
+/// void print(wasmer_instance_context_t *context, int32_t pointer, int32_t length) {
+///     // Use `wasmer_instance_context` to get back the first instance memory.
+///     const wasmer_memory_t *memory = wasmer_instance_context_memory(context, 0);
+///
+///     // Continue…
+/// }
+/// ```
 #[repr(C)]
 pub struct wasmer_instance_context_t;
 
