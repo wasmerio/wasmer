@@ -2,8 +2,10 @@
 
 ## **[Unreleased]**
 
-## 0.13.0 - 2020-01-15
+## 0.13.1 - 2020-01-16
+- Fix bug in wapm related to the `package.wasmer_extra_flags` entry in the manifest
 
+## 0.13.0 - 2020-01-15
 
 Special thanks to [@repi](https://github.com/repi) and [@srenatus](https://github.com/srenatus) for their contributions!
 
