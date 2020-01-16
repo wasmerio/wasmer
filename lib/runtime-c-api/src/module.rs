@@ -44,13 +44,26 @@ pub unsafe extern "C" fn wasmer_compile(
     wasmer_result_t::WASMER_OK
 }
 
-/// Returns true for valid wasm bytes and false for invalid bytes
+/// Validates a sequence of bytes hoping it represents a valid WebAssembly module.
+///
+/// The function returns true if the bytes are valid, false otherwise.
+///
+/// Example:
+///
+/// ```c
+/// bool result = wasmer_validate(bytes, bytes_length);
+///
+/// if (false == result) {
+///     // Do something…
+/// }
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_validate(wasm_bytes: *const u8, wasm_bytes_len: u32) -> bool {
     if wasm_bytes.is_null() {
         return false;
     }
+
     let bytes: &[u8] = slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
 
     wasmer_runtime_core::validate(bytes)
