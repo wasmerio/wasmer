@@ -51,12 +51,42 @@ pub struct wasmer_instance_t;
 #[repr(C)]
 pub struct wasmer_instance_context_t;
 
-/// Creates a new Instance from the given wasm bytes and imports.
+/// Creates a new WebAssembly instance from the given bytes and imports.
 ///
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// The result is stored in the first argument `instance` if
+/// successful, i.e. when the function returns
+/// `wasmer_result_t::WASMER_OK`. Otherwise
+/// `wasmer_result_t::WASMER_ERROR` is returned, and
+/// `wasmer_last_error_length()` with `wasmer_last_error_message()` must
+/// be used to read the error message.
 ///
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
+/// Example:
+///
+/// ```c
+/// // 1. Read a WebAssembly module from a file.
+/// FILE *file = fopen("sum.wasm", "r");
+/// fseek(file, 0, SEEK_END);
+/// long bytes_length = ftell(file);
+/// uint8_t *bytes = malloc(bytes_length);
+/// fseek(file, 0, SEEK_SET);
+/// fread(bytes, 1, bytes_length, file);
+/// fclose(file);
+///
+/// // 2. Declare the imports (here, none).
+/// wasmer_import_t imports[] = {};
+///
+/// // 3. Instantiate the WebAssembly module.
+/// wasmer_instance_t *instance = NULL;
+/// wasmer_result_t result = wasmer_instantiate(&instance, bytes, bytes_length, imports, 0);
+///
+/// // 4. Check for errors.
+/// if (result != WASMER_OK) {
+///     int error_length = wasmer_last_error_length();
+///     char *error = malloc(error_length);
+///     wasmer_last_error_message(error, error_length);
+///     // Do something with `error`…
+/// }
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instantiate(
