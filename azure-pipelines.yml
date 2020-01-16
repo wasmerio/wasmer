@@ -104,11 +104,6 @@ jobs:
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
-    #condition: |
-    #  or(
-    #    in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying'),
-    #    startsWith(variables['Build.SourceBranch'], 'refs/tags')
-    #  )
     steps:
       - checkout: self
         submodules: true
@@ -129,8 +124,6 @@ jobs:
       - bash: |
           make wapm
         displayName: Build WAPM
-        #condition: |
-        #  startsWith(variables['Build.SourceBranch'], 'refs/tags')
       - bash: |
           make build-install
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
@@ -138,7 +131,6 @@ jobs:
         condition: |
           and(
             succeeded(),
-            #startsWith(variables['Build.SourceBranch'], 'refs/tags'),
             not(eq(variables['Agent.OS'], 'Windows_NT'))
           )
       - bash: |
@@ -149,7 +141,6 @@ jobs:
         condition: |
           and(
             succeeded(),
-            #startsWith(variables['Build.SourceBranch'], 'refs/tags'),
             eq(variables['Agent.OS'], 'Windows_NT')
           )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
