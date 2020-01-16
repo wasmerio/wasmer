@@ -184,3 +184,11 @@ table.fieldtable,
 table.fieldtable td {
     border-color: var(--secondary-color) !important;
 }
+
+div.fragment {
+    padding: 1rem;
+}
+
+div.fragment div.line {
+    line-height: 1.15rem;
+}
