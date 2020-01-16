@@ -284,6 +284,19 @@
 <span id="284">284</span>
 <span id="285">285</span>
 <span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Compile, validate, instantiate, serialize, and destroy modules.</span>
 
@@ -331,13 +344,26 @@
     <span class="ident">wasmer_result_t</span>::<span class="ident">WASMER_OK</span>
 }
 
-<span class="doccomment">/// Returns true for valid wasm bytes and false for invalid bytes</span>
+<span class="doccomment">/// Validates a sequence of bytes hoping it represents a valid WebAssembly module.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The function returns true if the bytes are valid, false otherwise.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Example:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```c</span>
+<span class="doccomment">/// bool result = wasmer_validate(bytes, bytes_length);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// if (false == result) {</span>
+<span class="doccomment">///     // Do something…</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_validate</span>(<span class="ident">wasm_bytes</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>, <span class="ident">wasm_bytes_len</span>: <span class="ident">u32</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
     <span class="kw">if</span> <span class="ident">wasm_bytes</span>.<span class="ident">is_null</span>() {
         <span class="kw">return</span> <span class="bool-val">false</span>;
     }
+
     <span class="kw">let</span> <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(<span class="ident">wasm_bytes</span>, <span class="ident">wasm_bytes_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
 
     <span class="ident">wasmer_runtime_core</span>::<span class="ident">validate</span>(<span class="ident">bytes</span>)

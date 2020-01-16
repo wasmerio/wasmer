@@ -379,7 +379,6 @@ Functions</h2></td></tr>
 <tr class="memitem:a13dc1d637eb18301ff0a27b825cd38d3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#a13dc1d637eb18301ff0a27b825cd38d3">wasmer_trap</a> (const <a class="el" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a> *ctx, const char *error_message)</td></tr>
 <tr class="separator:a13dc1d637eb18301ff0a27b825cd38d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1f96f627f4c0ab0a11bbff31f429fd76"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#a1f96f627f4c0ab0a11bbff31f429fd76">wasmer_validate</a> (const uint8_t *wasm_bytes, uint32_t wasm_bytes_len)</td></tr>
-<tr class="memdesc:a1f96f627f4c0ab0a11bbff31f429fd76"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true for valid wasm bytes and false for invalid bytes.  <a href="#a1f96f627f4c0ab0a11bbff31f429fd76">More...</a><br /></td></tr>
 <tr class="separator:a1f96f627f4c0ab0a11bbff31f429fd76"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab93d453d104c6df1bb20552df240066b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structwasmer__import__object__t.html">wasmer_import_object_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#ab93d453d104c6df1bb20552df240066b">wasmer_wasi_generate_default_import_object</a> ()</td></tr>
 <tr class="separator:ab93d453d104c6df1bb20552df240066b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2022,10 +2021,10 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Creates a new Instance from the given wasm bytes and imports.</p>
-<p>Returns <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">wasmer_result_t::WASMER_OK</a></code> upon success.</p>
-<p>Returns <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710">wasmer_result_t::WASMER_ERROR</a></code> upon failure. Use <code>wasmer_last_error_length</code> and <code>wasmer_last_error_message</code> to get an error message. </p>
-
+<p>Creates a new WebAssembly instance from the given bytes and imports.</p>
+<p>The result is stored in the first argument <code>instance</code> if successful, i.e. when the function returns <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">wasmer_result_t::WASMER_OK</a></code>. Otherwise <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710">wasmer_result_t::WASMER_ERROR</a></code> is returned, and <code><a class="el" href="wasmer_8hh.html#a50684d50b57abe2f92e8f6604d117e88">wasmer_last_error_length()</a></code> with <code><a class="el" href="wasmer_8hh.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message()</a></code> must be used to read the error message.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="comment">// 1. Read a WebAssembly module from a file.</span></div><div class="line">FILE *file = fopen(<span class="stringliteral">&quot;sum.wasm&quot;</span>, <span class="stringliteral">&quot;r&quot;</span>);</div><div class="line">fseek(file, 0, SEEK_END);</div><div class="line"><span class="keywordtype">long</span> bytes_length = ftell(file);</div><div class="line">uint8_t *bytes = malloc(bytes_length);</div><div class="line">fseek(file, 0, SEEK_SET);</div><div class="line">fread(bytes, 1, bytes_length, file);</div><div class="line">fclose(file);</div><div class="line"></div><div class="line"><span class="comment">// 2. Declare the imports (here, none).</span></div><div class="line"><a class="code" href="structwasmer__import__t.html">wasmer_import_t</a> imports[] = {};</div><div class="line"></div><div class="line"><span class="comment">// 3. Instantiate the WebAssembly module.</span></div><div class="line"><a class="code" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance = NULL;</div><div class="line"><a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> result = <a class="code" href="wasmer_8h.html#a851ffc7c0de470300c66891f571878a5">wasmer_instantiate</a>(&amp;instance, bytes, bytes_length, imports, 0);</div><div class="line"></div><div class="line"><span class="comment">// 4. Check for errors.</span></div><div class="line"><span class="keywordflow">if</span> (result != WASMER_OK) {</div><div class="line">    <span class="keywordtype">int</span> error_length = <a class="code" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length</a>();</div><div class="line">    <span class="keywordtype">char</span> *error = malloc(error_length);</div><div class="line">    <a class="code" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message</a>(error, error_length);</div><div class="line">    <span class="comment">// Do something with `error`…</span></div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
 <a class="anchor" id="a50684d50b57abe2f92e8f6604d117e88"></a>
@@ -2581,9 +2580,10 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Returns true for valid wasm bytes and false for invalid bytes. </p>
-
+<p>Validates a sequence of bytes hoping it represents a valid WebAssembly module.</p>
+<p>The function returns true if the bytes are valid, false otherwise.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="keywordtype">bool</span> result = <a class="code" href="wasmer_8h.html#a1f96f627f4c0ab0a11bbff31f429fd76">wasmer_validate</a>(bytes, bytes_length);</div><div class="line"></div><div class="line"><span class="keywordflow">if</span> (<span class="keyword">false</span> == result) {</div><div class="line">    <span class="comment">// Do something…</span></div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
 <a class="anchor" id="ab93d453d104c6df1bb20552df240066b"></a>
