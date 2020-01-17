@@ -107,7 +107,7 @@
 <span id="107">107</span>
 <span id="108">108</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! The units module provides common WebAssembly units like `Pages` and conversion functions into</span>
+<span class="doccomment">//! The units module provides common WebAssembly units like [`Pages`] and conversion functions into</span>
 <span class="doccomment">//! other units.</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">PageError</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -117,7 +117,7 @@
 
 <span class="doccomment">/// The page size in bytes of a wasm page.</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WASM_PAGE_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">65_536</span>;
-<span class="doccomment">/// Tbe max number of wasm pages allowed.</span>
+<span class="doccomment">/// The max number of wasm pages allowed.</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WASM_MAX_PAGES</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">65_536</span>;
 <span class="comment">// From emscripten resize_heap implementation</span>
 <span class="doccomment">/// The minimum number of wasm pages allowed.</span>
