@@ -1,4 +1,4 @@
-#![allow(unused)]
+#![allow(unused, clippy::too_many_arguments)]
 pub mod types;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod unix;
@@ -331,7 +331,7 @@ pub fn fd_allocate(
 ) -> __wasi_errno_t {
     debug!("wasi::fd_allocate");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_ALLOCATE) {
@@ -374,7 +374,7 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("=> fd={}", fd);
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
 
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
 
     wasi_try!(state.fs.close_fd(fd));
 
@@ -389,7 +389,7 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_datasync");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_DATASYNC) {
         return __WASI_EACCES;
     }
@@ -420,7 +420,7 @@ pub fn fd_fdstat_get(
         buf_ptr.offset()
     );
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
 
     let stat = wasi_try!(state.fs.fdstat(fd));
     let buf = wasi_try!(buf_ptr.deref(memory));
@@ -528,7 +528,7 @@ pub fn fd_filestat_set_size(
 ) -> __wasi_errno_t {
     debug!("wasi::fd_filestat_set_size");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_SET_SIZE) {
@@ -1309,7 +1309,7 @@ pub fn path_create_directory(
     debug!("wasi::path_create_directory");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
 
-    let working_dir = wasi_try!(state.fs.get_fd(fd)).clone();
+    let working_dir = wasi_try!(state.fs.get_fd(fd));
     if let Kind::Root { .. } = &state.fs.inodes[working_dir.inode].kind {
         return __WASI_EACCES;
     }
@@ -1468,7 +1468,7 @@ pub fn path_filestat_set_times(
 ) -> __wasi_errno_t {
     debug!("wasi::path_filestat_set_times");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let fd_inode = fd_entry.inode;
     if !has_rights(fd_entry.rights, __WASI_RIGHT_PATH_FILESTAT_SET_TIMES) {
         return __WASI_EACCES;

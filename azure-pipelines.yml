@@ -19,7 +19,7 @@ jobs:
           rustup component add rustfmt
           rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
         displayName: Lint dependencies
-      - script: cargo fmt --all -- --check
+      - script: cargo fmt --all -- --check && cargo clippy --workspace
         displayName: Lint
     variables:
       rust_toolchain: '1.39.0'

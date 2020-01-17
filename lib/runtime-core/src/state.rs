@@ -627,9 +627,11 @@ pub mod x64 {
     use crate::vm::Ctx;
     use std::any::Any;
 
+    #[allow(clippy::cast_ptr_alignment)]
     unsafe fn compute_vmctx_deref(vmctx: *const Ctx, seq: &[usize]) -> u64 {
         let mut ptr = &vmctx as *const *const Ctx as *const u8;
         for x in seq {
+            debug_assert!(ptr.align_offset(std::mem::align_of::<*const u8>()) == 0);
             ptr = (*(ptr as *const *const u8)).offset(*x as isize);
         }
         ptr as usize as u64

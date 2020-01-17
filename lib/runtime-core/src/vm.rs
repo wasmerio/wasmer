@@ -570,6 +570,7 @@ pub struct FuncCtx {
 
 impl FuncCtx {
     /// Offset to the `vmctx` field.
+    #[allow(clippy::erasing_op)]
     pub const fn offset_vmctx() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
