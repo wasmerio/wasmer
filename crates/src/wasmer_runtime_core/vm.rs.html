@@ -1130,6 +1130,9 @@
 <span id="1130">1130</span>
 <span id="1131">1131</span>
 <span id="1132">1132</span>
+<span id="1133">1133</span>
+<span id="1134">1134</span>
+<span id="1135">1135</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The runtime vm module contains data structures and helper functions used during runtime to</span>
 <span class="doccomment">//! execute wasm instance functions.</span>
@@ -1187,11 +1190,14 @@
     <span class="doccomment">/// This is intended to be user-supplied, per-instance</span>
     <span class="doccomment">/// contextual data. There are currently some issue with it,</span>
     <span class="doccomment">/// notably that it cannot be set before running the `start`</span>
-    <span class="doccomment">/// function in a WebAssembly module.</span>
+    <span class="doccomment">/// function in a WebAssembly module. Additionally, the `data`</span>
+    <span class="doccomment">/// field may be taken by another ABI implementation that the user</span>
+    <span class="doccomment">/// wishes to use in addition to their own, such as WASI.  This issue is</span>
+    <span class="doccomment">/// being discussed at [#1111](https://github.com/wasmerio/wasmer/pull/1111).</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// [#219](https://github.com/wasmerio/wasmer/pull/219) fixes that</span>
-    <span class="doccomment">/// issue, as well as allowing the user to have *per-function*</span>
-    <span class="doccomment">/// context, instead of just per-instance.</span>
+    <span class="doccomment">/// Alternatively, per-function data can be used if the function in the</span>
+    <span class="doccomment">/// [`ImportObject`] is a closure.  This cannot duplicate data though,</span>
+    <span class="doccomment">/// so if data may be shared if the [`ImportObject`] is reused.</span>
     <span class="kw">pub</span> <span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>,
 
     <span class="doccomment">/// If there&#39;s a function set in this field, it gets called</span>

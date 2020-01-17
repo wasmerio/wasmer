@@ -192,6 +192,15 @@
 <span id="192">192</span>
 <span id="193">193</span>
 <span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">error</span>::<span class="ident">CompileResult</span>,
@@ -271,9 +280,18 @@
 }
 
 <span class="doccomment">/// Controls which experimental features will be enabled.</span>
+<span class="doccomment">/// Features usually have a corresponding [WebAssembly proposal][wasm-props].</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [wasm-props]: https://github.com/WebAssembly/proposals</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Features</span> {
+    <span class="doccomment">/// Whether support for the [SIMD proposal][simd-prop] is enabled.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// [simd-prop]: https://github.com/webassembly/simd</span>
     <span class="kw">pub</span> <span class="ident">simd</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Whether support for the [threads proposal][threads-prop] is enabled.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// [threads-prop]: https://github.com/webassembly/threads</span>
     <span class="kw">pub</span> <span class="ident">threads</span>: <span class="ident">bool</span>,
 }
 
