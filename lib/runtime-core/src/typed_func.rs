@@ -430,7 +430,7 @@ macro_rules! impl_traits {
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap + 'static,
+            FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap + 'static + Send,
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
@@ -545,7 +545,7 @@ macro_rules! impl_traits {
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn($( $x, )*) -> Trap + 'static,
+            FN: Fn($( $x, )*) -> Trap + 'static + Send,
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
