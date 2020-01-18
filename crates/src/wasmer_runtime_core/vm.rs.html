@@ -1133,6 +1133,7 @@
 <span id="1133">1133</span>
 <span id="1134">1134</span>
 <span id="1135">1135</span>
+<span id="1136">1136</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The runtime vm module contains data structures and helper functions used during runtime to</span>
 <span class="doccomment">//! execute wasm instance functions.</span>
@@ -1706,6 +1707,7 @@
 
 <span class="kw">impl</span> <span class="ident">FuncCtx</span> {
     <span class="doccomment">/// Offset to the `vmctx` field.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_vmctx</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
         <span class="number">0</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }

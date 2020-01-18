@@ -2534,7 +2534,7 @@
 <span id="2534">2534</span>
 <span id="2535">2535</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
+<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">unix</span>;
@@ -2867,7 +2867,7 @@
 ) <span class="op">-&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_allocate&quot;</span>);
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>)).<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_ALLOCATE</span>) {
@@ -2910,7 +2910,7 @@
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; fd={}&quot;</span>, <span class="ident">fd</span>);
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
 
-    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>)).<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
 
     <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">close_fd</span>(<span class="ident">fd</span>));
 
@@ -2925,7 +2925,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_datasync</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_datasync&quot;</span>);
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>)).<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_DATASYNC</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
@@ -2956,7 +2956,7 @@
         <span class="ident">buf_ptr</span>.<span class="ident">offset</span>()
     );
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>)).<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
 
     <span class="kw">let</span> <span class="ident">stat</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fdstat</span>(<span class="ident">fd</span>));
     <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">buf_ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
@@ -3064,7 +3064,7 @@
 ) <span class="op">-&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_filestat_set_size&quot;</span>);
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>)).<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_FILESTAT_SET_SIZE</span>) {
@@ -3845,7 +3845,7 @@
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_create_directory&quot;</span>);
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
 
-    <span class="kw">let</span> <span class="ident">working_dir</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>)).<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">working_dir</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">Root</span> { .. } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">working_dir</span>.<span class="ident">inode</span>].<span class="ident">kind</span> {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
@@ -4004,7 +4004,7 @@
 ) <span class="op">-&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_filestat_set_times&quot;</span>);
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>)).<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">let</span> <span class="ident">fd_inode</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_FILESTAT_SET_TIMES</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;

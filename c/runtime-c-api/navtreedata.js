@@ -1,7 +1,11 @@
 var NAVTREE =
 [
   [ "wasmer-runtime-c-api", "index.html", [
-    [ "Wasmer Runtime C API", "index.html", null ],
+    [ "Wasmer Runtime C API", "index.html", [
+      [ "Usage", "index.html#autotoc_md1", null ],
+      [ "Testing", "index.html#autotoc_md2", null ],
+      [ "License", "index.html#autotoc_md3", null ]
+    ] ],
     [ "Data Structures", "annotated.html", [
       [ "Data Structures", "annotated.html", "annotated_dup" ],
       [ "Data Structure Index", "classes.html", null ],
@@ -27,7 +31,7 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "annotated.html",
-"wasmer_8hh.html#a8682ebd2a91fe92c3d2f24099ff465e8"
+"wasmer_8hh.html#a851ffc7c0de470300c66891f571878a5"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';
