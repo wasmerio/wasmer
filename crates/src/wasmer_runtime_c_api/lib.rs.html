@@ -162,6 +162,11 @@
 <span id="162">162</span>
 <span id="163">163</span>
 <span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/static/icons/favicon.ico&quot;</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://avatars3.githubusercontent.com/u/44205449?s=200&amp;v=4&quot;</span>)]</span>
@@ -272,10 +277,15 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">trampoline</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">value</span>;
 
+<span class="doccomment">/// The `wasmer_result_t` struct is a type that represents either a</span>
+<span class="doccomment">/// success, or a failure.</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">wasmer_result_t</span> {
+    <span class="doccomment">/// Represents a success.</span>
     <span class="ident">WASMER_OK</span> <span class="op">=</span> <span class="number">1</span>,
+
+    <span class="doccomment">/// Represents a failure.</span>
     <span class="ident">WASMER_ERROR</span> <span class="op">=</span> <span class="number">2</span>,
 }
 

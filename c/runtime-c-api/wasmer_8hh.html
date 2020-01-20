@@ -96,7 +96,6 @@ Data Structures</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwasmer__exports__t.html">wasmer_exports_t</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Opaque pointer to <code>NamedExports</code>.  <a href="structwasmer__exports__t.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwasmer__global__t.html">wasmer_global_t</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -231,7 +230,6 @@ Functions</h2></td></tr>
 <tr class="memitem:afa0ead8910ea0717fdfad30797cb2a8a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#afa0ead8910ea0717fdfad30797cb2a8a">wasmer_export_to_memory</a> (const <a class="el" href="structwasmer__export__t.html">wasmer_export_t</a> *export_, <a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> **memory)</td></tr>
 <tr class="separator:afa0ead8910ea0717fdfad30797cb2a8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a35cbe1d995d5f8f5684766ac0b03c15b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#a35cbe1d995d5f8f5684766ac0b03c15b">wasmer_exports_destroy</a> (<a class="el" href="structwasmer__exports__t.html">wasmer_exports_t</a> *exports)</td></tr>
-<tr class="memdesc:a35cbe1d995d5f8f5684766ac0b03c15b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees the memory for the given exports.  <a href="#a35cbe1d995d5f8f5684766ac0b03c15b">More...</a><br /></td></tr>
 <tr class="separator:a35cbe1d995d5f8f5684766ac0b03c15b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad98ba1c7e6924707a5065467f0d84c2f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structwasmer__export__t.html">wasmer_export_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#ad98ba1c7e6924707a5065467f0d84c2f">wasmer_exports_get</a> (<a class="el" href="structwasmer__exports__t.html">wasmer_exports_t</a> *exports, int idx)</td></tr>
 <tr class="memdesc:ad98ba1c7e6924707a5065467f0d84c2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets wasmer_export by index.  <a href="#ad98ba1c7e6924707a5065467f0d84c2f">More...</a><br /></td></tr>
@@ -310,17 +308,14 @@ Functions</h2></td></tr>
 <tr class="memitem:a05d595a60b647088d5e71f1d2a1fdc81"><td class="memItemLeft" align="right" valign="top"><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#a05d595a60b647088d5e71f1d2a1fdc81">wasmer_instance_call</a> (<a class="el" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance, const char *name, const <a class="el" href="structwasmer__value__t.html">wasmer_value_t</a> *params, uint32_t params_len, <a class="el" href="structwasmer__value__t.html">wasmer_value_t</a> *results, uint32_t results_len)</td></tr>
 <tr class="separator:a05d595a60b647088d5e71f1d2a1fdc81"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af2571fbcc974c0f4d482081155dcc924"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#af2571fbcc974c0f4d482081155dcc924">wasmer_instance_context_data_get</a> (const <a class="el" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a> *ctx)</td></tr>
-<tr class="memdesc:af2571fbcc974c0f4d482081155dcc924"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets the <code>data</code> field within the context.  <a href="#af2571fbcc974c0f4d482081155dcc924">More...</a><br /></td></tr>
 <tr class="separator:af2571fbcc974c0f4d482081155dcc924"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6891b419bd59b8b36d55c29628874b7b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#a6891b419bd59b8b36d55c29628874b7b">wasmer_instance_context_data_set</a> (<a class="el" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance, void *data_ptr)</td></tr>
 <tr class="separator:a6891b419bd59b8b36d55c29628874b7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0de04a0f4069c916684e95c443ca6a02"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#a0de04a0f4069c916684e95c443ca6a02">wasmer_instance_context_get</a> (<a class="el" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance)</td></tr>
-<tr class="memdesc:a0de04a0f4069c916684e95c443ca6a02"><td class="mdescLeft">&#160;</td><td class="mdescRight">Extracts the instance's context and returns it.  <a href="#a0de04a0f4069c916684e95c443ca6a02">More...</a><br /></td></tr>
 <tr class="separator:a0de04a0f4069c916684e95c443ca6a02"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64f78c35ebe9ccadbed0b1d2b0866d6e"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#a64f78c35ebe9ccadbed0b1d2b0866d6e">wasmer_instance_context_memory</a> (const <a class="el" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a> *ctx, uint32_t _memory_idx)</td></tr>
 <tr class="separator:a64f78c35ebe9ccadbed0b1d2b0866d6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afab1426069281f315cc1d140c2b5d105"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#afab1426069281f315cc1d140c2b5d105">wasmer_instance_destroy</a> (<a class="el" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance)</td></tr>
-<tr class="memdesc:afab1426069281f315cc1d140c2b5d105"><td class="mdescLeft">&#160;</td><td class="mdescRight">Frees memory for the given Instance.  <a href="#afab1426069281f315cc1d140c2b5d105">More...</a><br /></td></tr>
 <tr class="separator:afab1426069281f315cc1d140c2b5d105"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef91193bda03a2c6c9ef4a4e2c4005af"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8hh.html#aef91193bda03a2c6c9ef4a4e2c4005af">wasmer_instance_exports</a> (<a class="el" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance, <a class="el" href="structwasmer__exports__t.html">wasmer_exports_t</a> **exports)</td></tr>
 <tr class="separator:aef91193bda03a2c6c9ef4a4e2c4005af"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -526,14 +521,22 @@ Functions</h2></td></tr>
 
 <p>List of export/import kinds. </p>
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da39d4be480e1aaa1050ef5d97d67bb3d8"></a>WASM_FUNCTION&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5daccf76aee115453857197ddeaedbfc569"></a>WASM_GLOBAL&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da84788be0e970ee931fb493acf89bc16b"></a>WASM_MEMORY&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5dab07c3c116cd14570474b7ad625fb8bc5"></a>WASM_TABLE&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da6f4264479ebbfa40e87afbcfbc6c2bdf"></a>WASM_FUNCTION&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da1b5457606e4d155dc0c615553eb3b83e"></a>WASM_GLOBAL&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5daf6dc1127504f3a513a466d8d4798499b"></a>WASM_MEMORY&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da54b3ca8cdee71d0c16b7ae8f33da5cc5"></a>WASM_TABLE&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da39d4be480e1aaa1050ef5d97d67bb3d8"></a>WASM_FUNCTION&#160;</td><td class="fielddoc"><p>The export/import is a function. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5daccf76aee115453857197ddeaedbfc569"></a>WASM_GLOBAL&#160;</td><td class="fielddoc"><p>The export/import is a global. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da84788be0e970ee931fb493acf89bc16b"></a>WASM_MEMORY&#160;</td><td class="fielddoc"><p>The export/import is a memory. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5dab07c3c116cd14570474b7ad625fb8bc5"></a>WASM_TABLE&#160;</td><td class="fielddoc"><p>The export/import is a table. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da6f4264479ebbfa40e87afbcfbc6c2bdf"></a>WASM_FUNCTION&#160;</td><td class="fielddoc"><p>The export/import is a function. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da1b5457606e4d155dc0c615553eb3b83e"></a>WASM_GLOBAL&#160;</td><td class="fielddoc"><p>The export/import is a global. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5daf6dc1127504f3a513a466d8d4798499b"></a>WASM_MEMORY&#160;</td><td class="fielddoc"><p>The export/import is a memory. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="adbbf659e0fb13063dd3461a831b45f5da54b3ca8cdee71d0c16b7ae8f33da5cc5"></a>WASM_TABLE&#160;</td><td class="fielddoc"><p>The export/import is a table. </p>
+</td></tr>
 </table>
 
 <p class="definition">Definition at line <a class="el" href="wasmer_8hh_source.html#l00057">57</a> of file <a class="el" href="wasmer_8hh_source.html">wasmer.hh</a>.</p>
@@ -559,14 +562,19 @@ Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>The <code>wasmer_result_t</code> struct is a type that represents either a success, or a failure. </p>
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532"></a>WASMER_OK&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710"></a>WASMER_ERROR&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847a704468d1dc420d4bb43f61cf181c14cd"></a>WASMER_OK&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847adb00c430d24bb7112386fda1e292fe06"></a>WASMER_ERROR&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532"></a>WASMER_OK&#160;</td><td class="fielddoc"><p>Represents a success. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710"></a>WASMER_ERROR&#160;</td><td class="fielddoc"><p>Represents a failure. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847a704468d1dc420d4bb43f61cf181c14cd"></a>WASMER_OK&#160;</td><td class="fielddoc"><p>Represents a success. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847adb00c430d24bb7112386fda1e292fe06"></a>WASMER_ERROR&#160;</td><td class="fielddoc"><p>Represents a failure. </p>
+</td></tr>
 </table>
 
-<p class="definition">Definition at line <a class="el" href="wasmer_8hh_source.html#l00064">64</a> of file <a class="el" href="wasmer_8hh_source.html">wasmer.hh</a>.</p>
+<p class="definition">Definition at line <a class="el" href="wasmer_8hh_source.html#l00070">70</a> of file <a class="el" href="wasmer_8hh_source.html">wasmer.hh</a>.</p>
 
 </div>
 </div>
@@ -600,7 +608,7 @@ Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="ab59c1ddbf63e81d9a311722271a3bf79a463d77c90bdf9b61521ff9c854111808"></a>WASM_F64&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
-<p class="definition">Definition at line <a class="el" href="wasmer_8hh_source.html#l00069">69</a> of file <a class="el" href="wasmer_8hh_source.html">wasmer.hh</a>.</p>
+<p class="definition">Definition at line <a class="el" href="wasmer_8hh_source.html#l00077">77</a> of file <a class="el" href="wasmer_8hh_source.html">wasmer.hh</a>.</p>
 
 </div>
 </div>
@@ -1073,9 +1081,11 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Frees the memory for the given exports. </p>
-
+<p>Frees the memory for the given exports.</p>
+<p>Check the <code><a class="el" href="wasmer_8hh.html#aef91193bda03a2c6c9ef4a4e2c4005af">wasmer_instance_exports()</a></code> function to get a complete example.</p>
+<p>If <code>exports</code> is a null pointer, this function does nothing.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="comment">// Get some exports.</span></div><div class="line"><a class="code" href="structwasmer__exports__t.html">wasmer_exports_t</a> *exports = NULL;</div><div class="line"><a class="code" href="wasmer_8h.html#aef91193bda03a2c6c9ef4a4e2c4005af">wasmer_instance_exports</a>(instance, &amp;exports);</div><div class="line"></div><div class="line"><span class="comment">// Destroy the exports.</span></div><div class="line"><a class="code" href="wasmer_8h.html#a35cbe1d995d5f8f5684766ac0b03c15b">wasmer_exports_destroy</a>(exports);</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="ad98ba1c7e6924707a5065467f0d84c2f"></a>
@@ -1919,10 +1929,16 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Calls an instances exported function by <code>name</code> with the provided parameters. Results are set using the provided <code>results</code> pointer.</p>
-<p>Returns <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">wasmer_result_t::WASMER_OK</a></code> upon success.</p>
-<p>Returns <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710">wasmer_result_t::WASMER_ERROR</a></code> upon failure. Use <code>wasmer_last_error_length</code> and <code>wasmer_last_error_message</code> to get an error message. </p>
-
+<p>Calls an exported function of a WebAssembly instance by <code>name</code> with the provided parameters. The exported function results are stored on the provided <code>results</code> pointer.</p>
+<p>This function returns <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">wasmer_result_t::WASMER_OK</a></code> upon success, <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710">wasmer_result_t::WASMER_ERROR</a></code> otherwise. You can use <code><a class="el" href="wasmer_8hh.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message()</a></code> to get the generated error message.</p>
+<p>Potential errors are the following:</p>
+<ul>
+<li><code>instance</code> is a null pointer,</li>
+<li><code>name</code> is a null pointer,</li>
+<li><code>params</code> is a null pointer.</li>
+</ul>
+<p>Example of calling an exported function that needs two parameters, and returns one value:</p>
+<div class="fragment"><div class="line"><span class="comment">// First argument.</span></div><div class="line"><a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> argument_one = {</div><div class="line">    .<a class="code" href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">tag</a> = <a class="code" href="wasmer_8h.html#ab59c1ddbf63e81d9a311722271a3bf79abd706ef1b12a0f58c838b4425a1de440">WASM_I32</a>,</div><div class="line">    .value.I32 = 3,</div><div class="line">};</div><div class="line"></div><div class="line"><span class="comment">// Second argument.</span></div><div class="line"><a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> argument_two = {</div><div class="line">    .<a class="code" href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">tag</a> = <a class="code" href="wasmer_8h.html#ab59c1ddbf63e81d9a311722271a3bf79abd706ef1b12a0f58c838b4425a1de440">WASM_I32</a>,</div><div class="line">    .value.I32 = 4,</div><div class="line">};</div><div class="line"></div><div class="line"><span class="comment">// First result.</span></div><div class="line"><a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> result_one;</div><div class="line"></div><div class="line"><span class="comment">// All arguments and results.</span></div><div class="line"><a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> arguments[] = {argument_one, argument_two};</div><div class="line"><a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> results[]   = {result_one};</div><div class="line"></div><div class="line"><a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> call_result = <a class="code" href="wasmer_8h.html#a05d595a60b647088d5e71f1d2a1fdc81">wasmer_instance_call</a>(</div><div class="line">    instance,  <span class="comment">// instance pointer</span></div><div class="line">    <span class="stringliteral">&quot;sum&quot;</span>,     <span class="comment">// the exported function name</span></div><div class="line">    arguments, <span class="comment">// the arguments</span></div><div class="line">    2,         <span class="comment">// the number of arguments</span></div><div class="line">    results,   <span class="comment">// the results</span></div><div class="line">    1          <span class="comment">// the number of results</span></div><div class="line">);</div><div class="line"></div><div class="line"><span class="keywordflow">if</span> (call_result == WASMER_OK) {</div><div class="line">    printf(<span class="stringliteral">&quot;Result is: %d\n&quot;</span>, results[0].value.I32);</div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="af2571fbcc974c0f4d482081155dcc924"></a>
@@ -1940,8 +1956,9 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Gets the <code>data</code> field within the context. </p>
+<p>Gets the data that can be hold by an instance.</p>
+<p>This function is complementary of <code><a class="el" href="wasmer_8hh.html#a6891b419bd59b8b36d55c29628874b7b">wasmer_instance_context_data_set()</a></code>. Please read its documentation. You can also read the documentation of <code><a class="el" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a></code> to get other examples.</p>
+<p>This function returns nothing if <code>ctx</code> is a null pointer. </p>
 
 </div>
 </div>
@@ -1970,8 +1987,11 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Sets the <code>data</code> field of the instance context. This context will be passed to all imported function for instance. </p>
-
+<p>Sets the data that can be hold by an instance context.</p>
+<p>An instance context (represented by the opaque <code><a class="el" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a></code> structure) can hold user-defined data. This function sets the data. This function is complementary of <code><a class="el" href="wasmer_8hh.html#af2571fbcc974c0f4d482081155dcc924">wasmer_instance_context_data_get()</a></code>.</p>
+<p>This function does nothing if <code>instance</code> is a null pointer.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="comment">// Define your own data.</span></div><div class="line"><span class="keyword">typedef</span> <span class="keyword">struct </span>{</div><div class="line">    <span class="comment">// …</span></div><div class="line">} my_data;</div><div class="line"></div><div class="line"><span class="comment">// Allocate them and set them on the given instance.</span></div><div class="line">my_data *data = malloc(<span class="keyword">sizeof</span>(my_data));</div><div class="line">data-&gt;… = …;</div><div class="line"><a class="code" href="wasmer_8h.html#a6891b419bd59b8b36d55c29628874b7b">wasmer_instance_context_data_set</a>(instance, (<span class="keywordtype">void</span>*) my_data);</div><div class="line"></div><div class="line"><span class="comment">// You can read your data.</span></div><div class="line">{</div><div class="line">    my_data *data = (my_data*) <a class="code" href="wasmer_8h.html#af2571fbcc974c0f4d482081155dcc924">wasmer_instance_context_data_get</a>(<a class="code" href="wasmer_8h.html#a0de04a0f4069c916684e95c443ca6a02">wasmer_instance_context_get</a>(instance));</div><div class="line">    <span class="comment">// …</span></div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a0de04a0f4069c916684e95c443ca6a02"></a>
@@ -1989,8 +2009,10 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Extracts the instance's context and returns it. </p>
+<p>Returns the instance context. Learn more by looking at the <code><a class="el" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a></code> struct.</p>
+<p>This function returns <code>null</code> if <code>instance</code> is a null pointer.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="keyword">const</span> <a class="code" href="wasmer_8h.html#a0de04a0f4069c916684e95c443ca6a02">wasmer_instance_context_get</a> *context = <a class="code" href="wasmer_8h.html#a0de04a0f4069c916684e95c443ca6a02">wasmer_instance_context_get</a>(instance);</div><div class="line">my_data *data = (my_data *) <a class="code" href="wasmer_8h.html#af2571fbcc974c0f4d482081155dcc924">wasmer_instance_context_data_get</a>(context);</div><div class="line"><span class="comment">// Do something with `my_data`.</span></div></div><!-- fragment --><p>It is often useful with <code><a class="el" href="wasmer_8hh.html#a6891b419bd59b8b36d55c29628874b7b">wasmer_instance_context_data_set()</a></code>. </p>
 
 </div>
 </div>
@@ -2019,8 +2041,11 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Gets the memory within the context at the index <code>memory_idx</code>. The index is always 0 until multiple memories are supported. </p>
-
+<p>Gets the <code>memory_idx</code>th memory of the instance.</p>
+<p>Note that the index is always <code>0</code> until multiple memories are supported.</p>
+<p>This function is mostly used inside host functions (aka imported functions) to read the instance memory.</p>
+<p>Example of a <em>host function</em> that reads and prints a string based on a pointer and a length:</p>
+<div class="fragment"><div class="line"><span class="keywordtype">void</span> print_string(<span class="keyword">const</span> <a class="code" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a> *context, int32_t pointer, int32_t length) {</div><div class="line">    <span class="comment">// Get the 0th memory.</span></div><div class="line">    <span class="keyword">const</span> <a class="code" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory = <a class="code" href="wasmer_8h.html#a64f78c35ebe9ccadbed0b1d2b0866d6e">wasmer_instance_context_memory</a>(context, 0);</div><div class="line"></div><div class="line">    <span class="comment">// Get the memory data as a pointer.</span></div><div class="line">    uint8_t *memory_bytes = <a class="code" href="wasmer_8h.html#a440f8b2857f55b2a948b04bb849691b4">wasmer_memory_data</a>(memory);</div><div class="line"></div><div class="line">    <span class="comment">// Print what we assumed to be a string!</span></div><div class="line">    printf(<span class="stringliteral">&quot;%.*s&quot;</span>, length, memory_bytes + pointer);</div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="afab1426069281f315cc1d140c2b5d105"></a>
@@ -2038,9 +2063,11 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Frees memory for the given Instance. </p>
-
+<p>Frees memory for the given <code><a class="el" href="structwasmer__instance__t.html">wasmer_instance_t</a></code>.</p>
+<p>Check the <code><a class="el" href="wasmer_8hh.html#a851ffc7c0de470300c66891f571878a5">wasmer_instantiate()</a></code> function to get a complete example.</p>
+<p>If <code>instance</code> is a null pointer, this function does nothing.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="comment">// Get an instance.</span></div><div class="line"><a class="code" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance = NULL;</div><div class="line"><a class="code" href="wasmer_8h.html#a851ffc7c0de470300c66891f571878a5">wasmer_instantiate</a>(&amp;instance, bytes, bytes_length, imports, 0);</div><div class="line"></div><div class="line"><span class="comment">// Destroy the instance.</span></div><div class="line"><a class="code" href="wasmer_8h.html#afab1426069281f315cc1d140c2b5d105">wasmer_instance_destroy</a>(instance);</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="aef91193bda03a2c6c9ef4a4e2c4005af"></a>
@@ -2068,9 +2095,12 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Gets Exports for the given instance</p>
-<p>The caller owns the object and should call <code>wasmer_exports_destroy</code> to free it. </p>
-
+<p>Gets all the exports of the given WebAssembly instance.</p>
+<p>This function stores a Rust vector of exports into <code>exports</code> as an opaque pointer of kind <code><a class="el" href="structwasmer__exports__t.html">wasmer_exports_t</a></code>.</p>
+<p>As is, you can do anything with <code>exports</code> except using the companion functions, like <code><a class="el" href="wasmer_8hh.html#a818ed65509ebc934a7f208cebed2b8c4" title="Gets the length of the exports. ">wasmer_exports_len()</a></code>, <code><a class="el" href="wasmer_8hh.html#ad98ba1c7e6924707a5065467f0d84c2f" title="Gets wasmer_export by index. ">wasmer_exports_get()</a></code> or <code><a class="el" href="wasmer_8hh.html#a3eaffec95a0d2c6ffc197250ac744c5b" title="Gets wasmer_export kind. ">wasmer_export_kind()</a></code>. See the example below.</p>
+<p><b>Warning</b>: The caller owns the object and should call <code><a class="el" href="wasmer_8hh.html#a35cbe1d995d5f8f5684766ac0b03c15b">wasmer_exports_destroy()</a></code> to free it.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="comment">// Get the exports.</span></div><div class="line"><a class="code" href="structwasmer__exports__t.html">wasmer_exports_t</a> *exports = NULL;</div><div class="line"><a class="code" href="wasmer_8h.html#aef91193bda03a2c6c9ef4a4e2c4005af">wasmer_instance_exports</a>(instance, &amp;exports);</div><div class="line"></div><div class="line"><span class="comment">// Get the number of exports.</span></div><div class="line"><span class="keywordtype">int</span> exports_length = <a class="code" href="wasmer_8h.html#a818ed65509ebc934a7f208cebed2b8c4">wasmer_exports_len</a>(exports);</div><div class="line">printf(<span class="stringliteral">&quot;Number of exports: %d\n&quot;</span>, exports_length);</div><div class="line"></div><div class="line"><span class="comment">// Read the first export.</span></div><div class="line"><a class="code" href="structwasmer__export__t.html">wasmer_export_t</a> *export = <a class="code" href="wasmer_8h.html#ad98ba1c7e6924707a5065467f0d84c2f">wasmer_exports_get</a>(exports, 0);</div><div class="line"></div><div class="line"><span class="comment">// Get the kind of the export.</span></div><div class="line"><a class="code" href="wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677">wasmer_import_export_kind</a> export_kind = <a class="code" href="wasmer_8h.html#a3eaffec95a0d2c6ffc197250ac744c5b">wasmer_export_kind</a>(export);</div><div class="line"></div><div class="line"><span class="comment">// Assert it is a function (why not).</span></div><div class="line">assert(export_kind == WASM_FUNCTION);</div><div class="line"></div><div class="line"><span class="comment">// Read the export name.</span></div><div class="line"><a class="code" href="structwasmer__byte__array.html">wasmer_byte_array</a> name_bytes = <a class="code" href="wasmer_8h.html#aebfeaf7bcb412a42f3a5d2636f9235d4">wasmer_export_name</a>(export);</div><div class="line"></div><div class="line">assert(name_bytes.<a class="code" href="structwasmer__byte__array.html#aa5ece5f8d95b06e3768c3e49e61833ae">bytes_len</a> == <span class="keyword">sizeof</span>(<span class="stringliteral">&quot;sum&quot;</span>) - 1);</div><div class="line">assert(memcmp(name_bytes.<a class="code" href="structwasmer__byte__array.html#a9aae07926e9cea03e7734fef7a8a89d5">bytes</a>, <span class="stringliteral">&quot;sum&quot;</span>, <span class="keyword">sizeof</span>(<span class="stringliteral">&quot;sum&quot;</span>) - 1) == 0);</div><div class="line"></div><div class="line"><span class="comment">// Destroy the exports.</span></div><div class="line"><a class="code" href="wasmer_8h.html#a35cbe1d995d5f8f5684766ac0b03c15b">wasmer_exports_destroy</a>(exports);</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a851ffc7c0de470300c66891f571878a5"></a>
@@ -2118,8 +2148,9 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Creates a new WebAssembly instance from the given bytes and imports.</p>
 <p>The result is stored in the first argument <code>instance</code> if successful, i.e. when the function returns <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">wasmer_result_t::WASMER_OK</a></code>. Otherwise <code><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710">wasmer_result_t::WASMER_ERROR</a></code> is returned, and <code><a class="el" href="wasmer_8hh.html#a50684d50b57abe2f92e8f6604d117e88">wasmer_last_error_length()</a></code> with <code><a class="el" href="wasmer_8hh.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message()</a></code> must be used to read the error message.</p>
+<p>The caller is responsible to free the instance with <code><a class="el" href="wasmer_8hh.html#afab1426069281f315cc1d140c2b5d105">wasmer_instance_destroy()</a></code>.</p>
 <p>Example:</p>
-<div class="fragment"><div class="line"><span class="comment">// 1. Read a WebAssembly module from a file.</span></div><div class="line">FILE *file = fopen(<span class="stringliteral">&quot;sum.wasm&quot;</span>, <span class="stringliteral">&quot;r&quot;</span>);</div><div class="line">fseek(file, 0, SEEK_END);</div><div class="line"><span class="keywordtype">long</span> bytes_length = ftell(file);</div><div class="line">uint8_t *bytes = malloc(bytes_length);</div><div class="line">fseek(file, 0, SEEK_SET);</div><div class="line">fread(bytes, 1, bytes_length, file);</div><div class="line">fclose(file);</div><div class="line"></div><div class="line"><span class="comment">// 2. Declare the imports (here, none).</span></div><div class="line"><a class="code" href="structwasmer__import__t.html">wasmer_import_t</a> imports[] = {};</div><div class="line"></div><div class="line"><span class="comment">// 3. Instantiate the WebAssembly module.</span></div><div class="line"><a class="code" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance = NULL;</div><div class="line"><a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> result = <a class="code" href="wasmer_8h.html#a851ffc7c0de470300c66891f571878a5">wasmer_instantiate</a>(&amp;instance, bytes, bytes_length, imports, 0);</div><div class="line"></div><div class="line"><span class="comment">// 4. Check for errors.</span></div><div class="line"><span class="keywordflow">if</span> (result != WASMER_OK) {</div><div class="line">    <span class="keywordtype">int</span> error_length = <a class="code" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length</a>();</div><div class="line">    <span class="keywordtype">char</span> *error = malloc(error_length);</div><div class="line">    <a class="code" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message</a>(error, error_length);</div><div class="line">    <span class="comment">// Do something with `error`…</span></div><div class="line">}</div></div><!-- fragment --> 
+<div class="fragment"><div class="line"><span class="comment">// 1. Read a WebAssembly module from a file.</span></div><div class="line">FILE *file = fopen(<span class="stringliteral">&quot;sum.wasm&quot;</span>, <span class="stringliteral">&quot;r&quot;</span>);</div><div class="line">fseek(file, 0, SEEK_END);</div><div class="line"><span class="keywordtype">long</span> bytes_length = ftell(file);</div><div class="line">uint8_t *bytes = malloc(bytes_length);</div><div class="line">fseek(file, 0, SEEK_SET);</div><div class="line">fread(bytes, 1, bytes_length, file);</div><div class="line">fclose(file);</div><div class="line"></div><div class="line"><span class="comment">// 2. Declare the imports (here, none).</span></div><div class="line"><a class="code" href="structwasmer__import__t.html">wasmer_import_t</a> imports[] = {};</div><div class="line"></div><div class="line"><span class="comment">// 3. Instantiate the WebAssembly module.</span></div><div class="line"><a class="code" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance = NULL;</div><div class="line"><a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> result = <a class="code" href="wasmer_8h.html#a851ffc7c0de470300c66891f571878a5">wasmer_instantiate</a>(&amp;instance, bytes, bytes_length, imports, 0);</div><div class="line"></div><div class="line"><span class="comment">// 4. Check for errors.</span></div><div class="line"><span class="keywordflow">if</span> (result != WASMER_OK) {</div><div class="line">    <span class="keywordtype">int</span> error_length = <a class="code" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length</a>();</div><div class="line">    <span class="keywordtype">char</span> *error = malloc(error_length);</div><div class="line">    <a class="code" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message</a>(error, error_length);</div><div class="line">    <span class="comment">// Do something with `error`…</span></div><div class="line">}</div><div class="line"></div><div class="line"><span class="comment">// 5. Free the memory!</span></div><div class="line"><a class="code" href="wasmer_8h.html#afab1426069281f315cc1d140c2b5d105">wasmer_instance_destroy</a>(instance);</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a50684d50b57abe2f92e8f6604d117e88"></a>
@@ -2136,10 +2167,10 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Gets the length in bytes of the last error. This can be used to dynamically allocate a buffer with the correct number of bytes needed to store a message.</p>
-<h1><a class="anchor" id="autotoc_md6"></a>
-Example</h1>
-<div class="fragment"><div class="line"><span class="keywordtype">int</span> error_len = <a class="code" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length</a>();</div><div class="line"><span class="keywordtype">char</span> *error_str = malloc(error_len);</div></div><!-- fragment --> 
+<p>Gets the length in bytes of the last error if any.</p>
+<p>This can be used to dynamically allocate a buffer with the correct number of bytes needed to store a message.</p>
+<p>See <code><a class="el" href="wasmer_8hh.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message()</a></code> to get a full example. </p>
+
 </div>
 </div>
 <a id="a9ad3fc8ec83a49297323dfd856b19005"></a>
@@ -2167,11 +2198,16 @@ Example</h1>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Stores the last error message into the provided buffer up to the given <code>length</code>. The <code>length</code> parameter must be large enough to store the last error message.</p>
-<p>Returns the length of the string in bytes. Returns <code>-1</code> if an error occurs.</p>
-<h1><a class="anchor" id="autotoc_md7"></a>
-Example</h1>
-<div class="fragment"><div class="line"><span class="keywordtype">int</span> error_len = <a class="code" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length</a>();</div><div class="line"><span class="keywordtype">char</span> *error_str = malloc(error_len);</div><div class="line"><a class="code" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message</a>(error_str, error_len);</div><div class="line">printf(<span class="stringliteral">&quot;Error str: `%s`\n&quot;</span>, error_str);</div></div><!-- fragment --> 
+<p>Gets the last error message if any into the provided buffer <code>buffer</code> up to the given <code>length</code>.</p>
+<p>The <code>length</code> parameter must be large enough to store the last error message. Ideally, the value should come from <code><a class="el" href="wasmer_8hh.html#a50684d50b57abe2f92e8f6604d117e88">wasmer_last_error_length()</a></code>.</p>
+<p>The function returns the length of the string in bytes, <code>-1</code> if an error occurs. Potential errors are:</p>
+<ul>
+<li>The buffer is a null pointer,</li>
+<li>The buffer is too smal to hold the error message.</li>
+</ul>
+<p>Note: The error message always has a trailing null character.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="keywordtype">int</span> error_length = <a class="code" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length</a>();</div><div class="line"></div><div class="line"><span class="keywordflow">if</span> (error_length &gt; 0) {</div><div class="line">    <span class="keywordtype">char</span> *error_message = malloc(error_length);</div><div class="line">    <a class="code" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message</a>(error_message, error_length);</div><div class="line">    printf(<span class="stringliteral">&quot;Error message: `%s`\n&quot;</span>, error_message);</div><div class="line">} <span class="keywordflow">else</span> {</div><div class="line">    printf(<span class="stringliteral">&quot;No error message\n&quot;</span>);</div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a440f8b2857f55b2a948b04bb849691b4"></a>

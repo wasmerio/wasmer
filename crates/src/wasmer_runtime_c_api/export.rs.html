@@ -504,6 +504,33 @@
 <span id="504">504</span>
 <span id="505">505</span>
 <span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Create, read, destroy export definitions (function, global, memory</span>
 <span class="doccomment">//! and table) on an instance.</span>
@@ -550,7 +577,11 @@
 <span class="doccomment">/// exposed to C.</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">NamedExports</span>(<span class="kw">pub</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NamedExport</span><span class="op">&gt;</span>);
 
-<span class="doccomment">/// Opaque pointer to `NamedExports`.</span>
+<span class="doccomment">/// Opaque pointer to the opaque structure `crate::NamedExports`,</span>
+<span class="doccomment">/// which is a wrapper around a vector of the opaque structure</span>
+<span class="doccomment">/// `crate::NamedExport`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Check the `wasmer_instance_exports()` function to learn more.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_exports_t</span>;
@@ -598,9 +629,16 @@
 <span class="comment">// ================</span>
 <span class="comment">// Do not modify these values without updating the `TryFrom` implementation below</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">wasmer_import_export_kind</span> {
+    <span class="doccomment">/// The export/import is a function.</span>
     <span class="ident">WASM_FUNCTION</span> <span class="op">=</span> <span class="number">0</span>,
+
+    <span class="doccomment">/// The export/import is a global.</span>
     <span class="ident">WASM_GLOBAL</span> <span class="op">=</span> <span class="number">1</span>,
+
+    <span class="doccomment">/// The export/import is a memory.</span>
     <span class="ident">WASM_MEMORY</span> <span class="op">=</span> <span class="number">2</span>,
+
+    <span class="doccomment">/// The export/import is a table.</span>
     <span class="ident">WASM_TABLE</span> <span class="op">=</span> <span class="number">3</span>,
 }
 
@@ -708,7 +746,23 @@
     <span class="ident">named_export_descriptor</span>.<span class="ident">kind</span>.<span class="ident">clone</span>()
 }
 
-<span class="doccomment">/// Frees the memory for the given exports</span>
+<span class="doccomment">/// Frees the memory for the given exports.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Check the `wasmer_instance_exports()` function to get a complete</span>
+<span class="doccomment">/// example.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// If `exports` is a null pointer, this function does nothing.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Example:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```c</span>
+<span class="doccomment">/// // Get some exports.</span>
+<span class="doccomment">/// wasmer_exports_t *exports = NULL;</span>
+<span class="doccomment">/// wasmer_instance_exports(instance, &amp;exports);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// // Destroy the exports.</span>
+<span class="doccomment">/// wasmer_exports_destroy(exports);</span>
+<span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_exports_destroy</span>(<span class="ident">exports</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_exports_t</span>) {

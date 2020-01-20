@@ -100,6 +100,16 @@
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Read runtime errors.</span>
 
@@ -125,16 +135,12 @@
     <span class="ident">LAST_ERROR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> <span class="ident">prev</span>.<span class="ident">borrow_mut</span>().<span class="ident">take</span>())
 }
 
-<span class="doccomment">/// Gets the length in bytes of the last error.</span>
+<span class="doccomment">/// Gets the length in bytes of the last error if any.</span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// This can be used to dynamically allocate a buffer with the correct number of</span>
 <span class="doccomment">/// bytes needed to store a message.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```c</span>
-<span class="doccomment">/// int error_len = wasmer_last_error_length();</span>
-<span class="doccomment">/// char *error_str = malloc(error_len);</span>
-<span class="doccomment">/// ```</span>
+<span class="doccomment">/// See `wasmer_last_error_message()` to get a full example.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_last_error_length</span>() <span class="op">-&gt;</span> <span class="ident">c_int</span> {
     <span class="ident">LAST_ERROR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">prev</span>.<span class="ident">borrow</span>() {
@@ -143,19 +149,33 @@
     })
 }
 
-<span class="doccomment">/// Stores the last error message into the provided buffer up to the given `length`.</span>
-<span class="doccomment">/// The `length` parameter must be large enough to store the last error message.</span>
+<span class="doccomment">/// Gets the last error message if any into the provided buffer</span>
+<span class="doccomment">/// `buffer` up to the given `length`.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Returns the length of the string in bytes.</span>
-<span class="doccomment">/// Returns `-1` if an error occurs.</span>
+<span class="doccomment">/// The `length` parameter must be large enough to store the last</span>
+<span class="doccomment">/// error message. Ideally, the value should come from</span>
+<span class="doccomment">/// `wasmer_last_error_length()`.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
+<span class="doccomment">/// The function returns the length of the string in bytes, `-1` if an</span>
+<span class="doccomment">/// error occurs. Potential errors are:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///  * The buffer is a null pointer,</span>
+<span class="doccomment">///  * The buffer is too smal to hold the error message.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Note: The error message always has a trailing null character.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Example:</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```c</span>
-<span class="doccomment">/// int error_len = wasmer_last_error_length();</span>
-<span class="doccomment">/// char *error_str = malloc(error_len);</span>
-<span class="doccomment">/// wasmer_last_error_message(error_str, error_len);</span>
-<span class="doccomment">/// printf(&quot;Error str: `%s`\n&quot;, error_str);</span>
+<span class="doccomment">/// int error_length = wasmer_last_error_length();</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// if (error_length &gt; 0) {</span>
+<span class="doccomment">///     char *error_message = malloc(error_length);</span>
+<span class="doccomment">///     wasmer_last_error_message(error_message, error_length);</span>
+<span class="doccomment">///     printf(&quot;Error message: `%s`\n&quot;, error_message);</span>
+<span class="doccomment">/// } else {</span>
+<span class="doccomment">///     printf(&quot;No error message\n&quot;);</span>
+<span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_last_error_message</span>(<span class="ident">buffer</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_char</span>, <span class="ident">length</span>: <span class="ident">c_int</span>) <span class="op">-&gt;</span> <span class="ident">c_int</span> {
