@@ -95,9 +95,16 @@ pub union wasmer_import_export_value {
 // ================
 // Do not modify these values without updating the `TryFrom` implementation below
 pub enum wasmer_import_export_kind {
+    /// The export/import is a function.
     WASM_FUNCTION = 0,
+
+    /// The export/import is a global.
     WASM_GLOBAL = 1,
+
+    /// The export/import is a memory.
     WASM_MEMORY = 2,
+
+    /// The export/import is a table.
     WASM_TABLE = 3,
 }
 
