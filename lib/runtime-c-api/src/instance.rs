@@ -372,6 +372,10 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     instance: *mut wasmer_instance_t,
     exports: *mut *mut wasmer_exports_t,
 ) {
+    if instance.is_null() {
+        return;
+    }
+
     let instance_ref = &mut *(instance as *mut Instance);
     let mut exports_vec: Vec<NamedExport> = Vec::with_capacity(instance_ref.exports().count());
 
