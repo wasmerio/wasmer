@@ -1,4 +1,4 @@
-//! The units module provides common WebAssembly units like `Pages` and conversion functions into
+//! The units module provides common WebAssembly units like [`Pages`] and conversion functions into
 //! other units.
 use crate::error::PageError;
 use std::{
@@ -8,7 +8,7 @@ use std::{
 
 /// The page size in bytes of a wasm page.
 pub const WASM_PAGE_SIZE: usize = 65_536;
-/// Tbe max number of wasm pages allowed.
+/// The max number of wasm pages allowed.
 pub const WASM_MAX_PAGES: usize = 65_536;
 // From emscripten resize_heap implementation
 /// The minimum number of wasm pages allowed.

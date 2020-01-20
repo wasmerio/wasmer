@@ -76,9 +76,18 @@ impl Default for MemoryBoundCheckMode {
 }
 
 /// Controls which experimental features will be enabled.
+/// Features usually have a corresponding [WebAssembly proposal][wasm-props].
+///
+/// [wasm-props]: https://github.com/WebAssembly/proposals
 #[derive(Debug, Default)]
 pub struct Features {
+    /// Whether support for the [SIMD proposal][simd-prop] is enabled.
+    ///
+    /// [simd-prop]: https://github.com/webassembly/simd
     pub simd: bool,
+    /// Whether support for the [threads proposal][threads-prop] is enabled.
+    ///
+    /// [threads-prop]: https://github.com/webassembly/threads
     pub threads: bool,
 }
 

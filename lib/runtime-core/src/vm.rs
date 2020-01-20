@@ -54,11 +54,14 @@ pub struct Ctx {
     /// This is intended to be user-supplied, per-instance
     /// contextual data. There are currently some issue with it,
     /// notably that it cannot be set before running the `start`
-    /// function in a WebAssembly module.
+    /// function in a WebAssembly module. Additionally, the `data`
+    /// field may be taken by another ABI implementation that the user
+    /// wishes to use in addition to their own, such as WASI.  This issue is
+    /// being discussed at [#1111](https://github.com/wasmerio/wasmer/pull/1111).
     ///
-    /// [#219](https://github.com/wasmerio/wasmer/pull/219) fixes that
-    /// issue, as well as allowing the user to have *per-function*
-    /// context, instead of just per-instance.
+    /// Alternatively, per-function data can be used if the function in the
+    /// [`ImportObject`] is a closure.  This cannot duplicate data though,
+    /// so if data may be shared if the [`ImportObject`] is reused.
     pub data: *mut c_void,
 
     /// If there's a function set in this field, it gets called
@@ -567,6 +570,7 @@ pub struct FuncCtx {
 
 impl FuncCtx {
     /// Offset to the `vmctx` field.
+    #[allow(clippy::erasing_op)]
     pub const fn offset_vmctx() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }

@@ -47,6 +47,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
 
 [[package]]
+name = "autocfg"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
+
+[[package]]
 name = "bincode"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -202,7 +208,8 @@ checksum = "995a44c877f9212528ccc74b21a232f66ad69001e40ede5bcee2ac9ef2657120"
 [[package]]
 name = "cranelift-bforest"
 version = "0.52.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56aa72ef104c5d634f2f9e84ef2c47e116c1d185fae13f196b97ca84b0a514f1"
 dependencies = [
  "cranelift-entity",
 ]
@@ -210,7 +217,8 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen"
 version = "0.52.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "460b9d20793543599308d22f5a1172c196e63a780c4e9aacb0b3f4f63d63ffe1"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
@@ -226,7 +234,8 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-meta"
 version = "0.52.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc70e4e8ccebd53a4f925147def857c9e9f7fe0fdbef4bb645a420473e012f50"
 dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity",
@@ -235,45 +244,24 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-shared"
 version = "0.52.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3992000be4d18df0fe332b7c42c120de896e8ec54cd7b6cfa050910a8c9f6e2f"
 
 [[package]]
 name = "cranelift-entity"
 version = "0.52.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
-
-[[package]]
-name = "cranelift-frontend"
-version = "0.52.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
-dependencies = [
- "cranelift-codegen",
- "log",
- "smallvec 1.1.0",
- "target-lexicon",
-]
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "722957e05064d97a3157bf0976deed0f3e8ee4f8a4ce167a7c724ca63a4e8bd9"
 
 [[package]]
 name = "cranelift-native"
 version = "0.52.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21398a0bc6ba389ea86964ac4a495426dd61080f2ddd306184777a8560fe9976"
 dependencies = [
  "cranelift-codegen",
  "raw-cpuid",
  "target-lexicon",
-]
-
-[[package]]
-name = "cranelift-wasm"
-version = "0.52.0"
-source = "git+https://github.com/wasmerio/cranelift?branch=wasmer#a81035ecbe81228097a5163f2b97f60145ca9396"
-dependencies = [
- "cranelift-codegen",
- "cranelift-entity",
- "cranelift-frontend",
- "log",
- "thiserror",
- "wasmparser",
 ]
 
 [[package]]
@@ -330,7 +318,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5064ebdbf05ce3cb95e45c8b086f72263f4166b29b97f6baff7ef7fe047b55ac"
 dependencies = [
- "autocfg",
+ "autocfg 0.1.7",
  "cfg-if",
  "crossbeam-utils",
  "lazy_static",
@@ -353,7 +341,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce446db02cdc3165b94ae73111e570793400d0794e46125cc4056c81cbb039f4"
 dependencies = [
- "autocfg",
+ "autocfg 0.1.7",
  "cfg-if",
  "lazy_static",
 ]
@@ -573,11 +561,11 @@ checksum = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
 
 [[package]]
 name = "indexmap"
-version = "1.3.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "712d7b3ea5827fcb9d4fda14bf4da5f136f0db2ae9c8f4bd4e2d1c6fde4e6db2"
+checksum = "0b54058f0a6ff80b6803da8faf8997cde53872b38f4023728f6830b06cd3c0dc"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.0",
  "serde",
 ]
 
@@ -773,7 +761,7 @@ version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b85e541ef8255f6cf42bbfe4ef361305c6c135d10919ecc26126c4e5ae94bc09"
 dependencies = [
- "autocfg",
+ "autocfg 0.1.7",
  "num-traits",
 ]
 
@@ -783,7 +771,7 @@ version = "0.1.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76bd5272412d173d6bf9afdf98db8612bbabc9a7a830b7bfc9c188911716132e"
 dependencies = [
- "autocfg",
+ "autocfg 0.1.7",
  "num-integer",
  "num-traits",
 ]
@@ -794,7 +782,7 @@ version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4c81ffc11c212fa327657cb19dd85eb7419e163b5b076bede2bdb5c974c07e4"
 dependencies = [
- "autocfg",
+ "autocfg 0.1.7",
 ]
 
 [[package]]
@@ -1000,7 +988,7 @@ version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d71dacdc3c88c1fde3885a3be3fbab9f35724e6ce99467f7d9c5026132184ca"
 dependencies = [
- "autocfg",
+ "autocfg 0.1.7",
  "libc",
  "rand_chacha 0.1.1",
  "rand_core 0.4.2",
@@ -1032,7 +1020,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "556d3a1ca6600bfcbab7c7c91ccb085ac7fbbcd70e008a98742e7847f4f7bcef"
 dependencies = [
- "autocfg",
+ "autocfg 0.1.7",
  "rand_core 0.3.1",
 ]
 
@@ -1128,7 +1116,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abf9b09b01790cfe0364f52bf32995ea3c39f4d2dd011eac241d2914146d0b44"
 dependencies = [
- "autocfg",
+ "autocfg 0.1.7",
  "rand_core 0.4.2",
 ]
 
@@ -1423,19 +1411,20 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "structopt"
-version = "0.3.7"
+version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "884ae79d6aad1e738f4a70dff314203fd498490a63ebc4d03ea83323c40b7b72"
+checksum = "df136b42d76b1fbea72e2ab3057343977b04b4a2e00836c3c7c0673829572713"
 dependencies = [
  "clap",
+ "lazy_static",
  "structopt-derive",
 ]
 
 [[package]]
 name = "structopt-derive"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a97f829a34a0a9d5b353a881025a23b8c9fd09d46be6045df6b22920dbd7a93"
+checksum = "fd50a87d2f7b8958055f3e73a963d78feaccca3836767a9069844e34b5b03c0a"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -1673,7 +1662,7 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasmer"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "atty",
  "byteorder",
@@ -1704,14 +1693,12 @@ dependencies = [
 
 [[package]]
 name = "wasmer-clif-backend"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "byteorder",
  "cranelift-codegen",
  "cranelift-entity",
- "cranelift-frontend",
  "cranelift-native",
- "cranelift-wasm",
  "libc",
  "nix",
  "rayon",
@@ -1720,6 +1707,8 @@ dependencies = [
  "serde_bytes",
  "serde_derive",
  "target-lexicon",
+ "wasmer-clif-fork-frontend",
+ "wasmer-clif-fork-wasm",
  "wasmer-runtime-core",
  "wasmer-win-exception-handler",
  "wasmparser",
@@ -1727,15 +1716,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-clif-fork-frontend"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d2e13201ef9ef527ad30a6bf1b08e3e024a40cf2731f393d80375dc88506207"
+dependencies = [
+ "cranelift-codegen",
+ "log",
+ "smallvec 1.1.0",
+ "target-lexicon",
+]
+
+[[package]]
+name = "wasmer-clif-fork-wasm"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8b09302cc4fdc4efc03823cb3e1880b0fde578ba43f27ddd212811cb28c1530"
+dependencies = [
+ "cranelift-codegen",
+ "cranelift-entity",
+ "log",
+ "thiserror",
+ "wasmer-clif-fork-frontend",
+ "wasmparser",
+]
+
+[[package]]
 name = "wasmer-dev-utils"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "libc",
 ]
 
 [[package]]
 name = "wasmer-emscripten"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -1748,7 +1763,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten-tests"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "glob 0.3.0",
  "wabt",
@@ -1770,7 +1785,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-llvm-backend"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -1782,7 +1797,7 @@ dependencies = [
  "regex",
  "rustc_version",
  "semver",
- "smallvec 0.6.13",
+ "smallvec 1.1.0",
  "wabt",
  "wasmer-runtime-core",
  "wasmparser",
@@ -1801,14 +1816,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middleware-common"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "wasmer-runtime-core",
 ]
 
 [[package]]
 name = "wasmer-middleware-common-tests"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "criterion",
  "wabt",
@@ -1821,7 +1836,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "criterion",
  "lazy_static",
@@ -1838,7 +1853,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-c-api"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "cbindgen",
  "libc",
@@ -1850,7 +1865,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-core"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "bincode",
  "blake2b_simd",
@@ -1869,14 +1884,14 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "smallvec 0.6.13",
+ "smallvec 1.1.0",
  "wasmparser",
  "winapi",
 ]
 
 [[package]]
 name = "wasmer-runtime-core-tests"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "wabt",
  "wasmer-clif-backend",
@@ -1887,7 +1902,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-singlepass-backend"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -1898,13 +1913,13 @@ dependencies = [
  "nix",
  "serde",
  "serde_derive",
- "smallvec 0.6.13",
+ "smallvec 1.1.0",
  "wasmer-runtime-core",
 ]
 
 [[package]]
 name = "wasmer-spectests"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "glob 0.3.0",
  "wabt",
@@ -1916,7 +1931,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -1933,7 +1948,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "log",
  "minifb",
@@ -1946,7 +1961,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-tests"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "glob 0.3.0",
  "wasmer-clif-backend",
@@ -1959,7 +1974,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-win-exception-handler"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "cmake",
  "libc",

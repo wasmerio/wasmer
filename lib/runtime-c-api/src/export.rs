@@ -439,7 +439,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     }
 
     let params: Vec<Value> = {
-        if params_len <= 0 {
+        if params_len == 0 {
             vec![]
         } else {
             slice::from_raw_parts::<wasmer_value_t>(params, params_len as usize)
