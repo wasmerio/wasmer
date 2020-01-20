@@ -3,6 +3,7 @@
 ## **[Unreleased]**
 
 - [#1129](https://github.com/wasmerio/wasmer/pull/1129) Standard exception types for singlepass backend.
+- [#1140](https://github.com/wasmerio/wasmer/pull/1140) Use [`blake3`](https://github.com/BLAKE3-team/BLAKE3) as default hashing algorithm for caching.
 
 ## 0.13.1 - 2020-01-16
 - Fix bug in wapm related to the `package.wasmer_extra_flags` entry in the manifest
