@@ -25,6 +25,12 @@ script:
   # Tests
   - make spectests-singlepass
 
+  # Test Singlepass build
+  - make release-singlepass
+
+  # Test Cranelift build
+  - make release-clif
+
 before_deploy:
   # Release
   - make release-singlepass
