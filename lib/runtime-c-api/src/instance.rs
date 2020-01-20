@@ -61,6 +61,9 @@ pub struct wasmer_instance_context_t;
 /// `wasmer_last_error_length()` with `wasmer_last_error_message()` must
 /// be used to read the error message.
 ///
+/// The caller is responsible to free the instance with
+/// `wasmer_instance_destroy()`.
+///
 /// Example:
 ///
 /// ```c
@@ -87,6 +90,9 @@ pub struct wasmer_instance_context_t;
 ///     wasmer_last_error_message(error, error_length);
 ///     // Do something with `error`…
 /// }
+///
+/// // 5. Free the memory!
+/// wasmer_instance_destroy(instance);
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
@@ -491,7 +497,23 @@ pub extern "C" fn wasmer_instance_context_data_get(
     ctx.data
 }
 
-/// Frees memory for the given Instance
+/// Frees memory for the given `wasmer_instance_t`.
+///
+/// Check the `wasmer_instantiate()` function to get a complete
+/// example.
+///
+/// If `instance` is a null pointer, this function does nothing.
+///
+/// Example:
+///
+/// ```c
+/// // Get an instance.
+/// wasmer_instance_t *instance = NULL;
+/// wasmer_instantiate(&instance, bytes, bytes_length, imports, 0);
+///
+/// // Destroy the instance.
+/// wasmer_instance_destroy(instance);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_destroy(instance: *mut wasmer_instance_t) {
