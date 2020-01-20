@@ -66,15 +66,37 @@ typedef uint8_t Version;
  * List of export/import kinds.
  */
 enum wasmer_import_export_kind {
+  /**
+   * The export/import is a function.
+   */
   WASM_FUNCTION = 0,
+  /**
+   * The export/import is a global.
+   */
   WASM_GLOBAL = 1,
+  /**
+   * The export/import is a memory.
+   */
   WASM_MEMORY = 2,
+  /**
+   * The export/import is a table.
+   */
   WASM_TABLE = 3,
 };
 typedef uint32_t wasmer_import_export_kind;
 
+/**
+ * The `wasmer_result_t` struct is a type that represents either a
+ * success, or a failure.
+ */
 typedef enum {
+  /**
+   * Represents a success.
+   */
   WASMER_OK = 1,
+  /**
+   * Represents a failure.
+   */
   WASMER_ERROR = 2,
 } wasmer_result_t;
 
@@ -164,7 +186,11 @@ typedef struct {
 } wasmer_memory_t;
 
 /**
- * Opaque pointer to `NamedExports`.
+ * Opaque pointer to the opaque structure `crate::NamedExports`,
+ * which is a wrapper around a vector of the opaque structure
+ * `crate::NamedExport`.
+ *
+ * Check the `wasmer_instance_exports()` function to learn more.
  */
 typedef struct {
 
@@ -226,7 +252,9 @@ typedef struct {
  * `wasmer_instance_context_memory()` function.
  *
  * It is also possible to get the instance context outside a host
- * function by using the `wasmer_instance_context_get()` function.
+ * function by using the `wasmer_instance_context_get()`
+ * function. See also `wasmer_instance_context_data_set()` to set the
+ * instance context data.
  *
  * Example:
  *
@@ -484,7 +512,23 @@ const wasmer_export_func_t *wasmer_export_to_func(const wasmer_export_t *export_
 wasmer_result_t wasmer_export_to_memory(const wasmer_export_t *export_, wasmer_memory_t **memory);
 
 /**
- * Frees the memory for the given exports
+ * Frees the memory for the given exports.
+ *
+ * Check the `wasmer_instance_exports()` function to get a complete
+ * example.
+ *
+ * If `exports` is a null pointer, this function does nothing.
+ *
+ * Example:
+ *
+ * ```c
+ * // Get some exports.
+ * wasmer_exports_t *exports = NULL;
+ * wasmer_instance_exports(instance, &exports);
+ *
+ * // Destroy the exports.
+ * wasmer_exports_destroy(exports);
+ * ```
  */
 void wasmer_exports_destroy(wasmer_exports_t *exports);
 
@@ -708,13 +752,55 @@ wasmer_import_object_iter_t *wasmer_import_object_iterate_functions(const wasmer
 wasmer_import_object_t *wasmer_import_object_new(void);
 
 /**
- * Calls an instances exported function by `name` with the provided parameters.
- * Results are set using the provided `results` pointer.
+ * Calls an exported function of a WebAssembly instance by `name`
+ * with the provided parameters. The exported function results are
+ * stored on the provided `results` pointer.
  *
- * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * This function returns `wasmer_result_t::WASMER_OK` upon success,
+ * `wasmer_result_t::WASMER_ERROR` otherwise. You can use
+ * `wasmer_last_error_message()` to get the generated error message.
  *
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
+ * Potential errors are the following:
+ *
+ *   * `instance` is a null pointer,
+ *   * `name` is a null pointer,
+ *   * `params` is a null pointer.
+ *
+ * Example of calling an exported function that needs two parameters, and returns one value:
+ *
+ * ```c
+ * // First argument.
+ * wasmer_value_t argument_one = {
+ *     .tag = WASM_I32,
+ *     .value.I32 = 3,
+ * };
+ *
+ * // Second argument.
+ * wasmer_value_t argument_two = {
+ *     .tag = WASM_I32,
+ *     .value.I32 = 4,
+ * };
+ *
+ * // First result.
+ * wasmer_value_t result_one;
+ *
+ * // All arguments and results.
+ * wasmer_value_t arguments[] = {argument_one, argument_two};
+ * wasmer_value_t results[]   = {result_one};
+ *
+ * wasmer_result_t call_result = wasmer_instance_call(
+ *     instance,  // instance pointer
+ *     "sum",     // the exported function name
+ *     arguments, // the arguments
+ *     2,         // the number of arguments
+ *     results,   // the results
+ *     1          // the number of results
+ * );
+ *
+ * if (call_result == WASMER_OK) {
+ *     printf("Result is: %d\n", results[0].value.I32);
+ * }
+ * ```
  */
 wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                      const char *name,
@@ -724,37 +810,157 @@ wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                      uint32_t results_len);
 
 /**
- * Gets the `data` field within the context.
+ * Gets the data that can be hold by an instance.
+ *
+ * This function is complementary of
+ * `wasmer_instance_context_data_set()`. Please read its
+ * documentation. You can also read the documentation of
+ * `wasmer_instance_context_t` to get other examples.
+ *
+ * This function returns nothing if `ctx` is a null pointer.
  */
 void *wasmer_instance_context_data_get(const wasmer_instance_context_t *ctx);
 
 /**
- * Sets the `data` field of the instance context. This context will be
- * passed to all imported function for instance.
+ * Sets the data that can be hold by an instance context.
+ *
+ * An instance context (represented by the opaque
+ * `wasmer_instance_context_t` structure) can hold user-defined
+ * data. This function sets the data. This function is complementary
+ * of `wasmer_instance_context_data_get()`.
+ *
+ * This function does nothing if `instance` is a null pointer.
+ *
+ * Example:
+ *
+ * ```c
+ * // Define your own data.
+ * typedef struct {
+ *     // …
+ * } my_data;
+ *
+ * // Allocate them and set them on the given instance.
+ * my_data *data = malloc(sizeof(my_data));
+ * data->… = …;
+ * wasmer_instance_context_data_set(instance, (void*) my_data);
+ *
+ * // You can read your data.
+ * {
+ *     my_data *data = (my_data*) wasmer_instance_context_data_get(wasmer_instance_context_get(instance));
+ *     // …
+ * }
+ * ```
  */
-void wasmer_instance_context_data_set(wasmer_instance_t *instance, void *data_ptr);
+void wasmer_instance_context_data_set(wasmer_instance_t *instance,
+                                      void *data_ptr);
 
 /**
- * Extracts the instance's context and returns it.
+ * Returns the instance context. Learn more by looking at the
+ * `wasmer_instance_context_t` struct.
+ *
+ * This function returns `null` if `instance` is a null pointer.
+ *
+ * Example:
+ *
+ * ```c
+ * const wasmer_instance_context_get *context = wasmer_instance_context_get(instance);
+ * my_data *data = (my_data *) wasmer_instance_context_data_get(context);
+ * // Do something with `my_data`.
+ * ```
+ *
+ * It is often useful with `wasmer_instance_context_data_set()`.
  */
 const wasmer_instance_context_t *wasmer_instance_context_get(wasmer_instance_t *instance);
 
 /**
- * Gets the memory within the context at the index `memory_idx`.
- * The index is always 0 until multiple memories are supported.
+ * Gets the `memory_idx`th memory of the instance.
+ *
+ * Note that the index is always `0` until multiple memories are supported.
+ *
+ * This function is mostly used inside host functions (aka imported
+ * functions) to read the instance memory.
+ *
+ * Example of a _host function_ that reads and prints a string based on a pointer and a length:
+ *
+ * ```c
+ * void print_string(const wasmer_instance_context_t *context, int32_t pointer, int32_t length) {
+ *     // Get the 0th memory.
+ *     const wasmer_memory_t *memory = wasmer_instance_context_memory(context, 0);
+ *
+ *     // Get the memory data as a pointer.
+ *     uint8_t *memory_bytes = wasmer_memory_data(memory);
+ *
+ *     // Print what we assumed to be a string!
+ *     printf("%.*s", length, memory_bytes + pointer);
+ * }
+ * ```
  */
 const wasmer_memory_t *wasmer_instance_context_memory(const wasmer_instance_context_t *ctx,
                                                       uint32_t _memory_idx);
 
 /**
- * Frees memory for the given Instance
+ * Frees memory for the given `wasmer_instance_t`.
+ *
+ * Check the `wasmer_instantiate()` function to get a complete
+ * example.
+ *
+ * If `instance` is a null pointer, this function does nothing.
+ *
+ * Example:
+ *
+ * ```c
+ * // Get an instance.
+ * wasmer_instance_t *instance = NULL;
+ * wasmer_instantiate(&instance, bytes, bytes_length, imports, 0);
+ *
+ * // Destroy the instance.
+ * wasmer_instance_destroy(instance);
+ * ```
  */
 void wasmer_instance_destroy(wasmer_instance_t *instance);
 
 /**
- * Gets Exports for the given instance
+ * Gets all the exports of the given WebAssembly instance.
  *
- * The caller owns the object and should call `wasmer_exports_destroy` to free it.
+ * This function stores a Rust vector of exports into `exports` as an
+ * opaque pointer of kind `wasmer_exports_t`.
+ *
+ * As is, you can do anything with `exports` except using the
+ * companion functions, like `wasmer_exports_len()`,
+ * `wasmer_exports_get()` or `wasmer_export_kind()`. See the example below.
+ *
+ * **Warning**: The caller owns the object and should call
+ * `wasmer_exports_destroy()` to free it.
+ *
+ * Example:
+ *
+ * ```c
+ * // Get the exports.
+ * wasmer_exports_t *exports = NULL;
+ * wasmer_instance_exports(instance, &exports);
+ *
+ * // Get the number of exports.
+ * int exports_length = wasmer_exports_len(exports);
+ * printf("Number of exports: %d\n", exports_length);
+ *
+ * // Read the first export.
+ * wasmer_export_t *export = wasmer_exports_get(exports, 0);
+ *
+ * // Get the kind of the export.
+ * wasmer_import_export_kind export_kind = wasmer_export_kind(export);
+ *
+ * // Assert it is a function (why not).
+ * assert(export_kind == WASM_FUNCTION);
+ *
+ * // Read the export name.
+ * wasmer_byte_array name_bytes = wasmer_export_name(export);
+ *
+ * assert(name_bytes.bytes_len == sizeof("sum") - 1);
+ * assert(memcmp(name_bytes.bytes, "sum", sizeof("sum") - 1) == 0);
+ *
+ * // Destroy the exports.
+ * wasmer_exports_destroy(exports);
+ * ```
  */
 void wasmer_instance_exports(wasmer_instance_t *instance, wasmer_exports_t **exports);
 
@@ -767,6 +973,9 @@ void wasmer_instance_exports(wasmer_instance_t *instance, wasmer_exports_t **exp
  * `wasmer_result_t::WASMER_ERROR` is returned, and
  * `wasmer_last_error_length()` with `wasmer_last_error_message()` must
  * be used to read the error message.
+ *
+ * The caller is responsible to free the instance with
+ * `wasmer_instance_destroy()`.
  *
  * Example:
  *
@@ -794,6 +1003,9 @@ void wasmer_instance_exports(wasmer_instance_t *instance, wasmer_exports_t **exp
  *     wasmer_last_error_message(error, error_length);
  *     // Do something with `error`…
  * }
+ *
+ * // 5. Free the memory!
+ * wasmer_instance_destroy(instance);
  * ```
  */
 wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance,
@@ -803,33 +1015,43 @@ wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance,
                                    int imports_len);
 
 /**
- * Gets the length in bytes of the last error.
+ * Gets the length in bytes of the last error if any.
+ *
  * This can be used to dynamically allocate a buffer with the correct number of
  * bytes needed to store a message.
  *
- * # Example
- *
- * ```c
- * int error_len = wasmer_last_error_length();
- * char *error_str = malloc(error_len);
- * ```
+ * See `wasmer_last_error_message()` to get a full example.
  */
 int wasmer_last_error_length(void);
 
 /**
- * Stores the last error message into the provided buffer up to the given `length`.
- * The `length` parameter must be large enough to store the last error message.
+ * Gets the last error message if any into the provided buffer
+ * `buffer` up to the given `length`.
  *
- * Returns the length of the string in bytes.
- * Returns `-1` if an error occurs.
+ * The `length` parameter must be large enough to store the last
+ * error message. Ideally, the value should come from
+ * `wasmer_last_error_length()`.
  *
- * # Example
+ * The function returns the length of the string in bytes, `-1` if an
+ * error occurs. Potential errors are:
+ *
+ *  * The buffer is a null pointer,
+ *  * The buffer is too smal to hold the error message.
+ *
+ * Note: The error message always has a trailing null character.
+ *
+ * Example:
  *
  * ```c
- * int error_len = wasmer_last_error_length();
- * char *error_str = malloc(error_len);
- * wasmer_last_error_message(error_str, error_len);
- * printf("Error str: `%s`\n", error_str);
+ * int error_length = wasmer_last_error_length();
+ *
+ * if (error_length > 0) {
+ *     char *error_message = malloc(error_length);
+ *     wasmer_last_error_message(error_message, error_length);
+ *     printf("Error message: `%s`\n", error_message);
+ * } else {
+ *     printf("No error message\n");
+ * }
  * ```
  */
 int wasmer_last_error_message(char *buffer, int length);

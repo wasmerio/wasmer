@@ -107,10 +107,15 @@ pub mod table;
 pub mod trampoline;
 pub mod value;
 
+/// The `wasmer_result_t` struct is a type that represents either a
+/// success, or a failure.
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub enum wasmer_result_t {
+    /// Represents a success.
     WASMER_OK = 1,
+
+    /// Represents a failure.
     WASMER_ERROR = 2,
 }
 
