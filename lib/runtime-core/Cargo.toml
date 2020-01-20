@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.12.0"
+version = "0.13.1"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -50,7 +50,5 @@ rustc_version = "0.2"
 cc = "1.0"
 
 [features]
-debug = []
-trace = ["debug"]
 managed = []
 deterministic-execution = ["wasmparser/deterministic"]

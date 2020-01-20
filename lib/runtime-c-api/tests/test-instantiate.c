@@ -21,12 +21,14 @@ int main()
     printf("Compile result:  %d\n", compile_result);
     assert(compile_result == WASMER_OK);
 
-    wasmer_value_t param_one;
-    param_one.tag = WASM_I32;
-    param_one.value.I32 = 7;
-    wasmer_value_t param_two;
-    param_two.tag = WASM_I32;
-    param_two.value.I32 = 8;
+    wasmer_value_t param_one = {
+        .tag = WASM_I32,
+        .value.I32 = 7,
+    };
+    wasmer_value_t param_two = {
+        .tag = WASM_I32,
+        .value.I32 = 8,
+    };
     wasmer_value_t params[] = {param_one, param_two};
 
     wasmer_value_t result_one;

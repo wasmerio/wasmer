@@ -173,7 +173,7 @@ pub fn validate_and_report_errors_with_features(
     }
 }
 
-/// Creates a new module from the given cache `Artifact` for the specified compiler backend
+/// Creates a new module from the given cache [`Artifact`] for the specified compiler backend
 pub unsafe fn load_cache_with(
     cache: Artifact,
     compiler: &dyn backend::Compiler,

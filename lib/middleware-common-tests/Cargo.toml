@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-middleware-common-tests"
-version = "0.12.0"
+version = "0.13.1"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -8,11 +8,11 @@ license = "MIT"
 publish = false
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.12.0" }
-wasmer-middleware-common = { path = "../middleware-common", version = "0.12.0" }
-wasmer-clif-backend = { path = "../clif-backend", version = "0.12.0", optional = true }
-wasmer-llvm-backend = { path = "../llvm-backend", version = "0.12.0", features = ["test"], optional = true }
-wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.12.0", optional = true }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.13.1" }
+wasmer-middleware-common = { path = "../middleware-common", version = "0.13.1" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.13.1", optional = true }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.13.1", features = ["test"], optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.13.1", optional = true }
 
 [features]
 clif = ["wasmer-clif-backend"]

@@ -8,6 +8,8 @@
     unreachable_patterns
 )]
 extern crate structopt;
+#[macro_use]
+extern crate log;
 
 use std::collections::HashMap;
 use std::env;
@@ -37,9 +39,13 @@ use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellEx
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
-    debug,
     loader::{Instance as LoadedInstance, LocalLoader},
     Module,
+};
+#[cfg(unix)]
+use wasmer_runtime_core::{
+    fault::{pop_code_version, push_code_version},
+    state::CodeVersion,
 };
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
@@ -244,8 +250,13 @@ struct Run {
 
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices", hidden = true)]
+    #[structopt(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
+
+    /// Enable debug output
+    #[cfg(feature = "debug")]
+    #[structopt(long = "debug", short = "d")]
+    debug: bool,
 
     /// Application arguments
     #[structopt(name = "--", multiple = true)]
@@ -448,7 +459,7 @@ fn execute_wasi(
                 &import_object,
                 start_raw,
                 &mut instance,
-                options.backend,
+                options.backend.to_string(),
                 options
                     .optimized_backends
                     .iter()
@@ -456,7 +467,7 @@ fn execute_wasi(
                         |&backend| -> (Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
                             let options = options.clone();
                             (
-                                backend,
+                                backend.to_string(),
                                 Box::new(move || {
                                     get_compiler_by_backend(backend, &options).unwrap()
                                 }),
@@ -472,12 +483,6 @@ fn execute_wasi(
     #[cfg(not(feature = "managed"))]
     {
         use wasmer_runtime::error::RuntimeError;
-        #[cfg(unix)]
-        use wasmer_runtime_core::{
-            fault::{pop_code_version, push_code_version},
-            state::CodeVersion,
-        };
-
         let result;
 
         #[cfg(unix)]
@@ -486,7 +491,7 @@ fn execute_wasi(
                 baseline: true,
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                backend: options.backend.to_string().to_owned(),
+                backend: options.backend.to_string(),
                 runnable_module: instance.module.runnable_module.clone(),
             });
             true
@@ -856,11 +861,33 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             };
             let args = options.parse_args(&module, invoke_fn)?;
 
+            #[cfg(unix)]
+            let cv_pushed =
+                if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+                    push_code_version(CodeVersion {
+                        baseline: true,
+                        msm: msm,
+                        base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                        backend: options.backend.to_string(),
+                        runnable_module: instance.module.runnable_module.clone(),
+                    });
+                    true
+                } else {
+                    false
+                };
+
             let result = instance
                 .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
+
+            #[cfg(unix)]
+            {
+                if cv_pushed {
+                    pop_code_version().unwrap();
+                }
+            }
             println!("{}({:?}) returned {:?}", invoke_fn, args, result);
         }
     }
@@ -941,7 +968,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables, unreachable_code)]
 fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
     // Update backend when a backend flag is `auto`.
     // Use the Singlepass backend if it's enabled and the file provided is larger
@@ -978,6 +1005,12 @@ fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
 
 fn run(options: &mut Run) {
     options.backend = get_backend(options.backend, &options.path);
+    #[cfg(any(feature = "debug", feature = "trace"))]
+    {
+        if options.debug {
+            logging::set_up_logging().expect("failed to set up logging");
+        }
+    }
     match execute_wasm(options) {
         Ok(()) => {}
         Err(message) => {

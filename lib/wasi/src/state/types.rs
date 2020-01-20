@@ -9,7 +9,6 @@ use std::{
     path::PathBuf,
     time::SystemTime,
 };
-use wasmer_runtime_core::debug;
 
 /// Error type for external users
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
