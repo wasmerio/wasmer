@@ -394,8 +394,34 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     *exports = Box::into_raw(named_exports) as *mut wasmer_exports_t;
 }
 
-/// Sets the `data` field of the instance context. This context will be
-/// passed to all imported function for instance.
+/// Sets the data that can be hold by an instance context.
+///
+/// An instance context (represented by the opaque
+/// `wasmer_instance_context_t` structure) can hold user-defined
+/// data. This function sets the data. This function is complementary
+/// of `wasmer_instance_context_data_get()`.
+///
+/// This function does nothing if `instance` is a null pointer.
+///
+/// Example:
+///
+/// ```c
+/// // Define your own data.
+/// typedef struct {
+///     // …
+/// } my_data;
+///
+/// // Allocate them and set them on the given instance.
+/// my_data *data = malloc(sizeof(my_data));
+/// data->… = …;
+/// wasmer_instance_context_data_set(instance, (void*) my_data);
+///
+/// // You can read your data.
+/// {
+///     my_data *data = wasmer_instance_context_data_get(wasmer_instance_context_get(instance));
+///     // …
+/// }
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_data_set(
