@@ -34,10 +34,17 @@ use wasmer_runtime_core::{
 };
 
 extern "C" {
-    #[cfg(not(target_os = "windows"))]
-    pub fn __rust_probestack();
-    #[cfg(all(target_os = "windows", target_pointer_width = "64"))]
+    #[cfg(any(
+        all(target_os = "windows", target_pointer_width = "64"),
+        all(target_os = "linux", target_arch = "aarch64")
+    ))]
     pub fn __chkstk();
+
+    #[cfg(not(any(
+        all(target_os = "windows", target_pointer_width = "64"),
+        all(target_os = "linux", target_arch = "aarch64")
+    )))]
+    pub fn __rust_probestack();
 }
 
 fn lookup_func(
@@ -244,9 +251,15 @@ impl FuncResolverBuilder {
                         LibCall::FloorF64 => libcalls::floorf64 as isize,
                         LibCall::TruncF64 => libcalls::truncf64 as isize,
                         LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
-                        #[cfg(all(target_pointer_width = "64", target_os = "windows"))]
+                        #[cfg(any(
+                            all(target_os = "windows", target_pointer_width = "64"),
+                            all(target_os = "linux", target_arch = "aarch64")
+                        ))]
                         LibCall::Probestack => __chkstk as isize,
-                        #[cfg(not(target_os = "windows"))]
+                        #[cfg(not(any(
+                            all(target_os = "windows", target_pointer_width = "64"),
+                            all(target_os = "linux", target_arch = "aarch64")
+                        )))]
                         LibCall::Probestack => __rust_probestack as isize,
                     },
                     RelocationType::Intrinsic(ref name) => Err(CompileError::InternalError {
