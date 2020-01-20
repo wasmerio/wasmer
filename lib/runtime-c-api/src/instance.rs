@@ -171,7 +171,20 @@ pub unsafe extern "C" fn wasmer_instantiate(
     wasmer_result_t::WASMER_OK
 }
 
-/// Extracts the instance's context and returns it.
+/// Returns the instance context. Learn more by looking at the
+/// `wasmer_instance_context_t` struct.
+///
+/// This function returns `null` if `instance` is a null pointer.
+///
+/// Example:
+///
+/// ```c
+/// const wasmer_instance_context_get *context = wasmer_instance_context_get(instance);
+/// my_data *data = (my_data *) wasmer_instance_context_data_get(context);
+/// // Do something with `my_data`.
+/// ```
+///
+/// It is often useful with `wasmer_instance_context_data_set()`.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instance_context_get(
