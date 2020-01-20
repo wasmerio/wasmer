@@ -79,11 +79,9 @@ impl WasmHash {
             ));
         }
         use std::convert::TryInto;
-        Ok(WasmHash(
-            bytes[0..32].try_into().map_err(|e| {
-                Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
-            })?
-        ))
+        Ok(WasmHash(bytes[0..32].try_into().map_err(|e| {
+            Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
+        })?))
     }
 
     pub(crate) fn into_array(self) -> [u8; 32] {
