@@ -1790,7 +1790,7 @@ dependencies = [
  "regex",
  "rustc_version",
  "semver",
- "smallvec 0.6.13",
+ "smallvec 1.1.0",
  "wabt",
  "wasmer-runtime-core",
  "wasmparser",
@@ -1877,7 +1877,7 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "smallvec 0.6.13",
+ "smallvec 1.1.0",
  "wasmparser",
  "winapi",
 ]
@@ -1906,7 +1906,7 @@ dependencies = [
  "nix",
  "serde",
  "serde_derive",
- "smallvec 0.6.13",
+ "smallvec 1.1.0",
  "wasmer-runtime-core",
 ]
 
