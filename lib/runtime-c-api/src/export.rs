@@ -214,7 +214,7 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
 
 /// Frees the memory for the given exports.
 ///
-/// Check the `wasmer_instance_exports` function to get a complete
+/// Check the `wasmer_instance_exports()` function to get a complete
 /// example.
 ///
 /// If `exports` is a null pointer, this function does nothing.
