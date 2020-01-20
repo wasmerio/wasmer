@@ -324,9 +324,48 @@ pub unsafe extern "C" fn wasmer_instance_call(
     }
 }
 
-/// Gets Exports for the given instance
+/// Gets all the exports of the given WebAssembly instance.
 ///
-/// The caller owns the object and should call `wasmer_exports_destroy` to free it.
+
+/// This function stores a Rust vector of exports into `exports` as an
+/// opaque pointer of kind `wasmer_exports_t`.
+///
+/// As is, you can do anything with `exports` except using the
+/// companion functions, like `wasmer_exports_len()`,
+/// `wasmer_exports_get()` or `wasmer_export_kind()`. See the example below.
+///
+/// **Warning**: The caller owns the object and should call
+/// `wasmer_exports_destroy()` to free it.
+///
+/// Example:
+///
+/// ```c
+/// // Get the exports.
+/// wasmer_exports_t *exports = NULL;
+/// wasmer_instance_exports(instance, &exports);
+///
+/// // Get the number of exports.
+/// int exports_length = wasmer_exports_len(exports);
+/// printf("Number of exports: %d\n", exports_length);
+///
+/// // Read the first export.
+/// wasmer_export_t *export = wasmer_exports_get(exports, 0);
+///
+/// // Get the kind of the export.
+/// wasmer_import_export_kind export_kind = wasmer_export_kind(export);
+///
+/// // Assert it is a function (why not).
+/// assert(export_kind == WASM_FUNCTION);
+///
+/// // Read the export name.
+/// wasmer_byte_array name_bytes = wasmer_export_name(export);
+///
+/// assert(name_bytes.bytes_len == sizeof("sum") - 1);
+/// assert(memcmp(name_bytes.bytes, "sum", sizeof("sum") - 1) == 0);
+///
+/// // Destroy the exports.
+/// wasmer_exports_destroy(exports);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instance_exports(
@@ -335,6 +374,7 @@ pub unsafe extern "C" fn wasmer_instance_exports(
 ) {
     let instance_ref = &mut *(instance as *mut Instance);
     let mut exports_vec: Vec<NamedExport> = Vec::with_capacity(instance_ref.exports().count());
+
     for (name, export) in instance_ref.exports() {
         exports_vec.push(NamedExport {
             name: name.clone(),
@@ -342,7 +382,9 @@ pub unsafe extern "C" fn wasmer_instance_exports(
             instance: instance as *mut Instance,
         });
     }
+
     let named_exports: Box<NamedExports> = Box::new(NamedExports(exports_vec));
+
     *exports = Box::into_raw(named_exports) as *mut wasmer_exports_t;
 }
 
