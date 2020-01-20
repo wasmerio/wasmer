@@ -33,7 +33,9 @@ pub struct wasmer_instance_t;
 /// `wasmer_instance_context_memory()` function.
 ///
 /// It is also possible to get the instance context outside a host
-/// function by using the `wasmer_instance_context_get()` function.
+/// function by using the `wasmer_instance_context_get()`
+/// function. See also `wasmer_instance_context_data_set()` to set the
+/// instance context data.
 ///
 /// Example:
 ///
