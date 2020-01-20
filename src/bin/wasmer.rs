@@ -868,7 +868,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                         baseline: true,
                         msm: msm,
                         base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                        backend: options.backend.to_string().to_owned(),
+                        backend: options.backend.to_string(),
                         runnable_module: instance.module.runnable_module.clone(),
                     });
                     true
