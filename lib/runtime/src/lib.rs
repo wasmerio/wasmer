@@ -94,7 +94,7 @@
 #[macro_use]
 extern crate serde_derive;
 
-pub use wasmer_runtime_core::backend::Features;
+pub use wasmer_runtime_core::backend::{ExceptionCode, Features};
 pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
 pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
@@ -110,6 +110,12 @@ pub use wasmer_runtime_core::vm::Ctx;
 pub use wasmer_runtime_core::Func;
 pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::{func, imports};
+
+#[cfg(unix)]
+pub use wasmer_runtime_core::{
+    fault::{pop_code_version, push_code_version},
+    state::CodeVersion,
+};
 
 pub mod memory {
     //! The memory module contains the implementation data structures and helper functions used to
