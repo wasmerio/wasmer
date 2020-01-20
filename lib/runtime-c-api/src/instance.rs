@@ -418,7 +418,7 @@ pub unsafe extern "C" fn wasmer_instance_exports(
 ///
 /// // You can read your data.
 /// {
-///     my_data *data = wasmer_instance_context_data_get(wasmer_instance_context_get(instance));
+///     my_data *data = (my_data*) wasmer_instance_context_data_get(wasmer_instance_context_get(instance));
 ///     // …
 /// }
 /// ```
@@ -437,8 +437,27 @@ pub extern "C" fn wasmer_instance_context_data_set(
     instance.context_mut().data = data_ptr;
 }
 
-/// Gets the memory within the context at the index `memory_idx`.
-/// The index is always 0 until multiple memories are supported.
+/// Gets the `memory_idx`th memory of the instance.
+///
+/// Note that the index is always `0` until multiple memories are supported.
+///
+/// This function is mostly used inside host functions (aka imported
+/// functions) to read the instance memory.
+///
+/// Example of a _host function_ that reads and prints a string based on a pointer and a length:
+///
+/// ```c
+/// void print_string(const wasmer_instance_context_t *context, int32_t pointer, int32_t length) {
+///     // Get the 0th memory.
+///     const wasmer_memory_t *memory = wasmer_instance_context_memory(context, 0);
+///
+///     // Get the memory data as a pointer.
+///     uint8_t *memory_bytes = wasmer_memory_data(memory);
+///
+///     // Print what we assumed to be a string!
+///     printf("%.*s", length, memory_bytes + pointer);
+/// }
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_memory(
