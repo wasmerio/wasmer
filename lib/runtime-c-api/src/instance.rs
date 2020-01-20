@@ -199,13 +199,55 @@ pub extern "C" fn wasmer_instance_context_get(
     context as *const wasmer_instance_context_t
 }
 
-/// Calls an instances exported function by `name` with the provided parameters.
-/// Results are set using the provided `results` pointer.
+/// Calls an exported function of a WebAssembly instance by `name`
+/// with the provided parameters. The exported function results are
+/// stored on the provided `results` pointer.
 ///
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// This function returns `wasmer_result_t::WASMER_OK` upon success,
+/// `wasmer_result_t::WASMER_ERROR` otherwise. You can use
+/// `wasmer_last_error_message()` to get the generated error message.
 ///
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
+/// Potential errors are the following:
+///
+///   * `instance` is a null pointer,
+///   * `name` is a null pointer,
+///   * `params` is a null pointer.
+///
+/// Example of calling an exported function that needs two parameters, and returns one value:
+///
+/// ```c
+/// // First argument.
+/// wasmer_value_t argument_one = {
+///     .tag = WASM_I32,
+///     .value.I32 = 3,
+/// };
+///
+/// // Second argument.
+/// wasmer_value_t argument_two = {
+///     .tag = WASM_I32,
+///     .value.I32 = 4,
+/// };
+///
+/// // First result.
+/// wasmer_value_t result_one;
+///
+/// // All arguments and results.
+/// wasmer_value_t arguments[] = {argument_one, argument_two};
+/// wasmer_value_t results[]   = {result_one};
+///
+/// wasmer_result_t call_result = wasmer_instance_call(
+///     instance,  // instance pointer
+///     "sum",     // the exported function name
+///     arguments, // the arguments
+///     2,         // the number of arguments
+///     results,   // the results
+///     1          // the number of results
+/// );
+///
+/// if (call_result == WASMER_OK) {
+///     printf("Result is: %d\n", results[0].value.I32);
+/// }
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instance_call(
@@ -220,18 +262,23 @@ pub unsafe extern "C" fn wasmer_instance_call(
         update_last_error(CApiError {
             msg: "instance ptr is null".to_string(),
         });
+
         return wasmer_result_t::WASMER_ERROR;
     }
+
     if name.is_null() {
         update_last_error(CApiError {
             msg: "name ptr is null".to_string(),
         });
+
         return wasmer_result_t::WASMER_ERROR;
     }
+
     if params.is_null() {
         update_last_error(CApiError {
             msg: "params ptr is null".to_string(),
         });
+
         return wasmer_result_t::WASMER_ERROR;
     }
 
