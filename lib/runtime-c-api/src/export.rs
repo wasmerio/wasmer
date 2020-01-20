@@ -212,7 +212,23 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
     named_export_descriptor.kind.clone()
 }
 
-/// Frees the memory for the given exports
+/// Frees the memory for the given exports.
+///
+/// Check the `wasmer_instance_exports` function to get a complete
+/// example.
+///
+/// If `exports` is a null pointer, this function does nothing.
+///
+/// Example:
+///
+/// ```c
+/// // Get some exports.
+/// wasmer_exports_t *exports = NULL;
+/// wasmer_instance_exports(instance, &exports);
+///
+/// // Destroy the exports.
+/// wasmer_exports_destroy(exports);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
