@@ -582,9 +582,13 @@
 <span id="582">582</span>
 <span id="583">583</span>
 <span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The error module contains the data structures and helper functions used to implement errors that</span>
 <span class="doccomment">//! are produced and returned from the wasmer runtime core.</span>
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">backend</span>::<span class="ident">ExceptionCode</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{<span class="ident">FuncSig</span>, <span class="ident">GlobalDescriptor</span>, <span class="ident">MemoryDescriptor</span>, <span class="ident">TableDescriptor</span>, <span class="ident">Type</span>};
 <span class="kw">use</span> <span class="ident">core</span>::<span class="ident">borrow</span>::<span class="ident">Borrow</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
@@ -793,6 +797,8 @@
                     <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;\&quot;{}\&quot;&quot;</span>, <span class="ident">s</span>)
                 } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">data</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>() {
                     <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;\&quot;{}\&quot;&quot;</span>, <span class="ident">s</span>)
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">exc_code</span>) <span class="op">=</span> <span class="ident">data</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">ExceptionCode</span><span class="op">&gt;</span>() {
+                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Caught exception of type \&quot;{:?}\&quot;.&quot;</span>, <span class="ident">exc_code</span>)
                 } <span class="kw">else</span> {
                     <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;unknown error&quot;</span>)
                 }

@@ -373,6 +373,12 @@
 <span id="373">373</span>
 <span id="374">374</span>
 <span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(
     <span class="ident">dead_code</span>,
@@ -470,7 +476,7 @@
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde_derive</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">backend</span>::<span class="ident">Features</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">backend</span>::{<span class="ident">ExceptionCode</span>, <span class="ident">Features</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">codegen</span>::{<span class="ident">MiddlewareChain</span>, <span class="ident">StreamingCompiler</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">export</span>::<span class="ident">Export</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">global</span>::<span class="ident">Global</span>;
@@ -486,6 +492,12 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">Func</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">compile_with</span>, <span class="ident">validate</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">func</span>, <span class="ident">imports</span>};
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{
+    <span class="ident">fault</span>::{<span class="ident">pop_code_version</span>, <span class="ident">push_code_version</span>},
+    <span class="ident">state</span>::<span class="ident">CodeVersion</span>,
+};
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">memory</span> {
     <span class="doccomment">//! The memory module contains the implementation data structures and helper functions used to</span>

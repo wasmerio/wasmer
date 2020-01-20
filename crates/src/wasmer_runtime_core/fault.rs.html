@@ -740,6 +740,33 @@
 <span id="740">740</span>
 <span id="741">741</span>
 <span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The fault module contains the implementation for handling breakpoints, traps, and signals</span>
 <span class="doccomment">//! for wasm code.</span>
@@ -1118,15 +1145,23 @@
                 <span class="kw">_</span> <span class="op">=&gt;</span> {}
             }
 
+            <span class="comment">// Now we have looked up all possible handler tables but failed to find a handler</span>
+            <span class="comment">// for this exception that allows a normal return.</span>
+            <span class="comment">//</span>
+            <span class="comment">// So here we check whether this exception is caused by a suspend signal, return the</span>
+            <span class="comment">// state image if so, or throw the exception out otherwise.</span>
+
             <span class="kw">let</span> <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">CURRENT_CTX</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">get</span>());
             <span class="kw">let</span> <span class="ident">es_image</span> <span class="op">=</span> <span class="ident">fault</span>
                 .<span class="ident">read_stack</span>(<span class="prelude-val">None</span>)
                 .<span class="ident">expect</span>(<span class="string">&quot;fault.read_stack() failed. Broken invariants?&quot;</span>);
 
             <span class="kw">if</span> <span class="ident">is_suspend_signal</span> {
+                <span class="comment">// If this is a suspend signal, we parse the runtime state and return the resulting image.</span>
                 <span class="kw">let</span> <span class="ident">image</span> <span class="op">=</span> <span class="ident">build_instance_image</span>(<span class="ident">ctx</span>, <span class="ident">es_image</span>);
                 <span class="ident">unwind_result</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">image</span>);
             } <span class="kw">else</span> {
+                <span class="comment">// Otherwise, this is a real exception and we just throw it to the caller.</span>
                 <span class="kw">if</span> <span class="ident">es_image</span>.<span class="ident">frames</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
                     <span class="macro">eprintln</span><span class="macro">!</span>(
                         <span class="string">&quot;\n{}&quot;</span>,
@@ -1134,7 +1169,26 @@
                     );
                     <span class="ident">es_image</span>.<span class="ident">print_backtrace_if_needed</span>();
                 }
-                <span class="comment">// Just let the error propagate otherwise</span>
+
+                <span class="comment">// Look up the exception tables and try to find an exception code.</span>
+                <span class="kw">let</span> <span class="ident">exc_code</span> <span class="op">=</span> <span class="ident">CURRENT_CODE_VERSIONS</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">versions</span><span class="op">|</span> {
+                    <span class="kw">let</span> <span class="ident">versions</span> <span class="op">=</span> <span class="ident">versions</span>.<span class="ident">borrow</span>();
+                    <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">versions</span>.<span class="ident">iter</span>() {
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">table</span>) <span class="op">=</span> <span class="ident">v</span>.<span class="ident">runnable_module</span>.<span class="ident">get_exception_table</span>() {
+                            <span class="kw">let</span> <span class="ident">ip</span> <span class="op">=</span> <span class="ident">fault</span>.<span class="ident">ip</span>.<span class="ident">get</span>();
+                            <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">v</span>.<span class="ident">base</span> <span class="op">+</span> <span class="ident">v</span>.<span class="ident">msm</span>.<span class="ident">total_size</span>;
+                            <span class="kw">if</span> <span class="ident">ip</span> <span class="op">&gt;=</span> <span class="ident">v</span>.<span class="ident">base</span> <span class="op">&amp;&amp;</span> <span class="ident">ip</span> <span class="op">&lt;</span> <span class="ident">end</span> {
+                                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">exc_code</span>) <span class="op">=</span> <span class="ident">table</span>.<span class="ident">offset_to_code</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span>(<span class="ident">ip</span> <span class="op">-</span> <span class="ident">v</span>.<span class="ident">base</span>)) {
+                                    <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">exc_code</span>);
+                                }
+                            }
+                        }
+                    }
+                    <span class="prelude-val">None</span>
+                });
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">code</span>) <span class="op">=</span> <span class="ident">exc_code</span> {
+                    <span class="ident">unwind_result</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">code</span>);
+                }
             }
 
             <span class="bool-val">true</span>
