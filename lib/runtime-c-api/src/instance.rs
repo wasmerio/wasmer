@@ -469,13 +469,25 @@ pub extern "C" fn wasmer_instance_context_memory(
     memory as *const Memory as *const wasmer_memory_t
 }
 
-/// Gets the `data` field within the context.
+/// Gets the data that can be hold by an instance.
+///
+/// This function is complementary of
+/// `wasmer_instance_context_data_set()`. Please read its
+/// documentation. You can also read the documentation of
+/// `wasmer_instance_context_t` to get other examples.
+///
+/// This function returns nothing if `ctx` is a null pointer.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_data_get(
     ctx: *const wasmer_instance_context_t,
 ) -> *mut c_void {
+    if ctx.is_null() {
+        return ptr::null_mut() as _;
+    }
+
     let ctx = unsafe { &*(ctx as *const Ctx) };
+
     ctx.data
 }
 
