@@ -3,13 +3,15 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::wasmer_import_export_kind,
-    import::wasmer_import_t,
+    import::{wasmer_import_object_t, wasmer_import_t},
     instance::wasmer_instance_t,
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_int;
 use std::{collections::HashMap, slice};
-use wasmer_runtime::{compile, default_compiler, Global, ImportObject, Memory, Module, Table};
+use wasmer_runtime::{
+    compile, default_compiler, Global, ImportObject, Instance, Memory, Module, Table,
+};
 use wasmer_runtime_core::{cache::Artifact, export::Export, import::Namespace, load_cache_with};
 
 #[repr(C)]

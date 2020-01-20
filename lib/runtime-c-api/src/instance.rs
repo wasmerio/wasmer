@@ -3,15 +3,14 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::{wasmer_exports_t, wasmer_import_export_kind, NamedExport, NamedExports},
-    import::{wasmer_import_object_t, wasmer_import_t},
+    import::wasmer_import_t,
     memory::wasmer_memory_t,
-    module::wasmer_module_t,
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_result_t,
 };
 use libc::{c_char, c_int, c_void};
-use std::{collections::HashMap, ffi::CStr, slice};
-use wasmer_runtime::{Ctx, Global, Instance, Memory, Module, Table, Value};
+use std::{collections::HashMap, ffi::CStr, ptr, slice};
+use wasmer_runtime::{Ctx, Global, Instance, Memory, Table, Value};
 use wasmer_runtime_core::{
     export::Export,
     import::{ImportObject, Namespace},
@@ -187,14 +186,17 @@ pub unsafe extern "C" fn wasmer_instantiate(
 /// It is often useful with `wasmer_instance_context_data_set()`.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_instance_context_get(
+pub extern "C" fn wasmer_instance_context_get(
     instance: *mut wasmer_instance_t,
 ) -> *const wasmer_instance_context_t {
-    let instance_ref = &*(instance as *const Instance);
+    if instance.is_null() {
+        return ptr::null() as _;
+    }
 
-    let ctx: *const Ctx = instance_ref.context() as *const _;
+    let instance = unsafe { &*(instance as *const Instance) };
+    let context: *const Ctx = instance.context() as *const _;
 
-    ctx as *const wasmer_instance_context_t
+    context as *const wasmer_instance_context_t
 }
 
 /// Calls an instances exported function by `name` with the provided parameters.
