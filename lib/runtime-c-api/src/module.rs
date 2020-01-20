@@ -151,6 +151,32 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     wasmer_result_t::WASMER_OK
 }
 
+/// Given:
+/// * A prepared `wasmer` import-object
+/// * A compiled wasmer module
+///
+/// Instantiates a wasmer instance
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_import_instantiate(
+    instance: *mut *mut wasmer_instance_t,
+    module: *const wasmer_module_t,
+    import_object: *const wasmer_import_object_t,
+) -> wasmer_result_t {
+    let import_object: &ImportObject = &*(import_object as *const ImportObject);
+    let module: &Module = &*(module as *const Module);
+
+    let new_instance: Instance = match module.instantiate(import_object) {
+        Ok(instance) => instance,
+        Err(error) => {
+            update_last_error(error);
+            return wasmer_result_t::WASMER_ERROR;
+        }
+    };
+    *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
+
+    return wasmer_result_t::WASMER_OK;
+}
+
 /// Serialize the given Module.
 ///
 /// The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
