@@ -428,8 +428,13 @@ pub extern "C" fn wasmer_instance_context_data_set(
     instance: *mut wasmer_instance_t,
     data_ptr: *mut c_void,
 ) {
-    let instance_ref = unsafe { &mut *(instance as *mut Instance) };
-    instance_ref.context_mut().data = data_ptr;
+    if instance.is_null() {
+        return;
+    }
+
+    let instance = unsafe { &mut *(instance as *mut Instance) };
+
+    instance.context_mut().data = data_ptr;
 }
 
 /// Gets the memory within the context at the index `memory_idx`.
