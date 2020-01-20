@@ -43,7 +43,11 @@ pub struct wasmer_export_func_t;
 /// exposed to C.
 pub(crate) struct NamedExports(pub Vec<NamedExport>);
 
-/// Opaque pointer to `NamedExports`.
+/// Opaque pointer to the opaque structure `crate::NamedExports`,
+/// which is a wrapper around a vector of the opaque structure
+/// `crate::NamedExport`.
+///
+/// Check the `wasmer_instance_exports()` function to learn more.
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_exports_t;
