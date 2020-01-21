@@ -76,9 +76,18 @@ impl Default for MemoryBoundCheckMode {
 }
 
 /// Controls which experimental features will be enabled.
+/// Features usually have a corresponding [WebAssembly proposal][wasm-props].
+///
+/// [wasm-props]: https://github.com/WebAssembly/proposals
 #[derive(Debug, Default)]
 pub struct Features {
+    /// Whether support for the [SIMD proposal][simd-prop] is enabled.
+    ///
+    /// [simd-prop]: https://github.com/webassembly/simd
     pub simd: bool,
+    /// Whether support for the [threads proposal][threads-prop] is enabled.
+    ///
+    /// [threads-prop]: https://github.com/webassembly/threads
     pub threads: bool,
 }
 
@@ -113,6 +122,32 @@ pub struct CompilerConfig {
     pub backend_specific_config: Option<BackendCompilerConfig>,
 }
 
+/// An exception table for a `RunnableModule`.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ExceptionTable {
+    /// Mappings from offsets in generated machine code to the corresponding exception code.
+    pub offset_to_code: HashMap<usize, ExceptionCode>,
+}
+
+impl ExceptionTable {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// The code of an exception.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum ExceptionCode {
+    /// An `unreachable` opcode was executed.
+    Unreachable,
+
+    /// An arithmetic exception, e.g. divided by zero.
+    Arithmetic,
+
+    /// Memory access exception, e.g. misaligned/out-of-bound read/write.
+    Memory,
+}
+
 pub trait Compiler {
     /// Compiles a `Module` from WebAssembly binary format.
     /// The `CompileToken` parameter ensures that this can only
@@ -141,6 +176,10 @@ pub trait RunnableModule: Send + Sync {
     }
 
     fn get_breakpoints(&self) -> Option<BreakpointMap> {
+        None
+    }
+
+    fn get_exception_table(&self) -> Option<&ExceptionTable> {
         None
     }
 

@@ -3,13 +3,15 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::wasmer_import_export_kind,
-    import::wasmer_import_t,
+    import::{wasmer_import_object_t, wasmer_import_t},
     instance::wasmer_instance_t,
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_int;
 use std::{collections::HashMap, slice};
-use wasmer_runtime::{compile, default_compiler, Global, ImportObject, Memory, Module, Table};
+use wasmer_runtime::{
+    compile, default_compiler, Global, ImportObject, Instance, Memory, Module, Table,
+};
 use wasmer_runtime_core::{cache::Artifact, export::Export, import::Namespace, load_cache_with};
 
 #[repr(C)]
@@ -149,6 +151,32 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
 
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
+}
+
+/// Given:
+/// * A prepared `wasmer` import-object
+/// * A compiled wasmer module
+///
+/// Instantiates a wasmer instance
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_import_instantiate(
+    instance: *mut *mut wasmer_instance_t,
+    module: *const wasmer_module_t,
+    import_object: *const wasmer_import_object_t,
+) -> wasmer_result_t {
+    let import_object: &ImportObject = &*(import_object as *const ImportObject);
+    let module: &Module = &*(module as *const Module);
+
+    let new_instance: Instance = match module.instantiate(import_object) {
+        Ok(instance) => instance,
+        Err(error) => {
+            update_last_error(error);
+            return wasmer_result_t::WASMER_ERROR;
+        }
+    };
+    *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
+
+    return wasmer_result_t::WASMER_OK;
 }
 
 /// Serialize the given Module.

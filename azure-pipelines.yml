@@ -17,18 +17,36 @@ jobs:
       - template: .azure/install-rust.yml
       - script: |
           rustup component add rustfmt
-          rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
         displayName: Lint dependencies
       - script: cargo fmt --all -- --check
         displayName: Lint
     variables:
       rust_toolchain: '1.39.0'
 
+  - job: clippy_lint
+    pool:
+      vmImage: "ubuntu-18.04"
+    steps:
+      - checkout: self
+        submodules: true
+      - template: .azure/install-rust.yml
+      - template: .azure/install-llvm.yml
+      - template: .azure/install-sccache.yml
+      - template: .azure/install-cmake.yml
+      - script: |
+          rustup component add rustfmt
+          rustup component add clippy || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+        displayName: Lint dependencies with clippy
+      - script: cargo clippy --workspace
+        displayName: Clippy Lint
+    variables:
+      rust_toolchain: nightly-2019-12-19
+
   - job: Test
     strategy:
       matrix:
         linux:
-          imageName: "ubuntu-16.04"
+          imageName: "ubuntu-18.04"
           rust_toolchain: nightly-2019-12-19
         mac:
           imageName: "macos-10.14"
@@ -73,7 +91,7 @@ jobs:
 
   - job: Check
     pool:
-      vmImage: "ubuntu-16.04"
+      vmImage: "ubuntu-18.04"
     variables:
       rust_toolchain: nightly-2019-12-19
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
@@ -92,7 +110,7 @@ jobs:
     strategy:
       matrix:
         linux:
-          imageName: "ubuntu-16.04"
+          imageName: "ubuntu-18.04"
           rust_toolchain: nightly-2019-12-19
         mac:
           imageName: "macos-10.14"
@@ -159,7 +177,7 @@ jobs:
     strategy:
       matrix:
         linux:
-          imageName: "ubuntu-16.04"
+          imageName: "ubuntu-18.04"
           rust_toolchain: nightly-2019-12-19
         mac:
           imageName: "macos-10.14"
@@ -212,7 +230,7 @@ jobs:
 
   - job: Build_Docs
     pool:
-      vmImage: "ubuntu-16.04"
+      vmImage: "ubuntu-18.04"
     variables:
       rust_toolchain: nightly-2019-08-15
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
@@ -287,7 +305,7 @@ jobs:
       - Build_Docs
     displayName: Deploy API Documentation to GitHub
     pool:
-      vmImage: "ubuntu-16.04"
+      vmImage: "ubuntu-18.04"
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master')
     steps:
       - checkout: self

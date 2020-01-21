@@ -1171,9 +1171,10 @@ pub fn tbaa_label<'ctx>(
 
     // TODO: ContextRef can't return us the lifetime from module through Deref.
     // This could be fixed once generic_associated_types is stable.
-    let context2 = &*context;
-    let context = unsafe { std::mem::transmute::<&Context, &'ctx Context>(context2) };
-    std::mem::forget(context2);
+    let context = {
+        let context2 = &*context;
+        unsafe { std::mem::transmute::<&Context, &'ctx Context>(context2) }
+    };
 
     // `!wasmer_tbaa_root = {}`, the TBAA root node for wasmer.
     let tbaa_root = module

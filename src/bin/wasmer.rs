@@ -42,6 +42,11 @@ use wasmer_runtime_core::{
     loader::{Instance as LoadedInstance, LocalLoader},
     Module,
 };
+#[cfg(unix)]
+use wasmer_runtime_core::{
+    fault::{pop_code_version, push_code_version},
+    state::CodeVersion,
+};
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
 
@@ -478,12 +483,6 @@ fn execute_wasi(
     #[cfg(not(feature = "managed"))]
     {
         use wasmer_runtime::error::RuntimeError;
-        #[cfg(unix)]
-        use wasmer_runtime_core::{
-            fault::{pop_code_version, push_code_version},
-            state::CodeVersion,
-        };
-
         let result;
 
         #[cfg(unix)]
@@ -862,11 +861,33 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             };
             let args = options.parse_args(&module, invoke_fn)?;
 
+            #[cfg(unix)]
+            let cv_pushed =
+                if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+                    push_code_version(CodeVersion {
+                        baseline: true,
+                        msm: msm,
+                        base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                        backend: options.backend.to_string(),
+                        runnable_module: instance.module.runnable_module.clone(),
+                    });
+                    true
+                } else {
+                    false
+                };
+
             let result = instance
                 .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
+
+            #[cfg(unix)]
+            {
+                if cv_pushed {
+                    pop_code_version().unwrap();
+                }
+            }
             println!("{}({:?}) returned {:?}", invoke_fn, args, result);
         }
     }
