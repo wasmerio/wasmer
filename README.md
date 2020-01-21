@@ -32,6 +32,12 @@ Install the Wasmer and [WAPM](https://wapm.io) cli with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
+If [Homebrew](https://brew.sh/) is installed:
+
+```sh
+brew install wasmer
+```
+
 > Note: *Wasmer is also [available on Windows](https://github.com/wasmerio/wasmer/releases)*
 
 ### Languages
