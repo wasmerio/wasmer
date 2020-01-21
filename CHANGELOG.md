@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1161](https://github.com/wasmerio/wasmer/pull/1161) Require imported functions to be `Send`. This is a breaking change that fixes a soundness issue in the API.
 - [#1129](https://github.com/wasmerio/wasmer/pull/1129) Standard exception types for singlepass backend.
 - [#1140](https://github.com/wasmerio/wasmer/pull/1140) Use [`blake3`](https://github.com/BLAKE3-team/BLAKE3) as default hashing algorithm for caching.
 
