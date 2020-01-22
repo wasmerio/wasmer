@@ -80,3 +80,15 @@ impl<'de> Deserialize<'de> for Memory {
         deserializer.deserialize_struct("Memory", &["protection", "data"], MemoryVisitor)
     }
 }
+
+/// Round `size` up to the nearest multiple of `page_size`.
+fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
+    assert!(page_size.is_power_of_two());
+    (size + (page_size - 1)) & !(page_size - 1)
+}
+
+/// Round `size` down to the nearest multiple of `page_size`.
+fn round_down_to_page_size(size: usize, page_size: usize) -> usize {
+    assert!(page_size.is_power_of_two());
+    size & !(page_size - 1)
+}
