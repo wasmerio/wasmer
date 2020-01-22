@@ -123,7 +123,7 @@ impl WasiFsError {
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 #[typetag::serde(tag = "type")]
-pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
+pub trait WasiFile: std::fmt::Debug + Send + Write + Read + Seek {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> __wasi_timestamp_t;
 

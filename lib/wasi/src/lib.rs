@@ -67,6 +67,8 @@ pub fn generate_import_object(
         let preopened_files = preopened_files.clone();
         let mapped_dirs = mapped_dirs.clone();
 
+        // this deprecation warning only applies to external callers
+        #[allow(deprecated)]
         let state = Box::new(WasiState {
             fs: WasiFs::new(&preopened_files, &mapped_dirs).expect("Could not create WASI FS"),
             args: args.clone(),
@@ -150,6 +152,8 @@ fn generate_import_object_snapshot0(
         let mapped_dirs = mapped_dirs.clone();
         //let wasi_builder = create_wasi_instance();
 
+        // this deprecation warning only applies to external callers
+        #[allow(deprecated)]
         let state = Box::new(WasiState {
             fs: WasiFs::new(&preopened_files, &mapped_dirs).expect("Could not create WASI FS"),
             args: args.clone(),

@@ -414,14 +414,14 @@ fn execute_wasi(
         .args(args)
         .envs(env_vars)
         .preopen_dirs(preopened_files)
-        .map_dirs(mapped_dirs);
+        .map_err(|e| format!("Failed to preopen directories: {:?}", e))?
+        .map_dirs(mapped_dirs)
+        .map_err(|e| format!("Failed to preopen mapped directories: {:?}", e))?;
 
     #[cfg(feature = "experimental-io-devices")]
     {
         if options.enable_experimental_io_devices {
-            wasi_state_builder.setup_fs(std::rc::Rc::new(
-                wasmer_wasi_experimental_io_devices::initialize,
-            ));
+            wasi_state_builder.setup_fs(Box::new(wasmer_wasi_experimental_io_devices::initialize));
         }
     }
     let wasi_state = wasi_state_builder.build().map_err(|e| format!("{:?}", e))?;
