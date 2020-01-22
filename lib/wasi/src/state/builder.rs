@@ -348,7 +348,7 @@ impl WasiStateBuilder {
             }
         }
 
-        // self.preopens are checked in `PreopenDirBulider::build`
+        // self.preopens are checked in [`PreopenDirBuilder::build`]
 
         // this deprecation warning only applies to external callers
         #[allow(deprecated)]
