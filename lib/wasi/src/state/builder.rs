@@ -173,7 +173,6 @@ impl WasiStateBuilder {
     /// Preopen a directory
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
-    // TODO: design a simple API for passing in permissions here (i.e. read-only)
     pub fn preopen_dir<FilePath>(
         &mut self,
         po_dir: FilePath,
@@ -191,12 +190,22 @@ impl WasiStateBuilder {
         Ok(self)
     }
 
-    /// Preopen TODO:
+    /// Preopen a directory and configure it.
+    ///
+    /// Usage:
+    ///
+    /// ```no_run
+    /// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+    /// # fn main() -> Result<(), WasiStateCreationError> {
+    /// WasiState::new("program_name")
+    ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
+    ///    .preopen(|p| p.directory(".").alias("dot").read(true))?
+    ///    .build()?;
+    /// # Ok(())
+    /// # }
     /// ```
-    /// ```
-    pub fn preopen<FilePath, F>(&mut self, inner: F) -> Result<&mut Self, WasiStateCreationError>
+    pub fn preopen<F>(&mut self, inner: F) -> Result<&mut Self, WasiStateCreationError>
     where
-        FilePath: AsRef<Path>,
         F: Fn(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
     {
         let mut pdb = PreopenDirBuilder::new();
