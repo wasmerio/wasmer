@@ -1044,7 +1044,7 @@
 
 <span class="doccomment">/// This trait relies on your file closing when it goes out of scope via `Drop`</span>
 <span class="attribute">#[<span class="ident">typetag</span>::<span class="ident">serde</span>(<span class="ident">tag</span> <span class="op">=</span> <span class="string">&quot;type&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">WasiFile</span>: <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Write</span> <span class="op">+</span> <span class="ident">Read</span> <span class="op">+</span> <span class="ident">Seek</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">WasiFile</span>: <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Write</span> <span class="op">+</span> <span class="ident">Read</span> <span class="op">+</span> <span class="ident">Seek</span> {
     <span class="doccomment">/// the last time the file was accessed in nanoseconds as a UNIX timestamp</span>
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">__wasi_timestamp_t</span>;
 
