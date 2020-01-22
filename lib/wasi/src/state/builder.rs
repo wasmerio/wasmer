@@ -382,7 +382,6 @@ impl WasiStateBuilder {
 }
 
 /// Builder for preopened directories.
-/// TODO: document
 #[derive(Debug, Default)]
 pub struct PreopenDirBuilder {
     path: Option<PathBuf>,

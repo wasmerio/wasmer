@@ -1428,16 +1428,15 @@ impl WasiFs {
 ///    .env(b"HOME", "/home/home".to_string())
 ///    .arg("--help")
 ///    .envs({
-///            let mut hm = std::collections::HashMap::new();
-///            hm.insert("COLOR_OUTPUT", "TRUE");
-///            hm.insert("PATH", "/usr/bin");
-///            hm
-///          })
+///        let mut hm = std::collections::HashMap::new();
+///        hm.insert("COLOR_OUTPUT", "TRUE");
+///        hm.insert("PATH", "/usr/bin");
+///        hm
+///    })
 ///    .args(&["--verbose", "list"])
-///    .preopen_dir("src")?
-///    .map_dir("dot", ".")?
-///    .build()
-///    .unwrap();
+///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
+///    .preopen(|p| p.directory(".").alias("dot").read(true))?
+///    .build()?;
 /// # Ok(())
 /// # }
 /// ```
