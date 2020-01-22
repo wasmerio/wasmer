@@ -6,6 +6,7 @@ use crate::{
     units::{Bytes, Pages},
     vm,
 };
+use std::ffi::c_void;
 
 pub const DYNAMIC_GUARD_SIZE: usize = 4096;
 
@@ -57,7 +58,7 @@ impl DynamicMemory {
 
         local.base = storage.memory.as_ptr();
         local.bound = min_bytes.0;
-        local.memory = storage_ptr as *mut ();
+        local.memory = storage_ptr as *mut c_void;
 
         Ok(storage)
     }

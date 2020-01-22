@@ -7,7 +7,7 @@ use crate::{
     vm,
 };
 
-use std::{ptr, sync::Arc};
+use std::{ffi::c_void, ptr, sync::Arc};
 
 enum AnyfuncInner<'a> {
     Host {
@@ -66,7 +66,7 @@ impl AnyfuncTable {
 
         local.base = storage.backing.as_mut_ptr() as *mut u8;
         local.count = storage.backing.len();
-        local.table = storage_ptr as *mut ();
+        local.table = storage_ptr as *mut c_void;
 
         Ok(storage)
     }

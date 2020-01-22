@@ -630,7 +630,7 @@ pub struct LocalTable {
     /// Number of elements in the table (NOT necessarily the size of the table in bytes!).
     pub count: usize,
     /// The table that this represents. At the moment, this can only be `*mut AnyfuncTable`.
-    pub table: *mut (),
+    pub table: *mut c_void,
 }
 
 // manually implemented because LocalTable contains raw pointers directly
@@ -665,7 +665,7 @@ pub struct LocalMemory {
     /// The actual memory that this represents.
     /// This is either `*mut DynamicMemory`, `*mut StaticMemory`,
     /// or `*mut SharedStaticMemory`.
-    pub memory: *mut (),
+    pub memory: *mut c_void,
 }
 
 // manually implemented because LocalMemory contains raw pointers

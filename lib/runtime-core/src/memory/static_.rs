@@ -1,5 +1,6 @@
 use crate::error::GrowError;
 use crate::{error::CreationError, sys, types::MemoryDescriptor, units::Pages, vm};
+use std::ffi::c_void;
 
 #[doc(hidden)]
 pub const SAFE_STATIC_HEAP_SIZE: usize = 1 << 32; // 4 GiB
@@ -51,7 +52,7 @@ impl StaticMemory {
 
         local.base = storage.memory.as_ptr();
         local.bound = desc.minimum.bytes().0;
-        local.memory = storage_ptr as *mut ();
+        local.memory = storage_ptr as *mut c_void;
 
         Ok(storage)
     }
