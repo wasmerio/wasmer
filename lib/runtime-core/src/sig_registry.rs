@@ -1,3 +1,4 @@
+//! A process-global registry for function signatures.
 use crate::{
     structures::Map,
     types::{FuncSig, SigIndex},

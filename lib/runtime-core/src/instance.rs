@@ -21,7 +21,7 @@ use smallvec::{smallvec, SmallVec};
 use std::{
     mem,
     pin::Pin,
-    ptr::NonNull,
+    ptr::{self, NonNull},
     sync::{Arc, Mutex},
 };
 
@@ -710,7 +710,7 @@ pub(crate) fn call_func_with_index_inner(
 
     match signature.returns() {
         &[] => {
-            run_wasm(0 as *mut u64)?;
+            run_wasm(ptr::null_mut())?;
             Ok(())
         }
         &[Type::V128] => {
@@ -721,10 +721,8 @@ pub(crate) fn call_func_with_index_inner(
             let mut bytes = [0u8; 16];
             let lo = result[0].to_le_bytes();
             let hi = result[1].to_le_bytes();
-            for i in 0..8 {
-                bytes[i] = lo[i];
-                bytes[i + 8] = hi[i];
-            }
+            bytes[..8].clone_from_slice(&lo);
+            bytes[8..16].clone_from_slice(&hi);
             rets.push(Value::V128(u128::from_le_bytes(bytes)));
             Ok(())
         }

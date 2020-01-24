@@ -81,7 +81,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// Dereference this `WasmPtr`.
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
+    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<&[Cell<T>]> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
@@ -104,12 +104,12 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
 
     /// Mutable dereference this `WasmPtr`.
     #[inline]
-    pub unsafe fn deref_mut<'a>(
+    pub unsafe fn deref_mut(
         self,
-        memory: &'a Memory,
+        memory: &Memory,
         index: u32,
         length: u32,
-    ) -> Option<&'a mut [Cell<T>]> {
+    ) -> Option<&mut [Cell<T>]> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
@@ -129,7 +129,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     }
 
     /// Get a UTF-8 string representation of this `WasmPtr` with the given length.
-    pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<&str> {
         if self.offset as usize + str_len as usize > memory.size().bytes().0 {
             return None;
         }
@@ -141,7 +141,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// Get a UTF-8 string representation of this `WasmPtr`, where the string is nul-terminated.
     /// Note that this does not account for UTF-8 strings that _contain_ nul themselves,
     /// [`get_utf8_string`] has to be used for those.
-    pub fn get_utf8_string_with_nul<'a>(self, memory: &'a Memory) -> Option<&'a str> {
+    pub fn get_utf8_string_with_nul(self, memory: &Memory) -> Option<&str> {
         memory.view::<u8>()[(self.offset as usize)..]
             .iter()
             .map(|cell| cell.get())
