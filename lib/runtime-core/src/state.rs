@@ -417,7 +417,7 @@ impl ExecutionStateImage {
         }
 
         fn format_optional_u64_sequence(x: &[Option<u64>]) -> String {
-            if x.len() == 0 {
+            if x.is_empty() {
                 "(empty)".into()
             } else {
                 join_strings(
@@ -436,7 +436,7 @@ impl ExecutionStateImage {
 
         let mut ret = String::new();
 
-        if self.frames.len() == 0 {
+        if self.frames.is_empty() {
             ret += &"Unknown fault address, cannot read stack.";
             ret += "\n";
         } else {
@@ -632,7 +632,7 @@ pub mod x64 {
         let mut ptr = &vmctx as *const *const Ctx as *const u8;
         for x in seq {
             debug_assert!(ptr.align_offset(std::mem::align_of::<*const u8>()) == 0);
-            ptr = (*(ptr as *const *const u8)).offset(*x as isize);
+            ptr = (*(ptr as *const *const u8)).add(*x);
         }
         ptr as usize as u64
     }
@@ -679,7 +679,7 @@ pub mod x64 {
             } else {
                 fsm.wasm_offset_to_target_offset
                     .get(&f.wasm_inst_offset)
-                    .map(|x| *x)
+                    .copied()
             }
             .expect("instruction is not a critical point");
 
@@ -994,8 +994,8 @@ pub mod x64 {
         catch_unsafe_unwind(
             || {
                 run_on_alternative_stack(
-                    stack.as_mut_ptr().offset(stack.len() as isize),
-                    stack.as_mut_ptr().offset(stack_offset as isize),
+                    stack.as_mut_ptr().add(stack.len()),
+                    stack.as_mut_ptr().add(stack_offset),
                 )
             },
             breakpoints,
@@ -1157,24 +1157,18 @@ pub mod x64 {
                 }
             }
 
-            let mut found_shadow = false;
-            for v in state.stack_values.iter() {
-                match *v {
-                    MachineValue::ExplicitShadow => {
-                        found_shadow = true;
-                        break;
-                    }
-                    _ => {}
-                }
-            }
+            let found_shadow = state
+                .stack_values
+                .iter()
+                .any(|v| *v == MachineValue::ExplicitShadow);
             if !found_shadow {
-                stack = stack.offset((fsm.shadow_size / 8) as isize);
+                stack = stack.add(fsm.shadow_size / 8);
             }
 
             for v in state.stack_values.iter().rev() {
                 match *v {
                     MachineValue::ExplicitShadow => {
-                        stack = stack.offset((fsm.shadow_size / 8) as isize);
+                        stack = stack.add(fsm.shadow_size / 8);
                     }
                     MachineValue::Undefined => {
                         stack = stack.offset(1);

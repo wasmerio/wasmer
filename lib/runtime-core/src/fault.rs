@@ -257,10 +257,8 @@ pub fn allocate_and_run<R, F: FnOnce() -> R>(size: usize, f: F) -> R {
         // NOTE: Keep this consistent with `image-loading-*.s`.
         stack[end_offset - 4 - 10] = &mut ctx as *mut Context<F, R> as usize as u64; // rdi
         const NUM_SAVED_REGISTERS: usize = 31;
-        let stack_begin = stack
-            .as_mut_ptr()
-            .offset((end_offset - 4 - NUM_SAVED_REGISTERS) as isize);
-        let stack_end = stack.as_mut_ptr().offset(end_offset as isize);
+        let stack_begin = stack.as_mut_ptr().add(end_offset - 4 - NUM_SAVED_REGISTERS);
+        let stack_end = stack.as_mut_ptr().add(end_offset);
 
         raw::run_on_alternative_stack(stack_end, stack_begin);
         ctx.ret.take().unwrap()
@@ -392,7 +390,7 @@ extern "C" fn signal_trap_handler(
                 unwind_result = Box::new(image);
             } else {
                 // Otherwise, this is a real exception and we just throw it to the caller.
-                if es_image.frames.len() > 0 {
+                if !es_image.frames.is_empty() {
                     eprintln!(
                         "\n{}",
                         "Wasmer encountered an error while running your WebAssembly program."

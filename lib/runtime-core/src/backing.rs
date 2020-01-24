@@ -745,7 +745,7 @@ fn import_memories(
         }
     }
 
-    if link_errors.len() > 0 {
+    if !link_errors.is_empty() {
         Err(link_errors)
     } else {
         Ok((memories.into_boxed_map(), vm_memories.into_boxed_map()))
@@ -886,7 +886,7 @@ fn import_globals(
         }
     }
 
-    if link_errors.len() > 0 {
+    if !link_errors.is_empty() {
         Err(link_errors)
     } else {
         Ok((globals.into_boxed_map(), vm_globals.into_boxed_map()))

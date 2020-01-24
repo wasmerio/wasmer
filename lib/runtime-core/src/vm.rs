@@ -231,8 +231,8 @@ pub static INTRINSICS_IMPORTED_DYNAMIC_MEMORY: Intrinsics = Intrinsics {
 };
 
 fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
-    if m.memories.len() == 0 && m.imported_memories.len() == 0 {
-        ::std::ptr::null()
+    if m.memories.is_empty() && m.imported_memories.is_empty() {
+        ptr::null()
     } else {
         match MemoryIndex::new(0).local_or_import(m) {
             LocalOrImport::Local(local_mem_index) => {
@@ -274,7 +274,7 @@ impl Ctx {
         module: &ModuleInner,
     ) -> Self {
         let (mem_base, mem_bound): (*mut u8, usize) =
-            if module.info.memories.len() == 0 && module.info.imported_memories.len() == 0 {
+            if module.info.memories.is_empty() && module.info.imported_memories.is_empty() {
                 (::std::ptr::null_mut(), 0)
             } else {
                 let mem = match MemoryIndex::new(0).local_or_import(&module.info) {
@@ -327,7 +327,7 @@ impl Ctx {
         data_finalizer: fn(*mut c_void),
     ) -> Self {
         let (mem_base, mem_bound): (*mut u8, usize) =
-            if module.info.memories.len() == 0 && module.info.imported_memories.len() == 0 {
+            if module.info.memories.is_empty() && module.info.imported_memories.is_empty() {
                 (::std::ptr::null_mut(), 0)
             } else {
                 let mem = match MemoryIndex::new(0).local_or_import(&module.info) {
@@ -351,7 +351,7 @@ impl Ctx {
 
                 intrinsics: get_intrinsics_for_module(&module.info),
 
-                stack_lower_bound: ::std::ptr::null_mut(),
+                stack_lower_bound: ptr::null_mut(),
 
                 memory_base: mem_base,
                 memory_bound: mem_bound,
