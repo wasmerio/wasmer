@@ -1640,7 +1640,7 @@
         }
     }
 
-    <span class="kw">if</span> <span class="ident">link_errors</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">link_errors</span>.<span class="ident">is_empty</span>() {
         <span class="prelude-val">Err</span>(<span class="ident">link_errors</span>)
     } <span class="kw">else</span> {
         <span class="prelude-val">Ok</span>((<span class="ident">memories</span>.<span class="ident">into_boxed_map</span>(), <span class="ident">vm_memories</span>.<span class="ident">into_boxed_map</span>()))
@@ -1781,7 +1781,7 @@
         }
     }
 
-    <span class="kw">if</span> <span class="ident">link_errors</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">link_errors</span>.<span class="ident">is_empty</span>() {
         <span class="prelude-val">Err</span>(<span class="ident">link_errors</span>)
     } <span class="kw">else</span> {
         <span class="prelude-val">Ok</span>((<span class="ident">globals</span>.<span class="ident">into_boxed_map</span>(), <span class="ident">vm_globals</span>.<span class="ident">into_boxed_map</span>()))

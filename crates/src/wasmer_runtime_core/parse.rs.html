@@ -620,7 +620,7 @@
                     <span class="ident">ImportSectionEntryType</span>::<span class="ident">Memory</span>(<span class="ident">memory_ty</span>) <span class="op">=&gt;</span> {
                         <span class="kw">let</span> <span class="ident">mem_desc</span> <span class="op">=</span> <span class="ident">MemoryDescriptor</span>::<span class="ident">new</span>(
                             <span class="ident">Pages</span>(<span class="ident">memory_ty</span>.<span class="ident">limits</span>.<span class="ident">initial</span>),
-                            <span class="ident">memory_ty</span>.<span class="ident">limits</span>.<span class="ident">maximum</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">max</span><span class="op">|</span> <span class="ident">Pages</span>(<span class="ident">max</span>)),
+                            <span class="ident">memory_ty</span>.<span class="ident">limits</span>.<span class="ident">maximum</span>.<span class="ident">map</span>(<span class="ident">Pages</span>),
                             <span class="ident">memory_ty</span>.<span class="ident">shared</span>,
                         )
                         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">LoadError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">x</span>)))<span class="question-mark">?</span>;
@@ -658,7 +658,7 @@
             <span class="ident">ParserState</span>::<span class="ident">MemorySectionEntry</span>(<span class="ident">memory_ty</span>) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">mem_desc</span> <span class="op">=</span> <span class="ident">MemoryDescriptor</span>::<span class="ident">new</span>(
                     <span class="ident">Pages</span>(<span class="ident">memory_ty</span>.<span class="ident">limits</span>.<span class="ident">initial</span>),
-                    <span class="ident">memory_ty</span>.<span class="ident">limits</span>.<span class="ident">maximum</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">max</span><span class="op">|</span> <span class="ident">Pages</span>(<span class="ident">max</span>)),
+                    <span class="ident">memory_ty</span>.<span class="ident">limits</span>.<span class="ident">maximum</span>.<span class="ident">map</span>(<span class="ident">Pages</span>),
                     <span class="ident">memory_ty</span>.<span class="ident">shared</span>,
                 )
                 .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">LoadError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">x</span>)))<span class="question-mark">?</span>;
@@ -746,11 +746,11 @@
                                         <span class="ident">Event</span>::<span class="ident">Internal</span>(<span class="ident">InternalEvent</span>::<span class="ident">FunctionBegin</span>(<span class="ident">id</span> <span class="kw">as</span> <span class="ident">u32</span>)),
                                         <span class="kw-2">&amp;</span><span class="ident">info</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>(),
                                     )
-                                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">LoadError</span>::<span class="ident">Codegen</span>(<span class="ident">x</span>))<span class="question-mark">?</span>;
+                                    .<span class="ident">map_err</span>(<span class="ident">LoadError</span>::<span class="ident">Codegen</span>)<span class="question-mark">?</span>;
                             }
                             <span class="ident">middlewares</span>
                                 .<span class="ident">run</span>(<span class="prelude-val">Some</span>(<span class="ident">fcg</span>), <span class="ident">Event</span>::<span class="ident">Wasm</span>(<span class="ident">op</span>), <span class="kw-2">&amp;</span><span class="ident">info</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>())
-                                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">LoadError</span>::<span class="ident">Codegen</span>(<span class="ident">x</span>))<span class="question-mark">?</span>;
+                                .<span class="ident">map_err</span>(<span class="ident">LoadError</span>::<span class="ident">Codegen</span>)<span class="question-mark">?</span>;
                         }
                         <span class="ident">ParserState</span>::<span class="ident">EndFunctionBody</span> <span class="op">=&gt;</span> <span class="kw">break</span>,
                         <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
@@ -762,7 +762,7 @@
                         <span class="ident">Event</span>::<span class="ident">Internal</span>(<span class="ident">InternalEvent</span>::<span class="ident">FunctionEnd</span>),
                         <span class="kw-2">&amp;</span><span class="ident">info</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>(),
                     )
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">LoadError</span>::<span class="ident">Codegen</span>(<span class="ident">x</span>))<span class="question-mark">?</span>;
+                    .<span class="ident">map_err</span>(<span class="ident">LoadError</span>::<span class="ident">Codegen</span>)<span class="question-mark">?</span>;
                 <span class="ident">fcg</span>.<span class="ident">finalize</span>()
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">LoadError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">x</span>)))<span class="question-mark">?</span>;
                 <span class="ident">func_count</span> <span class="op">=</span> <span class="ident">func_count</span>.<span class="ident">wrapping_add</span>(<span class="number">1</span>);

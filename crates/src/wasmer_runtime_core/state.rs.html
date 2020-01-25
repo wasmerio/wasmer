@@ -1256,12 +1256,6 @@
 <span id="1256">1256</span>
 <span id="1257">1257</span>
 <span id="1258">1258</span>
-<span id="1259">1259</span>
-<span id="1260">1260</span>
-<span id="1261">1261</span>
-<span id="1262">1262</span>
-<span id="1263">1263</span>
-<span id="1264">1264</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The state module is used to track state of a running web assembly instances so that</span>
 <span class="doccomment">//! state could read or updated at runtime. Use cases include generating stack traces, switching</span>
@@ -1682,7 +1676,7 @@
         }
 
         <span class="kw">fn</span> <span class="ident">format_optional_u64_sequence</span>(<span class="ident">x</span>: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>]) <span class="op">-&gt;</span> <span class="ident">String</span> {
-            <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span> {
+            <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">is_empty</span>() {
                 <span class="string">&quot;(empty)&quot;</span>.<span class="ident">into</span>()
             } <span class="kw">else</span> {
                 <span class="ident">join_strings</span>(
@@ -1701,7 +1695,7 @@
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
 
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">frames</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">frames</span>.<span class="ident">is_empty</span>() {
             <span class="ident">ret</span> <span class="op">+=</span> <span class="kw-2">&amp;</span><span class="string">&quot;Unknown fault address, cannot read stack.&quot;</span>;
             <span class="ident">ret</span> <span class="op">+=</span> <span class="string">&quot;\n&quot;</span>;
         } <span class="kw">else</span> {
@@ -1897,7 +1891,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Ctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
         <span class="kw">for</span> <span class="ident">x</span> <span class="kw">in</span> <span class="ident">seq</span> {
             <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">ptr</span>.<span class="ident">align_offset</span>(<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span><span class="op">&gt;</span>()) <span class="op">==</span> <span class="number">0</span>);
-            <span class="ident">ptr</span> <span class="op">=</span> (<span class="kw-2">*</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>)).<span class="ident">offset</span>(<span class="kw-2">*</span><span class="ident">x</span> <span class="kw">as</span> <span class="ident">isize</span>);
+            <span class="ident">ptr</span> <span class="op">=</span> (<span class="kw-2">*</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>)).<span class="ident">add</span>(<span class="kw-2">*</span><span class="ident">x</span>);
         }
         <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="kw">as</span> <span class="ident">u64</span>
     }
@@ -1944,7 +1938,7 @@
             } <span class="kw">else</span> {
                 <span class="ident">fsm</span>.<span class="ident">wasm_offset_to_target_offset</span>
                     .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="ident">wasm_inst_offset</span>)
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span>)
+                    .<span class="ident">copied</span>()
             }
             .<span class="ident">expect</span>(<span class="string">&quot;instruction is not a critical point&quot;</span>);
 
@@ -2259,8 +2253,8 @@
         <span class="ident">catch_unsafe_unwind</span>(
             <span class="op">||</span> {
                 <span class="ident">run_on_alternative_stack</span>(
-                    <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">offset</span>(<span class="ident">stack</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">isize</span>),
-                    <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">offset</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">isize</span>),
+                    <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">add</span>(<span class="ident">stack</span>.<span class="ident">len</span>()),
+                    <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">add</span>(<span class="ident">stack_offset</span>),
                 )
             },
             <span class="ident">breakpoints</span>,
@@ -2422,24 +2416,18 @@
                 }
             }
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">found_shadow</span> <span class="op">=</span> <span class="bool-val">false</span>;
-            <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">iter</span>() {
-                <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">v</span> {
-                    <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span> <span class="op">=&gt;</span> {
-                        <span class="ident">found_shadow</span> <span class="op">=</span> <span class="bool-val">true</span>;
-                        <span class="kw">break</span>;
-                    }
-                    <span class="kw">_</span> <span class="op">=&gt;</span> {}
-                }
-            }
+            <span class="kw">let</span> <span class="ident">found_shadow</span> <span class="op">=</span> <span class="ident">state</span>
+                .<span class="ident">stack_values</span>
+                .<span class="ident">iter</span>()
+                .<span class="ident">any</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">v</span> <span class="op">==</span> <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span>);
             <span class="kw">if</span> <span class="op">!</span><span class="ident">found_shadow</span> {
-                <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>((<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">isize</span>);
+                <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">add</span>(<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>);
             }
 
             <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
                 <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">v</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">ExplicitShadow</span> <span class="op">=&gt;</span> {
-                        <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>((<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">isize</span>);
+                        <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">add</span>(<span class="ident">fsm</span>.<span class="ident">shadow_size</span> <span class="op">/</span> <span class="number">8</span>);
                     }
                     <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> {
                         <span class="ident">stack</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">offset</span>(<span class="number">1</span>);

@@ -765,8 +765,6 @@
 <span id="765">765</span>
 <span id="766">766</span>
 <span id="767">767</span>
-<span id="768">768</span>
-<span id="769">769</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The fault module contains the implementation for handling breakpoints, traps, and signals</span>
 <span class="doccomment">//! for wasm code.</span>
@@ -1027,10 +1025,8 @@
         <span class="comment">// NOTE: Keep this consistent with `image-loading-*.s`.</span>
         <span class="ident">stack</span>[<span class="ident">end_offset</span> <span class="op">-</span> <span class="number">4</span> <span class="op">-</span> <span class="number">10</span>] <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ctx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">R</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="kw">as</span> <span class="ident">u64</span>; <span class="comment">// rdi</span>
         <span class="kw">const</span> <span class="ident">NUM_SAVED_REGISTERS</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">31</span>;
-        <span class="kw">let</span> <span class="ident">stack_begin</span> <span class="op">=</span> <span class="ident">stack</span>
-            .<span class="ident">as_mut_ptr</span>()
-            .<span class="ident">offset</span>((<span class="ident">end_offset</span> <span class="op">-</span> <span class="number">4</span> <span class="op">-</span> <span class="ident">NUM_SAVED_REGISTERS</span>) <span class="kw">as</span> <span class="ident">isize</span>);
-        <span class="kw">let</span> <span class="ident">stack_end</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">offset</span>(<span class="ident">end_offset</span> <span class="kw">as</span> <span class="ident">isize</span>);
+        <span class="kw">let</span> <span class="ident">stack_begin</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">add</span>(<span class="ident">end_offset</span> <span class="op">-</span> <span class="number">4</span> <span class="op">-</span> <span class="ident">NUM_SAVED_REGISTERS</span>);
+        <span class="kw">let</span> <span class="ident">stack_end</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">add</span>(<span class="ident">end_offset</span>);
 
         <span class="ident">raw</span>::<span class="ident">run_on_alternative_stack</span>(<span class="ident">stack_end</span>, <span class="ident">stack_begin</span>);
         <span class="ident">ctx</span>.<span class="ident">ret</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>()
@@ -1162,7 +1158,7 @@
                 <span class="ident">unwind_result</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">image</span>);
             } <span class="kw">else</span> {
                 <span class="comment">// Otherwise, this is a real exception and we just throw it to the caller.</span>
-                <span class="kw">if</span> <span class="ident">es_image</span>.<span class="ident">frames</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
+                <span class="kw">if</span> <span class="op">!</span><span class="ident">es_image</span>.<span class="ident">frames</span>.<span class="ident">is_empty</span>() {
                     <span class="macro">eprintln</span><span class="macro">!</span>(
                         <span class="string">&quot;\n{}&quot;</span>,
                         <span class="string">&quot;Wasmer encountered an error while running your WebAssembly program.&quot;</span>
