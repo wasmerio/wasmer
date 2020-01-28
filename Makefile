@@ -258,6 +258,12 @@ check: check-bench
 release:
 	cargo build --release --features backend-singlepass,backend-cranelift,backend-llvm,loader-kernel,experimental-io-devices,log/release_max_level_off
 
+# Release with musl target
+release-musl:
+	# backend-llvm is not included due to dependency on wabt.
+	# experimental-io-devices is not included due to missing x11-fb.
+	cargo build --release --target x86_64-unknown-linux-musl --features backend-singlepass,backend-cranelift,loader-kernel,log/release_max_level_off,wasi --no-default-features
+
 # Only one backend (cranelift)
 release-clif:
 	# If you are on macOS, you will need mingw-w64 for cross compiling to Windows
