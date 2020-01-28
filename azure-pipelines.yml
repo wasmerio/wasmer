@@ -141,7 +141,7 @@ jobs:
       - bash: make release
         displayName: Build (*nix)
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
-      - bash: make release-musl
+      - bash: sudo apt-get install musl-tools && make release-musl
         displayName: Build (Linux, x86_64-unknown-linux-musl)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
       - bash: make release-llvm
