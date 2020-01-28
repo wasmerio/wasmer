@@ -293,6 +293,7 @@ jobs:
           action: 'edit'
           target: '$(Build.SourceVersion)'
           title: '$(VERSION_TAG)'
+          tag: $(VERSION_TAG)
           addChangeLog: false
           tagSource: 'auto'
           # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
