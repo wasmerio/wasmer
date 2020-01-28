@@ -1216,12 +1216,12 @@
 <span class="comment">// https://github.com/wasmerio/wasmer/pull/532#discussion_r300837800</span>
 <span class="kw">fn</span> <span class="ident">translate_ioctl</span>(<span class="ident">wasm_ioctl</span>: <span class="ident">u32</span>) <span class="op">-&gt;</span> <span class="ident">c_ulong</span> {
     <span class="kw">match</span> <span class="ident">wasm_ioctl</span> {
-        <span class="ident">WASM_FIOCLEX</span> <span class="op">=&gt;</span> <span class="ident">FIOCLEX</span>,
-        <span class="ident">WASM_TIOCGWINSZ</span> <span class="op">=&gt;</span> <span class="ident">TIOCGWINSZ</span>,
-        <span class="ident">WASM_TIOCSPGRP</span> <span class="op">=&gt;</span> <span class="ident">TIOCSPGRP</span>,
-        <span class="ident">WASM_FIONBIO</span> <span class="op">=&gt;</span> <span class="ident">FIONBIO</span>,
-        <span class="ident">WASM_TCGETS</span> <span class="op">=&gt;</span> <span class="ident">TCGETS</span>,
-        <span class="ident">WASM_TCSETSW</span> <span class="op">=&gt;</span> <span class="ident">TCSETSW</span>,
+        <span class="ident">WASM_FIOCLEX</span> <span class="op">=&gt;</span> <span class="ident">FIOCLEX</span> <span class="kw">as</span> <span class="kw">_</span>,
+        <span class="ident">WASM_TIOCGWINSZ</span> <span class="op">=&gt;</span> <span class="ident">TIOCGWINSZ</span> <span class="kw">as</span> <span class="kw">_</span>,
+        <span class="ident">WASM_TIOCSPGRP</span> <span class="op">=&gt;</span> <span class="ident">TIOCSPGRP</span> <span class="kw">as</span> <span class="kw">_</span>,
+        <span class="ident">WASM_FIONBIO</span> <span class="op">=&gt;</span> <span class="ident">FIONBIO</span> <span class="kw">as</span> <span class="kw">_</span>,
+        <span class="ident">WASM_TCGETS</span> <span class="op">=&gt;</span> <span class="ident">TCGETS</span> <span class="kw">as</span> <span class="kw">_</span>,
+        <span class="ident">WASM_TCSETSW</span> <span class="op">=&gt;</span> <span class="ident">TCSETSW</span> <span class="kw">as</span> <span class="kw">_</span>,
         <span class="ident">_otherwise</span> <span class="op">=&gt;</span> {
             <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;The ioctl {} is not yet implemented&quot;</span>, <span class="ident">wasm_ioctl</span>);
         }
@@ -1583,7 +1583,7 @@
             <span class="kw">let</span> <span class="ident">argp</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">argp_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">argp</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>;
             <span class="kw">let</span> <span class="ident">translated_request</span> <span class="op">=</span> <span class="ident">translate_ioctl</span>(<span class="ident">request</span>);
-            <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="ident">translated_request</span>, <span class="ident">argp_ptr</span>) };
+            <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="ident">translated_request</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">argp_ptr</span>) };
             <span class="macro">debug</span><span class="macro">!</span>(
                 <span class="string">&quot; =&gt; request: {}, translated: {}, return: {}&quot;</span>,
                 <span class="ident">request</span>, <span class="ident">translated_request</span>, <span class="ident">ret</span>
@@ -1644,7 +1644,7 @@
             <span class="kw">if</span> <span class="ident">ty_and_flags</span> <span class="op">&amp;</span> <span class="ident">SOCK_CLOEXC</span> <span class="op">!=</span> <span class="number">0</span> {
                 <span class="comment">// set_cloexec</span>
                 <span class="kw">unsafe</span> {
-                    <span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="ident">translate_ioctl</span>(<span class="ident">WASM_FIOCLEX</span>));
+                    <span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="ident">translate_ioctl</span>(<span class="ident">WASM_FIOCLEX</span>) <span class="kw">as</span> <span class="kw">_</span>);
                 };
             }
 
@@ -1751,7 +1751,7 @@
             <span class="comment">// why is this here?</span>
             <span class="comment">// set_cloexec</span>
             <span class="kw">unsafe</span> {
-                <span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="ident">translate_ioctl</span>(<span class="ident">WASM_FIOCLEX</span>));
+                <span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="ident">translate_ioctl</span>(<span class="ident">WASM_FIOCLEX</span>) <span class="kw">as</span> <span class="kw">_</span>);
             };
 
             <span class="macro">debug</span><span class="macro">!</span>(

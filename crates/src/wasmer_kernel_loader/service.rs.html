@@ -426,7 +426,7 @@
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             ::<span class="ident">libc</span>::<span class="ident">ioctl</span>(
                 <span class="ident">fd</span>,
-                <span class="ident">Command</span>::<span class="ident">LoadCode</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="kw">as</span> ::<span class="ident">libc</span>::<span class="ident">c_ulong</span>,
+                <span class="ident">Command</span>::<span class="ident">LoadCode</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="kw">as</span> <span class="kw">_</span>,
                 <span class="kw-2">&amp;</span><span class="ident">req</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span> <span class="kw">as</span> ::<span class="ident">libc</span>::<span class="ident">c_ulong</span>,
             )
         };
@@ -449,7 +449,7 @@
         <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             ::<span class="ident">libc</span>::<span class="ident">ioctl</span>(
                 <span class="ident">fd</span>,
-                <span class="ident">Command</span>::<span class="ident">RunCode</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="kw">as</span> ::<span class="ident">libc</span>::<span class="ident">c_ulong</span>,
+                <span class="ident">Command</span>::<span class="ident">RunCode</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="kw">as</span> <span class="kw">_</span>,
                 <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">req</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span> <span class="kw">as</span> ::<span class="ident">libc</span>::<span class="ident">c_ulong</span>,
             )
         };
@@ -477,7 +477,7 @@
         <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             ::<span class="ident">libc</span>::<span class="ident">ioctl</span>(
                 <span class="ident">fd</span>,
-                <span class="ident">Command</span>::<span class="ident">ReadMemory</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="kw">as</span> ::<span class="ident">libc</span>::<span class="ident">c_ulong</span>,
+                <span class="ident">Command</span>::<span class="ident">ReadMemory</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="kw">as</span> <span class="kw">_</span>,
                 <span class="kw-2">&amp;</span><span class="ident">req</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span> <span class="kw">as</span> ::<span class="ident">libc</span>::<span class="ident">c_ulong</span>,
             )
         };
@@ -498,7 +498,7 @@
         <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             ::<span class="ident">libc</span>::<span class="ident">ioctl</span>(
                 <span class="ident">fd</span>,
-                <span class="ident">Command</span>::<span class="ident">WriteMemory</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="kw">as</span> ::<span class="ident">libc</span>::<span class="ident">c_ulong</span>,
+                <span class="ident">Command</span>::<span class="ident">WriteMemory</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="kw">as</span> <span class="kw">_</span>,
                 <span class="kw-2">&amp;</span><span class="ident">req</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span> <span class="kw">as</span> ::<span class="ident">libc</span>::<span class="ident">c_ulong</span>,
             )
         };
