@@ -13,7 +13,6 @@ extern crate log;
 
 use std::collections::HashMap;
 use std::env;
-use std::error::Error;
 use std::fs::{read_to_string, File};
 use std::io;
 use std::io::Read;
@@ -100,6 +99,7 @@ struct PrestandardFeatures {
 
 impl PrestandardFeatures {
     /// Generate [`wabt::Features`] struct from CLI options
+    #[cfg(feature = "wabt")]
     pub fn into_wabt_features(&self) -> wabt::Features {
         let mut features = wabt::Features::new();
         if self.simd || self.all {
@@ -570,6 +570,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let env_vars = get_env_var_args(&options.env_vars[..])?;
     let wasm_path = &options.path;
 
+    #[allow(unused_mut)]
     let mut wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
         format!(
             "Can't read the file {}: {}",
@@ -635,23 +636,33 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     if !utils::is_wasm_binary(&wasm_binary) {
-        let features = options.features.into_wabt_features();
-        wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features).map_err(|e| {
-            format!(
-                "Can't convert from wast to wasm because \"{}\"{}",
-                e.description(),
-                match e.kind() {
-                    wabt::ErrorKind::Deserialize(s)
-                    | wabt::ErrorKind::Parse(s)
-                    | wabt::ErrorKind::ResolveNames(s)
-                    | wabt::ErrorKind::Validate(s) => format!(":\n\n{}", s),
-                    wabt::ErrorKind::Nul
-                    | wabt::ErrorKind::WriteText
-                    | wabt::ErrorKind::NonUtf8Result
-                    | wabt::ErrorKind::WriteBinary => "".to_string(),
-                }
-            )
-        })?;
+        #[cfg(feature = "wabt")]
+        {
+            let features = options.features.into_wabt_features();
+            wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features).map_err(|e| {
+                format!(
+                    "Can't convert from wast to wasm because \"{}\"{}",
+                    e,
+                    match e.kind() {
+                        wabt::ErrorKind::Deserialize(s)
+                        | wabt::ErrorKind::Parse(s)
+                        | wabt::ErrorKind::ResolveNames(s)
+                        | wabt::ErrorKind::Validate(s) => format!(":\n\n{}", s),
+                        wabt::ErrorKind::Nul
+                        | wabt::ErrorKind::WriteText
+                        | wabt::ErrorKind::NonUtf8Result
+                        | wabt::ErrorKind::WriteBinary => "".to_string(),
+                    }
+                )
+            })?;
+        }
+
+        #[cfg(not(feature = "wabt"))]
+        {
+            return Err(
+                "Input is not a wasm binary and the `wabt` feature is not enabled".to_string(),
+            );
+        }
     }
 
     let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)

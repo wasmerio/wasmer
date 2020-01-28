@@ -26,7 +26,7 @@ errno = "0.2"
 fern = { version = "0.5", features = ["colored"], optional = true }
 log = "0.4"
 structopt = "0.3"
-wabt = "0.9.1"
+wabt = { version = "0.9.1", optional = true }
 wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
@@ -79,7 +79,7 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi", "backend-cranelift"]
+default = ["fast-tests", "wasi", "backend-cranelift", "wabt"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["fern", "log/max_level_debug", "log/release_max_level_debug"]
 trace = ["fern", "log/max_level_trace", "log/release_max_level_trace"]

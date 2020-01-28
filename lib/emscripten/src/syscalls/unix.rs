@@ -98,12 +98,12 @@ const WASM_TCSETSW: u32 = 0x5403;
 // https://github.com/wasmerio/wasmer/pull/532#discussion_r300837800
 fn translate_ioctl(wasm_ioctl: u32) -> c_ulong {
     match wasm_ioctl {
-        WASM_FIOCLEX => FIOCLEX,
-        WASM_TIOCGWINSZ => TIOCGWINSZ,
-        WASM_TIOCSPGRP => TIOCSPGRP,
-        WASM_FIONBIO => FIONBIO,
-        WASM_TCGETS => TCGETS,
-        WASM_TCSETSW => TCSETSW,
+        WASM_FIOCLEX => FIOCLEX as _,
+        WASM_TIOCGWINSZ => TIOCGWINSZ as _,
+        WASM_TIOCSPGRP => TIOCSPGRP as _,
+        WASM_FIONBIO => FIONBIO as _,
+        WASM_TCGETS => TCGETS as _,
+        WASM_TCSETSW => TCSETSW as _,
         _otherwise => {
             unimplemented!("The ioctl {} is not yet implemented", wasm_ioctl);
         }
@@ -465,7 +465,7 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
             let argp: u32 = varargs.get(ctx);
             let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
             let translated_request = translate_ioctl(request);
-            let ret = unsafe { ioctl(fd, translated_request, argp_ptr) };
+            let ret = unsafe { ioctl(fd, translated_request as _, argp_ptr) };
             debug!(
                 " => request: {}, translated: {}, return: {}",
                 request, translated_request, ret
@@ -526,7 +526,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             if ty_and_flags & SOCK_CLOEXC != 0 {
                 // set_cloexec
                 unsafe {
-                    ioctl(fd, translate_ioctl(WASM_FIOCLEX));
+                    ioctl(fd, translate_ioctl(WASM_FIOCLEX) as _);
                 };
             }
 
@@ -633,7 +633,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // why is this here?
             // set_cloexec
             unsafe {
-                ioctl(fd, translate_ioctl(WASM_FIOCLEX));
+                ioctl(fd, translate_ioctl(WASM_FIOCLEX) as _);
             };
 
             debug!(
