@@ -1115,6 +1115,31 @@
 <span id="1115">1115</span>
 <span id="1116">1116</span>
 <span id="1117">1117</span>
+<span id="1118">1118</span>
+<span id="1119">1119</span>
+<span id="1120">1120</span>
+<span id="1121">1121</span>
+<span id="1122">1122</span>
+<span id="1123">1123</span>
+<span id="1124">1124</span>
+<span id="1125">1125</span>
+<span id="1126">1126</span>
+<span id="1127">1127</span>
+<span id="1128">1128</span>
+<span id="1129">1129</span>
+<span id="1130">1130</span>
+<span id="1131">1131</span>
+<span id="1132">1132</span>
+<span id="1133">1133</span>
+<span id="1134">1134</span>
+<span id="1135">1135</span>
+<span id="1136">1136</span>
+<span id="1137">1137</span>
+<span id="1138">1138</span>
+<span id="1139">1139</span>
+<span id="1140">1140</span>
+<span id="1141">1141</span>
+<span id="1142">1142</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ptr</span>::<span class="ident">WasmPtr</span>, <span class="ident">varargs</span>::<span class="ident">VarArgs</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
@@ -1248,7 +1273,19 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lstat64</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_char</span>, <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>) <span class="op">-&gt;</span> <span class="ident">c_int</span>;
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
+<span class="comment">// Linking to functions that are not provided by rust libc</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">link</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;c&quot;</span>)]</span>
+<span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wait4</span>(<span class="ident">pid</span>: <span class="ident">pid_t</span>, <span class="ident">status</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_int</span>, <span class="ident">options</span>: <span class="ident">c_int</span>, <span class="ident">rusage</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">rusage</span>) <span class="op">-&gt;</span> <span class="ident">pid_t</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fdatasync</span>(<span class="ident">fd</span>: <span class="ident">c_int</span>) <span class="op">-&gt;</span> <span class="ident">c_int</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ftruncate</span>(<span class="ident">fd</span>: <span class="ident">c_int</span>, <span class="ident">length</span>: <span class="ident">i64</span>) <span class="op">-&gt;</span> <span class="ident">c_int</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lstat</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_char</span>, <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">stat</span>) <span class="op">-&gt;</span> <span class="ident">c_int</span>;
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">madvise</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)))]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">fallocate</span>, <span class="ident">fdatasync</span>, <span class="ident">ftruncate64</span>, <span class="ident">lstat</span>, <span class="ident">madvise</span>, <span class="ident">wait4</span>};
 
 <span class="comment">// Another conditional constant for name resolution: Macos et iOS use</span>
@@ -1373,9 +1410,13 @@
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall194 (ftruncate64) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">_fd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_length</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)))]</span>
     <span class="kw">unsafe</span> {
         <span class="ident">ftruncate64</span>(<span class="ident">_fd</span>, <span class="ident">_length</span>)
+    }
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
+    <span class="kw">unsafe</span> {
+        <span class="ident">ftruncate</span>(<span class="ident">_fd</span>, <span class="ident">_length</span>)
     }
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
     <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall194 (ftruncate64) {}&quot;</span>, <span class="ident">_which</span>)
@@ -1739,7 +1780,7 @@
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">host_address</span>: <span class="ident">sockaddr</span> <span class="op">=</span> <span class="ident">sockaddr</span> {
                 <span class="ident">sa_family</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
                 <span class="ident">sa_data</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
+                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
                 <span class="ident">sa_len</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
             };
             <span class="kw">let</span> <span class="ident">fd</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">accept</span>(<span class="ident">socket</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">host_address</span>, <span class="ident">address_len_addr</span>) };
@@ -1773,7 +1814,7 @@
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sock_addr_host</span>: <span class="ident">sockaddr</span> <span class="op">=</span> <span class="ident">sockaddr</span> {
                 <span class="ident">sa_family</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
                 <span class="ident">sa_data</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
+                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
                 <span class="ident">sa_len</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
             };
             <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> {
@@ -2174,8 +2215,17 @@
             <span class="kw">break</span>;
         }
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>))]</span>
         <span class="kw">unsafe</span> {
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>) <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_ino</span> <span class="kw">as</span> <span class="ident">u32</span>;
+        }
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
+        <span class="kw">unsafe</span> {
+            <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>) <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_fileno</span> <span class="kw">as</span> <span class="ident">u32</span>;
+        }
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+        <span class="kw">unsafe</span> {
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>) <span class="op">=</span> <span class="ident">pos</span> <span class="kw">as</span> <span class="ident">u32</span>;
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u16</span>) <span class="op">=</span> <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u16</span>;
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">10</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_type</span>;
@@ -2224,11 +2274,11 @@
     <span class="kw">let</span> <span class="ident">_mode</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_offset</span>: <span class="ident">off_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_len</span>: <span class="ident">off_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)))]</span>
     <span class="kw">unsafe</span> {
         <span class="ident">fallocate</span>(<span class="ident">_fd</span>, <span class="ident">_mode</span>, <span class="ident">_offset</span>, <span class="ident">_len</span>)
     }
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
     {
         <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall324 (fallocate) {}&quot;</span>, <span class="ident">_which</span>)
     }

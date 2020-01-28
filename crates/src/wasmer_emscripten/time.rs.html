@@ -458,6 +458,11 @@
 <span id="458">458</span>
 <span id="459">459</span>
 <span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">utils</span>::{<span class="ident">copy_cstr_into_wasm</span>, <span class="ident">write_to_buf</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">allocate_on_stack</span>;
@@ -491,6 +496,11 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">CLOCK_MONOTONIC</span>, <span class="ident">CLOCK_MONOTONIC_COARSE</span>, <span class="ident">CLOCK_REALTIME</span>};
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">CLOCK_MONOTONIC</span>, <span class="ident">CLOCK_REALTIME</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
+<span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC_COARSE</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">6</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">CLOCK_REALTIME</span>;

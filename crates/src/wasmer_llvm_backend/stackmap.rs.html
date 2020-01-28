@@ -566,6 +566,9 @@
 <span id="566">566</span>
 <span id="567">567</span>
 <span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// https://llvm.org/docs/StackMaps.html#stackmap-section</span>
 
@@ -622,7 +625,10 @@
 }
 
 <span class="kw">impl</span> <span class="ident">StackmapEntry</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>), <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+        <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>),
+        <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>
+    ))]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">populate_msm</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
