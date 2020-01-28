@@ -659,7 +659,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
         #[cfg(not(feature = "wabt"))]
         {
-            return Err("Input is not a wasm binary and the `wabt` feature is not enabled".to_string());
+            return Err(
+                "Input is not a wasm binary and the `wabt` feature is not enabled".to_string(),
+            );
         }
     }
 
