@@ -570,13 +570,13 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 /// Get fault info from siginfo and ucontext.
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
-    use crate::state::x64::XMM;
     use libc::{
-        _libc_xmmreg, ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8,
+        ucontext_t, REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15, REG_R8,
         REG_R9, REG_RAX, REG_RBP, REG_RBX, REG_RCX, REG_RDI, REG_RDX, REG_RIP, REG_RSI, REG_RSP,
     };
 
-    fn read_xmm(reg: &_libc_xmmreg) -> u64 {
+    #[cfg(not(target_env = "musl"))]
+    fn read_xmm(reg: &libc::_libc_xmmreg) -> u64 {
         (reg.element[0] as u64) | ((reg.element[1] as u64) << 32)
     }
 
@@ -615,30 +615,36 @@ pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> F
     known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs[REG_RBP as usize] as _);
     known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs[REG_RSP as usize] as _);
 
-    if !(*ucontext).uc_mcontext.fpregs.is_null() {
-        let fpregs = &*(*ucontext).uc_mcontext.fpregs;
-        known_registers[X64Register::XMM(XMM::XMM0).to_index().0] = Some(read_xmm(&fpregs._xmm[0]));
-        known_registers[X64Register::XMM(XMM::XMM1).to_index().0] = Some(read_xmm(&fpregs._xmm[1]));
-        known_registers[X64Register::XMM(XMM::XMM2).to_index().0] = Some(read_xmm(&fpregs._xmm[2]));
-        known_registers[X64Register::XMM(XMM::XMM3).to_index().0] = Some(read_xmm(&fpregs._xmm[3]));
-        known_registers[X64Register::XMM(XMM::XMM4).to_index().0] = Some(read_xmm(&fpregs._xmm[4]));
-        known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(read_xmm(&fpregs._xmm[5]));
-        known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(read_xmm(&fpregs._xmm[6]));
-        known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
-        known_registers[X64Register::XMM(XMM::XMM8).to_index().0] = Some(read_xmm(&fpregs._xmm[8]));
-        known_registers[X64Register::XMM(XMM::XMM9).to_index().0] = Some(read_xmm(&fpregs._xmm[9]));
-        known_registers[X64Register::XMM(XMM::XMM10).to_index().0] =
-            Some(read_xmm(&fpregs._xmm[10]));
-        known_registers[X64Register::XMM(XMM::XMM11).to_index().0] =
-            Some(read_xmm(&fpregs._xmm[11]));
-        known_registers[X64Register::XMM(XMM::XMM12).to_index().0] =
-            Some(read_xmm(&fpregs._xmm[12]));
-        known_registers[X64Register::XMM(XMM::XMM13).to_index().0] =
-            Some(read_xmm(&fpregs._xmm[13]));
-        known_registers[X64Register::XMM(XMM::XMM14).to_index().0] =
-            Some(read_xmm(&fpregs._xmm[14]));
-        known_registers[X64Register::XMM(XMM::XMM15).to_index().0] =
-            Some(read_xmm(&fpregs._xmm[15]));
+    // Skip reading floating point registers when building with musl libc.
+    // FIXME: Depends on https://github.com/rust-lang/libc/pull/1646
+    #[cfg(not(target_env = "musl"))]
+    {
+        use crate::state::x64::XMM;
+        if !(*ucontext).uc_mcontext.fpregs.is_null() {
+            let fpregs = &*(*ucontext).uc_mcontext.fpregs;
+            known_registers[X64Register::XMM(XMM::XMM0).to_index().0] = Some(read_xmm(&fpregs._xmm[0]));
+            known_registers[X64Register::XMM(XMM::XMM1).to_index().0] = Some(read_xmm(&fpregs._xmm[1]));
+            known_registers[X64Register::XMM(XMM::XMM2).to_index().0] = Some(read_xmm(&fpregs._xmm[2]));
+            known_registers[X64Register::XMM(XMM::XMM3).to_index().0] = Some(read_xmm(&fpregs._xmm[3]));
+            known_registers[X64Register::XMM(XMM::XMM4).to_index().0] = Some(read_xmm(&fpregs._xmm[4]));
+            known_registers[X64Register::XMM(XMM::XMM5).to_index().0] = Some(read_xmm(&fpregs._xmm[5]));
+            known_registers[X64Register::XMM(XMM::XMM6).to_index().0] = Some(read_xmm(&fpregs._xmm[6]));
+            known_registers[X64Register::XMM(XMM::XMM7).to_index().0] = Some(read_xmm(&fpregs._xmm[7]));
+            known_registers[X64Register::XMM(XMM::XMM8).to_index().0] = Some(read_xmm(&fpregs._xmm[8]));
+            known_registers[X64Register::XMM(XMM::XMM9).to_index().0] = Some(read_xmm(&fpregs._xmm[9]));
+            known_registers[X64Register::XMM(XMM::XMM10).to_index().0] =
+                Some(read_xmm(&fpregs._xmm[10]));
+            known_registers[X64Register::XMM(XMM::XMM11).to_index().0] =
+                Some(read_xmm(&fpregs._xmm[11]));
+            known_registers[X64Register::XMM(XMM::XMM12).to_index().0] =
+                Some(read_xmm(&fpregs._xmm[12]));
+            known_registers[X64Register::XMM(XMM::XMM13).to_index().0] =
+                Some(read_xmm(&fpregs._xmm[13]));
+            known_registers[X64Register::XMM(XMM::XMM14).to_index().0] =
+                Some(read_xmm(&fpregs._xmm[14]));
+            known_registers[X64Register::XMM(XMM::XMM15).to_index().0] =
+                Some(read_xmm(&fpregs._xmm[15]));
+        }
     }
 
     FaultInfo {
