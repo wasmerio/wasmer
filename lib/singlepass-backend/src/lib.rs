@@ -12,11 +12,13 @@
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
 #[cfg(not(any(
+    all(target_os = "freebsd", target_arch = "x86_64"),
+    all(target_os = "freebsd", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "aarch64"),
 )))]
-compile_error!("This crate doesn't yet support compiling on operating systems other than linux and macos and architectures other than x86_64");
+compile_error!("This crate doesn't yet support compiling on operating systems other than FreeBSD, linux and macos and architectures other than x86_64");
 
 extern crate dynasmrt;
 
