@@ -2,10 +2,11 @@
 
 ## **[Unreleased]**
 
+- [#1180](https://github.com/wasmerio/wasmer/pull/1180) Fix compilation for target `x86_64-unknown-linux-musl`.
 - [#1170](https://github.com/wasmerio/wasmer/pull/1170) Improve the WasiFs builder API with convenience methods for overriding stdin, stdout, and stderr as well as a new sub-builder for controlling the permissions and properties of preopened directories.  Also breaks that implementations of `WasiFile` must be `Send` -- please file an issue if this change causes you any issues.
 - [#1161](https://github.com/wasmerio/wasmer/pull/1161) Require imported functions to be `Send`. This is a breaking change that fixes a soundness issue in the API.
-- [#1129](https://github.com/wasmerio/wasmer/pull/1129) Standard exception types for singlepass backend.
 - [#1140](https://github.com/wasmerio/wasmer/pull/1140) Use [`blake3`](https://github.com/BLAKE3-team/BLAKE3) as default hashing algorithm for caching.
+- [#1129](https://github.com/wasmerio/wasmer/pull/1129) Standard exception types for singlepass backend.
 
 ## 0.13.1 - 2020-01-16
 - Fix bug in wapm related to the `package.wasmer_extra_flags` entry in the manifest
