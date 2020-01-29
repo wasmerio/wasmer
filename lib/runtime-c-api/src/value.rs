@@ -23,6 +23,12 @@ pub enum wasmer_value_tag {
     WASM_F64,
 }
 
+/// Represents a WebAssembly value.
+///
+/// This is a [Rust union][rust-union], which is equivalent to the C
+/// union. See `wasmer_value_t` to get a complete example.
+///
+/// [rust-union]: https://doc.rust-lang.org/reference/items/unions.html
 #[repr(C)]
 #[derive(Clone, Copy)]
 #[allow(non_snake_case)]
