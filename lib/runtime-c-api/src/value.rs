@@ -3,13 +3,23 @@
 use wasmer_runtime::Value;
 use wasmer_runtime_core::types::Type;
 
+/// Represents all possibles WebAssembly value types.
+///
+/// See `wasmer_value_t` to get a complete example.
 #[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(Clone)]
 pub enum wasmer_value_tag {
+    /// Represents the `i32` WebAssembly type.
     WASM_I32,
+
+    /// Represents the `i64` WebAssembly type.
     WASM_I64,
+
+    /// Represents the `f32` WebAssembly type.
     WASM_F32,
+
+    /// Represents the `f64` WebAssembly type.
     WASM_F64,
 }
 
