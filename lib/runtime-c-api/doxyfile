@@ -118,7 +118,6 @@ WARN_LOGFILE           =
 #---------------------------------------------------------------------------
 INPUT                  = doc/index.md
 INPUT                 += wasmer.h
-INPUT                 += wasmer.hh
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.h \
                          *.hh

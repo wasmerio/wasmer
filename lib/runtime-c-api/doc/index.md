@@ -15,7 +15,7 @@ auto-generated documentation.
 
 Since the Wasmer runtime is written in Rust, the C and C++ API are
 designed to work hand-in-hand with its shared library. The C and C++
-header files, namely [`wasmer.h`] and [`wasmer.hh`] are documented
+header files, namely [`wasmer.h`] and `wasmer.hh` are documented
 here. Their source code can be found in the source tree of this
 crate. They are automatically generated, and always up-to-date in this
 repository. The C and C++ header files along with the runtime shared
@@ -23,7 +23,6 @@ libraries (`.so`, `.dylib`, `.dll`) can also be downloaded in the
 Wasmer [release page].
 
 [`wasmer.h`]: ./wasmer_8h.html
-[`wasmer.hh`]: ./wasmer_8hh.html
 [release page]: https://github.com/wasmerio/wasmer/releases
 
 Here is a simple example to use the C API:
