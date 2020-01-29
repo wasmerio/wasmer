@@ -4,7 +4,7 @@ use crate::{
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
-    types::{FuncSig, NativeWasmType, Type, WasmExternType},
+    types::{FuncSig, NativeWasmType, Type, Value, WasmExternType},
     vm,
 };
 use std::{
@@ -111,8 +111,11 @@ impl Wasm {
 /// by the host.
 pub struct Host(());
 
+pub struct Polymorphic(Arc<FuncSig>);
+
 impl Kind for Wasm {}
 impl Kind for Host {}
+impl Kind for Polymorphic {}
 
 /// Represents a list of WebAssembly values.
 pub trait WasmTypeList {
@@ -140,7 +143,7 @@ pub trait WasmTypeList {
 
     /// This method is used to distribute the values onto a function,
     /// e.g. `(1, 2).call(func, …)`. This form is unlikely to be used
-    /// directly in the code, see the `Func:call` implementation.
+    /// directly in the code, see the `Func::call` implementation.
     unsafe fn call<Rets>(
         self,
         f: NonNull<vm::Func>,
@@ -191,7 +194,15 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    /// Conver to function pointer.
+    /// Convert to function pointer.
+    fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
+}
+
+pub trait PolymorphicFunction<Kind>
+where
+    Kind: ExternalFunctionKind,
+{
+    /// Convert to function pointer.
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
@@ -238,6 +249,7 @@ pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
 
 unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Wasm> {}
 unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Host> {}
+unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Polymorphic> {}
 
 impl<'a, Args, Rets> Func<'a, Args, Rets, Wasm>
 where
@@ -266,7 +278,7 @@ where
     Rets: WasmTypeList,
 {
     /// Creates a new `Func`.
-    pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
+    pub fn new<F, Kind>(func: F) -> Self
     where
         Kind: ExternalFunctionKind,
         F: ExternalFunction<Kind, Args, Rets>,
@@ -275,6 +287,26 @@ where
 
         Func {
             inner: Host(()),
+            func,
+            func_env,
+            vmctx: ptr::null_mut(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a> Func<'a, (), (), Polymorphic> {
+    /// Creates a new `Func` that receives arguments in a list, and puts
+    /// return values in a list.
+    pub fn new_polymorphic<FN, Error>(func: FN, signature: Arc<FuncSig>) -> Self
+    where
+        FN: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, Error> + 'static,
+        Error: 'static,
+    {
+        let (func, func_env) = func.to_raw();
+
+        Func {
+            inner: Polymorphic(signature),
             func,
             func_env,
             vmctx: ptr::null_mut(),
@@ -340,6 +372,70 @@ impl WasmTypeList for Infallible {
         Rets: WasmTypeList,
     {
         unreachable!()
+    }
+}
+
+impl<FN, Error> PolymorphicFunction<ExplicitVmCtx> for FN
+where
+    FN: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, Error> + 'static,
+    Error: 'static,
+{
+    #[allow(non_snake_case)]
+    fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
+        unimplemented!("");
+    }
+
+    fn wrap_anything(func: FN, signature: Arc<FuncSig>, vmctx: &mut vm::Ctx) {
+        unsafe extern "C" fn wrap_inner<
+            Error: 'static,
+            F: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, Error> + 'static,
+        >(
+            _cif: &libffi::low::ffi_cif,
+            _result: &mut u64,
+            args: *const *const c_void,
+            userdata: (&mut vm::Ctx, usize, &F),
+        ) {
+            let (ref mut vmctx, ref argc, ref func) = userdata;
+            let args: *const Value = mem::transmute(args);
+            let args = std::slice::from_raw_parts(args, *argc);
+
+            // TODO: results and errors.
+            func(vmctx, args);
+        }
+
+        fn wasm_ty_to_libffi_ty(ty: &Type) -> libffi::middle::Type {
+            match ty {
+                I32 => libffi::middle::Type::u32(),
+                I64 => libffi::middle::Type::u64(),
+                F32 => libffi::middle::Type::f32(),
+                F64 => libffi::middle::Type::f64(),
+                V128 => libffi::middle::Type::structure(vec![
+                    libffi::middle::Type::u64(),
+                    libffi::middle::Type::u64(),
+                ]),
+            }
+        }
+
+        let builder = libffi::middle::Builder::new();
+        for param in signature.params() {
+            builder.arg(wasm_ty_to_libffi_ty(param));
+        }
+        match signature.returns().len() {
+            0 => {}
+            1 => {
+                builder.res(wasm_ty_to_libffi_ty(&signature.returns()[0]));
+            }
+            _ => {
+                builder.res(libffi::middle::Type::structure(
+                    signature
+                        .returns()
+                        .iter()
+                        .map(wasm_ty_to_libffi_ty)
+                        .collect(),
+                ));
+            }
+        };
+        builder.into_closure(wrap_inner, &(vmctx, signature.params().len(), func));
     }
 }
 
