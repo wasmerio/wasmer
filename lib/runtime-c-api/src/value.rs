@@ -39,10 +39,33 @@ pub union wasmer_value {
     pub F64: f64,
 }
 
+/// Represents a WebAssembly type and value pair,
+/// i.e. `wasmer_value_tag` and `wasmer_value`. Since the latter is an
+/// union, it's the safe way to read or write a WebAssembly value in
+/// C.
+///
+/// Example:
+///
+/// ```c
+/// // Create a WebAssembly value.
+/// wasmer_value_t wasm_value = {
+///     .tag = WASM_I32,
+///     .value.I32 = 42,
+/// };
+///
+/// // Read a WebAssembly value.
+/// if (wasm_value.tag == WASM_I32) {
+///     int32_t x = wasm_value.value.I32;
+///     // …
+/// }
+/// ```
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_value_t {
+    /// The value type.
     pub tag: wasmer_value_tag,
+
+    /// The value.
     pub value: wasmer_value,
 }
 
