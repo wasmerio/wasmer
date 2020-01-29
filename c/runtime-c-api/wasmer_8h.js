@@ -34,40 +34,26 @@ var wasmer_8h =
     [ "wasmer_import_export_kind", "wasmer_8h.html#a213044bf654477257b279714ab189a52", null ],
     [ "wasmer_value_tag", "wasmer_8h.html#a44548e08f29872f10b21e8eeb6c2ef1c", null ],
     [ "Version", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470", [
-      [ "Unknown", "wasmer_8h.html#aec3be4aa87ea4f6d8a3ad88694c0669fa4e81c184ac3ad48a389cd4454c4a05bb", null ],
-      [ "Latest", "wasmer_8h.html#aec3be4aa87ea4f6d8a3ad88694c0669fa532eb6bab15ea0a0b56ea6801d2636d7", null ],
-      [ "Snapshot0", "wasmer_8h.html#aec3be4aa87ea4f6d8a3ad88694c0669fa290097179a6eda3be9c63bda8b2cce70", null ],
-      [ "Snapshot1", "wasmer_8h.html#aec3be4aa87ea4f6d8a3ad88694c0669fa5a29a7c4932983987541ecd9f950de8a", null ],
-      [ "Unknown", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470a88183b946cc5f0e8c96b2e66e1c74a7e", null ],
-      [ "Latest", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470acd118d21c3b0b4762c6e0063661e6e45", null ],
-      [ "Snapshot0", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470af157a9de01aa92afb1fb47f56333bb5e", null ],
-      [ "Snapshot1", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470ae7d463353dff6b69b87e9d2a84497a26", null ]
+      [ "Unknown", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470a4e81c184ac3ad48a389cd4454c4a05bb", null ],
+      [ "Latest", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470a532eb6bab15ea0a0b56ea6801d2636d7", null ],
+      [ "Snapshot0", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470a290097179a6eda3be9c63bda8b2cce70", null ],
+      [ "Snapshot1", "wasmer_8h.html#a2256f5bba1c1c69a92b933aa501df470a5a29a7c4932983987541ecd9f950de8a", null ]
     ] ],
     [ "wasmer_import_export_kind", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677", [
-      [ "WASM_FUNCTION", "wasmer_8h.html#adbbf659e0fb13063dd3461a831b45f5da39d4be480e1aaa1050ef5d97d67bb3d8", null ],
-      [ "WASM_GLOBAL", "wasmer_8h.html#adbbf659e0fb13063dd3461a831b45f5daccf76aee115453857197ddeaedbfc569", null ],
-      [ "WASM_MEMORY", "wasmer_8h.html#adbbf659e0fb13063dd3461a831b45f5da84788be0e970ee931fb493acf89bc16b", null ],
-      [ "WASM_TABLE", "wasmer_8h.html#adbbf659e0fb13063dd3461a831b45f5dab07c3c116cd14570474b7ad625fb8bc5", null ],
-      [ "WASM_FUNCTION", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677a6f4264479ebbfa40e87afbcfbc6c2bdf", null ],
-      [ "WASM_GLOBAL", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677a1b5457606e4d155dc0c615553eb3b83e", null ],
-      [ "WASM_MEMORY", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677af6dc1127504f3a513a466d8d4798499b", null ],
-      [ "WASM_TABLE", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677a54b3ca8cdee71d0c16b7ae8f33da5cc5", null ]
+      [ "WASM_FUNCTION", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677a39d4be480e1aaa1050ef5d97d67bb3d8", null ],
+      [ "WASM_GLOBAL", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677accf76aee115453857197ddeaedbfc569", null ],
+      [ "WASM_MEMORY", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677a84788be0e970ee931fb493acf89bc16b", null ],
+      [ "WASM_TABLE", "wasmer_8h.html#a10e49f542c8b83484f5f2c1e0f5d3677ab07c3c116cd14570474b7ad625fb8bc5", null ]
     ] ],
     [ "wasmer_result_t", "wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847", [
       [ "WASMER_OK", "wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532", null ],
-      [ "WASMER_ERROR", "wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710", null ],
-      [ "WASMER_OK", "wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a704468d1dc420d4bb43f61cf181c14cd", null ],
-      [ "WASMER_ERROR", "wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847adb00c430d24bb7112386fda1e292fe06", null ]
+      [ "WASMER_ERROR", "wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a6d4cd048ba9bc5aaeb50170aca78e710", null ]
     ] ],
     [ "wasmer_value_tag", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ec", [
-      [ "WASM_I32", "wasmer_8h.html#ab59c1ddbf63e81d9a311722271a3bf79abd706ef1b12a0f58c838b4425a1de440", null ],
-      [ "WASM_I64", "wasmer_8h.html#ab59c1ddbf63e81d9a311722271a3bf79a075b013c30d917c509d3ab72f53f1def", null ],
-      [ "WASM_F32", "wasmer_8h.html#ab59c1ddbf63e81d9a311722271a3bf79aa1ad5bd7c5dad9cc669cfaaf385335af", null ],
-      [ "WASM_F64", "wasmer_8h.html#ab59c1ddbf63e81d9a311722271a3bf79a71670e3839deca062a2fd4d5fa2b10dd", null ],
-      [ "WASM_I32", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecab50467afb717555792ff3f6b3ed901c7", null ],
-      [ "WASM_I64", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369eca6607c7dcce3b05f5fe664271437fa438", null ],
-      [ "WASM_F32", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369eca6225289f574a52af8e1b57001800305e", null ],
-      [ "WASM_F64", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369eca463d77c90bdf9b61521ff9c854111808", null ]
+      [ "WASM_I32", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440", null ],
+      [ "WASM_I64", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369eca075b013c30d917c509d3ab72f53f1def", null ],
+      [ "WASM_F32", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecaa1ad5bd7c5dad9cc669cfaaf385335af", null ],
+      [ "WASM_F64", "wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369eca71670e3839deca062a2fd4d5fa2b10dd", null ]
     ] ],
     [ "wasmer_compile", "wasmer_8h.html#afd80bb93a5bb42cebd2b8160e76a4be8", null ],
     [ "wasmer_export_descriptor_kind", "wasmer_8h.html#ae923a6dc93952e2a33d34d0c9462d627", null ],

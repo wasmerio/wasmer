@@ -68,8 +68,10 @@ Data Fields</h2></td></tr>
 <tr class="separator:a8091c4a097af1f0040a32396be8c7af6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock">
-<p class="definition">Definition at line <a class="el" href="wasmer_8h_source.html#l00172">172</a> of file <a class="el" href="wasmer_8h_source.html">wasmer.h</a>.</p>
+<div class="textblock"><p>Represents a WebAssembly type and value pair, i.e. <code>wasmer_value_tag</code> and <code><a class="el" href="unionwasmer__value.html">wasmer_value</a></code>. Since the latter is an union, it's the safe way to read or write a WebAssembly value in C.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="comment">// Create a WebAssembly value.</span></div><div class="line"><a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> wasm_value = {</div><div class="line">    .<a class="code" href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">tag</a> = <a class="code" href="wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440">WASM_I32</a>,</div><div class="line">    .value.I32 = 42,</div><div class="line">};</div><div class="line"></div><div class="line"><span class="comment">// Read a WebAssembly value.</span></div><div class="line"><span class="keywordflow">if</span> (wasm_value.<a class="code" href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">tag</a> == <a class="code" href="wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440">WASM_I32</a>) {</div><div class="line">    int32_t x = wasm_value.<a class="code" href="structwasmer__value__t.html#a8091c4a097af1f0040a32396be8c7af6">value</a>.<a class="code" href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">I32</a>;</div><div class="line">    <span class="comment">// …</span></div><div class="line">}</div></div><!-- fragment --> 
+<p class="definition">Definition at line <a class="el" href="wasmer_8h_source.html#l00219">219</a> of file <a class="el" href="wasmer_8h_source.html">wasmer.h</a>.</p>
 </div><h2 class="groupheader">Field Documentation</h2>
 <a id="ade0da74bca0aa810f7f45069ff6e239d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ade0da74bca0aa810f7f45069ff6e239d">&#9670;&nbsp;</a></span>tag</h2>
@@ -82,8 +84,9 @@ Data Fields</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>The value type. </p>
 
-<p class="definition">Definition at line <a class="el" href="wasmer_8h_source.html#l00173">173</a> of file <a class="el" href="wasmer_8h_source.html">wasmer.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="wasmer_8h_source.html#l00223">223</a> of file <a class="el" href="wasmer_8h_source.html">wasmer.h</a>.</p>
 
 </div>
 </div>
@@ -98,14 +101,14 @@ Data Fields</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>The value. </p>
 
-<p class="definition">Definition at line <a class="el" href="wasmer_8h_source.html#l00174">174</a> of file <a class="el" href="wasmer_8h_source.html">wasmer.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="wasmer_8h_source.html#l00227">227</a> of file <a class="el" href="wasmer_8h_source.html">wasmer.h</a>.</p>
 
 </div>
 </div>
-<hr/>The documentation for this struct was generated from the following files:<ul>
+<hr/>The documentation for this struct was generated from the following file:<ul>
 <li><a class="el" href="wasmer_8h_source.html">wasmer.h</a></li>
-<li><a class="el" href="wasmer_8hh_source.html">wasmer.hh</a></li>
 </ul>
 </div><!-- contents -->
 </div><!-- doc-content -->

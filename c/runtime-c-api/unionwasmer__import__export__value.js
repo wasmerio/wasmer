@@ -1,7 +1,7 @@
 var unionwasmer__import__export__value =
 [
-    [ "func", "unionwasmer__import__export__value.html#abf077c7fc87ec07a7f13d2c3454e37dd", null ],
-    [ "global", "unionwasmer__import__export__value.html#afbc0434795d4b769cb017e8d1e0fc455", null ],
-    [ "memory", "unionwasmer__import__export__value.html#a1185d86dee4530fa2841f13a3ef53521", null ],
-    [ "table", "unionwasmer__import__export__value.html#a1064637ddf535926809b4240b6404561", null ]
+    [ "func", "unionwasmer__import__export__value.html#afe2a1974c914b4a0a1b9dc3ae0b841a3", null ],
+    [ "global", "unionwasmer__import__export__value.html#a9da089173769c619d82cfa7c53a56b30", null ],
+    [ "memory", "unionwasmer__import__export__value.html#a0612ef32a07951db90fd2b68fee83a2e", null ],
+    [ "table", "unionwasmer__import__export__value.html#af9832aaae78ddf30fb617d50b14f1ad4", null ]
 ];
