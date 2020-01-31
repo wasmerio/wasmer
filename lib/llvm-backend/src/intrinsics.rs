@@ -1,7 +1,8 @@
-//! Code for dealing with LLVM and VM intrinsics.
+//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
-//! Intrinsics are built-in operations. LLVM intrinsics are used to precisely
-//! compute values. VM intrinsics are used to interact with the host VM.
+//! VM intrinsics are used to interact with the host VM.
+//!
+//! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
