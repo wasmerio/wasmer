@@ -1230,7 +1230,19 @@
 <span id="1230">1230</span>
 <span id="1231">1231</span>
 <span id="1232">1232</span>
+<span id="1233">1233</span>
+<span id="1234">1234</span>
+<span id="1235">1235</span>
+<span id="1236">1236</span>
+<span id="1237">1237</span>
+<span id="1238">1238</span>
+<span id="1239">1239</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! Code for dealing with LLVM and VM intrinsics.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! Intrinsics are built-in operations. LLVM intrinsics are used to precisely</span>
+<span class="doccomment">//! compute values. VM intrinsics are used to interact with the host VM.</span>
+
 <span class="kw">use</span> <span class="ident">inkwell</span>::{
     <span class="ident">attributes</span>::{<span class="ident">Attribute</span>, <span class="ident">AttributeLoc</span>},
     <span class="ident">builder</span>::<span class="ident">Builder</span>,
@@ -1267,6 +1279,7 @@
     }
 }
 
+<span class="doccomment">/// Struct containing LLVM and VM intrinsics.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Intrinsics</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">ctlz_i32</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">ctlz_i64</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
@@ -1384,6 +1397,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> <span class="ident">Intrinsics</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Create an [`Intrinsics`] for the given [`Context`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">declare</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx</span> <span class="ident">Context</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">void_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">void_type</span>();
         <span class="kw">let</span> <span class="ident">i1_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">bool_type</span>();
