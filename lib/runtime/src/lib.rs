@@ -78,7 +78,7 @@
 //!
 //! # Additional Notes:
 //!
-//! The `wasmer-runtime` is build to support compiler multiple backends.
+//! `wasmer-runtime` is built to support multiple compiler backends.
 //! Currently, we support the Singlepass, [Cranelift], and LLVM compilers
 //! with the [`wasmer-singlepass-backend`], [`wasmer-clif-backend`], and
 //! wasmer-llvm-backend crates, respectively.
@@ -145,7 +145,7 @@ pub mod units {
 }
 
 pub mod types {
-    //! Various types.
+    //! Types used in the Wasm runtime and conversion functions.
     pub use wasmer_runtime_core::types::*;
 }
 
