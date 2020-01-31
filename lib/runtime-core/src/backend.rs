@@ -109,9 +109,24 @@ impl BackendCompilerConfig {
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
+
+    /// Optionally override the automatically determined memory bound check mode.
     pub memory_bound_check_mode: MemoryBoundCheckMode,
+
+    /// Whether to generate explicit stack checks against a field in `InternalCtx`.
     pub enforce_stack_check: bool,
+
+    /// Whether to enable state tracking. Necessary for managed mode.
     pub track_state: bool,
+
+    /// Whether to enable full preemption checkpoint generation.
+    ///
+    /// This inserts checkpoints at critical locations such as loop backedges and function calls,
+    /// allowing non-cooperative unwinding/task switching.
+    ///
+    /// When enabled there can be a small amount of runtime performance overhead.
+    pub full_preemption: bool,
+
     pub features: Features,
 
     // Target info. Presently only supported by LLVM.

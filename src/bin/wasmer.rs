@@ -703,6 +703,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 symbol_map: em_symbol_map.clone(),
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
+
+                // Kernel loader does not support explicit preemption checkpoints.
+                full_preemption: false,
+
                 track_state,
                 features: options.features.into_backend_features(),
                 backend_specific_config,
@@ -717,6 +721,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             CompilerConfig {
                 symbol_map: em_symbol_map.clone(),
                 track_state,
+
+                // Enable full preemption if state tracking is enabled.
+                // Preemption only makes sense with state information.
+                full_preemption: track_state,
+
                 features: options.features.into_backend_features(),
                 backend_specific_config,
                 ..Default::default()
@@ -813,7 +822,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
-                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
+                    .map_err(|e| format!("Can't use the kernel loader: {:?}", e))?,
             ),
         };
         println!("{:?}", ins.call(index, &args));
