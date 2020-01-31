@@ -21,7 +21,7 @@ jobs:
       - script: cargo fmt --all -- --check
         displayName: Lint
     variables:
-      rust_toolchain: '1.39.0'
+      rust_toolchain: '1.40.0'
 
   - job: clippy_lint
     pool:
@@ -57,7 +57,7 @@ jobs:
           CARGO_HTTP_CHECK_REVOKE: false
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: '1.39.0'
+          rust_toolchain: '1.40.0'
     pool:
       vmImage: $(imageName)
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
@@ -118,7 +118,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: '1.39.0'
+          rust_toolchain: '1.40.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
@@ -188,7 +188,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: '1.39.0'
+          rust_toolchain: '1.40.0'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)
