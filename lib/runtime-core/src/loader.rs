@@ -88,7 +88,7 @@ impl Instance for LocalInstance {
             }
         }
         let offset = self.offsets[id];
-        let addr: *const u8 = unsafe { self.code.as_ptr().offset(offset as isize) };
+        let addr: *const u8 = unsafe { self.code.as_ptr().add(offset) };
         use std::mem::transmute;
         Ok(unsafe {
             match args_u64.len() {
