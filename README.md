@@ -174,7 +174,7 @@ nginx and Lua do not work on Windows - you can track the progress on [this issue
 
 ## Building
 
-[![Rustc Version 1.39+](https://img.shields.io/badge/rustc-1.39+-red.svg?style=flat-square)](https://blog.rust-lang.org/2019/11/07/Rust-1.39.0.html)
+[![Rustc Version 1.40+](https://img.shields.io/badge/rustc-1.40+-red.svg?style=flat-square)](https://blog.rust-lang.org/2019/12/19/Rust-1.40.0.html)
 
 Wasmer is built with [Cargo](https://crates.io/), the Rust package manager.
 
