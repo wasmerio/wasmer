@@ -1,3 +1,8 @@
+//! Code for dealing with LLVM and VM intrinsics.
+//!
+//! Intrinsics are built-in operations. LLVM intrinsics are used to precisely
+//! compute values. VM intrinsics are used to interact with the host VM.
+
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
@@ -34,6 +39,7 @@ fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerTyp
     }
 }
 
+/// Struct containing LLVM and VM intrinsics.
 pub struct Intrinsics<'ctx> {
     pub ctlz_i32: FunctionValue<'ctx>,
     pub ctlz_i64: FunctionValue<'ctx>,
@@ -151,6 +157,7 @@ pub struct Intrinsics<'ctx> {
 }
 
 impl<'ctx> Intrinsics<'ctx> {
+    /// Create an [`Intrinsics`] for the given [`Context`].
     pub fn declare(module: &Module<'ctx>, context: &'ctx Context) -> Self {
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
