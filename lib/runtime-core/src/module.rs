@@ -20,12 +20,18 @@ use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[doc(hidden)]
+pub struct DebugInfo {
+    
+}
+
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
 pub struct ModuleInner {
     pub runnable_module: Arc<Box<dyn RunnableModule>>,
     pub cache_gen: Box<dyn CacheGen>,
     pub info: ModuleInfo,
+    pub debug_info: Option<DebugInfo>,
 }
 
 /// Container for module data including memories, globals, tables, imports, and exports.

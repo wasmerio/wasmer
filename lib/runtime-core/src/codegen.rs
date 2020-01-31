@@ -250,6 +250,7 @@ impl<
             cache_gen,
             runnable_module: Arc::new(Box::new(exec_context)),
             info: Arc::try_unwrap(info).unwrap().into_inner().unwrap(),
+            debug_info: None,
         })
     }
 

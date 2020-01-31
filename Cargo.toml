@@ -41,6 +41,7 @@ wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
 wasmer-middleware-common-tests = { path = "lib/middleware-common-tests", optional = true }
 wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
 wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
+wasmer-debug-writer = { path = "lib/debug-writer", optional = true }
 
 [workspace]
 members = [
@@ -64,6 +65,7 @@ members = [
     "lib/wasi-tests",
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
+    "lib/debug-writer",
     "examples/parallel",
     "examples/plugin-for-example",
     "examples/parallel-guest",
@@ -79,7 +81,7 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi", "backend-cranelift", "wabt"]
+default = ["fast-tests", "wasi", "backend-cranelift", "wabt", "wasmer-debug-writer"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["fern", "log/max_level_debug", "log/release_max_level_debug"]
 trace = ["fern", "log/max_level_trace", "log/release_max_level_trace"]
