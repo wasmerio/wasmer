@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Global","Container with a descriptor and a reference to a global value."]]});
+initSidebarItems({"struct":[["Global","A handle to a Wasm Global"]]});

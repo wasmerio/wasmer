@@ -189,16 +189,16 @@
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Wasmer Runtime Core Library</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! The runtime core library provides common data structures which are shared by compiler backends</span>
-<span class="doccomment">//! to implement a Web Assembly runtime.</span>
+<span class="doccomment">//! This crate provides common data structures which are shared by compiler backends</span>
+<span class="doccomment">//! to implement a WebAssembly runtime.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! The runtime core also provides an API for users who use wasmer as an embedded wasm runtime which</span>
+<span class="doccomment">//! This crate also provides an API for users who use wasmer as an embedded wasm runtime which</span>
 <span class="doccomment">//! allows operations like compiling, instantiating, providing imports, access exports, memories,</span>
 <span class="doccomment">//! and tables for example.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! The runtime core library is recommended to be used by only power users who wish to customize the</span>
-<span class="doccomment">//! wasmer runtime.  Most wasmer users should prefer the API which is re-exported by the wasmer</span>
-<span class="doccomment">//! runtime library which provides common defaults and a friendly API.</span>
+<span class="doccomment">//! Most wasmer users should prefer the API which is re-exported by the `wasmer-runtime`</span>
+<span class="doccomment">//! library by default. This crate provides additional APIs which may be useful to users</span>
+<span class="doccomment">//! that wish to customize the wasmer runtime.</span>
 <span class="doccomment">//!</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(

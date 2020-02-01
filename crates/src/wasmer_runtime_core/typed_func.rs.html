@@ -1497,7 +1497,7 @@
             <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
         {
             <span class="doccomment">/// Call the typed func and return results.</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
+            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>, <span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>)]</span>
             <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
                 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
                 <span class="kw">unsafe</span> {

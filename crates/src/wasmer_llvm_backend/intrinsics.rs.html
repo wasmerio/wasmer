@@ -1237,11 +1237,13 @@
 <span id="1237">1237</span>
 <span id="1238">1238</span>
 <span id="1239">1239</span>
+<span id="1240">1240</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! Code for dealing with LLVM and VM intrinsics.</span>
+<span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! Intrinsics are built-in operations. LLVM intrinsics are used to precisely</span>
-<span class="doccomment">//! compute values. VM intrinsics are used to interact with the host VM.</span>
+<span class="doccomment">//! VM intrinsics are used to interact with the host VM.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions</span>
 
 <span class="kw">use</span> <span class="ident">inkwell</span>::{
     <span class="ident">attributes</span>::{<span class="ident">Attribute</span>, <span class="ident">AttributeLoc</span>},

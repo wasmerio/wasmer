@@ -144,8 +144,8 @@
 <span id="144">144</span>
 <span id="145">145</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! The global module contains the implementation data structures and helper functions used to</span>
-<span class="doccomment">//! manipulate and access a wasm globals.</span>
+<span class="doccomment">//! The global module contains data structures and helper functions used to</span>
+<span class="doccomment">//! manipulate and access Wasm globals.</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">export</span>::<span class="ident">Export</span>,
     <span class="ident">import</span>::<span class="ident">IsExport</span>,
@@ -157,7 +157,7 @@
     <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>},
 };
 
-<span class="doccomment">/// Container with a descriptor and a reference to a global value.</span>
+<span class="doccomment">/// A handle to a Wasm Global</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Global</span> {
     <span class="ident">desc</span>: <span class="ident">GlobalDescriptor</span>,
     <span class="ident">storage</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">LocalGlobal</span><span class="op">&gt;&gt;</span>,

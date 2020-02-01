@@ -23,7 +23,17 @@
 <span id="23">23</span>
 <span id="24">24</span>
 <span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! Macros to simplify some common WASI-specific tasks.</span>
+
+<span class="doccomment">/// Like the `try!` macro or `?` syntax: returns the value if the computation</span>
+<span class="doccomment">/// succeeded or returns the error value.</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">wasi_try</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
         <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">crate</span>::<span class="ident">syscalls</span>::<span class="ident">types</span>::<span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
@@ -44,6 +54,8 @@
     }};
 }
 
+<span class="doccomment">/// Reads a string from Wasm memory and returns the invalid argument error</span>
+<span class="doccomment">/// code if it fails.</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">get_input_str</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">data</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
         <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">data</span>.<span class="ident">get_utf8_string</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>), <span class="ident">__WASI_EINVAL</span>)
