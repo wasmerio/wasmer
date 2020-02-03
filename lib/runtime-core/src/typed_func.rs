@@ -658,7 +658,7 @@ macro_rules! impl_traits {
             Rets: WasmTypeList,
         {
             /// Call the typed func and return results.
-            #[allow(non_snake_case)]
+            #[allow(non_snake_case, clippy::too_many_arguments)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
                 unsafe {
