@@ -2105,6 +2105,10 @@ impl X64FunctionCode {
             true,
             value_size,
             |a, m, addr| {
+                // Memory moves with size < 32b do not zero upper bits.
+                if memory_sz != Size::S32 && memory_sz != Size::S64 {
+                    a.emit_xor(Size::S32, Location::GPR(compare), Location::GPR(compare));
+                }
                 a.emit_mov(memory_sz, Location::Memory(addr, 0), Location::GPR(compare));
                 a.emit_mov(stack_sz, Location::GPR(compare), ret);
                 cb(a, m, compare, value);
