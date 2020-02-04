@@ -114,7 +114,7 @@ pub struct CompilerConfig {
     pub memory_bound_check_mode: MemoryBoundCheckMode,
 
     /// Whether to generate explicit native stack checks against `stack_lower_bound` in `InternalCtx`.
-    /// 
+    ///
     /// Usually it's adequate to use hardware memory protection mechanisms such as `mprotect` on Unix to
     /// prevent stack overflow. But for low-level environments, e.g. the kernel, faults are generally
     /// not expected and relying on hardware memory protection would add too much complexity.
