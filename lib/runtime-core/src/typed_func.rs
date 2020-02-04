@@ -140,7 +140,7 @@ pub trait WasmTypeList {
 
     /// This method is used to distribute the values onto a function,
     /// e.g. `(1, 2).call(func, …)`. This form is unlikely to be used
-    /// directly in the code, see the `Func:call` implementation.
+    /// directly in the code, see the `Func::call` implementation.
     unsafe fn call<Rets>(
         self,
         f: NonNull<vm::Func>,
@@ -191,7 +191,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    /// Conver to function pointer.
+    /// Convert to function pointer.
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
