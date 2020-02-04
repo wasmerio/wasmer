@@ -114,10 +114,19 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     /// Creates a new function and returns the function-scope code generator for it.
     fn next_function(&mut self, module_info: Arc<RwLock<ModuleInfo>>) -> Result<&mut FCG, E>;
     /// Finalizes this module.
-    fn finalize(self, module_info: &ModuleInfo) -> Result<(RM, Box<dyn CacheGen>), E>;
+    fn finalize(self, module_info: &ModuleInfo) -> Result<((RM, Option<DebugMetadata>), Box<dyn CacheGen>), E>;
 
     /// Creates a module from cache.
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
+}
+
+use cranelift_entity::PrimaryMap;
+/// missing documentation!
+pub struct DebugMetadata {
+    ///f unc info
+    pub func_info: PrimaryMap<FuncIndex, wasm_debug::types::CompiledFunctionData>,
+    /// inst_info
+    pub inst_info: PrimaryMap<FuncIndex, wasm_debug::types::ValueLabelsRangesInner>,
 }
 
 /// A streaming compiler which is designed to generated code for a module based on a stream
@@ -221,6 +230,7 @@ impl<
         CGEN: Fn() -> MiddlewareChain,
     > Compiler for StreamingCompiler<MCG, FCG, RM, E, CGEN>
 {
+    #[allow(unused_variables)]
     fn compile(
         &self,
         wasm: &[u8],
@@ -230,6 +240,7 @@ impl<
         if MCG::requires_pre_validation() {
             validate_with_features(wasm, &compiler_config.features)?;
         }
+
 
         let mut mcg = match MCG::backend_id() {
             "llvm" => MCG::new_with_target(
@@ -241,11 +252,43 @@ impl<
         };
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(wasm, &mut mcg, &mut chain, &compiler_config)?;
-        let (exec_context, cache_gen) =
+        let ((exec_context, debug_metadata), cache_gen) =
             mcg.finalize(&info.read().unwrap())
                 .map_err(|x| CompileError::InternalError {
                     msg: format!("{:?}", x),
                 })?;
+
+        use target_lexicon::{Triple, Architecture, Vendor, OperatingSystem, Environment, BinaryFormat};
+        const X86_64_OSX: Triple = Triple {
+            architecture: Architecture::X86_64,
+            vendor: Vendor::Apple,
+            operating_system: OperatingSystem::Darwin,
+            environment: Environment::Unknown,
+            binary_format: BinaryFormat::Macho,
+        };
+        
+        if compiler_config.generate_debug_info {
+            let debug_metadata = debug_metadata.expect("debug metadata");
+            let debug_info = wasm_debug::read_debuginfo(wasm);
+            let extra_info = wasm_debug::types::ModuleVmctxInfo {
+                memory_offset: 0,
+                stack_slot_offsets: cranelift_entity::PrimaryMap::new(),
+            };
+            // lazy type hack (TODO:)
+            let compiled_fn_map = unsafe { std::mem::transmute(debug_metadata.func_info) };
+            let range_map = unsafe { std::mem::transmute(debug_metadata.inst_info) };
+            let raw_func_slice = vec![];//exec_context.get_local_function_pointers_and_lengths().expect("raw func slice");
+            dbg!("DEBUG INFO GENERATED");
+            let debug_image = wasm_debug::emit_debugsections_image(X86_64_OSX,
+                                                 std::mem::size_of::<usize>() as u8,
+                                                 &debug_info,
+                                                 &extra_info,
+                                                 &compiled_fn_map,
+                                                 &range_map,
+                                                 &raw_func_slice).expect("make debug image");
+
+            crate::jit_debug::register_new_jit_code_entry(&debug_image, crate::jit_debug::JITAction::JIT_REGISTER_FN);
+        } 
         Ok(ModuleInner {
             cache_gen,
             runnable_module: Arc::new(Box::new(exec_context)),

@@ -6,7 +6,7 @@ use crate::{
     resolver::FuncResolverBuilder, signal::Caller, trampoline::Trampolines,
 };
 
-use cranelift_codegen::entity::EntityRef;
+use cranelift_codegen::entity::{EntityRef, PrimaryMap};
 use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::{cursor::FuncCursor, isa};
@@ -141,9 +141,33 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     fn finalize(
         self,
         module_info: &ModuleInfo,
-    ) -> Result<(Caller, Box<dyn CacheGen>), CodegenError> {
+    ) -> Result<((Caller, Option<wasmer_runtime_core::codegen::DebugMetadata>), Box<dyn CacheGen>), CodegenError> {
+
+        use wasm_debug::types::{CompiledFunctionData};
+        let mut debug_metadata = wasmer_runtime_core::codegen::DebugMetadata {
+            func_info: PrimaryMap::new(),
+            inst_info: PrimaryMap::new(),
+        };
         let mut func_bodies: Map<LocalFuncIndex, ir::Function> = Map::new();
         for f in self.functions.into_iter() {
+            // TODO: review
+            // if container is stable, then first and last probably makes more sense here,
+            let min_srcloc = f.func.srclocs.iter().map(|x| x.1.bits()).min().unwrap_or_default();
+            let max_srcloc = f.func.srclocs.iter().map(|x| x.1.bits()).max().unwrap_or_default();
+            let entry = CompiledFunctionData {
+                instructions: vec![],
+                start: wasm_debug::types::SourceLoc::new(min_srcloc),
+                end: wasm_debug::types::SourceLoc::new(max_srcloc),
+                compiled_offset: 0,
+                compiled_size: 0,
+            };
+            debug_metadata.func_info.push(entry);
+            /*let mut map = std::collections::HashMap::new();
+            for (k, v) in f.func.srclocs {
+                map.
+            }
+            debug_metadata.inst_info.push(map);*/
+
             func_bodies.push(f.func);
         }
 
@@ -171,7 +195,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         ));
 
         Ok((
-            Caller::new(handler_data, trampolines, func_resolver),
+            (Caller::new(handler_data, trampolines, func_resolver), Some(debug_metadata)),
             cache_gen,
         ))
     }

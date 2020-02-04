@@ -11,6 +11,7 @@ license = "MIT"
 [dependencies]
 faerie = "0.14"
 gimli = "0.20"
-target-lexicon = "0.10"
+target-lexicon = "0.9"
+wasm-debug = { version = "0.1.0", path = "../../../Dev/wasm-debug" }
 wasmer-runtime-core = { path = "../runtime-core", version = "0.13.1" }
 wasmparser = "0.45"

@@ -3,14 +3,8 @@ use std::str::FromStr;
 use std::ptr;
 use std::ffi::c_void;
 
-mod read_debug_info;
-mod write_debug_info;
-mod gc;
-mod transform;
-
-pub use crate::read_debug_info::{read_debug_info, DebugInfoData, WasmFileInfo};
-pub use crate::write_debug_info::{emit_dwarf, ResolvedSymbol, SymbolResolver};
-use crate::transform::WasmTypesDieRefs;
+pub use wasm_debug::{read_debuginfo, DebugInfoData, WasmFileInfo};
+pub use wasm_debug::{emit_dwarf, ResolvedSymbol, SymbolResolver};
 
 use target_lexicon::{Triple, Architecture, Vendor, OperatingSystem, Environment, BinaryFormat};
 use gimli::write::{self, DwarfUnit, Sections, Address, RangeList, EndianVec, AttributeValue, Range};
@@ -59,6 +53,7 @@ impl<'a> SymbolResolver for ImageRelocResolver<'a> {
     }
 }
 
+/*
 // the structure of this function and some of its details come from WasmTime
 // TODO: attribute
 pub fn generate_dwarf(module_info: &ModuleInfo, debug_info_data: &DebugInfoData, code_version: &CodeVersion, platform: Triple) -> Result<Vec<u8>, String> {
@@ -153,6 +148,7 @@ pub fn generate_dwarf(module_info: &ModuleInfo, debug_info_data: &DebugInfoData,
     }
     Ok(vec![])
 }
+*/
 
 // converts existing dwarf into a usable form with metadata from the JIT
 fn reprocess_dwarf(module_info: &ModuleInfo, debug_info_data: &DebugInfoData, code_version: &CodeVersion, platform: Triple) -> Option<write::Dwarf> {
@@ -165,174 +161,10 @@ fn reprocess_dwarf(module_info: &ModuleInfo, debug_info_data: &DebugInfoData, co
 // where is this documented?
 // we need to pass in target triple, isa config, memories/pointers to memories, ranges of where things are,
 // and info like function names
-pub fn generate_debug_sections_image() -> Option<Vec<u8>> {
+pub fn generate_debug_sections_image(bytes: &[u8]) -> Option<Vec<u8>> {
+    let debug_info = read_debuginfo(bytes);
+    dbg!(debug_info);
+
+    //emit_debugsections_image(X86_64_OSX, 8, debug_info, )
     None
-}
-
-// do it
-
-// this code copied from WasmTime, TODO: give attribution
-
-
-// The `emit_wasm_types` function is a derative work of code in WasmTime:
-// TODO: update attributions file and/or do clean reimplementation of this logic
-//
-//   Copyright 2019 WasmTime Project Developers
-//
-//   Licensed under the Apache License, Version 2.0 (the "License");
-//   you may not use this file except in compliance with the License.
-//   You may obtain a copy of the License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the License is distributed on an "AS IS" BASIS,
-//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//   See the License for the specific language governing permissions and
-//   limitations under the License.
-fn emit_wasm_types(unit: &mut write::Unit, root_id: write::UnitEntryId, string_table: &mut write::StringTable) -> WasmTypesDieRefs {
-    macro_rules! def_type {
-        ($id:literal, $size:literal, $enc:path) => {{
-            let die_id = unit.add(root_id, gimli::DW_TAG_base_type);
-            let die = unit.get_mut(die_id);
-            die.set(
-                gimli::DW_AT_name,
-                write::AttributeValue::StringRef(string_table.add($id)),
-            );
-            die.set(gimli::DW_AT_byte_size, write::AttributeValue::Data1($size));
-            die.set(gimli::DW_AT_encoding, write::AttributeValue::Encoding($enc));
-            die_id
-        }};
-    }
-    let vmctx_id = {
-        // TODO: get memory_offset
-        let memory_offset = 0;
-        let vmctx_die_id = unit.add(root_id, gimli::DW_TAG_structure_type);
-        let vmctx_die = unit.get_mut(vmctx_die_id);
-        vmctx_die.set(
-            gimli::DW_AT_name,
-            write::AttributeValue::StringRef(string_table.add("WasmerVMContext")),
-        );
-        vmctx_die.set(
-            gimli::DW_AT_byte_size,
-            write::AttributeValue::Data4(memory_offset as u32 + 8),
-        );
-        let vmctx_ptr_id = unit.add(root_id, gimli::DW_TAG_pointer_type);
-        let vmctx_ptr_die = unit.get_mut(vmctx_ptr_id);
-        vmctx_ptr_die.set(
-            gimli::DW_AT_name,
-            write::AttributeValue::StringRef(string_table.add("WasmerVMContext*")),
-        );
-        vmctx_ptr_die.set(
-            gimli::DW_AT_type,
-            write::AttributeValue::ThisUnitEntryRef(vmctx_die_id),
-        );
-
-        vmctx_ptr_id
-    };
-
-    let i32_id = def_type!("i32", 4, gimli::DW_ATE_signed);
-    let i64_id = def_type!("i64", 8, gimli::DW_ATE_signed);
-    let i128_id = def_type!("i128", 16, gimli::DW_ATE_signed);
-    let f32_id = def_type!("f32", 4, gimli::DW_ATE_float);
-    let f64_id = def_type!("f64", 8, gimli::DW_ATE_float);
-
-    WasmTypesDieRefs {
-        vmctx: vmctx_id,
-        i32: i32_id,
-        i64: i64_id,
-        i128: i128_id,
-        f32: f32_id,
-        f64: f64_id,
-    }
-}
-
-
-// =============================================================================
-// LLDB hook magic:
-// see lldb/packages/Python/lldbsuite/test/functionalities/jitloader_gdb in
-// llvm repo for example
-//
-// see also https://sourceware.org/gdb/current/onlinedocs/gdb.html#JIT-Interface
-
-#[inline(never)]
-pub extern "C" fn __jit_debug_register_code() {
-    
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Debug)]
-#[repr(u32)]
-pub enum JITAction { JIT_NOACTION = 0, JIT_REGISTER_FN = 1, JIT_UNREGISTER_FN = 2 }
-
-#[no_mangle]
-#[repr(C)]
-pub struct JITCodeEntry {
-    next: *mut JITCodeEntry,
-    prev: *mut JITCodeEntry,
-    // TODO: use CStr here?
-    symfile_addr: *const u8,
-    symfile_size: u64,
-}
-
-impl Default for JITCodeEntry {
-    fn default() -> Self {
-        Self {
-            next: ptr::null_mut(),
-            prev: ptr::null_mut(),
-            symfile_addr: ptr::null(),
-            symfile_size: 0,
-        }
-    }
-}
-
-#[no_mangle]
-#[repr(C)]
-pub struct JitDebugDescriptor {
-    version: u32,
-    action_flag: u32,
-    relevant_entry: *mut JITCodeEntry,
-    first_entry: *mut JITCodeEntry,
-}
-
-#[no_mangle]
-#[allow(non_upper_case_globals)]
-pub static mut __jit_debug_descriptor: JitDebugDescriptor = JitDebugDescriptor {
-    version: 1,
-    action_flag: JITAction::JIT_NOACTION as _,
-    relevant_entry: ptr::null_mut(),
-    first_entry: ptr::null_mut(),
-};
-
-/// Prepend an item to the front of the `__jit_debug_descriptor` entry list
-///
-/// # Safety
-/// - Pointer to [`JITCodeEntry`] should point to a valid entry and stay alive
-///   for the 'static lifetime
-unsafe fn push_front(jce: *mut JITCodeEntry) {
-    if __jit_debug_descriptor.first_entry.is_null() {
-        __jit_debug_descriptor.first_entry = jce;
-    } else {
-        let old_first = __jit_debug_descriptor.first_entry;
-        debug_assert!((*old_first).prev.is_null());
-        (*jce).next = old_first;
-        (*old_first).prev = jce;
-        __jit_debug_descriptor.first_entry = jce;
-    }
-}
-
-pub fn register_new_jit_code_entry(bytes: &'static [u8], action: JITAction) -> *mut JITCodeEntry {
-    let entry: *mut JITCodeEntry = Box::into_raw(Box::new(JITCodeEntry {
-        symfile_addr: bytes.as_ptr(),
-        symfile_size: bytes.len() as _,
-        ..JITCodeEntry::default()
-    }));
-
-    unsafe {
-        push_front(entry);
-        __jit_debug_descriptor.relevant_entry = entry;
-        __jit_debug_descriptor.action_flag = action as u32;
-    }
-
-    entry
 }

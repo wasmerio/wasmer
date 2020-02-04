@@ -120,6 +120,8 @@ pub struct CompilerConfig {
     pub cpu_features: Option<String>,
 
     pub backend_specific_config: Option<BackendCompilerConfig>,
+
+    pub generate_debug_info: bool,
 }
 
 /// An exception table for a `RunnableModule`.
@@ -207,6 +209,11 @@ pub trait RunnableModule: Send + Sync {
 
     /// Returns the beginning offsets of all local functions.
     fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
+        None
+    }
+
+    /// TODO: document before shipppping
+    fn get_local_function_pointers_and_lengths(&self) -> Option<Vec<(*const u8, usize)>> {
         None
     }
 

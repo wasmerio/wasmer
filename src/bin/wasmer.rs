@@ -719,6 +719,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 track_state,
                 features: options.features.into_backend_features(),
                 backend_specific_config,
+                generate_debug_info: true,
                 ..Default::default()
             },
             &*compiler,

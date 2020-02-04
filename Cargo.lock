@@ -458,6 +458,22 @@ dependencies = [
 
 [[package]]
 name = "faerie"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f902f2af041f6c7177a2a04f805687cdc71e69c7cbef059a2755d8923f4cd7a8"
+dependencies = [
+ "anyhow",
+ "goblin 0.1.3",
+ "indexmap",
+ "log",
+ "scroll 0.10.1",
+ "string-interner",
+ "target-lexicon 0.9.0",
+ "thiserror",
+]
+
+[[package]]
+name = "faerie"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74b9ed6159e4a6212c61d9c6a86bee01876b192a64accecf58d5b5ae3b667b52"
@@ -785,6 +801,12 @@ dependencies = [
  "winapi",
  "x11-dl",
 ]
+
+[[package]]
+name = "more-asserts"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
 name = "nix"
@@ -1725,6 +1747,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
+name = "wasm-debug"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cranelift-entity",
+ "faerie 0.13.0",
+ "gimli",
+ "more-asserts",
+ "target-lexicon 0.9.0",
+ "thiserror",
+ "wasmparser 0.39.3",
+]
+
+[[package]]
 name = "wasmer"
 version = "0.13.1"
 dependencies = [
@@ -1772,11 +1808,12 @@ dependencies = [
  "serde_bytes",
  "serde_derive",
  "target-lexicon 0.9.0",
+ "wasm-debug",
  "wasmer-clif-fork-frontend",
  "wasmer-clif-fork-wasm",
  "wasmer-runtime-core",
  "wasmer-win-exception-handler",
- "wasmparser",
+ "wasmparser 0.45.0",
  "winapi",
 ]
 
@@ -1803,18 +1840,19 @@ dependencies = [
  "log",
  "thiserror",
  "wasmer-clif-fork-frontend",
- "wasmparser",
+ "wasmparser 0.45.0",
 ]
 
 [[package]]
 name = "wasmer-debug-writer"
 version = "0.13.1"
 dependencies = [
- "faerie",
+ "faerie 0.14.0",
  "gimli",
- "target-lexicon 0.10.0",
+ "target-lexicon 0.9.0",
+ "wasm-debug",
  "wasmer-runtime-core",
- "wasmparser",
+ "wasmparser 0.45.0",
 ]
 
 [[package]]
@@ -1876,7 +1914,7 @@ dependencies = [
  "smallvec 0.6.13",
  "wabt",
  "wasmer-runtime-core",
- "wasmparser",
+ "wasmparser 0.45.0",
  "winapi",
 ]
 
@@ -1946,6 +1984,7 @@ dependencies = [
  "bincode",
  "blake3",
  "cc",
+ "cranelift-entity",
  "digest",
  "errno",
  "hex",
@@ -1961,7 +2000,9 @@ dependencies = [
  "serde_bytes",
  "serde_derive",
  "smallvec 0.6.13",
- "wasmparser",
+ "target-lexicon 0.9.0",
+ "wasm-debug",
+ "wasmparser 0.45.0",
  "winapi",
 ]
 
@@ -2057,6 +2098,12 @@ dependencies = [
  "wasmer-runtime-core",
  "winapi",
 ]
+
+[[package]]
+name = "wasmparser"
+version = "0.39.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c702914acda5feeeffbc29e4d953e5b9ce79d8b98da4dbf18a77086e116c5470"
 
 [[package]]
 name = "wasmparser"

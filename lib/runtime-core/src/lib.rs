@@ -69,6 +69,7 @@ pub mod fault;
 pub mod state;
 #[cfg(feature = "managed")]
 pub mod tiering;
+pub mod jit_debug;
 
 use self::error::CompileResult;
 #[doc(inline)]
