@@ -110,7 +110,7 @@ pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
 
-    /// Optionally override the automatically determined memory bound check mode.
+    /// How to make the decision whether to emit bounds checks for memory accesses.
     pub memory_bound_check_mode: MemoryBoundCheckMode,
 
     /// Whether to generate explicit stack checks against a field in `InternalCtx`.
