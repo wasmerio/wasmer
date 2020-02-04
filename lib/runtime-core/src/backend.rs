@@ -113,7 +113,11 @@ pub struct CompilerConfig {
     /// How to make the decision whether to emit bounds checks for memory accesses.
     pub memory_bound_check_mode: MemoryBoundCheckMode,
 
-    /// Whether to generate explicit stack checks against a field in `InternalCtx`.
+    /// Whether to generate explicit native stack checks against `stack_lower_bound` in `InternalCtx`.
+    /// 
+    /// Usually it's adequate to use hardware memory protection mechanisms such as `mprotect` on Unix to
+    /// prevent stack overflow. But for low-level environments, e.g. the kernel, faults are generally
+    /// not expected and relying on hardware memory protection would add too much complexity.
     pub enforce_stack_check: bool,
 
     /// Whether to enable state tracking. Necessary for managed mode.
@@ -122,7 +126,7 @@ pub struct CompilerConfig {
     /// Whether to enable full preemption checkpoint generation.
     ///
     /// This inserts checkpoints at critical locations such as loop backedges and function calls,
-    /// allowing non-cooperative unwinding/task switching.
+    /// allowing preemptive unwinding/task switching.
     ///
     /// When enabled there can be a small amount of runtime performance overhead.
     pub full_preemption: bool,
