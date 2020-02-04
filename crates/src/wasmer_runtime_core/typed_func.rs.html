@@ -979,7 +979,7 @@
 
     <span class="doccomment">/// This method is used to distribute the values onto a function,</span>
     <span class="doccomment">/// e.g. `(1, 2).call(func, …)`. This form is unlikely to be used</span>
-    <span class="doccomment">/// directly in the code, see the `Func:call` implementation.</span>
+    <span class="doccomment">/// directly in the code, see the `Func::call` implementation.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">call</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>(
         <span class="self">self</span>,
         <span class="ident">f</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
@@ -1030,7 +1030,7 @@
     <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
 {
-    <span class="doccomment">/// Conver to function pointer.</span>
+    <span class="doccomment">/// Convert to function pointer.</span>
     <span class="kw">fn</span> <span class="ident">to_raw</span>(<span class="self">self</span>) <span class="op">-&gt;</span> (<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span>);
 }
 
