@@ -639,6 +639,7 @@ struct CodegenConfig {
     memory_bound_check_mode: MemoryBoundCheckMode,
     enforce_stack_check: bool,
     track_state: bool,
+    full_preemption: bool,
 }
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
@@ -908,6 +909,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             memory_bound_check_mode: config.memory_bound_check_mode,
             enforce_stack_check: config.enforce_stack_check,
             track_state: config.track_state,
+            full_preemption: config.full_preemption,
         }));
         Ok(())
     }
@@ -2103,6 +2105,10 @@ impl X64FunctionCode {
             true,
             value_size,
             |a, m, addr| {
+                // Memory moves with size < 32b do not zero upper bits.
+                if memory_sz < Size::S32 {
+                    a.emit_xor(Size::S32, Location::GPR(compare), Location::GPR(compare));
+                }
                 a.emit_mov(memory_sz, Location::Memory(addr, 0), Location::GPR(compare));
                 a.emit_mov(stack_sz, Location::GPR(compare), ret);
                 cb(a, m, compare, value);
@@ -2478,28 +2484,31 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         // Check interrupt signal without branching
         let activate_offset = a.get_offset().0;
 
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(
-                Machine::get_vmctx_reg(),
-                vm::Ctx::offset_interrupt_signal_mem() as i32,
-            ),
-            Location::GPR(GPR::RAX),
-        );
-        self.fsm.loop_offsets.insert(
-            a.get_offset().0,
-            OffsetInfo {
-                end_offset: a.get_offset().0 + 1,
-                activate_offset,
-                diff_id: state_diff_id,
-            },
-        );
-        self.fsm.wasm_function_header_target_offset = Some(SuspendOffset::Loop(a.get_offset().0));
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(GPR::RAX, 0),
-            Location::GPR(GPR::RAX),
-        );
+        if self.config.full_preemption {
+            a.emit_mov(
+                Size::S64,
+                Location::Memory(
+                    Machine::get_vmctx_reg(),
+                    vm::Ctx::offset_interrupt_signal_mem() as i32,
+                ),
+                Location::GPR(GPR::RAX),
+            );
+            self.fsm.loop_offsets.insert(
+                a.get_offset().0,
+                OffsetInfo {
+                    end_offset: a.get_offset().0 + 1,
+                    activate_offset,
+                    diff_id: state_diff_id,
+                },
+            );
+            self.fsm.wasm_function_header_target_offset =
+                Some(SuspendOffset::Loop(a.get_offset().0));
+            a.emit_mov(
+                Size::S64,
+                Location::Memory(GPR::RAX, 0),
+                Location::GPR(GPR::RAX),
+            );
+        }
 
         if self.machine.state.wasm_inst_offset != usize::MAX {
             return Err(CodegenError {
@@ -6557,31 +6566,33 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_label(label);
 
                 // Check interrupt signal without branching
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(
-                        Machine::get_vmctx_reg(),
-                        vm::Ctx::offset_interrupt_signal_mem() as i32,
-                    ),
-                    Location::GPR(GPR::RAX),
-                );
-                self.fsm.loop_offsets.insert(
-                    a.get_offset().0,
-                    OffsetInfo {
-                        end_offset: a.get_offset().0 + 1,
-                        activate_offset,
-                        diff_id: state_diff_id,
-                    },
-                );
-                self.fsm.wasm_offset_to_target_offset.insert(
-                    self.machine.state.wasm_inst_offset,
-                    SuspendOffset::Loop(a.get_offset().0),
-                );
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RAX, 0),
-                    Location::GPR(GPR::RAX),
-                );
+                if self.config.full_preemption {
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Memory(
+                            Machine::get_vmctx_reg(),
+                            vm::Ctx::offset_interrupt_signal_mem() as i32,
+                        ),
+                        Location::GPR(GPR::RAX),
+                    );
+                    self.fsm.loop_offsets.insert(
+                        a.get_offset().0,
+                        OffsetInfo {
+                            end_offset: a.get_offset().0 + 1,
+                            activate_offset,
+                            diff_id: state_diff_id,
+                        },
+                    );
+                    self.fsm.wasm_offset_to_target_offset.insert(
+                        self.machine.state.wasm_inst_offset,
+                        SuspendOffset::Loop(a.get_offset().0),
+                    );
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Memory(GPR::RAX, 0),
+                        Location::GPR(GPR::RAX),
+                    );
+                }
             }
             Operator::Nop => {}
             Operator::MemorySize { reserved } => {
