@@ -52,12 +52,20 @@ fn func_sig_to_llvm<'ctx>(
     intrinsics: &Intrinsics<'ctx>,
     sig: &FuncSig,
     type_to_llvm: fn(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx>,
+    is_imported: bool,
 ) -> FunctionType<'ctx> {
     let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
-    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
-        .chain(user_param_types)
-        .collect();
+    let param_types: Vec<_> = if is_imported {
+        std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+            .chain(std::iter::once(intrinsics.func_env_ptr_ty.as_basic_type_enum()))
+            .chain(user_param_types)
+            .collect()
+    } else {
+        std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+            .chain(user_param_types)
+            .collect()
+    };
 
     match sig.returns() {
         &[] => intrinsics.void_ty.fn_type(&param_types, false),
@@ -958,6 +966,7 @@ pub struct LLVMModuleCodeGenerator<'ctx> {
     intrinsics: Option<Intrinsics<'ctx>>,
     functions: Vec<LLVMFunctionCodeGenerator<'ctx>>,
     signatures: Map<SigIndex, FunctionType<'ctx>>,
+    signatures_imported: Map<SigIndex, FunctionType<'ctx>>,
     signatures_raw: Map<SigIndex, FuncSig>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
     llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue<'ctx>>>>,
@@ -980,6 +989,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx> {
     function: FunctionValue<'ctx>,
     func_sig: FuncSig,
     signatures: Map<SigIndex, FunctionType<'ctx>>,
+    signatures_imported: Map<SigIndex, FunctionType<'ctx>>,
     locals: Vec<PointerValue<'ctx>>, // Contains params and locals
     num_params: usize,
     ctx: Option<CtxType<'static, 'ctx>>,
@@ -1110,6 +1120,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
         let locals = &self.locals;
         let info = module_info;
         let signatures = &self.signatures;
+        let signatures_imported = &self.signatures_imported;
         let mut ctx = self.ctx.as_mut().unwrap();
 
         let mut opcode_offset: Option<usize> = None;
@@ -1864,7 +1875,6 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
             Operator::Call { function_index } => {
                 let func_index = FuncIndex::new(function_index as usize);
                 let sigindex = info.func_assoc[func_index];
-                let llvm_sig = signatures[sigindex];
                 let func_sig = &info.signatures[sigindex];
 
                 let (params, func_ptr) = match func_index.local_or_import(info) {
@@ -1903,10 +1913,12 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                         (params, func_ptr.as_global_value().as_pointer_value())
                     }
                     LocalOrImport::Import(import_func_index) => {
-                        let (func_ptr_untyped, ctx_ptr) =
+                        let llvm_sig = signatures_imported[sigindex];
+                        let (func_ptr_untyped, ctx_ptr, func_env_ptr) =
                             ctx.imported_func(import_func_index, intrinsics, self.module.clone());
 
                         let params: Vec<_> = std::iter::once(ctx_ptr.as_basic_value_enum())
+                            .chain(std::iter::once(func_env_ptr.as_basic_value_enum()))
                             .chain(
                                 state
                                     .peekn_extra(func_sig.params().len())?
@@ -8619,6 +8631,7 @@ impl Drop for LLVMModuleCodeGenerator<'_> {
         drop(self.intrinsics.take());
         self.functions.clear();
         self.signatures.clear();
+        self.signatures_imported.clear();
         assert!(
             Rc::strong_count(&*self.module) == 1,
             "references to module live while dropping LLVMModuleCodeGenerator"
@@ -8711,6 +8724,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             module: ManuallyDrop::new(Rc::new(RefCell::new(module))),
             functions: vec![],
             signatures: Map::new(),
+            signatures_imported: Map::new(),
             signatures_raw: Map::new(),
             function_signatures: None,
             llvm_functions: Rc::new(RefCell::new(HashMap::new())),
@@ -8733,7 +8747,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
 
     fn next_function(
         &mut self,
-        _module_info: Arc<RwLock<ModuleInfo>>,
+        module_info: Arc<RwLock<ModuleInfo>>,
     ) -> Result<&mut LLVMFunctionCodeGenerator<'ctx>, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
         let (context, builder, intrinsics) = match self.functions.last_mut() {
@@ -8750,6 +8764,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         };
 
         let func_index = FuncIndex::new(self.func_import_count + self.functions.len());
+        let is_imported = func_index.local_or_import(&module_info.as_ref().read().unwrap()).import().is_some();
         let sig_id = self.function_signatures.as_ref().unwrap()[func_index];
         let func_sig = self.signatures_raw[sig_id].clone();
 
@@ -8778,7 +8793,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         locals.extend(
             function
                 .get_param_iter()
-                .skip(1)
+                .skip(if is_imported { 2 } else { 1 })
                 .enumerate()
                 .map(|(index, param)| {
                     let real_ty = func_sig.params()[index];
@@ -8823,6 +8838,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             func_sig: func_sig,
             locals,
             signatures: self.signatures.clone(),
+            signatures_imported: self.signatures_imported.clone(),
             num_params,
             ctx: None,
             unreachable_depth: 0,
@@ -8949,6 +8965,19 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
                     self.intrinsics.as_ref().unwrap(),
                     sig,
                     type_to_llvm,
+                    false
+                )
+            })
+            .collect();
+        self.signatures_imported = signatures
+            .iter()
+            .map(|(_, sig)| {
+                func_sig_to_llvm(
+                    self.context.as_ref().unwrap(),
+                    self.intrinsics.as_ref().unwrap(),
+                    sig,
+                    type_to_llvm,
+                    true
                 )
             })
             .collect();

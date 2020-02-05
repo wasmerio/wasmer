@@ -155,6 +155,7 @@ pub struct Intrinsics<'ctx> {
     pub experimental_stackmap: FunctionValue<'ctx>,
 
     pub ctx_ptr_ty: PointerType<'ctx>,
+    pub func_env_ptr_ty: PointerType<'ctx>,
 }
 
 impl<'ctx> Intrinsics<'ctx> {
@@ -209,13 +210,14 @@ impl<'ctx> Intrinsics<'ctx> {
 
         let ctx_ty = context.opaque_struct_type("ctx");
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
-
         let local_memory_ty =
             context.struct_type(&[i8_ptr_ty_basic, i64_ty_basic, i8_ptr_ty_basic], false);
         let local_table_ty = local_memory_ty;
         let local_global_ty = i64_ty;
+        let func_env_ty = context.opaque_struct_type("func_env");
+        let func_env_ptr_ty = func_env_ty.ptr_type(AddressSpace::Generic);
         let func_ctx_ty =
-            context.struct_type(&[ctx_ptr_ty.as_basic_type_enum(), i8_ptr_ty_basic], false);
+            context.struct_type(&[ctx_ptr_ty.as_basic_type_enum(), func_env_ptr_ty.as_basic_type_enum()], false);
         let func_ctx_ptr_ty = func_ctx_ty.ptr_type(AddressSpace::Generic);
         let imported_func_ty = context.struct_type(
             &[i8_ptr_ty_basic, func_ctx_ptr_ty.as_basic_type_enum()],
@@ -530,6 +532,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 None,
             ),
             ctx_ptr_ty,
+            func_env_ptr_ty,
         };
 
         let readonly =
@@ -598,6 +601,7 @@ pub enum GlobalCache<'ctx> {
 struct ImportedFuncCache<'ctx> {
     func_ptr: PointerValue<'ctx>,
     ctx_ptr: PointerValue<'ctx>,
+    func_env_ptr: PointerValue<'ctx>,
 }
 
 pub struct CtxType<'a, 'ctx> {
@@ -1045,7 +1049,7 @@ impl<'a, 'ctx> CtxType<'a, 'ctx> {
         index: ImportedFuncIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: Rc<RefCell<Module<'ctx>>>,
-    ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
+    ) -> (PointerValue<'ctx>, PointerValue<'ctx>, PointerValue<'ctx>) {
         let (cached_imported_functions, ctx_ptr_value, cache_builder) = (
             &mut self.cached_imported_functions,
             self.ctx_ptr_value,
@@ -1110,10 +1114,20 @@ impl<'a, 'ctx> CtxType<'a, 'ctx> {
                 Some(index.index() as u32),
             );
 
-            ImportedFuncCache { func_ptr, ctx_ptr }
+            let func_env_ptr_ptr = unsafe { cache_builder.build_struct_gep(func_ctx_ptr, 1, "func_env_ptr_ptr") };
+            let func_env_ptr = cache_builder.build_load(func_env_ptr_ptr, "func_env_ptr").into_pointer_value();
+            tbaa_label(
+                &module,
+                intrinsics,
+                "imported_func_env_ptr",
+                func_env_ptr.as_instruction_value().unwrap(),
+                Some(index.index() as u32),
+            );
+            
+            ImportedFuncCache { func_ptr, ctx_ptr, func_env_ptr }
         });
 
-        (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr)
+        (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr, imported_func_cache.func_env_ptr)
     }
 
     pub fn internal_field(
