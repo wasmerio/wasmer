@@ -9907,6 +9907,17 @@
 <span id="9907">9907</span>
 <span id="9908">9908</span>
 <span id="9909">9909</span>
+<span id="9910">9910</span>
+<span id="9911">9911</span>
+<span id="9912">9912</span>
+<span id="9913">9913</span>
+<span id="9914">9914</span>
+<span id="9915">9915</span>
+<span id="9916">9916</span>
+<span id="9917">9917</span>
+<span id="9918">9918</span>
+<span id="9919">9919</span>
+<span id="9920">9920</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">forget_copy</span>)]</span> <span class="comment">// Used by dynasm.</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_imports</span>)]</span>
@@ -10549,6 +10560,7 @@
     <span class="ident">memory_bound_check_mode</span>: <span class="ident">MemoryBoundCheckMode</span>,
     <span class="ident">enforce_stack_check</span>: <span class="ident">bool</span>,
     <span class="ident">track_state</span>: <span class="ident">bool</span>,
+    <span class="ident">full_preemption</span>: <span class="ident">bool</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ModuleCodeGenerator</span><span class="op">&lt;</span><span class="ident">X64FunctionCode</span>, <span class="ident">X64ExecutionContext</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span>
@@ -10818,6 +10830,7 @@
             <span class="ident">memory_bound_check_mode</span>: <span class="ident">config</span>.<span class="ident">memory_bound_check_mode</span>,
             <span class="ident">enforce_stack_check</span>: <span class="ident">config</span>.<span class="ident">enforce_stack_check</span>,
             <span class="ident">track_state</span>: <span class="ident">config</span>.<span class="ident">track_state</span>,
+            <span class="ident">full_preemption</span>: <span class="ident">config</span>.<span class="ident">full_preemption</span>,
         }));
         <span class="prelude-val">Ok</span>(())
     }
@@ -12013,6 +12026,10 @@
             <span class="bool-val">true</span>,
             <span class="ident">value_size</span>,
             <span class="op">|</span><span class="ident">a</span>, <span class="ident">m</span>, <span class="ident">addr</span><span class="op">|</span> {
+                <span class="comment">// Memory moves with size &lt; 32b do not zero upper bits.</span>
+                <span class="kw">if</span> <span class="ident">memory_sz</span> <span class="op">&lt;</span> <span class="ident">Size</span>::<span class="ident">S32</span> {
+                    <span class="ident">a</span>.<span class="ident">emit_xor</span>(<span class="ident">Size</span>::<span class="ident">S32</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">compare</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">compare</span>));
+                }
                 <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">memory_sz</span>, <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">compare</span>));
                 <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">stack_sz</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">compare</span>), <span class="ident">ret</span>);
                 <span class="ident">cb</span>(<span class="ident">a</span>, <span class="ident">m</span>, <span class="ident">compare</span>, <span class="ident">value</span>);
@@ -12388,28 +12405,31 @@
         <span class="comment">// Check interrupt signal without branching</span>
         <span class="kw">let</span> <span class="ident">activate_offset</span> <span class="op">=</span> <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>;
 
-        <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-            <span class="ident">Size</span>::<span class="ident">S64</span>,
-            <span class="ident">Location</span>::<span class="ident">Memory</span>(
-                <span class="ident">Machine</span>::<span class="ident">get_vmctx_reg</span>(),
-                <span class="ident">vm</span>::<span class="ident">Ctx</span>::<span class="ident">offset_interrupt_signal_mem</span>() <span class="kw">as</span> <span class="ident">i32</span>,
-            ),
-            <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
-        );
-        <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">loop_offsets</span>.<span class="ident">insert</span>(
-            <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>,
-            <span class="ident">OffsetInfo</span> {
-                <span class="ident">end_offset</span>: <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span> <span class="op">+</span> <span class="number">1</span>,
-                <span class="ident">activate_offset</span>,
-                <span class="ident">diff_id</span>: <span class="ident">state_diff_id</span>,
-            },
-        );
-        <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">wasm_function_header_target_offset</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">SuspendOffset</span>::<span class="ident">Loop</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>));
-        <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-            <span class="ident">Size</span>::<span class="ident">S64</span>,
-            <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>, <span class="number">0</span>),
-            <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
-        );
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">full_preemption</span> {
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size</span>::<span class="ident">S64</span>,
+                <span class="ident">Location</span>::<span class="ident">Memory</span>(
+                    <span class="ident">Machine</span>::<span class="ident">get_vmctx_reg</span>(),
+                    <span class="ident">vm</span>::<span class="ident">Ctx</span>::<span class="ident">offset_interrupt_signal_mem</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                ),
+                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
+            );
+            <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">loop_offsets</span>.<span class="ident">insert</span>(
+                <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>,
+                <span class="ident">OffsetInfo</span> {
+                    <span class="ident">end_offset</span>: <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span> <span class="op">+</span> <span class="number">1</span>,
+                    <span class="ident">activate_offset</span>,
+                    <span class="ident">diff_id</span>: <span class="ident">state_diff_id</span>,
+                },
+            );
+            <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">wasm_function_header_target_offset</span> <span class="op">=</span>
+                <span class="prelude-val">Some</span>(<span class="ident">SuspendOffset</span>::<span class="ident">Loop</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>));
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size</span>::<span class="ident">S64</span>,
+                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>, <span class="number">0</span>),
+                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
+            );
+        }
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">wasm_inst_offset</span> <span class="op">!=</span> <span class="ident">usize</span>::<span class="ident">MAX</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
@@ -16467,31 +16487,33 @@
                 <span class="ident">a</span>.<span class="ident">emit_label</span>(<span class="ident">label</span>);
 
                 <span class="comment">// Check interrupt signal without branching</span>
-                <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-                    <span class="ident">Size</span>::<span class="ident">S64</span>,
-                    <span class="ident">Location</span>::<span class="ident">Memory</span>(
-                        <span class="ident">Machine</span>::<span class="ident">get_vmctx_reg</span>(),
-                        <span class="ident">vm</span>::<span class="ident">Ctx</span>::<span class="ident">offset_interrupt_signal_mem</span>() <span class="kw">as</span> <span class="ident">i32</span>,
-                    ),
-                    <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
-                );
-                <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">loop_offsets</span>.<span class="ident">insert</span>(
-                    <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>,
-                    <span class="ident">OffsetInfo</span> {
-                        <span class="ident">end_offset</span>: <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span> <span class="op">+</span> <span class="number">1</span>,
-                        <span class="ident">activate_offset</span>,
-                        <span class="ident">diff_id</span>: <span class="ident">state_diff_id</span>,
-                    },
-                );
-                <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">wasm_offset_to_target_offset</span>.<span class="ident">insert</span>(
-                    <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">wasm_inst_offset</span>,
-                    <span class="ident">SuspendOffset</span>::<span class="ident">Loop</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>),
-                );
-                <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-                    <span class="ident">Size</span>::<span class="ident">S64</span>,
-                    <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>, <span class="number">0</span>),
-                    <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
-                );
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">full_preemption</span> {
+                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                        <span class="ident">Size</span>::<span class="ident">S64</span>,
+                        <span class="ident">Location</span>::<span class="ident">Memory</span>(
+                            <span class="ident">Machine</span>::<span class="ident">get_vmctx_reg</span>(),
+                            <span class="ident">vm</span>::<span class="ident">Ctx</span>::<span class="ident">offset_interrupt_signal_mem</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                        ),
+                        <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
+                    );
+                    <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">loop_offsets</span>.<span class="ident">insert</span>(
+                        <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>,
+                        <span class="ident">OffsetInfo</span> {
+                            <span class="ident">end_offset</span>: <span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span> <span class="op">+</span> <span class="number">1</span>,
+                            <span class="ident">activate_offset</span>,
+                            <span class="ident">diff_id</span>: <span class="ident">state_diff_id</span>,
+                        },
+                    );
+                    <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">wasm_offset_to_target_offset</span>.<span class="ident">insert</span>(
+                        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">wasm_inst_offset</span>,
+                        <span class="ident">SuspendOffset</span>::<span class="ident">Loop</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>),
+                    );
+                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                        <span class="ident">Size</span>::<span class="ident">S64</span>,
+                        <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>, <span class="number">0</span>),
+                        <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
+                    );
+                }
             }
             <span class="ident">Operator</span>::<span class="ident">Nop</span> <span class="op">=&gt;</span> {}
             <span class="ident">Operator</span>::<span class="ident">MemorySize</span> { <span class="ident">reserved</span> } <span class="op">=&gt;</span> {

@@ -231,6 +231,25 @@
 <span id="231">231</span>
 <span id="232">232</span>
 <span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">error</span>::<span class="ident">CompileResult</span>,
@@ -343,9 +362,28 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompilerConfig</span> {
     <span class="doccomment">/// Symbol information generated from emscripten; used for more detailed debug messages</span>
     <span class="kw">pub</span> <span class="ident">symbol_map</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">String</span><span class="op">&gt;&gt;</span>,
+
+    <span class="doccomment">/// How to make the decision whether to emit bounds checks for memory accesses.</span>
     <span class="kw">pub</span> <span class="ident">memory_bound_check_mode</span>: <span class="ident">MemoryBoundCheckMode</span>,
+
+    <span class="doccomment">/// Whether to generate explicit native stack checks against `stack_lower_bound` in `InternalCtx`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Usually it&#39;s adequate to use hardware memory protection mechanisms such as `mprotect` on Unix to</span>
+    <span class="doccomment">/// prevent stack overflow. But for low-level environments, e.g. the kernel, faults are generally</span>
+    <span class="doccomment">/// not expected and relying on hardware memory protection would add too much complexity.</span>
     <span class="kw">pub</span> <span class="ident">enforce_stack_check</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Whether to enable state tracking. Necessary for managed mode.</span>
     <span class="kw">pub</span> <span class="ident">track_state</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Whether to enable full preemption checkpoint generation.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This inserts checkpoints at critical locations such as loop backedges and function calls,</span>
+    <span class="doccomment">/// allowing preemptive unwinding/task switching.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// When enabled there can be a small amount of runtime performance overhead.</span>
+    <span class="kw">pub</span> <span class="ident">full_preemption</span>: <span class="ident">bool</span>,
+
     <span class="kw">pub</span> <span class="ident">features</span>: <span class="ident">Features</span>,
 
     <span class="comment">// Target info. Presently only supported by LLVM.</span>
