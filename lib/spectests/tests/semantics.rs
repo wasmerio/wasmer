@@ -3,7 +3,7 @@ mod tests {
     use wabt::wat2wasm;
     use wasmer_runtime::{
         error::{CallError, RuntimeError},
-        ImportObject,
+        ExceptionCode, ImportObject,
     };
 
     // The semantics of stack overflow are documented at:
@@ -29,9 +29,11 @@ mod tests {
 
         match result {
             Err(err) => match err {
-                CallError::Runtime(RuntimeError::Trap { msg }) => {
-                    assert!(!msg.contains("segmentation violation"));
-                    assert!(!msg.contains("bus error"));
+                CallError::Runtime(RuntimeError(e)) => {
+                    let exc_code = e
+                        .downcast::<ExceptionCode>()
+                        .expect("expecting exception code");
+                    assert!(exc_code != ExceptionCode::Unknown);
                 }
                 _ => unimplemented!(),
             },

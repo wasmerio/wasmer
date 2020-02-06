@@ -30,7 +30,7 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     state::ModuleStateMap,
     structures::TypedIndex,
-    typed_func::{Trampoline, Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm},
     types::{LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
@@ -65,8 +65,7 @@ extern "C" {
         func_ptr: NonNull<vm::Func>,
         params: *const u64,
         results: *mut u64,
-        trap_out: *mut WasmTrapInfo,
-        user_error: *mut Option<Box<dyn Any + Send>>,
+        error_out: *mut Option<Box<dyn Any + Send>>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }

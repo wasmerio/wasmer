@@ -11,51 +11,11 @@ use std::{
     any::Any,
     convert::Infallible,
     ffi::c_void,
-    fmt,
     marker::PhantomData,
     mem, panic,
     ptr::{self, NonNull},
     sync::Arc,
 };
-
-/// Wasm trap info.
-#[repr(C)]
-pub enum WasmTrapInfo {
-    /// Unreachable trap.
-    Unreachable = 0,
-    /// Call indirect incorrect signature trap.
-    IncorrectCallIndirectSignature = 1,
-    /// Memory out of bounds trap.
-    MemoryOutOfBounds = 2,
-    /// Call indirect out of bounds trap.
-    CallIndirectOOB = 3,
-    /// Illegal arithmetic trap.
-    IllegalArithmetic = 4,
-    /// Misaligned atomic access trap.
-    MisalignedAtomicAccess = 5,
-    /// Unknown trap.
-    Unknown,
-}
-
-impl fmt::Display for WasmTrapInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                WasmTrapInfo::Unreachable => "unreachable",
-                WasmTrapInfo::IncorrectCallIndirectSignature => {
-                    "incorrect `call_indirect` signature"
-                }
-                WasmTrapInfo::MemoryOutOfBounds => "memory out-of-bounds access",
-                WasmTrapInfo::CallIndirectOOB => "`call_indirect` out-of-bounds",
-                WasmTrapInfo::IllegalArithmetic => "illegal arithmetic operation",
-                WasmTrapInfo::MisalignedAtomicAccess => "misaligned atomic access",
-                WasmTrapInfo::Unknown => "unknown",
-            }
-        )
-    }
-}
 
 /// This is just an empty trait to constrict that types that
 /// can be put into the third/fourth (depending if you include lifetimes)
@@ -77,8 +37,7 @@ pub type Invoke = unsafe extern "C" fn(
     func: NonNull<vm::Func>,
     args: *const u64,
     rets: *mut u64,
-    trap_info: *mut WasmTrapInfo,
-    user_error: *mut Option<Box<dyn Any + Send>>,
+    error_out: *mut Option<Box<dyn Any + Send>>,
     extra: Option<NonNull<c_void>>,
 ) -> bool;
 
@@ -401,8 +360,7 @@ macro_rules! impl_traits {
                 let ( $( $x ),* ) = self;
                 let args = [ $( $x.to_native().to_binary()),* ];
                 let mut rets = Rets::empty_ret_array();
-                let mut trap = WasmTrapInfo::Unknown;
-                let mut user_error = None;
+                let mut error_out = None;
 
                 if (wasm.invoke)(
                     wasm.trampoline,
@@ -410,17 +368,14 @@ macro_rules! impl_traits {
                     f,
                     args.as_ptr(),
                     rets.as_mut().as_mut_ptr(),
-                    &mut trap,
-                    &mut user_error,
+                    &mut error_out,
                     wasm.invoke_env
                 ) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
-                    if let Some(data) = user_error {
-                        Err(RuntimeError::Error { data })
-                    } else {
-                        Err(RuntimeError::Trap { msg: trap.to_string().into() })
-                    }
+                    Err(error_out.map(RuntimeError).unwrap_or_else(|| {
+                        RuntimeError(Box::new("invoke(): Unknown error".to_string()))
+                    }))
                 }
             }
         }

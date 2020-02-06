@@ -674,54 +674,42 @@ mod tests {
                             let call_result = maybe_call_result.unwrap();
                             use wasmer_runtime::error::{CallError, RuntimeError};
                             match call_result {
-                                Err(e) => {
-                                    match e {
-                                        CallError::Resolve(_) => {
+                                Err(e) => match e {
+                                    CallError::Resolve(_) => {
+                                        test_report.add_failure(
+                                            SpecFailure {
+                                                file: filename.to_string(),
+                                                line,
+                                                kind: format!("{}", "AssertTrap"),
+                                                message: format!("expected trap, got {:?}", e),
+                                            },
+                                            &test_key,
+                                            excludes,
+                                            line,
+                                        );
+                                    }
+                                    CallError::Runtime(RuntimeError(e)) => {
+                                        use wasmer_runtime::ExceptionCode;
+                                        if let Some(_) = data.downcast_ref::<ExceptionCode>() {
+                                            test_report.count_passed();
+                                        } else {
                                             test_report.add_failure(
                                                 SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
                                                     kind: format!("{}", "AssertTrap"),
-                                                    message: format!("expected trap, got {:?}", e),
+                                                    message: format!(
+                                                        "expected trap, got Runtime:Error {:?}",
+                                                        r
+                                                    ),
                                                 },
                                                 &test_key,
                                                 excludes,
                                                 line,
                                             );
                                         }
-                                        CallError::Runtime(r) => {
-                                            match r {
-                                                RuntimeError::Trap { .. } => {
-                                                    // TODO assert message?
-                                                    test_report.count_passed()
-                                                }
-                                                RuntimeError::Error { ref data } => {
-                                                    use wasmer_runtime::ExceptionCode;
-                                                    if let Some(_) =
-                                                        data.downcast_ref::<ExceptionCode>()
-                                                    {
-                                                        test_report.count_passed();
-                                                    } else {
-                                                        test_report.add_failure(
-                                                            SpecFailure {
-                                                                file: filename.to_string(),
-                                                                line,
-                                                                kind: format!("{}", "AssertTrap"),
-                                                                message: format!(
-                                                                "expected trap, got Runtime:Error {:?}",
-                                                                r
-                                                            ),
-                                                            },
-                                                            &test_key,
-                                                            excludes,
-                                                            line,
-                                                        );
-                                                    }
-                                                }
-                                            }
-                                        }
                                     }
-                                }
+                                },
                                 Ok(values) => {
                                     test_report.add_failure(
                                         SpecFailure {

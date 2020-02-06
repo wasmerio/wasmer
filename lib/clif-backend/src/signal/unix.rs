@@ -18,7 +18,7 @@ use nix::sys::signal::{
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
-use wasmer_runtime_core::typed_func::WasmTrapInfo;
+use wasmer_runtime_core::backend::ExceptionCode;
 
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
@@ -79,7 +79,7 @@ pub fn call_protected<T>(
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(CallProtError::Error(data))
+                Err(CallProtError(data))
             } else {
                 let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
@@ -88,21 +88,25 @@ pub fn call_protected<T>(
                     srcloc: _,
                 }) = handler_data.lookup(inst_ptr)
                 {
-                    Err(CallProtError::Trap(match Signal::from_c_int(signum) {
+                    Err(CallProtError(Box::new(match Signal::from_c_int(signum) {
                         Ok(SIGILL) => match trapcode {
-                            TrapCode::BadSignature => WasmTrapInfo::IncorrectCallIndirectSignature,
-                            TrapCode::IndirectCallToNull => WasmTrapInfo::CallIndirectOOB,
-                            TrapCode::HeapOutOfBounds => WasmTrapInfo::MemoryOutOfBounds,
-                            TrapCode::TableOutOfBounds => WasmTrapInfo::CallIndirectOOB,
-                            _ => WasmTrapInfo::Unknown,
+                            TrapCode::BadSignature => ExceptionCode::IncorrectCallIndirectSignature,
+                            TrapCode::IndirectCallToNull => ExceptionCode::CallIndirectOOB,
+                            TrapCode::HeapOutOfBounds => ExceptionCode::MemoryOutOfBounds,
+                            TrapCode::TableOutOfBounds => ExceptionCode::CallIndirectOOB,
+                            _ => {
+                                return Err(CallProtError(Box::new(
+                                    "unknown clif trap code".to_string(),
+                                )))
+                            }
                         },
-                        Ok(SIGSEGV) | Ok(SIGBUS) => WasmTrapInfo::MemoryOutOfBounds,
-                        Ok(SIGFPE) => WasmTrapInfo::IllegalArithmetic,
+                        Ok(SIGSEGV) | Ok(SIGBUS) => ExceptionCode::MemoryOutOfBounds,
+                        Ok(SIGFPE) => ExceptionCode::IllegalArithmetic,
                         _ => unimplemented!(
-                            "WasmTrapInfo::Unknown signal:{:?}",
+                            "ExceptionCode::Unknown signal:{:?}",
                             Signal::from_c_int(signum)
                         ),
-                    }))
+                    })))
                 } else {
                     let signal = match Signal::from_c_int(signum) {
                         Ok(SIGFPE) => "floating-point exception",
@@ -114,7 +118,7 @@ pub fn call_protected<T>(
                     };
                     // When the trap-handler is fully implemented, this will return more information.
                     let s = format!("unknown trap at {:p} - {}", faulting_addr, signal);
-                    Err(CallProtError::Error(Box::new(s)))
+                    Err(CallProtError(Box::new(s)))
                 }
             }
         } else {
