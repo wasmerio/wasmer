@@ -109,7 +109,7 @@ impl Memory {
     }
 
     /// Return a "view" of the currently accessible memory. By
-    /// default, the view is unsyncronized, using regular memory
+    /// default, the view is unsynchronized, using regular memory
     /// accesses. You can force a memory view to use atomic accesses
     /// by calling the [`atomically`] method.
     ///
