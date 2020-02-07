@@ -1,6 +1,6 @@
 use wasmer_runtime_core::{
-    compile_with, error::RuntimeError, imports, memory::Memory, typed_func::Func,
-    types::MemoryDescriptor, units::Pages, vm, Instance,
+    compile_with, error::RuntimeError, import::LikeNamespace, imports, memory::Memory,
+    typed_func::Func, types::MemoryDescriptor, units::Pages, vm, Instance,
 };
 use wasmer_runtime_core_tests::{get_compiler, wat2wasm};
 
@@ -292,3 +292,51 @@ test!(
         data: Box::new(format!("! {}", 2 + shift + SHIFT))
     })
 );
+
+#[test]
+fn test_table_sharing() {
+    const MODULE1: &str = r#"
+(module
+  (type (func (result i32)))
+  (table (export "table") 3 funcref)
+  (elem (i32.const 0) $a $a $a)
+  (func $a (result i32) (i32.const 3))
+  (func (export "call") (result i32)
+    (call_indirect (type 0) (i32.const 0))
+  )
+)
+"#;
+    let wasm_binary1 = wat2wasm(MODULE1.as_bytes()).expect("WASM not valid or malformed");
+    let module1 = compile_with(&wasm_binary1, &get_compiler()).unwrap();
+    let import_object1 = imports! {};
+    let instance1a = module1.instantiate(&import_object1).unwrap();
+    let instance1b = module1.instantiate(&import_object1).unwrap();
+
+    const MODULE2: &str = r#"
+(module
+  (type (func (result i32)))
+  (table (import "env" "table") 3 funcref)
+  (elem (i32.const 0) $b $b $b)
+  (func $b (result i32) (i32.const 4))
+  (func (export "call") (result i32)
+    (call_indirect (type 0) (i32.const 0))
+  )
+)
+"#;
+    let wasm_binary2 = wat2wasm(MODULE2.as_bytes()).expect("WASM not valid or malformed");
+    let module2 = compile_with(&wasm_binary2, &get_compiler()).unwrap();
+    let import_object2 = imports! {
+        "env" => {
+            "table" => instance1b.get_export("table").unwrap(),
+        },
+    };
+    let instance2 = module2.instantiate(&import_object2).unwrap();
+
+    let f1a: Func<(), i32> = instance1a.func("call").unwrap();
+    let f1b: Func<(), i32> = instance1b.func("call").unwrap();
+    let f2: Func<(), i32> = instance2.func("call").unwrap();
+
+    assert_eq!(f1a.call().unwrap(), 3);
+    assert_eq!(f1b.call().unwrap(), 4);
+    assert_eq!(f2.call().unwrap(), 4);
+}
