@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["DynFunc","A representation of an exported WebAssembly function."],["Instance","An instantiated WebAssembly module."]]});
+initSidebarItems({"fn":[["call_func_with_index",""],["call_func_with_index_inner",""]],"struct":[["DynFunc","A representation of an exported WebAssembly function."],["Instance","An instantiated WebAssembly module."],["InstanceInner",""]]});

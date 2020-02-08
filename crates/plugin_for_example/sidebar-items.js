@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["main",""],["plugin_entrypoint",""]]});
+initSidebarItems({"fn":[["it_works",""],["main",""],["plugin_entrypoint",""]]});

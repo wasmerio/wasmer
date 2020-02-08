@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Element","Kind of table element."],["TableStorage","Kind of table storage."]],"struct":[["Anyfunc","Anyfunc data type."],["Table","Container with a descriptor and a reference to a table storage."]]});
+initSidebarItems({"enum":[["Element","Kind of table element."],["TableStorage","Kind of table storage."]],"mod":[["anyfunc",""]],"struct":[["Anyfunc","Anyfunc data type."],["Table","Container with a descriptor and a reference to a table storage."]]});

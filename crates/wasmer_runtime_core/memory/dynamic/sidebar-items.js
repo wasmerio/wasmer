@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["DYNAMIC_GUARD_SIZE",""]],"struct":[["DynamicMemory","This is an internal-only api."]]});

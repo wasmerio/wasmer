@@ -1,0 +1,1 @@
+initSidebarItems({"static":[["GLOBAL_SIG_REGISTRY",""]],"struct":[["GLOBAL_SIG_REGISTRY",""],["GlobalSigRegistry",""],["SigRegistry","The `SigRegistry` represents a process-global map of function signatures to signature indexes and vice versa (the map goes both ways)."]]});

@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Array","Array."],["Item","Item."],["WasmPtr","A pointer to a Wasm item."]]});
+initSidebarItems({"fn":[["align_pointer",""]],"struct":[["Array","Array."],["Item","Item."],["WasmPtr","A pointer to a Wasm item."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Condition",""],["GPR","General-purpose registers."],["GPROrMemory",""],["Location",""],["Size",""],["XMM","XMM registers."],["XMMOrMemory",""]],"fn":[["_dummy",""]],"trait":[["Emitter",""]]});

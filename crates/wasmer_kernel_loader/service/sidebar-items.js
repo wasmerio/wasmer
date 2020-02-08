@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Command",""],["ServiceError",""]],"struct":[["ImportInfo",""],["LoadProfile",""],["RunProfile",""],["ServiceContext",""],["TableEntryRequest",""]],"type":[["ServiceResult",""]]});
+initSidebarItems({"enum":[["Command",""],["ServiceError",""]],"struct":[["ImportInfo",""],["ImportRequest",""],["LoadCodeRequest",""],["LoadProfile",""],["ReadMemoryRequest",""],["RunCodeRequest",""],["RunCodeResult",""],["RunProfile",""],["ServiceContext",""],["TableEntryRequest",""],["WriteMemoryRequest",""]],"type":[["ServiceResult",""]]});

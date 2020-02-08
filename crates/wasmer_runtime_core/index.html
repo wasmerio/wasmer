@@ -9,7 +9,7 @@ library by default. This crate provides additional APIs which may be useful to u
 that wish to customize the wasmer runtime.</p>
 </div><h2 id='reexports' class='section-header'><a href="#reexports">Re-exports</a></h2>
 <table><tr><td><code>pub use <a class="mod" href="../wasmer_runtime_core/trampoline_x64/index.html" title="mod wasmer_runtime_core::trampoline_x64">trampoline_x64</a> as trampoline;</code></td></tr><tr><td><code>pub use wasmparser;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
-<table><tr class='module-item'><td><a class="mod" href="cache/index.html" title='wasmer_runtime_core::cache mod'>cache</a></td><td class='docblock-short'><p>The cache module provides the common data structures used by compiler backends to allow
+<table><tr class='module-item'><td><a class="mod" href="backend/index.html" title='wasmer_runtime_core::backend mod'>backend</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="backing/index.html" title='wasmer_runtime_core::backing mod'>backing</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="cache/index.html" title='wasmer_runtime_core::cache mod'>cache</a></td><td class='docblock-short'><p>The cache module provides the common data structures used by compiler backends to allow
 serializing compiled wasm code to a binary format.  The binary format can be persisted,
 and loaded to allow skipping compilation and fast startup.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="codegen/index.html" title='wasmer_runtime_core::codegen mod'>codegen</a></td><td class='docblock-short'><p>The codegen module provides common functions and data structures used by multiple backends
@@ -29,7 +29,7 @@ functions.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="instance/index.html" title='wasmer_runtime_core::instance mod'>instance</a></td><td class='docblock-short'><p>The instance module contains the implementation data structures and helper functions used to
 manipulate and access wasm instances.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="loader/index.html" title='wasmer_runtime_core::loader mod'>loader</a></td><td class='docblock-short'><p>The loader module functions are used to load an instance.</p>
-</td></tr><tr class='module-item'><td><a class="mod" href="memory/index.html" title='wasmer_runtime_core::memory mod'>memory</a></td><td class='docblock-short'><p>The memory module contains the implementation data structures and helper functions used to
+</td></tr><tr class='module-item'><td><a class="mod" href="macros/index.html" title='wasmer_runtime_core::macros mod'>macros</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="memory/index.html" title='wasmer_runtime_core::memory mod'>memory</a></td><td class='docblock-short'><p>The memory module contains the implementation data structures and helper functions used to
 manipulate and access wasm memory.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="module/index.html" title='wasmer_runtime_core::module mod'>module</a></td><td class='docblock-short'><p>The module module contains the implementation data structures and helper functions used to
 manipulate and access wasm modules.</p>
@@ -37,11 +37,12 @@ manipulate and access wasm modules.</p>
 runtime data structures.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="prelude/index.html" title='wasmer_runtime_core::prelude mod'>prelude</a></td><td class='docblock-short'><p>The prelude module is a helper module used to bring commonly used runtime core imports into
 scope.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="sig_registry/index.html" title='wasmer_runtime_core::sig_registry mod'>sig_registry</a></td><td class='docblock-short'><p>A process-global registry for function signatures.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="state/index.html" title='wasmer_runtime_core::state mod'>state</a></td><td class='docblock-short'><p>The state module is used to track state of a running web assembly instances so that
 state could read or updated at runtime. Use cases include generating stack traces, switching
 generated code from one tier to another, or serializing state of a running instace.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="structures/index.html" title='wasmer_runtime_core::structures mod'>structures</a></td><td class='docblock-short'><p>The structures module contains commonly used data structures.</p>
-</td></tr><tr class='module-item'><td><a class="mod" href="table/index.html" title='wasmer_runtime_core::table mod'>table</a></td><td class='docblock-short'><p>The runtime table module contains data structures and functions used to create and update wasm
+</td></tr><tr class='module-item'><td><a class="mod" href="sys/index.html" title='wasmer_runtime_core::sys mod'>sys</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="table/index.html" title='wasmer_runtime_core::table mod'>table</a></td><td class='docblock-short'><p>The runtime table module contains data structures and functions used to create and update wasm
 tables.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="tiering/index.html" title='wasmer_runtime_core::tiering mod'>tiering</a></td><td class='docblock-short'><p>The tiering module supports switching between code compiled with different optimization levels
 as runtime.</p>
@@ -54,10 +55,11 @@ convert to other represenations.</p>
 other units.</p>
 </td></tr><tr class='module-item'><td><a class="mod" href="vm/index.html" title='wasmer_runtime_core::vm mod'>vm</a></td><td class='docblock-short'><p>The runtime vm module contains data structures and helper functions used during runtime to
 execute wasm instance functions.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="vmcalls/index.html" title='wasmer_runtime_core::vmcalls mod'>vmcalls</a></td><td class='docblock-short'><p>Functions called from the generated code.</p>
 </td></tr></table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
-<table><tr class='module-item'><td><a class="macro" href="macro.func.html" title='wasmer_runtime_core::func macro'>func</a></td><td class='docblock-short'><p>Helper macro to create a new <code>Func</code> object using the provided function pointer.</p>
+<table><tr class='module-item'><td><a class="macro" href="macro.__imports_internal.html" title='wasmer_runtime_core::__imports_internal macro'>__imports_internal</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="macro" href="macro.func.html" title='wasmer_runtime_core::func macro'>func</a></td><td class='docblock-short'><p>Helper macro to create a new <code>Func</code> object using the provided function pointer.</p>
 </td></tr><tr class='module-item'><td><a class="macro" href="macro.imports.html" title='wasmer_runtime_core::imports macro'>imports</a></td><td class='docblock-short'><p>Generate an <a href="struct.ImportObject.html"><code>ImportObject</code></a> safely.</p>
-</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+</td></tr><tr class='module-item'><td><a class="macro" href="macro.namespace.html" title='wasmer_runtime_core::namespace macro'>namespace</a></td><td class='docblock-short'></td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table><tr class='module-item'><td><a class="struct" href="struct.DynFunc.html" title='wasmer_runtime_core::DynFunc struct'>DynFunc</a></td><td class='docblock-short'><p>A representation of an exported WebAssembly function.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.Func.html" title='wasmer_runtime_core::Func struct'>Func</a></td><td class='docblock-short'><p>Represents a function that can be used by WebAssembly.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.Instance.html" title='wasmer_runtime_core::Instance struct'>Instance</a></td><td class='docblock-short'><p>An instantiated WebAssembly module.</p>

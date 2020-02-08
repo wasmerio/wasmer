@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["_IMPL_DESERIALIZE_FOR_BackendCache",""],["_IMPL_DESERIALIZE_FOR_TrampolineCache",""],["_IMPL_SERIALIZE_FOR_BackendCache",""],["_IMPL_SERIALIZE_FOR_TrampolineCache",""]],"struct":[["BackendCache",""],["CacheGenerator",""],["TrampolineCache",""]]});
