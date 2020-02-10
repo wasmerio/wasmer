@@ -120,7 +120,17 @@ pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -
     }
 }
 
-/// Returns the current length in pages of the given memory
+/// Reads the current length (in pages) of the given memory.
+///
+/// The function returns zero if `memory` is null.
+///
+/// Example:
+///
+/// ```c
+/// uint32_t memory_length = wasmer_memory_length(memory);
+///
+/// printf("Memory pages length: %d\n", memory_length);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> u32 {
