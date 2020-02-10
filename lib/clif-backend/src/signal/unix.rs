@@ -90,10 +90,16 @@ pub fn call_protected<T>(
                 {
                     Err(CallProtError(Box::new(match Signal::from_c_int(signum) {
                         Ok(SIGILL) => match trapcode {
-                            TrapCode::BadSignature => ExceptionCode::IncorrectCallIndirectSignature,
-                            TrapCode::IndirectCallToNull => ExceptionCode::CallIndirectOOB,
+                            TrapCode::StackOverflow => ExceptionCode::MemoryOutOfBounds,
                             TrapCode::HeapOutOfBounds => ExceptionCode::MemoryOutOfBounds,
                             TrapCode::TableOutOfBounds => ExceptionCode::CallIndirectOOB,
+                            TrapCode::OutOfBounds => ExceptionCode::MemoryOutOfBounds,
+                            TrapCode::IndirectCallToNull => ExceptionCode::CallIndirectOOB,
+                            TrapCode::BadSignature => ExceptionCode::IncorrectCallIndirectSignature,
+                            TrapCode::IntegerOverflow => ExceptionCode::IllegalArithmetic,
+                            TrapCode::IntegerDivisionByZero => ExceptionCode::IllegalArithmetic,
+                            TrapCode::BadConversionToInteger => ExceptionCode::IllegalArithmetic,
+                            TrapCode::UnreachableCodeReached => ExceptionCode::Unreachable,
                             _ => {
                                 return Err(CallProtError(Box::new(
                                     "unknown clif trap code".to_string(),
