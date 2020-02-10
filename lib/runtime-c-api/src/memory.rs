@@ -169,6 +169,11 @@ pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> u32 {
 ///
 /// ```c
 /// uint8_t *memory_data = wasmer_memory_data(memory);
+/// char *str = (char*) malloc(sizeof(char) * 7);
+///
+/// for (uint32_t nth = 0; nth < 7; ++nth) {
+///     str[nth] = (char) memory_data[nth];
+/// }
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
