@@ -291,30 +291,30 @@ fn types<'input, E: ParseError<&'input [u8]>>(
     Ok((input, types))
 }
 
-fn imported_functions<'input, E: ParseError<&'input [u8]>>(
+fn imports<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
-) -> IResult<&'input [u8], Vec<ImportedFunction>, E> {
+) -> IResult<&'input [u8], Vec<Import>, E> {
     let mut input = input;
 
-    consume!((input, number_of_imported_functions) = leb(input)?);
+    consume!((input, number_of_imports) = leb(input)?);
 
-    let mut imported_functions = Vec::with_capacity(number_of_imported_functions as usize);
+    let mut imports = Vec::with_capacity(number_of_imports as usize);
 
-    for _ in 0..number_of_imported_functions {
-        consume!((input, imported_function_namespace) = string(input)?);
-        consume!((input, imported_function_name) = string(input)?);
-        consume!((input, imported_function_input_types) = list(input, ty)?);
-        consume!((input, imported_function_output_types) = list(input, ty)?);
+    for _ in 0..number_of_imports {
+        consume!((input, import_namespace) = string(input)?);
+        consume!((input, import_name) = string(input)?);
+        consume!((input, import_input_types) = list(input, ty)?);
+        consume!((input, import_output_types) = list(input, ty)?);
 
-        imported_functions.push(ImportedFunction {
-            namespace: imported_function_namespace,
-            name: imported_function_name,
-            input_types: imported_function_input_types,
-            output_types: imported_function_output_types,
+        imports.push(Import {
+            namespace: import_namespace,
+            name: import_name,
+            input_types: import_input_types,
+            output_types: import_output_types,
         });
     }
 
-    Ok((input, imported_functions))
+    Ok((input, imports))
 }
 
 fn adapters<'input, E: ParseError<&'input [u8]>>(
@@ -406,7 +406,7 @@ pub fn parse<'input, E: ParseError<&'input [u8]>>(
 
     consume!((input, exports) = exports(input)?);
     consume!((input, types) = types(input)?);
-    consume!((input, imported_functions) = imported_functions(input)?);
+    consume!((input, imports) = imports(input)?);
     consume!((input, adapters) = adapters(input)?);
     consume!((input, forwards) = forwards(input)?);
 
@@ -415,7 +415,7 @@ pub fn parse<'input, E: ParseError<&'input [u8]>>(
         Interfaces {
             exports,
             types,
-            imported_functions,
+            imports,
             adapters,
             forwards,
         },
@@ -634,9 +634,9 @@ mod tests {
     }
 
     #[test]
-    fn test_imported_functions() {
+    fn test_imports() {
         let input = &[
-            0x02, // 2 imported functions
+            0x02, // 2 imports
             0x01, // string of 1 byte
             0x61, // "a"
             0x01, // string of 1 byte
@@ -657,13 +657,13 @@ mod tests {
         let output = Ok((
             &[] as &[u8],
             vec![
-                ImportedFunction {
+                Import {
                     namespace: "a",
                     name: "b",
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![InterfaceType::I64],
                 },
-                ImportedFunction {
+                Import {
                     namespace: "c",
                     name: "d",
                     input_types: vec![InterfaceType::I32],
@@ -672,7 +672,7 @@ mod tests {
             ],
         ));
 
-        assert_eq!(imported_functions::<()>(input), output);
+        assert_eq!(imports::<()>(input), output);
     }
 
     #[test]

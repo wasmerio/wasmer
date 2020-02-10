@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Adapter, Export, Forward, ImportedFunction, InterfaceType, Interfaces, Type},
+    ast::{Adapter, Export, Forward, Import, InterfaceType, Interfaces, Type},
     interpreter::Instruction,
 };
 
@@ -120,14 +120,14 @@ impl<'input> From<&Type<'input>> for String {
     }
 }
 
-impl<'input> From<&ImportedFunction<'input>> for String {
-    fn from(imported_function: &ImportedFunction) -> Self {
+impl<'input> From<&Import<'input>> for String {
+    fn from(import: &Import) -> Self {
         format!(
             r#"(@interface func ${namespace}_{name} (import "{namespace}" "{name}"){inputs}{outputs})"#,
-            namespace = imported_function.namespace,
-            name = imported_function.name,
-            inputs = input_types_to_param(&imported_function.input_types),
-            outputs = output_types_to_result(&imported_function.output_types),
+            namespace = import.namespace,
+            name = import.name,
+            inputs = input_types_to_param(&import.input_types),
+            outputs = output_types_to_result(&import.output_types),
         )
     }
 }
@@ -213,17 +213,17 @@ impl<'input> From<&Interfaces<'input>> for String {
                 accumulator
             });
 
-        let imported_functions = interfaces.imported_functions.iter().fold(
-            String::new(),
-            |mut accumulator, imported_function| {
+        let imports = interfaces
+            .imports
+            .iter()
+            .fold(String::new(), |mut accumulator, import| {
                 accumulator.push_str(&format!(
-                    "\n\n;; Interface, Imported function {}.{}\n",
-                    imported_function.namespace, imported_function.name
+                    "\n\n;; Interface, Import {}.{}\n",
+                    import.namespace, import.name
                 ));
-                accumulator.push_str(&String::from(imported_function));
+                accumulator.push_str(&String::from(import));
                 accumulator
-            },
-        );
+            });
 
         let adapters =
             interfaces
@@ -260,7 +260,7 @@ impl<'input> From<&Interfaces<'input>> for String {
 
         output.push_str(&exports);
         output.push_str(&types);
-        output.push_str(&imported_functions);
+        output.push_str(&imports);
         output.push_str(&adapters);
         output.push_str(&forwards);
 
@@ -389,30 +389,30 @@ mod tests {
     }
 
     #[test]
-    fn test_imported_functions() {
+    fn test_imports() {
         let inputs: Vec<String> = vec![
-            (&ImportedFunction {
+            (&Import {
                 namespace: "ns",
                 name: "foo",
                 input_types: vec![InterfaceType::Int, InterfaceType::String],
                 output_types: vec![InterfaceType::String],
             })
                 .into(),
-            (&ImportedFunction {
+            (&Import {
                 namespace: "ns",
                 name: "foo",
                 input_types: vec![InterfaceType::String],
                 output_types: vec![],
             })
                 .into(),
-            (&ImportedFunction {
+            (&Import {
                 namespace: "ns",
                 name: "foo",
                 input_types: vec![],
                 output_types: vec![InterfaceType::String],
             })
                 .into(),
-            (&ImportedFunction {
+            (&Import {
                 namespace: "ns",
                 name: "foo",
                 input_types: vec![],
@@ -549,14 +549,14 @@ mod tests {
                 },
             ],
             types: vec![],
-            imported_functions: vec![
-                ImportedFunction {
+            imports: vec![
+                Import {
                     namespace: "ns",
                     name: "foo",
                     input_types: vec![],
                     output_types: vec![InterfaceType::I32],
                 },
-                ImportedFunction {
+                Import {
                     namespace: "ns",
                     name: "bar",
                     input_types: vec![],
@@ -590,11 +590,11 @@ mod tests {
 ;; Interface, Export bar
 (@interface export "bar")
 
-;; Interface, Imported function ns.foo
+;; Interface, Import ns.foo
 (@interface func $ns_foo (import "ns" "foo")
   (result i32))
 
-;; Interface, Imported function ns.bar
+;; Interface, Import ns.bar
 (@interface func $ns_bar (import "ns" "bar"))
 
 ;; Interface, Adapter ns.foo
