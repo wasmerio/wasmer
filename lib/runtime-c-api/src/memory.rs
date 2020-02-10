@@ -198,10 +198,15 @@ pub extern "C" fn wasmer_memory_data(memory: *const wasmer_memory_t) -> *mut u8 
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> u32 {
-    let memory = mem as *mut Memory;
-    let Bytes(len) = unsafe { (*memory).size().bytes() };
-    len as u32
+pub extern "C" fn wasmer_memory_data_length(memory: *mut wasmer_memory_t) -> u32 {
+    if memory.is_null() {
+        return 0;
+    }
+
+    let memory = unsafe { &*(memory as *const Memory) };
+    let Bytes(length) = memory.size().bytes();
+
+    length as u32
 }
 
 /// Frees memory for the given Memory
