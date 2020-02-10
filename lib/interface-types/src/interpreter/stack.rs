@@ -100,7 +100,9 @@ mod tests {
 
         assert_eq!(stack.pop(1), Some(vec![6]));
         assert_eq!(stack.pop(2), Some(vec![5, 4]));
+        assert_eq!(stack.pop(4), None); // not enough items
         assert_eq!(stack.pop(3), Some(vec![3, 2, 1]));
+        assert_eq!(stack.pop1(), None);
         assert_eq!(stack.is_empty(), true);
     }
 }
