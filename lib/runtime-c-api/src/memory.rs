@@ -135,7 +135,7 @@ pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -
 
 /// Reads the current length (in pages) of the given memory.
 ///
-/// The function returns zero if `memory` is null.
+/// The function returns zero if `memory` is a null pointer.
 ///
 /// Example:
 ///
@@ -160,7 +160,7 @@ pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> u32 {
 /// Gets a pointer to the beginning of the contiguous memory data
 /// bytes.
 ///
-/// The function returns `NULL` if `memory` is NULL.
+/// The function returns `NULL` if `memory` is a null pointer.
 ///
 /// Note that when the memory grows, it can be reallocated, and thus
 /// the returned pointer can be invalidated.
@@ -189,7 +189,7 @@ pub extern "C" fn wasmer_memory_data(memory: *const wasmer_memory_t) -> *mut u8 
 
 /// Gets the size in bytes of the memory data.
 ///
-/// This function returns 0 if `memory` is NULL.
+/// This function returns 0 if `memory` is a null pointer.
 ///
 /// Example:
 ///
