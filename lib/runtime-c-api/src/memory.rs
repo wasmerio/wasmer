@@ -90,12 +90,22 @@ pub unsafe extern "C" fn wasmer_memory_new(
     wasmer_result_t::WASMER_OK
 }
 
-/// Grows a Memory by the given number of pages.
+/// Grows a memory by the given number of pages (of 65Kb each).
 ///
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// The functions return `wasmer_result_t::WASMER_OK` upon success,
+/// `wasmer_result_t::WASMER_ERROR` otherwise. Use
+/// `wasmer_last_error_length()` with `wasmer_last_error_message()` to
+/// read the error message.
 ///
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
+/// Example:
+///
+/// ```c
+/// wasmer_result_t result = wasmer_memory_grow(memory, 10 /* pages */);
+///
+/// if (result != WASMER_OK) {
+///     // …
+/// }
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -> wasmer_result_t {
