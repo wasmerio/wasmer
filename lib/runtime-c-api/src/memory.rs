@@ -157,7 +157,19 @@ pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> u32 {
     length
 }
 
-/// Gets the start pointer to the bytes within a Memory
+/// Gets a pointer to the beginning of the contiguous memory data
+/// bytes.
+///
+/// The function returns `NULL` if `memory` is NULL.
+///
+/// Note that when the memory grows, it can be reallocated, and thus
+/// the returned pointer can be invalidated.
+///
+/// Example:
+///
+/// ```c
+/// uint8_t *memory_data = wasmer_memory_data(memory);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_data(mem: *const wasmer_memory_t) -> *mut u8 {
