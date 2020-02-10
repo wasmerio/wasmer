@@ -174,7 +174,7 @@ mod tests {
                             inputs: vec![InterfaceType::I32, InterfaceType::I32],
                             outputs: vec![InterfaceType::I32],
                             function: |_| Ok(vec![]),
-                            //            ^^^^^^^^^^ void fails
+                            //            ^^^^^^^^^^ void
                         },
                     );
 
