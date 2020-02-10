@@ -134,9 +134,14 @@ pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> u32 {
+    if memory.is_null() {
+        return 0;
+    }
+
     let memory = unsafe { &*(memory as *const Memory) };
-    let Pages(len) = memory.size();
-    len
+    let Pages(length) = memory.size();
+
+    length
 }
 
 /// Gets the start pointer to the bytes within a Memory
