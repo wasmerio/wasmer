@@ -1,3 +1,5 @@
+//! Parse the WIT binary representation into an AST.
+
 use crate::{ast::*, interpreter::Instruction};
 use nom::{
     error::{make_error, ErrorKind, ParseError},
@@ -5,6 +7,7 @@ use nom::{
 };
 use std::{convert::TryFrom, str};
 
+/// Parse an `InterfaceType`.
 impl TryFrom<u64> for InterfaceType {
     type Error = &'static str;
 
@@ -25,6 +28,7 @@ impl TryFrom<u64> for InterfaceType {
     }
 }
 
+/// Parse an adapter kind.
 impl TryFrom<u8> for AdapterKind {
     type Error = &'static str;
 
@@ -38,6 +42,7 @@ impl TryFrom<u8> for AdapterKind {
     }
 }
 
+/// Parse a byte.
 fn byte<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'input [u8], u8, E> {
     if input.is_empty() {
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
@@ -46,6 +51,7 @@ fn byte<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'i
     Ok((&input[1..], input[0]))
 }
 
+/// Parse an unsigned LEB with value no larger than a 64-bits number.
 fn leb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'input [u8], u64, E> {
     if input.is_empty() {
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
@@ -65,6 +71,7 @@ fn leb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'in
     ))
 }
 
+/// Parse a UTF-8 string.
 fn string<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], &'input str, E> {
@@ -84,6 +91,7 @@ fn string<'input, E: ParseError<&'input [u8]>>(
     }))
 }
 
+/// Parse a list, with a item parser.
 #[allow(clippy::type_complexity)]
 fn list<'input, I, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
@@ -110,6 +118,7 @@ fn list<'input, I, E: ParseError<&'input [u8]>>(
     Ok((input, items))
 }
 
+/// Parse a type.
 fn ty<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], InterfaceType, E> {
@@ -125,7 +134,8 @@ fn ty<'input, E: ParseError<&'input [u8]>>(
     }
 }
 
-fn instructions<'input, E: ParseError<&'input [u8]>>(
+/// Parse an instruction with its arguments.
+fn instruction<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Instruction, E> {
     let (mut input, opcode) = byte(input)?;
@@ -243,6 +253,7 @@ fn instructions<'input, E: ParseError<&'input [u8]>>(
     })
 }
 
+/// Parse a list of exports.
 fn exports<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Export>, E> {
@@ -267,6 +278,7 @@ fn exports<'input, E: ParseError<&'input [u8]>>(
     Ok((input, exports))
 }
 
+/// Parse a list of types.
 fn types<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Type>, E> {
@@ -291,6 +303,7 @@ fn types<'input, E: ParseError<&'input [u8]>>(
     Ok((input, types))
 }
 
+/// Parse a list of imports.
 fn imports<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Import>, E> {
@@ -317,6 +330,7 @@ fn imports<'input, E: ParseError<&'input [u8]>>(
     Ok((input, imports))
 }
 
+/// Parse a list of adapters.
 fn adapters<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Adapter>, E> {
@@ -337,7 +351,7 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
                 consume!((input, adapter_name) = string(input)?);
                 consume!((input, adapter_input_types) = list(input, ty)?);
                 consume!((input, adapter_output_types) = list(input, ty)?);
-                consume!((input, adapter_instructions) = list(input, instructions)?);
+                consume!((input, adapter_instructions) = list(input, instruction)?);
 
                 adapters.push(Adapter::Import {
                     namespace: adapter_namespace,
@@ -352,7 +366,7 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
                 consume!((input, adapter_name) = string(input)?);
                 consume!((input, adapter_input_types) = list(input, ty)?);
                 consume!((input, adapter_output_types) = list(input, ty)?);
-                consume!((input, adapter_instructions) = list(input, instructions)?);
+                consume!((input, adapter_instructions) = list(input, instruction)?);
 
                 adapters.push(Adapter::Export {
                     name: adapter_name,
@@ -366,7 +380,7 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
                 consume!((input, adapter_name) = string(input)?);
                 consume!((input, adapter_input_types) = list(input, ty)?);
                 consume!((input, adapter_output_types) = list(input, ty)?);
-                consume!((input, adapter_instructions) = list(input, instructions)?);
+                consume!((input, adapter_instructions) = list(input, instruction)?);
 
                 adapters.push(Adapter::HelperFunction {
                     name: adapter_name,
@@ -381,6 +395,7 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
     Ok((input, adapters))
 }
 
+/// Parse a list of forwarded exports.
 fn forwards<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Forward>, E> {
@@ -399,6 +414,8 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
     Ok((input, forwards))
 }
 
+/// Parse a sequence of bytes, expecting it to be a valid WIT binary
+/// representation, into an `ast::Interfaces`.
 pub fn parse<'input, E: ParseError<&'input [u8]>>(
     bytes: &'input [u8],
 ) -> IResult<&'input [u8], Interfaces, E> {
@@ -569,7 +586,7 @@ mod tests {
             ],
         ));
 
-        assert_eq!(list::<Instruction, ()>(input, instructions), output);
+        assert_eq!(list::<Instruction, ()>(input, instruction), output);
     }
 
     #[test]
