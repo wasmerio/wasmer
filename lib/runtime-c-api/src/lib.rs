@@ -131,9 +131,14 @@ pub struct wasmer_limits_t {
     pub max: wasmer_limit_option_t,
 }
 
+/// The `wasmer_limit_option_t` struct repreesents an optional limit
+/// for `wasmer_limits_t`.
 #[repr(C)]
 pub struct wasmer_limit_option_t {
+    /// Whether the limit is set.
     pub has_some: bool,
+
+    /// The limit value.
     pub some: u32,
 }
 
