@@ -71,13 +71,17 @@ pub fn call_protected(
                 TrapCode::HeapOutOfBounds => ExceptionCode::MemoryOutOfBounds,
                 TrapCode::TableOutOfBounds => ExceptionCode::CallIndirectOOB,
                 TrapCode::UnreachableCodeReached => ExceptionCode::Unreachable,
-                _ => ExceptionCode::Unknown,
+                _ => return Err(CallProtError(Box::new("unknown trap code".to_string()))),
             },
-            EXCEPTION_STACK_OVERFLOW => ExceptionCode::Unknown,
+            EXCEPTION_STACK_OVERFLOW => ExceptionCode::MemoryOutOfBounds,
             EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => {
                 ExceptionCode::IllegalArithmetic
             }
-            _ => ExceptionCode::Unknown,
+            _ => {
+                return Err(CallProtError(Box::new(
+                    "unknown exception code".to_string(),
+                )))
+            }
         })))
     } else {
         let signal = match code as DWORD {

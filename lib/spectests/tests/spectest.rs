@@ -690,7 +690,7 @@ mod tests {
                                     }
                                     CallError::Runtime(RuntimeError(e)) => {
                                         use wasmer_runtime::ExceptionCode;
-                                        if let Some(_) = data.downcast_ref::<ExceptionCode>() {
+                                        if let Some(_) = e.downcast_ref::<ExceptionCode>() {
                                             test_report.count_passed();
                                         } else {
                                             test_report.add_failure(
@@ -699,8 +699,7 @@ mod tests {
                                                     line,
                                                     kind: format!("{}", "AssertTrap"),
                                                     message: format!(
-                                                        "expected trap, got Runtime:Error {:?}",
-                                                        r
+                                                        "expected trap, got RuntimeError"
                                                     ),
                                                 },
                                                 &test_key,
