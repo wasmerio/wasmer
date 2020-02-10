@@ -209,7 +209,23 @@ pub extern "C" fn wasmer_memory_data_length(memory: *mut wasmer_memory_t) -> u32
     length as u32
 }
 
-/// Frees memory for the given Memory
+/// Frees memory for the given `wasmer_memory_t`.
+///
+/// Check the `wasmer_memory_new()` function to get a complete
+/// example.
+///
+/// If `memory` is a null pointer, this function does nothing.
+///
+/// Example:
+///
+/// ```c
+/// // Get a memory.
+/// wasmer_memory_t *memory = NULL;
+/// wasmer_result_t result = wasmer_memory_new(&memory, memory_descriptor);
+///
+/// // Destroy the memory.
+/// wasmer_memory_destroy(memory);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_destroy(memory: *mut wasmer_memory_t) {
