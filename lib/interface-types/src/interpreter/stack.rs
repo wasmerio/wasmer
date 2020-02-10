@@ -1,18 +1,39 @@
+//! A very light and generic stack implementation, exposing only the
+//! operations required by the interpreter.
+
+/// The `Stackable` trait represents a small basic set of operations
+/// required by the interpreter.
 pub trait Stackable {
+    /// The kind of item the stack holds.
     type Item;
 
+    /// Checks whether the stack is empty.
     fn is_empty(&self) -> bool;
+
+    /// Extracts a slice containing the entire stack.
     fn as_slice(&self) -> &[Self::Item];
+
+    /// Appends one item to the end of the stack.
     fn push(&mut self, item: Self::Item);
+
+    /// Removes the last item of the stack and returns it, `None` if
+    /// the stack is empty.
     fn pop1(&mut self) -> Option<Self::Item>;
+
+    /// Removes `n` elements from the end of the stack, `None` if the
+    /// stack doesn't contain enough elements.
+    /// Returned items are ordered by FIFO: the last element comes
+    /// first in the list.
     fn pop(&mut self, n: usize) -> Option<Vec<Self::Item>>;
 }
 
+/// A stack implementation of the `Stackable` trait, based on a vector.
 #[derive(Debug, Default)]
 pub struct Stack<T>
 where
     T: Default + Clone,
 {
+    /// Inner structure holding the items.
     inner: Vec<T>,
 }
 
@@ -20,6 +41,7 @@ impl<T> Stack<T>
 where
     T: Default + Clone,
 {
+    /// Creates a new empty stack.
     pub fn new() -> Self {
         Self {
             ..Default::default()
