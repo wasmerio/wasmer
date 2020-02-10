@@ -1,8 +1,99 @@
+//! Writes the AST into a string representing WIT with its textual format.
+//!
+//! # Example
+//!
+//! ```rust
+//! use wasmer_interface_types::{
+//!     ast::*,
+//!     encoders::wat::*,
+//!     interpreter::Instruction,
+//! };
+//!
+//! # fn main() {
+//! let input: String = (&Interfaces {
+//!     exports: vec![
+//!         Export {
+//!             name: "foo",
+//!             input_types: vec![InterfaceType::I32],
+//!             output_types: vec![],
+//!         },
+//!         Export {
+//!             name: "bar",
+//!             input_types: vec![],
+//!             output_types: vec![],
+//!         },
+//!     ],
+//!     types: vec![],
+//!     imports: vec![
+//!         Import {
+//!             namespace: "ns",
+//!             name: "foo",
+//!             input_types: vec![],
+//!             output_types: vec![InterfaceType::I32],
+//!         },
+//!         Import {
+//!             namespace: "ns",
+//!             name: "bar",
+//!             input_types: vec![],
+//!             output_types: vec![],
+//!         },
+//!     ],
+//!     adapters: vec![
+//!         Adapter::Import {
+//!             namespace: "ns",
+//!             name: "foo",
+//!             input_types: vec![InterfaceType::I32],
+//!             output_types: vec![],
+//!             instructions: vec![Instruction::ArgumentGet { index: 42 }],
+//!         },
+//!         Adapter::Export {
+//!             name: "bar",
+//!             input_types: vec![],
+//!             output_types: vec![],
+//!             instructions: vec![Instruction::ArgumentGet { index: 42 }],
+//!         },
+//!     ],
+//!     forwards: vec![Forward { name: "main" }],
+//! })
+//!     .into();
+//! let output = r#";; Interfaces
+//!
+//! ;; Interface, Export foo
+//! (@interface export "foo"
+//!   (param i32))
+//!
+//! ;; Interface, Export bar
+//! (@interface export "bar")
+//!
+//! ;; Interface, Import ns.foo
+//! (@interface func $ns_foo (import "ns" "foo")
+//!   (result i32))
+//!
+//! ;; Interface, Import ns.bar
+//! (@interface func $ns_bar (import "ns" "bar"))
+//!
+//! ;; Interface, Adapter ns.foo
+//! (@interface adapt (import "ns" "foo")
+//!   (param i32)
+//!   arg.get 42)
+//!
+//! ;; Interface, Adapter bar
+//! (@interface adapt (export "bar")
+//!   arg.get 42)
+//!
+//! ;; Interface, Forward main
+//! (@interface forward (export "main"))"#;
+//!
+//! assert_eq!(input, output);
+//! # }
+//! ```
+
 use crate::{
     ast::{Adapter, Export, Forward, Import, InterfaceType, Interfaces, Type},
     interpreter::Instruction,
 };
 
+/// Encode an `InterfaceType` into a string.
 impl From<&InterfaceType> for String {
     fn from(interface_type: &InterfaceType) -> Self {
         match interface_type {
@@ -20,6 +111,7 @@ impl From<&InterfaceType> for String {
     }
 }
 
+/// Encode an `Instruction` into a string.
 impl<'input> From<&Instruction<'input>> for String {
     fn from(instruction: &Instruction) -> Self {
         match instruction {
@@ -69,6 +161,8 @@ impl<'input> From<&Instruction<'input>> for String {
     }
 }
 
+/// Encode a list of `InterfaceType` representing inputs into a
+/// string.
 fn input_types_to_param(input_types: &[InterfaceType]) -> String {
     if input_types.is_empty() {
         "".into()
@@ -86,6 +180,8 @@ fn input_types_to_param(input_types: &[InterfaceType]) -> String {
     }
 }
 
+/// Encode a list of `InterfaceType` representing outputs into a
+/// string.
 fn output_types_to_result(output_types: &[InterfaceType]) -> String {
     if output_types.is_empty() {
         "".into()
@@ -103,6 +199,7 @@ fn output_types_to_result(output_types: &[InterfaceType]) -> String {
     }
 }
 
+/// Encode an `Export` into a string.
 impl<'input> From<&Export<'input>> for String {
     fn from(export: &Export) -> Self {
         format!(
@@ -114,12 +211,14 @@ impl<'input> From<&Export<'input>> for String {
     }
 }
 
+/// Encode a `Type` into a string.
 impl<'input> From<&Type<'input>> for String {
     fn from(_ty: &Type) -> Self {
         unimplemented!()
     }
 }
 
+/// Encode an `Import` into a string.
 impl<'input> From<&Import<'input>> for String {
     fn from(import: &Import) -> Self {
         format!(
@@ -132,6 +231,7 @@ impl<'input> From<&Import<'input>> for String {
     }
 }
 
+/// Encode an `Adapter` into a string.
 impl<'input> From<&Adapter<'input>> for String {
     fn from(adapter: &Adapter) -> Self {
         match adapter {
@@ -182,6 +282,7 @@ impl<'input> From<&Adapter<'input>> for String {
     }
 }
 
+/// Encode a `Forward` into a string.
 impl<'input> From<&Forward<'input>> for String {
     fn from(forward: &Forward) -> Self {
         format!(
@@ -191,6 +292,7 @@ impl<'input> From<&Forward<'input>> for String {
     }
 }
 
+/// Encode an `Interfaces` into a string.
 impl<'input> From<&Interfaces<'input>> for String {
     fn from(interfaces: &Interfaces) -> Self {
         let mut output = String::from(";; Interfaces");
