@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # This install script is intended to download and install the latest available
-# release of the wasmer.
-# Installer script inspired from:
+# release of Wasmer.
+# Installer script inspired by:
 #  1) https://raw.githubusercontent.com/golang/dep/master/install.sh
 #  2) https://sh.rustup.rs
 #  3) https://yarnpkg.com/install.sh
@@ -21,7 +21,6 @@
 # $ curl https://raw.githubusercontent.com/wasmerio/wasmer/master/install.sh | sh
 
 set -e
-
 
 reset="\033[0m"
 red="\033[31m"
@@ -209,9 +208,11 @@ initArch() {
         printf "$cyan> Using WASMER_ARCH ($WASMER_ARCH).$reset\n"
         ARCH="$WASMER_ARCH"
     fi
+    # If you modify this list, please also modify scripts/binary-name.sh
     case $ARCH in
         amd64) ARCH="amd64";;
         x86_64) ARCH="amd64";;
+        aarch64) ARCH="arm64";;
         # i386) ARCH="386";;
         *) printf "$red> The system architecture (${ARCH}) is not supported by this installation script.$reset\n"; exit 1;;
     esac
@@ -257,10 +258,10 @@ wasmer_install() {
     printf "${reset}Installing Wasmer and WAPM!$reset\n"
     if [ "$WASMER_INSTALL_LOG" = "$WASMER_VERBOSE" ]; then
       printf "
-${magenta1}               ww            
-${magenta1}               wwwww         
-${magenta1}        ww     wwwwww  w     
-${magenta1}        wwwww      wwwwwwwww 
+${magenta1}               ww
+${magenta1}               wwwww
+${magenta1}        ww     wwwwww  w
+${magenta1}        wwwww      wwwwwwwww
 ${magenta1}ww      wwwwww  w     wwwwwww
 ${magenta1}wwwww      wwwwwwwwww   wwwww
 ${magenta1}wwwwww  w      wwwwwww  wwwww
@@ -269,10 +270,10 @@ ${magenta1}wwwwwwwwwwwwwww  wwwww  wwwww
 ${magenta1}wwwwwwwwwwwwwww  wwwww  wwwww
 ${magenta1}wwwwwwwwwwwwwww  wwwww  wwwww
 ${magenta1}wwwwwwwwwwwwwww  wwwww   wwww
-${magenta1}wwwwwwwwwwwwwww  wwwww       
-${magenta1}   wwwwwwwwwwww   wwww       
-${magenta1}       wwwwwwww              
-${magenta1}           wwww              
+${magenta1}wwwwwwwwwwwwwww  wwwww
+${magenta1}   wwwwwwwwwwww   wwww
+${magenta1}       wwwwwwww
+${magenta1}           wwww
 ${reset}
 "
     fi

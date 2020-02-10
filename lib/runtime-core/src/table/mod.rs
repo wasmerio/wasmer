@@ -1,3 +1,5 @@
+//! The runtime table module contains data structures and functions used to create and update wasm
+//! tables.
 use crate::{
     error::CreationError,
     export::Export,
@@ -16,16 +18,20 @@ pub use self::anyfunc::Anyfunc;
 pub(crate) use self::anyfunc::AnyfuncTable;
 use crate::error::GrowError;
 
+/// Kind of table element.
 pub enum Element<'a> {
+    /// Anyfunc.
     Anyfunc(Anyfunc<'a>),
 }
 
+/// Kind of table storage.
 // #[derive(Debug)]
 pub enum TableStorage {
     /// This is intended to be a caller-checked Anyfunc.
     Anyfunc(Box<AnyfuncTable>),
 }
 
+/// Container with a descriptor and a reference to a table storage.
 pub struct Table {
     desc: TableDescriptor,
     storage: Arc<Mutex<(TableStorage, vm::LocalTable)>>,
@@ -128,6 +134,7 @@ impl Table {
         }
     }
 
+    /// Get a mutable pointer to underlying table storage.
     pub fn vm_local_table(&mut self) -> *mut vm::LocalTable {
         let mut storage = self.storage.lock().unwrap();
         &mut storage.1

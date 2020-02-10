@@ -1,6 +1,9 @@
+//! The parse module contains common data structures and functions using to parse wasm files into
+//! runtime data structures.
+
 use crate::codegen::*;
 use crate::{
-    backend::{Backend, CompilerConfig, RunnableModule},
+    backend::{CompilerConfig, RunnableModule},
     error::CompileError,
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
@@ -22,9 +25,12 @@ use wasmparser::{
     WasmDecoder,
 };
 
+/// Kind of load error.
 #[derive(Debug)]
 pub enum LoadError {
+    /// Parse error.
     Parse(BinaryReaderError),
+    /// Code generation error.
     Codegen(String),
 }
 
@@ -42,6 +48,8 @@ impl From<BinaryReaderError> for LoadError {
     }
 }
 
+/// Read wasm binary into module data using the given backend, module code generator, middlewares,
+/// and compiler configuration.
 pub fn read_module<
     MCG: ModuleCodeGenerator<FCG, RM, E>,
     FCG: FunctionCodeGenerator<E>,
@@ -49,7 +57,6 @@ pub fn read_module<
     E: Debug,
 >(
     wasm: &[u8],
-    backend: Backend,
     mcg: &mut MCG,
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
@@ -75,7 +82,7 @@ pub fn read_module<
 
         func_assoc: Map::new(),
         signatures: Map::new(),
-        backend: backend,
+        backend: MCG::backend_id().to_string(),
 
         namespace_table: StringTable::new(),
         name_table: StringTable::new(),
@@ -138,7 +145,7 @@ pub fn read_module<
                     ImportSectionEntryType::Memory(memory_ty) => {
                         let mem_desc = MemoryDescriptor::new(
                             Pages(memory_ty.limits.initial),
-                            memory_ty.limits.maximum.map(|max| Pages(max)),
+                            memory_ty.limits.maximum.map(Pages),
                             memory_ty.shared,
                         )
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
@@ -176,7 +183,7 @@ pub fn read_module<
             ParserState::MemorySectionEntry(memory_ty) => {
                 let mem_desc = MemoryDescriptor::new(
                     Pages(memory_ty.limits.initial),
-                    memory_ty.limits.maximum.map(|max| Pages(max)),
+                    memory_ty.limits.maximum.map(Pages),
                     memory_ty.shared,
                 )
                 .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
@@ -264,11 +271,11 @@ pub fn read_module<
                                         Event::Internal(InternalEvent::FunctionBegin(id as u32)),
                                         &info.read().unwrap(),
                                     )
-                                    .map_err(|x| LoadError::Codegen(x))?;
+                                    .map_err(LoadError::Codegen)?;
                             }
                             middlewares
                                 .run(Some(fcg), Event::Wasm(op), &info.read().unwrap())
-                                .map_err(|x| LoadError::Codegen(x))?;
+                                .map_err(LoadError::Codegen)?;
                         }
                         ParserState::EndFunctionBody => break,
                         _ => unreachable!(),
@@ -280,7 +287,7 @@ pub fn read_module<
                         Event::Internal(InternalEvent::FunctionEnd),
                         &info.read().unwrap(),
                     )
-                    .map_err(|x| LoadError::Codegen(x))?;
+                    .map_err(LoadError::Codegen)?;
                 fcg.finalize()
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 func_count = func_count.wrapping_add(1);
@@ -394,6 +401,7 @@ pub fn read_module<
     Ok(info)
 }
 
+/// Convert given `WpType` to `Type`.
 pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
     match ty {
         WpType::I32 => Ok(Type::I32),
@@ -410,6 +418,7 @@ pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
     }
 }
 
+/// Convert given `Type` to `WpType`.
 pub fn type_to_wp_type(ty: Type) -> WpType {
     match ty {
         Type::I32 => WpType::I32,
@@ -441,7 +450,7 @@ fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, BinaryReaderErro
 
 fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
     Ok(match *op {
-        Operator::GetGlobal { global_index } => {
+        Operator::GlobalGet { global_index } => {
             Initializer::GetGlobal(ImportedGlobalIndex::new(global_index as usize))
         }
         Operator::I32Const { value } => Initializer::Const(Value::I32(value)),

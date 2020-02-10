@@ -1,12 +1,14 @@
-use crate::relocation::{TrapData, TrapSink};
-use crate::resolver::FuncResolver;
-use crate::trampoline::Trampolines;
+use crate::{
+    relocation::{TrapData, TrapSink},
+    resolver::FuncResolver,
+    trampoline::Trampolines,
+};
 use libc::c_void;
 use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
     backend::RunnableModule,
     module::ModuleInfo,
-    typed_func::{Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
     vm,
 };
@@ -24,12 +26,12 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 thread_local! {
-    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
+    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any + Send>>> = Cell::new(None);
 }
 
 pub enum CallProtError {
     Trap(WasmTrapInfo),
-    Error(Box<dyn Any>),
+    Error(Box<dyn Any + Send>),
 }
 
 pub struct Caller {
@@ -59,13 +61,13 @@ impl RunnableModule for Caller {
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         unsafe extern "C" fn invoke(
-            trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
+            trampoline: Trampoline,
             ctx: *mut vm::Ctx,
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
             trap_info: *mut WasmTrapInfo,
-            user_error: *mut Option<Box<dyn Any>>,
+            user_error: *mut Option<Box<dyn Any + Send>>,
             invoke_env: Option<NonNull<c_void>>,
         ) -> bool {
             let handler_data = &*invoke_env.unwrap().cast().as_ptr();
@@ -106,7 +108,7 @@ impl RunnableModule for Caller {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
         TRAP_EARLY_DATA.with(|cell| cell.set(Some(data)));
         trigger_trap()
     }

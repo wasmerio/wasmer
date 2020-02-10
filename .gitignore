@@ -5,3 +5,5 @@
 .idea
 **/.vscode
 install/
+api-docs/
+api-docs-repo/

@@ -1,10 +1,12 @@
 [package]
 name = "wasmer-runtime-c-api"
-version = "0.7.0"
+version = "0.13.1"
 description = "Wasmer C API library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "runtime"]
+categories = ["wasm"]
 edition = "2018"
 readme = "README.md"
 
@@ -17,19 +19,31 @@ libc = "0.2.60"
 [dependencies.wasmer-runtime]
 default-features = false
 path = "../runtime"
-version = "0.7.0"
+version = "0.13.1"
 
 [dependencies.wasmer-runtime-core]
 default-features = false
 path = "../runtime-core"
-version = "0.7.0"
+version = "0.13.1"
+
+[dependencies.wasmer-wasi]
+default-features = false
+path = "../wasi"
+version = "0.13.1"
+optional = true
+
+[dependencies.wasmer-emscripten]
+path = "../emscripten"
+version = "0.13.1"
+optional = true
 
 [features]
-default = ["cranelift-backend"]
-debug = ["wasmer-runtime/debug"]
+default = ["cranelift-backend", "wasi"]
+singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass"]
 cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift"]
 llvm-backend = ["wasmer-runtime/llvm", "wasmer-runtime/default-backend-llvm"]
-singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass"]
+wasi = ["wasmer-wasi"]
+emscripten = ["wasmer-emscripten"]
 
 [build-dependencies]
 cbindgen = "0.9"

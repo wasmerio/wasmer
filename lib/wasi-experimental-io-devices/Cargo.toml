@@ -1,0 +1,21 @@
+[package]
+name = "wasmer-wasi-experimental-io-devices"
+version = "0.13.1"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+repository = "https://github.com/wasmerio/wasmer"
+publish = true
+description = "An experimental non-standard WASI extension for graphics"
+license = "MIT"
+
+[badges]
+maintenance = { status = "experimental" }
+
+[dependencies]
+log = "0.4"
+minifb = "0.13"
+wasmer-wasi = { version = "0.13.1", path = "../wasi" }
+wasmer-runtime-core = { version = "0.13.1", path = "../runtime-core" }
+ref_thread_local = "0.0"
+serde = "1"
+typetag = "0.1"

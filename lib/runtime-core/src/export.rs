@@ -1,31 +1,51 @@
+//! The export module contains the implementation data structures and helper functions used to
+//! manipulate and access a wasm module's exports including memories, tables, globals, and
+//! functions.
 use crate::{
     global::Global, instance::InstanceInner, memory::Memory, module::ExportIndex,
     module::ModuleInner, table::Table, types::FuncSig, vm,
 };
 use indexmap::map::Iter as IndexMapIter;
-use std::sync::Arc;
+use std::{ptr::NonNull, sync::Arc};
 
+/// A kind of Context.
 #[derive(Debug, Copy, Clone)]
 pub enum Context {
+    /// External context include a mutable pointer to `Ctx`.
     External(*mut vm::Ctx),
+
+    /// External context with an environment include a mutable pointer
+    /// to `Ctx` and an optional non-null pointer to `FuncEnv`.
+    ExternalWithEnv(*mut vm::Ctx, Option<NonNull<vm::FuncEnv>>),
+
+    /// Internal context.
     Internal,
 }
 
 // Manually implemented because context contains a raw pointer to Ctx
 unsafe impl Send for Context {}
 
+/// Kind of WebAssembly export.
 #[derive(Debug, Clone)]
 pub enum Export {
+    /// Function export.
     Function {
+        /// A pointer to a function.
         func: FuncPointer,
+        /// A kind of context.
         ctx: Context,
+        /// The signature of the function.
         signature: Arc<FuncSig>,
     },
+    /// Memory export.
     Memory(Memory),
+    /// Table export.
     Table(Table),
+    /// Global export.
     Global(Global),
 }
 
+/// Const pointer to a `Func`.
 #[derive(Debug, Clone)]
 pub struct FuncPointer(*const vm::Func);
 
@@ -45,6 +65,7 @@ impl FuncPointer {
     }
 }
 
+/// An iterator to an instance's exports.
 pub struct ExportIter<'a> {
     inner: &'a InstanceInner,
     iter: IndexMapIter<'a, String, ExportIndex>,

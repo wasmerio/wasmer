@@ -1,5 +1,6 @@
 use crate::error::MemoryCreationError;
 use crate::error::MemoryProtectionError;
+use crate::sys::{round_down_to_page_size, round_up_to_page_size};
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{ptr, slice};
@@ -12,6 +13,7 @@ use winapi::um::winnt::{
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
 
+/// Data for a sized and protected region of memory.
 #[derive(Debug)]
 pub struct Memory {
     ptr: *mut u8,
@@ -20,6 +22,7 @@ pub struct Memory {
 }
 
 impl Memory {
+    /// Create a new memory from the given path value and protection.
     pub fn with_size_protect(size: usize, protection: Protect) -> Result<Self, String> {
         if size == 0 {
             return Ok(Self {
@@ -52,6 +55,7 @@ impl Memory {
         }
     }
 
+    /// Create a new memory with the given size.
     pub fn with_size(size: usize) -> Result<Self, MemoryCreationError> {
         if size == 0 {
             return Ok(Self {
@@ -79,6 +83,7 @@ impl Memory {
         }
     }
 
+    /// Protect this memory with the given range bounds and protection.
     pub unsafe fn protect(
         &mut self,
         range: impl RangeBounds<usize>,
@@ -120,6 +125,7 @@ impl Memory {
         }
     }
 
+    /// Split this memory into multiple memories by the given offset.
     pub fn split_at(mut self, offset: usize) -> (Memory, Memory) {
         let page_size = page_size::get();
         if offset % page_size == 0 {
@@ -140,22 +146,27 @@ impl Memory {
         }
     }
 
+    /// Gets the size of this memory.
     pub fn size(&self) -> usize {
         self.size
     }
 
+    /// Gets a slice for this memory.
     pub unsafe fn as_slice(&self) -> &[u8] {
         slice::from_raw_parts(self.ptr, self.size)
     }
 
+    /// Gets a mutable slice for this memory.
     pub unsafe fn as_slice_mut(&mut self) -> &mut [u8] {
         slice::from_raw_parts_mut(self.ptr, self.size)
     }
 
+    /// Gets the protect kind of this memory.
     pub fn protection(&self) -> Protect {
         self.protection
     }
 
+    /// Gets mutable pointer to the memory.
     pub fn as_ptr(&self) -> *mut u8 {
         self.ptr
     }
@@ -192,12 +203,17 @@ impl Clone for Memory {
     }
 }
 
+/// Kinds of memory protection.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {
+    /// Read/write/exec allowed.
     None,
+    /// Read only.
     Read,
+    /// Read/write only.
     ReadWrite,
+    /// Read/exec only.
     ReadExec,
 }
 
@@ -211,6 +227,7 @@ impl Protect {
         }
     }
 
+    /// Returns true if this memory is readable.
     pub fn is_readable(self) -> bool {
         match self {
             Protect::Read | Protect::ReadWrite | Protect::ReadExec => true,
@@ -218,22 +235,13 @@ impl Protect {
         }
     }
 
+    /// Returns true if this memory is writable.
     pub fn is_writable(self) -> bool {
         match self {
             Protect::ReadWrite => true,
             _ => false,
         }
     }
-}
-
-/// Round `size` up to the nearest multiple of `page_size`.
-fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
-    (size + (page_size - 1)) & !(page_size - 1)
-}
-
-/// Round `size` down to the nearest multiple of `page_size`.
-fn round_down_to_page_size(size: usize, page_size: usize) -> usize {
-    size & !(page_size - 1)
 }
 
 #[cfg(test)]

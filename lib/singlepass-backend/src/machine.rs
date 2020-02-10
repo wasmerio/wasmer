@@ -1,9 +1,10 @@
 use crate::emitter_x64::*;
 use smallvec::SmallVec;
 use std::collections::HashSet;
-use wasmer_runtime_core::state::x64::X64Register;
-use wasmer_runtime_core::state::*;
-use wasmparser::Type as WpType;
+use wasmer_runtime_core::{
+    state::{x64::X64Register, *},
+    wasmparser::Type as WpType,
+};
 
 struct MachineStackOffset(usize);
 
@@ -83,7 +84,14 @@ impl Machine {
 
     /// Releases a temporary GPR.
     pub fn release_temp_gpr(&mut self, gpr: GPR) {
-        assert_eq!(self.used_gprs.remove(&gpr), true);
+        assert!(self.used_gprs.remove(&gpr));
+    }
+
+    /// Specify that a given register is in use.
+    pub fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
+        assert!(!self.used_gprs.contains(&gpr));
+        self.used_gprs.insert(gpr);
+        gpr
     }
 
     /// Picks an unused XMM register.

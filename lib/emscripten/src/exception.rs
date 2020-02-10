@@ -10,28 +10,29 @@ pub fn ___cxa_allocate_exception(ctx: &mut Ctx, size: u32) -> u32 {
 
 pub fn ___cxa_current_primary_exception(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::___cxa_current_primary_exception");
-    unimplemented!()
+    unimplemented!("emscripten::___cxa_current_primary_exception")
 }
 
 pub fn ___cxa_decrement_exception_refcount(_ctx: &mut Ctx, _a: u32) {
     debug!("emscripten::___cxa_decrement_exception_refcount({})", _a);
-    unimplemented!()
+    unimplemented!("emscripten::___cxa_decrement_exception_refcount({})", _a)
 }
 
 pub fn ___cxa_increment_exception_refcount(_ctx: &mut Ctx, _a: u32) {
     debug!("emscripten::___cxa_increment_exception_refcount({})", _a);
-    unimplemented!()
+    unimplemented!("emscripten::___cxa_increment_exception_refcount({})", _a)
 }
 
 pub fn ___cxa_rethrow_primary_exception(_ctx: &mut Ctx, _a: u32) {
     debug!("emscripten::___cxa_rethrow_primary_exception({})", _a);
-    unimplemented!()
+    unimplemented!("emscripten::___cxa_rethrow_primary_exception({})", _a)
 }
 
 /// emscripten: ___cxa_throw
 /// TODO: We don't have support for exceptions yet
 pub fn ___cxa_throw(ctx: &mut Ctx, _ptr: u32, _ty: u32, _destructor: u32) {
     debug!("emscripten::___cxa_throw");
+    eprintln!("Throwing exceptions not yet implemented: aborting!");
     _abort(ctx);
 }
 

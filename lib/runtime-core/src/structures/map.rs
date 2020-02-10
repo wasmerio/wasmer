@@ -21,6 +21,7 @@ impl<K, V> Map<K, V>
 where
     K: TypedIndex,
 {
+    /// Creates a new `Map`.
     pub fn new() -> Self {
         Self {
             elems: Vec::new(),
@@ -28,6 +29,7 @@ where
         }
     }
 
+    /// Creates a new empty `Map` with the given capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             elems: Vec::with_capacity(capacity),
@@ -35,32 +37,44 @@ where
         }
     }
 
+    /// Clears the map. Keeps the allocated memory for future use.
+    pub fn clear(&mut self) {
+        self.elems.clear();
+    }
+
+    /// Returns the size of this map.
     pub fn len(&self) -> usize {
         self.elems.len()
     }
 
+    /// Returns true if this map is empty.
     pub fn is_empty(&self) -> bool {
         self.elems.is_empty()
     }
 
+    /// Adds a new value to this map.
     pub fn push(&mut self, value: V) -> K {
         let len = self.len();
         self.elems.push(value);
         K::new(len)
     }
 
+    /// Returns the next index into the map.
     pub fn next_index(&self) -> K {
         K::new(self.len())
     }
 
+    /// Reserves the given size.
     pub fn reserve_exact(&mut self, size: usize) {
         self.elems.reserve_exact(size);
     }
 
+    /// Convert this into a `BoxedMap`.
     pub fn into_boxed_map(self) -> BoxedMap<K, V> {
         BoxedMap::new(self.elems.into_boxed_slice())
     }
 
+    /// Convert this into a `Vec`.
     pub fn into_vec(self) -> Vec<V> {
         self.elems
     }
@@ -71,6 +85,7 @@ where
     K: TypedIndex,
     V: Clone,
 {
+    /// Resize this map to the given new length and value.
     pub fn resize(&mut self, new_len: usize, value: V) {
         self.elems.resize(new_len, value);
     }
@@ -184,6 +199,7 @@ where
     }
 }
 
+/// Iterator for a `Map`.
 pub struct Iter<'a, K: TypedIndex, V: 'a> {
     enumerated: iter::Enumerate<slice::Iter<'a, V>>,
     _marker: PhantomData<K>,
@@ -206,6 +222,7 @@ impl<'a, K: TypedIndex, V: 'a> Iterator for Iter<'a, K, V> {
     }
 }
 
+/// Mutable iterator for a `Map`.
 pub struct IterMut<'a, K: TypedIndex, V: 'a> {
     enumerated: iter::Enumerate<slice::IterMut<'a, V>>,
     _marker: PhantomData<K>,

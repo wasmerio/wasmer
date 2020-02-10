@@ -22,68 +22,32 @@ pub mod sys {
 }
 pub use crate::sig_registry::SigRegistry;
 
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Backend {
-    Cranelift,
-    Singlepass,
-    LLVM,
+/// The target architecture for code generation.
+#[derive(Copy, Clone, Debug)]
+pub enum Architecture {
+    /// x86-64.
+    X64,
+
+    /// Aarch64 (ARM64).
+    Aarch64,
 }
 
-impl Backend {
-    pub fn variants() -> &'static [&'static str] {
-        &[
-            #[cfg(feature = "backend-cranelift")]
-            "cranelift",
-            #[cfg(feature = "backend-singlepass")]
-            "singlepass",
-            #[cfg(feature = "backend-llvm")]
-            "llvm",
-        ]
-    }
-
-    /// stable string representation of the backend
-    /// can be used as part of a cache key, for example
-    pub fn to_string(&self) -> &'static str {
-        match self {
-            Backend::Cranelift => "cranelift",
-            Backend::Singlepass => "singlepass",
-            Backend::LLVM => "llvm",
-        }
-    }
+/// The type of an inline breakpoint.
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
+pub enum InlineBreakpointType {
+    /// A middleware invocation breakpoint.
+    Middleware,
 }
 
-impl Default for Backend {
-    fn default() -> Self {
-        Backend::Cranelift
-    }
-}
+/// Information of an inline breakpoint.
+#[derive(Clone, Debug)]
+pub struct InlineBreakpoint {
+    /// Size in bytes taken by this breakpoint's instruction sequence.
+    pub size: usize,
 
-impl std::str::FromStr for Backend {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Backend, String> {
-        match s.to_lowercase().as_str() {
-            "singlepass" => Ok(Backend::Singlepass),
-            "cranelift" => Ok(Backend::Cranelift),
-            "llvm" => Ok(Backend::LLVM),
-            _ => Err(format!("The backend {} doesn't exist", s)),
-        }
-    }
-}
-
-#[cfg(test)]
-mod backend_test {
-    use super::*;
-    use std::str::FromStr;
-
-    #[test]
-    fn str_repr_matches() {
-        // if this test breaks, think hard about why it's breaking
-        // can we avoid having these be different?
-
-        for &backend in &[Backend::Cranelift, Backend::LLVM, Backend::Singlepass] {
-            assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
-        }
-    }
+    /// Type of the inline breakpoint.
+    pub ty: InlineBreakpointType,
 }
 
 /// This type cannot be constructed from
@@ -111,10 +75,33 @@ impl Default for MemoryBoundCheckMode {
     }
 }
 
+/// Controls which experimental features will be enabled.
+/// Features usually have a corresponding [WebAssembly proposal][wasm-props].
+///
+/// [wasm-props]: https://github.com/WebAssembly/proposals
 #[derive(Debug, Default)]
 pub struct Features {
+    /// Whether support for the [SIMD proposal][simd-prop] is enabled.
+    ///
+    /// [simd-prop]: https://github.com/webassembly/simd
     pub simd: bool,
+    /// Whether support for the [threads proposal][threads-prop] is enabled.
+    ///
+    /// [threads-prop]: https://github.com/webassembly/threads
     pub threads: bool,
+}
+
+/// Use this to point to a compiler config struct provided by the backend.
+/// The backend struct must support runtime reflection with `Any`, which is any
+/// struct that does not contain a non-`'static` reference.
+#[derive(Debug)]
+pub struct BackendCompilerConfig(pub Box<dyn Any + 'static>);
+
+impl BackendCompilerConfig {
+    /// Obtain the backend-specific compiler config struct.
+    pub fn get_specific<T: 'static>(&self) -> Option<&T> {
+        self.0.downcast_ref::<T>()
+    }
 }
 
 /// Configuration data for the compiler
@@ -122,10 +109,62 @@ pub struct Features {
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
+
+    /// How to make the decision whether to emit bounds checks for memory accesses.
     pub memory_bound_check_mode: MemoryBoundCheckMode,
+
+    /// Whether to generate explicit native stack checks against `stack_lower_bound` in `InternalCtx`.
+    ///
+    /// Usually it's adequate to use hardware memory protection mechanisms such as `mprotect` on Unix to
+    /// prevent stack overflow. But for low-level environments, e.g. the kernel, faults are generally
+    /// not expected and relying on hardware memory protection would add too much complexity.
     pub enforce_stack_check: bool,
+
+    /// Whether to enable state tracking. Necessary for managed mode.
     pub track_state: bool,
+
+    /// Whether to enable full preemption checkpoint generation.
+    ///
+    /// This inserts checkpoints at critical locations such as loop backedges and function calls,
+    /// allowing preemptive unwinding/task switching.
+    ///
+    /// When enabled there can be a small amount of runtime performance overhead.
+    pub full_preemption: bool,
+
     pub features: Features,
+
+    // Target info. Presently only supported by LLVM.
+    pub triple: Option<String>,
+    pub cpu_name: Option<String>,
+    pub cpu_features: Option<String>,
+
+    pub backend_specific_config: Option<BackendCompilerConfig>,
+}
+
+/// An exception table for a `RunnableModule`.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ExceptionTable {
+    /// Mappings from offsets in generated machine code to the corresponding exception code.
+    pub offset_to_code: HashMap<usize, ExceptionCode>,
+}
+
+impl ExceptionTable {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// The code of an exception.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum ExceptionCode {
+    /// An `unreachable` opcode was executed.
+    Unreachable,
+
+    /// An arithmetic exception, e.g. divided by zero.
+    Arithmetic,
+
+    /// Memory access exception, e.g. misaligned/out-of-bound read/write.
+    Memory,
 }
 
 pub trait Compiler {
@@ -159,16 +198,21 @@ pub trait RunnableModule: Send + Sync {
         None
     }
 
+    fn get_exception_table(&self) -> Option<&ExceptionTable> {
+        None
+    }
+
     unsafe fn patch_local_function(&self, _idx: usize, _target_address: usize) -> bool {
         false
     }
 
     /// A wasm trampoline contains the necessary data to dynamically call an exported wasm function.
-    /// Given a particular signature index, we are returned a trampoline that is matched with that
+    /// Given a particular signature index, we return a trampoline that is matched with that
     /// signature and an invoke function that can call the trampoline.
     fn get_trampoline(&self, info: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm>;
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
+    /// Trap an error.
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> !;
 
     /// Returns the machine code associated with this module.
     fn get_code(&self) -> Option<&[u8]> {
@@ -182,6 +226,23 @@ pub trait RunnableModule: Send + Sync {
 
     /// Returns the beginning offsets of all local functions.
     fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
+        None
+    }
+
+    /// Returns the inline breakpoint size corresponding to an Architecture (None in case is not implemented)
+    fn get_inline_breakpoint_size(&self, _arch: Architecture) -> Option<usize> {
+        None
+    }
+
+    /// Attempts to read an inline breakpoint from the code.
+    ///
+    /// Inline breakpoints are detected by special instruction sequences that never
+    /// appear in valid code.
+    fn read_inline_breakpoint(
+        &self,
+        _arch: Architecture,
+        _code: &[u8],
+    ) -> Option<InlineBreakpoint> {
         None
     }
 }

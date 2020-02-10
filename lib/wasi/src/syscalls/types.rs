@@ -8,12 +8,12 @@ use std::mem;
 use wasmer_runtime_core::types::ValueType;
 
 pub type __wasi_advice_t = u8;
-pub const __WASI_ADVICE_DONTNEED: u8 = 0;
-pub const __WASI_ADVICE_NOREUSE: u8 = 1;
-pub const __WASI_ADVICE_NORMAL: u8 = 2;
-pub const __WASI_ADVICE_RANDOM: u8 = 3;
-pub const __WASI_ADVICE_SEQUENTIAL: u8 = 4;
-pub const __WASI_ADVICE_WILLNEED: u8 = 5;
+pub const __WASI_ADVICE_NORMAL: u8 = 0;
+pub const __WASI_ADVICE_SEQUENTIAL: u8 = 1;
+pub const __WASI_ADVICE_RANDOM: u8 = 2;
+pub const __WASI_ADVICE_WILLNEED: u8 = 3;
+pub const __WASI_ADVICE_DONTNEED: u8 = 4;
+pub const __WASI_ADVICE_NOREUSE: u8 = 5;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
@@ -416,7 +416,7 @@ pub struct __wasi_iovec_t {
 
 unsafe impl ValueType for __wasi_iovec_t {}
 
-pub type __wasi_linkcount_t = u32;
+pub type __wasi_linkcount_t = u64;
 
 pub type __wasi_lookupflags_t = u32;
 pub const __WASI_LOOKUP_SYMLINK_FOLLOW: u32 = 1 << 0;
@@ -457,8 +457,8 @@ pub const __WASI_RIGHT_FD_FILESTAT_GET: u64 = 1 << 21;
 pub const __WASI_RIGHT_FD_FILESTAT_SET_SIZE: u64 = 1 << 22;
 pub const __WASI_RIGHT_FD_FILESTAT_SET_TIMES: u64 = 1 << 23;
 pub const __WASI_RIGHT_PATH_SYMLINK: u64 = 1 << 24;
-pub const __WASI_RIGHT_PATH_UNLINK_FILE: u64 = 1 << 25;
-pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: u64 = 1 << 26;
+pub const __WASI_RIGHT_PATH_REMOVE_DIRECTORY: u64 = 1 << 25;
+pub const __WASI_RIGHT_PATH_UNLINK_FILE: u64 = 1 << 26;
 pub const __WASI_RIGHT_POLL_FD_READWRITE: u64 = 1 << 27;
 pub const __WASI_RIGHT_SOCK_SHUTDOWN: u64 = 1 << 28;
 
@@ -522,32 +522,36 @@ pub const __WASI_SHUT_WR: u8 = 1 << 1;
 pub type __wasi_siflags_t = u16;
 
 pub type __wasi_signal_t = u8;
-pub const __WASI_SIGABRT: u8 = 0;
-pub const __WASI_SIGALRM: u8 = 1;
-pub const __WASI_SIGBUS: u8 = 2;
-pub const __WASI_SIGCHLD: u8 = 3;
-pub const __WASI_SIGCONT: u8 = 4;
-pub const __WASI_SIGFPE: u8 = 5;
-pub const __WASI_SIGHUP: u8 = 6;
-pub const __WASI_SIGILL: u8 = 7;
-pub const __WASI_SIGINT: u8 = 8;
+pub const __WASI_SIGHUP: u8 = 1;
+pub const __WASI_SIGINT: u8 = 2;
+pub const __WASI_SIGQUIT: u8 = 3;
+pub const __WASI_SIGILL: u8 = 4;
+pub const __WASI_SIGTRAP: u8 = 5;
+pub const __WASI_SIGABRT: u8 = 6;
+pub const __WASI_SIGBUS: u8 = 7;
+pub const __WASI_SIGFPE: u8 = 8;
 pub const __WASI_SIGKILL: u8 = 9;
-pub const __WASI_SIGPIPE: u8 = 10;
-pub const __WASI_SIGQUIT: u8 = 11;
-pub const __WASI_SIGSEGV: u8 = 12;
-pub const __WASI_SIGSTOP: u8 = 13;
-pub const __WASI_SIGSYS: u8 = 14;
+pub const __WASI_SIGUSR1: u8 = 10;
+pub const __WASI_SIGSEGV: u8 = 11;
+pub const __WASI_SIGUSR2: u8 = 12;
+pub const __WASI_SIGPIPE: u8 = 13;
+pub const __WASI_SIGALRM: u8 = 14;
 pub const __WASI_SIGTERM: u8 = 15;
-pub const __WASI_SIGTRAP: u8 = 16;
-pub const __WASI_SIGTSTP: u8 = 17;
-pub const __WASI_SIGTTIN: u8 = 18;
-pub const __WASI_SIGTTOU: u8 = 19;
-pub const __WASI_SIGURG: u8 = 20;
-pub const __WASI_SIGUSR1: u8 = 21;
-pub const __WASI_SIGUSR2: u8 = 22;
-pub const __WASI_SIGVTALRM: u8 = 23;
-pub const __WASI_SIGXCPU: u8 = 24;
-pub const __WASI_SIGXFSZ: u8 = 25;
+pub const __WASI_SIGCHLD: u8 = 16;
+pub const __WASI_SIGCONT: u8 = 17;
+pub const __WASI_SIGSTOP: u8 = 18;
+pub const __WASI_SIGTSTP: u8 = 19;
+pub const __WASI_SIGTTIN: u8 = 20;
+pub const __WASI_SIGTTOU: u8 = 21;
+pub const __WASI_SIGURG: u8 = 22;
+pub const __WASI_SIGXCPU: u8 = 23;
+pub const __WASI_SIGXFSZ: u8 = 24;
+pub const __WASI_SIGVTALRM: u8 = 25;
+pub const __WASI_SIGPROF: u8 = 26;
+pub const __WASI_SIGWINCH: u8 = 27;
+pub const __WASI_SIGPOLL: u8 = 28;
+pub const __WASI_SIGPWR: u8 = 29;
+pub const __WASI_SIGSYS: u8 = 30;
 
 pub type __wasi_subclockflags_t = u16;
 pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u16 = 1 << 0;
@@ -555,7 +559,6 @@ pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u16 = 1 << 0;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct __wasi_subscription_clock_t {
-    pub userdata: __wasi_userdata_t,
     pub clock_id: __wasi_clockid_t,
     pub timeout: __wasi_timestamp_t,
     pub precision: __wasi_timestamp_t,
@@ -571,8 +574,8 @@ pub struct __wasi_subscription_fs_readwrite_t {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union __wasi_subscription_u {
-    clock: __wasi_subscription_clock_t,
-    fd_readwrite: __wasi_subscription_fs_readwrite_t,
+    pub clock: __wasi_subscription_clock_t,
+    pub fd_readwrite: __wasi_subscription_fs_readwrite_t,
 }
 
 #[derive(Copy, Clone)]
@@ -694,6 +697,107 @@ pub type __wasi_timestamp_t = u64;
 pub type __wasi_userdata_t = u64;
 
 pub type __wasi_whence_t = u8;
-pub const __WASI_WHENCE_CUR: u8 = 0;
-pub const __WASI_WHENCE_END: u8 = 1;
-pub const __WASI_WHENCE_SET: u8 = 2;
+pub const __WASI_WHENCE_SET: u8 = 0;
+pub const __WASI_WHENCE_CUR: u8 = 1;
+pub const __WASI_WHENCE_END: u8 = 2;
+
+pub mod snapshot0 {
+    use serde::{Deserialize, Serialize};
+    pub type __wasi_linkcount_t = u32;
+    use wasmer_runtime_core::types::ValueType;
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    #[repr(C)]
+    pub struct __wasi_subscription_clock_t {
+        pub userdata: super::__wasi_userdata_t,
+        pub clock_id: super::__wasi_clockid_t,
+        pub timeout: super::__wasi_timestamp_t,
+        pub precision: super::__wasi_timestamp_t,
+        pub flags: super::__wasi_subclockflags_t,
+    }
+
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub union __wasi_subscription_u {
+        pub clock: __wasi_subscription_clock_t,
+        pub fd_readwrite: super::__wasi_subscription_fs_readwrite_t,
+    }
+
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub struct __wasi_subscription_t {
+        pub userdata: super::__wasi_userdata_t,
+        pub type_: super::__wasi_eventtype_t,
+        pub u: __wasi_subscription_u,
+    }
+
+    unsafe impl ValueType for __wasi_subscription_t {}
+
+    pub type __wasi_whence_t = u8;
+    pub const __WASI_WHENCE_CUR: u8 = 0;
+    pub const __WASI_WHENCE_END: u8 = 1;
+    pub const __WASI_WHENCE_SET: u8 = 2;
+
+    #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[repr(C)]
+    pub struct __wasi_filestat_t {
+        pub st_dev: super::__wasi_device_t,
+        pub st_ino: super::__wasi_inode_t,
+        pub st_filetype: super::__wasi_filetype_t,
+        pub st_nlink: __wasi_linkcount_t,
+        pub st_size: super::__wasi_filesize_t,
+        pub st_atim: super::__wasi_timestamp_t,
+        pub st_mtim: super::__wasi_timestamp_t,
+        pub st_ctim: super::__wasi_timestamp_t,
+    }
+
+    unsafe impl ValueType for __wasi_filestat_t {}
+
+    impl std::fmt::Debug for __wasi_filestat_t {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let convert_ts_into_time_string = |ts| {
+                let tspec =
+                    time::Timespec::new(ts as i64 / 1_000_000_000, (ts % 1_000_000_000) as i32);
+                let tm = time::at(tspec);
+                let out_time = tm.rfc822();
+                format!("{} ({})", out_time, ts)
+            };
+            f.debug_struct("__wasi_filestat_t")
+                .field("st_dev", &self.st_dev)
+                .field("st_ino", &self.st_ino)
+                .field(
+                    "st_filetype",
+                    &format!(
+                        "{} ({})",
+                        super::wasi_filetype_to_name(self.st_filetype),
+                        self.st_filetype,
+                    ),
+                )
+                .field("st_nlink", &self.st_nlink)
+                .field("st_size", &self.st_size)
+                .field("st_atim", &convert_ts_into_time_string(self.st_atim))
+                .field("st_mtim", &convert_ts_into_time_string(self.st_mtim))
+                .field("st_ctim", &convert_ts_into_time_string(self.st_ctim))
+                .finish()
+        }
+    }
+
+    impl std::fmt::Debug for __wasi_subscription_t {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("__wasi_subscription_t")
+                .field("userdata", &self.userdata)
+                .field("type", &super::eventtype_to_str(self.type_))
+                .field(
+                    "u",
+                    match self.type_ {
+                        super::__WASI_EVENTTYPE_CLOCK => unsafe { &self.u.clock },
+                        super::__WASI_EVENTTYPE_FD_READ | super::__WASI_EVENTTYPE_FD_WRITE => unsafe {
+                            &self.u.fd_readwrite
+                        },
+                        _ => &"INVALID EVENTTYPE",
+                    },
+                )
+                .finish()
+        }
+    }
+}

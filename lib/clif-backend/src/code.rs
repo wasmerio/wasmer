@@ -11,14 +11,14 @@ use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::{cursor::FuncCursor, isa};
 use cranelift_frontend::{FunctionBuilder, Position, Variable};
-use cranelift_wasm::{self, FuncTranslator};
+use cranelift_wasm::{self, FuncTranslator, ModuleTranslationState};
 use cranelift_wasm::{get_vmctx_value_label, translate_operator};
-use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError};
+use cranelift_wasm::{FuncEnvironment, ReturnMode, TargetEnvironment, WasmError};
 use std::mem;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::error::CompileError;
 use wasmer_runtime_core::{
-    backend::{Backend, CacheGen, Token},
+    backend::{CacheGen, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -31,6 +31,8 @@ use wasmer_runtime_core::{
     vm,
 };
 use wasmparser::Type as WpType;
+
+static BACKEND_ID: &str = "cranelift";
 
 pub struct CraneliftModuleCodeGenerator {
     isa: Box<dyn isa::TargetIsa>,
@@ -54,8 +56,12 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         }
     }
 
-    fn backend_id() -> Backend {
-        Backend::Cranelift
+    fn new_with_target(_: Option<String>, _: Option<String>, _: Option<String>) -> Self {
+        unimplemented!("cross compilation is not available for clif backend")
+    }
+
+    fn backend_id() -> &'static str {
+        BACKEND_ID
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
@@ -127,166 +133,6 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             .func_translator
             .state
             .initialize(&builder.func.signature, exit_block);
-
-        #[cfg(feature = "debug")]
-        {
-            use cranelift_codegen::cursor::{Cursor, FuncCursor};
-            use cranelift_codegen::ir::InstBuilder;
-            let entry_ebb = func.layout.entry_block().unwrap();
-            let ebb = func.dfg.make_ebb();
-            func.layout.insert_ebb(ebb, entry_ebb);
-            let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(ebb);
-            let params = pos.func.dfg.ebb_params(entry_ebb).to_vec();
-
-            let new_ebb_params: Vec<_> = params
-                .iter()
-                .map(|&param| {
-                    pos.func
-                        .dfg
-                        .append_ebb_param(ebb, pos.func.dfg.value_type(param))
-                })
-                .collect();
-
-            let start_debug = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::I32),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("strtdbug");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let end_debug = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![ir::AbiParam::special(
-                        ir::types::I64,
-                        ir::ArgumentPurpose::VMContext,
-                    )],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("enddbug");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let i32_print = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::I32),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("i32print");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let i64_print = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::I64),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("i64print");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let f32_print = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::F32),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("f32print");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let f64_print = {
-                let signature = pos.func.import_signature(ir::Signature {
-                    call_conv: self.target_config().default_call_conv,
-                    params: vec![
-                        ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
-                        ir::AbiParam::new(ir::types::F64),
-                    ],
-                    returns: vec![],
-                });
-
-                let name = ir::ExternalName::testcase("f64print");
-
-                pos.func.import_function(ir::ExtFuncData {
-                    name,
-                    signature,
-                    colocated: false,
-                })
-            };
-
-            let vmctx = pos
-                .func
-                .special_param(ir::ArgumentPurpose::VMContext)
-                .expect("missing vmctx parameter");
-
-            let func_index = pos.ins().iconst(
-                ir::types::I32,
-                func_index.index() as i64 + self.module.info.imported_functions.len() as i64,
-            );
-
-            pos.ins().call(start_debug, &[vmctx, func_index]);
-
-            for param in new_ebb_params.iter().cloned() {
-                match pos.func.dfg.value_type(param) {
-                    ir::types::I32 => pos.ins().call(i32_print, &[vmctx, param]),
-                    ir::types::I64 => pos.ins().call(i64_print, &[vmctx, param]),
-                    ir::types::F32 => pos.ins().call(f32_print, &[vmctx, param]),
-                    ir::types::F64 => pos.ins().call(f64_print, &[vmctx, param]),
-                    _ => unimplemented!(),
-                };
-            }
-
-            pos.ins().call(end_debug, &[vmctx]);
-
-            pos.ins().jump(entry_ebb, new_ebb_params.as_slice());
-        }
 
         self.functions.push(func_env);
         Ok(self.functions.last_mut().unwrap())
@@ -403,7 +249,7 @@ pub struct FunctionEnvironment {
     clif_signatures: Map<SigIndex, ir::Signature>,
 }
 
-impl FuncEnvironment for FunctionEnvironment {
+impl TargetEnvironment for FunctionEnvironment {
     /// Gets configuration information needed for compiling functions
     fn target_config(&self) -> isa::TargetFrontendConfig {
         self.target_config
@@ -421,6 +267,13 @@ impl FuncEnvironment for FunctionEnvironment {
         self.target_config().pointer_bytes()
     }
 
+    /// Return Cranelift reference type.
+    fn reference_type(&self) -> ir::Type {
+        ir::types::R64
+    }
+}
+
+impl FuncEnvironment for FunctionEnvironment {
     /// Sets up the necessary preamble definitions in `func` to access the global identified
     /// by `index`.
     ///
@@ -851,7 +704,9 @@ impl FuncEnvironment for FunctionEnvironment {
     }
 
     /// Generates a call IR with `callee` and `call_args` and inserts it at `pos`
-    /// TODO: add support for imported functions
+    ///
+    /// It's about generating code that calls a local or imported function; in
+    /// WebAssembly: `(call $foo)`.
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,
@@ -923,20 +778,31 @@ impl FuncEnvironment for FunctionEnvironment {
                     readonly: true,
                 });
 
-                let imported_vmctx_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
-                    base: imported_func_struct_addr,
-                    offset: (vm::ImportedFunc::offset_vmctx() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
+                let imported_func_ctx_addr =
+                    pos.func.create_global_value(ir::GlobalValueData::Load {
+                        base: imported_func_struct_addr,
+                        offset: (vm::ImportedFunc::offset_func_ctx() as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
+
+                let imported_func_ctx_vmctx_addr =
+                    pos.func.create_global_value(ir::GlobalValueData::Load {
+                        base: imported_func_ctx_addr,
+                        offset: (vm::FuncCtx::offset_vmctx() as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
 
                 let imported_func_addr = pos.ins().global_value(ptr_type, imported_func_addr);
-                let imported_vmctx_addr = pos.ins().global_value(ptr_type, imported_vmctx_addr);
+                let imported_func_ctx_vmctx_addr = pos
+                    .ins()
+                    .global_value(ptr_type, imported_func_ctx_vmctx_addr);
 
                 let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
-                args.push(imported_vmctx_addr);
+                args.push(imported_func_ctx_vmctx_addr);
                 args.extend(call_args.iter().cloned());
 
                 Ok(pos
@@ -945,7 +811,6 @@ impl FuncEnvironment for FunctionEnvironment {
             }
         }
     }
-
     /// Generates code corresponding to wasm `memory.grow`.
     ///
     /// `index` refers to the linear memory to query.
@@ -1074,6 +939,94 @@ impl FuncEnvironment for FunctionEnvironment {
 
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
+    fn translate_memory_copy(
+        &mut self,
+        _pos: FuncCursor,
+        _clif_mem_index: cranelift_wasm::MemoryIndex,
+        _heap: ir::Heap,
+        _dst: ir::Value,
+        _src: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("memory.copy not yet implemented");
+    }
+
+    fn translate_memory_fill(
+        &mut self,
+        _pos: FuncCursor,
+        _clif_mem_index: cranelift_wasm::MemoryIndex,
+        _heap: ir::Heap,
+        _dst: ir::Value,
+        _val: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("memory.fill not yet implemented");
+    }
+
+    fn translate_memory_init(
+        &mut self,
+        _pos: FuncCursor,
+        _clif_mem_index: cranelift_wasm::MemoryIndex,
+        _heap: ir::Heap,
+        _seg_index: u32,
+        _dst: ir::Value,
+        _src: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("memory.init not yet implemented");
+    }
+
+    fn translate_data_drop(
+        &mut self,
+        _pos: FuncCursor,
+        _seg_index: u32,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("data.drop not yet implemented");
+    }
+
+    fn translate_table_size(
+        &mut self,
+        _pos: FuncCursor,
+        _index: cranelift_wasm::TableIndex,
+        _table: ir::Table,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("table.size not yet implemented");
+    }
+
+    fn translate_table_copy(
+        &mut self,
+        _pos: FuncCursor,
+        _dst_table_index: cranelift_wasm::TableIndex,
+        _dst_table: ir::Table,
+        _src_table_index: cranelift_wasm::TableIndex,
+        _src_table: ir::Table,
+        _dst: ir::Value,
+        _src: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("table.copy yet implemented");
+    }
+
+    fn translate_table_init(
+        &mut self,
+        _pos: FuncCursor,
+        _seg_index: u32,
+        _table_index: cranelift_wasm::TableIndex,
+        _table: ir::Table,
+        _dst: ir::Value,
+        _src: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("table.init yet implemented");
+    }
+
+    fn translate_elem_drop(
+        &mut self,
+        _pos: FuncCursor,
+        _seg_index: u32,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("elem.drop yet implemented");
+    }
 }
 
 impl FunctionEnvironment {
@@ -1159,8 +1112,15 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             &mut self.func_translator.func_ctx,
             &mut self.position,
         );
-        let state = &mut self.func_translator.state;
-        translate_operator(op, &mut builder, state, &mut self.func_env)?;
+        let module_state = ModuleTranslationState::new();
+        let func_state = &mut self.func_translator.state;
+        translate_operator(
+            &module_state,
+            op,
+            &mut builder,
+            func_state,
+            &mut self.func_env,
+        )?;
         Ok(())
     }
 

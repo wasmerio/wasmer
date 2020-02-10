@@ -1,24 +1,33 @@
 [package]
 name = "wasmer-llvm-backend"
-version = "0.7.0"
+version = "0.13.1"
+license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "compiler", "JIT", "llvm"]
+categories = ["wasm"]
 edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.7.0" }
-wasmparser = "0.37.0"
+wasmer-runtime-core = { path = "../runtime-core", version = "0.13.1" }
+wasmparser = "0.45.0"
 smallvec = "0.6"
 goblin = "0.0.24"
 libc = "0.2.60"
-capstone = { version = "0.6", optional = true }
 byteorder = "1"
 
-[dependencies.inkwell]
-git = "https://github.com/wasmerio/inkwell"
-branch = "llvm8-0"
+[target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
+git = "https://github.com/TheDan64/inkwell"
+rev = "0a864ebf68b33d4d514b67796264b03898aa0944"
 default-features = false
 features = ["llvm8-0", "target-x86"]
+
+[target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
+git = "https://github.com/TheDan64/inkwell"
+rev = "0a864ebf68b33d4d514b67796264b03898aa0944"
+default-features = false
+features = ["llvm8-0", "target-aarch64"]
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.15"
@@ -37,5 +46,4 @@ rustc_version = "0.2"
 wabt = "0.9.1"
 
 [features]
-debug = ["wasmer-runtime-core/debug"]
-disasm = ["capstone"]
+test = []

@@ -1,6 +1,5 @@
 use wabt::wat2wasm;
-use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime_core::{backend::Compiler, import::ImportObject, Instance};
+use wasmer_runtime::{compile, ImportObject, Instance};
 
 fn main() {
     let instance = create_module_1();
@@ -24,36 +23,10 @@ fn create_module_1() -> Instance {
       (elem (;1;) (i32.const 9) 1))
     "#;
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &get_compiler())
-        .expect("WASM can't be compiled");
+    let module = compile(&wasm_binary[..]).expect("WASM can't be compiled");
     module
         .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
-}
-
-#[cfg(feature = "clif")]
-fn get_compiler() -> impl Compiler {
-    use wasmer_clif_backend::CraneliftCompiler;
-    CraneliftCompiler::new()
-}
-
-#[cfg(feature = "llvm")]
-fn get_compiler() -> impl Compiler {
-    use wasmer_llvm_backend::LLVMCompiler;
-    LLVMCompiler::new()
-}
-
-#[cfg(feature = "singlepass")]
-fn get_compiler() -> impl Compiler {
-    use wasmer_singlepass_backend::SinglePassCompiler;
-    SinglePassCompiler::new()
-}
-
-#[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
-fn get_compiler() -> impl Compiler {
-    panic!("compiler not specified, activate a compiler via features");
-    use wasmer_clif_backend::CraneliftCompiler;
-    CraneliftCompiler::new()
 }
 
 static IMPORT_MODULE: &str = r#"
@@ -69,8 +42,7 @@ static IMPORT_MODULE: &str = r#"
 
 pub fn generate_imports() -> ImportObject {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &get_compiler())
-        .expect("WASM can't be compiled");
+    let module = compile(&wasm_binary[..]).expect("WASM can't be compiled");
     let instance = module
         .instantiate(&ImportObject::new())
         .expect("WASM can't be instantiated");

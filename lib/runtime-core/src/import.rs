@@ -1,3 +1,6 @@
+//! The import module contains the implementation data structures and helper functions used to
+//! manipulate and access a wasm module's imports including memories, tables, globals, and
+//! functions.
 use crate::export::Export;
 use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
@@ -7,13 +10,20 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// This trait represents objects that act as a namespace for imports. For example, an `Instance`
+/// or `ImportObject` could be considered namespaces that could provide imports to an instance.
 pub trait LikeNamespace {
+    /// Gets an export by name.
     fn get_export(&self, name: &str) -> Option<Export>;
+    /// Gets all exports in the namespace.
     fn get_exports(&self) -> Vec<(String, Export)>;
+    /// Maybe insert an `Export` by name into the namespace.
     fn maybe_insert(&mut self, name: &str, export: Export) -> Option<()>;
 }
 
+/// A trait that represents `Export` values.
 pub trait IsExport {
+    /// Gets self as `Export`.
     fn to_export(&self) -> Export;
 }
 
@@ -48,6 +58,8 @@ pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send>>>>,
     pub(crate) state_creator:
         Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + Send + Sync + 'static>>,
+    /// Allow missing functions to be generated and instantiation to continue when required
+    /// functions are not provided.
     pub allow_missing_functions: bool,
 }
 
@@ -61,6 +73,7 @@ impl ImportObject {
         }
     }
 
+    /// Create a new `ImportObject` which generates data from the provided state creator.
     pub fn new_with_data<F>(state_creator: F) -> Self
     where
         F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static + Send + Sync,
@@ -145,6 +158,7 @@ impl ImportObject {
             .and_then(|ns| f(ns))
     }
 
+    /// Create a clone ref of this namespace.
     pub fn clone_ref(&self) -> Self {
         Self {
             map: Arc::clone(&self.map),
@@ -166,6 +180,7 @@ impl ImportObject {
     }
 }
 
+/// Iterator for an `ImportObject`'s exports.
 pub struct ImportObjectIterator {
     elements: VecDeque<(String, String, Export)>,
 }
@@ -204,17 +219,20 @@ impl Extend<(String, String, Export)> for ImportObject {
     }
 }
 
+/// The top-level container for the two-level wasm imports
 pub struct Namespace {
     map: HashMap<String, Box<dyn IsExport + Send>>,
 }
 
 impl Namespace {
+    /// Create a new empty `Namespace`.
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
         }
     }
 
+    /// Insert a new `Export` into the namespace with the given name.
     pub fn insert<S, E>(&mut self, name: S, export: E) -> Option<Box<dyn IsExport + Send>>
     where
         S: Into<String>,
@@ -223,6 +241,7 @@ impl Namespace {
         self.map.insert(name.into(), Box::new(export))
     }
 
+    /// Returns true if the `Namespace` contains the given name.
     pub fn contains_key<S>(&mut self, key: S) -> bool
     where
         S: Into<String>,

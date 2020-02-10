@@ -25,7 +25,8 @@
 # Wasmer Runtime Core
 
 Wasmer is a standalone JIT WebAssembly runtime, aiming to be fully
-compatible with Emscripten, Rust and Go. [Learn
+compatible with WASI, Emscripten, Rust and Go. [Learn
 more](https://github.com/wasmerio/wasmer).
 
-This crate represents the core of the runtime.
+This crate represents the core of the runtime.  Consider
+[`wasmer-runtime`] for higher level APIs.

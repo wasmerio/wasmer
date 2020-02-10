@@ -12,9 +12,12 @@ use crate::{
 };
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 
+/// Array.
 pub struct Array;
+/// Item.
 pub struct Item;
 
+/// A pointer to a Wasm item.
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = Item> {
     offset: u32,
@@ -22,6 +25,7 @@ pub struct WasmPtr<T: Copy, Ty = Item> {
 }
 
 impl<T: Copy, Ty> WasmPtr<T, Ty> {
+    /// Create a new `WasmPtr` at the given offset.
     #[inline]
     pub fn new(offset: u32) -> Self {
         Self {
@@ -30,6 +34,7 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
         }
     }
 
+    /// Get the offset for this `WasmPtr`.
     #[inline]
     pub fn offset(self) -> u32 {
         self.offset
@@ -44,6 +49,7 @@ fn align_pointer(ptr: usize, align: usize) -> usize {
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
+    /// Dereference this `WasmPtr`.
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
         if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
@@ -58,6 +64,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
         }
     }
 
+    /// Mutable dereference this `WasmPtr`.
     #[inline]
     pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<&'a mut Cell<T>> {
         if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
@@ -72,8 +79,9 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
+    /// Dereference this `WasmPtr`.
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
+    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<&[Cell<T>]> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
@@ -94,13 +102,14 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         }
     }
 
+    /// Mutable dereference this `WasmPtr`.
     #[inline]
-    pub unsafe fn deref_mut<'a>(
+    pub unsafe fn deref_mut(
         self,
-        memory: &'a Memory,
+        memory: &Memory,
         index: u32,
         length: u32,
-    ) -> Option<&'a mut [Cell<T>]> {
+    ) -> Option<&mut [Cell<T>]> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
@@ -119,13 +128,25 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         Some(cell_ptrs)
     }
 
-    pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+    /// Get a UTF-8 string representation of this `WasmPtr` with the given length.
+    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<&str> {
         if self.offset as usize + str_len as usize > memory.size().bytes().0 {
             return None;
         }
         let ptr = unsafe { memory.view::<u8>().as_ptr().add(self.offset as usize) as *const u8 };
         let slice: &[u8] = unsafe { std::slice::from_raw_parts(ptr, str_len as usize) };
         std::str::from_utf8(slice).ok()
+    }
+
+    /// Get a UTF-8 string representation of this `WasmPtr`, where the string is nul-terminated.
+    /// Note that this does not account for UTF-8 strings that _contain_ nul themselves,
+    /// [`get_utf8_string`] has to be used for those.
+    pub fn get_utf8_string_with_nul(self, memory: &Memory) -> Option<&str> {
+        memory.view::<u8>()[(self.offset as usize)..]
+            .iter()
+            .map(|cell| cell.get())
+            .position(|byte| byte == 0)
+            .and_then(|length| self.get_utf8_string(memory, length as u32))
     }
 }
 

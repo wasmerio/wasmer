@@ -9,7 +9,6 @@ use std::{
     path::PathBuf,
     time::SystemTime,
 };
-use wasmer_runtime_core::debug;
 
 /// Error type for external users
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -49,6 +48,8 @@ pub enum WasiFsError {
     NotConnected,
     /// The requested file or directory could not be found
     EntityNotFound,
+    /// The requested device couldn't be accessed
+    NoDevice,
     /// Caller was not allowed to perform this operation
     PermissionDenied,
     /// The operation did not complete within the given amount of time
@@ -80,6 +81,7 @@ impl WasiFsError {
             __WASI_EINTR => WasiFsError::Interrupted,
             __WASI_EINVAL => WasiFsError::InvalidInput,
             __WASI_ENOTCONN => WasiFsError::NotConnected,
+            __WASI_ENODEV => WasiFsError::NoDevice,
             __WASI_ENOENT => WasiFsError::EntityNotFound,
             __WASI_EPERM => WasiFsError::PermissionDenied,
             __WASI_ETIMEDOUT => WasiFsError::TimedOut,
@@ -105,6 +107,7 @@ impl WasiFsError {
             WasiFsError::InvalidFd => __WASI_EBADF,
             WasiFsError::InvalidInput => __WASI_EINVAL,
             WasiFsError::IOError => __WASI_EIO,
+            WasiFsError::NoDevice => __WASI_ENODEV,
             WasiFsError::NotAFile => __WASI_EINVAL,
             WasiFsError::NotConnected => __WASI_ENOTCONN,
             WasiFsError::EntityNotFound => __WASI_ENOENT,
@@ -120,7 +123,7 @@ impl WasiFsError {
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 #[typetag::serde(tag = "type")]
-pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
+pub trait WasiFile: std::fmt::Debug + Send + Write + Read + Seek {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> __wasi_timestamp_t;
 
@@ -626,6 +629,8 @@ fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, WasiFsError> {
     unimplemented!("host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff")
 }
 
+/// A wrapper type around Stdout that implements `WasiFile` and
+/// `Serialize` + `Deserialize`.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stdout;
 impl Read for Stdout {
@@ -717,6 +722,8 @@ impl WasiFile for Stdout {
     }
 }
 
+/// A wrapper type around Stderr that implements `WasiFile` and
+/// `Serialize` + `Deserialize`.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stderr;
 impl Read for Stderr {
@@ -808,6 +815,8 @@ impl WasiFile for Stderr {
     }
 }
 
+/// A wrapper type around Stdin that implements `WasiFile` and
+/// `Serialize` + `Deserialize`.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stdin;
 impl Read for Stdin {

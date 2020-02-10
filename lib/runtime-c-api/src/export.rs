@@ -13,7 +13,7 @@ use crate::{
 };
 use libc::{c_int, c_uint};
 use std::{ptr, slice};
-use wasmer_runtime::{Instance, Memory, Module, Value};
+use wasmer_runtime::{Instance, Module, Value};
 use wasmer_runtime_core::{export::Export, module::ExportIndex};
 
 /// Intermediate representation of an `Export` instance that is
@@ -43,7 +43,11 @@ pub struct wasmer_export_func_t;
 /// exposed to C.
 pub(crate) struct NamedExports(pub Vec<NamedExport>);
 
-/// Opaque pointer to `NamedExports`.
+/// Opaque pointer to the opaque structure `crate::NamedExports`,
+/// which is a wrapper around a vector of the opaque structure
+/// `crate::NamedExport`.
+///
+/// Check the `wasmer_instance_exports()` function to learn more.
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_exports_t;
@@ -85,12 +89,48 @@ pub union wasmer_import_export_value {
 /// List of export/import kinds.
 #[allow(non_camel_case_types)]
 #[repr(u32)]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
+// ================
+// !    DANGER    !
+// ================
+// Do not modify these values without updating the `TryFrom` implementation below
 pub enum wasmer_import_export_kind {
-    WASM_FUNCTION,
-    WASM_GLOBAL,
-    WASM_MEMORY,
-    WASM_TABLE,
+    /// The export/import is a function.
+    WASM_FUNCTION = 0,
+
+    /// The export/import is a global.
+    WASM_GLOBAL = 1,
+
+    /// The export/import is a memory.
+    WASM_MEMORY = 2,
+
+    /// The export/import is a table.
+    WASM_TABLE = 3,
+}
+
+impl wasmer_import_export_kind {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Self::WASM_FUNCTION => "function",
+            Self::WASM_GLOBAL => "global",
+            Self::WASM_MEMORY => "memory",
+            Self::WASM_TABLE => "table",
+        }
+    }
+}
+
+impl std::convert::TryFrom<u32> for wasmer_import_export_kind {
+    type Error = ();
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => Self::WASM_FUNCTION,
+            1 => Self::WASM_GLOBAL,
+            2 => Self::WASM_MEMORY,
+            3 => Self::WASM_TABLE,
+            _ => return Err(()),
+        })
+    }
 }
 
 /// Gets export descriptors for the given module
@@ -172,7 +212,23 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
     named_export_descriptor.kind.clone()
 }
 
-/// Frees the memory for the given exports
+/// Frees the memory for the given exports.
+///
+/// Check the `wasmer_instance_exports()` function to get a complete
+/// example.
+///
+/// If `exports` is a null pointer, this function does nothing.
+///
+/// Example:
+///
+/// ```c
+/// // Get some exports.
+/// wasmer_exports_t *exports = NULL;
+/// wasmer_instance_exports(instance, &exports);
+///
+/// // Destroy the exports.
+/// wasmer_exports_destroy(exports);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
@@ -355,7 +411,8 @@ pub unsafe extern "C" fn wasmer_export_to_memory(
     let export = &named_export.export;
 
     if let Export::Memory(exported_memory) = export {
-        *memory = exported_memory as *const Memory as *mut wasmer_memory_t;
+        let mem = Box::new(exported_memory.clone());
+        *memory = Box::into_raw(mem) as *mut wasmer_memory_t;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
@@ -409,7 +466,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     }
 
     let params: Vec<Value> = {
-        if params_len <= 0 {
+        if params_len == 0 {
             vec![]
         } else {
             slice::from_raw_parts::<wasmer_value_t>(params, params_len as usize)
@@ -426,6 +483,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
 
     let instance = &*named_export.instance;
     let result = instance.call(&named_export.name, &params[..]);
+
     match result {
         Ok(results_vec) => {
             if !results_vec.is_empty() {

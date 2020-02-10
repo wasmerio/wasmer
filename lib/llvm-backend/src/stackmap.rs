@@ -53,7 +53,10 @@ pub enum StackmapEntryKind {
 }
 
 impl StackmapEntry {
-    #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
+    #[cfg(all(
+        any(target_os = "freebsd", target_os = "linux", target_os = "macos"),
+        target_arch = "x86_64"
+    ))]
     pub fn populate_msm(
         &self,
         module_info: &ModuleInfo,
@@ -161,7 +164,7 @@ impl StackmapEntry {
                 ValueSemantic::ImportedFuncCtx(idx) => MachineValue::VmctxDeref(vec![
                     Ctx::offset_imported_funcs() as usize,
                     vm::ImportedFunc::size() as usize * idx
-                        + vm::ImportedFunc::offset_vmctx() as usize,
+                        + vm::ImportedFunc::offset_func_ctx() as usize,
                     0,
                 ]),
                 ValueSemantic::DynamicSigindice(idx) => {

@@ -170,7 +170,7 @@ impl ServiceContext {
         let ret = unsafe {
             ::libc::ioctl(
                 fd,
-                Command::LoadCode as i32 as ::libc::c_ulong,
+                Command::LoadCode as i32 as _,
                 &req as *const _ as ::libc::c_ulong,
             )
         };
@@ -193,7 +193,7 @@ impl ServiceContext {
         let err = unsafe {
             ::libc::ioctl(
                 fd,
-                Command::RunCode as i32 as ::libc::c_ulong,
+                Command::RunCode as i32 as _,
                 &mut req as *mut _ as ::libc::c_ulong,
             )
         };
@@ -221,7 +221,7 @@ impl ServiceContext {
         let err = unsafe {
             ::libc::ioctl(
                 fd,
-                Command::ReadMemory as i32 as ::libc::c_ulong,
+                Command::ReadMemory as i32 as _,
                 &req as *const _ as ::libc::c_ulong,
             )
         };
@@ -242,7 +242,7 @@ impl ServiceContext {
         let err = unsafe {
             ::libc::ioctl(
                 fd,
-                Command::WriteMemory as i32 as ::libc::c_ulong,
+                Command::WriteMemory as i32 as _,
                 &req as *const _ as ::libc::c_ulong,
             )
         };

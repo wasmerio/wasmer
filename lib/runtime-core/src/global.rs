@@ -1,3 +1,5 @@
+//! The global module contains data structures and helper functions used to
+//! manipulate and access Wasm globals.
 use crate::{
     export::Export,
     import::IsExport,
@@ -9,6 +11,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// A handle to a Wasm Global
 pub struct Global {
     desc: GlobalDescriptor,
     storage: Arc<Mutex<vm::LocalGlobal>>,

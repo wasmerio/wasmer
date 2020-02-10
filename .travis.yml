@@ -1,0 +1,66 @@
+arch:
+  - arm64
+
+language: rust
+install: travis_retry
+rust:
+  - nightly-2019-12-19
+
+cache:
+  directories:
+    - /home/travis/.sccache/
+    - /home/travis/.cargo/bin/
+
+script:
+  # Sccache
+  # - curl -L https://github.com/mozilla/sccache/releases/download/0.2.10/sccache-0.2.10-x86_64-unknown-linux-musl.tar.gz | tar xzf -
+  # - export RUSTC_WRAPPER=`pwd`/sccache-0.2.10-x86_64-unknown-linux-musl/sccache
+  - test -f /home/travis/.cargo/bin/sccache || travis_retry cargo install sccache
+  - export RUSTC_WRAPPER=/home/travis/.cargo/bin/sccache
+  - mkdir -p /home/travis/.sccache/
+  - export SCCACHE_DIR="/home/travis/.sccache/"
+  - SCCACHE_ERROR_LOG=`pwd`/sccache.log RUST_LOG=debug $RUSTC_WRAPPER --start-server
+  - $RUSTC_WRAPPER -s
+
+  # Tests
+  - make spectests-singlepass
+
+before_deploy:
+  # Release
+  - make release-singlepass
+  - make wapm
+  - make build-install
+  - mkdir -p artifacts
+  - cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
+
+# before_deploy:
+#     # Set up git user name and tag this commit
+#     - git config --local user.name "Syrus Akbary"
+#     - git config --local user.email "syrus@wasmer.io"
+#     - export TRAVIS_TAG="0.10.2"
+#     # - git tag $TRAVIS_TAG
+
+deploy:
+  provider: releases
+  file_glob: true
+  file: artifacts/*
+  api_key: $GITHUB_OAUTH_TOKEN
+  # This is set to the previous artifacts are not deleted by travis
+  skip_cleanup: true
+  on:
+    tags: true
+    # branch: feature/singlepass-aarch64
+
+addons:
+  apt:
+    packages:
+      - cmake
+
+branches:
+  only:
+  - master
+  - staging
+  - trying
+  # Making sure Travis runs on new Tags
+  - /^\d+\.\d+(\.\d+)?(-\S*)?$/
+  - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
