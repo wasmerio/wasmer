@@ -282,10 +282,10 @@ Functions</h2></td></tr>
 <tr class="separator:adda8d66f7a0077cd710264b1e081429d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ad3fc8ec83a49297323dfd856b19005"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message</a> (char *buffer, int length)</td></tr>
 <tr class="separator:a9ad3fc8ec83a49297323dfd856b19005"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a440f8b2857f55b2a948b04bb849691b4"><td class="memItemLeft" align="right" valign="top">uint8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8h.html#a440f8b2857f55b2a948b04bb849691b4">wasmer_memory_data</a> (const <a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *mem)</td></tr>
-<tr class="separator:a440f8b2857f55b2a948b04bb849691b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aded38ddcbe306d53108e545d01ced91e"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8h.html#aded38ddcbe306d53108e545d01ced91e">wasmer_memory_data_length</a> (<a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *mem)</td></tr>
-<tr class="separator:aded38ddcbe306d53108e545d01ced91e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af2a54ac64842fe82ac1a13b4bc74e43b"><td class="memItemLeft" align="right" valign="top">uint8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8h.html#af2a54ac64842fe82ac1a13b4bc74e43b">wasmer_memory_data</a> (const <a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory)</td></tr>
+<tr class="separator:af2a54ac64842fe82ac1a13b4bc74e43b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35dec296a610ed67254da228e0c23d1f"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8h.html#a35dec296a610ed67254da228e0c23d1f">wasmer_memory_data_length</a> (<a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory)</td></tr>
+<tr class="separator:a35dec296a610ed67254da228e0c23d1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8682ebd2a91fe92c3d2f24099ff465e8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8h.html#a8682ebd2a91fe92c3d2f24099ff465e8">wasmer_memory_destroy</a> (<a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory)</td></tr>
 <tr class="separator:a8682ebd2a91fe92c3d2f24099ff465e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8eb929f69cecfb4d25c8bdd19d2838fd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="wasmer_8h.html#a8eb929f69cecfb4d25c8bdd19d2838fd">wasmer_memory_grow</a> (<a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory, uint32_t delta)</td></tr>
@@ -518,7 +518,7 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>The <code>wasmer_result_t</code> struct is a type that represents either a success, or a failure. </p>
+<p>The <code>wasmer_result_t</code> enum is a type that represents either a success, or a failure. </p>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532"></a>WASMER_OK&#160;</td><td class="fielddoc"><p>Represents a success. </p>
 </td></tr>
@@ -1968,7 +1968,7 @@ Functions</h2></td></tr>
 <p>Note that the index is always <code>0</code> until multiple memories are supported.</p>
 <p>This function is mostly used inside host functions (aka imported functions) to read the instance memory.</p>
 <p>Example of a <em>host function</em> that reads and prints a string based on a pointer and a length:</p>
-<div class="fragment"><div class="line"><span class="keywordtype">void</span> print_string(<span class="keyword">const</span> <a class="code" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a> *context, int32_t pointer, int32_t length) {</div><div class="line">    <span class="comment">// Get the 0th memory.</span></div><div class="line">    <span class="keyword">const</span> <a class="code" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory = <a class="code" href="wasmer_8h.html#a64f78c35ebe9ccadbed0b1d2b0866d6e">wasmer_instance_context_memory</a>(context, 0);</div><div class="line"></div><div class="line">    <span class="comment">// Get the memory data as a pointer.</span></div><div class="line">    uint8_t *memory_bytes = <a class="code" href="wasmer_8h.html#a440f8b2857f55b2a948b04bb849691b4">wasmer_memory_data</a>(memory);</div><div class="line"></div><div class="line">    <span class="comment">// Print what we assumed to be a string!</span></div><div class="line">    printf(<span class="stringliteral">&quot;%.*s&quot;</span>, length, memory_bytes + pointer);</div><div class="line">}</div></div><!-- fragment --> 
+<div class="fragment"><div class="line"><span class="keywordtype">void</span> print_string(<span class="keyword">const</span> <a class="code" href="structwasmer__instance__context__t.html">wasmer_instance_context_t</a> *context, int32_t pointer, int32_t length) {</div><div class="line">    <span class="comment">// Get the 0th memory.</span></div><div class="line">    <span class="keyword">const</span> <a class="code" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory = <a class="code" href="wasmer_8h.html#a64f78c35ebe9ccadbed0b1d2b0866d6e">wasmer_instance_context_memory</a>(context, 0);</div><div class="line"></div><div class="line">    <span class="comment">// Get the memory data as a pointer.</span></div><div class="line">    uint8_t *memory_bytes = <a class="code" href="wasmer_8h.html#af2a54ac64842fe82ac1a13b4bc74e43b">wasmer_memory_data</a>(memory);</div><div class="line"></div><div class="line">    <span class="comment">// Print what we assumed to be a string!</span></div><div class="line">    printf(<span class="stringliteral">&quot;%.*s&quot;</span>, length, memory_bytes + pointer);</div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="afab1426069281f315cc1d140c2b5d105"></a>
@@ -2134,8 +2134,8 @@ Functions</h2></td></tr>
 <div class="fragment"><div class="line"><span class="keywordtype">int</span> error_length = <a class="code" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length</a>();</div><div class="line"></div><div class="line"><span class="keywordflow">if</span> (error_length &gt; 0) {</div><div class="line">    <span class="keywordtype">char</span> *error_message = malloc(error_length);</div><div class="line">    <a class="code" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message</a>(error_message, error_length);</div><div class="line">    printf(<span class="stringliteral">&quot;Error message: `%s`\n&quot;</span>, error_message);</div><div class="line">} <span class="keywordflow">else</span> {</div><div class="line">    printf(<span class="stringliteral">&quot;No error message\n&quot;</span>);</div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
-<a id="a440f8b2857f55b2a948b04bb849691b4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a440f8b2857f55b2a948b04bb849691b4">&#9670;&nbsp;</a></span>wasmer_memory_data()</h2>
+<a id="af2a54ac64842fe82ac1a13b4bc74e43b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af2a54ac64842fe82ac1a13b4bc74e43b">&#9670;&nbsp;</a></span>wasmer_memory_data()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2144,17 +2144,20 @@ Functions</h2></td></tr>
           <td class="memname">uint8_t* wasmer_memory_data </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *&#160;</td>
-          <td class="paramname"><em>mem</em></td><td>)</td>
+          <td class="paramname"><em>memory</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Gets the start pointer to the bytes within a Memory </p>
-
+<p>Gets a pointer to the beginning of the contiguous memory data bytes.</p>
+<p>The function returns <code>NULL</code> if <code>memory</code> is a null pointer.</p>
+<p>Note that when the memory grows, it can be reallocated, and thus the returned pointer can be invalidated.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line">uint8_t *memory_data = <a class="code" href="wasmer_8h.html#af2a54ac64842fe82ac1a13b4bc74e43b">wasmer_memory_data</a>(memory);</div><div class="line"><span class="keywordtype">char</span> *str = (<span class="keywordtype">char</span>*) malloc(<span class="keyword">sizeof</span>(<span class="keywordtype">char</span>) * 7);</div><div class="line"></div><div class="line"><span class="keywordflow">for</span> (uint32_t nth = 0; nth &lt; 7; ++nth) {</div><div class="line">    str[nth] = (char) memory_data[nth];</div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
-<a id="aded38ddcbe306d53108e545d01ced91e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aded38ddcbe306d53108e545d01ced91e">&#9670;&nbsp;</a></span>wasmer_memory_data_length()</h2>
+<a id="a35dec296a610ed67254da228e0c23d1f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a35dec296a610ed67254da228e0c23d1f">&#9670;&nbsp;</a></span>wasmer_memory_data_length()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2163,13 +2166,15 @@ Functions</h2></td></tr>
           <td class="memname">uint32_t wasmer_memory_data_length </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a> *&#160;</td>
-          <td class="paramname"><em>mem</em></td><td>)</td>
+          <td class="paramname"><em>memory</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Gets the size in bytes of a Memory </p>
-
+<p>Gets the size in bytes of the memory data.</p>
+<p>This function returns 0 if <code>memory</code> is a null pointer.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line">uint32_t memory_data_length = <a class="code" href="wasmer_8h.html#a35dec296a610ed67254da228e0c23d1f">wasmer_memory_data_length</a>(memory);</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a8682ebd2a91fe92c3d2f24099ff465e8"></a>
@@ -2187,8 +2192,11 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Frees memory for the given Memory </p>
-
+<p>Frees memory for the given <code><a class="el" href="structwasmer__memory__t.html">wasmer_memory_t</a></code>.</p>
+<p>Check the <code><a class="el" href="wasmer_8h.html#a9e90ce8e1a667b57e4c5273960cb1571">wasmer_memory_new()</a></code> function to get a complete example.</p>
+<p>If <code>memory</code> is a null pointer, this function does nothing.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="comment">// Get a memory.</span></div><div class="line"><a class="code" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory = NULL;</div><div class="line"><a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> result = <a class="code" href="wasmer_8h.html#a9e90ce8e1a667b57e4c5273960cb1571">wasmer_memory_new</a>(&amp;memory, memory_descriptor);</div><div class="line"></div><div class="line"><span class="comment">// Destroy the memory.</span></div><div class="line"><a class="code" href="wasmer_8h.html#a8682ebd2a91fe92c3d2f24099ff465e8">wasmer_memory_destroy</a>(memory);</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a8eb929f69cecfb4d25c8bdd19d2838fd"></a>
@@ -2216,10 +2224,10 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Grows a Memory by the given number of pages.</p>
-<p>Returns <code>wasmer_result_t::WASMER_OK</code> upon success.</p>
-<p>Returns <code>wasmer_result_t::WASMER_ERROR</code> upon failure. Use <code>wasmer_last_error_length</code> and <code>wasmer_last_error_message</code> to get an error message. </p>
-
+<p>Grows a memory by the given number of pages (of 65Kb each).</p>
+<p>The functions return <code>wasmer_result_t::WASMER_OK</code> upon success, <code>wasmer_result_t::WASMER_ERROR</code> otherwise. Use <code><a class="el" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length()</a></code> with <code><a class="el" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message()</a></code> to read the error message.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> result = <a class="code" href="wasmer_8h.html#a8eb929f69cecfb4d25c8bdd19d2838fd">wasmer_memory_grow</a>(memory, 10);</div><div class="line"></div><div class="line"><span class="keywordflow">if</span> (result != <a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">WASMER_OK</a>) {</div><div class="line">    <span class="comment">// …</span></div><div class="line">}</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a6da39a7c842dc46d327b0a59494ba063"></a>
@@ -2237,8 +2245,10 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns the current length in pages of the given memory </p>
-
+<p>Reads the current length (in pages) of the given memory.</p>
+<p>The function returns zero if <code>memory</code> is a null pointer.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line">uint32_t memory_length = <a class="code" href="wasmer_8h.html#a6da39a7c842dc46d327b0a59494ba063">wasmer_memory_length</a>(memory);</div><div class="line"></div><div class="line">printf(<span class="stringliteral">&quot;Memory pages length: %d\n&quot;</span>, memory_length);</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a9e90ce8e1a667b57e4c5273960cb1571"></a>
@@ -2266,11 +2276,11 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Creates a new Memory for the given descriptor and initializes the given pointer to pointer to a pointer to the new memory.</p>
-<p>The caller owns the object and should call <code>wasmer_memory_destroy</code> to free it.</p>
-<p>Returns <code>wasmer_result_t::WASMER_OK</code> upon success.</p>
-<p>Returns <code>wasmer_result_t::WASMER_ERROR</code> upon failure. Use <code>wasmer_last_error_length</code> and <code>wasmer_last_error_message</code> to get an error message. </p>
-
+<p>Creates a new empty WebAssembly memory for the given descriptor.</p>
+<p>The result is stored in the first argument <code>memory</code> if successful, i.e. when the function returns <code>wasmer_result_t::WASMER_OK</code>. Otherwise, <code>wasmer_result_t::WASMER_ERROR</code> is returned, and <code><a class="el" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length()</a></code> with <code><a class="el" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message()</a></code> must be used to read the error message.</p>
+<p>The caller owns the memory and is responsible to free it with <code><a class="el" href="wasmer_8h.html#a8682ebd2a91fe92c3d2f24099ff465e8">wasmer_memory_destroy()</a></code>.</p>
+<p>Example:</p>
+<div class="fragment"><div class="line"><span class="comment">// 1. The memory object.</span></div><div class="line"><a class="code" href="structwasmer__memory__t.html">wasmer_memory_t</a> *memory = NULL;</div><div class="line"></div><div class="line"><span class="comment">// 2. The memory descriptor.</span></div><div class="line"><a class="code" href="structwasmer__limits__t.html">wasmer_limits_t</a> memory_descriptor = {</div><div class="line">    .<a class="code" href="structwasmer__limits__t.html#af3892688247095f3b0e096eafeb2c467">min</a> = 10,</div><div class="line">    .max = {</div><div class="line">        .has_some = <span class="keyword">true</span>,</div><div class="line">        .some = 15,</div><div class="line">    },</div><div class="line">};</div><div class="line"></div><div class="line"><span class="comment">// 3. Initialize the memory.</span></div><div class="line"><a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> result = <a class="code" href="wasmer_8h.html#a9e90ce8e1a667b57e4c5273960cb1571">wasmer_memory_new</a>(&amp;memory, memory_descriptor);</div><div class="line"></div><div class="line"><span class="keywordflow">if</span> (result != <a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">WASMER_OK</a>) {</div><div class="line">    <span class="keywordtype">int</span> error_length = <a class="code" href="wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d">wasmer_last_error_length</a>();</div><div class="line">    <span class="keywordtype">char</span> *error = malloc(error_length);</div><div class="line">    <a class="code" href="wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005">wasmer_last_error_message</a>(error, error_length);</div><div class="line">    <span class="comment">// Do something with `error`…</span></div><div class="line">}</div><div class="line"></div><div class="line"><span class="comment">// 4. Free the memory!</span></div><div class="line"><a class="code" href="wasmer_8h.html#a8682ebd2a91fe92c3d2f24099ff465e8">wasmer_memory_destroy</a>(memory);</div></div><!-- fragment --> 
 </div>
 </div>
 <a id="a2b149537ad6237ab441f5f811f8d9ea9"></a>

@@ -167,6 +167,17 @@
 <span id="167">167</span>
 <span id="168">168</span>
 <span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/static/icons/favicon.ico&quot;</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://avatars3.githubusercontent.com/u/44205449?s=200&amp;v=4&quot;</span>)]</span>
@@ -277,7 +288,7 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">trampoline</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">value</span>;
 
-<span class="doccomment">/// The `wasmer_result_t` struct is a type that represents either a</span>
+<span class="doccomment">/// The `wasmer_result_t` enum is a type that represents either a</span>
 <span class="doccomment">/// success, or a failure.</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
@@ -289,15 +300,26 @@
     <span class="ident">WASMER_ERROR</span> <span class="op">=</span> <span class="number">2</span>,
 }
 
+<span class="doccomment">/// The `wasmer_limits_t` struct is a type that describes a memory</span>
+<span class="doccomment">/// options. See the `wasmer_memory_t` struct or the</span>
+<span class="doccomment">/// `wasmer_memory_new()` function to get more information.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_limits_t</span> {
+    <span class="doccomment">/// The minimum number of allowed pages.</span>
     <span class="kw">pub</span> <span class="ident">min</span>: <span class="ident">u32</span>,
+
+    <span class="doccomment">/// The maximum number of allowed pages.</span>
     <span class="kw">pub</span> <span class="ident">max</span>: <span class="ident">wasmer_limit_option_t</span>,
 }
 
+<span class="doccomment">/// The `wasmer_limit_option_t` struct repreesents an optional limit</span>
+<span class="doccomment">/// for `wasmer_limits_t`.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_limit_option_t</span> {
+    <span class="doccomment">/// Whether the limit is set.</span>
     <span class="kw">pub</span> <span class="ident">has_some</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// The limit value.</span>
     <span class="kw">pub</span> <span class="ident">some</span>: <span class="ident">u32</span>,
 }
 
