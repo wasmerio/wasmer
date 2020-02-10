@@ -1,3 +1,5 @@
+//! A stack-based interpreter to execute instructions of WIT adapters.
+
 mod instruction;
 mod instructions;
 pub mod stack;
