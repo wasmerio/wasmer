@@ -1,6 +1,9 @@
 //! Create, read, write, grow, destroy memory of an instance.
 
-use crate::{error::update_last_error, error::CApiError, wasmer_limits_t, wasmer_result_t};
+use crate::{
+    error::{update_last_error, CApiError},
+    wasmer_limits_t, wasmer_result_t,
+};
 use std::cell::Cell;
 use wasmer_runtime::Memory;
 use wasmer_runtime_core::{
@@ -100,7 +103,7 @@ pub unsafe extern "C" fn wasmer_memory_new(
 /// Example:
 ///
 /// ```c
-/// wasmer_result_t result = wasmer_memory_grow(memory, 10 /* pages */);
+/// wasmer_result_t result = wasmer_memory_grow(memory, 10);
 ///
 /// if (result != WASMER_OK) {
 ///     // …
@@ -109,12 +112,22 @@ pub unsafe extern "C" fn wasmer_memory_new(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -> wasmer_result_t {
+    if memory.is_null() {
+        update_last_error(CApiError {
+            msg: "`memory` is NULL.".to_string(),
+        });
+
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
     let memory = unsafe { &*(memory as *mut Memory) };
     let delta_result = memory.grow(Pages(delta));
+
     match delta_result {
         Ok(_) => wasmer_result_t::WASMER_OK,
         Err(grow_error) => {
             update_last_error(grow_error);
+
             wasmer_result_t::WASMER_ERROR
         }
     }
