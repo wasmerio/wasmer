@@ -187,7 +187,15 @@ pub extern "C" fn wasmer_memory_data(memory: *const wasmer_memory_t) -> *mut u8 
     memory.view::<u8>()[..].as_ptr() as *mut Cell<u8> as *mut u8
 }
 
-/// Gets the size in bytes of a Memory
+/// Gets the size in bytes of the memory data.
+///
+/// This function returns 0 if `memory` is NULL.
+///
+/// Example:
+///
+/// ```c
+/// uint32_t memory_data_length = wasmer_memory_data_length(memory);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> u32 {
