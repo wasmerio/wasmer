@@ -147,14 +147,14 @@ impl<'input> From<&Adapter<'input>> for String {
                 name = name,
                 inputs = input_types_to_param(&input_types),
                 outputs = output_types_to_result(&output_types),
-                instructions = instructions.iter().fold(
-                    String::new(),
-                    |mut accumulator, instruction| {
-                        accumulator.push_str("\n  ");
-                        accumulator.push_str(&String::from(instruction));
-                        accumulator
-                    }
-                ),
+                instructions =
+                    instructions
+                        .iter()
+                        .fold(String::new(), |mut accumulator, instruction| {
+                            accumulator.push_str("\n  ");
+                            accumulator.push_str(&String::from(instruction));
+                            accumulator
+                        }),
             ),
 
             Adapter::Export {
@@ -167,14 +167,14 @@ impl<'input> From<&Adapter<'input>> for String {
                 name = name,
                 inputs = input_types_to_param(&input_types),
                 outputs = output_types_to_result(&output_types),
-                instructions = instructions.iter().fold(
-                    String::new(),
-                    |mut accumulator, instruction| {
-                        accumulator.push_str("\n  ");
-                        accumulator.push_str(&String::from(instruction));
-                        accumulator
-                    }
-                ),
+                instructions =
+                    instructions
+                        .iter()
+                        .fold(String::new(), |mut accumulator, instruction| {
+                            accumulator.push_str("\n  ");
+                            accumulator.push_str(&String::from(instruction));
+                            accumulator
+                        }),
             ),
 
             _ => unimplemented!(),
