@@ -8,4 +8,4 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-nom = "5.0"
+nom = "5.1"
