@@ -80,11 +80,16 @@ pub struct Import<'input> {
     pub output_types: Vec<InterfaceType>,
 }
 
-/// Represents a type.
+/// Represents a structural type.
 #[derive(PartialEq, Debug)]
 pub struct Type<'input> {
+    /// The type name.
     pub name: &'input str,
+
+    /// The field names.
     pub fields: Vec<&'input str>,
+
+    /// The field types.
     pub types: Vec<InterfaceType>,
 }
 
@@ -151,7 +156,7 @@ pub struct Forward<'input> {
 /// definition.
 #[derive(PartialEq, Debug)]
 pub struct Interfaces<'input> {
-    /// All the exports.
+    /// All the exported functions.
     pub exports: Vec<Export<'input>>,
 
     /// All the types.
@@ -160,7 +165,7 @@ pub struct Interfaces<'input> {
     /// All the imported functions.
     pub imports: Vec<Import<'input>>,
 
-    /// All the exported functions.
+    /// All the adapters.
     pub adapters: Vec<Adapter<'input>>,
 
     /// All the forwarded functions.
