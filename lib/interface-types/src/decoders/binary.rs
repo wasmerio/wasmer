@@ -416,6 +416,94 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
 
 /// Parse a sequence of bytes, expecting it to be a valid WIT binary
 /// representation, into an `ast::Interfaces`.
+///
+/// # Example
+///
+/// ```rust
+/// use wasmer_interface_types::{
+///     ast::*,
+///     decoders::binary::parse,
+///     interpreter::Instruction,
+/// };
+///
+/// # fn main() {
+/// let input = &[
+///     0x01, // 1 export
+///     0x02, // string of 2 bytes
+///     0x61, 0x62, // "a", "b"
+///     0x01, // list of 1 item
+///     0x7f, // I32
+///     0x01, // list of 1 item
+///     0x7f, // I32
+///     0x01, // 1 type
+///     0x02, // string of 2 bytes
+///     0x61, 0x62, // "a", "b"
+///     0x02, // list of 2 items
+///     0x02, // string of 2 bytes
+///     0x63, 0x64, // "c", "d"
+///     0x01, // string of 1 byte
+///     0x65, // "e"
+///     0x02, // list of 2 items
+///     0x7f, // I32
+///     0x7f, // I32
+///     0x01, // 1 import
+///     0x01, // string of 1 byte
+///     0x61, // "a"
+///     0x01, // string of 1 byte
+///     0x62, // "b"
+///     0x01, // list of 1 item
+///     0x7f, // I32
+///     0x01, // list of 1 item
+///     0x7e, // I64
+///     0x01, // 1 adapter
+///     0x00, // adapter kind: import
+///     0x01, // string of 1 byte
+///     0x61, // "a"
+///     0x01, // string of 1 byte
+///     0x62, // "b"
+///     0x01, // list of 1 item
+///     0x7f, // I32
+///     0x01, // list of 1 item
+///     0x7f, // I32
+///     0x01, // list of 1 item
+///     0x00, 0x01, // ArgumentGet { index: 1 }
+///     0x01, // 1 adapter
+///     0x01, // string of 1 byte
+///     0x61, // "a"
+/// ];
+/// let output = Ok((
+///     &[] as &[u8],
+///     Interfaces {
+///         exports: vec![Export {
+///             name: "ab",
+///             input_types: vec![InterfaceType::I32],
+///             output_types: vec![InterfaceType::I32],
+///         }],
+///         types: vec![Type {
+///             name: "ab",
+///             fields: vec!["cd", "e"],
+///             types: vec![InterfaceType::I32, InterfaceType::I32],
+///         }],
+///         imports: vec![Import {
+///             namespace: "a",
+///             name: "b",
+///             input_types: vec![InterfaceType::I32],
+///             output_types: vec![InterfaceType::I64],
+///         }],
+///         adapters: vec![Adapter::Import {
+///             namespace: "a",
+///             name: "b",
+///             input_types: vec![InterfaceType::I32],
+///             output_types: vec![InterfaceType::I32],
+///             instructions: vec![Instruction::ArgumentGet { index: 1 }],
+///         }],
+///         forwards: vec![Forward { name: "a" }],
+///     },
+/// ));
+///
+/// assert_eq!(parse::<()>(input), output);
+/// # }
+/// ```
 pub fn parse<'input, E: ParseError<&'input [u8]>>(
     bytes: &'input [u8],
 ) -> IResult<&'input [u8], Interfaces, E> {
