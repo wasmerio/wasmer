@@ -8,6 +8,12 @@ use wasmer_runtime_core::{
     units::{Bytes, Pages},
 };
 
+/// Opaque pointer to a `wasmer_runtime::Memory` value in Rust.
+///
+/// A `wasmer_runtime::Memory` represents a WebAssembly memory. It is
+/// possible to create one with `wasmer_memory_new()` and pass it as
+/// imports of an instance, or to read it from exports of an instance
+/// with `wasmer_export_to_memory()`.
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_memory_t;
