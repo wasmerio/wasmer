@@ -4,7 +4,7 @@ use crate::{
     error::{update_last_error, CApiError},
     wasmer_limits_t, wasmer_result_t,
 };
-use std::cell::Cell;
+use std::{cell::Cell, ptr};
 use wasmer_runtime::Memory;
 use wasmer_runtime_core::{
     types::MemoryDescriptor,
@@ -172,8 +172,13 @@ pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> u32 {
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_data(mem: *const wasmer_memory_t) -> *mut u8 {
-    let memory = unsafe { &*(mem as *const Memory) };
+pub extern "C" fn wasmer_memory_data(memory: *const wasmer_memory_t) -> *mut u8 {
+    if memory.is_null() {
+        return ptr::null_mut();
+    }
+
+    let memory = unsafe { &*(memory as *const Memory) };
+
     memory.view::<u8>()[..].as_ptr() as *mut Cell<u8> as *mut u8
 }
 
