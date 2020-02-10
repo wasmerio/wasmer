@@ -18,15 +18,46 @@ use wasmer_runtime_core::{
 #[derive(Clone)]
 pub struct wasmer_memory_t;
 
-/// Creates a new Memory for the given descriptor and initializes the given
-/// pointer to pointer to a pointer to the new memory.
+/// Creates a new empty WebAssembly memory for the given descriptor.
 ///
-/// The caller owns the object and should call `wasmer_memory_destroy` to free it.
+/// The result is stored in the first argument `memory` if successful,
+/// i.e. when the function returns
+/// `wasmer_result_t::WASMER_OK`. Otherwise,
+/// `wasmer_result_t::WASMER_ERROR` is returned, and
+/// `wasmer_last_error_length()` with `wasmer_last_error_message()`
+/// must be used to read the error message.
 ///
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// The caller owns the memory and is responsible to free it with
+/// `wasmer_memory_destroy()`.
 ///
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
+/// Example:
+///
+/// ```c
+/// // 1. The memory object.
+/// wasmer_memory_t *memory = NULL;
+///
+/// // 2. The memory descriptor.
+/// wasmer_limits_t memory_descriptor = {
+///     .min = 10,
+///     .max = {
+///         .has_some = true,
+///         .some = 15,
+///     },
+/// };
+///
+/// // 3. Initialize the memory.
+/// wasmer_result_t result = wasmer_memory_new(&memory, memory_descriptor);
+///
+/// if (result != WASMER_OK) {
+///     int error_length = wasmer_last_error_length();
+///     char *error = malloc(error_length);
+///     wasmer_last_error_message(error, error_length);
+///     // Do something with `error`…
+/// }
+///
+/// // 4. Free the memory!
+/// wasmer_memory_destroy(memory);
+/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_memory_new(
     memory: *mut *mut wasmer_memory_t,
