@@ -16239,7 +16239,7 @@
                     <span class="ident">ExceptionCode</span>::<span class="ident">CallIndirectOOB</span>,
                     <span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">emit_conditional_trap</span>(<span class="ident">Condition</span>::<span class="ident">BelowEqual</span>),
                 );
-                <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">func_index</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">table_count</span>));
+                <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S32</span>, <span class="ident">func_index</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">table_count</span>));
                 <span class="ident">a</span>.<span class="ident">emit_imul_imm32_gpr64</span>(<span class="ident">vm</span>::<span class="ident">Anyfunc</span>::<span class="ident">size</span>() <span class="kw">as</span> <span class="ident">u32</span>, <span class="ident">table_count</span>);
                 <span class="ident">a</span>.<span class="ident">emit_add</span>(
                     <span class="ident">Size</span>::<span class="ident">S64</span>,
