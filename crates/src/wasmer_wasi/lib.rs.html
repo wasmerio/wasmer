@@ -327,7 +327,7 @@
 
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">func</span>, <span class="ident">import</span>::<span class="ident">ImportObject</span>, <span class="ident">imports</span>};
 
-<span class="doccomment">/// This is returned in the Box&lt;dyn Any&gt; RuntimeError::Error variant.</span>
+<span class="doccomment">/// This is returned in `RuntimeError`.</span>
 <span class="doccomment">/// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExitCode</span> {
     <span class="kw">pub</span> <span class="ident">code</span>: <span class="ident">syscalls</span>::<span class="ident">types</span>::<span class="ident">__wasi_exitcode_t</span>,

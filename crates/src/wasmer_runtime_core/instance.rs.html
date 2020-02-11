@@ -825,12 +825,6 @@
 <span id="825">825</span>
 <span id="826">826</span>
 <span id="827">827</span>
-<span id="828">828</span>
-<span id="829">829</span>
-<span id="830">830</span>
-<span id="831">831</span>
-<span id="832">832</span>
-<span id="833">833</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The instance module contains the implementation data structures and helper functions used to</span>
 <span class="doccomment">//! manipulate and access wasm instances.</span>
@@ -847,7 +841,7 @@
     <span class="ident">sig_registry</span>::<span class="ident">SigRegistry</span>,
     <span class="ident">structures</span>::<span class="ident">TypedIndex</span>,
     <span class="ident">table</span>::<span class="ident">Table</span>,
-    <span class="ident">typed_func</span>::{<span class="ident">Func</span>, <span class="ident">Wasm</span>, <span class="ident">WasmTrapInfo</span>, <span class="ident">WasmTypeList</span>},
+    <span class="ident">typed_func</span>::{<span class="ident">Func</span>, <span class="ident">Wasm</span>, <span class="ident">WasmTypeList</span>},
     <span class="ident">types</span>::{<span class="ident">FuncIndex</span>, <span class="ident">FuncSig</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalOrImport</span>, <span class="ident">MemoryIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span>, <span class="ident">Value</span>},
     <span class="ident">vm</span>::{<span class="self">self</span>, <span class="ident">InternalField</span>},
 };
@@ -1507,8 +1501,7 @@
     } <span class="op">=</span> <span class="ident">wasm</span>;
 
     <span class="kw">let</span> <span class="ident">run_wasm</span> <span class="op">=</span> <span class="op">|</span><span class="ident">result_space</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span><span class="op">|</span> <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trap_info</span> <span class="op">=</span> <span class="ident">WasmTrapInfo</span>::<span class="ident">Unknown</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">user_error</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">error_out</span> <span class="op">=</span> <span class="prelude-val">None</span>;
 
         <span class="kw">let</span> <span class="ident">success</span> <span class="op">=</span> <span class="ident">invoke</span>(
             <span class="ident">trampoline</span>,
@@ -1516,21 +1509,16 @@
             <span class="ident">func_ptr</span>,
             <span class="ident">raw_args</span>.<span class="ident">as_ptr</span>(),
             <span class="ident">result_space</span>,
-            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">trap_info</span>,
-            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">user_error</span>,
+            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">error_out</span>,
             <span class="ident">invoke_env</span>,
         );
 
         <span class="kw">if</span> <span class="ident">success</span> {
             <span class="prelude-val">Ok</span>(())
         } <span class="kw">else</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">user_error</span> {
-                <span class="prelude-val">Err</span>(<span class="ident">RuntimeError</span>::<span class="ident">Error</span> { <span class="ident">data</span> })
-            } <span class="kw">else</span> {
-                <span class="prelude-val">Err</span>(<span class="ident">RuntimeError</span>::<span class="ident">Trap</span> {
-                    <span class="ident">msg</span>: <span class="ident">trap_info</span>.<span class="ident">to_string</span>().<span class="ident">into</span>(),
-                })
-            }
+            <span class="prelude-val">Err</span>(<span class="ident">error_out</span>
+                .<span class="ident">map</span>(<span class="ident">RuntimeError</span>)
+                .<span class="ident">unwrap_or_else</span>(<span class="op">||</span> <span class="ident">RuntimeError</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="string">&quot;invoke(): Unknown error&quot;</span>.<span class="ident">to_string</span>()))))
         }
     };
 

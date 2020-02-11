@@ -47,10 +47,6 @@
 <span id="47">47</span>
 <span id="48">48</span>
 <span id="49">49</span>
-<span id="50">50</span>
-<span id="51">51</span>
-<span id="52">52</span>
-<span id="53">53</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Installing signal handlers allows us to handle traps and out-of-bounds memory</span>
 <span class="doccomment">//! accesses that occur when runniing WebAssembly.</span>
@@ -67,7 +63,6 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">codegen</span>::<span class="ident">BreakpointMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">fault</span>::{<span class="ident">begin_unsafe_unwind</span>, <span class="ident">catch_unsafe_unwind</span>, <span class="ident">ensure_sighandler</span>};
-<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">typed_func</span>::<span class="ident">WasmTrapInfo</span>;
 
 <span class="macro">thread_local</span><span class="macro">!</span> {
     <span class="kw">pub</span> <span class="kw">static</span> <span class="ident">TRAP_EARLY_DATA</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="prelude-val">None</span>);
@@ -77,10 +72,7 @@
     <span class="ident">begin_unsafe_unwind</span>(<span class="ident">Box</span>::<span class="ident">new</span>(()));
 }
 
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CallProtError</span> {
-    <span class="ident">Trap</span>(<span class="ident">WasmTrapInfo</span>),
-    <span class="ident">Error</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>),
-}
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CallProtError</span>(<span class="kw">pub</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>);
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_protected</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(
     <span class="ident">f</span>: <span class="kw">impl</span> <span class="ident">FnOnce</span>() <span class="op">-&gt;</span> <span class="ident">T</span>,
@@ -91,13 +83,13 @@
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">catch_unsafe_unwind</span>(<span class="op">||</span> <span class="ident">f</span>(), <span class="ident">breakpoints</span>);
         <span class="kw">match</span> <span class="ident">ret</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> {
+            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">CallProtError</span>(
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">TRAP_EARLY_DATA</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cell</span><span class="op">|</span> <span class="ident">cell</span>.<span class="ident">replace</span>(<span class="prelude-val">None</span>)) {
-                    <span class="prelude-val">Err</span>(<span class="ident">CallProtError</span>::<span class="ident">Error</span>(<span class="ident">data</span>))
+                    <span class="ident">data</span>
                 } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">CallProtError</span>::<span class="ident">Error</span>(<span class="ident">e</span>))
-                }
-            }
+                    <span class="ident">e</span>
+                },
+            )),
         }
     }
 }

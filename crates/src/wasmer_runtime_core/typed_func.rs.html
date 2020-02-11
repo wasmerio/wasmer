@@ -791,51 +791,6 @@
 <span id="791">791</span>
 <span id="792">792</span>
 <span id="793">793</span>
-<span id="794">794</span>
-<span id="795">795</span>
-<span id="796">796</span>
-<span id="797">797</span>
-<span id="798">798</span>
-<span id="799">799</span>
-<span id="800">800</span>
-<span id="801">801</span>
-<span id="802">802</span>
-<span id="803">803</span>
-<span id="804">804</span>
-<span id="805">805</span>
-<span id="806">806</span>
-<span id="807">807</span>
-<span id="808">808</span>
-<span id="809">809</span>
-<span id="810">810</span>
-<span id="811">811</span>
-<span id="812">812</span>
-<span id="813">813</span>
-<span id="814">814</span>
-<span id="815">815</span>
-<span id="816">816</span>
-<span id="817">817</span>
-<span id="818">818</span>
-<span id="819">819</span>
-<span id="820">820</span>
-<span id="821">821</span>
-<span id="822">822</span>
-<span id="823">823</span>
-<span id="824">824</span>
-<span id="825">825</span>
-<span id="826">826</span>
-<span id="827">827</span>
-<span id="828">828</span>
-<span id="829">829</span>
-<span id="830">830</span>
-<span id="831">831</span>
-<span id="832">832</span>
-<span id="833">833</span>
-<span id="834">834</span>
-<span id="835">835</span>
-<span id="836">836</span>
-<span id="837">837</span>
-<span id="838">838</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The typed func module implements a way of representing a wasm function</span>
 <span class="doccomment">//! with the correct types from rust. Function calls using a typed func have a low overhead.</span>
@@ -850,51 +805,11 @@
     <span class="ident">any</span>::<span class="ident">Any</span>,
     <span class="ident">convert</span>::<span class="ident">Infallible</span>,
     <span class="ident">ffi</span>::<span class="ident">c_void</span>,
-    <span class="ident">fmt</span>,
     <span class="ident">marker</span>::<span class="ident">PhantomData</span>,
     <span class="ident">mem</span>, <span class="ident">panic</span>,
     <span class="ident">ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>},
     <span class="ident">sync</span>::<span class="ident">Arc</span>,
 };
-
-<span class="doccomment">/// Wasm trap info.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WasmTrapInfo</span> {
-    <span class="doccomment">/// Unreachable trap.</span>
-    <span class="ident">Unreachable</span> <span class="op">=</span> <span class="number">0</span>,
-    <span class="doccomment">/// Call indirect incorrect signature trap.</span>
-    <span class="ident">IncorrectCallIndirectSignature</span> <span class="op">=</span> <span class="number">1</span>,
-    <span class="doccomment">/// Memory out of bounds trap.</span>
-    <span class="ident">MemoryOutOfBounds</span> <span class="op">=</span> <span class="number">2</span>,
-    <span class="doccomment">/// Call indirect out of bounds trap.</span>
-    <span class="ident">CallIndirectOOB</span> <span class="op">=</span> <span class="number">3</span>,
-    <span class="doccomment">/// Illegal arithmetic trap.</span>
-    <span class="ident">IllegalArithmetic</span> <span class="op">=</span> <span class="number">4</span>,
-    <span class="doccomment">/// Misaligned atomic access trap.</span>
-    <span class="ident">MisalignedAtomicAccess</span> <span class="op">=</span> <span class="number">5</span>,
-    <span class="doccomment">/// Unknown trap.</span>
-    <span class="ident">Unknown</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">WasmTrapInfo</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="macro">write</span><span class="macro">!</span>(
-            <span class="ident">f</span>,
-            <span class="string">&quot;{}&quot;</span>,
-            <span class="kw">match</span> <span class="self">self</span> {
-                <span class="ident">WasmTrapInfo</span>::<span class="ident">Unreachable</span> <span class="op">=&gt;</span> <span class="string">&quot;unreachable&quot;</span>,
-                <span class="ident">WasmTrapInfo</span>::<span class="ident">IncorrectCallIndirectSignature</span> <span class="op">=&gt;</span> {
-                    <span class="string">&quot;incorrect `call_indirect` signature&quot;</span>
-                }
-                <span class="ident">WasmTrapInfo</span>::<span class="ident">MemoryOutOfBounds</span> <span class="op">=&gt;</span> <span class="string">&quot;memory out-of-bounds access&quot;</span>,
-                <span class="ident">WasmTrapInfo</span>::<span class="ident">CallIndirectOOB</span> <span class="op">=&gt;</span> <span class="string">&quot;`call_indirect` out-of-bounds&quot;</span>,
-                <span class="ident">WasmTrapInfo</span>::<span class="ident">IllegalArithmetic</span> <span class="op">=&gt;</span> <span class="string">&quot;illegal arithmetic operation&quot;</span>,
-                <span class="ident">WasmTrapInfo</span>::<span class="ident">MisalignedAtomicAccess</span> <span class="op">=&gt;</span> <span class="string">&quot;misaligned atomic access&quot;</span>,
-                <span class="ident">WasmTrapInfo</span>::<span class="ident">Unknown</span> <span class="op">=&gt;</span> <span class="string">&quot;unknown&quot;</span>,
-            }
-        )
-    }
-}
 
 <span class="doccomment">/// This is just an empty trait to constrict that types that</span>
 <span class="doccomment">/// can be put into the third/fourth (depending if you include lifetimes)</span>
@@ -916,8 +831,7 @@
     <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
     <span class="ident">args</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u64</span>,
     <span class="ident">rets</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span>,
-    <span class="ident">trap_info</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">WasmTrapInfo</span>,
-    <span class="ident">user_error</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;&gt;</span>,
+    <span class="ident">error_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;&gt;</span>,
     <span class="ident">extra</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;&gt;</span>,
 ) <span class="op">-&gt;</span> <span class="ident">bool</span>;
 
@@ -1240,8 +1154,7 @@
                 <span class="kw">let</span> ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="op">=</span> <span class="self">self</span>;
                 <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> [ $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>.<span class="ident">to_native</span>().<span class="ident">to_binary</span>()),<span class="op">*</span> ];
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rets</span> <span class="op">=</span> <span class="ident">Rets</span>::<span class="ident">empty_ret_array</span>();
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">WasmTrapInfo</span>::<span class="ident">Unknown</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">user_error</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">error_out</span> <span class="op">=</span> <span class="prelude-val">None</span>;
 
                 <span class="kw">if</span> (<span class="ident">wasm</span>.<span class="ident">invoke</span>)(
                     <span class="ident">wasm</span>.<span class="ident">trampoline</span>,
@@ -1249,17 +1162,14 @@
                     <span class="ident">f</span>,
                     <span class="ident">args</span>.<span class="ident">as_ptr</span>(),
                     <span class="ident">rets</span>.<span class="ident">as_mut</span>().<span class="ident">as_mut_ptr</span>(),
-                    <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">trap</span>,
-                    <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">user_error</span>,
+                    <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">error_out</span>,
                     <span class="ident">wasm</span>.<span class="ident">invoke_env</span>
                 ) {
                     <span class="prelude-val">Ok</span>(<span class="ident">Rets</span>::<span class="ident">from_ret_array</span>(<span class="ident">rets</span>))
                 } <span class="kw">else</span> {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">user_error</span> {
-                        <span class="prelude-val">Err</span>(<span class="ident">RuntimeError</span>::<span class="ident">Error</span> { <span class="ident">data</span> })
-                    } <span class="kw">else</span> {
-                        <span class="prelude-val">Err</span>(<span class="ident">RuntimeError</span>::<span class="ident">Trap</span> { <span class="ident">msg</span>: <span class="ident">trap</span>.<span class="ident">to_string</span>().<span class="ident">into</span>() })
-                    }
+                    <span class="prelude-val">Err</span>(<span class="ident">error_out</span>.<span class="ident">map</span>(<span class="ident">RuntimeError</span>).<span class="ident">unwrap_or_else</span>(<span class="op">||</span> {
+                        <span class="ident">RuntimeError</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="string">&quot;invoke(): Unknown error&quot;</span>.<span class="ident">to_string</span>()))
+                    }))
                 }
             }
         }

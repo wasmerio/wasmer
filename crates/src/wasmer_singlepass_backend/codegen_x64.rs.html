@@ -9918,6 +9918,8 @@
 <span id="9918">9918</span>
 <span id="9919">9919</span>
 <span id="9920">9920</span>
+<span id="9921">9921</span>
+<span id="9922">9922</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">forget_copy</span>)]</span> <span class="comment">// Used by dynasm.</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_imports</span>)]</span>
@@ -9958,7 +9960,7 @@
         <span class="ident">ModuleStateMap</span>, <span class="ident">OffsetInfo</span>, <span class="ident">SuspendOffset</span>, <span class="ident">WasmAbstractValue</span>,
     },
     <span class="ident">structures</span>::{<span class="ident">Map</span>, <span class="ident">TypedIndex</span>},
-    <span class="ident">typed_func</span>::{<span class="ident">Trampoline</span>, <span class="ident">Wasm</span>, <span class="ident">WasmTrapInfo</span>},
+    <span class="ident">typed_func</span>::{<span class="ident">Trampoline</span>, <span class="ident">Wasm</span>},
     <span class="ident">types</span>::{
         <span class="ident">FuncIndex</span>, <span class="ident">FuncSig</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFuncIndex</span>, <span class="ident">LocalOrImport</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SigIndex</span>,
         <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
@@ -10296,8 +10298,7 @@
             <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
             <span class="ident">args</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u64</span>,
             <span class="ident">rets</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span>,
-            <span class="ident">trap_info</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">WasmTrapInfo</span>,
-            <span class="ident">user_error</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;&gt;</span>,
+            <span class="ident">error_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;&gt;</span>,
             <span class="ident">num_params_plus_one</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;&gt;</span>,
         ) <span class="op">-&gt;</span> <span class="ident">bool</span> {
             <span class="kw">let</span> <span class="ident">rm</span>: <span class="kw-2">&amp;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">RunnableModule</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw-2">&amp;</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">ctx</span>).<span class="ident">module</span>).<span class="ident">runnable_module</span>;
@@ -10441,10 +10442,7 @@
                     <span class="bool-val">true</span>
                 }
                 <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=&gt;</span> {
-                    <span class="kw">match</span> <span class="ident">err</span> {
-                        <span class="ident">protect_unix</span>::<span class="ident">CallProtError</span>::<span class="ident">Trap</span>(<span class="ident">info</span>) <span class="op">=&gt;</span> <span class="kw-2">*</span><span class="ident">trap_info</span> <span class="op">=</span> <span class="ident">info</span>,
-                        <span class="ident">protect_unix</span>::<span class="ident">CallProtError</span>::<span class="ident">Error</span>(<span class="ident">data</span>) <span class="op">=&gt;</span> <span class="kw-2">*</span><span class="ident">user_error</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>),
-                    }
+                    <span class="kw-2">*</span><span class="ident">error_out</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="number">0</span>);
                     <span class="bool-val">false</span>
                 }
             };
@@ -10931,14 +10929,14 @@
                 <span class="self">Self</span>::<span class="ident">mark_trappable</span>(<span class="ident">a</span>, <span class="ident">m</span>, <span class="ident">fsm</span>, <span class="ident">control_stack</span>);
                 <span class="ident">etable</span>
                     .<span class="ident">offset_to_code</span>
-                    .<span class="ident">insert</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">ExceptionCode</span>::<span class="ident">Arithmetic</span>);
+                    .<span class="ident">insert</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">ExceptionCode</span>::<span class="ident">IllegalArithmetic</span>);
                 <span class="ident">op</span>(<span class="ident">a</span>, <span class="ident">sz</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>));
             }
             <span class="kw">_</span> <span class="op">=&gt;</span> {
                 <span class="self">Self</span>::<span class="ident">mark_trappable</span>(<span class="ident">a</span>, <span class="ident">m</span>, <span class="ident">fsm</span>, <span class="ident">control_stack</span>);
                 <span class="ident">etable</span>
                     .<span class="ident">offset_to_code</span>
-                    .<span class="ident">insert</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">ExceptionCode</span>::<span class="ident">Arithmetic</span>);
+                    .<span class="ident">insert</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">ExceptionCode</span>::<span class="ident">IllegalArithmetic</span>);
                 <span class="ident">op</span>(<span class="ident">a</span>, <span class="ident">sz</span>, <span class="ident">loc</span>);
             }
         }
@@ -11924,9 +11922,12 @@
             <span class="ident">a</span>.<span class="ident">emit_add</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">tmp_base</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">tmp_addr</span>));
             <span class="ident">a</span>.<span class="ident">emit_cmp</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">tmp_bound</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">tmp_addr</span>));
 
-            <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(<span class="ident">a</span>, <span class="ident">etable</span>, <span class="ident">ExceptionCode</span>::<span class="ident">Memory</span>, <span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
-                <span class="ident">a</span>.<span class="ident">emit_conditional_trap</span>(<span class="ident">Condition</span>::<span class="ident">Above</span>)
-            });
+            <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(
+                <span class="ident">a</span>,
+                <span class="ident">etable</span>,
+                <span class="ident">ExceptionCode</span>::<span class="ident">MemoryOutOfBounds</span>,
+                <span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">emit_conditional_trap</span>(<span class="ident">Condition</span>::<span class="ident">Above</span>),
+            );
 
             <span class="ident">m</span>.<span class="ident">release_temp_gpr</span>(<span class="ident">tmp_bound</span>);
         }
@@ -11966,13 +11967,16 @@
                 <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="ident">align</span> <span class="op">-</span> <span class="number">1</span>),
                 <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">tmp_aligncheck</span>),
             );
-            <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(<span class="ident">a</span>, <span class="ident">etable</span>, <span class="ident">ExceptionCode</span>::<span class="ident">Memory</span>, <span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
-                <span class="ident">a</span>.<span class="ident">emit_conditional_trap</span>(<span class="ident">Condition</span>::<span class="ident">NotEqual</span>)
-            });
+            <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(
+                <span class="ident">a</span>,
+                <span class="ident">etable</span>,
+                <span class="ident">ExceptionCode</span>::<span class="ident">MemoryOutOfBounds</span>,
+                <span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">emit_conditional_trap</span>(<span class="ident">Condition</span>::<span class="ident">NotEqual</span>),
+            );
             <span class="ident">m</span>.<span class="ident">release_temp_gpr</span>(<span class="ident">tmp_aligncheck</span>);
         }
 
-        <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(<span class="ident">a</span>, <span class="ident">etable</span>, <span class="ident">ExceptionCode</span>::<span class="ident">Memory</span>, <span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
+        <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(<span class="ident">a</span>, <span class="ident">etable</span>, <span class="ident">ExceptionCode</span>::<span class="ident">MemoryOutOfBounds</span>, <span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
             <span class="ident">cb</span>(<span class="ident">a</span>, <span class="ident">m</span>, <span class="ident">tmp_addr</span>)
         })<span class="question-mark">?</span>;
 
@@ -12107,7 +12111,7 @@
         <span class="ident">a</span>.<span class="ident">emit_label</span>(<span class="ident">trap</span>);
         <span class="ident">etable</span>
             .<span class="ident">offset_to_code</span>
-            .<span class="ident">insert</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">ExceptionCode</span>::<span class="ident">Arithmetic</span>);
+            .<span class="ident">insert</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">ExceptionCode</span>::<span class="ident">IllegalArithmetic</span>);
         <span class="ident">a</span>.<span class="ident">emit_ud2</span>();
         <span class="ident">a</span>.<span class="ident">emit_label</span>(<span class="ident">end</span>);
     }
@@ -12235,7 +12239,7 @@
         <span class="ident">a</span>.<span class="ident">emit_label</span>(<span class="ident">trap</span>);
         <span class="ident">etable</span>
             .<span class="ident">offset_to_code</span>
-            .<span class="ident">insert</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">ExceptionCode</span>::<span class="ident">Arithmetic</span>);
+            .<span class="ident">insert</span>(<span class="ident">a</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">ExceptionCode</span>::<span class="ident">IllegalArithmetic</span>);
         <span class="ident">a</span>.<span class="ident">emit_ud2</span>();
         <span class="ident">a</span>.<span class="ident">emit_label</span>(<span class="ident">end</span>);
     }
@@ -12363,7 +12367,7 @@
             <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(
                 <span class="ident">a</span>,
                 <span class="self">self</span>.<span class="ident">exception_table</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>(),
-                <span class="ident">ExceptionCode</span>::<span class="ident">Memory</span>,
+                <span class="ident">ExceptionCode</span>::<span class="ident">MemoryOutOfBounds</span>,
                 <span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">emit_conditional_trap</span>(<span class="ident">Condition</span>::<span class="ident">Below</span>),
             );
         }
@@ -16232,7 +16236,7 @@
                 <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(
                     <span class="ident">a</span>,
                     <span class="self">self</span>.<span class="ident">exception_table</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>(),
-                    <span class="ident">ExceptionCode</span>::<span class="ident">Memory</span>,
+                    <span class="ident">ExceptionCode</span>::<span class="ident">CallIndirectOOB</span>,
                     <span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">emit_conditional_trap</span>(<span class="ident">Condition</span>::<span class="ident">BelowEqual</span>),
                 );
                 <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">func_index</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">table_count</span>));
@@ -16263,7 +16267,7 @@
                 <span class="self">Self</span>::<span class="ident">mark_range_with_exception_code</span>(
                     <span class="ident">a</span>,
                     <span class="self">self</span>.<span class="ident">exception_table</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>(),
-                    <span class="ident">ExceptionCode</span>::<span class="ident">Memory</span>,
+                    <span class="ident">ExceptionCode</span>::<span class="ident">IncorrectCallIndirectSignature</span>,
                     <span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">emit_conditional_trap</span>(<span class="ident">Condition</span>::<span class="ident">NotEqual</span>),
                 );
 
