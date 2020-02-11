@@ -235,7 +235,7 @@ jobs:
     pool:
       vmImage: "ubuntu-18.04"
     variables:
-      rust_toolchain: nightly-2019-08-15
+      rust_toolchain: nightly-2019-12-19
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
