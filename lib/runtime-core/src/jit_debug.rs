@@ -8,15 +8,25 @@ use std::ptr;
 //
 // see also https://sourceware.org/gdb/current/onlinedocs/gdb.html#JIT-Interface
 
+#[no_mangle]
 #[inline(never)]
-pub extern "C" fn __jit_debug_register_code() {
-    
+extern "C" fn __jit_debug_register_code() {
+    // implementation of this function copied from wasmtime (TODO: link and attribution)
+    // prevent optimization of this function
+    let x = 3;
+    unsafe {
+        std::ptr::read_volatile(&x);
+    }
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
 #[repr(u32)]
-pub enum JITAction { JIT_NOACTION = 0, JIT_REGISTER_FN = 1, JIT_UNREGISTER_FN = 2 }
+pub enum JITAction {
+    JIT_NOACTION = 0,
+    JIT_REGISTER_FN = 1,
+    JIT_UNREGISTER_FN = 2,
+}
 
 #[no_mangle]
 #[repr(C)]
@@ -76,9 +86,15 @@ unsafe fn push_front(jce: *mut JITCodeEntry) {
 
 // deleted static (added and deleted by Mark): TODO:
 pub fn register_new_jit_code_entry(bytes: &[u8], action: JITAction) -> *mut JITCodeEntry {
+    let owned_bytes = bytes.iter().cloned().collect::<Vec<u8>>();
+    let ptr = owned_bytes.as_ptr();
+    let len = owned_bytes.len();
+
+    std::mem::forget(bytes);
+
     let entry: *mut JITCodeEntry = Box::into_raw(Box::new(JITCodeEntry {
-        symfile_addr: bytes.as_ptr(),
-        symfile_size: bytes.len() as _,
+        symfile_addr: ptr,
+        symfile_size: len as _,
         ..JITCodeEntry::default()
     }));
 
@@ -86,6 +102,9 @@ pub fn register_new_jit_code_entry(bytes: &[u8], action: JITAction) -> *mut JITC
         push_front(entry);
         __jit_debug_descriptor.relevant_entry = entry;
         __jit_debug_descriptor.action_flag = action as u32;
+        __jit_debug_register_code();
+        __jit_debug_descriptor.relevant_entry = ptr::null_mut();
+        __jit_debug_descriptor.action_flag = JITAction::JIT_NOACTION as _;
     }
 
     entry

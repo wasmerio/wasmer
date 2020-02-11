@@ -6,8 +6,8 @@ use crate::{
     resolver::FuncResolverBuilder, signal::Caller, trampoline::Trampolines,
 };
 
-use cranelift_codegen::entity::{EntityRef, PrimaryMap};
-use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
+use cranelift_codegen::entity::EntityRef;
+use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder, ValueLabel};
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::{cursor::FuncCursor, isa};
 use cranelift_frontend::{FunctionBuilder, Position, Variable};
@@ -71,6 +71,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     fn next_function(
         &mut self,
         module_info: Arc<RwLock<ModuleInfo>>,
+        loc: (u32, u32),
     ) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
         // define_function_body(
 
@@ -101,7 +102,11 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
                 target_config: self.isa.frontend_config().clone(),
                 clif_signatures: self.clif_signatures.clone(),
             },
+            start: loc.0,
+            end: loc.1,
         };
+
+        func_env.func.collect_debug_info();
 
         debug_assert_eq!(func_env.func.dfg.num_ebbs(), 0, "Function must be empty");
         debug_assert_eq!(func_env.func.dfg.num_insts(), 0, "Function must be empty");
@@ -112,8 +117,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             &mut func_env.position,
         );
 
-        // TODO srcloc
-        //builder.set_srcloc(cur_srcloc(&reader));
+        builder.set_srcloc(ir::SourceLoc::new(loc.0));
 
         let entry_block = builder.create_ebb();
         builder.append_ebb_params_for_function_params(entry_block);
@@ -141,37 +145,19 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     fn finalize(
         self,
         module_info: &ModuleInfo,
-    ) -> Result<((Caller, Option<wasmer_runtime_core::codegen::DebugMetadata>), Box<dyn CacheGen>), CodegenError> {
-
-        use wasm_debug::types::{CompiledFunctionData};
-        let mut debug_metadata = wasmer_runtime_core::codegen::DebugMetadata {
-            func_info: PrimaryMap::new(),
-            inst_info: PrimaryMap::new(),
-        };
-        let mut func_bodies: Map<LocalFuncIndex, ir::Function> = Map::new();
+    ) -> Result<
+        (
+            (Caller, Option<wasmer_runtime_core::codegen::DebugMetadata>),
+            Box<dyn CacheGen>,
+        ),
+        CodegenError,
+    > {
+        let mut func_bodies: Map<LocalFuncIndex, (ir::Function, (u32, u32))> = Map::new();
         for f in self.functions.into_iter() {
-            // TODO: review
-            // if container is stable, then first and last probably makes more sense here,
-            let min_srcloc = f.func.srclocs.iter().map(|x| x.1.bits()).min().unwrap_or_default();
-            let max_srcloc = f.func.srclocs.iter().map(|x| x.1.bits()).max().unwrap_or_default();
-            let entry = CompiledFunctionData {
-                instructions: vec![],
-                start: wasm_debug::types::SourceLoc::new(min_srcloc),
-                end: wasm_debug::types::SourceLoc::new(max_srcloc),
-                compiled_offset: 0,
-                compiled_size: 0,
-            };
-            debug_metadata.func_info.push(entry);
-            /*let mut map = std::collections::HashMap::new();
-            for (k, v) in f.func.srclocs {
-                map.
-            }
-            debug_metadata.inst_info.push(map);*/
-
-            func_bodies.push(f.func);
+            func_bodies.push((f.func, (f.start, f.end)));
         }
 
-        let (func_resolver_builder, handler_data) =
+        let (func_resolver_builder, debug_metadata, handler_data) =
             FuncResolverBuilder::new(&*self.isa, func_bodies, module_info)?;
 
         let trampolines = Arc::new(Trampolines::new(&*self.isa, module_info));
@@ -195,7 +181,10 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         ));
 
         Ok((
-            (Caller::new(handler_data, trampolines, func_resolver), Some(debug_metadata)),
+            (
+                Caller::new(handler_data, trampolines, func_resolver),
+                debug_metadata,
+            ),
             cache_gen,
         ))
     }
@@ -265,6 +254,8 @@ pub struct CraneliftFunctionCodeGenerator {
     next_local: usize,
     position: Position,
     func_env: FunctionEnvironment,
+    start: u32,
+    end: u32,
 }
 
 pub struct FunctionEnvironment {
@@ -467,7 +458,7 @@ impl FuncEnvironment for FunctionEnvironment {
                 let local_memory_bound = func.create_global_value(ir::GlobalValueData::Load {
                     base: local_memory_ptr,
                     offset: (vm::LocalMemory::offset_bound() as i32).into(),
-                    global_type: ptr_type,
+                    global_type: ir::types::I32,
                     readonly: false,
                 });
 
@@ -575,7 +566,7 @@ impl FuncEnvironment for FunctionEnvironment {
         let table_count = func.create_global_value(ir::GlobalValueData::Load {
             base: table_struct_ptr,
             offset: (vm::LocalTable::offset_count() as i32).into(),
-            global_type: ptr_type,
+            global_type: ir::types::I32,
             // The table length can change, so it can't be readonly.
             readonly: false,
         });
@@ -1092,13 +1083,14 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
+    fn feed_local(&mut self, ty: WpType, n: usize, loc: u32) -> Result<(), CodegenError> {
         let mut next_local = self.next_local;
         let mut builder = FunctionBuilder::new(
             &mut self.func,
             &mut self.func_translator.func_ctx,
             &mut self.position,
         );
+        builder.set_srcloc(ir::SourceLoc::new(loc));
         cranelift_wasm::declare_locals(
             &mut builder,
             n as u32,
@@ -1114,7 +1106,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_event(&mut self, event: Event, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn feed_event(&mut self, event: Event, _module_info: &ModuleInfo, loc: u32) -> Result<(), CodegenError> {
         let op = match event {
             Event::Wasm(x) => x,
             Event::WasmOwned(ref x) => x,
@@ -1136,6 +1128,8 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             &mut self.func_translator.func_ctx,
             &mut self.position,
         );
+        builder.func.collect_debug_info();
+        builder.set_srcloc(ir::SourceLoc::new(loc));
         let module_state = ModuleTranslationState::new();
         let func_state = &mut self.func_translator.state;
         translate_operator(
@@ -1145,6 +1139,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             func_state,
             &mut self.func_env,
         )?;
+
         Ok(())
     }
 
@@ -1172,6 +1167,8 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
                 };
             }
         }
+
+        builder.finalize();
 
         // Discard any remaining values on the stack. Either we just returned them,
         // or the end of the function is unreachable.
@@ -1249,9 +1246,11 @@ fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Ebb) -> u
             // This is a normal WebAssembly signature parameter, so create a local for it.
             let local = Variable::new(next_local);
             builder.declare_var(local, param_type.value_type);
+            let value_label = ValueLabel::from_u32(next_local as u32);
             next_local += 1;
 
             let param_value = builder.ebb_params(entry_block)[i];
+            builder.set_val_label(param_value, value_label);
             builder.def_var(local, param_value);
         }
         if param_type.purpose == ir::ArgumentPurpose::VMContext {

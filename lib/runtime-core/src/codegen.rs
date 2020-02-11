@@ -112,9 +112,12 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     /// Checks the precondition for a module.
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
     /// Creates a new function and returns the function-scope code generator for it.
-    fn next_function(&mut self, module_info: Arc<RwLock<ModuleInfo>>) -> Result<&mut FCG, E>;
+    fn next_function(&mut self, module_info: Arc<RwLock<ModuleInfo>>, loc: (u32, u32)) -> Result<&mut FCG, E>;
     /// Finalizes this module.
-    fn finalize(self, module_info: &ModuleInfo) -> Result<((RM, Option<DebugMetadata>), Box<dyn CacheGen>), E>;
+    fn finalize(
+        self,
+        module_info: &ModuleInfo,
+    ) -> Result<((RM, Option<DebugMetadata>), Box<dyn CacheGen>), E>;
 
     /// Creates a module from cache.
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
@@ -127,6 +130,10 @@ pub struct DebugMetadata {
     pub func_info: PrimaryMap<FuncIndex, wasm_debug::types::CompiledFunctionData>,
     /// inst_info
     pub inst_info: PrimaryMap<FuncIndex, wasm_debug::types::ValueLabelsRangesInner>,
+    /// stack slot offsets!
+    pub stack_slot_offsets: PrimaryMap<FuncIndex, Vec<Option<i32>>>,
+    /// function pointers and their lengths
+    pub pointers: Vec<(*const u8, usize)>,
 }
 
 /// A streaming compiler which is designed to generated code for a module based on a stream
@@ -241,7 +248,6 @@ impl<
             validate_with_features(wasm, &compiler_config.features)?;
         }
 
-
         let mut mcg = match MCG::backend_id() {
             "llvm" => MCG::new_with_target(
                 compiler_config.triple.clone(),
@@ -252,13 +258,15 @@ impl<
         };
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(wasm, &mut mcg, &mut chain, &compiler_config)?;
-        let ((exec_context, debug_metadata), cache_gen) =
-            mcg.finalize(&info.read().unwrap())
-                .map_err(|x| CompileError::InternalError {
-                    msg: format!("{:?}", x),
-                })?;
+        let ((exec_context, debug_metadata), cache_gen) = mcg
+            .finalize(&info.read().unwrap())
+            .map_err(|x| CompileError::InternalError {
+                msg: format!("{:?}", x),
+            })?;
 
-        use target_lexicon::{Triple, Architecture, Vendor, OperatingSystem, Environment, BinaryFormat};
+        use target_lexicon::{
+            Architecture, BinaryFormat, Environment, OperatingSystem, Triple, Vendor,
+        };
         const X86_64_OSX: Triple = Triple {
             architecture: Architecture::X86_64,
             vendor: Vendor::Apple,
@@ -266,34 +274,37 @@ impl<
             environment: Environment::Unknown,
             binary_format: BinaryFormat::Macho,
         };
-        
+
         if compiler_config.generate_debug_info {
             let debug_metadata = debug_metadata.expect("debug metadata");
             let debug_info = wasm_debug::read_debuginfo(wasm);
-            let extra_info = wasm_debug::types::ModuleVmctxInfo {
-                memory_offset: 0,
-                stack_slot_offsets: cranelift_entity::PrimaryMap::new(),
-            };
+            let extra_info = wasm_debug::types::ModuleVmctxInfo::new(14 * 8, debug_metadata.stack_slot_offsets.values());
             // lazy type hack (TODO:)
-            let compiled_fn_map = unsafe { std::mem::transmute(debug_metadata.func_info) };
-            let range_map = unsafe { std::mem::transmute(debug_metadata.inst_info) };
-            let raw_func_slice = vec![];//exec_context.get_local_function_pointers_and_lengths().expect("raw func slice");
-            dbg!("DEBUG INFO GENERATED");
-            let debug_image = wasm_debug::emit_debugsections_image(X86_64_OSX,
-                                                 std::mem::size_of::<usize>() as u8,
-                                                 &debug_info,
-                                                 &extra_info,
-                                                 &compiled_fn_map,
-                                                 &range_map,
-                                                 &raw_func_slice).expect("make debug image");
+            let compiled_fn_map = wasm_debug::types::create_module_address_map(debug_metadata.func_info.values());
+            let range_map = wasm_debug::types::build_values_ranges(debug_metadata.inst_info.values());
+            let raw_func_slice = debug_metadata.pointers;
 
-            crate::jit_debug::register_new_jit_code_entry(&debug_image, crate::jit_debug::JITAction::JIT_REGISTER_FN);
-        } 
+            dbg!("DEBUG INFO GENERATED");
+            let debug_image = wasm_debug::emit_debugsections_image(
+                X86_64_OSX,
+                std::mem::size_of::<usize>() as u8,
+                &debug_info,
+                &extra_info,
+                &compiled_fn_map,
+                &range_map,
+                &raw_func_slice,
+            )
+            .expect("make debug image");
+
+            crate::jit_debug::register_new_jit_code_entry(
+                &debug_image,
+                crate::jit_debug::JITAction::JIT_REGISTER_FN,
+            );
+        }
         Ok(ModuleInner {
             cache_gen,
             runnable_module: Arc::new(Box::new(exec_context)),
             info: Arc::try_unwrap(info).unwrap().into_inner().unwrap(),
-            debug_info: None,
         })
     }
 
@@ -340,6 +351,7 @@ impl MiddlewareChain {
         fcg: Option<&mut FCG>,
         ev: Event,
         module_info: &ModuleInfo,
+        loc: u32,
     ) -> Result<(), String> {
         let mut sink = EventSink {
             buffer: SmallVec::new(),
@@ -348,12 +360,12 @@ impl MiddlewareChain {
         for m in &mut self.chain {
             let prev: SmallVec<[Event; 2]> = sink.buffer.drain().collect();
             for ev in prev {
-                m.feed_event(ev, module_info, &mut sink)?;
+                m.feed_event(ev, module_info, &mut sink, loc)?;
             }
         }
         if let Some(fcg) = fcg {
             for ev in sink.buffer {
-                fcg.feed_event(ev, module_info)
+                fcg.feed_event(ev, module_info, loc)
                     .map_err(|x| format!("{:?}", x))?;
             }
         }
@@ -372,6 +384,7 @@ pub trait FunctionMiddleware {
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
+        loc: u32,
     ) -> Result<(), Self::Error>;
 }
 
@@ -381,6 +394,7 @@ pub(crate) trait GenericFunctionMiddleware {
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
+        loc: u32,
     ) -> Result<(), String>;
 }
 
@@ -390,8 +404,9 @@ impl<E: Debug, T: FunctionMiddleware<Error = E>> GenericFunctionMiddleware for T
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
+        loc: u32,
     ) -> Result<(), String> {
-        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink)
+        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink, loc)
             .map_err(|x| format!("{:?}", x))
     }
 }
@@ -405,13 +420,13 @@ pub trait FunctionCodeGenerator<E: Debug> {
     fn feed_param(&mut self, ty: WpType) -> Result<(), E>;
 
     /// Adds `n` locals to the function.
-    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), E>;
+    fn feed_local(&mut self, ty: WpType, n: usize, loc: u32) -> Result<(), E>;
 
     /// Called before the first call to `feed_opcode`.
     fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
 
     /// Called for each operator.
-    fn feed_event(&mut self, op: Event, module_info: &ModuleInfo) -> Result<(), E>;
+    fn feed_event(&mut self, op: Event, module_info: &ModuleInfo, loc: u32) -> Result<(), E>;
 
     /// Finalizes the function.
     fn finalize(&mut self) -> Result<(), E>;

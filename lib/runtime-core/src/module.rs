@@ -20,18 +20,12 @@ use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[doc(hidden)]
-pub struct DebugInfo {
-    
-}
-
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
 pub struct ModuleInner {
     pub runnable_module: Arc<Box<dyn RunnableModule>>,
     pub cache_gen: Box<dyn CacheGen>,
     pub info: ModuleInfo,
-    pub debug_info: Option<DebugInfo>,
 }
 
 /// Container for module data including memories, globals, tables, imports, and exports.
@@ -83,6 +77,18 @@ pub struct ModuleInfo {
 
     /// Custom sections.
     pub custom_sections: HashMap<String, Vec<u8>>,
+
+    /// Debug info for funcs
+    pub func_debug_info: Map<FuncIndex, FuncDebugInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// info about functions for debugging
+pub struct FuncDebugInfo {
+    /// byte offset from start of code section where the function starts at
+    pub start: u32,
+    /// byte offset from start of code section where the function starts at
+    pub end: u32,
 }
 
 impl ModuleInfo {

@@ -10,7 +10,9 @@ use crate::{
 };
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{
+    ValueLabelsRanges,
     binemit::{Stackmap, StackmapSink},
+    entity::PrimaryMap,
     ir, isa, Context,
 };
 use rayon::prelude::*;
@@ -96,54 +98,159 @@ impl FuncResolverBuilder {
 
     pub fn new(
         isa: &dyn isa::TargetIsa,
-        function_bodies: Map<LocalFuncIndex, ir::Function>,
+        function_bodies: Map<LocalFuncIndex, (ir::Function, (u32, u32))>,
         info: &ModuleInfo,
-    ) -> CompileResult<(Self, HandlerData)> {
+    ) -> CompileResult<(
+        Self,
+        Option<wasmer_runtime_core::codegen::DebugMetadata>,
+        HandlerData,
+    )> {
         let num_func_bodies = function_bodies.len();
         let mut local_relocs = Map::with_capacity(num_func_bodies);
         let mut external_relocs = Map::with_capacity(num_func_bodies);
 
         let mut trap_sink = TrapSink::new();
 
-        let compiled_functions: Result<Vec<(Vec<u8>, (RelocSink, LocalTrapSink))>, CompileError> =
-            function_bodies
-                .into_vec()
-                .par_iter()
-                .map_init(
-                    || Context::new(),
-                    |ctx, func| {
-                        let mut code_buf = Vec::new();
-                        ctx.func = func.to_owned();
-                        let mut reloc_sink = RelocSink::new();
-                        let mut local_trap_sink = LocalTrapSink::new();
-                        let mut stackmap_sink = NoopStackmapSink {};
-                        ctx.compile_and_emit(
-                            isa,
-                            &mut code_buf,
-                            &mut reloc_sink,
-                            &mut local_trap_sink,
-                            &mut stackmap_sink,
-                        )
-                        .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
-                        ctx.clear();
-                        Ok((code_buf, (reloc_sink, local_trap_sink)))
-                    },
-                )
-                .collect();
+        let fb = function_bodies.iter().collect::<Vec<(_,_)>>();
+        rayon::ThreadPoolBuilder::new().num_threads(1).build_global().unwrap();
 
-        let compiled_functions = compiled_functions?;
+        let compiled_functions: Result<
+            Vec<(Vec<u8>,
+                (
+                    LocalFuncIndex,
+                    CompiledFunctionData,
+                    ValueLabelsRanges,
+                    Vec<Option<i32>>,
+                    RelocSink,
+                    LocalTrapSink,
+                ),
+            )>,
+            CompileError,
+            > =  fb
+            .par_iter()
+            .map_init(
+                || Context::new(),
+                |ctx, (lfi, (func, (start, end)))| {
+                    let mut code_buf = Vec::new();
+                    ctx.func = func.to_owned();
+                    let mut reloc_sink = RelocSink::new();
+                    let mut local_trap_sink = LocalTrapSink::new();
+                    let mut stackmap_sink = NoopStackmapSink {};
+
+                    //ctx.eliminate_unreachable_code(isa).unwrap();
+                    /*ctx.dce(isa).unwrap();
+                    ctx.shrink_instructions(isa).unwrap();
+                    ctx.redundant_reload_remover(isa).unwrap();
+                    ctx.preopt(isa).unwrap();
+                    ctx.legalize(isa).unwrap();
+                    ctx.postopt(isa).unwrap();*/
+                    ctx.verify(isa).unwrap();
+
+                    ctx.compile_and_emit(
+                        isa,
+                        &mut code_buf,
+                        &mut reloc_sink,
+                        &mut local_trap_sink,
+                        &mut stackmap_sink,
+                    )
+                    .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
+
+                    // begin debug stuff
+                    let func = &ctx.func;
+                    let encinfo = isa.encoding_info();
+                    let mut ebbs = func.layout.ebbs().collect::<Vec<_>>();
+                    ebbs.sort_by_key(|ebb| func.offsets[*ebb]);
+                    let instructions = /*func
+                        .layout
+                        .ebbs()*/
+                        ebbs.into_iter()
+                        .flat_map(|ebb| {
+                            func.inst_offsets(ebb, &encinfo)
+                                .map(|(offset, inst, length)| {
+                                    let srcloc = func.srclocs[inst];
+                                    let val = srcloc.bits();
+                                    wasm_debug::types::CompiledInstructionData {
+                                        // we write this data later
+                                        loc: wasm_debug::types::SourceLoc::new(val),//srcloc.bits()),
+                                        offset: offset as usize,
+                                        length: length as usize,
+                                    }
+                                })
+                        })
+                        .collect::<Vec<_>>();
+
+                    /*let mut unwind = vec![];
+                    ctx.emit_unwind_info(isa, &mut unwind);
+                    dbg!(unwind.len());*/
+
+                    let stack_slots = ctx.func.stack_slots.iter().map(|(_, ssd)| ssd.offset).collect::<Vec<Option<i32>>>();
+                    let labels_ranges = ctx.build_value_labels_ranges(isa).unwrap_or_default();
+                    if labels_ranges.len() == 24 || labels_ranges.len() == 25 {
+                        let mut vec = labels_ranges.iter().map(|(a,b)| (*a, b.clone())).collect::<Vec<_>>();
+                        vec.sort_by(|a, b| a.0.as_u32().cmp(&b.0.as_u32()));
+                        dbg!(labels_ranges.len(), &vec);
+                    }
+
+                    let entry = CompiledFunctionData {
+                        instructions,
+                        start: wasm_debug::types::SourceLoc::new(*start),
+                        end: wasm_debug::types::SourceLoc::new(*end),
+                        // this not being 0 breaks inst-level debugging
+                        compiled_offset: 0,
+                        compiled_size: code_buf.len(),
+                    };
+
+                    // end debug stuff
+
+                    ctx.clear();
+                    Ok((code_buf, (*lfi, entry, labels_ranges, stack_slots, reloc_sink, local_trap_sink)))
+                },
+            )
+            .collect();
+
+
+        use wasm_debug::types::CompiledFunctionData;
+        let mut debug_metadata = wasmer_runtime_core::codegen::DebugMetadata {
+            func_info: PrimaryMap::new(),
+            inst_info: PrimaryMap::new(),
+            pointers: vec![],
+            stack_slot_offsets: PrimaryMap::new(),
+        };
+
+        let mut compiled_functions = compiled_functions?;
+        compiled_functions.sort_by(|a, b| (a.1).0.cmp(&(b.1).0));
+        let compiled_functions = compiled_functions;
         let mut total_size = 0;
         // We separate into two iterators, one iterable and one into iterable
-        let (code_bufs, sinks): (Vec<Vec<u8>>, Vec<(RelocSink, LocalTrapSink)>) =
-            compiled_functions.into_iter().unzip();
-        for (code_buf, (reloc_sink, mut local_trap_sink)) in code_bufs.iter().zip(sinks.into_iter())
+        let (code_bufs, sinks): (
+            Vec<Vec<u8>>,
+            Vec<(
+                LocalFuncIndex,
+                CompiledFunctionData,
+                ValueLabelsRanges,
+                Vec<Option<i32>>,
+                RelocSink,
+                LocalTrapSink,
+            )>,
+        ) = compiled_functions.into_iter().unzip();
+        for (
+            code_buf,
+            (_, entry, vlr, stackslots, reloc_sink, mut local_trap_sink),
+        ) in code_bufs
+            .iter()
+            .zip(sinks.into_iter())
         {
+            let rounded_size = round_up(code_buf.len(), mem::size_of::<usize>());
+            debug_metadata.func_info.push(entry);
+            debug_metadata.inst_info.push(unsafe {std::mem::transmute(vlr)});
+            debug_metadata.stack_slot_offsets.push(stackslots);
+
             // Clear the local trap sink and consolidate all trap info
             // into a single location.
             trap_sink.drain_local(total_size, &mut local_trap_sink);
 
             // Round up each function's size to pointer alignment.
-            total_size += round_up(code_buf.len(), mem::size_of::<usize>());
+            total_size += rounded_size;
 
             local_relocs.push(reloc_sink.local_relocs.into_boxed_slice());
             external_relocs.push(reloc_sink.external_relocs.into_boxed_slice());
@@ -175,7 +282,12 @@ impl FuncResolverBuilder {
 
         let mut previous_end = 0;
         for compiled in code_bufs.iter() {
-            let new_end = previous_end + round_up(compiled.len(), mem::size_of::<usize>());
+            let length = round_up(compiled.len(), mem::size_of::<usize>());
+            debug_metadata.pointers.push((
+                (memory.as_ptr() as usize + previous_end) as *const u8,
+                length,
+            ));
+            let new_end = previous_end + length;
             unsafe {
                 memory.as_slice_mut()[previous_end..previous_end + compiled.len()]
                     .copy_from_slice(&compiled[..]);
@@ -197,7 +309,7 @@ impl FuncResolverBuilder {
 
         func_resolver_builder.relocate_locals();
 
-        Ok((func_resolver_builder, handler_data))
+        Ok((func_resolver_builder, Some(debug_metadata), handler_data))
     }
 
     fn relocate_locals(&mut self) {

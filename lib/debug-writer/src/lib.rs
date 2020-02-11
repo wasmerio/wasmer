@@ -1,13 +1,15 @@
 // TODO: add attribution to LLVM for data definitions and WasmTime for code structure
-use std::str::FromStr;
-use std::ptr;
 use std::ffi::c_void;
+use std::ptr;
+use std::str::FromStr;
 
-pub use wasm_debug::{read_debuginfo, DebugInfoData, WasmFileInfo};
 pub use wasm_debug::{emit_dwarf, ResolvedSymbol, SymbolResolver};
+pub use wasm_debug::{read_debuginfo, DebugInfoData, WasmFileInfo};
 
-use target_lexicon::{Triple, Architecture, Vendor, OperatingSystem, Environment, BinaryFormat};
-use gimli::write::{self, DwarfUnit, Sections, Address, RangeList, EndianVec, AttributeValue, Range};
+use gimli::write::{
+    self, Address, AttributeValue, DwarfUnit, EndianVec, Range, RangeList, Sections,
+};
+use target_lexicon::{Architecture, BinaryFormat, Environment, OperatingSystem, Triple, Vendor};
 
 use wasmer_runtime_core::{module::ModuleInfo, state::CodeVersion};
 
@@ -138,8 +140,8 @@ pub fn generate_dwarf(module_info: &ModuleInfo, debug_info_data: &DebugInfoData,
     //    `DW_AT_low_pc` and `DW_AT_high_pc` are good for continuous
     //    `DW_AT_low_pc` alone can work for a single address, but we can probably not
     //    worry about that for now.  These attribtues associate machine code with the DIE
-    // - 
-    
+    // -
+
     match platform {
         X86_64_GNU_LINUX => unimplemented!("in progress"),
         X86_64_OSX => unimplemented!("in progress"),
@@ -151,7 +153,12 @@ pub fn generate_dwarf(module_info: &ModuleInfo, debug_info_data: &DebugInfoData,
 */
 
 // converts existing dwarf into a usable form with metadata from the JIT
-fn reprocess_dwarf(module_info: &ModuleInfo, debug_info_data: &DebugInfoData, code_version: &CodeVersion, platform: Triple) -> Option<write::Dwarf> {
+fn reprocess_dwarf(
+    module_info: &ModuleInfo,
+    debug_info_data: &DebugInfoData,
+    code_version: &CodeVersion,
+    platform: Triple,
+) -> Option<write::Dwarf> {
     None
 }
 

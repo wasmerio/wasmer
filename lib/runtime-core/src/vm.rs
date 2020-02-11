@@ -8,7 +8,7 @@ use crate::{
     module::{ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex, TableIndex, Value},
+    types::{LocalOrImport, MemoryIndex, TableIndex, Value, LocalMemoryIndex},
     vmcalls,
 };
 use std::{
@@ -134,6 +134,9 @@ pub struct InternalCtx {
 
     /// Interrupt signal mem.
     pub interrupt_signal_mem: *mut u8,
+
+    /// hmm
+    pub first_mem: *mut LocalMemory,
 }
 
 static INTERNAL_FIELDS: AtomicUsize = AtomicUsize::new(0);
@@ -283,6 +286,7 @@ impl Ctx {
                 };
                 ((*mem).base, (*mem).bound)
             };
+        dbg!(mem_bound);
         Self {
             internal: InternalCtx {
                 memories: local_backing.vm_memories.as_mut_ptr(),
@@ -306,6 +310,7 @@ impl Ctx {
                 internals: &mut local_backing.internals.0,
 
                 interrupt_signal_mem: get_interrupt_signal_mem(),
+                first_mem: local_backing.vm_memories[LocalMemoryIndex::new(0)],
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -336,6 +341,8 @@ impl Ctx {
                 };
                 ((*mem).base, (*mem).bound)
             };
+
+        dbg!(mem_bound);
         Self {
             internal: InternalCtx {
                 memories: local_backing.vm_memories.as_mut_ptr(),
@@ -359,6 +366,8 @@ impl Ctx {
                 internals: &mut local_backing.internals.0,
 
                 interrupt_signal_mem: get_interrupt_signal_mem(),
+
+                first_mem: local_backing.vm_memories[LocalMemoryIndex::new(0)],
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -537,7 +546,7 @@ impl Ctx {
     }
 
     pub const fn offset_local_functions() -> u8 {
-        14 * (mem::size_of::<usize>() as u8)
+        15 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -666,6 +675,9 @@ pub struct LocalMemory {
     /// This is either `*mut DynamicMemory`, `*mut StaticMemory`,
     /// or `*mut SharedStaticMemory`.
     pub memory: *mut (),
+
+    /// wat
+    pub vmctx: *mut Ctx,
 }
 
 // manually implemented because LocalMemory contains raw pointers

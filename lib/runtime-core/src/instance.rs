@@ -86,8 +86,13 @@ impl Instance {
                 None => vm::Ctx::new(backing, import_backing, &module),
             };
             vmctx.as_mut_ptr().write(real_ctx);
+            for (_, memory) in backing.vm_memories.iter_mut() {
+                let mem: &mut vm::LocalMemory = &mut **memory;
+                mem.vmctx = dbg!(vmctx.as_mut_ptr());
+            }
         };
         Box::leak(vmctx);
+
 
         let instance = Instance {
             module,

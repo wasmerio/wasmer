@@ -66,10 +66,10 @@ pub mod vmcalls;
 pub use trampoline_x64 as trampoline;
 #[cfg(unix)]
 pub mod fault;
+pub mod jit_debug;
 pub mod state;
 #[cfg(feature = "managed")]
 pub mod tiering;
-pub mod jit_debug;
 
 use self::error::CompileResult;
 #[doc(inline)]

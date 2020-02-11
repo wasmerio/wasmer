@@ -45,7 +45,6 @@ impl Module {
             runnable_module: Arc::new(Box::new(runnable_module)),
             cache_gen,
             info,
-            debug_info: None,
         })
     }
 }

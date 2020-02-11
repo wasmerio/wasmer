@@ -6,8 +6,8 @@ use crate::{
     backend::{CompilerConfig, RunnableModule},
     error::CompileError,
     module::{
-        DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
-        TableInitializer,
+        DataInitializer, ExportIndex, FuncDebugInfo, ImportName, ModuleInfo, StringTable,
+        StringTableBuilder, TableInitializer,
     },
     structures::{Map, TypedIndex},
     types::{
@@ -90,6 +90,8 @@ pub fn read_module<
         em_symbol_map: compiler_config.symbol_map.clone(),
 
         custom_sections: HashMap::new(),
+
+        func_debug_info: Map::new(),
     }));
 
     let mut parser = wasmparser::ValidatingParser::new(
@@ -206,91 +208,113 @@ pub fn read_module<
             ParserState::StartSectionEntry(start_index) => {
                 info.write().unwrap().start_func = Some(FuncIndex::new(start_index as usize));
             }
-            ParserState::BeginFunctionBody { .. } => {
+            ParserState::BeginFunctionBody { range } => {
                 let id = func_count;
                 if !mcg_info_fed {
                     mcg_info_fed = true;
-                    info.write().unwrap().namespace_table =
-                        namespace_builder.take().unwrap().finish();
-                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
-                    mcg.feed_signatures(info.read().unwrap().signatures.clone())
+                    {
+                        let mut info_write = info.write().unwrap();
+                        info_write.namespace_table = namespace_builder.take().unwrap().finish();
+                        info_write.name_table = name_builder.take().unwrap().finish();
+                    }
+                    let info_read = info.read().unwrap();
+                    mcg.feed_signatures(info_read.signatures.clone())
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
+                    mcg.feed_function_signatures(info_read.func_assoc.clone())
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.check_precondition(&info.read().unwrap())
+                    mcg.check_precondition(&info_read)
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
+
 
                 let fcg = mcg
-                    .next_function(Arc::clone(&info))
+                    .next_function(Arc::clone(&info), (range.start as u32, range.end as u32))
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
 
-                let info_read = info.read().unwrap();
-                let sig = info_read
-                    .signatures
-                    .get(
-                        *info
-                            .read()
-                            .unwrap()
-                            .func_assoc
-                            .get(FuncIndex::new(
-                                id as usize + info.read().unwrap().imported_functions.len(),
-                            ))
-                            .unwrap(),
-                    )
-                    .unwrap();
-                for ret in sig.returns() {
-                    fcg.feed_return(type_to_wp_type(*ret))
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                }
-                for param in sig.params() {
-                    fcg.feed_param(type_to_wp_type(*param))
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                }
-
-                let mut body_begun = false;
-
-                loop {
-                    let state = parser.read();
-                    match state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(*err)),
-                        ParserState::FunctionBodyLocals { ref locals } => {
-                            for &(count, ty) in locals.iter() {
-                                fcg.feed_local(ty, count as usize)
-                                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                            }
-                        }
-                        ParserState::CodeOperator(op) => {
-                            if !body_begun {
-                                body_begun = true;
-                                fcg.begin_body(&info.read().unwrap())
-                                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                                middlewares
-                                    .run(
-                                        Some(fcg),
-                                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
-                                        &info.read().unwrap(),
-                                    )
-                                    .map_err(LoadError::Codegen)?;
-                            }
-                            middlewares
-                                .run(Some(fcg), Event::Wasm(op), &info.read().unwrap())
-                                .map_err(LoadError::Codegen)?;
-                        }
-                        ParserState::EndFunctionBody => break,
-                        _ => unreachable!(),
+                {
+                    let info_read = info.read().unwrap();
+                    let sig = info_read
+                        .signatures
+                        .get(
+                            *info
+                                .read()
+                                .unwrap()
+                                .func_assoc
+                                .get(FuncIndex::new(
+                                    id as usize + info_read.imported_functions.len(),
+                                ))
+                                .unwrap(),
+                        )
+                        .unwrap();
+                    for ret in sig.returns() {
+                        fcg.feed_return(type_to_wp_type(*ret))
+                            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    }
+                    for param in sig.params() {
+                        fcg.feed_param(type_to_wp_type(*param))
+                            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     }
                 }
-                middlewares
-                    .run(
-                        Some(fcg),
-                        Event::Internal(InternalEvent::FunctionEnd),
-                        &info.read().unwrap(),
-                    )
-                    .map_err(LoadError::Codegen)?;
+
+                let mut operator_parser = parser.create_binary_reader();
+
+                // read locals in function body
+                {
+                    let local_count = operator_parser.read_local_count().unwrap();
+                    let mut total = 0;
+                    for _ in 0..local_count {
+                        let cur_pos = range.start as u32 + operator_parser.current_position() as u32;
+                        let (count, ty) = operator_parser
+                            .read_local_decl(&mut total)
+                            .expect("Expected local");
+                        fcg.feed_local(ty, count as usize, cur_pos)
+                            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    }
+                }
+
+                // read instruction locations into vector for debug purposes
+                {
+                    let info_read = info.read().unwrap();
+                    let mut cur_pos = range.start as u32 + operator_parser.current_position() as u32;
+                    fcg.begin_body(&info_read)
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    middlewares
+                        .run(
+                            Some(fcg),
+                            Event::Internal(InternalEvent::FunctionBegin(id as u32)),
+                            &info_read,
+                            cur_pos,
+                        )
+                        .map_err(LoadError::Codegen)?;
+
+                    while let Ok(op) = operator_parser.read_operator() {
+                        middlewares
+                            .run(Some(fcg), Event::WasmOwned(op), &info_read, cur_pos)
+                            .map_err(LoadError::Codegen)?;
+                        cur_pos = range.start as u32 + operator_parser.current_position() as u32;
+                    }
+
+                    cur_pos = range.start as u32 + operator_parser.current_position() as u32;
+                    middlewares
+                        .run(
+                            Some(fcg),
+                            Event::Internal(InternalEvent::FunctionEnd),
+                            &info_read,
+                            cur_pos,
+                        )
+                        .map_err(LoadError::Codegen)?;
+                }
+
                 fcg.finalize()
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 func_count = func_count.wrapping_add(1);
+
+                // debug info
+                let debug_entry = FuncDebugInfo {
+                    start: range.start as u32,
+                    end: range.end as u32,
+                };
+                info.write().unwrap().func_debug_info.push(debug_entry);
             }
             ParserState::BeginActiveElementSectionEntry(table_index) => {
                 let table_index = TableIndex::new(table_index as usize);

@@ -42,7 +42,7 @@ fn get_isa() -> Box<dyn isa::TargetIsa> {
         builder.set("opt_level", "speed_and_size").unwrap();
         builder.set("jump_tables_enabled", "false").unwrap();
 
-        if cfg!(not(test)) {
+        if cfg!(not(test)) && cfg!(not(debug)) {
             builder.set("enable_verifier", "false").unwrap();
         }
 
