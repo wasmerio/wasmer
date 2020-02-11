@@ -13,7 +13,6 @@ use std::any::Any;
 use std::cell::Cell;
 use wasmer_runtime_core::codegen::BreakpointMap;
 use wasmer_runtime_core::fault::{begin_unsafe_unwind, catch_unsafe_unwind, ensure_sighandler};
-use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
 thread_local! {
     pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any + Send>>> = Cell::new(None);
@@ -23,10 +22,7 @@ pub unsafe fn trigger_trap() -> ! {
     begin_unsafe_unwind(Box::new(()));
 }
 
-pub enum CallProtError {
-    Trap(WasmTrapInfo),
-    Error(Box<dyn Any + Send>),
-}
+pub struct CallProtError(pub Box<dyn Any + Send>);
 
 pub fn call_protected<T>(
     f: impl FnOnce() -> T,
@@ -37,13 +33,13 @@ pub fn call_protected<T>(
         let ret = catch_unsafe_unwind(|| f(), breakpoints);
         match ret {
             Ok(x) => Ok(x),
-            Err(e) => {
+            Err(e) => Err(CallProtError(
                 if let Some(data) = TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                    Err(CallProtError::Error(data))
+                    data
                 } else {
-                    Err(CallProtError::Error(e))
-                }
-            }
+                    e
+                },
+            )),
         }
     }
 }
