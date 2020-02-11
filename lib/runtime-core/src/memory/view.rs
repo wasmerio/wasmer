@@ -3,7 +3,7 @@ use crate::types::ValueType;
 use std::sync::atomic::{
     AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
 };
-use std::{cell::Cell, marker::PhantomData, ops::Deref, slice};
+use std::{cell::Cell, marker::PhantomData, ops::{Deref, DerefMut}, slice};
 
 pub trait Atomic {
     type Output;
@@ -90,5 +90,11 @@ impl<'a, T> Deref for MemoryView<'a, T, Atomically> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         unsafe { slice::from_raw_parts(self.ptr as *const T, self.length) }
+    }
+}
+
+impl<'a, T> DerefMut for MemoryView<'a, T, NonAtomically> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { slice::from_raw_parts_mut(self.ptr as *mut Cell<T>, self.length) }
     }
 }
