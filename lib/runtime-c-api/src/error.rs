@@ -1,11 +1,12 @@
 //! Read runtime errors.
 
 use libc::{c_char, c_int};
-use std::cell::RefCell;
-use std::error::Error;
-use std::fmt::{self, Display, Formatter};
-use std::ptr;
-use std::slice;
+use std::{
+    cell::RefCell,
+    error::Error,
+    fmt::{self, Display, Formatter},
+    ptr, slice,
+};
 
 thread_local! {
     static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);

@@ -86,7 +86,7 @@ enum wasmer_import_export_kind {
 typedef uint32_t wasmer_import_export_kind;
 
 /**
- * The `wasmer_result_t` struct is a type that represents either a
+ * The `wasmer_result_t` enum is a type that represents either a
  * success, or a failure.
  */
 typedef enum {
@@ -234,6 +234,14 @@ typedef struct {
 
 } wasmer_export_t;
 
+/**
+ * Opaque pointer to a `wasmer_runtime::Memory` value in Rust.
+ *
+ * A `wasmer_runtime::Memory` represents a WebAssembly memory. It is
+ * possible to create one with `wasmer_memory_new()` and pass it as
+ * imports of an instance, or to read it from exports of an instance
+ * with `wasmer_export_to_memory()`.
+ */
 typedef struct {
 
 } wasmer_memory_t;
@@ -326,13 +334,34 @@ typedef struct {
 
 } wasmer_instance_context_t;
 
+/**
+ * The `wasmer_limit_option_t` struct repreesents an optional limit
+ * for `wasmer_limits_t`.
+ */
 typedef struct {
+  /**
+   * Whether the limit is set.
+   */
   bool has_some;
+  /**
+   * The limit value.
+   */
   uint32_t some;
 } wasmer_limit_option_t;
 
+/**
+ * The `wasmer_limits_t` struct is a type that describes a memory
+ * options. See the `wasmer_memory_t` struct or the
+ * `wasmer_memory_new()` function to get more information.
+ */
 typedef struct {
+  /**
+   * The minimum number of allowed pages.
+   */
   uint32_t min;
+  /**
+   * The maximum number of allowed pages.
+   */
   wasmer_limit_option_t max;
 } wasmer_limits_t;
 
@@ -1110,45 +1139,137 @@ int wasmer_last_error_length(void);
 int wasmer_last_error_message(char *buffer, int length);
 
 /**
- * Gets the start pointer to the bytes within a Memory
+ * Gets a pointer to the beginning of the contiguous memory data
+ * bytes.
+ *
+ * The function returns `NULL` if `memory` is a null pointer.
+ *
+ * Note that when the memory grows, it can be reallocated, and thus
+ * the returned pointer can be invalidated.
+ *
+ * Example:
+ *
+ * ```c
+ * uint8_t *memory_data = wasmer_memory_data(memory);
+ * char *str = (char*) malloc(sizeof(char) * 7);
+ *
+ * for (uint32_t nth = 0; nth < 7; ++nth) {
+ *     str[nth] = (char) memory_data[nth];
+ * }
+ * ```
  */
-uint8_t *wasmer_memory_data(const wasmer_memory_t *mem);
+uint8_t *wasmer_memory_data(const wasmer_memory_t *memory);
 
 /**
- * Gets the size in bytes of a Memory
+ * Gets the size in bytes of the memory data.
+ *
+ * This function returns 0 if `memory` is a null pointer.
+ *
+ * Example:
+ *
+ * ```c
+ * uint32_t memory_data_length = wasmer_memory_data_length(memory);
+ * ```
  */
-uint32_t wasmer_memory_data_length(wasmer_memory_t *mem);
+uint32_t wasmer_memory_data_length(wasmer_memory_t *memory);
 
 /**
- * Frees memory for the given Memory
+ * Frees memory for the given `wasmer_memory_t`.
+ *
+ * Check the `wasmer_memory_new()` function to get a complete
+ * example.
+ *
+ * If `memory` is a null pointer, this function does nothing.
+ *
+ * Example:
+ *
+ * ```c
+ * // Get a memory.
+ * wasmer_memory_t *memory = NULL;
+ * wasmer_result_t result = wasmer_memory_new(&memory, memory_descriptor);
+ *
+ * // Destroy the memory.
+ * wasmer_memory_destroy(memory);
+ * ```
  */
 void wasmer_memory_destroy(wasmer_memory_t *memory);
 
 /**
- * Grows a Memory by the given number of pages.
+ * Grows a memory by the given number of pages (of 65Kb each).
  *
- * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * The functions return `wasmer_result_t::WASMER_OK` upon success,
+ * `wasmer_result_t::WASMER_ERROR` otherwise. Use
+ * `wasmer_last_error_length()` with `wasmer_last_error_message()` to
+ * read the error message.
  *
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
+ * Example:
+ *
+ * ```c
+ * wasmer_result_t result = wasmer_memory_grow(memory, 10);
+ *
+ * if (result != WASMER_OK) {
+ *     // …
+ * }
+ * ```
  */
 wasmer_result_t wasmer_memory_grow(wasmer_memory_t *memory, uint32_t delta);
 
 /**
- * Returns the current length in pages of the given memory
+ * Reads the current length (in pages) of the given memory.
+ *
+ * The function returns zero if `memory` is a null pointer.
+ *
+ * Example:
+ *
+ * ```c
+ * uint32_t memory_length = wasmer_memory_length(memory);
+ *
+ * printf("Memory pages length: %d\n", memory_length);
+ * ```
  */
 uint32_t wasmer_memory_length(const wasmer_memory_t *memory);
 
 /**
- * Creates a new Memory for the given descriptor and initializes the given
- * pointer to pointer to a pointer to the new memory.
+ * Creates a new empty WebAssembly memory for the given descriptor.
  *
- * The caller owns the object and should call `wasmer_memory_destroy` to free it.
+ * The result is stored in the first argument `memory` if successful,
+ * i.e. when the function returns
+ * `wasmer_result_t::WASMER_OK`. Otherwise,
+ * `wasmer_result_t::WASMER_ERROR` is returned, and
+ * `wasmer_last_error_length()` with `wasmer_last_error_message()`
+ * must be used to read the error message.
  *
- * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * The caller owns the memory and is responsible to free it with
+ * `wasmer_memory_destroy()`.
  *
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
+ * Example:
+ *
+ * ```c
+ * // 1. The memory object.
+ * wasmer_memory_t *memory = NULL;
+ *
+ * // 2. The memory descriptor.
+ * wasmer_limits_t memory_descriptor = {
+ *     .min = 10,
+ *     .max = {
+ *         .has_some = true,
+ *         .some = 15,
+ *     },
+ * };
+ *
+ * // 3. Initialize the memory.
+ * wasmer_result_t result = wasmer_memory_new(&memory, memory_descriptor);
+ *
+ * if (result != WASMER_OK) {
+ *     int error_length = wasmer_last_error_length();
+ *     char *error = malloc(error_length);
+ *     wasmer_last_error_message(error, error_length);
+ *     // Do something with `error`…
+ * }
+ *
+ * // 4. Free the memory!
+ * wasmer_memory_destroy(memory);
+ * ```
  */
 wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
 
