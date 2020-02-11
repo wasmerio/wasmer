@@ -40,10 +40,10 @@ fn error_propagation() {
 
     let result = foo.call();
 
-    if let Err(RuntimeError::Error { data }) = result {
-        let exit_code = data.downcast::<ExitCode>().unwrap();
+    if let Err(RuntimeError(e)) = result {
+        let exit_code = e.downcast::<ExitCode>().unwrap();
         assert_eq!(exit_code.code, 42);
     } else {
-        panic!("didn't return RuntimeError::Error")
+        panic!("didn't return RuntimeError")
     }
 }

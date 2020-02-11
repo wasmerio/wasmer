@@ -37,7 +37,7 @@ use wasmer_runtime_core::{
         ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
-    typed_func::{Trampoline, Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
@@ -375,8 +375,7 @@ impl RunnableModule for X64ExecutionContext {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            trap_info: *mut WasmTrapInfo,
-            user_error: *mut Option<Box<dyn Any + Send>>,
+            error_out: *mut Option<Box<dyn Any + Send>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
@@ -520,10 +519,7 @@ impl RunnableModule for X64ExecutionContext {
                     true
                 }
                 Err(err) => {
-                    match err {
-                        protect_unix::CallProtError::Trap(info) => *trap_info = info,
-                        protect_unix::CallProtError::Error(data) => *user_error = Some(data),
-                    }
+                    *error_out = Some(err.0);
                     false
                 }
             };
@@ -1010,14 +1006,14 @@ impl X64FunctionCode {
                 Self::mark_trappable(a, m, fsm, control_stack);
                 etable
                     .offset_to_code
-                    .insert(a.get_offset().0, ExceptionCode::Arithmetic);
+                    .insert(a.get_offset().0, ExceptionCode::IllegalArithmetic);
                 op(a, sz, Location::GPR(GPR::RCX));
             }
             _ => {
                 Self::mark_trappable(a, m, fsm, control_stack);
                 etable
                     .offset_to_code
-                    .insert(a.get_offset().0, ExceptionCode::Arithmetic);
+                    .insert(a.get_offset().0, ExceptionCode::IllegalArithmetic);
                 op(a, sz, loc);
             }
         }
@@ -2003,9 +1999,12 @@ impl X64FunctionCode {
             a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
             a.emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
 
-            Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| {
-                a.emit_conditional_trap(Condition::Above)
-            });
+            Self::mark_range_with_exception_code(
+                a,
+                etable,
+                ExceptionCode::MemoryOutOfBounds,
+                |a| a.emit_conditional_trap(Condition::Above),
+            );
 
             m.release_temp_gpr(tmp_bound);
         }
@@ -2045,13 +2044,16 @@ impl X64FunctionCode {
                 Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             );
-            Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| {
-                a.emit_conditional_trap(Condition::NotEqual)
-            });
+            Self::mark_range_with_exception_code(
+                a,
+                etable,
+                ExceptionCode::MemoryOutOfBounds,
+                |a| a.emit_conditional_trap(Condition::NotEqual),
+            );
             m.release_temp_gpr(tmp_aligncheck);
         }
 
-        Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| {
+        Self::mark_range_with_exception_code(a, etable, ExceptionCode::MemoryOutOfBounds, |a| {
             cb(a, m, tmp_addr)
         })?;
 
@@ -2186,7 +2188,7 @@ impl X64FunctionCode {
         a.emit_label(trap);
         etable
             .offset_to_code
-            .insert(a.get_offset().0, ExceptionCode::Arithmetic);
+            .insert(a.get_offset().0, ExceptionCode::IllegalArithmetic);
         a.emit_ud2();
         a.emit_label(end);
     }
@@ -2314,7 +2316,7 @@ impl X64FunctionCode {
         a.emit_label(trap);
         etable
             .offset_to_code
-            .insert(a.get_offset().0, ExceptionCode::Arithmetic);
+            .insert(a.get_offset().0, ExceptionCode::IllegalArithmetic);
         a.emit_ud2();
         a.emit_label(end);
     }
@@ -2442,7 +2444,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Self::mark_range_with_exception_code(
                 a,
                 self.exception_table.as_mut().unwrap(),
-                ExceptionCode::Memory,
+                ExceptionCode::MemoryOutOfBounds,
                 |a| a.emit_conditional_trap(Condition::Below),
             );
         }
@@ -6311,7 +6313,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 Self::mark_range_with_exception_code(
                     a,
                     self.exception_table.as_mut().unwrap(),
-                    ExceptionCode::Memory,
+                    ExceptionCode::CallIndirectOOB,
                     |a| a.emit_conditional_trap(Condition::BelowEqual),
                 );
                 a.emit_mov(Size::S32, func_index, Location::GPR(table_count));
@@ -6342,7 +6344,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 Self::mark_range_with_exception_code(
                     a,
                     self.exception_table.as_mut().unwrap(),
-                    ExceptionCode::Memory,
+                    ExceptionCode::IncorrectCallIndirectSignature,
                     |a| a.emit_conditional_trap(Condition::NotEqual),
                 );
 
