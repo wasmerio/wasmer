@@ -82,7 +82,9 @@ impl<'a, T: Atomic> MemoryView<'a, T> {
 impl<'a, T> Deref for MemoryView<'a, T, NonAtomically> {
     type Target = [Cell<T>];
     fn deref(&self) -> &[Cell<T>] {
-        unsafe { slice::from_raw_parts(self.ptr as *const Cell<T>, self.length) }
+        let mut_slice: &mut [T] = unsafe { slice::from_raw_parts_mut(self.ptr, self.length) };
+        let cell_slice: &Cell<[T]> = Cell::from_mut(mut_slice);
+        cell_slice.as_slice_of_cells()
     }
 }
 
